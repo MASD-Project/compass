@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :extract_data_model:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/extract-data-model
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -25,7 +25,7 @@ Propose the compass-ng representation: tables, handles, string interning and gra
 
 | Field        | Value                                                               |
 |--------------+---------------------------------------------------------------------|
-| State        | BACKLOG                                                             |
+| State        | STARTED                                                             |
 | Parent story | [[id:E20F0268-BB77-4E40-9FC3-CB2928C64C23][Extract the data model]] |
 | Now          | Not started.                                                        |
 | Waiting on   | Nothing.                                                            |
