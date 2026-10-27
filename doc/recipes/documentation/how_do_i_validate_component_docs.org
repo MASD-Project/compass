@@ -1,0 +1,48 @@
+:PROPERTIES:
+:ID: 6AC06A04-EB95-4925-8488-C7A47C6A451F
+:END:
+#+title: How do I validate component documentation before committing?
+#+description: Run validate_docs.sh to check every ores.* component has a well-formed component_overview.org before pushing.
+#+type: recipe
+#+level: cross
+#+filetags: :documentation:validation:component:recipe:
+#+created: 2026-05-22
+#+updated: 2026-05-22
+
+Run this before committing any change that touches a =modeling/= folder or
+=component_overview.org=. See [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Component documentation guide]] for the full
+structure contract.
+
+* Question
+
+How do I validate component documentation before committing?
+
+* Answer
+
+From the project root:
+
+#+begin_src sh :results verbatim
+./projects/ores.codegen/validate_docs.sh
+#+end_src
+
+One check runs: /Component structure/ — every =projects/ores.*/= has a
+=modeling/component_overview.org= with the required frontmatter
+(=:ID:=, =#+type: component=, =#+description:=), required sections, and
+at least one =.puml= diagram. Exceptions are listed in
+[[proj:projects/ores.codegen/docs_exceptions.txt][=projects/ores.codegen/docs_exceptions.txt=]].
+
+Fix any reported errors, then re-run until the script exits =0=.
+
+* Script
+
+[[proj:projects/ores.codegen/validate_docs.sh][=projects/ores.codegen/validate_docs.sh=]] — runs the component-structure checker.
+
+* Tested by
+
+CI gate on every PR. The check runs as part of the documentation
+validation workflow and the PR goes red if it exits non-zero.
+
+* See also
+
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Component documentation guide]] — what a correct =component_overview.org= looks like.
+- [[id:62D39F43-5D91-4A82-B1C3-62C2AF21BEFC][How do I fix a failing CI check?]] — if the check fails in CI.

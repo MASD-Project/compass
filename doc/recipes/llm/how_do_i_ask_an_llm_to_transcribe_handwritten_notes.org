@@ -1,0 +1,90 @@
+:PROPERTIES:
+:ID: 6FAA2B35-805A-4790-ACEA-E168AFAE23C0
+:END:
+#+title: How do I ask an LLM to transcribe handwritten financial notes?
+#+description: Reusable prompt for OCR-to-org-mode transcription of handwritten financial notes.
+#+type: recipe
+#+level: cross
+#+filetags: :recipe:llm:prompt:ocr:documentation:
+#+created: 2026-05-21
+#+updated: 2026-05-21
+
+* Question
+
+I have pages of handwritten financial notes (images). How do I get
+an LLM to transcribe them cleanly into org-mode?
+
+* Answer
+
+Start a fresh chat (no memory) and paste the following prompt, then
+upload the note images one page at a time.
+
+#+begin_example
+You will receive a series of handwritten note pages (images). Your
+task is to:
+
+1. This is a new chat. Do not use your memory.
+
+2. Perform accurate OCR transcription.
+
+   - Clean up handwriting.
+   - Preserve meaning precisely.
+   - Expand abbreviations only when obvious (e.g., "CVA" -> "Credit
+     Valuation Adjustment").
+
+3. Convert the content into a clean, simple Emacs org-mode document,
+   using:
+
+   - * for main sections. Use normal capitalisation for
+     titles/headers.
+   - ** for subsections. Use normal capitalisation for
+     titles/headers.
+   - - bullet lists
+   - no LaTeX unless handwritten
+   - no extra commentary
+
+4. If the page contains something resembling a diagram, box, or
+   flowchart, represent it as a separate PNG image. The diagram
+   content should be clearly structured, and the background must be
+   white.
+
+5. Do NOT summarise. Transfer the meaning exactly as written, cleaning
+   only grammar and structure where absolutely necessary.
+
+6. Each page should be converted independently, as if it were a
+   section of one bigger .org file.
+
+7. The context of the notes is Financial Markets. Keep terminology
+   intact (e.g., "wrong-way risk", "funding rolls", "novation", etc.).
+
+8. Output formatting - strict:
+
+   - ONLY output the raw org-mode text.
+   - DO NOT wrap the output in Markdown code blocks.
+   - DO NOT include any conversational text, introductions, or
+     conclusions.
+   - Start directly with the first header or content line.
+
+Do not output any content which is not provided from the image to OCR.
+
+Do you understand these instructions?
+#+end_example
+
+* Tested by
+
+Manual usage across multiple LLM chat interfaces.
+
+* Notes
+
+The output is *draft content* — generic org-mode, not current format. If
+the notes are destined for the repo, a human must reshape the output
+to satisfy the frontmatter contract before committing. See
+[[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I create a new doc?]] for the codegen scaffold, and
+[[id:8B29A8D8-E004-4E87-B81D-ABEAF68F2B98][Document types]] for the per-type section requirements.
+
+* See also
+
+- [[id:51FE4DF6-D12F-4CF3-A32F-E793979AA68B][LLM prompt recipes]] — index of all LLM prompts.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I create a new doc?]] — scaffold the target doc after
+  transcription.
+- [[id:8B29A8D8-E004-4E87-B81D-ABEAF68F2B98][Document types]] — frontmatter and section contract to apply.

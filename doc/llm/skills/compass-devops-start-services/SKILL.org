@@ -1,0 +1,66 @@
+:PROPERTIES:
+:ID: 96EBB175-83BD-4DD3-B35C-769C86CB3075
+:END:
+#+title: Devops Start Services
+#+author: Marco Craveiro
+#+options: <:nil c:nil todo:nil ^:nil d:nil date:nil author:nil toc:t
+#+startup: inlineimages
+#+export_exclude_tags: noexport
+#+level: s1
+#+filetags: :llm:skill:skills:claude_code:compass:
+#+created: 2026-06-06
+#+updated: 2026-06-06
+
+#+begin_export markdown
+---
+name: compass-devops-start-services
+description: Start the service fleet and verify everything came up.
+license: Complete terms in LICENSE.txt
+---
+#+end_export
+
+* When to use this skill
+
+Bringing the service fleet up — NATS and the ores services.
+
+* How to use this skill
+
+1. /Check the database is up and current/ before starting anything. The
+   services fail their first query against a missing or stale schema, and
+   the failure surfaces as a service crash rather than a database error.
+
+2. /Start the fleet/ with the recipe below, then verify. Starting is
+   asynchronous: the command returns before the services are ready.
+
+3. /Read the status, do not assume it/. =running= is the only state that
+   means ready; =starting= means the health check has not passed yet, and
+   =missing= means the unit is not installed in this worktree at all.
+
+* Recipes
+
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I start the ORE Studio services?]] — starting the fleet and verifying it.
+
+* Reference
+
+- [[id:6F7A122F-BC0F-4F3E-BA46-8B793FF15D10][compass.legacy]] — the tool every one of these commands runs through.
+
+* Artefacts                                                        :noexport:
+
+** Licence
+
+#+BEGIN_SRC fundamental :tangle LICENSE.txt
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+MA 02110-1301, USA.
+#+END_SRC

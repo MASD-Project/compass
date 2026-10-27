@@ -1,0 +1,110 @@
+:PROPERTIES:
+:ID: F9AD7932-8E11-433C-A812-B57DBC9BF5D8
+:END:
+#+title: LLM Instructions
+#+description: Entry point for LLM sessions: the rules and links every AI assistant must load before working on compass-ng.
+#+type: knowledge
+#+level: cross
+#+filetags: :meta:llm:instructions:claude:agents:
+#+created: 2026-05-22
+#+updated: 2026-05-22
+
+This is the entry point for every LLM session on compass-ng. Read it in
+full before acting. Each section below names the rule and links to the
+canonical document; follow the link for depth. Non-negotiable rules are
+inlined rather than linked.
+
+* Non-negotiable rules
+
+These apply in every session, with no exceptions:
+
+- /UNIX line endings/ — all new files use LF, never CRLF.
+- /New org docs via compass only/ — never write =.org= frontmatter by hand.
+  Always use =./projects/compass.legacy/compass.sh add <type>=.
+  See [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I create a new doc?]].
+- /Check recipes first/ — before searching for how to do anything, open
+  [[id:46F5ED07-9E63-77B4-2783-E0147EFF45D0][Recipes]] and find the matching topic.
+- /Every new =.org= file is scaffolded via =compass add=/
+  — this ensures correct frontmatter (=:ID:=, =#+type:=, =#+description:=, etc.).
+
+* Orientation
+
+Read these first on a new contact:
+
+- [[id:B69989F6-19E1-430D-AC6D-B2416E4C433F][Compass]] — top-level map of [[proj:doc][=doc/=]]; the entry point.
+- [[id:C0CF98E8-082F-2F04-2533-94B2DA9BE3D2][Orientation]] — navigation guide by reader intent.
+- [[id:47341FC6-B8FB-499E-AAE0-F4EE0ABFDA05][Glossary]] — definitions for task, story, sprint, version, function, recipe.
+- [[id:E5635EAC-CCE9-C0A4-A00B-C1780FF4A88E][Agile]] — current version and sprint at a glance.
+
+* Build
+
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][CMake setup]] — preset names, output layout, build types.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I set up a development environment?]] — fresh-install bootstrap.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I configure the project?]] — =cmake --preset= step.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I build the system?]] — day-to-day build command.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I run the tests?]] — =cmake --build ... --target rat=.
+
+* Code style
+
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Code review checklist]] — naming (snake_case, include order), include
+  order, comment quality, platform isolation, and all review categories.
+
+* Architecture
+
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][System model]] — four-layer architecture and component inventory.
+- [[id:7474935C-95D1-3034-B833-83DCD9FB3A09][Knowledge]] — cross-cutting reference: entity patterns, SQL schema,
+  presentation patterns, CLI/shell patterns, unit-test conventions.
+
+* Documentation
+
+- [[id:8B29A8D8-E004-4E87-B81D-ABEAF68F2B98][Document types]] — frontmatter contract.
+- [[id:6AC06A04-EB95-4925-8488-C7A47C6A451F][How do I validate component documentation before committing?]] —
+  =validate_docs.sh= before every push that touches =modeling/=.
+
+* Database isolation
+
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][ores.sql]] — component overview; the strict service-table isolation
+  invariant lives under "Service Table Isolation" in this doc.
+- Rule: each service user holds DML only on its own =ores_<service>_*=
+  tables. Do not add cross-service grants without documented justification.
+  Trigger functions that SELECT across services must be
+  =SECURITY DEFINER SET search_path = public, pg_temp=.
+
+* Testing
+
+- [[id:CB56337E-4839-4048-B5A7-C481812CE3D0][Unit Test Writer Skill]] — Catch2 conventions, file structure, naming,
+  table-driven patterns.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I run the tests?]] — test command.
+
+* Git and pull requests
+
+- [[id:CC928252-E0C5-4C3C-A7A8-D613593E4E37][How do I create a PR?]] — title format (=[COMPONENT] Description=),
+  body structure, and the no-test-plan rule.
+- [[id:1882D6DF-4012-4C6E-BF62-0D943EF805B0][How do I generate a PR summary?]] — assemble the body before =gh pr create=.
+
+* Claude Code configuration
+
+- [[id:2D83251F-0E24-4B97-B736-08F710316634][Claude Code Settings]] — the literate source for [[proj:.claude/settings.json][=.claude/settings.json=]].
+  Lists every permission entry with its security rationale and the concrete
+  command variations it covers. Edit this file (not the JSON) to add or
+  remove permissions; regenerate with [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I deploy the settings?]].
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I deploy all org-mode artefacts?]] — the =deploy_org= (=dorg=) target
+  rebuilds site, skills, settings, and diagrams in one shot.
+
+* Memory
+
+- [[id:DC0BBA22-9D4F-4FDD-B011-E30B02B4B82F][Project memory]] — catalogue of session-feedback memories; read and write
+  here to persist durable facts across conversations.
+- [[id:7357C672-A49F-4974-9399-A166F761D222][compass-doc-add-memory skill]] — LLM-side procedure for adding memories.
+
+*Non-negotiable:* all memories go in =doc/llm/memory/= via =compass add
+memory=. Never write to the Claude Code harness memory system
+(=~/.claude/projects/*/memory/=) — it is disabled via
+=autoMemoryEnabled: false= in =.claude/settings.json= and its files
+are not version-controlled or reviewed.
+
+* See also
+
+- [[id:F58CA9E7-C65F-4D17-A9A7-95FDE25B9EBD][Execution model]] — how LLMs and agents operate within the cybernetic
+  information architecture during a sprint.
+- [[id:46F5ED07-9E63-77B4-2783-E0147EFF45D0][Recipes]] — full index of operational how-tos by topic.

@@ -1,0 +1,58 @@
+{{! GENERATED FILE — tangled from projects/ores.codegen/library/templates/doc.org. Edit the org source. }}
+:PROPERTIES:
+:ID: {{id}}
+:END:
+#+title: {{title}}
+#+description: {{description}}
+#+type: story
+#+level: s2
+#+filetags: {{filetags}}
+#+created: {{date}}
+#+updated: {{date}}
+#+environment:
+#+todo: BACKLOG STARTED | DONE ABANDONED
+{{#predecessor_id}}
+#+predecessor: {{predecessor_id}}
+{{/predecessor_id}}
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:{{parent_id}}][{{parent_title}}]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+{{#predecessor_id}}
+
+Continued from: [[id:{{predecessor_id}}][{{predecessor_title}}]].
+{{/predecessor_id}}
+
+* Goal
+
+{{goal}}
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | {{state}}                              |
+| Parent sprint | [[id:{{parent_id}}][{{parent_title}}]] |
+| Now           | Not yet started.                       |
+| Waiting on    | Nothing.                               |
+| Next          | Break the story into tasks.            |
+| Last touched  | {{date}}                               |
+
+* Acceptance
+
+{{#acceptance}}
+- {{.}}
+{{/acceptance}}
+{{^has_acceptance}}
+-
+{{/has_acceptance}}
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+|      |       |       |     |             |
+
+* Decisions
+
+* Out of scope
+
+-

@@ -1,0 +1,214 @@
+{{! GENERATED FILE — tangled from projects/ores.codegen/library/templates/ores.doc.modeling.entity_org.org. Edit the org source. }}
+:PROPERTIES:
+:ID: {{id}}
+:END:
+#+title: {{title}}
+#+description: {{description}}
+#+type: ores.codegen.entity
+#+component: {{component}}
+#+filetags: {{filetags}}
+#+entity_singular: {{slug}}
+#+entity_plural: {{entity_plural}}
+#+entity_title: {{entity_title}}
+#+brief: {{brief}}
+#+created: {{date}}
+#+updated: {{date}}
+
+(One or two paragraphs describing the modelled entity itself — what it
+represents in the domain, its key relationships, and any defining
+invariants.)
+
+* Flags
+:PROPERTIES:
+:schema:    public
+:product:   ores
+:component: {{component}}
+{{#has_tenant_id}}
+:has_tenant_id:    true
+{{/has_tenant_id}}
+{{^has_tenant_id}}
+:has_tenant_id:    false
+{{/has_tenant_id}}
+{{#has_workspace_id}}
+:has_workspace_id: true
+{{/has_workspace_id}}
+{{#has_parent_id}}
+:has_parent_id:         true
+:parent_id_column:      parent_{{slug}}_id
+:hierarchy_name_field:  TODO -- name an existing column used as the display label in the hierarchy tree.
+{{/has_parent_id}}
+:END:
+
+* Primary key
+:PROPERTIES:
+:column:   id
+:type:     uuid
+:cpp_type: boost::uuids::uuid
+:END:
+
+(Description of the primary key.)
+
+* Natural keys
+
+TODO -- one =**= sub-heading per natural key, the human-meaningful
+column(s) that uniquely identify a record within a tenant. See
+=Codegen entity meta-model — keys and columns= for the property shape
+and a worked example.
+
+* Columns
+
+TODO -- one =**= sub-heading per remaining column, same property
+shape as Natural keys above.
+
+* SQL
+
+** Flags
+:PROPERTIES:
+:tablename: ores_{{component}}_{{entity_plural}}_tbl
+{{#has_parent_id}}
+:parent_id_column:     parent_{{slug}}_id
+:hierarchy_name_field: TODO -- same value as the Flags drawer above.
+{{/has_parent_id}}
+:END:
+
+{{#has_foreign_keys}}
+* Foreign keys
+
+TODO -- one =**= sub-heading per soft foreign-key column, e.g.:
+
+#+begin_src org
+,** parent_id_column
+,,:PROPERTIES:
+,,:table:         ores_<component>_<parent_entity_plural>_tbl
+,,:nullable:      false
+,,:error_message: Invalid parent_id_column: %. No active <parent> found with this id.
+,,:END:
+#+end_src
+
+{{/has_foreign_keys}}
+{{#has_insert_trigger_validations}}
+* Insert trigger
+
+** Validations
+
+| column | validation_function |
+|--------+----------------------|
+
+TODO -- one row per column needing an insert-time validation function.
+
+{{/has_insert_trigger_validations}}
+* C++
+
+** Flags
+:PROPERTIES:
+:END:
+
+** Repository
+:PROPERTIES:
+:entity_singular_short:
+:entity_plural_short:
+:entity_singular_words:
+:entity_plural_words:
+:END:
+
+** Domain includes
+
+#+begin_src cpp :name includes
+#+end_src
+
+** Entity includes
+
+#+begin_src cpp :name includes
+#+end_src
+
+** Conventions
+:PROPERTIES:
+:iterator_var:
+:END:
+
+** Table display
+
+| Column | Header |
+|--------+--------|
+
+{{#has_presentation}}
+** Presentation
+:PROPERTIES:
+:domain_include:          ores.{{component}}.api/domain/{{slug}}.hpp
+:domain_class:            {{component}}::domain::{{slug}}
+:protocol_include:        ores.{{component}}.api/messaging/{{slug}}_protocol.hpp
+:collection_name:         {{entity_plural}}
+:item_var:                {{slug}}
+:key_field:                TODO -- field used as the user-facing key in the GUI, e.g. name.
+:get_request_class:       {{component}}::messaging::list_{{entity_plural}}_request
+:get_response_class:      {{component}}::messaging::list_{{entity_plural}}_response
+:get_message_type:        list_{{entity_plural}}_request
+:save_request_class:      {{component}}::messaging::put_{{slug}}_request
+:save_response_class:     {{component}}::messaging::put_{{slug}}_response
+:save_message_type:       put_{{slug}}_request
+:save_request_item_field: {{slug}}
+:delete_request_class:    {{component}}::messaging::delete_{{slug}}_request
+:delete_response_class:   {{component}}::messaging::delete_{{slug}}_response
+:delete_message_type:     delete_{{slug}}_request
+{{#presentation_has_uuid_primary_key}}
+:has_uuid_primary_key:    true
+{{/presentation_has_uuid_primary_key}}
+{{^presentation_has_uuid_primary_key}}
+:has_uuid_primary_key:    false
+{{/presentation_has_uuid_primary_key}}
+{{#presentation_has_change_reason_cache}}
+:has_change_reason_cache: true
+{{/presentation_has_change_reason_cache}}
+{{^presentation_has_change_reason_cache}}
+:has_change_reason_cache: false
+{{/presentation_has_change_reason_cache}}
+{{#presentation_has_explorer_api}}
+:has_explorer_api:        true
+{{/presentation_has_explorer_api}}
+{{#presentation_has_pagination}}
+:has_pagination:          true
+{{/presentation_has_pagination}}
+{{#presentation_has_csv_xml_io}}
+:has_csv_xml_io:          true
+:csv_export_class:        TODO
+:csv_export_include:      TODO
+:xml_export_class:        TODO
+:xml_export_include:      TODO
+:xml_import_class:        TODO
+:xml_import_include:      TODO
+{{/presentation_has_csv_xml_io}}
+{{#presentation_has_export_macro}}
+:has_export_macro:        true
+{{/presentation_has_export_macro}}
+{{#presentation_has_version_navigation}}
+:has_version_navigation:  true
+{{/presentation_has_version_navigation}}
+{{#presentation_has_parent_scoping}}
+:parent_entity_singular:  TODO -- singular name of the parent entity this one is listed under.
+{{/presentation_has_parent_scoping}}
+:settings_group:          {{entity_title}}ListWindow
+:window_title:            {{entity_title}}
+:icon:                    {{entity_title}}
+:END:
+
+*** Detail fields
+
+| field | label | widget | type | is_key | is_required | placeholder | flag_source | combo_allow_blank | combo_fetch | combo_domain_type | combo_fetch_include | combo_fetch_fn | combo_watcher_name | combo_code_field | combo_tooltip_field | combo_sort_field | combo_label | combo_setter_pascal | badge_key |
+|-------+-------+--------+------+--------+-------------+-------------+-------------+--------------------+-------------+--------------------+----------------------+-----------------+---------------------+-------------------+----------------------+-------------------+-------------+----------------------+-----------|
+
+*** Columns
+
+| enum_name | field | header | type | width | is_badge | badge_key | formatter | formatter_include |
+|-----------+-------+--------+------+-------+----------+-----------+-----------+--------------------|
+
+{{/has_presentation}}
+** Paste blocks
+
+TODO -- one =***= sub-heading per custom repository method. See
+=Codegen entity meta-model — C++ repository= and =Paste blocks= for
+the mechanism and heading convention.
+
+* See also
+
+TODO -- link the component group overview and any related entities,
+e.g. =- [[id:<uuid>][ores.<component>]] — component group overview.=

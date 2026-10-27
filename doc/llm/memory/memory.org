@@ -1,0 +1,148 @@
+:PROPERTIES:
+:ID: DC0BBA22-9D4F-4FDD-B011-E30B02B4B82F
+:END:
+#+title: Project memory
+#+description: Persistent project-scope memories for LLM sessions. One memory per file under doc/llm/memory/. Read at session start; appended to over time.
+#+type: knowledge
+#+level: cross
+#+filetags: :llm:memory:index:knowledge:
+#+created: 2024-06-15
+#+updated: 2026-09-17
+
+Project-scope persistent memory for LLM sessions. /This is where any
+LLM working on compass-ng should write things that future sessions
+need to remember/ — feedback from the user, durable project facts,
+references to external systems, anything that would otherwise be
+lost between conversations. Each memory lives as a single
+=.org= file in this folder; this page is the catalogue. See [[id:391B9231-DBA8-4E8C-97AB-A75E2B9FEA07][How do
+I create a memory?]] for the operational flow and the [[id:7357C672-A49F-4974-9399-A166F761D222][ores-memory]]
+skill for the LLM-side procedure. Return to [[id:7474935C-95D1-3034-B833-83DCD9FB3A09][Knowledge]].
+
+* What goes here
+
+Memories are short, atomic, and durable. Use the same four subtypes
+as Claude Code's auto-memory:
+
+- *feedback* — what the user has corrected or confirmed. /Lead with
+  the rule, then =*Why:*= and =*How to apply:*= lines./
+- *user* — facts about the user's role, expertise, working style.
+- *project* — facts about the work in flight or its motivation
+  that aren't otherwise derivable from the code or git history.
+- *reference* — pointers to external systems (where a thing is
+  tracked, which dashboard is canonical).
+
+Every memory carries =#+type: memory= and =#+memory_subtype: <one
+of the four>=. The =:memory:= filetag makes the whole set
+greppable in one shot.
+
+* What does NOT go here
+
+- *Code patterns, conventions, architecture* — derivable from the
+  current state of the codebase; live in [[id:7474935C-95D1-3034-B833-83DCD9FB3A09][Knowledge]] instead.
+- *Git history* — =git log= / =git blame= are authoritative.
+- *Debugging recipes* — the fix is in the code; the commit
+  message has the context.
+- *Anything already documented in [[https://github.com/OreStudio/OreStudio/blob/main/CLAUDE.md][CLAUDE.md]]*.
+- *Ephemeral task state* — current sprint work belongs in the
+  sprint/story/task docs, not here.
+
+If the user explicitly asks you to remember something that fits any
+of these exclusions, push back: the right home is somewhere else.
+
+* Catalogue
+
+** Feedback
+
+- [[id:F9B796DF-2C06-42EF-AACF-D69E53621FF9][Do not re-export ORES_* env vars in Bash tool calls]].
+- [[id:46F83AC1-F41F-4878-9A1D-2E49742E1BFE][Always use compass to create new documents]] — never write =.org= files
+  directly; use =compass add= to scaffold them.
+- [[id:19570253-D852-4D14-A72B-B13FDF0651B7][New captures go to the inbox bucket]] — triage to next/deferred separately.
+- [[id:7F176058-4FF7-4731-920B-26FE318E338F][Always use compass to create agile artefacts]] — never write task/story files
+  manually; always scaffold with =compass add=.
+- [[id:387016AD-42CF-4830-B504-F255F6A7D1AB][Check recipes before searching for how to do something]] — [[proj:doc/recipes][=doc/recipes/=]]
+  is the first port of call for any project operation.
+- [[id:C26B61E8-1CA7-4241-B1D9-D4D95B7DDB01][Deploying skills runs Emacs only — run it directly]] — it is Emacs-only, not C++
+  compilation; run =compass build --direct skills= without asking the user.
+- [[id:8EA39071-A347-4608-A57F-611E88B121FA][Deploy skills via compass build --direct skills, not manually]] — never write
+  =.claude/skills/<name>/SKILL.md= directly; always run =compass build --direct skills=
+  after editing a =doc/llm/skills/<name>/SKILL.org= source file.
+- [[id:06A0919D-B741-40EA-BFF2-376BD36C4A27][Builds can run outside the sandbox]] — use =dangerouslyDisableSandbox: true=
+  for any =cmake --build= or =make -C build/output/...= call; compiler
+  toolchain and vcpkg detection are blocked inside the sandbox.
+- [[id:5BDDD435-9F2A-4ABC-BA71-5BB3B980C785][compass db commands run outside the sandbox]] — use =dangerouslyDisableSandbox: true=
+  for =compass db sql= / =db recreate=; sandbox blocks =localhost:5432=.
+- [[id:F7E4C41F-AF34-43E5-ADC3-1D837126B3DE][Do not interfere with SSH session variables]] — leave the
+  session's SSH variables, including =SSH_AUTH_SOCK=, exactly as they are.
+- [[id:1636E66B-03C7-4182-A46D-A02888336CEE][PR tables belong in task docs, not story docs]] — =* PRs= sections go
+  in task =.org= files; story docs do not carry them.
+- [[id:EAB80857-3DB3-4A63-8D81-2F0A06B4F6DD][Check git commit conventions before committing]] — =[component]=
+  title, =Story-ID= / =Task-ID= trailers, =Co-Authored-By= every time.
+- [[id:C6735DF2-B905-4A85-BAAA-B7F5CBBEC92D][Prefer compass over Unix tools for repo navigation]] — use compass
+  search/list/show/where/story/task/capture before =find= / =grep= / =ls=;
+  gaps in compass are captures, not workarounds.
+- [[id:FD7BDD44-8451-43AC-8601-957E719A9866][Act on a compass command's 'Run:' instruction before anything else]] —
+  when compass prints =Run: <cmd>= / =FIX FIRST= / =NEXT=, run it and retry;
+  never route around a stale index with =find= / =grep=.
+- [[id:68829E75-34A4-4A7F-915D-AED6285FFD9B][PR review runbook does not include merging]] — runbook ends at resolve
+  threads; never call =gh pr merge= after review steps; user merges.
+- [[id:426D228A-CCA8-4AC7-AE78-942E03A06497][Never cross worktree boundaries]] — all work stays in the active
+  checkout; if a branch is taken by another worktree, flag it to the
+  user rather than crossing environments.
+- [[id:A5827C19-D0EB-46B7-99C3-4CA2DFE53E93][Plans live inline in tasks, not in doc/plans]] — design/analysis goes
+  in the task's =* Plan= / =* Notes= and distils to the story's
+  =* Decisions=; [[proj:doc/plans][=doc/plans/=]] is archive-only.
+- [[id:30AA95CD-CE4E-4339-A6E3-08169E13CA66][Check runbooks before skills for multi-step procedures]] — for
+  end-to-end procedures (PR review round, release, hotfix), check
+  [[proj:doc/llm/runbooks][=doc/llm/runbooks/=]] first; skills are building blocks, not workflows.
+- [[id:AB7A3391-9FDD-478D-B700-B53E61E0E97F][Never type org-roam UUIDs from memory]] — copy from the target's
+  =:ID:= drawer; generated UUIDs silently break the link graph.
+- [[id:99D08493-2142-4536-B2A5-0F1B0E68313E][Cap C++ compilation builds at -j2]] — never =-j $(nproc)=; Emacs-only cmake targets need no cap.
+- [[id:C88C4034-1DE6-4945-8CF1-393EC9E0805F][Fix codegen templates — never work around codegen gaps]] — fix the template; regenerate; never hand-write into generated files.
+- [[id:9EEF7590-86C3-449F-8387-A21B5B62EF87][Regen byproduct hygiene]] — every phase that regenerates code must sweep for unexpected untracked files and account for each one; the drift check runs in two modes only; blocked deletions dispose via tagged stash and drop.
+- [[id:34F5490D-DC57-4B87-961D-3E4920FEBEBF][Load .env before running test binaries]] — =set -a && source .env && set +a= before test runs.
+- [[id:C3B499F6-2E41-4E1C-A724-7524EAC24B8E][gh CLI requires dangerouslyDisableSandbox]] — keyring socket blocked by sandbox; always disable.
+- [[id:5FF87481-1FF7-4AAA-A4CC-12BC3A5DE166][Never amend commits — always create new ones]] — even when fixing the immediately prior commit.
+- [[id:40003D46-DAEB-41DF-B4EE-947E223A8B8F][Do not push automatically after commits]] — stop after commit; only push when user explicitly asks.
+- [[id:1B24F0CD-E100-45D9-BED6-06A2D8CDA26B][No forwarding headers when moving code between components]] — delete the original; update all consumers to the new path.
+- [[id:DF7DEDAC-630C-4E79-9FBA-E3BAC272C997][PR bodies must use Markdown syntax]] — never org-mode in =gh pr create/edit= bodies.
+- [[id:54774B3A-6BB7-4166-B6E9-60437426037C][Use full UUIDs in PR Story/Task fields]] — always copy from =:ID:= drawer; never abbreviate.
+- [[id:8662222A-79B2-48CE-BEBA-F100350B3EE6][Only disable the sandbox when a command actually fails due to it]] — no preemptive bypasses.
+- [[id:ED58A89D-8F1C-4C6F-96A5-AB31851EC3DD][Do not override the subagent model]] — let subagents inherit the session model.
+- [[id:FBA1F66D-BACF-4C5C-AD83-C6AE56131DDC][Run validate_schemas.sh before pushing any SQL schema change]] — CI fails on missing drop scripts.
+- [[id:B874EB53-4ECB-47A3-A63A-6093DC83E9C9][Never open a PR unless the user explicitly asks]] — commit and push, then stop and wait.
+- [[id:C7C83F23-B9DD-4B73-A83C-124C29080489][Avoid exclamation marks inside Bash heredocs]] — use Write/Edit tools for any content containing them; heredocs corrupt =!= to =\!=.
+- [[id:DF4A351E-4D7C-4C9D-AB43-D90E69702EC5][Comments describe how things are, never how they used to be]] — never contrast with a previous implementation; history belongs in commit messages and PR bodies.
+- [[id:E8C3B46F-D375-4CFA-853F-D6C36804E4E6][Include order is owned by clang-format]] — reject review suggestions to hand-tune C++ include order; the formatter is the single source of truth.
+- [[id:C4A0648F-0A9A-467E-9375-ED22B3BBEE23][Prefer compass commands for lifecycle operations]] — use =compass pr sync/checks/create=, =task start/done=, =review list/reply/resolve= — not raw =git/gh=.
+- [[id:32AC7849-0DCB-4998-9912-0E1E03A8602F][Rebuild a stale compass index before running compass commands]] — run =compass index --org-roam-db-sync= when staleness warnings appear; never proceed on a stale index.
+- [[id:6071F761-FE8E-4F06-8FE7-58377A41C294][Scaffold tasks with content; let compass wire the tables]] — pass =--goal= and =--acceptance= to =compass add task/story=; never edit boilerplate afterwards.
+- [[id:D86BD831-B22A-42B7-B0FA-80778ACC7C52][Task plans are historical records — never clear at close]] — distil decisions into the story's =* Decisions= but keep =* Plan= intact.
+- [[id:A422E0ED-7D4D-4581-A7D5-B9DD05D39F33][Toolchain gaps are work items, never licenses for workarounds]] — implement through the toolchain or capture and ask; never hand-roll =.org= files or UUIDs.
+- [[id:D2733820-85A1-49E5-8F1E-214D1A511A75][Don't use cat/--help after compass show/recipe]] — act on what it says directly; if something is missing, file a capture.
+- [[id:975C94B2-06AC-4073-B187-ED4779FCAC7B][Close task bookkeeping when raising the PR, not after review]] — do the task close-out as part of =compass-pr-raise=, before pushing; no separate close-task commit tacked onto the end of the review round.
+- [[id:B4E38241-6AD1-4859-9610-033CC39C0AF4][Use ores.platform for cross-platform functionality]] — always use ores.platform for getenv and any other cross-platform functionality it supports, rather than the native approach.
+- [[id:177EDB1C-6241-45AA-81B1-46C4B9D6329D][Do not number org headings]] — org numbers sections itself on export; a typed number renders after org's own as =4.1. 1. What is already settled=.
+- [[id:BA740C1B-8307-47D1-B359-AF20D0B2CBF0][Run pgTAP under a role that row-level security binds]] — =pg_prove= as the test DDL role; the owner role bypasses RLS and sees every tenant.
+
+** User
+
+(none yet)
+
+** Project
+
+- [[id:768CD631-5525-47A0-A780-1140AD7EABB0][Browser org-mode UI is ores.org-js; 'dashboard' is reserved]] — =projects/ores.org-js/=; =ores-dashboard.el= owns the "dashboard" name.
+- [[id:ABF849AE-7E40-4557-B58B-1C3F273603DE][ores.iam repository tests poison the shared test DB across rat runs]] — deterministic "CD N" rows left current in the system tenant collide with the next run; delete the test-user rows to soft-close them.
+
+** Reference
+
+- [[id:28F78E07-834D-4755-BB03-89BD7C17B01E][Compass basic command syntax]] — =search=, =list=, =show=, =where=, =story new=, =task new=, =add= with required flags.
+- [[id:E6D88535-E249-4730-8F6C-D50B182AD2B1][Stuck vcpkg lock: sccache daemon holds it]] — =sccache --stop-server=
+  frees it; pre-start the server to prevent; scan =/proc/*/fd= when
+  =lsof= shows nothing.
+
+* See also
+
+- [[id:391B9231-DBA8-4E8C-97AB-A75E2B9FEA07][How do I create a memory?]] — operational recipe.
+- [[id:7357C672-A49F-4974-9399-A166F761D222][ores-memory skill]] — LLM-side procedure for adding memories.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I create a new doc?]]§"New memory" — the codegen
+  scaffold flow.

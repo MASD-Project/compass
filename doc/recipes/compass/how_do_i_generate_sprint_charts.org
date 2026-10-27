@@ -1,0 +1,87 @@
+:PROPERTIES:
+:ID: 6F3D9B1A-5C7E-4A2D-8F1B-3C9D7E5F2A1B
+:END:
+#+title: How do I generate sprint health charts?
+#+description: Use compass sprint charts to extract git/PR metrics and render all four sprint health PNGs in one step.
+#+type: recipe
+#+level: cross
+#+filetags: :sprint:charts:compass:gnuplot:recipe:bearings:
+#+created: 2026-05-26
+#+updated: 2026-06-02
+
+* Question
+
+How do I generate the sprint health charts (PRs & Commits, Line Churn, PR Cycle Time, Cumulative Stories Done) for a given sprint?
+
+* Answer
+
+1. /Generate charts for a single sprint/ — one command does everything
+   (CSV extraction + gnuplot rendering):
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh sprint charts --sprint 18
+   #+end_src
+
+   Omit =--sprint= to auto-detect the current sprint:
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh sprint charts
+   #+end_src
+
+   =compass sprint charts= extracts git and gh API data into CSVs under
+   =build/output/sprint_NN/=, then calls the four gnuplot scripts to
+   write the per-metric PNGs into =doc/agile/versions/v0/sprint_NN/=.
+   Requires =gnuplot= on =PATH= — the command fails immediately if not
+   found.
+
+   Prefer the =compass sprint charts= command above — it needs only
+   =gnuplot= (no cmake/vcpkg) and so works in a light environment. A thin
+   =sprint_charts= CMake target still exists for full-environment builds,
+   but the sprint number is a *configure-time* cache variable there
+   (=cmake --preset … -DSPRINT=18= before =--build=), which is why the
+   direct compass command is simpler.
+
+2. /Generate charts for all sprints/:
+
+   #+begin_src sh :results verbatim
+   for s in $(seq 1 18); do
+     ./projects/compass.legacy/compass.sh sprint charts --sprint $s
+   done
+   #+end_src
+
+3. /Outputs/ — all four written into =doc/agile/versions/v0/sprint_NN/=:
+
+   | File | Contents |
+   |------+----------|
+   | =prs_commits.png= | Dual-axis bar: PRs and commits per day |
+   | =line_churn.png= | Bars: lines added (green) and deleted (red) per day |
+   | =pr_cycle.png= | Hours from PR open to merge (only when PR data available) |
+   | =stories_done.png= | Cumulative stories DONE per day (only when story data available) |
+
+   Commit these PNGs into the sprint directory; every sprint (01–18)
+   follows this convention.
+
+4. /Wire into the sprint page/. Add a =* Charts= section with
+   subheadings and =file:= links to each PNG (see [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Sprint 18]] for the
+   reference layout).
+
+* Script
+
+=compass sprint charts= (lives in [[proj:projects/compass.legacy/src/compass.py][=projects/compass.legacy/src/compass.py=]])
+handles both CSV extraction and gnuplot rendering in one step. The four
+gnuplot scripts (=scripts/sprint_*.gnuplot=) are generated files,
+tangled from the literate sources in [[id:A64F482F-8A57-406D-98B2-53476F095E8C][Sprint health charts]]; compass
+invokes them internally. Edit the org source blocks and re-tangle —
+never edit the =.gnuplot= files directly. The CMake =sprint_charts=
+target in =CMakeLists.txt= is a thin wrapper that calls =compass
+sprint charts=.
+
+* Tested by
+
+Manual: run the target for sprint 18 and verify all four PNGs are
+generated.
+
+* See also
+
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][CMake setup]] — presets reference.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Sprint 18]] — charts section example.

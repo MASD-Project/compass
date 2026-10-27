@@ -1,0 +1,33 @@
+:PROPERTIES:
+:ID: 7F176058-4FF7-4731-920B-26FE318E338F
+:END:
+#+title: Always use compass to create agile artefacts
+#+description: Never write task/story org files manually — always scaffold with compass add.
+#+type: memory
+#+memory_subtype: feedback
+#+level: cross
+#+filetags: :llm:memory:feedback:bearings:
+#+created: 2026-05-25
+#+updated: 2026-05-25
+
+Always use =compass add= to scaffold new files — tasks, stories, sprints,
+memories, knowledge docs, recipes, and all other document types. Never write
+them manually using the Write tool.
+
+*Why:* Compass handles UUID generation, file placement, correct frontmatter,
+and wiring into the project graph automatically. Manual creation was explicitly
+corrected by the user during sprint 18 dashboard work (2026-05-25). Compass
+now covers all supported types: story, task, sprint, version, recipe,
+knowledge, component, capture, memory, investigation, product_identity, skill,
+diagram, runbook.
+
+*How to apply:* Whenever a new document needs to be created, run
+=compass.sh add <type>= with appropriate flags. Never fall back to the Write
+tool or hand-write the frontmatter.
+
+The same preference applies to operations generally: before reaching
+for a raw script or tool, check whether a compass pillar covers it —
+=compass build=, =compass test
+results=, =compass pr record=, =compass env=, =compass journal=.
+Marco corrected raw-script usage twice on 2026-06-05 (build script,
+test run).

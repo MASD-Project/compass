@@ -1,0 +1,27 @@
+:PROPERTIES:
+:ID: B5F94CD2-E6E0-9F44-BB13-4C2CEEF01A44
+:END:
+#+title: Git recipes
+#+description: Inventory of git recipes grouped by category.
+#+type: knowledge
+#+level: cross
+#+filetags: :recipe:git:index:knowledge:
+#+created: 2026-05-21
+#+updated: 2026-05-23
+
+Recipes for pure git workflows — branches, stashes, submodules.
+GitHub-specific operations (PRs, CI, review threads, =gh= CLI) live
+under [[id:FCF81F0B-AFBF-4169-BD24-04DBD08180A9][GitHub recipes]] separately.
+
+* Committing
+
+- [[id:F4B1A670-3B02-11F1-BCE2-4B06F4BBA5D9][How do I commit to git using compass-ng conventions?]]
+
+* Branches
+
+- [[id:DA003A23-1604-43E7-A98F-A305148FBCF4][How do I start work on a story?]]
+- [[id:479E7E27-4060-4BFD-AC38-F11EFA3BB306][How do I start a new feature branch phase?]]
+
+* Repo housekeeping
+
+- [[id:2A8F0D61-B3F9-4C20-9E76-1D92C8A47FB5][How do I update submodules to latest?]]

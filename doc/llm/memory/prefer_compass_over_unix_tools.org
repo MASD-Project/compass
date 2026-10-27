@@ -1,0 +1,43 @@
+:PROPERTIES:
+:ID: C6735DF2-B905-4A85-BAAA-B7F5CBBEC92D
+:END:
+#+title: Prefer compass over Unix tools for repo navigation
+#+description: Always reach for compass (search, list, show, where, story, task, sprint, capture, journal) before falling back to find/grep/ls. Gaps in compass are captures, not workarounds.
+#+type: memory
+#+memory_subtype: feedback
+#+level: cross
+#+filetags: :llm:memory:feedback:bearings:
+#+created: 2026-05-28
+#+updated: 2026-06-06
+
+Always use compass to navigate, query, and modify the repo before reaching
+for Unix tools. Use =compass search= / =find= to locate docs, =compass list=
+to enumerate by type or path, =compass show= to inspect a doc, =compass where=
+for orientation, =compass story new= / =compass task new= to start work,
+=compass sprint status= / =compass story status= to check state, and
+=compass capture= for the backlog. If a task cannot be done with compass, capture it as a compass
+limitation rather than silently working around it with =find= / =grep= / =ls=.
+
+*Why:* The user explicitly asked for this. Compass is the canonical interface
+to the repo's information architecture; Unix tools bypass it and produce
+untracked, non-reproducible ad-hoc queries that compass should eventually
+replace.
+
+*How to apply:* Any time you would reach for =find=, =grep=, =ls= on doc
+paths, or =git log= to navigate story/task state — try compass first. If
+compass can't do it, file a capture (e.g. =compass capture --note "compass
+list needs a --fields flag"=) before falling back.
+
+Repeated offence (2026-06-06): finding *documents* — recipes,
+runbooks, stories, tasks — with =ls doc/recipes/... | grep= instead
+of =compass search "<topic>"= / =compass list --type recipe=. Finding
+documents is exactly what Search is for; the listing-and-grepping
+habit must go first to compass every time, even for a "quick look".
+
+This applies to the /work-start flow especially/: never =git checkout
+-b= for story/task work. =compass story new= and =compass task
+new=/=start= own branch creation (off =origin/main=), the =#+branch:=
+field, the state flip, and the journal stamp — pre-creating a branch
+by hand collides with the one compass makes (incident: 2026-06-05,
+duplicate currency branches). Follow the start-work recipe/runbook
+end to end.

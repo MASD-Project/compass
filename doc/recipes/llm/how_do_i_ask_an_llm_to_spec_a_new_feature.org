@@ -1,0 +1,62 @@
+:PROPERTIES:
+:ID: 6FE5A0E1-4C96-4B13-A2B9-64590AD6DB46
+:END:
+#+title: How do I ask an LLM to spec a new feature?
+#+description: Reusable prompt that drives an interview-style feature specification into the agile backlog.
+#+type: recipe
+#+level: cross
+#+filetags: :recipe:llm:prompt:agile:spec:
+#+created: 2026-05-21
+#+updated: 2026-05-21
+
+This prompt requires *Claude Code* — it uses the =AskUserQuestion=
+tool which is only available inside Claude Code sessions. It is not
+suitable for generic LLM chat interfaces.
+
+* Question
+
+I have a rough idea for a new feature. How do I use Claude Code to
+turn it into a detailed story (or set of stories) in the agile backlog?
+
+* Answer
+
+Replace =<story summary here>= with a one-paragraph description of
+the idea, then send the prompt to Claude Code in the repo root.
+The result lands in the [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][product backlog]] as one or more
+[[id:671F18E4-E09C-4B3B-BD24-D33DF8AE38A6][captures]] (if not yet sprint-ready) or directly as
+[[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][stories]] in the current sprint.
+
+#+begin_example
+Consider this idea for a new feature:
+
+<story summary here>
+
+Interview me in detail using the AskUserQuestion tool about literally
+anything: technical implementation, UI & UX, concerns, tradeoffs,
+etc. Make sure the questions are not obvious.
+
+Be very in-depth and continue interviewing me continually until it's
+complete, then write a detailed user story with a specification to the
+current agile backlog as per the =Agile Product Owner= skill. If you think the work is
+too large for a single story, break it into several stories, each of
+which will have its own PR.
+#+end_example
+
+* Script
+
+Use with Claude Code in the repo root. The =compass-doc-add= skill
+handles the backlog write.
+
+* Tested by
+
+Manual usage with Claude Code.
+
+* See also
+
+- [[id:51FE4DF6-D12F-4CF3-A32F-E793979AA68B][LLM prompt recipes]] — index of all LLM prompts.
+- =compass-doc-add= — the skill that writes the result into the
+  backlog.
+- [[id:F5426198-ACAF-41DA-A043-FF15785E4A1D][Sprint planning]] — the phase and story format the output
+  must satisfy.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Product backlog]] — where captures land before promotion to a sprint.
+- [[id:8B29A8D8-E004-4E87-B81D-ABEAF68F2B98][Document types]] — frontmatter contract for story and capture files.

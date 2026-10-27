@@ -1,0 +1,123 @@
+:PROPERTIES:
+:ID: C0CF98E8-082F-2F04-2533-94B2DA9BE3D2
+:END:
+#+title: Orientation
+#+description: How to find your way through the compass-ng documentation, by what brought you here.
+#+type: knowledge
+#+level: cross
+#+filetags: :documentation:guide:knowledge:
+#+created: 2024-06-15
+#+updated: 2026-05-21
+
+This page is a navigation guide. The canonical starting point for understanding
+the structure of the documentation is [[id:B69989F6-19E1-430D-AC6D-B2416E4C433F][Compass]] — every folder, every doc type,
+every convention is described there. The journeys below tell you /where to go
+after that/, depending on what you came here to do.
+
+#+begin_note
+*Preamble: Emacs and org-roam*
+
+compass-ng is authored in [[id:DF6F1D17-2199-472C-868E-1E50D0887AAD][Emacs]] and the entire documentation graph is managed
+by [[id:C53486A1-54A3-4FD3-BC5F-15F4CE6BC4ED][org-roam]]. You can browse the HTML site without installing either, but to
+navigate the graph interactively, follow back-links, or run the build targets
+you will need Emacs with org-roam. Read the linked pages for a full account
+of our setup, the build targets Emacs drives, and how the org-roam knowledge
+graph works.
+#+end_note
+
+* I am new to this project
+
+Read these in order. Together they give you the full picture.
+
+1. [[id:B69989F6-19E1-430D-AC6D-B2416E4C433F][Compass]] — top-level map of [[proj:doc][=doc/=]]. Tells you what every folder
+   is for and how everything fits together.
+2. [[id:47341FC6-B8FB-499E-AAE0-F4EE0ABFDA05][Glossary]] — what we mean by task, story, sprint, version,
+   capture, function, etc. Every term that appears throughout the
+   docs is defined here.
+3. [[id:2F71292F-CDB0-4E2E-B50F-4F02E10597C4][Product identity]] — what compass-ng /is/ and /is not/. Read
+   once; refer back to it whenever you wonder whether a candidate
+   idea is in scope.
+4. [[id:E5635EAC-CCE9-C0A4-A00B-C1780FF4A88E][Agile]] — how the rolling work is organised. From here you can
+   dive into [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Versions]] (composition tree), the [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Product backlog]]
+   (ideas not yet in a sprint), or the [[id:46DFE47F-967B-4C24-95BF-3E21F97CFD20][agile process]] (how a sprint
+   opens, runs, and closes).
+
+Once those are read, you have the full picture. Browse [[id:B69989F6-19E1-430D-AC6D-B2416E4C433F][Compass]] for
+the secondary trees ([[id:7474935C-95D1-3034-B833-83DCD9FB3A09][Knowledge]], [[id:46F5ED07-9E63-77B4-2783-E0147EFF45D0][Recipes]], [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Modeling]]).
+
+* I want to find something specific
+
+You probably want one of:
+
+- *A term's meaning* → [[id:47341FC6-B8FB-499E-AAE0-F4EE0ABFDA05][Glossary]]. Every load-bearing word in the system is
+  defined there with a stable id-link.
+- *A specific sprint, story, or task* → walk down from [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Versions]]: version →
+  sprint → story → task. Or grep by tag — every doc carries a =:filetags:= with
+  its ancestor slugs, so =grep -lR ":sprint_15:" doc/agile/versions/= finds
+  every task in sprint 15.
+- *A how-to ("how do I X?")* → [[id:46F5ED07-9E63-77B4-2783-E0147EFF45D0][Recipes]]. Each recipe answers one NLP question and
+  carries the executable shell to do it.
+- *A domain or architecture topic* → [[id:7474935C-95D1-3034-B833-83DCD9FB3A09][Knowledge]]. Single-topic pages grouped by
+  area (Domain / Architecture / Security / Documentation).
+- *A component or file in the codebase* → [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Modeling]] (UML overview) or [[https://orestudio.github.io/OreStudio/doxygen/html/index.html][Doxygen]]
+  (low-level C++ API).
+- *Pre-sprint ideas* → [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Product backlog]], split by horizon ([[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][next]] / [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][deferred]]).
+- *Historical design documents* → [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Plans]], legacy pre-sprint plans kept for
+  context on past decisions.
+
+* I am an LLM about to do work in this codebase
+
+Start with [[id:F9AD7932-8E11-433C-A812-B57DBC9BF5D8][LLM instructions]] — it is the mandatory session entry point with
+all non-negotiable rules. See [[id:94F9949A-1580-4D47-9331-AA0597543C99][LLM Configuration and Artefacts]] for the
+map of skills, memory, and settings under [[proj:doc/llm][=doc/llm/=]].
+
+Before generating any document, read the contract:
+
+1. [[id:8B29A8D8-E004-4E87-B81D-ABEAF68F2B98][Document types]] — the frontmatter every doc must carry, per-type
+   required sections, the title-prefix convention for tasks /
+   stories, and the index-page convention (blurb before first
+   headline, See also is external-only).
+2. [[id:8810E0F9-C5B9-4CFA-A710-774AD6C771DD][Lifecycle]] — the TODO state machine
+   (=DISCOVERED → BACKLOG → STARTED → BLOCKED → DONE / ABANDONED=)
+   applied uniformly across every stateful type.
+3. [[id:926B916E-A57E-498E-99AB-720B583C0362][Cybernetic levels]] — which system (S1 → S5) owns which
+   decisions. Every phase in the [[id:46DFE47F-967B-4C24-95BF-3E21F97CFD20][agile process]] is annotated with
+   its owning system; respect that ownership in your edits.
+4. [[id:47341FC6-B8FB-499E-AAE0-F4EE0ABFDA05][Glossary]] — load it into context so the terms you encounter
+   later resolve.
+
+The [[id:6F7A122F-BC0F-4F3E-BA46-8B793FF15D10][compass.legacy]] tool ([[proj:projects/compass.legacy/compass.sh][=./projects/compass.legacy/compass.sh=]]) is your
+primary quality-of-life aid inside this repository. It was designed
+explicitly for both human contributors and LLM agents: humans use it
+to avoid manual branch/file creation; LLMs use it to resolve doc
+references, discover existing recipes, and scaffold artefacts with
+correct frontmatter instead of guessing paths or UUIDs. When in doubt,
+reach for =compass= before reaching for =grep= or =find=.
+
+When you need to /find/ something in the doc graph:
+
+- [[id:D1AE0786-5F2F-4437-8449-0E480C278A1B][How do I find docs matching a pattern?]] — =compass list= over
+  regex, tag, =#+type:=, or path prefix. Faster than =grep -r= and
+  it understands the doctype taxonomy.
+- [[id:E8231C22-CB31-4D85-A9C0-7602953764FF][How do I show a doc by UUID?]] — =compass show= prints a doc's
+  blurb, outgoing links, and incoming links. Accepts UUID prefixes
+  and resolves heading-level anchors (e.g. glossary entries).
+- The full set of doc-graph operations lives in the [[id:95FF6AF4-2320-4CB6-A007-B016B7DA16ED][Documentation
+  recipes]] inventory.
+
+When you need to /create/ a doc:
+
+- See [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I create a new doc?]] to scaffold every new document
+  — never hand-write frontmatter. The codegen mints the =:ID:=,
+  applies the per-type prefix on the title, fills in dates, and
+  produces the required skeleton.
+- For recipe-shaped docs specifically, see [[id:D4E65EF1-54F4-47E1-9388-58BE9E36FBE3][How do I create a
+  recipe?]] — the conventions on filename = title = question,
+  executable babel blocks, and inventory wiring.
+
+Skim [[id:B69989F6-19E1-430D-AC6D-B2416E4C433F][Compass]] for orientation if you have not yet seen it.
+
+* See also
+
+- [[id:5B271351-399A-4BD7-A096-E5DF1EDAD8F5][Developer Links]] — external resources: GitHub, Doxygen, Discord, CDash, and CI.
+- [[id:B69989F6-19E1-430D-AC6D-B2416E4C433F][Compass]] — top-level map of [[proj:doc][=doc/=]].

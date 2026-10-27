@@ -1,0 +1,99 @@
+:PROPERTIES:
+:ID: 95A33EA9-DFF9-4937-8A3F-AD82E42A68D3
+:END:
+#+title: Compass recipes
+#+description: Inventory of recipes for using the compass developer toolkit: orient, scaffold, capture, search, and journal.
+#+type: knowledge
+#+level: cross
+#+filetags: :recipe:compass:docs:search:
+#+created: 2026-05-24
+#+updated: 2026-07-12
+
+How to use =compass=, the [[id:6F7A122F-BC0F-4F3E-BA46-8B793FF15D10][developer toolkit]] for compass-ng.
+One CLI ([[proj:projects/compass.legacy/compass.sh][=projects/compass.legacy/compass.sh=]]) covers the doc/agile pillars
+— Orient, Search, Scaffold, Capture, Journal — and the operational
+pillars that fold in the standalone scripts, starting with Provision.
+
+* Orient
+
+- [[id:FE388774-0714-4D93-AEB0-D6221314D4F9][How do I orient a new session?]] — full cold-start briefing: product
+  identity, where, last session, key recipes, memories (=bearings=).
+- [[id:41E5F9A8-1C2B-4ECA-8EA0-1ABBAB0B6A31][How do I see where we are?]] — current version, sprint, and in-flight
+  stories/tasks (=where= / =status=).
+- [[id:0D378978-7CF1-45F5-896F-63E281CC02CB][How do I see what every worktree is doing?]] — branch / story / task /
+  PR per git worktree (=fleet=).
+- [[id:A7D3C1E5-9F2B-4A8D-B6E4-3C7F1D9A2E5B][How do I get a sprint or story status?]] — all stories or tasks grouped
+  by state (=sprint status= / =story status=).
+- [[id:D0522FBB-A1B7-42B0-BE60-B07A2878AADB][How do I get a ranked next-work-item suggestion?]] — prioritised list of
+  what to pick up next, scored from sprint state, fleet, and backlog
+  (=heading=).
+
+* Search and indexing
+
+- [[id:DEAC11AE-3753-49FA-994A-98594162A605][How do I index notes for compass?]] — build the FTS cache (=index=).
+- [[id:BDA8F7FB-5CEC-42D8-BC78-766BBC8D4285][How do I search docs with compass?]] — full-text search (=search=).
+
+* Authoring
+
+- [[id:5B670808-D28B-4818-A2FA-EA5220D35E8D][How do I add a doc with compass?]] — create a doc via codegen
+  (=add=).
+- [[id:84C9177E-C737-428A-BDF9-E55FA6C9680C][How do I start a unit of work with compass?]] — fetch main, branch,
+  scaffold a linked story+task (=story new= / =task new=).
+
+* Journal
+
+- [[id:F3373CC1-C2B3-4371-A63F-FBEC54297265][How do I know what I was working on?]] — restart recovery: read
+  the last entry and clock back on (=journal where= / =task start=).
+- [[id:B4C7D2E1-9F3A-4A6B-8E5D-3C1F7B2A9D4E][How do I use the session journal?]] — full journal reference:
+  clocking on, overlap detection, manual updates, entry format.
+
+* Sprint
+
+- [[id:6F3D9B1A-5C7E-4A2D-8F1B-3C9D7E5F2A1B][How do I generate sprint health charts?]] — one-shot CSV extraction
+  + gnuplot rendering for all four sprint PNGs (=sprint charts=).
+
+* Captures
+
+- [[id:7072D39C-9607-48F9-8EE6-50E8647DB8ED][How do I capture ideas from freeform text?]] — paste unstructured
+  notes; LLM decomposes into well-structured captures in =inbox/=
+  (=compass capture --note=).
+
+* Test
+
+- [[id:FEA02CDB-24E8-45B2-B4EC-9DD2284E3706][How do I see an overview of the test run?]] — per-suite stats,
+  failures, and log excerpts from the last test run (=test results=).
+
+* Shell
+
+- [[id:C210CB09-291B-4B2A-8C90-22EB4364DCA3][How do I run the ores shell?]] — launch ores.shell with NATS and
+  login defaults from =.env=; scripted sessions with =-f=
+  (=shell= / =shell -f FILE=).
+
+* Provision
+
+- [[id:13209197-CDBD-4807-A8F9-9653AFA96CBF][How do I manage the checkout environment with compass?]] — generate,
+  diff, list, and version the =.env= (=env configure= / =diff= / =list= /
+  =version [new]=).
+- [[id:694BFB41-222A-4BC7-BC74-D8B7C6C61644][How do I manage the .env format version with compass?]] — show and
+  record the env-format version, and how a stale checkout is caught
+  (=env version= / =version new=).
+- [[id:E7ABCD61-61F0-4709-A042-E4BDE2F9AC29][How do I initialise the NATS server config with compass?]] — render the
+  per-environment nats-server config and create the JetStream store dir (=nats init=).
+- [[id:280432C1-EE5D-4409-9DC6-372CCD3E2789][How do I generate NATS certificates with compass?]] — generate the CA
+  and per-service mTLS client certs (=nats certs= / =nats certs --force=).
+
+* Navigating the doc graph
+
+These commands moved into compass from =ores.codegen= (the tool now owns
+doc navigation); the recipes live under [[id:95FF6AF4-2320-4CB6-A007-B016B7DA16ED][Documentation recipes]]:
+
+- [[id:D1AE0786-5F2F-4437-8449-0E480C278A1B][How do I find docs matching a pattern?]] — filter the graph
+  (=compass list=).
+- [[id:E8231C22-CB31-4D85-A9C0-7602953764FF][How do I show a doc by UUID?]] — one doc + inbound/outbound links
+  (=compass show=).
+
+* See also
+
+- [[id:6F7A122F-BC0F-4F3E-BA46-8B793FF15D10][compass.legacy]] — the component model (pillars, structure, design).
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][NATS]] — background on the messaging system managed by =compass nats=.
+- [[id:46F5ED07-9E63-77B4-2783-E0147EFF45D0][Recipes]] — the full topic index.

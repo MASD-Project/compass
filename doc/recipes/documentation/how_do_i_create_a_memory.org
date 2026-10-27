@@ -1,0 +1,107 @@
+:PROPERTIES:
+:ID: 391B9231-DBA8-4E8C-97AB-A75E2B9FEA07
+:END:
+#+title: How do I create a memory?
+#+description: Scaffold a memory file under doc/llm/memory/ — feedback, user, project, or reference subtype — and wire it into the inventory.
+#+type: recipe
+#+level: cross
+#+filetags: :documentation:memory:recipe:
+#+created: 2026-05-21
+#+updated: 2026-06-04
+
+For background on what project memory /is/ and what does and does not
+belong in it, see the [[id:DC0BBA22-9D4F-4FDD-B011-E30B02B4B82F][project memory inventory]]. For the LLM-side
+procedure (when to write a memory vs when to push back), see the
+[[id:7357C672-A49F-4974-9399-A166F761D222][compass-doc-add-memory skill]].
+
+* Question
+
+How do I write a new project memory — pick the subtype, scaffold the
+file, fill in the body, and link it from the inventory?
+
+* Answer
+
+Memories are short, atomic, durable. One memory per file under
+[[proj:doc/llm/memory][=doc/llm/memory/=]]. Use the codegen to scaffold; never hand-write the
+frontmatter.
+
+1. /Pick the subtype/. Memories use the same four subtypes as
+   Claude Code's auto-memory:
+
+   - =feedback= — what the user has corrected or confirmed.
+   - =user= — facts about the user.
+   - =project= — facts about the work in flight or its motivation.
+   - =reference= — pointers to external systems.
+
+2. /Pick a slug/. Snake-case, short, descriptive of the rule rather
+   than the topic — e.g. =do_not_re_export_env_vars=, not =bash=.
+
+3. /Scaffold the file/ using =compass add memory=:
+
+   #+begin_src sh :results verbatim
+   projects/compass.legacy/compass.sh add memory \
+     --slug do_not_re_export_env_vars \
+     --title "Do not re-export ORES_* env vars in Bash tool calls" \
+     --description "The user has already exported ORES_* env vars in their shell session — don't prepend them." \
+     --memory-subtype feedback
+   #+end_src
+
+   =--parent-dir= defaults to [[proj:doc/llm/memory][=doc/llm/memory=]]; only pass it to land
+   the file somewhere else. The =memory= tag and the chosen subtype
+   are auto-added to =#+filetags= so the whole catalogue is greppable
+   in one shot.
+
+4. /Fill in the body/. The scaffold gives you a one-paragraph
+   placeholder plus =*Why:*= and =*How to apply:*= bold lines.
+   Replace each with the actual content:
+
+   - /Lead with the rule/, one to two sentences.
+   - /=*Why:*=/ the reason (the user's words, or the incident).
+   - /=*How to apply:*=/ when this kicks in (which files, which
+     workflows, what circumstances).
+
+5. /Link from the inventory/. Open [[id:DC0BBA22-9D4F-4FDD-B011-E30B02B4B82F][Project memory]] and add
+   an id-link under the appropriate subtype heading.
+
+6. /Verify/:
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh show <uuid-prefix>
+   #+end_src
+
+   The Outgoing/Incoming link sections should resolve cleanly.
+
+* Conventions
+
+- /One memory per file/. If you find yourself writing "and also…",
+  the second point is its own memory.
+- /Lead with the rule, not the topic/. =do_not_re_export_env_vars=,
+  not =bash_environment=.
+- /Always include =*Why:*=./ Without the why, future sessions can't
+  judge edge cases.
+- /Don't duplicate code-derivable facts/. Architecture, conventions,
+  file paths belong in [[id:7474935C-95D1-3034-B833-83DCD9FB3A09][Knowledge]], not memory.
+- /Don't duplicate [[https://github.com/OreStudio/OreStudio/blob/main/CLAUDE.md][CLAUDE.md]]/. If a guideline is enforced on every
+  session, it goes there.
+
+* Script
+
+=projects/compass.legacy/compass.sh add memory= — the compass wrapper
+delegates to =ores.codegen=. The memory-specific machinery (template,
+=--memory-subtype= flag, tag injection) lives in
+[[proj:projects/compass.legacy/src/doc_generate.py][=projects/compass.legacy/src/doc_generate.py=]] and the template at
+[[proj:projects/compass.legacy/library/templates/doc_memory.org.mustache][=projects/compass.legacy/library/templates/doc_memory.org.mustache=]].
+
+* Tested by
+
+Manual. Scaffolding via the codegen guarantees the frontmatter; a
+visual check of the generated memory file confirms it.
+
+* See also
+
+- [[id:DC0BBA22-9D4F-4FDD-B011-E30B02B4B82F][Project memory]] — the catalogue and the contract for what
+  belongs.
+- [[id:7357C672-A49F-4974-9399-A166F761D222][compass-doc-add-memory skill]] — the LLM-side decision flow.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I create a new doc?]] — the parent codegen recipe;
+  memory is one of its doctypes.
+- [[id:D4E65EF1-54F4-47E1-9388-58BE9E36FBE3][How do I create a recipe?]] — sibling recipe-shape doc.

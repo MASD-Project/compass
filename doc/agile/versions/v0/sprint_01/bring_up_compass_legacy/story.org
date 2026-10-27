@@ -1,0 +1,63 @@
+:PROPERTIES:
+:ID: 9226D15F-B6A7-458E-970F-BFC839036CBE
+:END:
+#+title: Story: Bring up compass legacy
+#+description: Copy the document-management slice of compass.legacy into projects/compass.legacy, so the org documents are created and checked by the tool compass-ng uses until compass-ng replaces it.
+#+type: story
+#+level: s2
+#+filetags: :compass:tooling:sprint_01:v0:
+#+created: 2026-10-27
+#+updated: 2026-10-27
+#+environment:
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+compass legacy runs from this repository and owns the org documents: it
+scaffolds them from the compass-ng templates, indexes and searches them, and
+checks them for state drift. It stays until compass-ng replaces it.
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | STARTED                              |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | Review by the product owner.           |
+| Waiting on    | Nothing.                               |
+| Next          | Close the story once reviewed.         |
+| Last touched  | 2026-10-27                               |
+
+* Acceptance
+
+- =./compass.sh= at the repository root runs =projects/compass.legacy=.
+- =where=, =list=, =show=, =search=, =index=, =lint=, =sprint status= and
+  =sprint audit= work against this repository.
+- =add= scaffolds documents from the compass-ng =doc_*.org.mustache= templates.
+- The copied tests pass.
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+| [[id:11476A4E-6697-4712-85B4-E5DF96BE303D][Copy and prune the compass slice]] | DONE | 2026-10-27 | 2026-10-27 | Copy compass.py and its document modules, the doc_generate scaffolder with its doc templates, and the org-roam elisp into projects/compass.legacy, then prune every command outside document management. |
+| [[id:0DAF27F5-4F4F-4350-B3B7-8A47B8D4907D][Run compass against this repository]] | DONE | 2026-10-27 | 2026-10-27 | Point the paths at this repository and check where, list, show, search, index, lint, sprint status, sprint audit and the tests. |
+| [[id:FA638B63-3734-446F-84F4-1724C84B4A8D][Import the methodology documents]] | DONE | 2026-10-27 | 2026-10-27 | Import ORE Studio's methodology documents — the meta contract, cybernetics and the Systems, MASD, Zettelkasten and org-roam, the agile process, LLM, skills, runbooks, memories and recipes — with their IDs, and point links to product-specific pages at a 404 page. |
+
+* Decisions
+
+- Copy a slice, not the whole tool. Kept: =compass.py=, =doc_index=, =doc_list=,
+  =doc_show=, =search_scorer=, =ui=, codegen's =doc_generate.py= and
+  =regenerate_backlog_indexes.py=, the =doc_*= templates, and the org-roam
+  elisp. Dropped: environments, deployment, systemd, NATS, database, build,
+  site, test, PR, review, skills telemetry, timeline and fleet.
+- Prune =compass.py= mechanically: remove the dropped commands from =main=,
+  then remove every top-level definition no longer reachable, to a fixed
+  point. 7,799 lines became about 5,600.
+- Keep the code otherwise verbatim, so fixes in compass-ng port across.
+
+* Out of scope
+
+-

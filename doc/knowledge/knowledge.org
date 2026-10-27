@@ -1,0 +1,156 @@
+:PROPERTIES:
+:ID: 7474935C-95D1-3034-B833-83DCD9FB3A09
+:END:
+#+title: Knowledge
+#+description: Index of durable cross-cutting knowledge — the hub of each topic, and where to start reading it.
+#+type: knowledge
+#+level: cross
+#+filetags: :knowledge:index:
+#+created: 2024-06-15
+#+updated: 2026-10-02
+
+Durable, cross-cutting knowledge that outlives any sprint. Each page is
+a single topic — a definition, a convention, an explanation of how some
+piece of the system works — that other documents can link to without
+restating it. If you find yourself explaining the same concept in two
+places, that concept belongs here.
+
+This index lists the /hub/ of each topic rather than every page in it.
+A hub gathers its own pages and says how they relate, so listing both
+here would duplicate that work and go stale as pages are added. Follow
+the hub for the topic you want; to see every page regardless of topic,
+list the =knowledge= tag.
+
+For user-facing documentation see [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][ORE Studio Manuals]].
+
+* Where to start
+
+A [[id:E3B70401-5142-4ACC-A61F-1BBF19F8470F][structure note]] says which pages to read, in what order, and why
+that order — the judgement search cannot supply. If your subject has
+one, start there rather than here.
+
+#+ATTR_HTML: :class hug-leading
+| Cluster | Read it to be competent at |
+|---------+----------------------------|
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Trade]] | What a trade is, how it is classified, and what happens to it over its life |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Market Data Requirements and Resolution]] | How a logical need for market data becomes concrete items |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Interest Rate Curves]] | Discounting, bootstrapping, and the multi-curve family |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Volatility]] | Realised against implied, the surface, and what trades on it |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Identity and Access]] | Who an actor is, and where each layer enforces it |
+| [[id:338DCC6D-4913-4FDC-9078-1F0B0486A9E5][MASD]] | The methodology the code generator implements |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Entity Lifecycle]] | The order an entity's layers must be built in |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Message Queue]] | How a subject is addressed, what a message must look like, and where a service binds to the bus |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Data storage]] | Where the durable data lives, which interface reaches each store, and how to choose one |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Report Processing]] | How a report is scheduled, prepared, run on the compute grid, and recorded |
+
+Every structure note carries the =structure_note= tag, so listing that
+tag returns the complete set.
+
+* Domain
+
+Finance concepts the codebase relies on.
+
+| Hub | What it gathers |
+|-----+-----------------|
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Trade]] | Identity, classification, lifecycle, versioning, confirmations, operational authorisation, [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][links between trades]], [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][trade sets and trade groups]] |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][ORE Products by Asset Class]] | Every ORE product type, by asset class and product family, each with its own page |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Report pages]] | Every documented report, each with its own page: what decision it feeds, who reads it, how often it runs, and the ORE XML that configures it |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Currency]] | The money and cash foundation, ISO 4217, and the currency roles a book or trade carries |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Currency Pairs]] | Pairs as reference data: naming, deliverability, quoting, classification |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Cross-Rates Matrix]] | The no-arbitrage spanning tree of driver and derived spot rates |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Market Data Requirements and Resolution]] | Requirements, identifiers, resolution, dependency closure, snapshotting, filtering |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Interest Rate Curves]] | Day counts, discount factors, bootstrapping |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Interest Rate Curve Families]] | How a currency's curves compose: funding and projection, build order, namespacing |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Term Structures and Tenors]] | Tenor labels, horizon date, date rolling, IMM dates, broken dates |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Volatility]] | The concept, the surface, the smile, and what trades on it |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Calendars, Holidays and Events]] | Calendar reference data, recurrence, and calendar-anchored events |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Book]] | Classification, the book and portfolio distinction, groups, lifecycle, ledger connection |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Sweep]] | Cash centralisation, and the spot and ledger sweep types built on it |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Stochastic Processes]] | The processes behind the quant generators: Wiener, Ito, and the mean-reverting family |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Market Data Architecture]] | How a tick becomes a stored observation, how a config becomes a running synthetic feed, the verbs and screens that drive it, and the vendor and stored data side |
+
+** Topics with no hub yet
+
+These have several pages and no page that gathers them, so they are
+named here until one exists.
+
+- Risk and valuation: [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Risk Reporting]], [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][P&L Attribution]], [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Pricing Configuration]],
+  [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][ORE model configuration]] and [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Compute Engine]].
+- Front office: [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Trade Blotter]], [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Trade Structures and Deal Composition]],
+  [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Business Unit]] and the [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][trading and banking book boundary]].
+- Data quality: [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Data quality]], the DQ-6 dimensions as we apply them.
+
+* Architecture
+
+How the codebase is put together.
+
+| Entry point | What it covers |
+|-------------+----------------|
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Component Architecture]] | The api/core/service split, facet placement, the CMake dependency chain |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Entity Lifecycle]] | Layer ordering and conventions for a full-stack entity, and the per-transport pattern pages |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Anatomy of a Service]] | Every layer of a NATS service, with a stand-up checklist |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Data-Oriented Design]] | The three regimes, and how to review a component's data model against them |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Journey execution]] | The four composition classes for a journey, where the transaction boundary sits, and why a journey is not a saga |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Workflows]] | The engine, the step protocol, the run and step states, and how a component describes the steps of a run |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Scheduler]] | The cron expression, the loop that evaluates it, the firing and its record, and the actions a firing performs |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Service architecture patterns]] | The pattern language of service interaction: the established patterns the platform uses, by group, with their sources, failure handling and pitfalls |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Market Data Architecture]] | Producers, the marketdata authority, feed configs, source-independent consumers |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Data storage]] | The system of record, object storage, the durable stream and the caches, and what each one owns |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][PostgreSQL Architecture]] | Schema layout, roles, session settings, bitemporal design |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][NATS Entity Protocol Specification]] | The subject grammar, verb set, envelopes, write model and security rules every common entity message follows |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Component Architecture Audit]] | The recurring per-component cleanliness check, and the conventions it enforces |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Component Clean Standard]] | The checklist a component passes to be clean and join the codegen gates |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][CMake Setup]] | The preset menu, output layout, and the conventions every component build follows |
+
+* Infrastructure
+
+The shared substrate every component builds on rather than a component of
+its own.
+
+| Entry point | What it covers |
+|-------------+----------------|
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Message Queue]] | The bus, the subject namespace, the message contract, and how a service binds to it |
+
+* Tooling
+
+The instruments contributors reach for, rather than user-facing
+features. Each component's own page carries its script inventory.
+
+| Component | What it does |
+|-----------+--------------|
+| [[id:6F7A122F-BC0F-4F3E-BA46-8B793FF15D10][compass.legacy]] | Repository compass: orientation, doc search, agile scaffolding over the graph |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][ores.codegen]] | The code generator producing SQL, C++ and org documents from JSON models |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][ores.lisp]] | Emacs Lisp tooling: dashboard, database browser, org-roam export |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][ores.sql]] | Schema, migrations, role provisioning, database lifecycle |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Developer scripts]] | Inventory of the standalone scripts in [[proj:scripts][=scripts/=]] |
+| [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][CI workflows and local checks]] | Every gating check, its fate, and the change-classification rules |
+
+* UI
+
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][UI design principles]] — design direction, typography, colour, spacing,
+  depth and motion, and the icon catalogue that follows from them.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][User Journeys]] — what a person is trying to
+  do, written down before it is built: the goal, the steps, the wireframe, the
+  entity fields composed into one screen, and the operations each step needs.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Record screen standard]] — the one shape and
+  behaviour of every screen that lists and maintains records: paging, the record
+  page, writes and change reasons, history, related records, icons and states.
+
+* Security
+
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Identity and Access]] — the structure note: who an actor is, and where
+  each layer enforces it. It orders the IAM and RBAC pages.
+
+* Documentation tooling
+
+- [[id:E3B70401-5142-4ACC-A61F-1BBF19F8470F][Zettelkasten]] — the atomic-note method that motivates the graph
+  structure and the id-link discipline every page follows. It orders the
+  org-roam and Emacs pages.
+
+* External reference
+
+Concepts and systems we do not own, captured so other documents can
+link to them without restating.
+
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][External knowledge index]] — the full list, including [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][ORE]], [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][QuantLib]] and
+  [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][FpML]].

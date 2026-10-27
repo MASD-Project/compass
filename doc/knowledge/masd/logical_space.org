@@ -1,0 +1,133 @@
+:PROPERTIES:
+:ID: 4F24EEB9-58F1-42FD-BF4F-121D890F2D85
+:END:
+#+title: Logical Space
+#+description: The MASD logical domain — the Logical Metamodel (LMM), its packages and levels of abstraction, the logical entity types, the logical address, and how logical entities project into physical space. Pure methodology; no project-specific content.
+#+type: knowledge
+#+level: cross
+#+filetags: :masd:logical_space:meta_model:codegen:
+#+created: 2026-06-07
+#+updated: 2026-06-07
+#+startup: inlineimages
+
+The /logical domain/ is the language-neutral meta-model of MASD: the abstract
+layer that describes what domain concepts /can/ exist and what structure they
+have, independently of any programming language, file format, or deployment
+platform. Logical entities are defined once here and then /projected/ into
+[[id:787A7429-71D5-4295-829B-A9B56275B1F8][physical space]] to produce concrete artefacts.
+
+The distinction is adapted from Lakos's /Large-Scale C++ Software Design/:
+
+#+begin_quote
+/Logical design/ addresses all the type-related aspects of design — classes
+and their relationships. /Physical design/ addresses the placement of logical
+entities, such as classes and functions, into physical ones, such as files and
+libraries.
+#+end_quote
+
+In MASD, logical design is fully technical-space-agnostic: a =value= entity
+carries only its fields and relationships, not any language-specific
+annotations. The technical space, [[id:B079DA67-8408-4BD0-A93C-D108AC780872][facet]], and variability configuration
+determine how that entity ultimately manifests on disk.
+
+See [[https://mcraveiro.github.io/dogen/docs/domain_architecture.html][Domain Architecture]] for the formal treatment.
+
+* The Logical Metamodel (LMM)
+
+The /Logical Metamodel/ houses the meta-elements that model logical entities.
+It is designed expressly for code generation (an approach inspired by Piefel
+and Neumann) and is composed by /generalisation/ from physical patterns and
+alignment with technical-space metamodels, rather than by replication. The LMM
+is organised into packages:
+
+#+caption: Figure 29 (Dogen): packages within the LMM. Source: [[https://mcraveiro.github.io/dogen/docs/domain_architecture.html][Domain Architecture]].
+#+attr_html: :alt The packages that make up the Logical Metamodel.
+[[proj:assets/images/masd/masd_logical_model_packages.png]]
+
+The packages are: *Structural* (closest to language constructs), *Build*,
+*ORM*, *Visual Studio*, *Variability*, *Templating*, *Mapping* (PIM support),
+*Decoration*, *Serialization*, and *Physical*. The Structural package is the
+one most readers will work with.
+
+** Levels of abstraction in the Structural package
+
+The Structural package is itself organised as an abstraction ladder, from the
+concrete up:
+
+1. *Traditional meta-types* — module, enumeration, builtin, object.
+2. *Idiomatic meta-types* — exception, primitive, entry point.
+3. *Design patterns* — e.g. visitor (with singleton and builder in
+   development).
+4. *Object templates* — the highest abstraction; they exist at modelling-time
+   only.
+
+#+caption: Figure 31 (Dogen): the abstraction ladder in the Structural package. Source: [[https://mcraveiro.github.io/dogen/docs/domain_architecture.html][Domain Architecture]].
+#+attr_html: :alt Levels of abstraction in the Structural package, from traditional meta-types to object templates.
+[[proj:assets/images/masd/masd_lmm_levels_of_abstraction.png]]
+
+* Logical entity types
+
+In day-to-day modelling the structural meta-types appear as a fixed set of
+logical entity types. The type determines which [[id:B079DA67-8408-4BD0-A93C-D108AC780872][facets]] are available and what
+physical artefacts can be produced.
+
+| Type          | Description                                                                 |
+|---------------+-----------------------------------------------------------------------------|
+| =object=      | A class with identity, relationships, and operations. The primary type.     |
+| =value=       | Immutable; defined entirely by its fields; no independent identity.          |
+| =enumeration= | A closed set of named symbolic values.                                       |
+| =primitive=   | A named alias for a language builtin (e.g. =account_id= wrapping =int64_t=). |
+| =exception=   | An error type that can be thrown and caught.                                 |
+| =concept=     | An abstract interface specifying a contract without implementation.          |
+| =module=      | A namespace grouping; produces no artefacts of its own.                      |
+| =builtin=     | A language primitive (=int=, =string=…) that maps to an existing type.       |
+
+* The logical address
+
+Just as physical artefacts have an address, logical elements occupy points in
+logical space, written as:
+
+: [product].[component].[internal].[element name]
+
+#+caption: Figure 32 (Dogen): an example model annotated with LMM meta-types. Source: [[https://mcraveiro.github.io/dogen/docs/domain_architecture.html][Domain Architecture]].
+#+attr_html: :alt An example logical model with elements tagged by their LMM meta-types.
+[[proj:assets/images/masd/masd_example_logical.png]]
+
+* Default facets per entity type
+
+Not every entity type activates every [[id:B079DA67-8408-4BD0-A93C-D108AC780872][facet]]. The table below shows the
+default active facet set for each logical type in Dogen's C++ technical space —
+the canonical definition from the reference implementation:
+
+| Entity type   | =types= | =hash= | =io= | =serialisation= | =odb= | =test_data= |
+|---------------+---------+--------+------+-----------------+-------+-------------|
+| =object=      | ✓       | ✓      | ✓    | ✓               | ✓     | ✓           |
+| =value=       | ✓       | ✓      | ✓    | ✓               | —     | ✓           |
+| =enumeration= | ✓       | —      | ✓    | —               | —     | ✓           |
+| =primitive=   | ✓       | ✓      | ✓    | ✓               | —     | ✓           |
+| =exception=   | ✓       | —      | —    | —               | —     | —           |
+| =concept=     | ✓       | —      | —    | —               | —     | —           |
+| =module=      | —       | —      | —    | —               | —     | —           |
+| =builtin=     | —       | —      | —    | —               | —     | —           |
+
+These defaults are overridden through the [[id:CE95C751-2125-4BA9-A78D-C30F9540FC5E][variability model]].
+
+* Projections
+
+A /projection/ is a physical artefact produced from a logical entity through a
+model-to-text transformation. The same logical entity projects into many
+physical artefacts across many [[id:E7B74138-9ADA-4B4B-A983-23B3FDB55F44][technical spaces]] and [[id:B079DA67-8408-4BD0-A93C-D108AC780872][facets]] — a struct, a
+serialisation routine, an ORM mapping, a UI form — each a distinct expression
+of the same underlying logical truth. Modifying the logical entity (adding a
+field) propagates to all projections simultaneously through regeneration. The
+receiving side is described in [[id:787A7429-71D5-4295-829B-A9B56275B1F8][Physical Space]].
+
+* See also
+
+- [[id:338DCC6D-4913-4FDC-9078-1F0B0486A9E5][MASD]] — the structure note that orders this cluster, and where to read this page in it.
+- [[id:BA0E3273-DC4B-7CD4-447B-06227B7D09A8][MASD]] — methodology overview and the conceptual model.
+- [[id:787A7429-71D5-4295-829B-A9B56275B1F8][Physical Space]] — how logical entities become physical artefacts.
+- [[id:E7B74138-9ADA-4B4B-A983-23B3FDB55F44][Technical Space]] — the language/platform ecosystem that hosts projections.
+- [[id:B079DA67-8408-4BD0-A93C-D108AC780872][Facet]] — the named role that determines which artefacts a projection produces.
+- [[id:CE95C751-2125-4BA9-A78D-C30F9540FC5E][Variability]] — how active facets are configured per entity type.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Applied MASD]] — how one product instantiates this logical space.

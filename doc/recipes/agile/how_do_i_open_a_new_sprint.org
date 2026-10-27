@@ -1,0 +1,145 @@
+:PROPERTIES:
+:ID: 1E666848-A785-437E-A463-3D5A0DA0765F
+:END:
+#+title: How do I open a new sprint?
+#+description: Scaffold a new sprint folder under the current version, set its mission, and wire it into the version manifest.
+#+type: recipe
+#+level: cross
+#+filetags: :agile:sprint:codegen:recipe:
+#+created: 2026-05-21
+#+updated: 2026-06-12
+
+For the surrounding agile cycle (planning / execution / closure) and
+which cybernetic system owns the work, see [[id:F5426198-ACAF-41DA-A043-FF15785E4A1D][Sprint planning]] and
+[[id:7D72A9DA-984F-4130-BFF6-97B66B233907][Sprint closure]]. For the
+build-side housekeeping that pairs with opening a new sprint, see
+[[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I bump the project version?]] and [[id:2A8F0D61-B3F9-4C20-9E76-1D92C8A47FB5][How do I update submodules to
+latest?]].
+
+* Question
+
+How do I open a new sprint under the current version — scaffold the
+folder, set its mission, and link it from the version manifest?
+
+* Answer
+
+1. /Identify the current version and sprint/ via the doc tools:
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh list --type sprint --sort path | tail -5
+   #+end_src
+
+   The lexicographically-highest sprint folder is the current one.
+   The new sprint is current + 1 (e.g. =sprint_17= follows
+   =sprint_16=).
+
+2. /Confirm the new sprint number with the user/ before scaffolding.
+   Numbering is monotonic and cheap to reverse, but rolling
+   backwards is awkward.
+
+3. /Scaffold the sprint/. Use =compass add= — it defaults =--parent-dir=
+   to the current version automatically and mints a fresh =:ID:=,
+   applies the right frontmatter, builds the skeleton sections, and the
+   ancestor tag chain:
+
+   #+begin_src sh :results verbatim
+   projects/compass.legacy/compass.sh add sprint \
+     --slug sprint_17 \
+     --title "Sprint 17" \
+     --description "Sprint 17 — one-sentence mission." \
+     --tags "v0"
+   #+end_src
+
+4. /Set the =Previous= field./ In the scaffolded =sprint.org= =* Status=
+   table, set =Previous= to the id-link of the sprint that is closing:
+
+   #+begin_src org
+   | Previous | [[id:<closing-sprint-uuid>][Sprint N]] |
+   #+end_src
+
+5. /Write the sprint mission/. Open the generated
+   [[proj:doc/agile/versions/v0/sprint_17/sprint.org][=doc/agile/versions/v0/sprint_17/sprint.org=]] and fill in
+   =* Mission= (one sentence — see [[id:198DA730-D9FB-4BDE-B1C0-B930CD019917][sprint mission]] in the glossary).
+
+6. /Wire into the version manifest/. Open
+   [[proj:doc/agile/versions/v0/version.org][=doc/agile/versions/v0/version.org=]] and add the new sprint to
+   its =* Sprints= list as an id-link:
+
+   #+begin_src org
+   - [[id:<sprint-uuid>][Sprint 17]] — TBD.
+   #+end_src
+
+7. /Update the agile index/. Open [[proj:doc/agile/agile.org][=doc/agile/agile.org=]] and update
+   the =* At a glance= table — =Current Sprint= to an id-link for
+   the new sprint, =Next sprint= to plain text (the next sprint
+   doesn't exist yet). Update =#+updated:= to today:
+
+   #+begin_src org
+   | Current Sprint | [[id:<new-sprint-uuid>][Sprint N]] |
+   | Next sprint    | Sprint N+1                         |
+   #+end_src
+
+8. /Scaffold the sprint story and task/ for the sprint-open work
+   itself. This is required by =compass pr create=, which looks for
+   a task doc whose =#+branch:= matches the current branch:
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh add story \
+     --parent-dir doc/agile/versions/v0/sprint_N/open_sprint_N \
+     --slug open_sprint_N \
+     --title "Open sprint N" \
+     --description "Scaffold sprint N, wire version manifest, move postponed stories."
+   ./projects/compass.legacy/compass.sh add task \
+     --parent-dir doc/agile/versions/v0/sprint_N/open_sprint_N \
+     --slug task_open_sprint_N \
+     --title "Task: Open sprint N"
+   #+end_src
+
+   Then set =#+branch:= in the task file to the feature branch, link
+   the task from the story's =* Tasks= table, and link the story from
+   the sprint's =** Agile= table.
+
+9. /Move postponed stories/ from the previous sprint folder to the
+   new sprint folder. For each story dir still present in
+   =sprint_(N-1)/=:
+
+   - =git mv= the directory from =sprint_(N-1)/= to =sprint_N/=.
+   - In every =.org= file inside it, update the =#+filetags:= tag
+     from =:sprint_(N-1):= to =:sprint_N:=.
+   - Update the =Parent sprint= field in the story's =* Status= table
+     to an id-link pointing to the new sprint.
+   - Update =#+updated:= to today.
+
+   Verify with =compass sprint story= that all stories now appear
+   under the new sprint.
+
+10. /Promote captures into stories/, if applicable. See =Agile
+    Product Owner= for the promotion flow (capture → story, ID
+    preserved).
+
+11. /Bump the project version/ — see [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I bump the project version?]].
+    Land it as a separate commit on the same sprint-open PR.
+
+12. /Update the =vcpkg= submodule to latest/ — see [[id:2A8F0D61-B3F9-4C20-9E76-1D92C8A47FB5][How do I update
+    submodules to latest?]]. Land it as a separate commit on the
+    same new-sprint PR so the build-side housekeeping ships with
+    the sprint open.
+
+* Script
+
+The entry point is =projects/compass.legacy/compass.sh add=, mapping to
+=src/compass.py= (=cmd_add=), which calls =ores.codegen='s =doc_generate=
+as a library. The sprint template is =doc_sprint.org.mustache=.
+
+* Tested by
+
+Manual. Scaffolding via the codegen guarantees the frontmatter; a
+visual check of the generated =sprint.org= confirms the wiring.
+
+* See also
+
+- [[id:0820B7FD-147C-4832-AC25-C043D38D5B61][Sprint]] (glossary).
+- [[id:F5426198-ACAF-41DA-A043-FF15785E4A1D][Planning phase]] of the agile process.
+- [[id:5B670808-D28B-4818-A2FA-EA5220D35E8D][How do I add a doc with compass?]] — preferred scaffold entry point.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I create a new doc?]] §"New sprint" — full codegen reference.
+- [[id:C5EEF144-BB9D-2F44-453B-4B7338D8A457][New Sprint]] — the skill that drives this recipe.

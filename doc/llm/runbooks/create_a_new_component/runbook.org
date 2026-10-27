@@ -1,0 +1,76 @@
+:PROPERTIES:
+:ID: 9E427AF2-7CFB-4C12-9827-C8DF55681BBD
+:END:
+#+title: Create a new component
+#+description: Scaffold a new compass-ng component with api/core/service split, CMake wiring, component overview, and stub tests.
+#+type: runbook
+#+level: cross
+#+filetags: :llm:runbook:component:codegen:cmake:
+#+created: 2026-05-26
+#+updated: 2026-05-26
+
+This page documents a [[id:B555D2A6-10CA-4A93-973E-F2AF4E1D7E55][runbook]] — a named, repeatable composition of [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][recipes]] and [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][skills]] for a complete multi-step procedure. Each step references a recipe or skill by id-link.
+
+* Goal
+
+Scaffold a new compass-ng component following the [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][component architecture]]: api/core/service layers, CMake wiring, component overview doc, and stub tests.
+
+* Preconditions
+
+- Component name, purpose, and dependencies are defined.
+- Build environment is configured.
+
+* Steps
+
+In execution order. Since [[https://github.com/OreStudio/OreStudio/pull/1014][PR #1014]] the overview is the single
+source of truth for codegen — it must come *before* the C++ scaffold:
+
+1. /Write the component overview(s)./ Follow [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I create a
+   component overview?]] to scaffold and fill in each part. The scaffold
+   template includes the codegen-readable keywords (=#+name:=,
+   =#+full_name:=, =#+brief:=) so codegen can read identity straight off
+   the overview. For a split component, create one overview per part
+   under =projects/ores.COMPONENT/{api,core,service}/modeling/=; a
+   group-level overview at =projects/ores.COMPONENT/modeling/= is
+   optional (used for navigation + group-level scalars).
+
+2. /Scaffold the C++ + CMake./ Use [[id:59D662B0-D4E4-6A34-9EAB-EAC6E98F6BC9][Component Creator]] to run codegen
+   against each overview, once per address: =--address ores.cmake.component=
+   writes the =CMakeLists.txt= files and =--address ores.cpp= writes the C++
+   presence (the overview's =#+component_kind:= frontmatter picks the
+   flat/api/core/service variant). The overview scaffold writes
+   =:ores.cpp.scaffold.enabled: true= into the drawer, because a component
+   that has no models yet needs the first-generation scaffold: an umbrella
+   header, a placeholder domain type with its implementation and a
+   placeholder test. The line and the four files go together, once the
+   first real model lands. The scaffold facet is =#+default: disabled=, so
+   a component that does not carry the line never has them recreated,
+   however often it is regenerated.
+
+3. /Wire CMake./ Add the component to the top-level [[proj:projects/CMakeLists.txt][=projects/CMakeLists.txt=]]
+   and configure dependencies per [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][CMake setup]].
+
+4. /Add tests./ Follow [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Unit test conventions]] to add a Catch2
+   test as the first real model lands. The =test_main= comes from codegen;
+   a placeholder test comes from the opt-in scaffold in step 2 and goes
+   with it.
+
+5. /Build and verify./ Run =cmake --build --preset <preset>= and =ctest=
+   to confirm the scaffold compiles and passes stub tests. Verify the
+   codegen-side flow with =python3 projects/ores.codegen/tests/component_scaffold/verify.py=
+   which exercises the loader + scaffold-path resolution against fixtures
+   and prior art.
+
+6. /Commit and PR./ Use [[id:F4B1A670-3B02-11F1-BCE2-4B06F4BBA5D9][commit conventions]] and [[id:CC928252-E0C5-4C3C-A7A8-D613593E4E37][create a PR]].
+
+* Postconditions
+
+- Component compiles and links.
+- Stub tests pass.
+- Component overview doc exists.
+- PR is open.
+
+* See also
+
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Component architecture]] — api/core/service split.
+- [[id:D1125E49-3C4E-48D4-B7F9-15CAA45B3ADD][Runbooks catalogue]] — all runbooks.

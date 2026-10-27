@@ -1,0 +1,64 @@
+:PROPERTIES:
+:ID: E5635EAC-CCE9-C0A4-A00B-C1780FF4A88E
+:END:
+#+title: Agile
+#+description: Index of the agile information architecture — versions, sprints, stories, tasks, captures, and the process that connects them.
+#+type: knowledge
+#+level: cross
+#+filetags: :agile:index:knowledge:
+#+created: 2024-06-15
+#+updated: 2026-10-05
+
+This is the entry point to the agile information architecture. Work flows as
+ideas in the [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][product backlog]], promoted into a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] when a [[id:0820B7FD-147C-4832-AC25-C043D38D5B61][sprint]] pulls them in,
+broken down into [[id:31C868B9-306E-4282-BA8C-07E647021B34][tasks]] that map one-to-one to pull requests, and grouped into
+sprints that compose a [[id:CA4D4BDE-2EAB-4F0A-BC8B-7C0BCB17BC82][version]]. The pages under [[proj:doc/agile][=doc/agile/=]] are:
+
+- [[id:46DFE47F-967B-4C24-95BF-3E21F97CFD20][Agile process]] — overview of the loop: backlog refinement, the three sprint
+  phases, version closure; the inventory of the per-concept pages below.
+- [[id:4FAC3AE2-04A8-4C35-B72E-78C7A862EED9][Stories]] — what a story is: themes and epics, sizing, ready/done,
+  cross-sprint continuations.
+- [[id:A7CF5191-6786-408F-A4A6-3A508DCADAC1][Tasks]] — the one-PR unit of execution: sizing limits, discovered tasks,
+  ready/done.
+- [[id:F5426198-ACAF-41DA-A043-FF15785E4A1D][Sprint planning]] — mission first, choose stories, decompose into tasks.
+- [[id:227958A5-0F78-4CC6-A116-B83988592B68][Sprint execution]] — tasks through the lifecycle; heartbeat rule;
+  discovered-work triage.
+- [[id:7D72A9DA-984F-4130-BFF6-97B66B233907][Sprint closure]] — resolve stories, achievements, release notes,
+  retrospective.
+- [[id:A064D838-F127-4DD6-BB42-9A7902039AEE][Sprint themes]] — definitions of the six themes and the epic convention used
+  to group stories in sprint backlogs.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Versions]] — every version series of the product, the sprints inside each, and the
+  stories and tasks that compose those sprints.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Milestones]] — the named major release targets each version series works towards;
+  owns identity, theme, mission, and definition of done.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Product backlog]] — pre-sprint ideas split into [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][next]] (next-version candidates)
+  and [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][deferred]] (longer-term wishlist).
+
+The /contract/ every document follows (frontmatter, sections, state machine) is
+described separately under [[id:B69989F6-19E1-430D-AC6D-B2416E4C433F][doc/meta/]]. In particular, [[id:8810E0F9-C5B9-4CFA-A710-774AD6C771DD][lifecycle]] describes TODO
+state transitions generically — it is not agile-specific. Agile is the loop
+/around/ those states.
+
+* At a glance
+
+| Field           | Value     |
+|-----------------+-----------|
+| Current Version  | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][v0]]                            |
+| Current Sprint   | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Sprint 27]]                     |
+| Next sprint      | Sprint 28                     |
+| Target milestone | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][v1.0 — Static World]]           |
+
+* See also
+
+External essays on the agile approach this project draws from:
+
+#+begin_note
+These describe historical ideas that are the basis of the current process, but
+not the process as it stands now with its [[id:74C5D8A2-F781-4E23-A6FC-2921AD5879AD][cybernetic]] inspiration.
+#+end_note
+
+- [[https://mcraveiro.github.io/nerd_food/on_product_backlog.html][On Product Backlog]] — how stories flow from capture to
+  implementation.
+- [[https://mcraveiro.github.io/nerd_food/pull_request_driven_development.html][Pull Request Driven Development]] — why the PR is the atomic unit.
+- [[https://mcraveiro.github.io/nerd_food/on_maintenance.html][On Maintenance]] — the codebase as a repository of domain knowledge.
+- [[https://mcraveiro.github.io/nerd_food/on_evolutionary_methodology.html][On Evolutionary Methodology]] — lessons from the Linux kernel.

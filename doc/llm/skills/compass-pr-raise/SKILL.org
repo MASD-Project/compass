@@ -1,0 +1,147 @@
+:PROPERTIES:
+:ID: 4DF9BFE8-DC28-4220-AFF0-68E0A7CD5D2B
+:END:
+#+title: PR Raise
+#+author: Marco Craveiro
+#+options: <:nil c:nil todo:nil ^:nil d:nil date:nil author:nil toc:t
+#+startup: inlineimages
+#+export_exclude_tags: noexport
+#+level: s1
+#+filetags: :llm:skill:pr:github:claude:review:
+#+created: 2026-06-07
+#+updated: 2026-09-18
+
+#+begin_export markdown
+---
+name: compass-pr-raise
+description: Run the local code review, then open a pull request with compass pr create and post an @claude comment to trigger the on-demand review.
+license: Complete terms in LICENSE.txt
+---
+#+end_export
+
+* When to use this skill
+
+When the user is ready to open a pull request from a feature branch.
+Runs the local code review (the =compass-code-review-pr= skill) on the change,
+raises the PR with =compass pr create=, and posts an =@claude= comment
+to trigger the on-demand review.
+
+By the time this skill runs, the work is *done* from the developer's
+side — review is a post-done validation activity, not a continuation
+of implementation. That means task/story bookkeeping (see
+[[id:67FDB9A1-3EBE-45A5-97BD-5E5123661553][compass-agile-close-task]]) happens *before* this skill, not after review
+approves. A PR should never need a bookkeeping-only commit once CI
+has gone green post-review — that wastes a full CI cycle for a change
+with no code content. See [[id:2EA7FF1B-CC23-4275-9ADA-8C43103E3103][Work a task through to merged PR]] for why the
+lifecycle is ordered this way.
+
+* How to use this skill
+
+1. *MANDATORY — run the local check gate, and do not skip it even under
+   time pressure*. GitHub runs no check on a pull request, so this step is
+   the only gate between the branch and main.
+
+   Run the local check gate:
+
+   #+begin_src sh :results verbatim
+   ./compass.sh check
+   #+end_src
+
+   It classifies the branch diff against the decision tree in
+   =build/scripts/local_checks.py=, runs the checks that class needs, and
+   writes =build/output/local_checks/report.md=. Read the report: it names
+   every failure, the command that reproduces it, the command that fixes
+   it, and the tail of the failing check's log. =--plan= prints the classes
+   and the checks without running them.
+
+   A documentation-only change builds the changed pages and runs the doc
+   corpus checks; it never reaches the compiler. A change to the compiled
+   tree builds and runs the suites. The classes, their paths and the whole
+   catalogue are in
+   [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][CI workflows and local checks]].
+
+   Do not raise the PR until the report is green. Note the classes and the
+   result (e.g. "doc-only; site page and doc corpus clean", or "code; build
+   clean (<preset>); ctest 142/142 passed") — they go into the PR body's
+   Testing section in step 4 (=--testing-evidence=).
+
+2. *Run the local code review before raising the PR*. The automatic
+   GitHub review (=claude-code-review.yml=) was retired with the
+   absorb-PR-checks-locally story — the local review is the review
+   coverage now, so do not skip it even under time pressure. Invoke
+   the [[id:04CA6BD9-7739-4213-A9DC-17AAACE43252][compass-code-review-pr]] skill on the change (the =git diff
+   origin/main...HEAD= range from step 1), record every finding in the
+   task's =* Review= table with its decision (accept or decline, never
+   silently ignore), and address the accepted ones — fix, then re-run
+   the class's checks from step 1. The misspell check (=misspell-fixer
+   .= from the repo root; exit 0 = clean) is part of this review pass.
+
+3. *Close task/story bookkeeping now, if not already done*. The task
+   should already be =DONE= with its =* Result= written and the parent
+   story/sprint rows synced (per [[id:67FDB9A1-3EBE-45A5-97BD-5E5123661553][compass-agile-close-task]]) — do this *before*
+   raising the PR, not after review. If it's not done yet, do it now,
+   as part of the same commit set the PR will contain from the start.
+
+4. *Raise the PR*, carrying the verification from step 1 in the
+   body's Testing section, not in the Changes bullets. The generator
+   emits one fixed template — Summary / Changes / Traceability /
+   Testing, then the footer — and =compass pr create= refuses a raise
+   that carries no =--testing-plan=, =--testing-evidence= or
+   =--testing-limitations= text:
+
+   #+begin_src sh :results verbatim
+   ./compass.sh pr create --title "[component] Description" \
+     --summary "What changes, why." \
+     --change "First change" --change "Second change" \
+     --testing-plan "<what will be tested and how>" \
+     --testing-evidence "<class>; <checks run and results>" \
+     --testing-limitations "<what was left untested>"
+   #+end_src
+
+   Compass validates the title and the Testing flags, builds the body
+   (the Testing section appears after the Traceability table as Plan.,
+   Evidence. and Limitations. paragraphs), pushes the branch, opens
+   the PR, records it on the task, and stamps the journal. Note the
+   PR number it prints.
+
+5. *Trigger the on-demand =@claude= review* by posting a PR comment:
+
+   #+begin_src sh :results verbatim
+   gh pr comment <N> --body "@claude please review this pull request"
+   #+end_src
+
+   The automatic review workflow (=claude-code-review.yml=) is retired;
+   this comment runs the on-demand =claude.yml= trigger (=claude.yml=
+   stays). Claude will post a progress-tracking comment and then
+   inline findings once it is done.
+
+* Recipes
+
+- [[id:CC928252-E0C5-4C3C-A7A8-D613593E4E37][How do I create a PR?]] — =compass pr create= details, title conventions, body structure.
+
+* Reference
+
+- [[id:FCF81F0B-AFBF-4169-BD24-04DBD08180A9][GitHub recipes]] — full GitHub recipe index.
+- [[id:67FDB9A1-3EBE-45A5-97BD-5E5123661553][Agile close task]] — close bookkeeping before raising the PR, not after review.
+- [[id:2EA7FF1B-CC23-4275-9ADA-8C43103E3103][Work a task through to merged PR]] — the full lifecycle this fits into.
+
+* Artefacts                                                        :noexport:
+
+** Licence
+
+#+BEGIN_SRC fundamental :tangle LICENSE.txt
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+MA 02110-1301, USA.
+#+END_SRC

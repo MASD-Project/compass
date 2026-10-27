@@ -1,0 +1,84 @@
+:PROPERTIES:
+:ID: 9CCEF67E-1BCF-440B-8112-093B40085A7C
+:END:
+#+title: Doc Run Manual Screenshots
+#+author: Marco Craveiro
+#+options: <:nil c:nil todo:nil ^:nil d:nil date:nil author:nil toc:t
+#+startup: inlineimages
+#+export_exclude_tags: noexport
+#+level: s1
+#+filetags: :llm:skill:skills:claude_code:documentation:testing:
+#+created: 2026-07-17
+#+updated: 2026-09-19
+
+#+begin_export markdown
+---
+name: compass-doc-run-manual-screenshots
+description: Turn a manual chapter's [SCREENSHOT NEEDED] placeholders into real, cropped screenshots -- confirm a build and a fresh Acme-provisioned database (self-provisioned via ores.shell), record a capture checklist, take and crop each capture, wire the images in, rebuild, and hand off for human review.
+license: Complete terms in LICENSE.txt
+---
+#+end_export
+
+* When to use this skill
+
+When a manual chapter is content-complete (per [[id:E8E892B8-184D-474A-839F-FFCA1A5148EF][compass-doc-add-entity-chapter]])
+but still carries =[SCREENSHOT NEEDED]= placeholders that need turning
+into real, correctly-cropped images before the chapter is ready for
+human review.
+
+* How to use this skill
+
+Run [[id:43A1EE0A-374D-4EA1-BC72-BADDDC525D20][How do I capture screenshots for a manual chapter?]] end to end:
+
+1. Its *Prerequisites* section — build if needed, then [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][ready the
+   environment]] (fresh database, Acme Corporation provisioned by you,
+   not the user), then confirm the chapter itself already builds.
+   Non-negotiable, in order — never capture against a build or
+   database that predates the entity's current state.
+2. Its capture/wire-in sections — a =test_scenario= recording one step per
+   placeholder, each capture taken by hand and recorded in the step's
+   =*** Result=, then cropped and named per convention, wired into the
+   chapter, both the PDF and the HTML rebuilt, then handed off for human
+   review — this skill's job ends at a chapter with real images in
+   place, not at marking the task DONE.
+
+*Capture is blocked until a client exists again.* The runner that took
+these captures went with the Qt client. Do not stage the capture steps or
+claim a chapter is screenshot-complete while the recipe's blocking note
+stands; say so instead.
+
+* Recipes
+
+- [[id:43A1EE0A-374D-4EA1-BC72-BADDDC525D20][How do I capture screenshots for a manual chapter?]]
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I ready up an environment?]]
+- [[id:B0BD4EAC-1ECF-45F4-9D62-B590955D93DE][How do I document an entity?]] — the recipe this one follows on from.
+
+* Reference
+
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Archetype: doc_test_scenario.org.mustache]] — the =test_scenario= doc shape.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][QA Validation Runner: in-app test tracking for the multi-worktree fleet]]
+  — the panel this skill drove, before the Qt client was removed.
+- [[id:4FEB154D-50EF-4346-BB75-B0881188E4F5][compass-code-run-feature-test]] — sibling skill sharing the same
+  environment-readying recipe, applied to feature verification instead
+  of screenshot capture.
+
+* Artefacts                                                        :noexport:
+
+** Licence
+
+#+BEGIN_SRC fundamental :tangle LICENSE.txt
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+MA 02110-1301, USA.
+#+END_SRC

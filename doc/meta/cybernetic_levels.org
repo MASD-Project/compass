@@ -1,0 +1,268 @@
+:PROPERTIES:
+:ID: 926B916E-A57E-498E-99AB-720B583C0362
+:END:
+#+title: Cybernetic Levels
+#+description: Definitions of System 1–5, what each is responsible for, and how they interact.
+#+type: meta
+#+level: cross
+#+filetags: :meta:cybernetics:levels:
+#+created: 2026-05-18
+#+updated: 2026-05-21
+
+#+startup: inlineimages
+This page applies ideas from [[id:74C5D8A2-F781-4E23-A6FC-2921AD5879AD][cybernetics]] — specifically Stafford Beer's
+[[id:B730ECAB-A0BF-4894-9275-C0F4199272E3][Viable System Model]] — to compass-ng. There are five levels (S1 to S5) that separate
+/concerns/ across time horizons: from the agent running one task right now (S1)
+to the durable identity of the product as a whole (S5). In addition there is an
+independent audit channel — written *S3** and pronounced "three-star" to
+distinguish it from the operational S3 /control/ role; the two sit at the same
+level in Beer's model but do different jobs. A stateful document is tagged with
+the level it serves (=#+level:= frontmatter), so all artefacts of a given level
+are findable with one grep. The levels are not a strict hierarchy of authority —
+they are a separation of concerns. Higher levels do not override lower ones;
+they /constrain/ them.
+
+* System 1: Operations
+:PROPERTIES:
+:ID: DBFD530B-4B56-48D1-9F03-3A0D0DA16552
+:END:
+
+In Beer's VSM, /System 1/ is the operational unit that interacts directly with
+its environment to do the work. In compass-ng it is the agent at the keyboard: a
+subprocess that picks up a single task, implements it, and merges a PR.
+Everything above S1 only exists to keep S1 fed with coherent, well-scoped work.
+
+#+ATTR_HTML: :class hug-leading
+| Field                 | Value                                                                                                                                                                                        |
+|-----------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Scope                 | A single task.                                                                                                                                                                               |
+| Time horizon          | Hours to a day.                                                                                                                                                                              |
+| Thinks about          | How to implement /this/ task within its size budget.                                                                                                                                         |
+| Executor              | An agent (subprocess) spawned by an orchestrator.                                                                                                                                            |
+| Inputs                | A task document and the codebase.                                                                                                                                                            |
+| Outputs               | A PR, an updated task document marked done, any discovered tasks filed for triage.                                                                                                           |
+| Owns                  | The implementation of the task. Nothing more.                                                                                                                                                |
+| Lifecycle touchpoints | Runs the [[id:227958A5-0F78-4CC6-A116-B83988592B68][Sprint execution]] phase — claims =BACKLOG= tasks, transitions them through =STARTED= / =BLOCKED= / =DONE=, opens and lands one PR per task. Files [[id:4EA506F5-C3E9-4F92-8024-A5EED0B3DF43][discovered tasks]] for S2 to triage. |
+| System doc            | [[id:B544713A-BA23-4D5A-9CEE-084212D7C8BA][S1 Agent]] — load this doc when taking on the S1 role.                                                                                                                                                                                |
+
+* System 2: Coordination
+:PROPERTIES:
+:ID: BF4F183F-BB33-44F2-A53F-D9BD602E9BE8
+:END:
+
+In Beer's VSM, /System 2/ is the anti-oscillation layer: it coordinates the
+operational units below so they don't collide or duplicate work. In compass-ng
+it is the orchestrator LLM the user assigns to a story — it decomposes the story
+into tasks, hands them out to S1 agents, reviews what they produce, and decides
+what to do with anything discovered along the way.
+
+#+ATTR_HTML: :class hug-leading
+| Field                 | Value                                                                                                                                                                                                                                                                                                             |
+|-----------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Scope                 | A story and its tasks.                                                                                                                                                                                                                                                                                            |
+| Time horizon          | Days.                                                                                                                                                                                                                                                                                                             |
+| Thinks about          | How the story decomposes into tasks, what size each task must be, what order they run in, what to do with discovered tasks.                                                                                                                                                                                       |
+| Executor              | The orchestrator LLM the user assigned to the story.                                                                                                                                                                                                                                                              |
+| Inputs                | A story document, the sprint mission, the codebase.                                                                                                                                                                                                                                                               |
+| Outputs               | Tasks, decisions, review of agent output, story completion.                                                                                                                                                                                                                                                       |
+| Owns                  | Scoping, task sizing, in-story prioritisation, review.                                                                                                                                                                                                                                                            |
+| Lifecycle touchpoints | Decomposes promoted stories into tasks during [[id:F5426198-ACAF-41DA-A043-FF15785E4A1D][Sprint planning]]; reviews S1 output and triages discovered work during [[id:227958A5-0F78-4CC6-A116-B83988592B68][Sprint execution]]; resolves each story (=DONE= / =ABANDONED= / carried) during [[id:7D72A9DA-984F-4130-BFF6-97B66B233907][Sprint closure]]. Also files captures into the [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][product backlog]] when discovered work cannot fit any current story. |
+| System doc            | [[id:EECA6981-3240-44D9-ADA7-4B8C64A76B44][S2 Orchestrator]] — load this doc when taking on the S2 role.                                                                                                                                                                                                                                                            |
+
+* System 3: Control
+:PROPERTIES:
+:ID: 8F13BA75-EDAA-46CC-9BE2-E356D60BF4F4
+:END:
+
+In Beer's VSM, /System 3/ is operational management — it allocates resources to
+S1, integrates S2's coordination signals, and keeps the whole operational layer
+running coherently. In compass-ng it is the sprint planner: a session invoked
+when a sprint opens or closes, that decides which stories the sprint will pursue
+and verifies they cohere around one mission.
+
+#+ATTR_HTML: :class hug-leading
+| Field                 | Value                                                                                                                                                                                                                                                                                                      |
+|-----------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Scope                 | The current sprint, with awareness of the previous and next.                                                                                                                                                                                                                                               |
+| Time horizon          | Weeks.                                                                                                                                                                                                                                                                                                     |
+| Thinks about          | Does the set of stories in the sprint cohere with the sprint mission? Are short-term hacks accumulating? Are sprints linear in intent? Are discovered stories being triaged?                                                                                                                               |
+| Executor              | A session invoked on demand by the user.                                                                                                                                                                                                                                                                   |
+| Inputs                | The sprint backlog, completed sprints, current sprint mission.                                                                                                                                                                                                                                             |
+| Outputs               | Sprint planning, story prioritisation, retrospectives.                                                                                                                                                                                                                                                     |
+| Owns                  | Medium-term planning, sprint coherence.                                                                                                                                                                                                                                                                    |
+| Lifecycle touchpoints | Drives the entire [[id:46DFE47F-967B-4C24-95BF-3E21F97CFD20][sprint phases]] sequence — refines the [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][product backlog]] continuously, defines the sprint mission and chooses stories in /Sprint planning/, generates release notes and runs the post-mortem in /Sprint closure/, and decides when a next→deferred demotion or deferred→next promotion is appropriate. |
+| System doc            | [[id:F1D99662-C6B1-4839-92E1-D061CCF6B83F][S3 Sprint Planner]] — load this doc when taking on the S3 role.                                                                                                                                                                                                                                                              |
+
+* System 3*: Audit
+:PROPERTIES:
+:ID: ED29C99B-1507-49C9-9937-D296FFFE428E
+:END:
+
+In Beer's VSM, /System 3*/ ("three-star") is the independent audit channel — it
+watches the operational layer from the outside to catch drift the inside cannot
+see. In compass-ng it is scheduled scripts plus an occasional session: invariant
+checks that the docs and code say what they should, run continuously rather than
+per sprint.
+
+#+ATTR_HTML: :class hug-leading
+| Field                 | Value                                                                                                                                                                                                                                                           |
+|-----------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Scope                 | The whole information architecture.                                                                                                                                                                                                                             |
+| Time horizon          | Continuous.                                                                                                                                                                                                                                                     |
+| Thinks about          | Are invariants holding? Orphan tasks, stale recipes, broken links, completed work not linked to PRs, plans that outlived their task.                                                                                                                            |
+| Executor              | Scheduled scripts plus a session invoked on demand.                                                                                                                                                                                                             |
+| Inputs                | Every document under [[proj:doc][=doc/=]].                                                                                                                                                                                                                                    |
+| Outputs               | Audit reports, automatic state corrections, tasks to fix drift.                                                                                                                                                                                                 |
+| Owns                  | The integrity of the system itself.                                                                                                                                                                                                                             |
+| Lifecycle touchpoints | Observes the heartbeat invariant during [[id:227958A5-0F78-4CC6-A116-B83988592B68][Sprint execution]] (=STARTED= / =BLOCKED= staleness), checks every id-link resolves, audits =DISCOVERED= tasks that overstay one orchestrator session, verifies predecessor / successor symmetry on cross-sprint stories. |
+| System doc            | [[id:049B086E-F131-4D7A-8244-C1B2FF297AB6][S3* Auditor]] — load this doc when taking on the S3* role.                                                                                                                                              |
+
+* System 4: Intelligence
+:PROPERTIES:
+:ID: 6CA8B181-BD81-4EF4-AF27-64F5491D62F0
+:END:
+
+In Beer's VSM, /System 4/ is the outward-looking, strategic layer — it watches
+the environment over a longer horizon and asks "where is this going?". In ORE
+Studio it is the version planner: a session that checks whether the sequence of
+sprints adds up to the version mission and intervenes when it doesn't.
+
+#+ATTR_HTML: :class hug-leading
+| Field                 | Value                                                                                                                                                                                                                                                                                    |
+|-----------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Scope                 | The current major version.                                                                                                                                                                                                                                                               |
+| Time horizon          | Months.                                                                                                                                                                                                                                                                                  |
+| Thinks about          | Does the sequence of sprints lead to a coherent release? Are there sprints missing? Is the version's identity being eroded?                                                                                                                                                              |
+| Executor              | A session invoked on demand by the user.                                                                                                                                                                                                                                                 |
+| Inputs                | The version identity, the sprint sequence, the product identity.                                                                                                                                                                                                                         |
+| Outputs               | Version plan, sprint sequencing, release scope decisions.                                                                                                                                                                                                                                |
+| Owns                  | Medium-to-long-term planning.                                                                                                                                                                                                                                                            |
+| Lifecycle touchpoints | Cross-checks each sprint's mission against the version mission during [[id:F5426198-ACAF-41DA-A043-FF15785E4A1D][Sprint planning]]; participates in /release cut/ decisions during [[id:7D72A9DA-984F-4130-BFF6-97B66B233907][Sprint closure]] (whether to publish a release or land mid-version); responsible for moving captures next↔deferred when the next version's focus changes. |
+| System doc            | [[id:66EB6824-52B8-4603-B302-F805DA9EC443][S4 Version Planner]] — load this doc when taking on the S4 role.                                                                                                                                                                                                                                                |
+
+* System 5: Policy / Identity
+:PROPERTIES:
+:ID: 6DF00A64-7CC3-40A7-950B-55D2B05A31C7
+:END:
+
+In Beer's VSM, /System 5/ is the policy layer — it carries the identity of the
+organism, the durable answer to "what are we?". In compass-ng it is the [[id:2F71292F-CDB0-4E2E-B50F-4F02E10597C4][product
+identity]] doc and the sessions that maintain it; everything below S5 is filtered
+through that identity when deciding what counts as "compass-ng" at all.
+
+#+ATTR_HTML: :class hug-leading
+| Field                 | Value                                                                                                                                                                                                                                                                   |
+|-----------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Scope                 | The product as a whole.                                                                                                                                                                                                                                                 |
+| Time horizon          | Indefinite.                                                                                                                                                                                                                                                             |
+| Thinks about          | Is this idea compass-ng or not? Does a proposed version fit the product? Is a far story in scope?                                                                                                                                                                       |
+| Executor              | A session invoked on demand, usually with the user collaborating.                                                                                                                                                                                                       |
+| Inputs                | The product identity, candidate versions, candidate far stories.                                                                                                                                                                                                        |
+| Outputs               | Identity updates, scope decisions (accept / reject / defer), out-of-scope notes.                                                                                                                                                                                        |
+| Owns                  | What compass-ng /is/ and /is not/.                                                                                                                                                                                                                                      |
+| Lifecycle touchpoints | Filters story choice during [[id:F5426198-ACAF-41DA-A043-FF15785E4A1D][Sprint planning]] (does each candidate fit the [[id:2F71292F-CDB0-4E2E-B50F-4F02E10597C4][product vision]]?); reviews [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][backlog]] captures for identity-fit and decides accept (the capture stays in next/deferred) or reject (the capture is deleted, with the rationale noted in commit history). |
+| System doc            | [[id:5CAD21DA-21FB-460B-9286-8998B4C6EF52][S5 Identity Steward]] — load this doc when taking on the S5 role.                                                                                                                                                                                                                                                                            |
+
+* Information flow
+
+Information moves through the levels in three directions: /downward/
+as constraint (higher levels narrowing the space of acceptable lower
+work), /upward/ as signal (lower levels reporting what actually
+happened), and /sideways/ as audit (S3* observing the whole stack
+from outside).
+
+** Downward — constraint
+
+Identity → version identity → sprint mission → story goal → task
+goal. Each higher level constrains the space of acceptable
+lower-level work.
+
+#+caption: Constraint flowing downward through the cybernetic levels.
+[[proj:doc/meta/information_flow_downward.png]]
+
+** Upward — signal
+
+Task completion → story completion → sprint retrospective → version
+release notes → identity check. Each lower level surfaces what
+actually happened to the level above.
+
+#+caption: Signal flowing upward through the cybernetic levels.
+[[proj:doc/meta/information_flow_upward.png]]
+
+** Sideways — audit
+
+System 3* observes all levels and reports drift back outside the
+operational hierarchy.
+
+#+caption: S3* audit observes all five levels from outside the operational hierarchy.
+[[proj:doc/meta/information_flow_sideways.png]]
+
+* Connection to and divergence from the VSM
+
+compass-ng's five-level model is inspired by Beer's [[id:B730ECAB-A0BF-4894-9275-C0F4199272E3][Viable System Model]]
+but is not a faithful implementation of it. This section records where
+the mapping holds, where it diverges, and the known limitations of the
+analogy.
+
+** Where the mapping holds
+
+- *Separation of time horizons* — the core insight carries intact.
+  S1 operates in hours, S2 in days, S3 in weeks, S4 in months, S5 over
+  the product lifetime. This is directly analogous to Beer's intended
+  separation.
+
+- *S3\* as independent audit* — the audit channel is structurally
+  separate from the operational hierarchy in both Beer's model and ORE
+  Studio. In both cases it bypasses the reporting chain to observe S1
+  directly.
+
+- *Recursion in principle* — any sufficiently large task could itself
+  be decomposed into S1–S5 sub-levels. The model is applied at the
+  story/sprint level but the structure would hold at finer granularity.
+
+- *Viability requirement* — removing any level breaks the system. A
+  project with no S4 (version planning) drifts without strategic
+  direction; a project with no S5 (product identity) loses coherence
+  over time.
+
+** Where it diverges
+
+- *S1 is an LLM agent, not a human worker.* Beer's S1 units are
+  autonomous operational teams with their own management structure. In
+  compass-ng, S1 is a single-session subprocess that executes one task
+  and terminates. It has no internal S2–S5; it is an atom, not a
+  recursive system.
+
+- *S2 is asynchronous documentation, not a live coordination layer.*
+  Beer's S2 is a real-time anti-oscillation mechanism (schedules,
+  shared protocols, inter-unit signals). In compass-ng, S2 is the
+  orchestrator that decomposes a story into tasks and reviews agent
+  output — a more sequential, supervisory role than Beer intended.
+
+- *S3 and S4 are invoked on demand, not continuously running.* In a
+  true VSM, S3 and S4 are always active. In compass-ng, they are
+  sessions triggered by the user at sprint open/close or version
+  review. The system is not self-regulating between invocations.
+
+- *No algedonic channel.* Beer's VSM includes an algedonic signal —
+  an emergency bypass that lets S1 alert S5 directly when pain or
+  pleasure is intense enough to require immediate policy attention. ORE
+  Studio has no equivalent; escalation goes through the normal levels.
+
+** Known limitations
+
+- *Single-agent serialisation* — because tasks are executed one at a
+  time in a single worktree, true S2 coordination (preventing collision
+  between concurrent S1 units) rarely applies. The model is aspirational
+  for multi-agent parallelism that is not yet the norm.
+
+- *Human in the loop at every level* — Beer designed the VSM for
+  autonomous organisations. In compass-ng, the user is present at S3–S5
+  and often participates in S2. This collapses some distinctions the
+  model assumes are structurally enforced.
+
+- *The analogy is a lens, not a specification.* The level labels
+  (=#+level:= tags) are a filing convention, not a runtime
+  enforcement. Nothing prevents an S1 agent from making S4-class
+  decisions; the model relies on convention and review, not
+  architecture.

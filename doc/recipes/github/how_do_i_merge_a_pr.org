@@ -1,0 +1,77 @@
+:PROPERTIES:
+:ID: 95D560C6-3551-4810-9D11-55F9F82B483C
+:END:
+#+title: How do I merge a PR?
+#+description: Merge an approved PR with compass pr merge — guard rails on threads and CI, merge commit only, branch cleanup.
+#+type: recipe
+#+level: cross
+#+filetags: :github:pr:merge:gh:recipe:
+#+created: 2026-05-21
+#+updated: 2026-07-11
+
+This is the last step in the =PR Manager= lifecycle. Only run it
+after the user has explicitly confirmed CI is green and all review
+threads are resolved. Merge should be the *only* action taken at this
+point — nothing gets built, tested, or committed here that could push
+a new commit and force another CI cycle. That verification already
+happened before the PR was raised (see [[id:CC928252-E0C5-4C3C-A7A8-D613593E4E37][How do I create a PR?]]) and
+again after each review-round fix.
+
+* Question
+
+How do I merge a green, approved PR and delete its feature branch?
+
+* Answer
+
+1. /Verify the task is already closed/ — =DONE=, =* Result= written,
+   story/sprint synced. It should already be, since bookkeeping runs
+   *before* the PR is raised (see [[id:CC928252-E0C5-4C3C-A7A8-D613593E4E37][How do I create a PR?]]), not at merge
+   time. A task that is still STARTED is a hard stop — go close it
+   (tasks may legitimately span several PRs and stay open on purpose,
+   but that's a deliberate choice, not the default). Note that closing
+   it now means one more commit and one more CI cycle before merging —
+   this is recovering from a skipped step, not the normal path.
+
+2. /Merge/ — the guard rails are built in: the command refuses while
+   review threads are unresolved or CI is not green, merges (always
+   a merge commit — never squash/rebase), retries GitHub's transient
+   base-branch-modified race, and deletes the remote branch
+   (worktree-safe):
+
+   #+begin_src sh :results verbatim
+   ./compass.sh pr merge               # current branch's PR
+   ./compass.sh pr merge 123           # explicit PR number
+   ./compass.sh pr merge --force       # override the guards, stating what was bypassed
+   #+end_src
+
+3. /Sync local main/:
+
+   #+begin_src sh :results verbatim
+   git checkout main
+   git pull --ff-only origin main
+   #+end_src
+
+* Conventions
+
+- /Wait for explicit user confirmation/ before merging. =gh pr
+  checks= can be green for transient reasons; the user holds the
+  authority to merge.
+- /Never force-push to main/ — the project's branch protection
+  rejects it anyway.
+
+* Script
+
+=compass pr merge= ([[proj:projects/compass.legacy/src/compass_pr.py][=projects/compass.legacy/src/compass_pr.py=]])
+wrapping =gh pr merge --merge= (adds =--admin= when =--force= is
+given), deleting the remote branch directly afterwards.
+
+* Tested by
+
+Manual.
+
+* See also
+
+- [[id:CC928252-E0C5-4C3C-A7A8-D613593E4E37][How do I create a PR?]] — the start of the lifecycle.
+- [[id:479E7E27-4060-4BFD-AC38-F11EFA3BB306][How do I start a new feature branch phase?]] — what comes after
+  a merge when more work follows.
+- =PR Manager=.

@@ -1,0 +1,56 @@
+:PROPERTIES:
+:ID: 2F71292F-CDB0-4E2E-B50F-4F02E10597C4
+:END:
+#+title: Product Identity
+#+description: High-performance, data-oriented C++ re-implementation of the document management of compass from compass-ng: a side-kick that helps LLMs understand and manage the project they work on.
+#+type: product_identity
+#+level: s5
+#+filetags: :identity:vision:
+#+created: 2026-10-27
+#+updated: 2026-10-27
+
+This is the product identity of compass-ng — the System 5 document in our
+cybernetic information architecture, where identity is the durable policy layer.
+It states what compass-ng is, who it serves, and what it will not do.
+
+* Vision
+
+** Vision statement
+
+compass-ng is a side-kick for LLMs working on a software project. It holds the
+project's documentation, knowledge and work as one linked corpus of documents,
+and lets LLMs and humans query and change that corpus quickly. The work of the
+LLMs is itself managed by compass-ng, as documents.
+
+compass-ng ports the document management of compass — compass-ng's
+=projects/compass.legacy= and the =doc/= contract it serves — to a C++
+data-oriented design. "compass-ng" names the new implementation; "compass"
+names the old one.
+
+** Qualities
+
+- *Fast.* Queries answer in milliseconds on a corpus the size of compass-ng's
+  (about 10,000 documents) and scale well beyond it.
+- *Memory-efficient.* Data-oriented layout; no per-document object graphs.
+- *Concurrent.* At least 10 clients at once, mostly reads with a steady stream
+  of writes.
+- *Self-hosting.* compass-ng manages its own documentation and work as soon as
+  it can.
+
+* Audience
+
+| Client | Frontend                       | Needs                                                                         |
+|--------+--------------------------------+-------------------------------------------------------------------------------|
+| LLMs   | =compass= CLI, binary protocol | Fast, compact, unambiguous answers: find, show, link, create and update work. |
+| Humans | Website                        | Browse everything as a wiki.                                                  |
+| Humans | ImGui viewer                   | See the rich data in real time, in particular the knowledge graph.            |
+
+* Out of scope
+
+Everything in compass-ng's compass that is not document management:
+environments, deployment, systemd, NATS, builds and pull requests.
+
+* Relationship to versions and milestones
+
+This document is version-independent. Each version states what it delivers
+towards this identity; see [[id:2ABEC8F1-4A0B-4E79-8BFC-D1AF9B340A23][Version 0]].

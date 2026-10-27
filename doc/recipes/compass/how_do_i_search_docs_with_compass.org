@@ -1,0 +1,103 @@
+:PROPERTIES:
+:ID: BDA8F7FB-5CEC-42D8-BC78-766BBC8D4285
+:END:
+#+title: How do I search docs with compass?
+#+description: Use compass search to full-text search the org-roam doc graph, with pretty/line/json output.
+#+type: recipe
+#+level: cross
+#+filetags: :compass:search:docs:recipe:bearings:
+#+created: 2026-05-24
+#+updated: 2026-06-06
+
+Compass is the [[id:6F7A122F-BC0F-4F3E-BA46-8B793FF15D10][developer toolkit]] for compass-ng; =search= is its full-text
+slice. It needs a local index first — see [[id:DEAC11AE-3753-49FA-994A-98594162A605][How do I index notes for
+compass?]]. To find /one/ doc by UUID instead, see [[id:E8231C22-CB31-4D85-A9C0-7602953764FF][How do I show a doc by
+UUID?]].
+
+* Question
+
+How do I full-text search the documentation graph from the shell?
+
+* Answer
+
+Run =compass.sh search= with a query. FTS5 ranks results across title,
+description, tags, content and outline path; results are deduplicated
+(one per doc) and capped at 5 by default.
+
+1. /Plain search/ (pretty output, default). Each hit is one block:
+   type icon, title, description, and a ready-to-run yellow
+   =compass show <UUID>= hint:
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh search "service isolation"
+   #+end_src
+
+2. /Ask a question/. Question-shaped queries ("How do I …?") run a
+   title-scoped first pass — recipes are titled as the question they
+   answer — and surface a =💬= answer extract from the recipe's
+   =* Answer= section:
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh search "How do I create a PR?"
+   #+end_src
+
+3. /Cap or widen the number of results/ with =-l=:
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh search "currency" -l 10
+   #+end_src
+
+4. /Verbose output/ with =-v=: adds the file path, outline location,
+   tags, and the matched snippet per hit:
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh search "currency" -v
+   #+end_src
+
+5. /Machine-readable output/ with =-f=. =line= prints
+   =UUID "path" "match"= (one per line, easy to pipe); =json= prints a
+   structured array (uuid, path, title, olp, tags, snippet):
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh search "nats" -f line
+   ./projects/compass.legacy/compass.sh search "nats" -f json
+   #+end_src
+
+6. /Scope by path/ with =--under <path>= (repeatable). Restricts
+   results to docs below the given directory. Combine with =--type= to
+   narrow further:
+
+   #+begin_src sh :results verbatim
+   # Full-text search across the product backlog captures only
+   ./projects/compass.legacy/compass.sh search "ores shell" \
+     --under doc/agile/product_backlog --type capture
+
+   # Backlog search for a feature idea (no grep needed)
+   ./projects/compass.legacy/compass.sh search "typesense" \
+     --under doc/agile/product_backlog/inbox
+
+   # All sprint-20 tasks mentioning codegen
+   ./projects/compass.legacy/compass.sh search "codegen" \
+     --under doc/agile/versions/v0/sprint_20 --type task -l 10
+   #+end_src
+
+The query supports FTS5 syntax (quoted phrases, =AND=/=OR=, =*=
+prefixes); a bare multi-word query is tokenised (punctuation safe)
+and OR'd with prefix matching.
+
+* Script
+
+=projects/compass.legacy/compass.sh search= → =src/compass.py=, querying
+the =compass_fts= FTS5 table in =.compass.db= (built by =compass index=).
+
+* Tested by
+
+Manual smoke test. Read-only over =.compass.db=; if the index is empty
+or stale, re-run =compass index= (see the indexing recipe).
+
+* See also
+
+- [[id:DEAC11AE-3753-49FA-994A-98594162A605][How do I index notes for compass?]] — build the cache search reads.
+- [[id:D1AE0786-5F2F-4437-8449-0E480C278A1B][How do I find docs matching a pattern?]] — exact filter listing
+  (=compass list=) when you know the type/tag/path.
+- [[id:41E5F9A8-1C2B-4ECA-8EA0-1ABBAB0B6A31][How do I see where we are?]] — current version / sprint / in-flight.

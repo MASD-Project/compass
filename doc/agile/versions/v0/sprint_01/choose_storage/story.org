@@ -1,0 +1,48 @@
+:PROPERTIES:
+:ID: 41B1692D-7666-4BEE-B724-EDB329A5B5CE
+:END:
+#+title: Story: Choose the storage engine
+#+description: Decide how compass-ng persists data, given 10 or more concurrent clients with mostly reads and a steady stream of writes.
+#+type: story
+#+level: s2
+#+filetags: :choose_storage:sprint_01:v0:
+#+created: 2026-10-27
+#+updated: 2026-10-27
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a story in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+A decision that names the storage engine and the concurrency model, with the reasons.
+
+* Status
+
+| Field         | Value                                                 |
+|---------------+-------------------------------------------------------|
+| State         | BACKLOG                                               |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | Not started.                                          |
+| Waiting on    | Nothing.                                              |
+| Next          | Compare storage candidates.                           |
+| Last touched  | 2026-10-27                                            |
+
+* Acceptance
+
+- The candidates are compared: SQLite in WAL mode, an embedded key-value store, a custom append-only log with snapshots.
+- The concurrency model is explicit: who reads, who writes, and how readers see consistent data while writes happen.
+- The choice fits the data model from the Extract the data model story.
+
+* Tasks
+
+| Task                                                                     | State   | Start | End | Description                                                                                                                         |
+|--------------------------------------------------------------------------+---------+-------+-----+-------------------------------------------------------------------------------------------------------------------------------------|
+| [[id:1759A8E5-40AF-44C0-9E9B-82D2EB6CE227][Compare storage candidates]]  | BACKLOG |       |     | Compare SQLite in WAL mode, an embedded key-value store and a custom append-only log with snapshots, against the concurrency model. |
+| [[id:A337654E-A6C2-4CC1-9BD2-9559AC6B2213][Record the storage decision]] | BACKLOG |       |     | Write the decision and its reasons into the story.                                                                                  |
+
+* Decisions
+
+
+* Out of scope
+
+* Result

@@ -1,0 +1,63 @@
+:PROPERTIES:
+:ID: 68056570-965C-4B2B-9A32-64A3AEA20611
+:END:
+#+title: Devops Deploy Manual
+#+author: Marco Craveiro
+#+options: <:nil c:nil todo:nil ^:nil d:nil date:nil author:nil toc:t
+#+startup: inlineimages
+#+export_exclude_tags: noexport
+#+level: s1
+#+filetags: :llm:skill:skills:claude_code:compass:
+#+created: 2026-06-06
+#+updated: 2026-06-06
+
+#+begin_export markdown
+---
+name: compass-devops-deploy-manual
+description: Build and publish the user manual PDF.
+license: Complete terms in LICENSE.txt
+---
+#+end_export
+
+* When to use this skill
+
+Building the user manual PDF after manual content changes.
+
+* How to use this skill
+
+1. /Confirm the chapters build before publishing/. The manual is assembled
+   from many org files, and one malformed chapter fails the whole PDF.
+
+2. /Run the target/ from the recipe below.
+
+3. /Check the screenshots came through/. A chapter carrying a
+   =[SCREENSHOT NEEDED]= placeholder builds cleanly and ships a gap.
+
+* Recipes
+
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I build the system?]] — the deploy_manual target.
+
+* Reference
+
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][CMake setup]] — the preset names and the output layout the targets write to.
+
+* Artefacts                                                        :noexport:
+
+** Licence
+
+#+BEGIN_SRC fundamental :tangle LICENSE.txt
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+MA 02110-1301, USA.
+#+END_SRC

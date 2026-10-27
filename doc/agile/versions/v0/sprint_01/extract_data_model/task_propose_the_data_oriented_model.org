@@ -1,0 +1,51 @@
+:PROPERTIES:
+:ID: D88E1DA6-CF28-4A09-9A5A-BD06E0733B6C
+:END:
+#+title: Task: Propose the data-oriented model
+#+description: Propose the compass-ng representation: tables, handles, string interning and graph layout.
+#+type: task
+#+level: s1
+#+filetags: :extract_data_model:sprint_01:v0:
+#+owner: marco
+#+branch:
+#+pr:
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-10-27
+#+updated: 2026-10-27
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a task in the [[id:E20F0268-BB77-4E40-9FC3-CB2928C64C23][Extract the data model]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+Propose the compass-ng representation: tables, handles, string interning and graph layout.
+
+* Status
+
+| Field        | Value                                                               |
+|--------------+---------------------------------------------------------------------|
+| State        | BACKLOG                                                             |
+| Parent story | [[id:E20F0268-BB77-4E40-9FC3-CB2928C64C23][Extract the data model]] |
+| Now          | Not started.                                                        |
+| Waiting on   | Nothing.                                                            |
+| Next         | Start the task.                                                     |
+| Last touched | 2026-10-27                                                          |
+
+* Acceptance
+
+- A knowledge document states the model and the product owner accepts it.
+
+* Plan
+
+* Measurements
+
+* Notes
+
+* Test Scenarios
+
+* PRs
+
+* Review
+
+* Result

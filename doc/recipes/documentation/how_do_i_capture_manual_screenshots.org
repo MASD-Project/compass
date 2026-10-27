@@ -1,0 +1,223 @@
+:PROPERTIES:
+:ID: 43A1EE0A-374D-4EA1-BC72-BADDDC525D20
+:END:
+#+title: How do I capture screenshots for a manual chapter?
+#+description: Confirm a build and a fresh, Acme-provisioned database, turn a chapter's [SCREENSHOT NEEDED] placeholders into a capture checklist, take each capture by hand, crop to the dialog, and wire the real images in.
+#+type: recipe
+#+level: cross
+#+filetags: :documentation:docs:manual:entity:testing:recipe:
+#+created: 2026-07-10
+#+updated: 2026-09-19
+
+Follows [[id:B0BD4EAC-1ECF-45F4-9D62-B590955D93DE][How do I document an entity?]], which leaves a chapter with every
+screenshot as a =[SCREENSHOT NEEDED]= placeholder carrying a =# Capture:=
+instruction. This recipe turns each placeholder into a real, cropped,
+correctly-named image. The
+[[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Capture screenshots for the Currency Pairs manual chapter]] scenario is the
+worked exemplar this recipe generalises from.
+
+*Capturing is currently blocked.* The [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][QA Validation Runner]] panel that
+took these captures was part of the Qt client, and that client is
+removed. A replacement now exists: =ores.web= is a TypeScript web client with
+runnable screens. The captures recorded here were taken with the desktop
+client, so steps 1, 4 and 5 below remain correct for a capture taken by
+hand, and steps 2 and 3 describe the runner that client provided.
+
+* Question
+
+How do I turn a manual chapter's =[SCREENSHOT NEEDED]= placeholders into
+real, correctly-named, correctly-cropped screenshots?
+
+* Answer
+
+** Prerequisites
+
+Run these three steps, in order, before touching the chapter's
+placeholders — every time. Capturing screenshots against a stale
+build or an unprovisioned tenant produces screenshots that don't match
+what ships.
+
+1. /Ask the user whether a new build is necessary/ before doing
+   anything else. If nothing has changed since the last build, skip
+   straight to step 2:
+
+   #+begin_src sh :results verbatim
+   ./compass.sh build --preset <preset>
+   #+end_src
+
+2. /Ready the environment/ — confirm the database is recent (recreate
+   only if it's not) and the Acme Corporation tenant is provisioned, per
+   [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I ready up an environment?]] steps 1-5. This recipe needs no
+   running client, so skip that recipe's step 6.
+
+3. /Confirm the chapter itself already builds/ before capturing
+   anything, so a broken link or missing include isn't mistaken for a
+   capture problem later:
+
+   #+begin_src sh :results verbatim
+   ./compass.sh build --direct manual
+   #+end_src
+
+** Write the capture checklist
+
+Count the placeholders and scaffold a =test_scenario= doc under the
+entity's story directory:
+
+#+begin_src sh :results verbatim
+grep -c "SCREENSHOT NEEDED" doc/manual/user_guide/chapter_<plural>.org
+
+./compass.sh add test_scenario \
+  --slug <plural>-manual-screenshots \
+  --parent-dir doc/agile/versions/v0/<sprint>/<story-slug> \
+  --parent-id <task-uuid> \
+  --parent-title "<the manual-chapter task's title>" \
+  --title "Capture screenshots for the <Plural> manual chapter" \
+  --description "Set up UI state and capture the N screenshot placeholders in chapter_<plural>.org."
+#+end_src
+
+Fill in the =* Scenario Info= table before writing steps, then add one
+=** Capture <target_filename>.png= step per placeholder, in the
+chapter's top-to-bottom order, each body copying that placeholder's
+=# Capture:= instruction verbatim (adjust only if the concrete data on
+file differs from the instruction's example, e.g. a different pair code
+than the one the instruction names — note the substitution in the step
+body). Do not invent extra steps *among the capture steps* — the count
+of capture steps should equal the placeholder count exactly — but the
+scenario is not complete without the closing review step below, which is
+mandatory and not counted against the placeholder count:
+
+- =** Check the built PDF= — open the rebuilt =user_manual.pdf= (e.g. via
+  =zathura= or =evince=) at the new chapter's pages and confirm layout,
+  figure numbering, and captions look correct in the PDF's own rendering
+  (page breaks, figure placement, the List of Figures entries).
+
+Do not mark the scenario PASSED without having actually looked at the PDF.
+
+** Take each capture by hand
+
+Nothing loads this scenario any more, so treat it as the written
+checklist it is. Start whatever client the chapter documents, log in, and
+open the window the chapter describes. Work the checklist top to bottom:
+set up the UI state each step names, take a full-desktop capture with the
+desktop's own screenshot tool (e.g. a =Screenshot from <timestamp>.png=
+landing wherever the desktop environment saves them, often a =tmp/= or
+=Screenshots/= directory), and record the file in that step's
+=*** Result= as =Notes | [[file:...]]=. Leave the window at its natural
+size: the crop below trims the desktop away, but a maximised or resized
+window changes what the reader sees.
+
+*Take the capture before dismissing anything the chapter describes.* A
+modal dialog is the common case — the capture has to happen while it
+holds focus, and a dismissed dialog cannot be photographed afterwards.
+
+** Locate and identify each capture
+
+#+begin_src sh :results verbatim
+find . -maxdepth 2 -iname "Screenshot from 2026*"
+#+end_src
+
+Open each one (or the scenario doc's per-step =Notes= links) and match it
+against the placeholder it was meant to satisfy — the step title already
+names the target filename, so this is a direct lookup, not a guess.
+
+** Crop to just the dialog or window, following the naming convention
+
+Every published manual screenshot is cropped tightly to the window or
+dialog of interest — never the full desktop, and never with a terminal
+or other chrome in frame. Use the raw capture's
+pixel bounds for the window in question (read them off the image; a
+quick Python/Pillow one-liner is enough, no dedicated tool):
+
+#+begin_src sh :results verbatim
+python3 -c "
+from PIL import Image
+im = Image.open('<raw_capture>.png')
+im.crop((left, top, right, bottom)).save('/tmp/<crop_name>.png')
+"
+#+end_src
+
+View the crop before finalising it — check no other window's edge and no
+cut-off button bleeds into frame; widen
+the box and re-crop if anything does. Name the final file per
+[[id:B0BD4EAC-1ECF-45F4-9D62-B590955D93DE][How do I document an entity?]]§"Name screenshots to the standard" (the
+plural/singular rule) — the target name is already fixed by the
+placeholder's =TODO_<name>.png=, so cropping just drops the =TODO_=
+prefix:
+
+#+begin_src sh :results verbatim
+cp /tmp/<crop_name>.png assets/images/<final_name>.png
+#+end_src
+
+** Wire the real images into the chapter and rebuild
+
+Replace each placeholder's link and caption:
+
+#+begin_example
+,#+caption: [SCREENSHOT NEEDED] <what to show>.
+# Capture: <instruction>.
+[[proj:assets/images/TODO_<name>.png]]
+#+end_example
+
+becomes
+
+#+begin_example
+,#+caption[<Short caption>]: <Long caption describing what the reader sees, naming the concrete record shown if relevant>.
+[[proj:assets/images/<name>.png]]
+#+end_example
+
+Then rebuild the PDF and confirm every new figure appears in the List of
+Figures:
+
+#+begin_src sh :results verbatim
+./compass.sh build --direct manual
+pdftotext -layout doc/manual/user_guide/user_manual.pdf - | grep -A20 "List of Figures"
+#+end_src
+
+Also export the self-contained HTML, so the browser-readable copy of the
+manual matches the PDF. This is a *separate* pipeline from the PDF and
+does not update just because =deploy_manual= ran:
+
+#+begin_src sh :results verbatim
+./compass.sh build --direct help
+#+end_src
+
+Both builds are prerequisites for the review step in step 1 above — do
+them before working it, not after.
+
+** Close out
+
+Update the screenshot task's Status/Result and the scenario's Test
+Scenarios table entry, commit the chapter, the PDF, and the new images
+together, and note in the task's =* Notes= if any concrete data (pair
+codes, currency codes, dates) differs from what the chapter's
+=# Capture:= instructions originally named. At this point the chapter is
+ready for human review — nothing else in the authoring flow is
+outstanding.
+
+* Script
+
+No dedicated wrapper — =compass add test_scenario= (scaffold), the
+desktop's screenshot tool (capture), and a short inline Python/Pillow
+snippet (crop) compose the flow. See [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Capture screenshots for the Currency
+Pairs manual chapter]] for a fully worked example; it was captured with
+the runner, so read it for the shape of the scenario and the crops rather
+than for the capture mechanics.
+
+* Tested by
+
+The manual build (=compass build --direct manual=) confirms every real
+image resolves and appears in the List of Figures; there is no automated
+check that a screenshot's *content* matches its caption — that is what
+the human review pass (recipe [[id:B0BD4EAC-1ECF-45F4-9D62-B590955D93DE][How do I document an entity?]]'s closing note)
+is for.
+
+* See also
+
+- [[id:B0BD4EAC-1ECF-45F4-9D62-B590955D93DE][How do I document an entity?]] — the recipe this one follows; defines the
+  placeholder convention and the naming standard this recipe fills in.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I ready up an environment?]] — the shared prerequisite chain
+  this recipe's step 2 calls rather than duplicating.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][QA Validation Runner: in-app test tracking for the multi-worktree fleet]]
+  — the panel this recipe drove, before the Qt client was removed.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Capture screenshots for the Currency Pairs manual chapter]] — the worked
+  exemplar scenario.

@@ -1,0 +1,86 @@
+:PROPERTIES:
+:ID: 8A9A460F-8024-4890-B091-C0D02FD84218
+:END:
+#+title: System Model
+#+description: compass-ng's layered architecture (foundation / infrastructure / domain / application / tooling) and the components proposed for each layer.
+#+type: knowledge
+#+level: cross
+#+filetags: :modeling:architecture:system_model:masd:
+#+created: 2026-10-27
+#+updated: 2026-10-27
+
+compass-ng follows the ORE Studio system model: components grouped into layers,
+with one invariant --- *a layer depends only on layers below it*. In MASD terms
+the layers and components are physical-space instances of the meta-layer and
+meta-component concepts (see ORE Studio =projects/modeling/applied_masd.org=).
+Component layout rules live in [[id:8A0E6F32-C4BC-4667-88E8-7F80CA25437C][Component architecture]].
+
+The component list below is a *proposal*. Two open stories can change it: the
+data model extraction and the storage decision (see
+[[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]).
+
+* Runtime topology (proposed)
+One server process owns the data. It keeps the working set in memory in a
+data-oriented layout (struct-of-arrays tables, interned strings, CSR adjacency
+for the graph) and persists through the storage component. Every frontend is a
+client of that server:
+
+#+begin_example
+ LLM ──▶ compass (CLI) ──binary protocol──┐
+ human ──▶ browser ──HTTP──▶ compass.web ─┼──▶ compass.server ──▶ storage
+ human ──▶ compass.viewer (ImGui) ────────┘        (single writer)
+#+end_example
+
+A single owning process removes most multi-client concurrency problems from the
+storage layer: many readers read immutable snapshots, one writer thread applies
+mutations. This is why the storage story can consider SQLite.
+
+* Foundation layer
+No compass-ng dependency. Generic, reusable code.
+
+| Component          | Role                                                                           |
+|--------------------+--------------------------------------------------------------------------------|
+| =compass.platform= | OS abstraction: memory-mapped files, filesystem, time, threads.                |
+| =compass.utility=  | UUIDs, hashing, string interning, arena and pool allocators, small containers. |
+| =compass.logging=  | Logger setup and factory.                                                      |
+
+* Infrastructure layer
+| Component         | Role                                                                                                                |
+|-------------------+---------------------------------------------------------------------------------------------------------------------|
+| =compass.storage= | Persistence engine behind one interface: write-ahead log, snapshots, recovery. Backend chosen by the storage story. |
+| =compass.wire=    | Binary protocol: framing, message schema, encode/decode, versioning. Shared by server and all clients.              |
+| =compass.testing= | Catch2 fixtures, corpus generators, benchmark harness.                                                              |
+
+* Domain layer
+The document model. Composite components use the =api= / =core= split.
+
+| Component           | Parts         | Role                                                                                                                                                                           |
+|---------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| =compass.documents= | =api=, =core= | Documents, frontmatter properties, sections, document types, lifecycle states. =api=: the columnar tables and handles. =core=: mutation, validation against the type contract. |
+| =compass.graph=     | =api=, =core= | The knowledge graph: typed links, backlinks, hierarchy (version → sprint → story → task), traversal and layout data for the viewer.                                            |
+| =compass.search=    | =api=, =core= | Inverted index, ranking, tag and type filters.                                                                                                                                 |
+| =compass.ingest=    | ---           | Org-mode parser; import of the ORE Studio corpus and of this repository's documentation.                                                                    |
+
+Work management (stories, tasks, sprints) is not a separate component. In
+compass a unit of work *is* a document with a lifecycle state; it lives in
+=compass.documents= and its hierarchy lives in =compass.graph=.
+
+* Application layer
+| Component        | Parts             | Role                                                                                    |
+|------------------+-------------------+-----------------------------------------------------------------------------------------|
+| =compass.server= | =core=, =service= | The owning process: in-memory store, request dispatch, snapshot readers, single writer. |
+| =compass.cli=    | ---               | =compass= executable used by LLMs; speaks =compass.wire= to the server.                 |
+| =compass.web=    | ---               | HTTP server that renders the corpus as a browsable wiki.                                |
+| =compass.viewer= | ---               | ImGui client for real-time visualisation, mainly the knowledge graph.                   |
+
+* Tooling layer
+| Component       | Role                                                                             |
+|-----------------+----------------------------------------------------------------------------------|
+| =compass.bench= | Load generator: simulates N concurrent LLM and human clients against the server. |
+
+* Open questions
+- Is =compass.ingest= domain or tooling? It is domain while the server imports
+  files at runtime; it becomes tooling if import is a one-off.
+- Does =compass.search= need its own part split, or is a simple component enough?
+- Does the web frontend talk to the server through =compass.wire= or link the
+  read path directly?

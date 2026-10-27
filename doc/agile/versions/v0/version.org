@@ -1,0 +1,32 @@
+:PROPERTIES:
+:ID: 2ABEC8F1-4A0B-4E79-8BFC-D1AF9B340A23
+:END:
+#+title: Version 0
+#+description: The 0.x.x release series. Goal: a running compass-ng that imports and serves its own documentation.
+#+type: version
+#+level: s4
+#+filetags: :v0:
+#+created: 2026-10-27
+#+updated: 2026-10-27
+#+todo: STARTED | RELEASED
+
+This page documents *v0* — the 0.x.x version series of compass-ng. It
+captures the series status and the sprints that compose it. For the durable,
+version-independent statement of what compass-ng is, see the [[id:2F71292F-CDB0-4E2E-B50F-4F02E10597C4][product identity]].
+
+* Status
+
+| Field        | Value                                                                              |
+|--------------+------------------------------------------------------------------------------------|
+| State        | STARTED                                                                            |
+| Target       | A compass-ng server and CLI that import and serve this repository's documentation. |
+| Now          | Sprint 1 in flight: project shape, data model, storage.                            |
+| Waiting on   | Nothing.                                                                           |
+| Next         | Close sprint 1.                                                                    |
+| Last touched | 2026-10-27                                                                         |
+
+* Sprints
+
+| Sprint                                                | State   | Start      | End | Description                                  |
+|-------------------------------------------------------+---------+------------+-----+----------------------------------------------|
+| [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] | STARTED | 2026-10-27 |     | Project shape, data model, storage decision. |

@@ -1,0 +1,51 @@
+:PROPERTIES:
+:ID: 51D5ADE5-EB49-419C-A3C9-88201BCCCB80
+:END:
+#+title: Task: Review the component plan
+#+description: Agree the layers, the components and their naming with the product owner.
+#+type: task
+#+level: s1
+#+filetags: :project_shape:sprint_01:v0:
+#+owner: marco
+#+branch:
+#+pr:
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-10-27
+#+updated: 2026-10-27
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a task in the [[id:D08C23FF-2A6E-4EFA-A7B7-F91822875AE0][Project shape]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+Agree the layers, the components and their naming with the product owner.
+
+* Status
+
+| Field        | Value                                                      |
+|--------------+------------------------------------------------------------|
+| State        | BACKLOG                                                    |
+| Parent story | [[id:D08C23FF-2A6E-4EFA-A7B7-F91822875AE0][Project shape]] |
+| Now          | Not started.                                               |
+| Waiting on   | Nothing.                                                   |
+| Next         | Start the task.                                            |
+| Last touched | 2026-10-27                                                 |
+
+* Acceptance
+
+- The product owner accepts the system model and the component architecture, or the documents record the changes.
+
+* Plan
+
+* Measurements
+
+* Notes
+
+* Test Scenarios
+
+* PRs
+
+* Review
+
+* Result

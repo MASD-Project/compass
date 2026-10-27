@@ -1,0 +1,27 @@
+:PROPERTIES:
+:ID: 4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D
+:END:
+#+title: Page Not Found
+#+description: The target of a link that does not exist in this repository: a page that stayed in ORE Studio when the methodology documents were imported, or a page that moved.
+#+type: meta
+#+level: cross
+#+filetags: :site:meta:
+#+created: 2026-05-22
+#+updated: 2026-10-27
+#+options: toc:nil num:nil
+
+* 404 — Page Not Found
+
+The page you requested could not be found.
+
+You followed a link to a page that does not exist in this repository. Most
+such links come from the methodology documents imported from [[https://github.com/OreStudio/OreStudio][ORE Studio]]:
+they linked to ORE Studio pages that are specific to that product (its
+domain, architecture, components and sprint history), and those pages were
+not imported. The link text names the page it pointed to.
+
+** Find what you were looking for
+
+- [[id:B69989F6-19E1-430D-AC6D-B2416E4C433F][Compass]] — the entry point; read it first.
+- [[id:82F08C3E-D00F-4888-8C11-CC4358AA9FB7][Meta]] — the document contract.
+- [[https://github.com/OreStudio/OreStudio][ORE Studio]] — the upstream project, where the original page may live.

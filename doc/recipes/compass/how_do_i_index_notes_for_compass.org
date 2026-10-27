@@ -1,0 +1,66 @@
+:PROPERTIES:
+:ID: DEAC11AE-3753-49FA-994A-98594162A605
+:END:
+#+title: How do I index notes for compass?
+#+description: Use compass index to build/update the local FTS cache from org-roam.db before searching.
+#+type: recipe
+#+level: cross
+#+filetags: :compass:search:index:recipe:bearings:
+#+created: 2026-05-24
+#+updated: 2026-06-05
+
+Prerequisite for the [[id:BDA8F7FB-5CEC-42D8-BC78-766BBC8D4285][search]] pillar of the [[id:6F7A122F-BC0F-4F3E-BA46-8B793FF15D10][compass tool]]. Indexing
+reads =.org-roam.db=; pass =--org-roam-db-sync= to regenerate it
+first, or sync it any other way (=compass build --direct org-roam-db-sync=,
+=M-x org-roam-db-sync= in Emacs).
+
+* Question
+
+How do I build (or refresh) the local search cache compass searches over?
+
+* Answer
+
+Run =compass.sh index=. It reads =org-roam.db= at the repo root and
+writes an FTS5 cache to =.compass.db= (git-ignored), updating only files
+whose mtime changed:
+
+#+begin_src sh :results verbatim
+./compass.sh index                       # incremental, by mtime
+./compass.sh index --org-roam-db-sync    # regenerate .org-roam.db first
+#+end_src
+
+=compass search= (pretty format) reports the age of both databases —
+green under 1h, warning over 5h, critical over 24h — with the refresh
+command to run, so a stale cache announces itself.
+
+To discard the cache and rebuild from scratch (e.g. after large
+renames or an org-roam schema change):
+
+#+begin_src sh :results verbatim
+./projects/compass.legacy/compass.sh index --rebuild
+#+end_src
+
+Inspect what is indexed with =debug=:
+
+#+begin_src sh :results verbatim
+./projects/compass.legacy/compass.sh debug
+./projects/compass.legacy/compass.sh debug -f glossary
+#+end_src
+
+If =.org-roam.db= is missing entirely, =index --org-roam-db-sync=
+creates it (emacs batch; packages from [[proj:.packages][=./.packages=]]).
+
+* Script
+
+=projects/compass.legacy/compass.sh index= → =src/compass.py= (=cmd_index=),
+reading =org-roam.db= read-only and writing =.compass.db=.
+
+* Tested by
+
+Manual smoke test. =index= is incremental by mtime; =--rebuild= forces a
+full pass.
+
+* See also
+
+- [[id:BDA8F7FB-5CEC-42D8-BC78-766BBC8D4285][How do I search docs with compass?]] — query the cache this builds.
+- [[id:41E5F9A8-1C2B-4ECA-8EA0-1ABBAB0B6A31][How do I see where we are?]] — orientation (needs no index).

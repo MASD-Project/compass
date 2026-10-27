@@ -1,0 +1,102 @@
+:PROPERTIES:
+:ID: 4F01E2FF-69AB-4839-88D1-4D8C21D99D3C
+:END:
+#+title: Start work on a new story
+#+description: Complete procedure from story scaffold to PR creation.
+#+type: runbook
+#+level: cross
+#+filetags: :llm:runbook:agile:story:git:pr:compass:
+#+created: 2026-05-26
+#+updated: 2026-05-28
+
+This page documents a [[id:B555D2A6-10CA-4A93-973E-F2AF4E1D7E55][runbook]] — a named, repeatable composition of [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][recipes]] and [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][skills]] for a complete multi-step procedure. Each step references a recipe or skill by id-link.
+
+* Goal
+
+Take a story from idea to open PR — scaffold, fill in, branch, mark STARTED, wire into the sprint, commit, push, and open a pull request.
+
+* Preconditions
+
+- You have a story idea with a slug, title, description, and tags.
+- Current sprint exists (=doc/agile/versions/v0/sprint_NN/=).
+- =compass= and =gh= CLI are installed and authenticated.
+- The session's SSH agent is used as-is (see [[id:F7E4C41F-AF34-43E5-ADC3-1D837126B3DE][Do not interfere with SSH session variables]]).
+
+* Steps
+
+In execution order:
+
+1. /Ensure main is up to date./ If you are not already on =main=, fetch without switching branches so the new branch starts from the latest remote state:
+
+   #+begin_src sh :results verbatim
+   git fetch origin main
+   #+end_src
+
+   =compass story new= also fetches =main= internally, but doing it explicitly first makes divergence visible before any files are created.
+
+2. /Scaffold the story./ Use [[id:84C9177E-C737-428A-BDF9-E55FA6C9680C][How do I start a unit of work with compass?]] — specifically =compass story new= — to create the feature branch, scaffold the story, and link a task in one step:
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh story new \
+     --slug my_feature --title "My feature" \
+     --description "What it delivers." --tags "topic"
+   #+end_src
+
+   This fetches =main=, creates =feature/my-feature=, and writes three
+   documents into the current sprint: =story.org=, a /scaffold task/
+   (STARTED, owning the branch — the scaffold PR closes /it/), and the
+   first real task (BACKLOG, no branch). To add a task to an
+   /existing/ story instead, use =compass task new --story <id>=.
+
+2a. /Prefer content at scaffold time./ Pass =--goal= and =--acceptance= so the docs are born complete. When editing afterwards anyway, read every generated file first and use the real =:ID:= values — never placeholder UUIDs.
+
+3. /Already clocked on./ =story new= clocks on to the scaffold task
+   automatically (STARTED + journal). The first /real/ task is picked
+   up later, when its work begins:
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh task start <first-task-slug>
+   #+end_src
+
+   =task start= derives =feature/<slug-kebab>= when the task has no
+   =#+branch:= (override with =--branch=).
+
+4. /Complete the prose./ Whatever was not supplied at scaffold time: =* Out of scope=, extra =* Tasks= rows beyond the scaffolded one (each =compass add task= wires its own row), and any =[[id:UUID]]= cross-references.
+
+5. /Mark the story STARTED./ =compass task start= (step 3) already set the story state and table row; fill the prose =Now= / =Next= fields by hand.
+
+6. /Wire into the sprint./ Add a row to the parent sprint's =* Stories= table. Each row: =| [[id:UUID][Title]] | STARTED | date | | Theme |=.
+
+7. /Commit the status change./ Use [[id:F4B1A670-3B02-11F1-BCE2-4B06F4BBA5D9][compass-ng commit conventions]]: =[agile] Mark <story> STARTED= with a =Co-Authored-By:= trailer.
+
+8. /Open the scaffold PR./ =compass pr create --title "[agile] ..." ...= per [[id:CC928252-E0C5-4C3C-A7A8-D613593E4E37][How do I create a PR?]] — it pushes the branch, builds the body (Summary / Changes / Traceability), records the PR on the scaffold task, and stamps the journal.
+
+9. /Close the scaffold task before merging./ The bookkeeping rides the
+   PR — never a follow-up PR:
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh task done scaffold_<slug>
+   #+end_src
+
+   Commit, push, and merge with =compass pr merge= — merge never
+   touches task state.
+
+* Postconditions
+
+- Story is =STARTED= in the current sprint and wired into the
+  sprint's =* Stories= table.
+- The scaffold PR is merged into =main= and its remote branch
+  deleted; the PR number is recorded in the scaffold task's =* PRs=
+  table.
+- The scaffold task is DONE with its close-out commit inside the
+  merged PR; the first real task remains BACKLOG until its work
+  begins.
+
+* See also
+
+- [[id:5AE311D8-36A8-4892-AAB4-DB3A13B00B6F][Add a task to an existing story]] — use this instead when the story already exists and you only need a new task.
+- [[id:84C9177E-C737-428A-BDF9-E55FA6C9680C][How do I start a unit of work with compass?]] — =compass story new= and =compass task new= syntax, =--dry-run= flag.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Product backlog]] — where captures live before becoming stories; the =next=, =deferred=, and =discarded= buckets; how to promote a capture into a sprint.
+- [[id:26C1DC06-82D2-46C4-94D6-DF9231BA171B][How do I address PR review comments?]] — what comes after the PR is open.
+- [[id:F4B1A670-3B02-11F1-BCE2-4B06F4BBA5D9][compass-ng commit conventions]] — commit format reference.
+- [[id:2EA7FF1B-CC23-4275-9ADA-8C43103E3103][Work a task through to merged PR]] — the next runbook: from task pickup to merge.

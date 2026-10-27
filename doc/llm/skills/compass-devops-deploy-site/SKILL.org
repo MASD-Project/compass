@@ -1,0 +1,66 @@
+:PROPERTIES:
+:ID: C6E41D12-6D7A-4C5E-BD89-C399A4ECA021
+:END:
+#+title: Devops Deploy Site
+#+author: Marco Craveiro
+#+options: <:nil c:nil todo:nil ^:nil d:nil date:nil author:nil toc:t
+#+startup: inlineimages
+#+export_exclude_tags: noexport
+#+level: s1
+#+filetags: :llm:skill:skills:claude_code:compass:
+#+created: 2026-06-06
+#+updated: 2026-06-06
+
+#+begin_export markdown
+---
+name: compass-devops-deploy-site
+description: Build and publish the documentation website from the org-roam graph.
+license: Complete terms in LICENSE.txt
+---
+#+end_export
+
+* When to use this skill
+
+Building and publishing the documentation website from the org-roam graph — also the local check that no id-links are broken before pushing doc changes.
+
+* How to use this skill
+
+1. /Build before you publish/. The site build is where a broken id-link
+   surfaces, and publishing a build you have not read means the broken
+   link ships.
+
+2. /Run the target/ from the recipe below. It prints its own log path;
+   follow that file rather than piping the command.
+
+3. /Read the tail, not the exit code alone/. The build reports success
+   while still naming files it skipped, and a skipped file is a page that
+   silently did not update.
+
+* Recipes
+
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I deploy the site?]] — building and publishing the site.
+
+* Reference
+
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][CMake setup]] — the preset names and the output layout the targets write to.
+
+* Artefacts                                                        :noexport:
+
+** Licence
+
+#+BEGIN_SRC fundamental :tangle LICENSE.txt
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+MA 02110-1301, USA.
+#+END_SRC

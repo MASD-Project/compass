@@ -1,0 +1,52 @@
+:PROPERTIES:
+:ID: D08C23FF-2A6E-4EFA-A7B7-F91822875AE0
+:END:
+#+title: Story: Project shape
+#+description: Set up the repository layout, the component plan and the document conventions, following compass-ng and MASD.
+#+type: story
+#+level: s2
+#+filetags: :project_shape:sprint_01:v0:
+#+created: 2026-10-27
+#+updated: 2026-10-27
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a story in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+The repository has the compass-ng shape — =doc/=, =projects/=, components with parts and facets — and the documents that define it.
+
+* Status
+
+| Field         | Value                                                 |
+|---------------+-------------------------------------------------------|
+| State         | STARTED                                               |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | In progress.                                          |
+| Waiting on    | Nothing.                                              |
+| Next          | Review the component plan.                            |
+| Last touched  | 2026-10-27                                            |
+
+* Acceptance
+
+- =doc/= holds the entry point, the meta, the product identity and the agile tree.
+- =projects/modeling/= holds the system model and the component architecture.
+- The product owner accepts the component plan.
+- The build skeleton configures, builds and runs one test.
+
+* Tasks
+
+| Task                                                                          | State   | Start      | End        | Description                                                                                                                                                          |
+|-------------------------------------------------------------------------------+---------+------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [[id:73ED7A65-CA63-48B7-AC00-1BCA8C78F8C4][Write the documentation skeleton]] | DONE    | 2026-10-27 | 2026-10-27 | Entry point, meta, product identity, the agile tree, the system model and the component architecture, in compass-ng's org-mode conventions.                          |
+| [[id:51D5ADE5-EB49-419C-A3C9-88201BCCCB80][Review the component plan]]        | BACKLOG |            |            | Agree the layers, the components and their naming with the product owner.                                                                                            |
+| [[id:8F8896D1-B930-4614-9D7C-548BF1097BE1][Create the build skeleton]]        | BACKLOG |            |            | Root CMakeLists.txt, CMakePresets.json, vcpkg.json and projects/CMakeLists.txt in the compass-ng shape, with one foundation component that builds and runs one test. |
+
+* Decisions
+
+- The component prefix is =compass.= and the C++ namespace is =compass::=.
+- Documents follow the compass-ng org-mode contract verbatim.
+
+* Out of scope
+
+* Result

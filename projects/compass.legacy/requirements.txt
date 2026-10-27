@@ -1,0 +1,11 @@
+# compass.legacy dependencies.
+#
+# search / where / list / show run on the Python standard library alone
+# (sqlite3, argparse, json, re, pathlib, dataclasses).
+#
+# The `add` (scaffold) command renders the doc_*.org.mustache templates
+# under library/templates with doc_generate.py, hence pystache.
+pystache>=0.6.0
+
+# Tests under tests/ run with pytest.
+pytest>=9.0

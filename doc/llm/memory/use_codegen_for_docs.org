@@ -1,0 +1,26 @@
+:PROPERTIES:
+:ID: 46F83AC1-F41F-4878-9A1D-2E49742E1BFE
+:END:
+#+title: Always use compass to create new documents
+#+description: Never write org files directly — always use compass add to scaffold them.
+#+type: memory
+#+memory_subtype: feedback
+#+level: cross
+#+filetags: :llm:memory:feedback:
+#+created: 2026-05-21
+#+updated: 2026-05-29
+
+Always use =compass add <type>= to create new =.org= files in the compass-ng
+repo. Never write them from scratch with Write or Write-equivalent tools.
+
+*Why:* Compass mints a fresh =:ID:= (preserving org-roam graph integrity),
+applies per-type title prefixes, fills in dates, and produces the correct
+section skeleton. Writing files directly bypasses all of that and was
+explicitly corrected by the user.
+
+*How to apply:* Whenever creating any new =.org= file under [[proj:doc][=doc/=]],
+[[proj:doc/agile][=doc/agile/=]], [[proj:doc/llm/memory][=doc/llm/memory/=]], [[proj:doc/recipes][=doc/recipes/=]], or [[proj:doc/knowledge][=doc/knowledge/=]], run
+=compass add <type>= with the appropriate =--slug=,
+=--parent-dir=, =--title=, =--description=, and =--tags= flags. Use
+=--id= to preserve an existing UUID when regenerating an existing file. After
+scaffolding, use Edit to fill in content sections.

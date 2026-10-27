@@ -1,0 +1,166 @@
+:PROPERTIES:
+:ID: 59D662B0-D4E4-6A34-9EAB-EAC6E98F6BC9
+:END:
+#+title: Codegen Add Component
+#+description: Scaffold a new compass-ng component (api/core/service) via codegen profiles.
+#+type: skill
+#+level: s1
+#+filetags: :llm:skill:skills:claude_code:component:codegen:cmake:
+#+created: 2024-09-01
+#+updated: 2026-06-06
+
+#+begin_export markdown
+---
+name: compass-codegen-add-component
+description: Scaffold a new compass-ng component (api/core/service) via codegen profiles.
+license: Complete terms in LICENSE.txt
+---
+#+end_export
+
+* When to use this skill
+
+When the user asks to create a new compass-ng component — a new
+project under [[proj:projects][=projects/=]].  Most domain components are split into
+=.api=, =.core=, and =.service= parts; decide which parts are needed
+before starting.  See [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Component architecture]] for the split rules,
+facet placement, and CMake dependency chain.
+
+* How to use this skill
+
+Codegen is *mandatory* for all boilerplate.  Do not hand-write
+CMakeLists or stub files.
+
+Since [[https://github.com/OreStudio/OreStudio/pull/1014][PR #1014]] the
+=component_overview.org= per component is the single source of
+truth for both humans and codegen — the standalone
+=*_component.json= and =*_component.org= models are retired.
+
+1. /Gather requirements/: component short name, parts needed
+   (=.api=, =.core=, =.service=, or a subset), one-line brief, longer
+   description.
+
+2. /Scaffold the per-part overview/ via compass.  For each part
+   (=.api=, =.core=, =.service=) run:
+   #+begin_src sh
+   ./projects/compass.legacy/compass.sh add component \
+     --slug component_overview \
+     --parent-dir projects/ores.COMPONENT/PART/modeling \
+     --title "ores.COMPONENT.PART" \
+     --description "<one-liner ≤ 120 chars>" \
+     --brief "<short tagline>"
+   #+end_src
+   The scaffold includes the codegen-readable keywords
+   (=#+name:=, =#+full_name:=, =#+brief:=) automatically.  Fill in
+   the =* Summary= and other sections per
+   [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Component Documentation Guide]].
+
+3. /Run codegen against each overview/ to scaffold the C++ + CMake
+   project. Each overview's =#+component_kind:= frontmatter (=api=,
+   =core=, =service=, or the default =flat=) selects the scaffolding
+   variant. Two addresses are needed: =ores.cmake.component= writes the
+   =CMakeLists.txt= files, and =ores.cpp= writes the C++ presence. The
+   C++ address is the technical space rather than one facet, because the
+   opt-in scaffold below is a sibling of =ores.cpp.component=.
+   #+begin_src sh
+   ./projects/ores.codegen/codegen.sh generate \
+     --model projects/ores.COMPONENT/api/modeling/component_overview.org \
+     --address ores.cmake.component
+   ./projects/ores.codegen/codegen.sh generate \
+     --model projects/ores.COMPONENT/api/modeling/component_overview.org \
+     --address ores.cpp
+   #+end_src
+   Repeat per part (=.api=, =.core=, =.service=), each against its own
+   overview file.
+
+   The overview scaffold writes =:ores.cpp.scaffold.enabled: true= into
+   the =:PROPERTIES:= drawer, because a component with no models yet needs
+   the first-generation scaffold: an umbrella header, a placeholder domain
+   type with its implementation, and a placeholder Catch2 test, so that its
+   targets link and its test runner passes before any real code exists.
+   That scaffold lives in =ores.cpp.scaffold=, which is =#+default:
+   disabled=, so that one line is the whole opt-in and nothing else emits
+   the placeholders.
+
+   Remove the line, and the four files, when the component's first real
+   model lands. While the line is present, every regeneration re-emits the
+   placeholders, which is what the line asks for;
+   =grep -rn 'ores.cpp.scaffold.enabled: true' projects/*/modeling/= lists
+   the components still carrying scaffolding.
+
+4. /(Optional) Add a group-level overview/ at
+   =projects/ores.COMPONENT/modeling/component_overview.org=.
+   The group overview is navigation + group-level codegen scalars;
+   the directory layout =projects/ores.COMPONENT/{api,core,service}/=
+   is the composite declaration (no =:subcomponents:= keyword needed).
+
+5. /Register/ each part in [[proj:projects/CMakeLists.txt][=projects/CMakeLists.txt=]] in dependency
+   order (=.api= → =.core= → =.service=).
+
+6. /Add a PlantUML stub/ (=modeling/ores.COMPONENT.PART.puml=) for each
+   part — codegen does not yet produce this.  See
+   [[id:B0B99088-D88E-4980-A4EE-7D6A9A8E96A5][component-model-creator]] for the diagram conventions.
+
+7. /Build and verify/ the scaffold tests with [[id:654D4A70-E63D-4C18-B5A5-886066E36314][cmake-runner]], via
+   =compass build= (not raw =cmake --build=, so it takes the
+   host-wide build lock — see [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I build the system?]]):
+   =./compass.sh build ores.COMPONENT.api.tests=
+
+8. /Fill in the architecture sections/ of each overview using
+   [[id:B0B99088-D88E-4980-A4EE-7D6A9A8E96A5][component-model-creator]] (Inputs, Outputs, Entry points,
+   Dependencies, See also, and the PlantUML diagram).
+
+* Templates
+
+The C++ scaffold runs via =--address ores.cpp=; the overview's
+=#+component_kind:= frontmatter picks the variant. The CMake files run via
+=--address ores.cmake.component=.
+
+| =#+component_kind:= | What =ores.cpp= writes |
+|---|---|
+| =flat= (default) | Export macros and the Catch2 test main; with the opt-in, the umbrella header, =domain/stub.hpp=, =src/domain/stub.cpp= and =tests/stub_tests.cpp= |
+| =api=, =core= | The same as =flat= |
+| =service= | Export macros, the test main and the service application; with the opt-in, the umbrella header and =tests/stub_tests.cpp= |
+
+All four kinds consume the same model type =component=, read
+from a =component_overview.org= via =load_org_component_overview_model=.
+Full template list is in [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][ORE Studio Codegen]]§"Profile catalogue".
+
+The codegen-side scaffold flow is exercised by
+[[proj:projects/ores.codegen/tests/component_scaffold/verify.py][=projects/ores.codegen/tests/component_scaffold/verify.py=]] — two
+fixture components (flat + composite) plus prior-art checks
+against =ores.nats= (flat) and =ores.controller= (composite
+group + 3 subs).
+
+* Reference
+
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Component architecture]] — split rules, facet placement, CMake dep chain.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][ORE Studio Codegen]] — model schema, physical-space graph, =codegen.sh= usage.
+- [[id:B0B99088-D88E-4980-A4EE-7D6A9A8E96A5][component-model-creator]] — write the architecture docs once scaffold is working.
+- [[id:654D4A70-E63D-4C18-B5A5-886066E36314][cmake-runner]] — build and test commands.
+
+* Recipes
+
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I create a component overview?]] — the overview every new component needs.
+
+* Reference
+
+* Artefacts                                                        :noexport:
+
+** Licence
+
+#+BEGIN_SRC fundamental :tangle LICENSE.txt
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+MA 02110-1301, USA.
+#+END_SRC

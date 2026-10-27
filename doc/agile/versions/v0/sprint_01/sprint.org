@@ -1,0 +1,44 @@
+:PROPERTIES:
+:ID: 850C1BC8-FE02-4EE0-A5D6-6085DC34CE27
+:END:
+#+title: Sprint 1
+#+description: Sprint 1 -- establish the project shape, extract the compass data model from compass-ng, and choose the storage engine.
+#+type: sprint
+#+level: s3
+#+filetags: :v0:
+#+start_date: 2026-10-27
+#+end_date:
+#+created: 2026-10-27
+#+updated: 2026-10-27
+#+todo: STARTED | DONE
+
+* Mission
+
+Know what we build before we write code: the repository shape, the data model, and where the data lives.
+
+* Status
+
+| Field          | Value                                                  |
+|----------------+--------------------------------------------------------|
+| State          | STARTED                                                |
+| Parent version | [[id:2ABEC8F1-4A0B-4E79-8BFC-D1AF9B340A23][Version 0]] |
+| Previous       | None.                                                  |
+| Start          | 2026-10-27                                             |
+| End (expected) |                                                        |
+| Release Notes  | Added at end of sprint.                                |
+| Now            | Sprint in flight.                                      |
+| Waiting on     | Nothing.                                               |
+| Next           | Review the component plan.                             |
+| Last touched   | 2026-10-27                                             |
+
+* Stories
+
+** Product
+
+#+ATTR_HTML: :class hug-leading
+| Story                                                                  | State   | Start      | End | Description                                                                                                                                      |
+|------------------------------------------------------------------------+---------+------------+-----+--------------------------------------------------------------------------------------------------------------------------------------------------|
+| [[id:D08C23FF-2A6E-4EFA-A7B7-F91822875AE0][Project shape]]             | STARTED | 2026-10-27 |     | Set up the repository layout, the component plan and the document conventions, following compass-ng and MASD.                                    |
+| [[id:9226D15F-B6A7-458E-970F-BFC839036CBE][Bring up compass legacy]] | STARTED | 2026-10-27 | | Copy the document-management slice of compass.legacy into projects/compass.legacy, so the org documents are created and checked by the tool compass-ng uses until compass-ng replaces it. |
+| [[id:E20F0268-BB77-4E40-9FC3-CB2928C64C23][Extract the data model]]    | BACKLOG |            |     | Extract the compass document model from compass-ng (the doc contract and the compass.legacy tool) and decide its data-oriented form in compass-ng. |
+| [[id:41B1692D-7666-4BEE-B724-EDB329A5B5CE][Choose the storage engine]] | BACKLOG |            |     | Decide how compass-ng persists data, given 10 or more concurrent clients with mostly reads and a steady stream of writes.                        |

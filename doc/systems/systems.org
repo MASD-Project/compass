@@ -1,0 +1,38 @@
+:PROPERTIES:
+:ID: 1A5E0079-5771-4213-B624-62FA9AC947B4
+:END:
+#+title: Systems
+#+description: Index of the Systems a session may act as, in Stafford Beer's sense, with the skills and pre-reads each requires.
+#+type: knowledge
+#+level: cross
+#+filetags: :systems:index:knowledge:
+#+created: 2026-05-21
+#+updated: 2026-05-21
+
+A [[id:66F2A9E8-0385-4D56-B4B1-0957208990DC][System]] is a named role that a session acts as, in the sense
+Stafford Beer gives the word. A System doc is the
+priming context an LLM session loads when it takes on the role: the
+purpose, what to pre-read, which [[id:4F6384FE-CDE9-40F6-B13D-8A84B6CD77F7][skills]] to use, what /not/ to do.
+Systems are role-shaped (descriptive); skills are task-shaped
+(operational). Systems compose skills.
+
+There is one System per [[id:926B916E-A57E-498E-99AB-720B583C0362][cybernetic level]], plus one for the
+independent audit channel.
+
+* Per system
+
+- [[id:B544713A-BA23-4D5A-9CEE-084212D7C8BA][S1 Agent]] — does one [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] and lands one PR.
+- [[id:EECA6981-3240-44D9-ADA7-4B8C64A76B44][S2 Orchestrator]] — coordinates one [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]], decomposes it into
+  tasks, oversees S1 agents.
+- [[id:F1D99662-C6B1-4839-92E1-D061CCF6B83F][S3 Sprint Planner]] — opens, runs, and closes a [[id:0820B7FD-147C-4832-AC25-C043D38D5B61][sprint]]; refines
+  the [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][product backlog]].
+- [[id:049B086E-F131-4D7A-8244-C1B2FF297AB6][S3* Auditor]] — observes the whole information architecture from
+  outside; reports drift.
+- [[id:66EB6824-52B8-4603-B302-F805DA9EC443][S4 Version Planner]] — plans a [[id:CA4D4BDE-2EAB-4F0A-BC8B-7C0BCB17BC82][version]], sequences its sprints,
+  judges its Definition of done.
+- [[id:5CAD21DA-21FB-460B-9286-8998B4C6EF52][S5 Identity Steward]] — maintains the [[id:2F71292F-CDB0-4E2E-B50F-4F02E10597C4][product identity]], rules on
+  what is in / out of scope.
+
+Each System doc lists its pre-reads, the [[id:4F6384FE-CDE9-40F6-B13D-8A84B6CD77F7][skills]] it draws on, the
+recipes it exercises, and explicit boundaries (what this role does
+/not/ do, and which other System picks it up instead).

@@ -1,0 +1,379 @@
+:PROPERTIES:
+:ID: 8B29A8D8-E004-4E87-B81D-ABEAF68F2B98
+:END:
+#+title: Document Types
+#+description: Every type of document, its frontmatter contract, folder, and structure.
+#+type: meta
+#+level: cross
+#+filetags: :meta:document_types:frontmatter:tags:
+#+created: 2026-05-18
+#+updated: 2026-09-28
+
+Every =.org= file in compass-ng carries a =#+type:= field that places it
+in a shared taxonomy. The taxonomy exists for three reasons. First,
+/structural contracts/: each type defines exactly which sections,
+frontmatter fields, and lifecycle (if any) a document must carry — an
+LLM or human loading any file immediately knows what shape it is and
+what rules apply. Second, /queryability/: =#+type:= is the primary
+filter for =compass list=, =grep=, and the audit scripts, making it
+possible to ask "all knowledge docs on security" or "every in-flight
+task" without noise from unrelated file shapes. Third, /level
+alignment/: types map to [[id:926B916E-A57E-498E-99AB-720B583C0362][cybernetic levels]] — =task= to S1, =story= to S2,
+=sprint= to S3, =version= to S4, =product_identity= to S5 — so the
+type of a document tells you who owns it and at what time horizon. The
+=#+description:= field, capped at 120 characters, is the load-bearing
+summary every index and search reads first; it is as important as the
+type itself.
+
+The full vocabulary of types is in =* Document types= below. The rules
+for standard frontmatter, state, linking, and tags apply across all
+types and are defined in the sections that precede it.
+
+* Creating documents
+
+Never hand-write frontmatter or IDs. Use the generator:
+
+#+begin_src sh
+compass add <type> --slug <slug> \
+  --parent-dir <dir> --title "..." --description "..." --tags "..."
+#+end_src
+
+See [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I create a new doc?]] for copy-pasteable invocations per
+type. The contract each generated file follows is described below.
+
+* Standard frontmatter
+
+Every document under [[proj:doc][=doc/=]] begins with this block. Fields marked
+/required/ must be present.
+
+#+begin_src org
+,:PROPERTIES:
+,:ID: <UUID4 from `uuidgen`>                       ; required — drives org-roam
+,:END:
+,#+title: <human-readable title>                    ; required
+,#+description: <one-liner, ≤ 120 chars>            ; required
+,#+type: <one of the types below>                   ; required
+,#+filetags: :tag1:tag2:                            ; required (filetags, not tags)
+,#+created: YYYY-MM-DD                              ; required
+,#+updated: YYYY-MM-DD                              ; required
+,#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED  ; required for stateful
+,#+owner: <handle>                                  ; required for tasks
+,#+branch: <git branch>                             ; for executing tasks
+,#+pr: <number-or-url>                              ; once a PR is open
+,#+blocked_on: <review|ci|local_build|external|none> ; for executing tasks
+,#+blocked_since: <YYYY-MM-DD HH:MM>                ; when blocked_on != none
+#+end_src
+
+State is /not/ a frontmatter field. State lives as an org-mode TODO
+keyword on the =* Status= headline inside the document (see /State as
+TODO/ below). Folders never encode state.
+
+The =#+description= line is the load-bearing field. It is what every
+grep, index, and search reads. Write it as if it is the only line anyone
+reads.
+
+Dates are absolute (=2026-05-18=), never relative. If you find yourself
+writing "yesterday" or "next week", convert it.
+
+** Why these specific forms
+
+- =:PROPERTIES: :ID:= — org-roam tracks documents by ID, not by path.
+  Every document needs one; generate with =uuidgen=. Paths can change;
+  IDs do not. /Every UUID — both the =:ID:= property and every
+  =[[id:UUID]]= link — is uppercase hex./ The codegen enforces this for
+  new documents (=doc_generate.py= uppercases the freshly minted
+  ID, the templates carry uppercase concept-link UUIDs, and
+  =--parent-id= / =--predecessor-id= are uppercased defensively); any
+  hand-edited or copy-pasted UUID must follow the same rule. The
+  Sprint 18 story [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Lock down uppercase UUID invariant]] records the
+  rationale and the audit trail.
+- =#+filetags:= — the standard org-mode keyword for /applying/ tags to a
+  whole file. =#+tags:= in standard org-mode declares the /allowed/ tag
+  vocabulary for a file, which is a different concern and not what we
+  want here.
+- =#+todo:= — declares the TODO state vocabulary used by the document.
+  Stateful documents use TODO keywords on their =* Status= headline; the
+  folder structure carries /no/ state information.
+- No =#+links:= keyword — links live in the document body as id: links
+  (see /Linking between documents/ below). Org-roam picks them up
+  automatically.
+
+* State as TODO
+
+State lives /inside/ the document, as an org-mode TODO keyword on the
+=* Status= headline. The folder structure encodes composition (which
+task belongs to which story, which story to which sprint, etc.) but
+never state.
+
+** The vocabulary
+
+#+begin_src org
+,#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+#+end_src
+
+Active states are left of the bar; terminal states are right.
+
+- =DISCOVERED= — found in passing while executing another task; not yet
+  triaged.
+- =BACKLOG= — triaged, scheduled, not started.
+- =STARTED= — an agent is actively working on it. Org auto-stamps the
+  transition via =LOGBOOK=.
+- =BLOCKED= — paused waiting on something. The reason lives in
+  =#+blocked_on= (one of =review=, =ci=, =local_build=, =external=).
+- =DONE= — terminal success. Org auto-stamps =CLOSED:= on the headline.
+- =ABANDONED= — terminal failure. The reason lives in the Status
+  =** Notes= or similar block; audit flags abandoned tasks without one.
+
+** Where the TODO state lives
+
+Every stateful document has a =* Status= section formatted as a table.
+The state lives in the =State= row (greppable), and the row order is
+fixed: =State / Parent <type> / Now / Waiting on / Next / Last touched=.
+Versions are top-level so the =Parent= row is dropped.
+
+#+begin_src org
+,* Status
+,
+,| Field        | Value                              |
+,|--------------+------------------------------------|
+,| State        | STARTED                            |
+,| Parent story | [[id:<UUID>][Currencies end-to-end]] |
+,| Now          | Implementing the XML serialiser.   |
+,| Waiting on   | Nothing.                           |
+,| Next         | Add round-trip tests.              |
+,| Last touched | 2026-05-21                         |
+#+end_src
+
+The Status section sits /after/ the document's "what is this?" section
+(=* Goal= for tasks/stories, =* Mission= for sprints, =* Identity= for
+versions) so the reader knows what the doc is before reading its
+state. Operational detail of in-flight work goes in =Now / Waiting on
+/ Next / Last touched= and is updated on every agent or orchestrator
+action.
+
+** Why state-on-headline, not state-in-folder
+
+- /Shallower trees/. The folder structure mirrors composition only
+  (version → sprint → story → task), no state subdivisions.
+- /Native org-mode tooling/. Org-agenda, the org-mode mode line, and
+  TODO cycling (=C-c C-t=) all work out of the box on the state of
+  the =* Status= heading.
+- /Atomic transitions/. Changing state is one edit; the diff is small.
+- /State-by-grep/. =grep -lR "^| State.*STARTED"= finds every
+  in-flight document in seconds.
+
+* Linking between documents
+
+Every link between documents uses org-roam's id: form:
+
+#+begin_src org
+[[id:<UUID-of-target>][human-readable description]]
+#+end_src
+
+This is what makes the org-roam graph work. =[[file:...]]= links are
+standard org-mode but invisible to org-roam, so we do not use them.
+
+Conventions:
+
+- Every stateful document carries an outbound link to its direct parent
+  (a task to its story, a story to its sprint, a sprint to its version).
+  The link sits in the =Parent <type>= row of the =* Status= table /and/
+  in the top-of-page blurb, both pointing at the same =:ID:=.
+- Every stateful document opens with a one-sentence /blurb/ above the
+  first section that hyperlinks the type word (=task=, =story=, =sprint=,
+  =version=) to the glossary entry for that type. The blurb is the
+  reader's orientation: what kind of document this is and who its
+  parent is.
+- Sibling links (related tasks, related stories) live in a =* See also=
+  section or inline as the prose calls for them.
+
+* Tags
+
+Tags are required on every document. They are the primary cross-cutting
+index — every grep for "all knowledge about Qt" or "every task touching the
+SQL component" goes through tags. If tags rot, the system loses its lateral
+navigation.
+
+** Format
+
+- Standard org-mode tag syntax: =:tag1:tag2:tag3:= — colons on both sides
+  of each tag, no spaces inside.
+- All lowercase. Multi-word tags use =snake_case=.
+- At least one tag is required. Two to four is typical. More than six is
+  usually a sign the document needs to be split.
+
+** Tag dimensions
+
+A document's tags should cover the dimensions below where applicable.
+Tags are flat (no hierarchy), but readers should be able to infer the
+dimension from the tag itself.
+
+- /Component/ — which area of the codebase: =trading=, =sql=,
+  =cli=, =http=, =compute=, =shell=, =codegen=, =modeling=, ...
+- /Domain topic/ — what the content is about: =fx_forward=, =pricing=,
+  =reporting=, =observability=, =ci=, =build=, =release=, =security=,
+  =ux=, ...
+- /Activity/ — what kind of work: =refactor=, =new_feature=, =bug_fix=,
+  =documentation=, =migration=, =cleanup=, =testing=, ...
+- /Status modifier/ (optional) — =blocked=, =needs_review=, =urgent=,
+  =stale=.
+
+** Examples
+
+- A task to add an FX Forward import test:
+  =:trading:fx_forward:testing:new_feature:=
+- A recipe for running the build:
+  =:cmake:build:recipe:=
+- A knowledge doc on the codegen architecture:
+  =:codegen:architecture:knowledge:=
+- A sprint focused on Qt UI work:
+  =:qt:ux:sprint:=
+
+** Ancestor tags
+
+Every stateful document carries one tag for each of its ancestors in
+the composition tree (immediate parent first). This duplicates the
+=#+links= relationship in a grep-friendly form: =#+links= drives the
+org-roam graph, the ancestor tags drive the shell.
+
+- A task tags with its story's slug, /and/ its sprint's slug, /and/
+  its version's slug.
+- A story tags with its sprint's slug, /and/ its version's slug.
+- A sprint tags with its version's slug.
+
+Examples (filetags only, content tags omitted):
+
+- A task in =versions/v0/sprint_03/login_and_sessions/= →
+  =:login_and_sessions:sprint_03:v0:=.
+- A story in =versions/v0/sprint_03/= → =:sprint_03:v0:=.
+- A sprint in =versions/v0/= → =:v0:=.
+
+Single-step lateral queries:
+
+#+begin_src sh
+# every task / story / file in sprint_03
+grep -lR ":sprint_03:" doc/agile/versions/
+
+# every story in story currencies_end_to_end (which is one, but you
+# can grep for siblings on the same theme by switching the tag)
+grep -lR ":currencies_end_to_end:" doc/agile/versions/
+
+# every file in version v0
+grep -lR ":v0:" doc/agile/versions/
+#+end_src
+
+The generator behind =compass add= derives
+the ancestor slugs from the =--parent-dir= path (following the
+=versions/<version>/<sprint>/<story>/= layout) and adds them all to
+=#+filetags= automatically, on top of any =--tags= the user supplies.
+
+** Story categories
+
+Stories carry a =#+category:= frontmatter field (not a tag) that
+classifies their intent. Categories are used to slice velocity metrics:
+feature throughput, housekeeping load, and enabler investment are
+tracked separately so the team can see whether sprint time is going to
+the right places.
+
+| Category      | Meaning                                                               |
+|---------------+-----------------------------------------------------------------------|
+| =feature=     | Adds or changes user-visible behaviour. Counted in feature velocity.  |
+| =housekeeping= | Cleanup, refactoring, dependency upgrades, docs, tooling fixes. Does not advance features but is necessary work. |
+| =enabler=     | Infrastructure, scaffolding, CI, build, or platform work that unblocks future features but delivers nothing user-visible on its own. |
+
+Rules:
+
+- Every story must carry exactly one category.
+- When a story spans multiple categories, assign the /dominant/ intent.
+  A story that mostly refactors but incidentally adds an endpoint is
+  still =housekeeping=.
+- Sprints should aim for ≥ 50% =feature= stories by count. A sprint
+  skewed toward =housekeeping= or =enabler= should be noted in the
+  health review focus signal.
+
+** Governance
+
+- The audit job (System 3*) lists every tag in use and flags singletons
+  (tags used exactly once) for review — they are usually typos or
+  one-offs that should fold into an existing tag.
+- The canonical [[id:F94957C5-382A-4D6E-B292-C02C2772F038][Tag inventory]] (=doc/meta/tag_inventory.org=) lists every
+  valid tag grouped by dimension; =compass lint= validates against it.
+- Audit also verifies the parent-tag invariant: every task must carry
+  exactly one story slug as a tag; every story must carry exactly one
+  sprint slug; every sprint must carry exactly one version slug.
+
+* Document types
+
+
+Each type's contract lives on its own page:
+
+- [[id:32842C44-2585-46EB-B90D-75C3CB28F003][task]]
+- [[id:DF81C4F0-9EB6-408B-9828-1A33BCC7769A][story]]
+- [[id:20EA2CBD-994C-4D82-86E9-469C609A8464][sprint]]
+- [[id:88EF99D4-970D-4EFF-9A0C-1A747F42B245][version]]
+- [[id:4C1CF390-5CF1-4896-8F15-36FFB23641B6][capture]]
+- [[id:FC7CE460-131C-40BA-B46A-2D64525C6789][memory]]
+- [[id:2C35C57A-147A-40EB-86CE-A5815B214662][product_identity]]
+- [[id:8A027686-5D1E-40E1-85BC-B328A9B3E7EC][system]]
+- [[id:8A2A2873-BE08-48DA-B02F-CF541479E6B1][recipe]]
+- [[id:CEF41D31-54C6-47E9-9464-BBB1FCDAEBB9][runbook]]
+- [[id:CE17C7BB-C68C-4304-BD3D-92FA5D13272B][component]]
+- [[id:E8BE5E74-46AB-4233-9181-621187960603][skill]]
+- [[id:B4DD4BE2-CF51-4C2B-8A73-9803CAEB811D][manual]]
+- [[id:9AB395D6-0265-4DEB-BA95-04D24C8444AF][knowledge]]
+- [[id:A0844CC9-9D7C-4A87-9D65-8143614E76A6][plan]]
+- [[id:7ADECB4C-3C03-4B8D-BB2F-A9753EFDA866][design]]
+- [[id:8C6D8D83-C78F-4A18-A481-A8398058BE84][decision]]
+- [[id:CE9E4F7C-D14B-46C4-AD3D-39881C466914][retrospective, release_note, audit_report]]
+- =investigation= — a point-in-time record of a question one story asked.
+  Lives in that story's folder as =investigation_<slug>.org=, at level =s1=,
+  and is never the place a rule is stated: an investigation's conclusions
+  outlive it, so the durable half is promoted to the page that owns the
+  subject and the code, recipes and models cite that page instead. See
+  [[id:1366553A-4E0F-496F-91DD-19171C003631][Document type: investigation]].
+  Scaffold: =compass add investigation --parent-dir <story folder>=.
+- [[id:CA94C762-B0C8-40E7-85CE-D4C6355023CC][user_journey]]
+- [[id:C4F7114C-B454-4B07-A804-64442D989FD4][workflow]]
+- [[id:4498456E-71DE-4250-8080-727690FAEFE6][report]]
+- [[id:2BF68189-57CF-42F7-BA33-9673B7D620DD][service architecture pattern]]
+- [[id:973591F1-F2B5-40FF-9B2D-A198D4BB4903][meta]]
+- =test_scenario= — a manual test checklist tied to a task, verified in
+  the Qt QA Validation Runner and rewritten in place with results on
+  save (no standalone contract page yet — the type is new and still
+  settling through its first pilot; see
+  [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][QA Validation Runner]]).
+  Lives directly in its story's folder as =scenario_<slug>.org=, same
+  placement convention as =task=. Mandatorily links both the task it
+  verifies and the driving story. Scaffold: =compass add test_scenario=.
+
+Codegen model types live with their component under
+=projects/ores.<component>/modeling/= and are consumed by
+[[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][ores.codegen]] rather than published; their contract is defined by the
+loader (=org_loader.py=) and the scaffolding templates:
+
+- =entity_org= (=#+type: ores.codegen.entity=) — a full entity model
+  driving C++ domain class, mapper, repository, service, Qt UI and SQL
+  generation. Scaffold: =compass add entity_org=.
+- =field_group= (=#+type: ores.codegen.field_group=) — a named group of
+  related fields generated as a plain C++ sub-struct, composed by a
+  hand-written parent (the C1202 decomposition pattern). Filenames end
+  =_field_group.org=. Scaffold: =compass add field_group=.
+- =dataset_overview= — seeder dataset description. Scaffold:
+  =compass add dataset_overview=.
+- =profile= (=#+type: profile=) — a named element-scope MASD profile:
+  one fixed combination of variability-feature values (see [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][ORE
+  Studio Variability Model]] § "Profiles: naming a recurring
+  configuration point"), anchored to a real
+  reference entity. A model file will bind to a profile (=:profile:
+  <name>=) instead of authoring each feature individually, once codegen
+  consumption is wired up — today the docs are the source of truth, the
+  binding mechanism is a tracked follow-on. Lives under
+  =projects/modeling/= as =variability_<slug>.org=. Scaffold: =compass
+  add profile=.
+- =feature= (=#+type: feature=) — the canonical detail page for one
+  authored MASD feature (see [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][ORE Studio Variability Model]] § "Projection
+  configuration: how an existing artefact family is shaped"): identity (bundle, type, default), effect,
+  structural consequence, and which profiles fix its value. Every
+  profile and bundle-table entry links here instead of restating a
+  feature's effect. Lives under =projects/modeling/= as
+  =variability_feature_<slug>.org=. Scaffold: =compass add feature=.

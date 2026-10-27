@@ -1,0 +1,98 @@
+:PROPERTIES:
+:ID: 7870BDC8-839B-4E46-9E32-F0EA9F7D5936
+:END:
+#+title: How do I refine the backlog?
+#+description: Checklist and procedure for a general backlog housekeeping session: scan, clarify, cull, and re-prioritise captures.
+#+type: recipe
+#+level: cross
+#+filetags: :agile:backlog:recipe:
+#+created: 2026-05-24
+#+updated: 2026-07-11
+
+Backlog refinement operates on the [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][product backlog]] — the =next/=|=deferred and
+next/=|=deferred/= capture buckets under =doc/agile/product_backlog/=. For
+automated orchestration, use the [[id:5358EC5A-F7FD-473A-A8AB-AF77E4D83A58][compass-agile-refine-backlog]] skill (its *deep*
+mode also audits =inbox/=, verifies each capture against the live
+codebase, and writes a report). For sprint selection specifically, use
+[[id:2C2E794B-7565-4FD8-BD26-E7949C874E43][How do I plan a sprint?]].
+
+* Question
+
+How do I tidy the product backlog — pruning stale captures,
+sharpening vague ones, and re-prioritising between =next/=|=deferred and
+next/=|=deferred/=?
+
+* Answer
+
+1. /List both buckets/:
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh next
+   ./projects/compass.legacy/compass.sh deferred
+   #+end_src
+
+2. /For each capture, apply the VBCD checklist/:
+
+   - *V — Valid?* Is the need still real? If the work shipped or the
+     idea's need has gone away, move the file to =discarded/= (=git
+     mv=, =:ID:= unchanged) with a reason line citing what closed it.
+     Captures have no =#+todo= state field — the bucket is the state.
+   - *B — Bucket?* Does it belong in =next/=|=deferred (next version) or
+     next/=|=deferred/= (longer horizon)? Move by renaming the file; =:ID:=
+     stays unchanged.
+   - *C — Clear?* Is the title a complete thought and the
+     description specific enough to act on? Sharpen both in place
+     if not.
+   - *D — Duplicate?* Is a similar capture already in the backlog?
+     Merge by absorbing content into the richer one and moving the
+     absorbed one to =discarded/= with a "Duplicate, merged into"
+     reason line; repoint any inbound =id:= links at the survivor.
+
+3. /File new captures/ that surface during the review:
+
+   #+begin_src sh :results verbatim
+   projects/compass.legacy/compass.sh add capture \
+     --parent-dir doc/agile/product_backlog/next \
+     --slug <slug> \
+     --title "<title>" --description "<one-liner>"
+   #+end_src
+
+   Use =--parent-dir doc/agile/product_backlog/deferred= for longer-horizon items.
+
+4. /Move items between buckets/:
+
+   #+begin_src sh :results verbatim
+   git mv doc/agile/product_backlog/next/<slug>.org \
+          doc/agile/product_backlog/deferred/<slug>.org
+   #+end_src
+
+5. /Commit the sweep/:
+
+   #+begin_src sh :results verbatim
+   git add doc/agile/product_backlog/
+   git commit -m "[agile] Backlog refinement — next/deferred housekeeping"
+   #+end_src
+
+** Healthy backlog heuristics
+
+- Next bucket ≤ 20 items. More than that signals drift — push low-priority items to deferred.
+- Every next capture has a one-line =#+description= a newcomer could act on.
+- No capture has been untouched for more than two sprints without a decision.
+
+* Script
+
+No single script — the [[id:5358EC5A-F7FD-473A-A8AB-AF77E4D83A58][compass-agile-refine-backlog]] Claude Code skill orchestrates
+this procedure interactively.
+
+* Tested by
+
+Manual. Run at the start of each sprint planning cycle or whenever
+the next bucket exceeds 20 items.
+
+* See also
+
+- [[id:5358EC5A-F7FD-473A-A8AB-AF77E4D83A58][Backlog refiner]] — Claude Code skill for this procedure.
+- [[id:2C2E794B-7565-4FD8-BD26-E7949C874E43][How do I plan a sprint?]] — use after refinement to select stories.
+- [[id:5B670808-D28B-4818-A2FA-EA5220D35E8D][How do I add a doc with compass?]] — preferred scaffold entry point.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I create a new doc?]] — full codegen reference.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Product backlog]] — the next/deferred structure and its invariants.

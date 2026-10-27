@@ -1,0 +1,70 @@
+:PROPERTIES:
+:ID: FEA02CDB-24E8-45B2-B4EC-9DD2284E3706
+:END:
+#+title: How do I see an overview of the test run?
+#+description: Use compass test results to parse Catch2 XML output and display per-suite stats, failures, and log excerpts for the last test run.
+#+type: recipe
+#+level: cross
+#+filetags: :compass:test:results:catch2:bearings:
+#+created: 2026-06-03
+#+updated: 2026-06-03
+
+Part of the [[id:95A33EA9-DFF9-4937-8A3F-AD82E42A68D3][Compass recipes]] collection.
+
+* Question
+
+How do I see a summary of the last test run — pass/fail counts, failure
+details, and any ERROR/WARN log lines?
+
+* Answer
+
+1. /Use the preset from =.env=/ (auto-detected):
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh test results
+   #+end_src
+
+2. /Specify a preset explicitly/:
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh test results --preset linux-clang-debug
+   #+end_src
+
+   =compass test results= reads =ORES_PRESET= from =.env= when =--preset=
+   is omitted. It finds all =test-results*.xml= files under
+   =build/output/<preset>/publish/bin/=, prints per-suite statistics
+   (total, passed, failed, skipped, duration), details of each failure
+   (name, location, exception text), and any =ERROR=/=WARN= lines from
+   the matching log files.
+
+3. /If you see no log output/ — test logging is disabled by default.
+   To enable it, reconfigure CMake:
+
+   #+begin_src sh :results verbatim
+   cmake --preset linux-clang-debug-make -DORES_TEST_LOG_LEVEL=debug
+   ./compass.sh build rat --preset linux-clang-debug-make
+   ./projects/compass.legacy/compass.sh test results
+   #+end_src
+
+   For trace-level output also printed to the console:
+
+   #+begin_src sh :results verbatim
+   cmake --preset linux-clang-debug \
+     -DORES_TEST_LOG_LEVEL=trace \
+     -DORES_TEST_LOG_CONSOLE=ON
+   #+end_src
+
+* Script
+
+=compass test results= lives in [[proj:projects/compass.legacy/src/compass.py][=projects/compass.legacy/src/compass.py=]]
+(=cmd_test= + =_cmd_test_results= + =_tr_*= helpers).
+
+* Tested by
+
+Manual: build and run tests with =--target rat=, then run
+=compass test results= and verify suite stats and failure details appear.
+
+* See also
+
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I run the tests?]] — the =rat= target reference.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][CMake setup]] — preset reference.

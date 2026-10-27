@@ -1,0 +1,43 @@
+:PROPERTIES:
+:ID: B69989F6-19E1-430D-AC6D-B2416E4C433F
+:END:
+#+title: Compass
+#+description: Entry point for the compass-ng documentation tree. Read this first to orient yourself.
+#+type: meta
+#+level: cross
+#+filetags: :meta:overview:entry_point:
+#+created: 2026-10-27
+#+updated: 2026-10-27
+
+compass-ng is a high-performance, data-oriented re-implementation of the
+document-management part of compass from compass-ng. See
+[[id:2F71292F-CDB0-4E2E-B50F-4F02E10597C4][Product identity]] for what it is and why.
+
+During the bootstrap phase the documentation is plain org-mode in this
+repository. It follows the compass-ng contract verbatim; see
+[[id:82F08C3E-D00F-4888-8C11-CC4358AA9FB7][Meta]].
+
+* Folder layout
+#+begin_example
+doc/
+├── compass.org       ← this file; read first
+├── meta/             ← the contract: how documents are shaped
+├── identity/         ← product vision and scope
+├── agile/
+│   └── versions/     ← version → sprint → story → task
+└── knowledge/        ← cross-cutting reference material
+projects/
+├── modeling/         ← system-wide models: system model, component architecture
+└── compass.<name>/   ← one directory per component (none yet)
+#+end_example
+
+* Where to start
+1. [[id:2F71292F-CDB0-4E2E-B50F-4F02E10597C4][Product identity]] --- what compass-ng is.
+2. [[id:8A9A460F-8024-4890-B091-C0D02FD84218][System model]] --- layers and components.
+3. [[id:8A0E6F32-C4BC-4667-88E8-7F80CA25437C][Component architecture]] --- layout rules.
+4. [[id:2ABEC8F1-4A0B-4E79-8BFC-D1AF9B340A23][Version 0]] --- what we are working on now.
+
+* Upstream
+compass-ng lives at =~/Development/OreStudio=. Its =doc/compass.org=,
+=doc/meta/= and =projects/modeling/= are the reference for every convention
+here. When this tree is silent, follow compass-ng.

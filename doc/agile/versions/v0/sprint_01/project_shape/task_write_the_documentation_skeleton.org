@@ -1,0 +1,52 @@
+:PROPERTIES:
+:ID: 73ED7A65-CA63-48B7-AC00-1BCA8C78F8C4
+:END:
+#+title: Task: Write the documentation skeleton
+#+description: Entry point, meta, product identity, the agile tree, the system model and the component architecture, in compass-ng's org-mode conventions.
+#+type: task
+#+level: s1
+#+filetags: :project_shape:sprint_01:v0:
+#+owner: marco
+#+branch:
+#+pr:
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-10-27
+#+updated: 2026-10-27
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a task in the [[id:D08C23FF-2A6E-4EFA-A7B7-F91822875AE0][Project shape]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+Entry point, meta, product identity, the agile tree, the system model and the component architecture, in compass-ng's org-mode conventions.
+
+* Status
+
+| Field        | Value                                                      |
+|--------------+------------------------------------------------------------|
+| State        | DONE                                                       |
+| Parent story | [[id:D08C23FF-2A6E-4EFA-A7B7-F91822875AE0][Project shape]] |
+| Now          | Nothing.                                                   |
+| Waiting on   | Nothing.                                                   |
+| Next         | Nothing.                                                   |
+| Last touched | 2026-10-27                                                 |
+
+* Acceptance
+
+- The doc tree follows compass-ng: =doc/compass.org=, =doc/meta/=, =doc/identity/=, =doc/agile/versions/=.
+- =projects/modeling/= holds the system model and the component architecture.
+
+* Plan
+
+* Measurements
+
+* Notes
+
+* Test Scenarios
+
+* PRs
+
+* Review
+
+* Result

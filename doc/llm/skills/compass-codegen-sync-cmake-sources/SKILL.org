@@ -1,0 +1,89 @@
+:PROPERTIES:
+:ID: B45805F2-BAD4-4879-A571-3C962C79670B
+:END:
+#+title: compass-codegen-sync-cmake-sources
+#+author: Marco Craveiro
+#+options: <:nil c:nil todo:nil ^:nil d:nil date:nil author:nil toc:t
+#+startup: inlineimages
+#+export_exclude_tags: noexport
+#+level: s1
+#+filetags: 
+#+created: 2026-07-29
+#+updated: 2026-07-29
+
+#+begin_export markdown
+---
+name: compass-codegen-sync-cmake-sources
+description: Regenerate CMake component file lists (component_files.cmake) after adding/removing a source file, or after a rebase/merge lands files from another branch.
+license: Complete terms in LICENSE.txt
+---
+#+end_export
+
+* When to use this skill
+
+A linker error names an undefined symbol that clearly exists
+somewhere in the tree (typically right after a rebase or merge), or
+a new =.cpp=/=.hpp= file was just added to a component and needs to be
+picked up by the build. Every component's =CMakeLists.txt= =include()=s
+a generated =component_files.cmake= instead of using
+=file(GLOB_RECURSE ...)=, so a new file on disk is invisible to the
+build until that generated list is refreshed.
+
+* How to use this skill
+
+1. *Regenerate*:
+
+   #+begin_src sh :results verbatim
+   python3 projects/ores.codegen/scripts/regenerate_cmake_component_files.py --all
+   #+end_src
+
+   Or a single component (its model's =#+full_name:=, not its
+   directory path):
+
+   #+begin_src sh :results verbatim
+   python3 projects/ores.codegen/scripts/regenerate_cmake_component_files.py --component ores.assets.core
+   #+end_src
+
+2. *Check what changed* and commit it alongside your other changes:
+
+   #+begin_src sh :results verbatim
+   git status --short -- '**/component_files.cmake'
+   #+end_src
+
+3. *Drift check only* (no writes) — exits non-zero if anything is
+   stale:
+
+   #+begin_src sh :results verbatim
+   python3 projects/ores.codegen/scripts/regenerate_cmake_component_files.py --all --check
+   #+end_src
+
+* Recipes
+
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I add a new source file to a component?]]
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I regenerate CMake component file lists?]]
+
+* Reference
+
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][ores.cmake.component]] — the facet whose =files_src=/=files_tests= archetypes this skill regenerates.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Replace GLOB_RECURSE with explicit source lists across the build]] — the story that established this convention.
+
+* Artefacts                                                        :noexport:
+
+** Licence
+
+#+BEGIN_SRC fundamental :tangle LICENSE.txt
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+MA 02110-1301, USA.
+#+END_SRC

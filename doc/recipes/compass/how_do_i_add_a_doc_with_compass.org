@@ -1,0 +1,109 @@
+:PROPERTIES:
+:ID: 5B670808-D28B-4818-A2FA-EA5220D35E8D
+:END:
+#+title: How do I add a doc with compass?
+#+description: Use compass add to create a doc (story/task/sprint/recipe/...) via ores.codegen, with parent-dir defaulted from where we are.
+#+type: recipe
+#+level: cross
+#+filetags: :compass:codegen:agile:recipe:bearings:
+#+created: 2026-05-24
+#+updated: 2026-06-06
+
+The /Scaffold/ pillar of the [[id:6F7A122F-BC0F-4F3E-BA46-8B793FF15D10][compass tool]]. =add= is a thin front-end
+over [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][ores.codegen]]'s generator (called as a library) — for the full set
+of flags per document type, see [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I create a new doc?]].
+
+#+begin_note
+*Prefer =story new= / =task new= for starting work.* =compass story new=
+creates both a story and a linked task, fetches =main=, and creates a
+feature branch in one step. Use =add= when you need the primitive:
+scaffolding a single document (a standalone task inside an existing
+story, a sprint, a recipe, etc.) without the branch/task
+side-effects.
+#+end_note
+
+* Question
+
+How do I create a new document (story, task, sprint, recipe, …) from
+the compass CLI, without remembering the codegen invocation or the
+parent directory?
+
+* Answer
+
+Run =compass.sh add <type> [flags]=. The flags after =<type>= are passed
+straight to the generator (=--slug=, =--title=, =--description=,
+=--tags=, …).
+
+1. /Add a story to the current sprint/ — =--parent-dir= is defaulted
+   from where we are, so you can omit it:
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh add story \
+     --slug my_new_story --title "My new story" \
+     --description "One-line summary." --tags "topic"
+   #+end_src
+
+2. /Add a task to a story/ — =task= has no single "current story", so
+   give =--parent-dir= explicitly:
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh add task \
+     --parent-dir doc/agile/versions/v0/sprint_18/my_new_story \
+     --slug my_task --title "My task" --description "…"
+   #+end_src
+
+3. /Add a sprint/ — defaults =--parent-dir= to the current version:
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh add sprint \
+     --slug sprint_19 --title "Sprint 19" --description "…"
+   #+end_src
+
+4. /Add a facet or facet-group doc/ — the literate template library
+   under [[proj:projects/compass.legacy/library/templates][=projects/compass.legacy/library/templates/=]] (the default
+   =--parent-dir= for both types). A /facet/ doc is the literate
+   source for one template family, tangling to its =.mustache=
+   artefacts; it requires =--facet-group= naming its group. A
+   /facet_group/ doc is the namespace page indexing a group's facets
+   (written as =<slug>_group.org=):
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh add facet \
+     --slug cpp_domain_type --facet-group cpp \
+     --title "C++ domain type templates" --description "…"
+   ./projects/compass.legacy/compass.sh add facet_group \
+     --slug cpp --title "C++ template group" --description "…"
+   #+end_src
+
+   After adding or changing facet docs, regenerate the group
+   inventories:
+
+   #+begin_src sh :results verbatim
+   python3 projects/ores.codegen/scripts/regenerate_facet_inventories.py
+   #+end_src
+
+Compass wires the new story/task into its parent's =* Stories= /
+=* Tasks= table automatically (state =BACKLOG=) — no manual edit of
+the parent is needed.
+
+Note: =--type= is supplied by compass from the =<type>= positional —
+do not pass it yourself (the =--help= output shows the underlying
+generator's flags, including =--type=, but =add= expects the type as
+a positional argument).
+
+* Script
+
+=projects/compass.legacy/compass.sh add= → =src/compass.py= (=cmd_add=),
+which imports =ores.codegen='s =doc_generate= and calls
+=doc_generate.main(["--type", <type>, …])=. Needs =pystache= (in
+=requirements.txt=); only =add= does.
+
+* Tested by
+
+Manual smoke test (=add story= into the current sprint; cleaned up).
+
+* See also
+
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I create a new doc?]] — every flag, per document type.
+- [[id:41E5F9A8-1C2B-4ECA-8EA0-1ABBAB0B6A31][How do I see where we are?]] — the orientation that drives the
+  =--parent-dir= defaults.

@@ -1,0 +1,177 @@
+:PROPERTIES:
+:ID: 9F274EE4-3CAB-47FD-BB6E-449D8B789D8C
+:END:
+#+title: How do I generate release notes?
+#+description: Scaffold release_notes.org via compass, populate it from merged-PR data and the closing sprint's stories, then tag main and open a draft GitHub release.
+#+type: recipe
+#+level: cross
+#+filetags: :agile:release:notes:github:recipe:
+#+created: 2026-05-21
+#+updated: 2026-07-11
+
+This recipe is what the [[id:7D72A9DA-984F-4130-BFF6-97B66B233907][Sprint closure]] phase calls into. The
+companion sprint-opening flow is [[id:1E666848-A785-437E-A463-3D5A0DA0765F][How do I open a new sprint?]].
+
+* Question
+
+I'm closing a sprint. How do I assemble release notes from the
+merged PRs and the sprint's stories, then cut a draft GitHub
+release?
+
+* Answer
+
+The whole pipeline runs through =compass release-notes= — five
+verbs, run in order, from a task branch off =main= (never directly
+on =main=).
+
+1. /Prepare a fresh branch/. Run on a branch (e.g.
+   =feature/release-notes-sprint-<N>=) rather than =main=:
+
+   #+begin_src sh :results verbatim
+   git fetch origin main
+   git checkout -b feature/release-notes-sprint-<N> origin/main
+   #+end_src
+
+2. /Create/: collect merged-PR data since the last release tag and
+   render the release notes org file in one step:
+
+   #+begin_src sh :results verbatim
+   ./compass.sh release-notes create --sprint <N>
+   #+end_src
+
+   Internally this runs =collect_release_pr_data.py= (auto-detects
+   the previous =v*= tag via =git tag --sort=-v:refname=; pass
+   =--since-tag v0.0.<N-1>= explicitly if a tag for the sprint being
+   closed already exists — otherwise PR collection picks up its own
+   tag as "latest" and undercounts) then =generate_release_notes.py=
+   (parses =sprint.org= and every =story.org=, extracts story
+   descriptions, groups them into sections via =TAG_TO_SECTION=,
+   derives Highlights from the retrospective, renders
+   =doc_release_notes.org.mustache=). =gh= must be authenticated.
+
+   Read the closing sprint's =sprint.org= too — the =* Stories=
+   table and per-story states (=DONE= / =STARTED= / =BLOCKED= /
+   =ABANDONED=) are not fully captured by PRs alone; the sprint
+   backlog tells you what /should/ have shipped, PRs tell you what
+   /did/ ship, the release notes reconcile both.
+
+3. /Fill in the blurbs/. =release_notes.org= has two =(( ... ))=
+   placeholders (opening paragraph, "Next sprint" line) — replace
+   both. Keep the opening paragraph 4–6 sentences, honest: if the
+   sprint missed its mission or overran, say so (sprints 18, 19,
+   and 21 are the model).
+
+   Under each sprint chart, add a short commentary paragraph
+   reading /this sprint's/ data — peaks, outliers, and what they
+   correspond to — not just the generic legend text.
+
+4. /Charts/: render the sprint's gnuplot health charts:
+
+   #+begin_src sh :results verbatim
+   ./compass.sh release-notes charts --sprint <N>
+   #+end_src
+
+5. /Export/: batch-export =release_notes.org= to GitHub-flavoured
+   Markdown — this is the file that ships verbatim as the GitHub
+   release body:
+
+   #+begin_src sh :results verbatim
+   ./compass.sh release-notes export --sprint <N>
+   #+end_src
+
+6. /Capture the readme screenshot/. Take a fresh screenshot of a
+   running compass-ng surface (a desktop screenshot tool is the only
+   option today: no client captures its own screenshots since the
+   desktop client was removed) and save it as
+   =assets/images/ore_studio-v0.0.<N>.png=. Do *not* wire it into
+   =readme.org= here — the readme should show the *last released*
+   version, so it only gets pointed at this screenshot once sprint
+   =N= itself closes and =N+1= opens; see
+   [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I bump the project version?]] step 5d.
+
+7. /Commit/: stage, commit, and push =release_notes.org=/=.md=, the
+   four chart PNGs, the new screenshot, and the readme update. There
+   is no separate "upload images" step for the charts — the markdown
+   embeds them via =raw.githubusercontent.com/.../main/...= URLs, so
+   they only render correctly once merged to =main=:
+
+   #+begin_src sh :results verbatim
+   ./compass.sh release-notes commit --sprint <N>
+   #+end_src
+
+8. /Open the PR/ via =PR Manager=. Merge once green — this is what
+   makes the chart images resolve on =main=.
+
+9. /Draft/: tag =main= and open a draft GitHub release. A codename
+   is invented per release (house convention:
+   =v0.0.20, "Capopolo"=) — =--codename= is required:
+
+   #+begin_src sh :results verbatim
+   ./compass.sh release-notes draft --sprint <N> --codename <Codename>
+   #+end_src
+
+   Idempotent: safe to re-run if the tag or release already exists
+   (e.g. tagged ahead of time, or fixing the title/body after the
+   fact) — reuses/updates in place, including the title, without
+   losing the tag/PR/notes work already done. The release stays in
+   draft so a human can add screenshots/binaries and publish.
+
+* Template skeleton
+
+#+begin_src markdown
+# **compass-ng Sprint N – Release Notes**
+*Month Year*
+
+One-paragraph summary of the sprint's focus and outcomes.
+---
+
+## ✅ **Highlights**
+
+- ...
+
+## 🛠️ **Key Improvements**
+
+### **Theme A**
+- ...
+
+### **Theme B**
+- ...
+
+## ⚠️ **Known Issues & Postponed**
+
+- ...
+
+## 📊 **Time Summary**
+
+**Total effort**: Xh Ym
+**Code**: A% | **Infra**: B% | **Agile/Analysis/Doc**: C%
+
+---
+
+*Next sprint: one sentence summarising the upcoming mission.*
+#+end_src
+
+* Script
+
+=./compass.sh release-notes= ([[proj:projects/compass.legacy/src/compass_release_notes.py][=compass_release_notes.py=]]) is the entry
+point for all five verbs. It wraps
+[[proj:build/scripts/collect_release_pr_data.py][=build/scripts/collect_release_pr_data.py=]] and
+[[proj:build/scripts/generate_release_notes.py][=build/scripts/generate_release_notes.py=]] (=create=), delegates to
+=compass sprint charts= (=charts=), batch-runs
+[[proj:projects/ores.lisp/src/ores-build-release-notes.el][=ores-build-release-notes.el=]] via Emacs (=export=), and shells to
+=git=/=gh= directly for =commit= and =draft=.
+
+* Tested by
+
+Manual. The script is exercised every sprint closure.
+
+* See also
+
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][The compass release-notes pipeline]] — the design behind these
+  steps: why five verbs, the image-resolution mechanism, tag/release
+  idempotency, the title convention.
+- [[id:7D72A9DA-984F-4130-BFF6-97B66B233907][Sprint closure]] phase — the surrounding lifecycle step.
+- [[id:1E666848-A785-437E-A463-3D5A0DA0765F][How do I open a new sprint?]] — the sibling flow on the other
+  side of closure.
+- [[id:DD7857D9-068E-D724-5C63-A67BD5F1C009][Release Notes Generator]] — the skill that drives this recipe.
+- =PR Manager= — the PR-lifecycle skill for the notes PR.

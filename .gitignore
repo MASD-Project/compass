@@ -1,0 +1,14 @@
+/build/output/
+/vcpkg_installed/
+/.cache/
+compile_commands.json
+*.swp
+*~
+/projects/compass.legacy/venv/
+__pycache__/
+.org-roam.db
+org-roam.db
+.compass.db
+.org-id-locations
+.journal.org
+/.packages/

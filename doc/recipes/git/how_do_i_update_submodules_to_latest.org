@@ -1,0 +1,21 @@
+:PROPERTIES:
+:ID: 2A8F0D61-B3F9-4C20-9E76-1D92C8A47FB5
+:END:
+#+title: How do I update submodules to latest?
+#+description: Pull the latest commit on each git submodule's tracked branch.
+#+type: recipe
+#+level: cross
+#+filetags: :recipe:git:
+#+created: 2026-05-21
+#+updated: 2026-05-21
+
+* Question
+
+How do I update every git submodule in the repository to the latest
+commit on its tracked branch?
+
+* Answer
+
+#+begin_src sh :results verbatim
+git submodule update --remote
+#+end_src

@@ -1,0 +1,69 @@
+:PROPERTIES:
+:ID: 40DE3AD0-7A32-45FF-9DFA-5F9492187F2A
+:END:
+#+title: Devops Run Shell
+#+author: Marco Craveiro
+#+options: <:nil c:nil todo:nil ^:nil d:nil date:nil author:nil toc:t
+#+startup: inlineimages
+#+export_exclude_tags: noexport
+#+level: s1
+#+filetags: :llm:skill:skills:claude_code:compass:
+#+created: 2026-06-06
+#+updated: 2026-06-06
+
+#+begin_export markdown
+---
+name: compass-devops-run-shell
+description: Launch ores.shell with NATS and login defaults from .env, interactively or scripted with -f.
+license: Complete terms in LICENSE.txt
+---
+#+end_export
+
+* When to use this skill
+
+Launching ores.shell with NATS and login defaults from .env — interactive, or scripted for reproducible sessions.
+
+* How to use this skill
+
+1. /Interactive/:
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh shell
+   #+end_src
+
+
+2. /Scripted/:
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh shell -f <file>
+   #+end_src
+
+
+* Recipes
+
+- [[id:C210CB09-291B-4B2A-8C90-22EB4364DCA3][How do I run the ores shell?]] — interactive and scripted invocations.
+
+* Reference
+
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][ores.shell]] — the REPL this launches, and what it can do once up.
+
+* Artefacts                                                        :noexport:
+
+** Licence
+
+#+BEGIN_SRC fundamental :tangle LICENSE.txt
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+MA 02110-1301, USA.
+#+END_SRC

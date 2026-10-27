@@ -1,0 +1,110 @@
+:PROPERTIES:
+:ID: D1AE0786-5F2F-4437-8449-0E480C278A1B
+:END:
+#+title: How do I find docs matching a pattern?
+#+description: List documents by regex on title/description, by filetag, by #+type:, or by path prefix, using compass list.
+#+type: recipe
+#+level: cross
+#+filetags: :documentation:docs:search:recipe:
+#+created: 2026-05-21
+#+updated: 2026-05-21
+
+For the companion lookup "show me /one/ doc by UUID" see
+[[id:E8231C22-CB31-4D85-A9C0-7602953764FF][How do I show a doc by UUID?]].
+
+* Question
+
+How do I find documents in the repo when I know a fragment of the
+title, a tag, the doctype, or roughly which folder it lives in?
+
+* Answer
+
+Run =./projects/compass.legacy/compass.sh list= with one or more filters.
+Each filter narrows the result; combining filters AND's them.
+
+1. /Regex on title or description/ (case-insensitive):
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh list --regex 'currency'
+   #+end_src
+
+2. /By =#+type:= /  — recipe, knowledge, task, story, sprint, version,
+   component, capture, function, skill, meta, ...:
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh list --type recipe
+   ./projects/compass.legacy/compass.sh list --type knowledge
+   #+end_src
+
+3. /By filetag/ (repeatable; multiple tags are AND'd):
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh list --tag cli
+   ./projects/compass.legacy/compass.sh list --tag build_quality --tag task
+   #+end_src
+
+4. /Under a path prefix/ — restrict to one subtree (repeatable):
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh list --under doc/agile/versions/v0
+   ./projects/compass.legacy/compass.sh list --under doc/recipes/shell
+   #+end_src
+
+5. /Combine filters/ for a precise lookup:
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh list \
+       --type recipe --tag cli --regex 'list'
+   #+end_src
+
+6. /Just count/ how many docs match — useful for sanity checks:
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh list --type recipe --count
+   #+end_src
+
+7. /Pipe paths into grep/xargs/ when you want to read or edit the
+   matched files:
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh list --tag cli --paths | \
+       xargs grep -l 'compute_host'
+   #+end_src
+
+8. /Sort by recency/ — most recently touched first:
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh list --sort updated | tail -20
+   #+end_src
+
+* Output format
+
+Each match is one line:
+
+#+begin_example
+<uuid> | <type> | <title>  —  <description>   (rel/path)
+#+end_example
+
+The =--paths= mode emits one path per line for use in pipes; =--count=
+emits a single integer.
+
+* Script
+
+The wrapper is =projects/compass.legacy/compass.sh list=. It delegates to
+[[proj:projects/compass.legacy/src/doc_list.py][=projects/compass.legacy/src/doc_list.py=]], which uses the shared
+=doc_index.py= library (see [[id:E8231C22-CB31-4D85-A9C0-7602953764FF][How do I show a doc by UUID?]] for the model).
+
+* Tested by
+
+Manual usage — these scripts are read-only over the doc tree, so the
+=#+type:=, =#+filetags:=, and =:ID:= contract enforced by
+[[id:8B29A8D8-E004-4E87-B81D-ABEAF68F2B98][document types]] and audited by [[id:8810E0F9-C5B9-4CFA-A710-774AD6C771DD][lifecycle]] is what guarantees
+correctness.
+
+* See also
+
+- [[id:E8231C22-CB31-4D85-A9C0-7602953764FF][How do I show a doc by UUID?]] — pivot from a UUID found via list
+  to the full document context.
+- [[id:8B29A8D8-E004-4E87-B81D-ABEAF68F2B98][Document types]] — the =#+type:= taxonomy the =--type= filter
+  works against.
+- [[id:46F5ED07-9E63-77B4-2783-E0147EFF45D0][Recipes index]].

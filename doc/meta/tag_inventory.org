@@ -1,0 +1,330 @@
+:PROPERTIES:
+:ID: F94957C5-382A-4D6E-B292-C02C2772F038
+:END:
+#+title: Tag inventory
+#+description: Canonical inventory of all filetags in use across compass-ng, grouped by dimension.
+#+type: knowledge
+#+level: cross
+#+filetags: :meta:tags:knowledge:index:
+#+created: 2026-06-12
+#+updated: 2026-06-12
+
+Every =.org= file carries a =#+filetags:= line. This document is the canonical
+inventory of every tag in use, organised into named groups. It is the source of
+truth for =compass lint= tag validation. See [[id:8B29A8D8-E004-4E87-B81D-ABEAF68F2B98][Document Types]] for the
+=#+filetags:= format rules and the ancestor-slug invariant.
+
+Tags added to the codebase without a corresponding entry here will be flagged by
+=compass lint=. To introduce a new tag: add an entry in the appropriate group,
+then use it. Story-slug tags (see §Story and ancestry slugs below) are exempt —
+they are validated by pattern rather than by enumeration.
+
+* Document type tags
+
+Tags that identify the kind/role of a document. Overlap with =#+type:= is
+intentional: the tag makes the type grep-visible across the full file tree.
+
+| Tag | Description |
+|-----+-------------|
+| =capture= | Inbox capture: an unrefined idea or observation. |
+| =chapter= | A chapter included into a user manual. |
+| =component= | Component overview: describes one =ores.*= component. |
+| =composite= | Component fixture variant: a group-level composite component (used in test scaffolding). |
+| =decision= | Architectural decision record. |
+| =entity= | Codegen entity model (=#+type: ores.codegen.entity=). |
+| =facet= | Codegen facet document: prose + tangle block for one Mustache template. |
+| =field_group= | Codegen field-group model: a named sub-struct composed into an entity. |
+| =fixture= | Test fixture: minimal scaffold used in codegen integration tests. |
+| =function= | Public function definition: interface contract, inputs, outputs. |
+| =investigation= | Time-boxed research spike: question, hypotheses, findings. |
+| =knowledge= | General-purpose knowledge article. |
+| =lookup_entity= | Codegen lookup-entity model: a reference-data enum table. |
+| =manual= | Full user or developer manual (multi-chapter). |
+| =memory= | Persistent LLM session memory. |
+| =meta= | Meta-document: describes the documentation system itself. |
+| =model= | Codegen model input file (JSON or org input to generator). |
+| =module= | Codegen logical module catalogue (=#+type: ores.codegen.module=). |
+| =plan= | Design or implementation plan (archive). |
+| =product_identity= | Product identity: vision, mission, values at S5. |
+| =recipe= | How-to recipe: step-by-step operational procedure. |
+| =retrospective_release_note_audit_report= | Combined retrospective/release-note/audit report per sprint. |
+| =runbook= | Operational runbook: multi-step procedure for a specific event. |
+| =skill= | LLM skill: a specialised capability loaded into the agent. |
+| =sprint= | Sprint document: mission, stories, health metrics. |
+| =story= | Agile story: goal, acceptance criteria, tasks. |
+| =task= | Agile task: concrete unit of work within a story. |
+| =template= | Codegen Mustache template file (literate source). |
+| =user_journey= | User journey: what one person is trying to do, written before it is built. |
+| =version= | Version document: roadmap and release record at S4. |
+
+* Version tags
+
+Tags identifying which product version a document belongs to.
+
+| Tag | Description |
+|-----+-------------|
+| =v0= | Version 0: the initial development version. |
+| =v1_0= | Version 1.0: the first stable release. |
+| =v2= | Version 2: major rearchitecture milestone. |
+| =v2_0= | Version 2.0: formal release of the v2 rearchitecture. |
+
+* Sprint tags
+
+Tags identifying which sprint a document belongs to. One per sprint; stories
+carry both their sprint tag and their version tag.
+
+| Tag | Description |
+|-----+-------------|
+| =sprint_01= | Sprint 1 |
+| =sprint_02= | Sprint 2 |
+| =sprint_03= | Sprint 3 |
+| =sprint_04= | Sprint 4 |
+| =sprint_05= | Sprint 5 |
+| =sprint_06= | Sprint 6 |
+| =sprint_07= | Sprint 7 |
+| =sprint_08= | Sprint 8 |
+| =sprint_09= | Sprint 9 |
+| =sprint_10= | Sprint 10 |
+| =sprint_11= | Sprint 11 |
+| =sprint_12= | Sprint 12 |
+| =sprint_13= | Sprint 13 |
+| =sprint_14= | Sprint 14 |
+| =sprint_15= | Sprint 15 |
+| =sprint_16= | Sprint 16 |
+| =sprint_17= | Sprint 17 |
+| =sprint_18= | Sprint 18 |
+| =sprint_19= | Sprint 19 |
+| =sprint_20= | Sprint 20 |
+
+* Memory subtype tags
+
+Tags that identify the subtype of a memory document (=#+memory_subtype:=).
+
+| Tag | Description |
+|-----+-------------|
+| =feedback= | User correction or confirmation: a rule the agent should follow. |
+| =reference= | Pointer to an external system, tool, or canonical source. |
+| =user= | Fact about the user's role, expertise, or working style. |
+| =project= | Fact about the work in flight or project motivation. |
+
+* Index and cross-cutting tags
+
+Tags that make a document findable via a cross-cutting dimension.
+
+| Tag | Description |
+|-----+-------------|
+| =index= | This document is an index or catalogue of other documents. |
+| =llm= | Related to LLM session tooling, skills, or memory. |
+| =meta= | Related to the documentation system itself. |
+| =tags= | Related to the tag taxonomy. |
+| =frontmatter= | Related to document frontmatter conventions. |
+| =document_types= | Related to document type definitions. |
+
+* Component tags
+
+Tags that identify which =ores.*= component a document primarily concerns.
+
+| Tag | Description |
+|-----+-------------|
+| =codegen= | =ores.codegen=: the Python/Mustache code generator. |
+| =compass= | =compass.legacy=: the developer toolkit CLI. |
+| =trading= | =ores.trading=: trading domain types and lifecycle. |
+| =cli= | Retired. The command-line interface was removed, so the tag survives only on historical documents. |
+| =qt= | Retired. The Qt-based GUI client was removed, so the tag survives only on historical documents. |
+| =shell= | =ores.shell=: the scripted NATS shell. |
+| =http= | HTTP layer or REST API. |
+| =nats= | NATS messaging substrate. |
+| =compute= | Compute subsystem: grid, batches, workunits. |
+| =database= | Database layer: PostgreSQL, schemas, migrations. |
+| =security= | Security subsystem: authentication, authorisation, RBAC. |
+| =tenancy= | Tenancy and multi-tenant isolation. |
+| =emacs= | Emacs tooling: dashboards, org-roam, skills deployment. |
+| =workflow= | =ores.workflow=: the workflow engine, its instances and steps. |
+
+* Technology tags
+
+Tags that identify a specific technology, tool, or framework.
+
+| Tag | Description |
+|-----+-------------|
+| =api= | API component or API-layer sub-component. |
+| =cmake= | CMake build system. |
+| =cpp= | C++ language. |
+| =sql= | SQL (PostgreSQL dialect). |
+| =python= | Python language. |
+| =git= | Git version control. |
+| =github= | GitHub hosting and GitHub Actions CI. |
+| =boost= | Boost C++ libraries. |
+| =vcpkg= | vcpkg C++ package manager. |
+| =clang= | Clang compiler or Clang-based tools. |
+| =clang-format= | Clang-format code formatter. |
+| =clang-tidy= | Clang-tidy static analyser. |
+| =sccache= | sccache compiler cache. |
+| =ninja= | Ninja build tool. |
+| =postgres= | PostgreSQL database. |
+| =org-roam= | org-roam knowledge graph. |
+| =org-mode= | Emacs org-mode. |
+| =plantuml= | PlantUML diagram tool. |
+| =mustache= | Mustache template engine. |
+| =latex= | LaTeX typesetting (used for PDF manual generation). |
+
+* Domain and content tags
+
+Tags that describe the business or technical domain of the content.
+
+| Tag | Description |
+|-----+-------------|
+| =accounts= | User accounts and authentication. |
+| =accumulator= | Accumulators, decumulators and forward-accumulation structures. |
+| =agile= | Agile process, sprint planning, retrospectives. |
+| =architecture= | Software architecture documentation. |
+| =ascot= | Ascot options and convertible bond buyback structures. |
+| =authentication= | Authentication flows and session management. |
+| =authorization= | Authorisation, roles, permissions. |
+| =autocallable_01= | Autocallables and autocallable structured products. |
+| =balanceguaranteedswap= | Balance guaranteed swaps and prepayment-linked amortising structures. |
+| =basketoption= | Basket options and multi-asset option structures. |
+| =bestentryoption= | Best entry options and best-entry participation structures. |
+| =build= | Build system, CI, packaging. |
+| =bond= | Bond instruments and fixed-income cash products. |
+| =bondforward_refdata= | Bond forwards settled against reference-data bonds. |
+| =bondfuture= | Bond futures and the delivery-basket contract market. |
+| =bondoption= | Bond options and government bond options markets. |
+| =bondoption_refdata= | Bond options settled against reference-data bonds. |
+| =bondposition= | Bond positions and weighted bond baskets. |
+| =bondrepo= | Bond repos and secured money market funding. |
+| =bondtotalreturnswap= | Bond total return swaps and secured financing markets. |
+| =callablebond= | Callable bonds and embedded-option bond structures. |
+| =calendars= | Business calendars and day-count conventions. |
+| =callableswap= | Callable swaps and cancellable interest rate swaps. |
+| =capfloor= | Interest rate caps, floors, collars, and caplet markets. |
+| =cashposition= | Cash positions and cash funding components. |
+| =cbodata= | Collateral bond obligations and cashflow securitisation. |
+| =ci= | Continuous integration. |
+| =commodityapo= | Commodity average price options and Asian commodity options. |
+| =commodityforward= | Commodity forward contracts and commodity derivatives markets. |
+| =commodityoption= | Commodity options and commodity derivatives markets. |
+| =commodityoptionstrip= | Commodity option strips and commodity derivatives markets. |
+| =commodityposition= | Commodity positions and weighted commodity baskets. |
+| =commodityswap= | Commodity swaps and commodity derivatives markets. |
+| =commodityswaption= | Commodity swaptions and commodity derivatives markets. |
+| =commodityvarianceswap= | Commodity variance swaps and commodity volatility markets. |
+| =compositetrade= | Composite trades and multi-component trade structures. |
+| =confirmations= | Trade confirmation, affirmation, and confirmation controls. |
+| =convertiblebond= | Convertible bonds and hybrid equity-debt instruments. |
+| =currencies= | Currency reference data. |
+| =counterparty= | Counterparty entity and management. |
+| =cpiswap= | CPI inflation swaps and inflation-linked markets. |
+| =creditdefaultswap= | Single-name credit default swaps and credit markets. |
+| =creditlinkedswap= | Credit linked swaps and structured credit. |
+| =deal_composition= | Deal composition: structures, legs, and the linkages between trades. |
+| =deployment= | Deployment and environment provisioning. |
+| =documentation= | Documentation tooling and conventions. |
+| =domain= | Business domain modelling. |
+| =doubledigitaloption= | Double digital options and simultaneous two-underlying binary payouts. |
+| =entity= | Domain entity (also used as type tag). |
+| =eq_asianoption= | Equity Asian options and averaged-price equity derivatives. |
+| =eq_barrieroption= | Equity barrier options and path-dependent equity derivatives. |
+| =eq_digitaloption= | Equity digital options and binary equity derivatives. |
+| =eq_doublebarrieroption= | Equity double barrier options and path-dependent equity derivatives. |
+| =eq_doubletouchoption= | Equity double touch options and binary equity derivatives. |
+| =eq_europeanbarrieroption= | Equity European barrier options and path-dependent equity derivatives. |
+| =eq_outperformance= | Equity outperformance options and relative-performance equity derivatives. |
+| =eq_touchoption= | Equity touch options and binary equity derivatives. |
+| =equityautodeltahedgedoption= | Equity auto delta hedged options and discretely hedged structures. |
+| =equitycliquetoption= | Equity cliquet options and ratchet structures. |
+| =equityforward= | Equity forward contracts and equity derivatives markets. |
+| =equityfuturesoption= | Options on equity futures and equity derivatives markets. |
+| =equityoption= | Equity options and equity derivatives markets. |
+| =equityoptionposition= | Equity option positions and weighted option baskets. |
+| =equityposition= | Equity positions and weighted equity baskets. |
+| =equityswap= | Equity swaps and equity derivatives markets. |
+| =equityvarianceswap= | Equity variance swaps and equity volatility markets. |
+| =europeanoptioncontingentonabarrier= | European options contingent on a barrier on another underlying. |
+| =extendedaccumulator= | Extended accumulators and barrier-extended forward accumulations. |
+| =finance= | Finance domain, products, and markets. |
+| =flexiswap= | Flexi swaps and flexible amortisation structures. |
+| =forwardbond= | Forward bonds, T-Locks and J-Locks. |
+| =forwardrateagreement= | Forward rate agreements and the money market forward curve. |
+| =fx_forward= | FX forward contracts and the FX derivatives market. |
+| =fx_asianoption= | FX Asian options and averaged-rate FX derivatives. |
+| =fx_barrieroption= | FX barrier options and path-dependent FX derivatives. |
+| =fx_digitalbarrieroption= | FX digital barrier options and binary FX derivatives. |
+| =fx_digitaloption= | FX digital options and binary FX derivatives. |
+| =fx_doublebarrieroption= | FX double barrier options and path-dependent FX derivatives. |
+| =fx_doubletouchoption= | FX double touch options and binary FX derivatives. |
+| =fx_europeanbarrieroption= | FX European barrier options and path-dependent FX derivatives. |
+| =fx_kikobarrieroption= | FX KIKO barrier options and path-dependent FX derivatives. |
+| =fx_touchoption= | FX touch options and binary FX derivatives. |
+| =fxoption= | FX options and the FX derivatives market. |
+| =fxswap= | FX swaps and the FX derivatives market. |
+| =fxvarianceswap= | FX variance swaps and FX volatility markets. |
+| =generic_barrieroption= | Generic barrier options and multi-barrier structured payoffs. |
+| =genericscriptedproducts= | Generic scripted products and flexible payoff script structures. |
+| =indexcds= | Index credit default swaps and credit indices. |
+| =indexcdsoption= | Options on index credit default swaps. |
+| =journey= | User journeys, and how they are executed. |
+| =knowledge_graph= | org-roam knowledge graph management. |
+| =knockoutswap= | Knock-out swaps and barrier-terminated interest rate swaps. |
+| =lifecycle= | Entity or component lifecycle management. |
+| =llm_code_review= | LLM-assisted code review tooling. |
+| =logging= | Logging and observability. |
+| =masd= | Model Assisted Software Development methodology. |
+| =model= | Codegen data model. |
+| =modelling= | Domain or system modelling. |
+| =orchestration= | Coordinating several writes across entities or services. |
+| =performance= | Performance measurement and optimisation. |
+| =performanceoption_01= | Performance options and basket performance participation structures. |
+| =products_by_asset_class= | Entry page grouping the ORE product knowledge notes by asset class. |
+| =provisioning= | System provisioning workflows and wizards. |
+| =rainbow_option= | Rainbow options and best-or-worst multi-asset structures. |
+| =ratedigitaloption= | Rate digital options and binary interest rate derivatives. |
+| =rbac= | Role-Based Access Control. |
+| =refdata= | Reference data (currencies, countries, calendars, etc.). |
+| =release= | Release management and release notes. |
+| =rpa= | Risk participation agreements and counterparty credit risk. |
+| =saga= | Saga-style consistency: compensable steps instead of one transaction. |
+| =security= | Security features and hardening (also component tag). |
+| =sprint= | Sprint-level document (also type tag). |
+| =strikeresettableoption= | Strike resettable options and trigger-reset option structures. |
+| =structures= | Trade structures and multi-leg deal composition. |
+| =swap= | Swap products and interest-rate derivatives. |
+| =swaption= | Swaptions and the interest rate option market. |
+| =syntheticcdo= | Synthetic collateralised debt obligations and tranches. |
+| =tarf= | Target redemption forwards and forward-accumulation structures. |
+| =testing= | Test infrastructure, test coverage. |
+| =totalreturnswap= | Total return swaps and funded asset exposure structures. |
+| =trading= | Trading domain (also component tag). |
+| =ui= | User interface design and implementation. |
+| =ux= | User experience. |
+| =var_and_vol_derivatives= | Exotic variance and volatility swaps and options with barriers and corridors. |
+| =versioning= | Versioning of deals and entities: internal and external versions. |
+| =window_barrieroption= | Window barrier options and time-windowed barrier structures. |
+| =worstofbasketswap= | Worst of basket swaps and basket trigger structures. |
+| =yyswap= | Year-on-year inflation swaps and inflation-linked markets. |
+| =zerocouponswap= | Zero coupon swaps and zero-coupon interest rate structures. |
+
+* Story and ancestry slug tags
+
+Story-slug tags and ancestry tags are *not* individually enumerated here because
+they are generated automatically from directory names and story slugs. They
+follow a naming pattern and are validated by pattern, not by lookup:
+
+- *Version slug*: =v<N>= or =v<N>_<M>= (e.g. =v0=, =v1_0=).
+- *Sprint slug*: =sprint_<NN>= (e.g. =sprint_03=, =sprint_20=).
+- *Story slug*: any lowercase =snake_case= or =kebab-case= string not
+  matching a structural tag above. Generated from the story's directory name.
+- *Housekeeping suffix*: =<sprint_slug>_housekeeping= (e.g.
+  =sprint_03_housekeeping=).
+
+The generator behind =compass add= derives these
+automatically from =--parent-dir= and injects them into =#+filetags:=. A tag
+matching =^[a-z][a-z0-9_.-]*$= that is not in the structural tables above is
+assumed to be a slug or component-name tag and passes lint validation. Dots are
+permitted specifically to accommodate =ores.*= component name tags (e.g.
+=ores.lisp=, =ores.org-js=).
+
+* See also
+
+- [[id:8B29A8D8-E004-4E87-B81D-ABEAF68F2B98][Document Types]] — the =#+filetags:= format rules, ancestor-slug invariant,
+  and tag dimension guidance.

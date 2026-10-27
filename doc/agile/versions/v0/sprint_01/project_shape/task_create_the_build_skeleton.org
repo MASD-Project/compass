@@ -1,0 +1,51 @@
+:PROPERTIES:
+:ID: 8F8896D1-B930-4614-9D7C-548BF1097BE1
+:END:
+#+title: Task: Create the build skeleton
+#+description: Root CMakeLists.txt, CMakePresets.json, vcpkg.json and projects/CMakeLists.txt in the compass-ng shape, with one foundation component that builds and runs one test.
+#+type: task
+#+level: s1
+#+filetags: :project_shape:sprint_01:v0:
+#+owner: marco
+#+branch:
+#+pr:
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-10-27
+#+updated: 2026-10-27
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a task in the [[id:D08C23FF-2A6E-4EFA-A7B7-F91822875AE0][Project shape]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+Root CMakeLists.txt, CMakePresets.json, vcpkg.json and projects/CMakeLists.txt in the compass-ng shape, with one foundation component that builds and runs one test.
+
+* Status
+
+| Field        | Value                                                      |
+|--------------+------------------------------------------------------------|
+| State        | BACKLOG                                                    |
+| Parent story | [[id:D08C23FF-2A6E-4EFA-A7B7-F91822875AE0][Project shape]] |
+| Now          | Not started.                                               |
+| Waiting on   | Nothing.                                                   |
+| Next         | Start the task.                                            |
+| Last touched | 2026-10-27                                                 |
+
+* Acceptance
+
+- A configure, build and test with the default preset succeeds from a clean checkout.
+
+* Plan
+
+* Measurements
+
+* Notes
+
+* Test Scenarios
+
+* PRs
+
+* Review
+
+* Result

@@ -1,0 +1,301 @@
+:PROPERTIES:
+:ID: BA0E3273-DC4B-7CD4-447B-06227B7D09A8
+:ROAM_ALIASES: MASD
+:END:
+#+title: Model Assisted Software Development
+#+description: The MASD methodology and its conceptual model — the logical-physical space, the four metamodels (LMM, PMM, VMM, codec), projections, the physical address, the six principles, the reference-implementation backout strategy, and the automation spectrum. Pure methodology, drawn from the Dogen reference; no project-specific content.
+#+type: knowledge
+#+level: cross
+#+filetags: :knowledge:masd:methodology:codegen:architecture:
+#+created: 2024-07-01
+#+updated: 2026-06-07
+#+startup: inlineimages
+
+#+attr_html: :class note
+#+begin_quote
+This document and its companions in this folder describe MASD as a
+methodology — an observation of the external world. They make *no*
+reference to any particular product. For how a concrete product
+instantiates these concepts, see [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Applied MASD]].
+#+end_quote
+
+MASD is the [[https://uhra.herts.ac.uk/id/eprint/17031/][Model Assisted Software Development]] methodology developed as
+part of a PhD programme and documented in full on the [[https://mcraveiro.github.io/dogen/index.html][Dogen site]]. Its
+canonical reference implementation is the code generator [[https://github.com/MASD-Project/dogen][Dogen]] (now
+decommissioned); the methodology itself outlives the tool. MASD's central
+claim is that the schematic, repetitive parts of a software system can be
+treated as /projections/ of a small, language-neutral model, and that those
+projections can be reconstructed automatically.
+
+* The conceptual model
+
+MASD starts from the premise that a software project is a collection of
+/physical artefacts/ — files and directories — that live on a filesystem,
+and that these artefacts can be understood as projections from a
+higher-dimension /logical/ representation. The distinction is adapted from
+Lakos's /Large-Scale C++ Software Design/:
+
+#+begin_quote
+/Logical design/ addresses all the type-related aspects of design — classes
+and their relationships. /Physical design/ addresses the placement of logical
+entities, such as classes and functions, into physical ones, such as files and
+libraries. All design has a physical aspect.
+#+end_quote
+
+#+caption: Figure 3 (Dogen): transforms from logical representation to filesystem. Source: [[https://mcraveiro.github.io/dogen/docs/domain_architecture.html][Domain Architecture]].
+#+attr_html: :alt Transforms from a logical representation, through a physical representation, to the filesystem.
+[[proj:assets/images/masd/masd_physical_to_filesystem.png]]
+
+MASD partitions its problem domain into three orthogonal /domains/, each
+formalised by its own metamodel, plus a thin input representation:
+
+- The *logical domain* — the language-neutral meta-model of domain concepts
+  (classes, enumerations, primitives…). Formalised by the *Logical Metamodel
+  (LMM)*. See [[id:4F24EEB9-58F1-42FD-BF4F-121D890F2D85][Logical Space]].
+- The *physical domain* — the file and folder artefacts that concepts are
+  rendered into. Formalised by the *Physical Metamodel (PMM)*. See
+  [[id:787A7429-71D5-4295-829B-A9B56275B1F8][Physical Space]].
+- The *variability domain* — the (non-structural) configuration that decides
+  which artefacts are produced and how they are named. Formalised by the
+  *Variability Metamodel (VMM)*. See [[id:CE95C751-2125-4BA9-A78D-C30F9540FC5E][Variability]].
+- The *codec model* — the simplest external input representation, carrying
+  stereotypes that route each element into its LMM meta-type.
+
+** The Logical-Physical Space (LPS)
+
+The LMM, PMM and VMM are distinct dimensions of a single multidimensional
+space — the /Logical-Physical Space/ — and "only make sense when viewed as a
+whole". MASD plays a dual role over this space: it defines the *composition*
+of all dimensions (their metamodels, elements, and associations), and it
+defines the *framework of projections* between them. The reference
+implementation is the canonical realisation of both.
+
+#+caption: Figure 42 (Dogen): high-level view of the MASD Logical-Physical Space. Source: [[https://mcraveiro.github.io/dogen/docs/domain_architecture.html][Domain Architecture]].
+#+attr_html: :alt The codec, logical, variability and physical representations and how they project onto the filesystem.
+[[proj:assets/images/masd/logical_physical_space_small.png]]
+
+* Projections
+
+A /projection/ is a function that takes a point in logical space and maps it
+to a set of points in physical space. The same logical entity projects into
+many physical artefacts: a class becomes a header, an implementation file, a
+serialisation routine, an ORM mapping, and so on — each a distinct expression
+of the same underlying logical truth. Changing the logical entity (adding a
+field) propagates to every projection simultaneously through regeneration.
+
+The projection pathway runs through the dimensions of the LPS:
+
+1. *Codec representation* — the simplest input form; stereotypes determine
+   routing (e.g. =masd::object= → the structural object meta-type).
+2. *Logical model* — an instantiation of the LMM.
+3. *Physical model* — regions and archetypes of the PMM.
+4. *Filesystem* — the rendered files and directories.
+
+Each step is parameterised by *non-structural variability* (naming, file
+extensions, feature enablement) drawn from the VMM.
+
+#+caption: Figure 34 (Dogen): projection across the MASD spaces. Source: [[https://mcraveiro.github.io/dogen/docs/domain_architecture.html][Domain Architecture]].
+#+attr_html: :alt A single logical point projecting into a region of physical space.
+[[proj:assets/images/masd/masd_projection_across_spaces.png]]
+
+Model-Driven Engineering distinguishes three categories of transformation,
+all of which appear in the pathway above:
+
+- *Model-to-Model (M2M)* — transforms one model into another at the same or a
+  different abstraction level (codec → logical → physical).
+- *Model-to-Text (M2T)* — produces a string representation (source code,
+  configuration, documentation) from a model. Code generators occupy this
+  category; it is the final physical → filesystem step.
+- *Text-to-Text (T2T)* — converts one textual representation into another
+  with no intermediate model.
+
+See [[https://mcraveiro.github.io/dogen/docs/models_and_transformations.html][Models and Transformations]] for the formal treatment.
+
+* The physical address
+
+Every physical artefact has an /address/ — a point in physical space — written
+as a four-segment path:
+
+: [technical space].[part].[facet].[archetype]
+
+For example =cpp.include.types.class_header= names the C++ header archetype of
+the =types= facet in the =include= part; =cpp.src.types.class_implementation=
+its implementation. A prefix names a *region*: =cpp= is all C++ content,
+=cpp.include= all C++ artefacts under the include part. The four levels are
+detailed in [[id:787A7429-71D5-4295-829B-A9B56275B1F8][Physical Space]]; in brief:
+
+- *Technical space (TS)* — a programming language or platform together with
+  its metamodel (C++, SQL, C#…). The outermost grouping. See [[id:E7B74138-9ADA-4B4B-A983-23B3FDB55F44][Technical Space]].
+- *Part* — a named subdivision of a /component/ grouping related file
+  artefacts (e.g. =include= and =src= for C++). A part is an *arbitrary
+  modelling choice* for partitioning the entities of a problem domain; it is
+  expressed in the technical space's language and conventions but is *not* a
+  subdivision of the technical space itself.
+- *Facet* — a container for a set of related file artefacts that all belong to
+  the same TS. Like a part, a facet is an arbitrary partitioning/taxonomy of
+  the logical space (for example grouping all the artefacts that give a type
+  its serialisation, or its hashing). It is the mechanism by which trivial
+  structural functions are composed. See [[id:B079DA67-8408-4BD0-A93C-D108AC780872][Facet]].
+- *Archetype* — the most granular unit: the generating function and template
+  for a single output file. Each archetype produces exactly one file per
+  logical entity.
+
+#+attr_html: :class note
+#+begin_quote
+*Not a subdivision of the technical space.* Parts and facets are arbitrary
+partitionings of the /logical/ space — choices about how to classify a problem
+domain's entities by the role each artefact plays. They "belong" to a technical
+space only because the TS's language is used to /express/ the partitioning. See
+[[id:787A7429-71D5-4295-829B-A9B56275B1F8][Physical Space]] for the full treatment.
+#+end_quote
+
+* The four metamodels and the metamodelling hierarchy
+
+MASD is structured as a classical four-level metamodelling hierarchy — M3
+metametamodel (the =archetypes=) → M2 metamodel (the PMM) → M1 model (the
+physical model) → M0 (the filesystem). See [[id:787A7429-71D5-4295-829B-A9B56275B1F8][Physical Space]] for the M3–M0 table.
+
+#+caption: Figure 23 (Dogen): an example MASD metamodel hierarchy (M3 → M0). Source: [[https://mcraveiro.github.io/dogen/docs/domain_architecture.html][Domain Architecture]].
+#+attr_html: :alt The M3 metametamodel, M2 PMM, M1 physical model and M0 filesystem.
+[[proj:assets/images/masd/masd_pmm_pm.png]]
+
+- The *Logical Metamodel (LMM)* houses the meta-elements that model logical
+  entities. Its structural package ranges from traditional meta-types (module,
+  enumeration, builtin, object) up through idiomatic meta-types (exception,
+  primitive, entry point) to design patterns and object templates. See
+  [[id:4F24EEB9-58F1-42FD-BF4F-121D890F2D85][Logical Space]].
+- The *Physical Metamodel (PMM)* encodes the TS→Part→Facet→Archetype geometry
+  as a queryable structure the generator consults at runtime. See
+  [[id:787A7429-71D5-4295-829B-A9B56275B1F8][Physical Space]].
+- The *Variability Metamodel (VMM)* governs non-structural variability:
+  enabling or disabling regions of physical space and configuring projections.
+  See [[id:CE95C751-2125-4BA9-A78D-C30F9540FC5E][Variability]].
+
+* Logical entity types
+
+The LMM defines a fixed set of logical entity types — =object=, =value=,
+=enumeration=, =primitive=, =exception=, =concept=, =module=, and =builtin=.
+The type determines which facets are available and what artefacts can be
+produced, and each type has a default active facet set that the variability
+model can override. See [[id:4F24EEB9-58F1-42FD-BF4F-121D890F2D85][Logical Space]] for the full type descriptions and the
+default-facet-per-type table.
+
+* Variability
+
+MASD reserves the word /variability/ for *non-structural* variability — the
+configuration that does not change the object graph of a model, only how it is
+rendered. The VMM addresses two things: enabling or disabling regions of
+physical space (technical spaces, facets, archetypes), and configuring
+projections (naming, file extensions, feature toggles).
+
+- A *feature* is a single configuration point.
+- A *feature bundle* groups semantically related features.
+- A *feature template* is an abstract feature instantiated over a domain (e.g.
+  =masd.archetype=).
+- A *binding point* is the set of legal meta-entities at which a feature may be
+  used.
+- A *profile* is a bundle of configuration points bound to logical elements,
+  named after the ability it confers (=serializable=, =hashable=…), and
+  reusable across products and product lines.
+
+See [[id:CE95C751-2125-4BA9-A78D-C30F9540FC5E][Variability]] for the full treatment.
+
+* Schematic and Repetitive Physical Patterns (SRPP)
+
+The analytical heart of MASD is the /Schematic and Repetitive Pattern in
+Physical Space/ (SRPP): a class of infrastructure code that varies predictably
+across entities but is otherwise mechanically identical. Content is judged an
+SRPP operationally — "one determines if a physical pattern is schematic and
+repetitive by reproducing it by automated means". The physical modelling
+process has five steps:
+
+1. *Sampling* — collect representative hand-written artefacts.
+2. *Decomposition / segmentation* — break each into prologue, body, epilogue.
+3. *Labelling and classification* — assign artefacts to parts and facets.
+4. *Reconstruction* — write the trivial function (archetype) that regenerates
+   the pattern.
+5. *Cataloguing and parameterisation* — register the archetype and expose its
+   variability.
+
+A generated artefact "may only be composed of zero or one trivial structural
+functions and zero or more trivial non-structural functions" — each gets its
+own archetype.
+
+* The six MASD principles
+
+The principles below are defined in full in
+[[https://mcraveiro.github.io/dogen/docs/the_masd_methodology.html][The MASD Methodology]].
+
+1. *Focus Narrowly* — target infrastructure code only, never business logic.
+2. *Integrate Pervasively* — fit the existing toolchain without disruption.
+3. *Evolve Gradually* — grow coverage incrementally, driven by concrete
+   practice rather than up-front design.
+4. *Govern Openly* — keep templates, models, and configuration in the open and
+   subject to ordinary review.
+5. *Standardise Judiciously* — prefer de facto standards at the core; conform
+   physical artefacts to project conventions.
+6. *Assist and Guide* — span an automation spectrum from stub generation to
+   full product-line generation, assisting rather than replacing the engineer.
+
+* The reference-implementation backout strategy
+
+Rather than designing an abstract generator first, MASD extracts the generator
+from a proven, hand-written implementation — a bootstrapping / dogfooding
+approach described for Dogen in [[https://mcraveiro.github.io/dogen/docs/masd_reference_implementation.html][MASD Reference Implementation]]:
+
+1. *Commission a reference entity by hand* — every layer written without
+   generator involvement.
+2. *Identify the SRPPs* — patterns that appear identically across the
+   hand-written set are candidates for extraction.
+3. *Encode each SRPP as an archetype* — a template parameterised by the
+   logical model.
+4. *Register the archetypes* in the physical metamodel / profile catalogue.
+5. *Verify zero drift* — run the generator against the reference model and diff
+   against the hand-written files; a zero diff confirms faithful extraction.
+6. *Extend to new entities* — commissioning a new entity reduces to authoring
+   its model and running the generator.
+
+This avoids the central failure mode of top-down code generation: a generator
+that produces code nobody has actually used.
+
+* Automation spectrum
+
+MASD frames automation as a spectrum rather than a binary:
+
+| Level | Description                                              |
+|-------+----------------------------------------------------------|
+| 0     | Stub generation only; the engineer writes all content    |
+| 1     | One layer generated (e.g. schema only)                   |
+| 2     | Multiple layers generated; some manual editing remains   |
+| 3     | A full entity generated with no manual editing           |
+| 4     | Product-line generation: a new entity is just a new model |
+
+* See also
+
+- [[id:338DCC6D-4913-4FDC-9078-1F0B0486A9E5][MASD]] — the structure note that orders this cluster, and where to read this page in it.
+** MASD concept docs (this folder)
+
+- [[id:4F24EEB9-58F1-42FD-BF4F-121D890F2D85][Logical Space]] — the LMM: entity types, packages, abstraction levels, and
+  projections.
+- [[id:787A7429-71D5-4295-829B-A9B56275B1F8][Physical Space]] — the TS→Part→Facet→Archetype hierarchy, the PMM, and the
+  metamodelling levels.
+- [[id:E7B74138-9ADA-4B4B-A983-23B3FDB55F44][Technical Space]] — the language/platform-plus-metamodel concept.
+- [[id:B079DA67-8408-4BD0-A93C-D108AC780872][Facet]] — the partitioning of artefacts by role; SRPP and archetypes.
+- [[id:CE95C751-2125-4BA9-A78D-C30F9540FC5E][Variability]] — features, bundles, templates, profiles, and configuration.
+
+** Applied
+
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Applied MASD]] — how a concrete product instantiates every concept on this page.
+
+** Dogen site (primary references)
+
+- [[https://mcraveiro.github.io/dogen/docs/domain_architecture.html][Domain Architecture]] — the full formal treatment of the logical, physical,
+  and variability domains and the LPS; the source of the figures above.
+- [[https://mcraveiro.github.io/dogen/docs/the_masd_methodology.html][The MASD Methodology]] — vision, mission, the six principles, actors, and
+  processes.
+- [[https://mcraveiro.github.io/dogen/docs/models_and_transformations.html][Models and Transformations]] — model, meta-model, the metamodelling hierarchy,
+  and the M2M/M2T/T2T taxonomy.
+- [[https://mcraveiro.github.io/dogen/docs/masd_reference_implementation.html][MASD Reference Implementation]] — how Dogen bootstrapped itself; the fitness
+  function and conformance model behind the backout strategy.
+- [[https://mcraveiro.github.io/dogen/docs/from_problem_space_to_solution_space.html][From Problem Space to Solution Space]] — the derivation of the technical-space
+  concept.

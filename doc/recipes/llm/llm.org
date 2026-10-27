@@ -1,0 +1,31 @@
+:PROPERTIES:
+:ID: 51FE4DF6-D12F-4CF3-A32F-E793979AA68B
+:END:
+#+title: LLM prompt recipes
+#+description: Index of reusable prompts for LLM chat interactions, grouped by use-case.
+#+type: knowledge
+#+level: cross
+#+filetags: :recipes:llm:prompt:index:knowledge:
+#+created: 2026-05-21
+#+updated: 2026-05-21
+
+Reusable prompts for LLM chat interfaces (Gemini, ChatGPT, Claude web,
+etc.). These are distinct from [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][skills]], which are Claude Code agents
+operating inside this repo.
+
+* Code and review
+
+- [[id:C4FEF68B-DC9B-4C05-B86B-0548C1394C45][How do I ask an LLM to review C++ code?]]
+
+* Documentation
+
+- [[id:6FAA2B35-805A-4790-ACEA-E168AFAE23C0][How do I ask an LLM to transcribe handwritten financial notes?]]
+
+* Planning
+
+- [[id:6FE5A0E1-4C96-4B13-A2B9-64590AD6DB46][How do I ask an LLM to spec a new feature?]]
+
+* Agent configuration
+
+- [[id:5295951B-CD43-4FDC-B1E9-0FFF9BEEFE02][How do I update Claude Code permissions?]]
+- [[id:7742AC84-C722-4CFA-8D70-8AB1C6DFD45A][How do I report on skill selection?]]

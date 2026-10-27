@@ -1,0 +1,107 @@
+:PROPERTIES:
+:ID: 46DFE47F-967B-4C24-95BF-3E21F97CFD20
+:END:
+#+title: Agile process
+#+description: Overview of the project's agile loop — backlog refinement, the three sprint phases, and version closure — with an inventory of the per-concept pages that carry the detail.
+#+type: knowledge
+#+level: cross
+#+filetags: :agile:process:sprint:backlog:knowledge:
+#+created: 2026-05-21
+#+updated: 2026-06-05
+
+This doc is the overview of how the agile loop runs in practice —
+distinct from the generic [[id:8810E0F9-C5B9-4CFA-A710-774AD6C771DD][lifecycle]] (which covers TODO state
+transitions across every stateful document type). Lifecycle is the
+state machine on each document; this is the rhythm /around/ those
+documents: how ideas move from the [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][product backlog]] into a [[id:0820B7FD-147C-4832-AC25-C043D38D5B61][sprint]]
+as [[id:4FAC3AE2-04A8-4C35-B72E-78C7A862EED9][stories]], how those stories decompose into [[id:A7CF5191-6786-408F-A4A6-3A508DCADAC1][tasks]], and how a
+sprint opens, runs, and closes. Each concept and phase has its own
+page; this one holds the loop together.
+
+* The loop
+
+A single turn of the loop:
+
+1. /Refine/ the [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][product backlog]] — keep the [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][next]] bucket honest as
+   candidates change shape, and let new ideas land in [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][deferred]].
+2. /Plan/ a new sprint — see [[id:F5426198-ACAF-41DA-A043-FF15785E4A1D][Sprint planning]]: define the [[id:198DA730-D9FB-4BDE-B1C0-B930CD019917][sprint
+   mission]] first, choose mission-fitting [[id:671F18E4-E09C-4B3B-BD24-D33DF8AE38A6][captures]] from next,
+   promote each into a [[id:4FAC3AE2-04A8-4C35-B72E-78C7A862EED9][story]], and decompose into one-PR [[id:A7CF5191-6786-408F-A4A6-3A508DCADAC1][tasks]].
+3. /Execute/ — see [[id:227958A5-0F78-4CC6-A116-B83988592B68][Sprint execution]]: agents run =BACKLOG= tasks
+   through the lifecycle one PR at a time; the heartbeat rule keeps
+   Status fresh; discovered work is triaged as it appears.
+4. /Close/ the sprint — see [[id:7D72A9DA-984F-4130-BFF6-97B66B233907][Sprint closure]]: resolve every story,
+   write the achievements, generate release notes and cut a release
+   if applicable, run the retrospective, close the sprint.
+5. /Next/ sprint opens. New captures discovered during execution have
+   already landed in the backlog and surface in the next refinement.
+
+A version is the outer loop: a coherent group of sprints with a
+shared mission. It opens when its first sprint opens, and closes when
+the version's [[id:4995D24A-28FB-47F6-A083-DB5283507410][Definition of done]] is met.
+
+* Backlog refinement
+
+*Owned by* [[id:8F13BA75-EDAA-46CC-9BE2-E356D60BF4F4][System 3]] (sprint coherence drives whether next is honest).
+Captures are filed by [[id:BF4F183F-BB33-44F2-A53F-D9BD602E9BE8][System 2]] when discovered during execution.
+Identity-fit calls are referred to [[id:6DF00A64-7CC3-40A7-950B-55D2B05A31C7][System 5]]; next↔deferred moves for the
+next version are driven by [[id:6CA8B181-BD81-4EF4-AF27-64F5491D62F0][System 4]].
+
+Refinement is the cheap, ongoing work that keeps the [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][next]] bucket
+usable. It is /not/ a meeting — it is small touches whenever a
+capture is touched:
+
+- New ideas land via =compass add capture=. Pick the
+  bucket using the rules in [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][product backlog]].
+- A capture's body may be tightened (description, tags) as a sprint
+  approaches and it becomes a serious candidate.
+- A capture moves =git mv= between buckets when its horizon changes
+  (e.g. a "deferred" idea becomes "next" because its blocking dependency
+  landed; a "next" idea drops to "deferred" because the next version's
+  focus shifted).
+- Captures that are no longer interesting are *deleted*, not
+  archived. The product backlog is not an artefact museum.
+
+A capture file carries no Status table — there is nothing to update
+during refinement except its body and bucket.
+
+* Sprint phases
+
+A sprint moves through three phases; each phase has its own page and
+the boundaries are sharp:
+
+- [[id:F5426198-ACAF-41DA-A043-FF15785E4A1D][Sprint planning]] — mission first, then stories, then tasks. Ends
+  when the sprint is ready: mission filled, at least one story
+  BACKLOG-ready.
+- [[id:227958A5-0F78-4CC6-A116-B83988592B68][Sprint execution]] — tasks through the lifecycle, one PR each;
+  heartbeat rule; discovered-work triage.
+- [[id:7D72A9DA-984F-4130-BFF6-97B66B233907][Sprint closure]] — resolve stories, achievements, release notes,
+  retrospective; ends when the record is complete.
+
+* Closing a version
+
+A version closes when its [[id:4995D24A-28FB-47F6-A083-DB5283507410][Definition of done]] is met. The version
+file's Status moves =STARTED → RELEASED=, =:CLOSED:= is stamped, and
+the Sprints table on the version page is the historical record.
+
+* The concept pages
+
+| Page | Carries |
+|------+---------|
+| [[id:4FAC3AE2-04A8-4C35-B72E-78C7A862EED9][Stories]] | What a story is; themes and epics; story sizing; ready/done; cross-sprint continuations. |
+| [[id:A7CF5191-6786-408F-A4A6-3A508DCADAC1][Tasks]] | The one-PR rule and sizing limits; discovered tasks; ready/done. |
+| [[id:F5426198-ACAF-41DA-A043-FF15785E4A1D][Sprint planning]] | Opening a sprint step by step; the mission as filter; readiness. |
+| [[id:227958A5-0F78-4CC6-A116-B83988592B68][Sprint execution]] | The execution loop; the heartbeat rule; discovered-work triage. |
+| [[id:7D72A9DA-984F-4130-BFF6-97B66B233907][Sprint closure]] | The closure sequence; achievements; release notes; retrospective. |
+
+* See also
+
+- [[id:8810E0F9-C5B9-4CFA-A710-774AD6C771DD][Lifecycle]] — the generic TODO state machine on each document.
+- [[id:8B29A8D8-E004-4E87-B81D-ABEAF68F2B98][Document types]] — per-type frontmatter and section contract.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Product backlog]] — what the backlog is and how next/deferred buckets work.
+- [[id:A064D838-F127-4DD6-BB42-9A7902039AEE][Sprint themes]] — the six themes and epic convention for sprint story tables.
+- [[id:A64F482F-8A57-406D-98B2-53476F095E8C][Sprint health charts]] — the four charts on every sprint page: what
+  they measure and how to read them.
+- [[id:47341FC6-B8FB-499E-AAE0-F4EE0ABFDA05][Glossary]] — definitions of every term used here.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I create a new doc?]] — the recipe used at every promotion
+  step above.

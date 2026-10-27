@@ -1,0 +1,118 @@
+:PROPERTIES:
+:ID: 84C9177E-C737-428A-BDF9-E55FA6C9680C
+:END:
+#+title: How do I start a unit of work with compass?
+#+description: Use compass story new or compass task new to fetch main, create a feature branch, and scaffold a linked story and task in one step.
+#+type: recipe
+#+level: cross
+#+filetags: :compass:workflow:agile:recipe:bearings:
+#+created: 2026-05-25
+#+updated: 2026-06-27
+
+The /Scaffold/ pillar of the [[id:6F7A122F-BC0F-4F3E-BA46-8B793FF15D10][compass tool]] — composing =git= and the
+low-level =add= primitive into a one-step "start a unit of work" ritual.
+
+* Question
+
+How do I start a piece of work — fresh branch off =main= plus a linked
+story/task — without running the manual commands? (Both for a brand-new
+story and for adding a task to an existing one.)
+
+* Answer
+
+** New story
+
+#+begin_src sh :results verbatim
+./projects/compass.legacy/compass.sh story new \
+  --slug my_feature --title "My feature" \
+  --description "What it delivers." --tags "topic"
+#+end_src
+
+Fetches =main=, creates =feature/my-feature=, scaffolds the story (in
+the current sprint), a /scaffold task/ that owns the branch (STARTED,
+=#+branch:= set so [[id:0D378978-7CF1-45F5-896F-63E281CC02CB][=fleet=]] picks it up, journal stamped — the scaffold
+PR closes /it/, never the first real task), and the first real task
+(BACKLOG, no branch). It prints the remaining manual steps: wire the
+story into the sprint =* Stories= table, open the scaffold PR, and
+=compass task done scaffold_<slug>= before merging it.
+
+Pick up the first real task when its work begins:
+
+#+begin_src sh :results verbatim
+./projects/compass.legacy/compass.sh task start <task-slug>
+#+end_src
+
+=task start= derives =feature/<slug-kebab>= when the task has no
+=#+branch:= yet (override with =--branch=) — creating a task and
+picking it up are separate acts.
+
+** Add a task to an existing story
+
+Identify the story by its =:ID:= (or unique prefix) or its folder slug:
+
+#+begin_src sh :results verbatim
+./projects/compass.legacy/compass.sh task new \
+  --story compass_cli_ux_redesign \
+  --slug fix_help_text \
+  --title "Fix the help text" --description "…"
+#+end_src
+
+Creates =feature/fix-help-text= and adds the task to that story (no new
+story). =--story= accepts UUID, UUID prefix, or folder slug.
+
+When several tasks belong to the same feature branch (e.g. a series of
+format-pass tasks that share one branch), pass =--branch= to override
+the auto-derived name:
+
+#+begin_src sh :results verbatim
+./projects/compass.legacy/compass.sh task new \
+  --story clang_format_setup \
+  --slug format_pass_group_01 \
+  --title "Format pass: group 1" \
+  --branch feature/format-pass-group-01
+#+end_src
+
+** Notes
+
+Preview either mode with =--dry-run= (no side effects). =--task= in
+=story new= sets the first task title (default: =Implement <title>=);
+=--base= overrides the branch base (default =origin/main=);
+=--branch= (=task new= only) overrides the auto-derived branch name.
+
+* Script
+
+=compass story new= → =src/compass.py= (=cmd_story=, =_scaffold_and_branch=),
+which calls =git fetch= / =git switch -c=, =ores.codegen='s =doc_generate=,
+sets =#+branch:= on the task file, and appends an entry to =.journal.org=.
+
+=compass task new= follows the same path in existing-story mode.
+
+* Tested by
+
+Manual: =--dry-run= plus a throwaway real run (branch + story + task
+created, =#+branch= set, journal updated), then cleaned up.
+
+* See also
+
+- [[id:5B670808-D28B-4818-A2FA-EA5220D35E8D][How do I add a doc with compass?]] — the low-level =add= primitive.
+- [[id:0D378978-7CF1-45F5-896F-63E281CC02CB][How do I see what every worktree is doing?]] — =fleet=, the companion view.
+- [[id:B4C7D2E1-9F3A-4A6B-8E5D-3C1F7B2A9D4E][How do I use the session journal?]] — =.journal.org= auto-updated on task pickup.
+- [[id:5AE311D8-36A8-4892-AAB4-DB3A13B00B6F][Add a task to an existing story]] — runbook that uses =compass add task=
+  to scaffold a task non-interactively into an in-flight story.
+
+* Content and lifecycle (2026-06-05)
+
+Scaffold with content — pass =--goal "..."= and repeatable
+=--acceptance "..."= so the doc is born complete instead of with
+placeholder text. Wiring and state flips are compass side-effects:
+
+#+begin_src sh :results verbatim
+./compass.sh add task --slug s --parent-dir <story-dir> \
+  --title "T" --description "D" --goal "..." --acceptance "..." \
+  --acceptance "..."     # wires the story's * Tasks row (BACKLOG)
+./compass.sh task start <slug> [--branch b]   # row STARTED + date; story (re)opened
+./compass.sh task done <slug> [--pr N]        # row + task DONE + date; journal stamped
+#+end_src
+
+Only prose stays manual: the task's =* Result=, the story's =Now=, and
+the sprint epic choice when wiring a new story.

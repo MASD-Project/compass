@@ -1,0 +1,98 @@
+:PROPERTIES:
+:ID: E8231C22-CB31-4D85-A9C0-7602953764FF
+:END:
+#+title: How do I show a doc by UUID?
+#+description: Given a UUID (or unique prefix), print a document's header, blurb, outgoing links, and incoming links using compass show.
+#+type: recipe
+#+level: cross
+#+filetags: :documentation:docs:search:recipe:
+#+created: 2026-05-21
+#+updated: 2026-05-21
+
+For finding the UUID in the first place by regex, tag, type, or
+folder, see [[id:D1AE0786-5F2F-4437-8449-0E480C278A1B][How do I find docs matching a pattern?]].
+
+* Question
+
+I have a UUID (e.g. from an =[[id:...]]= link, a =compass list= row, or
+a glossary entry) — how do I see the document it points to, the
+context around it, and the docs that link to or from it?
+
+* Answer
+
+Run =./projects/compass.legacy/compass.sh show= with the UUID. Any
+unambiguous prefix of 6 or more hex characters is accepted.
+
+1. /By full UUID/:
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh show 47341fc6-b8fb-499e-aae0-f4ee0abfda05
+   #+end_src
+
+2. /By prefix/ — short but unambiguous (typically 8 chars is plenty):
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh show 47341fc6
+   #+end_src
+
+3. /Heading-level anchors/ resolve too — sub-headings with their own
+   =:PROPERTIES: :ID:= block (e.g. glossary entries, agile process
+   phases, =Cybernetic Levels= systems) are indexed as anchors. The
+   tool prints the parent doc and the section body:
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh show fabb50e5   # Release entry in glossary
+   ./projects/compass.legacy/compass.sh show 7d72a9da   # Sprint closure phase
+   #+end_src
+
+* Output sections
+
+For a /file-level/ doc:
+
+- *Title / Type / Path / Tags / Updated / Desc* — header metadata.
+- *Blurb* — the paragraph between frontmatter and the first heading.
+- *Outgoing links* — every =[[id:UUID]]= reference in the body,
+  resolved to =uuid | type | title (path)=. Unresolved targets are
+  flagged =BROKEN=. Anchors show as type =anchor= with their parent
+  doc name.
+- *Incoming links* — every doc whose body links to this one, same
+  shape.
+
+For an /anchor/ (heading-level :ID:):
+
+- *Heading / In doc / Path / Parent* — anchor identity.
+- *Section* — the heading body down to the next sibling-or-higher
+  heading.
+- *Incoming links* — docs whose body links to this anchor.
+
+* Workflow
+
+The two doc tools compose:
+
+#+begin_src sh :results verbatim
+# 1. find — list candidates
+./projects/compass.legacy/compass.sh list --regex 'release'
+
+# 2. focus — pick a UUID and inspect it
+./projects/compass.legacy/compass.sh show fabb50e5
+#+end_src
+
+* Script
+
+The wrapper is =projects/compass.legacy/compass.sh show=. It calls
+[[proj:projects/compass.legacy/src/doc_show.py][=projects/compass.legacy/src/doc_show.py=]], which uses the shared
+=doc_index.py= library (file-level docs + heading anchors + inbound
+index, all built on a single walk of every =.org= file under the repo).
+
+* Tested by
+
+Manual usage — read-only over the doc tree. Broken-link detection
+relies on every doc carrying a stable =:ID:=, audited by
+[[id:8810E0F9-C5B9-4CFA-A710-774AD6C771DD][lifecycle]] / [[id:8B29A8D8-E004-4E87-B81D-ABEAF68F2B98][document types]].
+
+* See also
+
+- [[id:D1AE0786-5F2F-4437-8449-0E480C278A1B][How do I find docs matching a pattern?]] — finding the UUID by
+  search before pivoting here.
+- [[id:8B29A8D8-E004-4E87-B81D-ABEAF68F2B98][Document types]] — the link contract every doc satisfies.
+- [[id:46F5ED07-9E63-77B4-2783-E0147EFF45D0][Recipes index]].

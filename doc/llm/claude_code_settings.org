@@ -1,0 +1,1120 @@
+:PROPERTIES:
+:ID: 2D83251F-0E24-4B97-B736-08F710316634
+:END:
+#+title: Claude Code Settings
+#+description: Literate source for .claude/settings.json — permission allow-list and sandbox overrides, generated via org-babel tangle.
+#+type: knowledge
+#+level: cross
+#+filetags: :llm:claude_code:settings:permissions:hooks:
+#+created: 2026-05-22
+#+updated: 2026-07-17
+
+* Summary
+
+This file is the single authoritative source for [[proj:.claude/settings.json][=.claude/settings.json=]].
+It follows the literate programming style: every permission entry is
+accompanied by prose naming the operations it enables, the concrete
+command variations it covers, and the security reasoning behind the
+grant. Do not edit [[proj:.claude/settings.json][=.claude/settings.json=]] directly; regenerate it with
+=compass build --direct settings=. Entries are kept to the minimum
+necessary; each wildcard is chosen to cover only the intended surface.
+
+* How to regenerate
+
+Via the Build pillar in =--direct= mode — Emacs only, no cmake/vcpkg, so
+it works in a light environment (the =skills= alias recreates the other
+generated half of [[proj:.claude][=.claude/=]]):
+
+#+begin_src sh
+compass build --direct settings          # .claude/settings.json
+compass build --direct settings skills   # recreate all of .claude/
+#+end_src
+
+Or via the full-environment CMake target:
+
+#+begin_src sh
+cmake --build --preset linux-clang-debug-ninja --target deploy_settings
+#+end_src
+
+Both invoke [[proj:projects/ores.lisp/src/ores-build-settings.el][=projects/ores.lisp/src/ores-build-settings.el=]], which tangles this file to
+[[proj:.claude/settings.json][=.claude/settings.json=]]. Requires Emacs on PATH. Must be run outside the
+sandbox (the =ores-babel.el= project detection needs a full environment;
+the CMake path also needs compiler detection during reconfiguration); use
+=dangerouslyDisableSandbox: true= on the Bash tool call.
+
+* Master settings block
+
+The master block assembles the final JSON from noweb references defined
+in the sections below. It carries no =:tangle= directive; the output
+path ([[proj:.claude/settings.json][=.claude/settings.json=]] under the repo root) is injected by
+[[proj:projects/ores.lisp/src/ores-build-settings.el][=projects/ores.lisp/src/ores-build-settings.el=]] via
+=org-babel-default-header-args:json= using the =ores/repo-root=
+variable from [[proj:projects/ores.lisp/src/ores-babel.el][=projects/ores.lisp/src/ores-babel.el=]].
+Sections are separated by a trailing comma in the reference line; the
+last section in each array carries no comma.
+
+#+begin_src json :noweb yes
+{
+  "autoMemoryEnabled": false,
+  "permissions": {
+    "allow": [
+<<perm-files>>,
+<<perm-build>>,
+<<perm-sql>>,
+<<perm-compass>>,
+<<perm-codegen>>,
+<<perm-tests>>,
+<<perm-vcs>>,
+<<perm-gh-pr>>,
+<<perm-web>>,
+<<perm-shell>>
+    ],
+    "deny": [
+<<perm-deny>>
+    ]
+  },
+  "sandbox": {
+<<sandbox-network>>,
+<<sandbox-filesystem>>,
+<<sandbox-excluded>>
+  },
+  "hooks": {
+<<hooks-pretooluse>>
+  }
+}
+#+end_src
+
+* Top-level settings
+
+** autoMemoryEnabled
+
+Set to =false= to disable Claude Code's built-in harness auto-memory
+system, which otherwise writes =MEMORY.md= and per-topic =*.md= files
+under =~/.claude/projects/<hash>/memory/=. compass-ng uses its own
+version-controlled memory system under =doc/llm/memory/= (see [[id:DC0BBA22-9D4F-4FDD-B011-E30B02B4B82F][Project
+memory]]); running the harness system in parallel creates a second,
+unreviewed memory source that can contradict or duplicate the org
+system. Disabling it ensures all durable LLM memory is in the repo
+and tracked by git.
+
+* Permissions
+
+Permission strings use glob wildcards (=*=), not regular expressions.
+=*= matches any sequence of characters including spaces but not =/=,
+so it covers arguments but not sub-paths. A space before =*= enforces
+a word boundary: =Bash(make *)= matches =make -j2 foo= but not
+=make_something=. Each subsection documents the surface covered and
+the reason the grant is necessary.
+
+** File access
+
+=Edit(**)= and =Write(**)= grant read/write access to every file in the
+project tree without hardcoding an absolute path. Claude Code resolves
+permission globs relative to the directory containing =.git= — the
+project root — at startup. This means the same committed
+=settings.json= works across all checkouts regardless of where they
+live on disk (=/mnt/development/...=, =/home/user/...=, etc.).
+
+=**= matches zero or more path segments including directory separators,
+so =Edit(**)= covers =foo.txt=, =projects/ores.risk/src/foo.cpp=, and
+any other path depth. This replaces the previous per-subtree entries
+(=Edit(projects/**)=, =Edit(doc/**)=, etc.) with a single grant that
+covers the whole tree.
+
+=Read(*)= is not included here because Claude Code does not require an
+explicit allow entry for reads; they are permitted by default unless
+the sandbox filesystem deny-list blocks them.
+
+#+begin_src json :tangle no :noweb-ref perm-files
+      "Edit(**)",
+      "Write(**)"
+#+end_src
+
+** Build tools
+
+The build system requires =make=, =cmake=, and (for non-compilation
+deploy targets) =emacs= in batch mode. All three are invoked with
+varying flags and targets depending on the operation.
+
+=Bash(make *)= is broader than a path-restricted form but narrower
+than an unconditional build allow. Any =make= invocation is a
+compilation or deployment action; no make-based attack vector exists
+in this project context beyond unintended compilation.
+
+=Bash(cmake *)= covers both configuration (=cmake --preset=) and build
+(=cmake --build=) steps. The wildcard is necessary because the preset
+name and target name vary.
+
+=Bash(emacs -Q --script *)= covers the deploy-family targets
+(=deploy_skills=, =deploy_settings=, =deploy_site=) which invoke Emacs
+in batch mode. The =-Q= flag disables user configuration; =--script=
+restricts execution to the named file. Only scripts checked into the
+repository are passed here.
+
+=Bash(sccache *)= and =Bash(ccache *)= cover direct invocations of
+whichever compiler cache the checkout is configured for (selected via
+=compass env configure --compiler-cache {sccache,ccache}=; see
+=ORES_COMPILER_CACHE= in [[proj:.env][=.env=]]): starting or stopping the sccache
+daemon (=sccache --start-server=, =sccache --stop-server=), querying
+statistics (=sccache --show-stats=, =ccache -s=), and manual cache
+management (=sccache --zero-stats=, =ccache -C=). CMake invokes the
+selected tool transparently as a compiler wrapper
+(=CMAKE_CXX_COMPILER_LAUNCHER=); those subprocess invocations do not
+require a separate entry, but direct calls from Claude do.
+
+Common invocations:
+- =make -C build/output/linux-clang-debug-make -j2 ores.utility=
+- =cmake --build --preset linux-clang-debug-ninja --target deploy_skills=
+- =cmake --build --preset linux-clang-debug-ninja --target deploy_settings=
+- =emacs -Q --script projects/ores.lisp/src/ores-build-skills.el=
+- =emacs -Q --script projects/ores.lisp/src/ores-build-settings.el=
+- =./compass.sh build ores.utility.tests=
+- =sccache --start-server=
+- =sccache --show-stats=
+- =ccache -s=
+
+#+begin_src json :tangle no :noweb-ref perm-build
+      "Bash(make *)",
+      "Bash(cmake *)",
+      "Bash(emacs -Q --script *)",
+      "Bash(sccache *)",
+      "Bash(ccache *)"
+#+end_src
+
+** SQL scripts
+
+Four scripts under [[proj:projects/ores.sql][=projects/ores.sql/=]] manage the local development
+database. Each is granted individually rather than via a directory
+wildcard (e.g. =Bash(projects/ores.sql/* *)=) to prevent accidental
+execution of other files in that tree.
+
+=compass db sql= executes SQL against the database.
+=compass db recreate= drops and rebuilds the entire schema.
+=validate_schemas.sh= checks that the live schema matches expectations.
+=kill_db_connections.sh= terminates stale connections before a recreate.
+
+All four require =dangerouslyDisableSandbox: true= at the Bash tool
+level because the sandbox blocks outbound connections to
+=localhost:5432=. The =sandbox.network= entry below grants localhost
+access, which may make the per-call override unnecessary once Claude
+Code respects project-level sandbox overrides.
+
+Note: never prepend =PGPASSWORD= on the command line; these scripts
+source =.env= themselves.
+
+Common invocations:
+- =compass db sql -- -f projects/ores.sql/schema/foo_create.sql=
+- =compass db recreate=
+- [[proj:projects/ores.sql/utility/validate_schemas.sh][=projects/ores.sql/utility/validate_schemas.sh=]]
+- [[proj:projects/ores.sql/utility/kill_db_connections.sh][=projects/ores.sql/utility/kill_db_connections.sh=]]
+
+#+begin_src json :tangle no :noweb-ref perm-sql
+      "Bash(projects/compass.legacy/compass.sh db *)",
+      
+      "Bash(projects/ores.sql/utility/validate_schemas.sh *)",
+      "Bash(projects/ores.sql/utility/kill_db_connections.sh *)"
+#+end_src
+
+** Compass
+
+Compass is the developer toolkit purpose-built to simplify LLM
+workflows: orientation (=bearings=, =where=, =fleet=), navigation
+(=search=, =list=, =show=), agile authoring (=add=, =story new=,
+=task new=), session continuity (=journal=), PR work (=pr checks=,
+=review list/reply/resolve=) and environment provisioning (=env=).
+CLAUDE.md's first instruction to every session is =./compass.sh
+bearings=, and project memory directs the LLM to prefer compass over
+raw Unix tools and to use it for all agile artefacts.
+
+A tool we mandate on every session must not pay a permission prompt
+per invocation. The grant is deliberately blanket rather than
+per-subcommand: compass's mutating surface is repo-local files (doc
+scaffolds, =.journal.org=, =.env=) and branch creation, all of which
+the session can already do unprompted via =Edit=/=Write=/=git *= — a
+read-only subset would add ceremony exactly on the highest-frequency
+flows (scaffolding, journaling) without adding safety. Compass is the
+trusted, recipe-documented boundary; authorising the entry point
+authorises its delegations (git, gh, codegen) /through compass/ only.
+
+All four invocation forms are covered: the root wrapper (what
+CLAUDE.md instructs), the component script, each with and without the
+=./= prefix.
+
+*Invocation convention:* always call compass using one of these four
+relative forms from the project root. Never invoke it via its absolute
+path (e.g. =/mnt/development/.../compass.sh=) — absolute paths do not
+match any of the patterns below and will trigger a permission prompt.
+When the Bash tool's working directory has drifted into a subdirectory
+(e.g. after working in =projects/ores.codegen=), prepend a =cd= to the
+repo root before calling compass:
+
+#+begin_example
+cd /mnt/development/Development/OreStudio/ores_dev_brave_hopper && ./compass.sh add capture ...
+#+end_example
+
+#+begin_src json :tangle no :noweb-ref perm-compass
+      "Bash(./compass.sh *)",
+      "Bash(compass.sh *)",
+      "Bash(./projects/compass.legacy/compass.sh *)",
+      "Bash(projects/compass.legacy/compass.sh *)"
+#+end_src
+
+** Code generation
+
+=codegen.sh= is the main entry point for C++ and SQL
+code generation via =ores.codegen= (=regenerate=, =generate=
+subcommands). =plantuml_er_generate.sh= produces PlantUML ER diagrams.
+
+The grant is per-script rather than per-directory for the same reason
+as SQL: a directory wildcard would permit running arbitrary scripts in
+a large codegen tree.
+
+*Invocation convention:* always call codegen using one of the relative
+forms below from the project root — with or without the =./= prefix.
+Never use an absolute path; absolute paths do not match the patterns
+below and trigger a permission prompt.
+
+Common invocations:
+- =./projects/ores.codegen/codegen.sh regenerate --component refdata --address ores.cpp=
+- =projects/ores.codegen/codegen.sh regenerate --component refdata --address ores.cpp=
+- =projects/ores.codegen/codegen.sh generate --model path/to/model.json --address ores.cpp=
+- =projects/ores.codegen/plantuml_er_generate.sh -i doc/plans/foo.org=
+
+#+begin_src json :tangle no :noweb-ref perm-codegen
+      "Bash(./projects/ores.codegen/codegen.sh *)",
+      "Bash(projects/ores.codegen/codegen.sh *)",
+      "Bash(./projects/ores.codegen/plantuml_er_generate.sh *)",
+      "Bash(projects/ores.codegen/plantuml_er_generate.sh *)"
+#+end_src
+
+** Test execution
+
+Tests are run either through CTest (which dispatches to individual
+binaries) or by invoking binaries directly for focused runs. Test
+binary paths follow the pattern
+=build/output/<preset>/publish/bin/ores.<component>.tests=.
+
+=Bash(ctest *)= covers all CTest-mediated runs including the =rat=
+target (which runs all registered suites). The direct-binary pattern
+=Bash(build/output/*/publish/bin/ores.* *)= uses two wildcards: the
+first matches the preset directory name (e.g. =linux-clang-debug-make=)
+without crossing =/= boundaries; the second matches the component name
+suffix and any arguments (filter tags, verbosity flags).
+
+No wildcard is broad enough to execute arbitrary binaries outside the
+=publish/bin/ores.*= namespace.
+
+Common invocations:
+- =ctest --test-dir build/output/linux-clang-debug-make -R ores.utility=
+- =build/output/linux-clang-debug-make/publish/bin/ores.utility.tests=
+- =build/output/linux-clang-debug-make/publish/bin/ores.risk.tests "[generators]"=
+
+#+begin_src json :tangle no :noweb-ref perm-tests
+      "Bash(ctest *)",
+      "Bash(build/output/*/publish/bin/ores.* *)"
+#+end_src
+
+** Version control
+
+=Bash(git *)= covers all git subcommands. This is intentionally broad:
+every git operation (read-only introspection, branching, staging,
+committing, pushing, rebasing) shares the same prefix. Narrowing by
+subcommand would add many entries without meaningfully reducing risk,
+since all operations target the local repository or the authorised
+remote.
+
+Common invocations:
+- =git add projects/ores.risk/src/domain/foo.cpp=
+- =git commit -m "[risk] Add foo entity"=
+- =git push --set-upstream origin feature/foo=
+- =git rebase main=
+
+#+begin_src json :tangle no :noweb-ref perm-vcs
+      "Bash(git *)"
+#+end_src
+
+** GitHub CLI — pull requests
+
+The safe =gh pr= subcommands are granted individually. Four subcommands
+are deliberately excluded and will always prompt for user confirmation:
+
+| Excluded | Reason |
+|----------+--------|
+| =gh pr close= | Closes a PR; discards in-progress work. |
+| =gh pr revert= | Creates a revert PR against a merged commit; external and visible. |
+| =gh pr lock= | Moderation action; unusual enough to warrant a prompt. |
+| =gh pr unlock= | Same as above. |
+
+All other subcommands are either read-only (=view=, =list=, =status=,
+=checks=, =diff=) or routine workflow actions (=create=, =edit=,
+=comment=, =review=, =ready=, =reopen=, =update-branch=, =checkout=,
+=merge=). Note: =gh pr merge *= is intentionally broad — it covers
+=--squash=, =--rebase=, =--admin=, and =--delete-branch= without
+prompting. This is an explicit trade-off: Claude Code is trusted to
+merge its own reviewed PRs autonomously. The irreversibility of merge is
+accepted; user confirmation is reserved for the destructive subcommands
+above (=close=, =revert=, =lock=).
+
+These commands require =dangerouslyDisableSandbox: true= because =gh=
+authenticates via the OS keyring, which is not accessible inside the
+sandbox. Raw =git= push/fetch operations use
+the session's SSH agent as-is (see
+[[id:F7E4C41F-AF34-43E5-ADC3-1D837126B3DE][Do not interfere with SSH session variables]]); =gh= uses its own token, not
+the SSH agent.
+
+Common invocations:
+- =gh pr create --title "[risk] Add foo" --body "..."=
+- =gh pr checks 947=
+- =gh pr view 947 --comments=
+- =gh pr edit 947 --body "..."=
+- =gh api repos/OreStudio/OreStudio/pulls/947/comments=
+- =gh api graphql -f query='...'=
+
+#+begin_src json :tangle no :noweb-ref perm-gh-pr
+      "Bash(gh pr view *)",
+      "Bash(gh pr list *)",
+      "Bash(gh pr status *)",
+      "Bash(gh pr checks *)",
+      "Bash(gh pr diff *)",
+      "Bash(gh pr create *)",
+      "Bash(gh pr edit *)",
+      "Bash(gh pr comment *)",
+      "Bash(gh pr review *)",
+      "Bash(gh pr ready *)",
+      "Bash(gh pr reopen *)",
+      "Bash(gh pr update-branch *)",
+      "Bash(gh pr checkout *)",
+      "Bash(gh pr merge *)",
+      "Bash(gh run *)",
+      "Bash(gh api *)"
+#+end_src
+
+** Web access
+
+=WebFetch(domain:*)= allows fetching from any domain. The sandbox
+network allowlist (see below) is the actual security boundary; the
+permission entry controls only whether Claude Code prompts. Domains
+not in the network allowlist remain unreachable regardless.
+
+=WebSearch= enables web search. No domain restriction is applied here;
+the search provider is fixed by the Claude Code runtime.
+
+#+begin_src json :tangle no :noweb-ref perm-web
+      "WebFetch(domain:*)",
+      "WebSearch"
+#+end_src
+
+** Denied tools
+
+=Agent= (subagent spawning — Explore, general-purpose, and the other
+built-in agent types) is denied. We have been hitting reliability
+problems with delegated subagents on this project: work that looked
+complete in the agent's summary sometimes wasn't actually done the way
+described, and there is very little visibility into what a subagent
+did while it ran — its intermediate tool calls, reasoning, and any
+missteps are hidden behind the single summary message it returns.
+When something goes wrong inside a subagent, the failure surfaces
+several turns later as a confusing downstream symptom instead of at
+the point it happened, and there is no transcript to inspect to find
+the root cause. Until subagent visibility improves, all substantive
+work should happen in the main session where every tool call is
+visible and reviewable. This blocks every agent type reachable via
+the =Agent= tool (=claude=, =Explore=, =general-purpose=, =Plan=,
+etc.) — none of them are exempt. It does not affect the =Workflow=
+tool, which is gated separately by explicit opt-in.
+
+#+begin_src json :tangle no :noweb-ref perm-deny
+      "Agent"
+#+end_src
+
+** Shell utilities
+
+Read-only and data-processing utilities used in analysis pipelines,
+build inspection, and document generation. Each covers a standard
+POSIX tool.
+
+Permission rules evaluate compound commands /per subcommand/: every
+piece of =a && b= or =a | b= must match an allow rule or the whole
+invocation prompts. In practice almost every compass or git command
+arrives wrapped in a pipeline — =./compass.sh list --type recipe |
+head=, =git log --oneline | tail -5= — so an uncovered =head= or
+=tail= reintroduces a prompt on the highest-frequency flows even
+though the primary command is authorised. The set below covers the
+pipeline vocabulary those flows actually use.
+
+=sed= and =awk= are deliberately /not/ listed: both can execute
+arbitrary shell commands (=awk 'BEGIN {system(...)}'=, GNU =sed='s
+=e= command), so auto-approving them would turn a text-processing
+grant into an unprompted arbitrary-execution grant. They prompt on
+use; prefer the =Read=/=Edit= tools for file inspection and
+modification. =python3 *= is required for ad-hoc analysis scripts and
+codegen helpers (=src/doc_generate.py=, etc.). =java *= is required
+for PlantUML, which is invoked as a JAR.
+
+Common invocations:
+- =find . -name "*.org" -newer doc/foo.org=
+- =grep -r "workspace_id" projects/ores.workspace/=
+- =./compass.sh list --type capture | head -50=
+- =python3 projects/compass.legacy/src/doc_generate.py --help=
+- =java -jar /usr/share/plantuml/plantuml.jar -checkonly foo.puml=
+- =wc -l build/output/linux-clang-debug-make/publish/bin/ores.utility.tests=
+
+#+begin_src json :tangle no :noweb-ref perm-shell
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(python3 *)",
+      "Bash(java *)",
+      "Bash(echo *)",
+      "Bash(wc *)",
+      "Bash(sort *)",
+      "Bash(uniq *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(cat *)",
+      "Bash(ls *)",
+      "Bash(cut *)",
+      "Bash(tr *)",
+      "Bash(diff *)"
+#+end_src
+
+* Sandbox overrides
+
+The sandbox restricts filesystem writes and outbound network
+connections beyond the defaults. These entries extend the allowlist
+at the project level; they are applied in addition to (not instead
+of) the global sandbox configuration in =~/.claude/settings.json=.
+
+** Network
+
+Grants outbound connections to =localhost=, required for PostgreSQL
+(port 5432) access from SQL scripts. Without this entry, =psql= calls
+fail with a connection refused error inside the sandbox and the
+scripts must be run with =dangerouslyDisableSandbox: true=.
+
+=mcraveiro.github.io= hosts the Dogen documentation and MASD reference
+material used when writing knowledge documents and literate template
+prose; fetching it during documentation tasks must not prompt.
+
+=github.com= and =api.github.com= serve the =gh= CLI (PR create,
+checks, merge, review) — the permission allow-list already grants
+=gh *= commands, so their API traffic must not prompt either. =git=
+itself does not need these entries: it is excluded from the sandbox
+(see the Hooks section), so its pushes and fetches bypass the network
+allowlist entirely.
+
+#+begin_src json :tangle no :noweb-ref sandbox-network
+    "network": {
+      "allowedHosts": ["localhost", "mcraveiro.github.io", "github.com", "api.github.com"]
+    }
+#+end_src
+
+** Filesystem
+
+Extends the write allowlist to include the =sccache=/=ccache= cache
+directories, both under the shared SSD checkout disk
+(=/mnt/development/.cache/=; see [[proj:.env][=.env=]]'s =ORES_COMPILER_CACHE=). The
+sandbox otherwise blocks writes there, causing cache misses and
+forcing builds to recompile from scratch or requiring
+=dangerouslyDisableSandbox: true=.
+
+Two entries are required per tool: the directory path itself, and a
+=/**= glob authorising all files and subdirectories within it (object
+cache shards, the stats file, the server log, etc.). Without the
+=/**= glob, the tool receives =EPERM= when writing any cache object
+because the allowlist matches only the directory path, not its
+contents.
+
+#+begin_src json :tangle no :noweb-ref sandbox-filesystem
+    "filesystem": {
+      "allowWrite": [
+        "/mnt/development/.cache/sccache",
+        "/mnt/development/.cache/sccache/**",
+        "/mnt/development/.cache/ccache",
+        "/mnt/development/.cache/ccache/**"
+      ]
+    }
+#+end_src
+
+** Excluded commands
+
+Commands listed here never attempt to run inside the sandbox; they go
+straight to the regular permission flow (where the allow rules above
+auto-approve them). This kills the failure → retry-unsandboxed →
+prompt loop without widening what is authorised: exclusion changes
+/where/ a command runs, not /whether/ it is allowed.
+
+Git needs this because linked worktrees resolve their gitdir into the
+primary checkout (=OreStudio.remote/.git/worktrees/<name>=), which sits
+outside the sandbox write allowlist — =git fetch=, =add= and =commit=
+fail in-sandbox on the index lock and FETCH_HEAD, then prompt on every
+unsandboxed retry. Compass needs it for the same reason one level up:
+its highest-value verbs (=pr create=, =pr sync=, =capture promote=,
+=task start=, =task done=) spawn git internally, so a sandboxed
+compass run inherits the same gitdir failures. All four compass
+invocation forms from the permission grant are mirrored here.
+
+#+begin_src json :tangle no :noweb-ref sandbox-excluded
+    "excludedCommands": [
+      "./compass.sh *",
+      "compass.sh *",
+      "./projects/compass.legacy/compass.sh *",
+      "projects/compass.legacy/compass.sh *",
+      "git *"
+    ]
+#+end_src
+
+* Hooks
+
+** Deny piped or redirected compass invocations
+
+Permission allow/deny rules cannot express this rule: they evaluate a
+compound command /per subcommand/ (see the Shell utilities rationale
+above), so a pipeline like =./compass.sh build --direct site | tail
+-30= is checked as two independent, individually-authorised pieces
+(=compass.sh build ...= and =tail -30=) — there is no way for a glob
+rule to see "compass, piped into tail" as a single shape to deny, nor
+to distinguish it from an unrelated, perfectly fine =tail -f
+/tmp/some.log=. A =PreToolUse= hook is the only mechanism that
+inspects the full command string as written, so it is what enforces
+CLAUDE.md's "never pipe or redirect a compass command" rule: every
+=compass= command that produces meaningful output prints its own
+well-known log-file path (=📝 Build output: /tmp/<label>_<target>_build.log
+(tail -f to follow)=; see [[proj:projects/compass.legacy/src/compass.py][=compass.py='s =_build_log_path=/=_direct_build_log_path=]]) —
+watching that reported file with a separate, standalone =tail= is the
+supported way to follow progress.
+
+The hook fires on every =Bash= tool call, matches the command against
+all four invocation forms compass is granted under (see [[id:2D83251F-0E24-4B97-B736-08F710316634][Compass]]
+above) plus the raw script name, and denies (exit code 2, message on
+stderr) only when that same command string also contains a pipe
+(=|=) or a redirect (=>=, which also matches =2>&1= and =>>=). A
+denial's stderr becomes the tool result the agent sees, so the
+message doubles as the correction: it names the rule and repeats what
+to do instead, rather than the agent having to infer that from a bare
+rejection.
+
+*Fail open, not closed, if the script is missing.* The hook is a
+project-tracked file — it can legitimately be absent on a given
+=git checkout= (an older branch predating this task, a worktree mid
+rebase, this same PR's own commit not yet checked out). Claude Code
+treats a hook *command that itself fails to execute* (e.g. =python3=
+reporting "No such file or directory") as a hard block of the
+=Bash= tool entirely — every subsequent command, compass or not,
+gets denied with no way to self-correct, since the correcting action
+itself requires a =Bash= call. That is a materially worse failure
+mode than "the piping rule goes briefly unenforced," so the actual
+hook invocation is wrapped in a shell guard that checks the script
+exists before running it, exiting 0 (allow) if it doesn't rather than
+letting the missing-file error propagate as a block:
+
+#+begin_example
+sh -c 'f=projects/compass.legacy/src/deny_piped_compass_hook.py; if [ -f "$f" ]; then python3 "$f"; else exit 0; fi'
+#+end_example
+
+Deliberately an =if=/=then=/=else=, not the shorter =[ -f "$f" ] &&
+python3 "$f" || exit 0=: in an =A && B || C= chain, =C= runs if
+/either/ =A= or =B= fails, so a genuine deny (=python3= exiting 2)
+would also satisfy =|| exit 0= and get silently swallowed into an
+allow — the exact bug this guard exists to avoid, just moved one
+level up. With =if=/=then=/=else=, the compound command's exit
+status is whatever the taken branch's last command produced:
+=python3 "$f"='s own 0/2 when the file exists, or the explicit
+=exit 0= only when the =[ -f ]= test itself is what failed. The
+literal string tangled into =.claude/settings.json= (below) is this
+same guard, JSON-escaped.
+
+#+begin_src python :tangle ../../projects/compass.legacy/src/deny_piped_compass_hook.py :mkdirp yes :shebang "#!/usr/bin/env python3"
+"""PreToolUse hook: deny compass.sh invocations that pipe or redirect
+their output. See CLAUDE.md's "Never pipe or redirect a compass
+command" rule and doc/llm/claude_code_settings.org's Hooks section.
+
+Compass build/deploy commands print their own well-known log-file
+path for exactly this purpose; tailing that file separately is the
+supported way to follow progress instead.
+"""
+import json
+import re
+import sys
+
+COMPASS_RE = re.compile(
+    r"(?:^|[\s&;(])(?:\./)?(?:projects/ores\.compass/)?compass\.sh(?:\s|$)"
+)
+# A lone "|" (pipe) not adjacent to another "|" -- excludes the "||"
+# logical-OR operator (e.g. `compass.sh build || echo failed`, a normal
+# error-handling idiom that pipes nothing) while still catching a real
+# single-pipe pipeline. Any ">" is a redirect (">", ">>", "2>&1" all
+# contain it) and has no equivalent non-redirect meaning to exclude.
+REDIRECT_RE = re.compile(r"(?<!\|)\|(?!\|)|>")
+
+DENIAL_MESSAGE = (
+    "Never pipe or redirect a compass command (no `|`, no `>`, no "
+    "`2>&1`) -- run it bare. Compass build/deploy commands print their "
+    "own well-known log-file path (e.g. \"\U0001F4DD Build output: "
+    "/tmp/<label>_<target>_build.log (tail -f to follow)\"). To watch "
+    "progress, tail THAT reported file as a separate, standalone "
+    "command (e.g. `tail -f <path>`) -- never by piping the compass "
+    "invocation itself. See CLAUDE.md.\n"
+)
+
+
+def main() -> int:
+    try:
+        data = json.load(sys.stdin)
+    except (ValueError, json.JSONDecodeError):
+        return 0
+    if not isinstance(data, dict) or data.get("tool_name") != "Bash":
+        return 0
+    command = data.get("tool_input", {}).get("command", "")
+    if COMPASS_RE.search(command) and REDIRECT_RE.search(command):
+        sys.stderr.write(DENIAL_MESSAGE)
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+#+end_src
+
+#+begin_src python :tangle ../../projects/compass.legacy/tests/test_deny_piped_compass_hook.py :mkdirp yes
+"""
+Tests for the piped/redirected-compass PreToolUse hook.
+
+Run with:  python -m pytest projects/compass.legacy/tests/test_deny_piped_compass_hook.py -v
+No live database or file system access required.
+"""
+
+import io
+import sys
+from pathlib import Path
+
+# Allow importing from the src directory without installing the package.
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+import deny_piped_compass_hook as hook
+
+
+def run(command, tool_name="Bash", monkeypatch=None):
+    """Drive hook.main() with a synthetic PreToolUse payload on stdin,
+    returning (exit_code, stderr_text)."""
+    payload = {"tool_name": tool_name, "tool_input": {"command": command}}
+    import json
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload)))
+    stderr = io.StringIO()
+    monkeypatch.setattr(sys, "stderr", stderr)
+    return hook.main(), stderr.getvalue()
+
+
+def test_bare_compass_allowed(monkeypatch):
+    code, _ = run("./compass.sh build --direct site", monkeypatch=monkeypatch)
+    assert code == 0
+
+
+def test_piped_compass_denied(monkeypatch):
+    code, msg = run("./compass.sh build --direct site 2>&1 | tail -30",
+                     monkeypatch=monkeypatch)
+    assert code == 2
+    assert "Never pipe or redirect" in msg
+
+
+def test_redirected_compass_denied(monkeypatch):
+    code, _ = run("./compass.sh build > out.log", monkeypatch=monkeypatch)
+    assert code == 2
+
+
+def test_logical_or_compass_allowed(monkeypatch):
+    """`||` is error handling, not a pipe -- must not be denied."""
+    code, _ = run("./compass.sh build --direct site || echo failed",
+                   monkeypatch=monkeypatch)
+    assert code == 0
+
+
+def test_all_four_invocation_forms_denied_when_piped(monkeypatch):
+    for prefix in (
+        "./compass.sh",
+        "compass.sh",
+        "./projects/compass.legacy/compass.sh",
+        "projects/compass.legacy/compass.sh",
+    ):
+        code, _ = run(f"{prefix} build | tail", monkeypatch=monkeypatch)
+        assert code == 2, prefix
+
+
+def test_unrelated_pipe_allowed(monkeypatch):
+    code, _ = run("git log --oneline | head -5", monkeypatch=monkeypatch)
+    assert code == 0
+
+
+def test_unrelated_logical_or_allowed(monkeypatch):
+    code, _ = run("git fetch || echo failed", monkeypatch=monkeypatch)
+    assert code == 0
+
+
+def test_non_bash_tool_allowed(monkeypatch):
+    code, _ = run("./compass.sh build | tail", tool_name="Read",
+                  monkeypatch=monkeypatch)
+    assert code == 0
+
+
+def test_non_dict_json_does_not_crash(monkeypatch):
+    monkeypatch.setattr(sys, "stdin", io.StringIO("[1, 2, 3]"))
+    assert hook.main() == 0
+
+
+def test_null_json_does_not_crash(monkeypatch):
+    monkeypatch.setattr(sys, "stdin", io.StringIO("null"))
+    assert hook.main() == 0
+
+
+def test_malformed_json_does_not_crash(monkeypatch):
+    monkeypatch.setattr(sys, "stdin", io.StringIO("not json"))
+    assert hook.main() == 0
+#+end_src
+
+** Record every skill selection
+
+The selection instrument needs an
+event for every skill the agent picks, and it must not depend on the
+agent remembering to write one: an instrument you have to remember is an
+instrument that measures how good your memory is. A =PreToolUse= hook on
+the =Skill= tool is the only place the selection is observable at the
+moment it happens, so that is where the event is recorded.
+
+The hook records the skill chosen, the session, the environment, how
+many skills were visible to choose from, and the attenuation level. It
+records no judgement: whether a selection was wrong is not knowable at
+the moment of choosing, so a correction is a separate event, written by
+hand with =compass skills correct --cause <cause>=. A cause is one word
+from a fixed set: =description=, =catalogue-size=, =level= or =none=.
+
+The log is append-only JSONL in the git common directory, which every
+worktree in the fleet shares. A per-worktree log would restart the
+baseline on every =env provision=, which defeats the point of a
+measurement that accrues.
+
+*The hook never blocks the tool.* It exists to observe, so every failure
+path returns 0: malformed payload, unreadable log, missing module. It is
+wrapped in the same =if=/=then=/=else= file guard as the piping hook
+above, and for the same reason — a hook command that cannot execute
+blocks its tool outright, and blocking every skill invocation to protect
+a metric would be a poor trade.
+
+#+begin_src python :tangle ../../projects/compass.legacy/src/record_skill_selection_hook.py :mkdirp yes :shebang "#!/usr/bin/env python3"
+"""PreToolUse hook: record which skill the agent chose.
+
+Feeds 'compass skills report'. See doc/llm/claude_code_settings.org's
+Hooks section. Observing only: this hook never blocks the Skill tool,
+so every failure path returns 0.
+"""
+import json
+import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+
+def main() -> int:
+    try:
+        data = json.load(sys.stdin)
+    except (ValueError, json.JSONDecodeError):
+        return 0
+    if not isinstance(data, dict) or data.get("tool_name") != "Skill":
+        return 0
+    skill = data.get("tool_input", {}).get("skill")
+    if not skill:
+        return 0
+    try:
+        import compass_skills
+        compass_skills.record_selection(
+            data.get("cwd") or os.getcwd(), skill, data.get("session_id"))
+    except Exception:
+        return 0
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+#+end_src
+
+#+begin_src python :tangle ../../projects/compass.legacy/tests/test_record_skill_selection_hook.py :mkdirp yes
+"""
+Tests for the skill-selection PreToolUse hook.
+
+Run with:  python -m pytest projects/compass.legacy/tests/test_record_skill_selection_hook.py -v
+No live database required.
+"""
+
+import io
+import json
+import sys
+from pathlib import Path
+
+# Allow importing from the src directory without installing the package.
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+import compass_skills
+import record_skill_selection_hook as hook
+
+
+def run(payload, monkeypatch, tmp_path):
+    monkeypatch.setattr(compass_skills, "log_path",
+                        lambda _root: tmp_path / "skill_selections.jsonl")
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload)))
+    return hook.main()
+
+
+def events(tmp_path):
+    path = tmp_path / "skill_selections.jsonl"
+    if not path.exists():
+        return []
+    return [json.loads(line) for line in path.read_text().splitlines() if line]
+
+
+def test_skill_call_is_recorded(monkeypatch, tmp_path):
+    assert run({"tool_name": "Skill", "session_id": "s1", "cwd": str(tmp_path),
+                "tool_input": {"skill": "compass-pr-merge"}}, monkeypatch, tmp_path) == 0
+    recorded = events(tmp_path)
+    assert len(recorded) == 1
+    assert recorded[0]["kind"] == "selection"
+    assert recorded[0]["skill"] == "compass-pr-merge"
+    assert recorded[0]["session"] == "s1"
+
+
+def test_other_tools_are_ignored(monkeypatch, tmp_path):
+    assert run({"tool_name": "Bash", "tool_input": {"command": "ls"}},
+               monkeypatch, tmp_path) == 0
+    assert events(tmp_path) == []
+
+
+def test_malformed_payload_does_not_crash(monkeypatch, tmp_path):
+    monkeypatch.setattr(sys, "stdin", io.StringIO("not json"))
+    assert hook.main() == 0
+
+
+def test_recording_failure_never_blocks_the_tool(monkeypatch, tmp_path):
+    def explode(*_args, **_kwargs):
+        raise OSError("log is unwritable")
+    monkeypatch.setattr(compass_skills, "record_selection", explode)
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(
+        {"tool_name": "Skill", "cwd": str(tmp_path),
+         "tool_input": {"skill": "compass-pr-merge"}})))
+    assert hook.main() == 0
+#+end_src
+
+** Deny bare use of the shared stash stack
+
+Every worktree in the fleet shares one stash stack, because the stack
+lives in the common git directory rather than in the checkout. A bare
+=git stash= pushes onto a stack other sessions are also pushing onto, and
+a bare =git stash pop= takes whatever is on top — which may be another
+session's work, in another worktree, mid-task.
+
+This is [[id:9F3A6B21-0D74-4C58-A5E2-8C1B47E0D9F3][principle-separate-before-serializing-shared-state]]
+in its most literal form, and the principle's own advice is the fix:
+eliminate the sharing rather than coordinate over it. A temporary commit
+on the branch shares nothing. Where the stash is genuinely wanted, a
+tagged entry addressed by its own hash shares the stack without
+contending for its top.
+
+The rule was prose before it was a hook, and prose is what a session
+under pressure skips. The hook denies the two bare forms and names the
+safe ones in the denial, so the correction arrives with the refusal
+rather than in a document the agent would have to already be reading.
+
+*What is denied.* =git stash= and =git stash save= with no message, and
+=git stash pop= in any form. What stays allowed: =push= with a message,
+=apply= against an explicit entry, =list=, =show=, and =drop=.
+
+#+begin_src python :tangle ../../projects/compass.legacy/src/deny_bare_stash_hook.py :mkdirp yes :shebang "#!/usr/bin/env python3"
+"""PreToolUse hook: deny bare use of the shared git stash stack.
+
+Every worktree shares one stack, so a bare push contends for its top and
+a bare pop can take another session's work. See
+doc/llm/claude_code_settings.org's Hooks section.
+"""
+import json
+import re
+import sys
+
+# Each invocation in the command line, taken up to the next shell
+# separator so a compound command is checked per part.
+INVOCATION_RE = re.compile(r"(?:^|[\s&;(])git\s+stash\b([^&;|)]*)")
+MESSAGE_RE = re.compile(r"(?:^|\s)(?:-m|--message)(?:[=\s]|$)")
+
+# The forms that add an entry to the stack. Everything else either names
+# the entry it acts on (apply, drop, show) or is not a stash command at
+# all, which matters because the words appear in prose about this rule.
+PUSHES = {"", "push", "save"}
+
+DENIAL_MESSAGE = (
+    "The stash stack is shared by every worktree in the fleet, so a bare "
+    "`git stash` contends for its top and a bare `git stash pop` can take "
+    "another session's work.\n"
+    "Prefer a temporary WIP commit, which shares nothing. If you do need "
+    "the stash: `git stash push -u -m \"<unique-tag>\"`, capture the SHA "
+    "with `git stash list --format='%H %gs'`, and restore with "
+    "`git stash apply <sha>` rather than pop. Drop the entry afterwards, "
+    "re-finding it by tag.\n"
+)
+
+
+def denied(command: str) -> bool:
+    """True when the command pushes onto or pops off the shared stack
+    without naming what it acts on."""
+    for m in INVOCATION_RE.finditer(command):
+        rest = m.group(1)
+        words = [w for w in rest.split() if not w.startswith("-")]
+        sub = words[0] if words else ""
+        if sub == "pop":
+            return True
+        if sub not in PUSHES:
+            continue
+        # A message is what makes the entry findable again by its own tag
+        # rather than by its position on a stack others are pushing to.
+        if not MESSAGE_RE.search(rest):
+            return True
+    return False
+
+
+def main() -> int:
+    try:
+        data = json.load(sys.stdin)
+    except (ValueError, json.JSONDecodeError):
+        return 0
+    if not isinstance(data, dict) or data.get("tool_name") != "Bash":
+        return 0
+    if denied(data.get("tool_input", {}).get("command", "")):
+        sys.stderr.write(DENIAL_MESSAGE)
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+#+end_src
+
+#+begin_src python :tangle ../../projects/compass.legacy/tests/test_deny_bare_stash_hook.py :mkdirp yes
+"""
+Tests for the bare-stash PreToolUse hook.
+
+Run with:  python -m pytest projects/compass.legacy/tests/test_deny_bare_stash_hook.py -v
+No live database required.
+"""
+
+import io
+import json
+import sys
+from pathlib import Path
+
+# Allow importing from the src directory without installing the package.
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+import deny_bare_stash_hook as hook
+
+
+def run(command, monkeypatch, tool_name="Bash"):
+    payload = {"tool_name": tool_name, "tool_input": {"command": command}}
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload)))
+    return hook.main()
+
+
+def test_bare_stash_is_denied(monkeypatch):
+    assert run("git stash", monkeypatch) == 2
+
+
+def test_bare_pop_is_denied(monkeypatch):
+    assert run("git stash pop", monkeypatch) == 2
+
+
+def test_pop_with_a_ref_is_still_denied(monkeypatch):
+    """A ref does not help: the entry it names may be another session's."""
+    assert run("git stash pop stash@{0}", monkeypatch) == 2
+
+
+def test_save_without_a_message_is_denied(monkeypatch):
+    assert run("git stash save", monkeypatch) == 2
+
+
+def test_tagged_push_is_allowed(monkeypatch):
+    assert run('git stash push -u -m "wip-bright-faraday"', monkeypatch) == 0
+
+
+def test_apply_against_an_explicit_entry_is_allowed(monkeypatch):
+    assert run("git stash apply 8f2a1c3", monkeypatch) == 0
+
+
+def test_reads_are_allowed(monkeypatch):
+    assert run("git stash list", monkeypatch) == 0
+    assert run("git stash show -p", monkeypatch) == 0
+
+
+def test_drop_is_allowed(monkeypatch):
+    assert run("git stash drop stash@{2}", monkeypatch) == 0
+
+
+def test_denial_survives_a_compound_command(monkeypatch):
+    assert run("cd /tmp && git stash", monkeypatch) == 2
+
+
+def test_unrelated_commands_pass(monkeypatch):
+    assert run("git status", monkeypatch) == 0
+
+
+def test_the_words_inside_a_message_are_not_a_command(monkeypatch):
+    """The first pattern denied this, which blocked writing about the
+    rule while explaining it."""
+    assert run("echo git stash is shared", monkeypatch) == 0
+
+
+def test_push_with_flags_but_no_message_is_denied(monkeypatch):
+    assert run("git stash push -u", monkeypatch) == 2
+
+
+def test_other_tools_are_ignored(monkeypatch):
+    assert run("git stash", monkeypatch, tool_name="Read") == 0
+
+
+def test_malformed_payload_does_not_crash(monkeypatch):
+    monkeypatch.setattr(sys, "stdin", io.StringIO("not json"))
+    assert hook.main() == 0
+#+end_src
+
+#+begin_src json :tangle no :noweb-ref hooks-pretooluse
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'f=projects/compass.legacy/src/deny_piped_compass_hook.py; if [ -f \"$f\" ]; then python3 \"$f\"; else exit 0; fi'"
+          }
+        ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'f=projects/compass.legacy/src/record_skill_selection_hook.py; if [ -f \"$f\" ]; then python3 \"$f\"; else exit 0; fi'"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'f=projects/compass.legacy/src/deny_bare_stash_hook.py; if [ -f \"$f\" ]; then python3 \"$f\"; else exit 0; fi'"
+          }
+        ]
+      }
+    ]
+#+end_src
+
+* See also
+
+- [[id:5295951B-CD43-4FDC-B1E9-0FFF9BEEFE02][How do I update Claude Code permissions?]] — full workflow for adding or fixing an allow-list entry.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I deploy the settings?]] — redeploy after editing.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I deploy the skills?]] — parallel deploy target.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][CMake setup]] — preset names and output layout.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][ores.sql]] — service table isolation and SQL script conventions.

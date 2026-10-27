@@ -1,0 +1,165 @@
+:PROPERTIES:
+:ID: D4E65EF1-54F4-47E1-9388-58BE9E36FBE3
+:END:
+#+title: How do I create a recipe?
+#+description: Meta-recipe — scaffold, name, structure, and link a new how-to recipe that satisfies the doc contract.
+#+type: recipe
+#+level: cross
+#+filetags: :documentation:docs:recipe:meta:
+#+created: 2026-05-21
+#+updated: 2026-05-21
+
+The [[id:117A95F9-B03D-490B-BB74-DA9FE74537E2][recipe]] contract is defined in [[id:8B29A8D8-E004-4E87-B81D-ABEAF68F2B98][document types]]§=recipe=. The codegen
+scaffold for /every/ doc type (including recipes) lives at [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I create a
+new doc?]]; this recipe specialises that flow with the conventions that make a
+/good/ recipe, distinct from a bare skeleton.
+
+* Question
+
+How do I add a new operational how-to recipe — file name, structure, executable
+shell blocks, links to glossary, links from the topic inventory?
+
+* Answer
+
+A recipe answers one NLP question. Filename, title, and body must agree on what
+that question is.
+
+1. /Pick the topic folder/. Recipes live under =doc/recipes/<topic>/=, one
+   folder per area (=cli/=, =sql/=, [[proj:cmake][=cmake/=]], =codegen/=, =emacs/=, =git/=,
+   =http/=, =shell/=, =plantuml/=, …). Each topic has its own inventory page
+   (e.g. =cli/cli.org=) which lists every recipe in that topic.
+
+   If you are creating a /new topic/ (no folder exists yet):
+
+   a. Create the folder: =mkdir doc/recipes/<topic>=
+   b. Scaffold the inventory page with compass:
+      #+begin_src sh :results verbatim
+      projects/compass.legacy/compass.sh add knowledge \
+        --slug <topic> \
+        --parent-dir doc/recipes/<topic> \
+        --title "<Topic> recipes" \
+        --description "Recipes for <short description>." \
+        --tags "recipe:<topic>:index:knowledge"
+      #+end_src
+   c. Fill in the inventory body (see [[proj:doc/recipes/agile/agile.org][=doc/recipes/agile/agile.org=]] as a
+      template) and add an id-link to the new recipe under an appropriate
+      heading.
+   d. Wire the inventory into [[id:46F5ED07-9E63-77B4-2783-E0147EFF45D0][Recipes index]] ([[proj:doc/recipes/recipes.org][=doc/recipes/recipes.org=]]):
+      add a bullet under =* Topics= pointing to the new inventory's =:ID:=.
+
+2. /Phrase the question/ as a single =how_do_i_X= sentence. The same question
+   becomes /three/ artefacts that must match:
+
+   - filename: =how_do_i_x_y_z.org=
+   - =#+title:= =How do I X Y Z?=
+   - =* Question= body: the full sentence
+
+3. /Scaffold with compass/ — never hand-write the frontmatter, UUID, or
+   skeleton:
+
+   #+begin_src sh :results verbatim
+   ./projects/compass.legacy/compass.sh add recipe \
+     --slug how_do_i_clear_the_cache \
+     --parent-dir doc/recipes/cmake \
+     --title "How do I clear the cache?" \
+     --description "Remove the CMake binary cache to force a clean re-configure." \
+     --tags "cmake,build,recipe"
+   #+end_src
+
+   The scaffold sets =:ID:=, =#+type: recipe=,
+   today's =#+created= / =#+updated=, and the required section
+   skeleton.
+
+4. /Fill the four required sections/, in this order:
+
+   - =* Question= — the NLP question, restated as a full sentence.
+   - =* Answer= — numbered steps. Every shell command goes in a babel
+     block so the recipe is executable in emacs (=C-c C-c=):
+
+     #+begin_src org
+     ,#+begin_src sh :results verbatim
+     ./projects/compass.legacy/compass.sh list --type recipe --count
+     ,#+end_src
+     #+end_src
+
+     When the captured output /is/ the value of the recipe (e.g.
+     "list available presets"), keep =#+RESULTS:= alongside as a
+     snapshot.
+
+   - =* Script= — pointer to the wrapper / script that does the
+     work, or "no script — pure shell" when the recipe is just a
+     one-liner.
+   - =* Tested by= — link to the CI check that exercises the
+     recipe, or note "manual" if there is none.
+
+5. /Write the blurb/ — one short paragraph above the first heading,
+   cross-linking to closely related material (companion recipes,
+   the component or knowledge doc the recipe operates on).
+
+6. /Add a =* See also= section/ at the end — external links only.
+   Internal references belong inline in the body (per the
+   [[id:8B29A8D8-E004-4E87-B81D-ABEAF68F2B98][document types]] index convention).
+
+7. /Wire it into the topic inventory/. Add an id-link to the new
+   recipe in the topic's =<topic>.org= index, in the appropriate
+   group:
+
+   #+begin_src sh :results verbatim
+   # See where the inventory lives, then edit it by hand
+   ls doc/recipes/cmake/cmake.org
+   #+end_src
+
+   If this is a new topic you created in step 1, also wire the
+   inventory into [[proj:doc/recipes/recipes.org][=doc/recipes/recipes.org=]] (step 1d above).
+
+8. /Verify with the doc tools/:
+
+   #+begin_src sh :results verbatim
+   # the new recipe should show up
+   ./projects/compass.legacy/compass.sh list --type recipe --regex 'clear the cache'
+
+   # and inspect its links
+   ./projects/compass.legacy/compass.sh show <uuid-from-the-row-above>
+   #+end_src
+
+* Conventions to keep an eye on
+
+- /Filename = title = question/. If you rename the recipe, rename
+  all three. Mismatches read as bugs.
+- /Bare =#+begin_src sh= blocks are not enough/. Use
+  =#+begin_src sh :results verbatim= so =C-c C-c= in emacs captures
+  output cleanly.
+- /Multiple questions per file/ → split. One recipe = one question.
+  If you find yourself writing "and also, you can …", that "also"
+  belongs in a sibling recipe.
+- /Cross-link generously inline/. Recipes are the glue between
+  knowledge and execution — every concept mentioned should be a
+  one-click id-link to its glossary or knowledge entry.
+- /Status section is not part of the recipe contract/. Recipes are
+  not stateful. The audit may attach a =:stale:= filetag if the
+  script breaks, but that is the only state a recipe carries.
+
+* Script
+
+Scaffold is done via =./projects/compass.legacy/compass.sh add recipe=,
+which delegates to the Mustache-based document generator. The recipe
+template is at
+=projects/compass.legacy/library/templates/recipe/recipe.org.mustache=.
+
+* Tested by
+
+[[id:8B29A8D8-E004-4E87-B81D-ABEAF68F2B98][Document types]]§=recipe= defines the required sections; the
+[[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][component documentation guide]] is the closest analogue check.
+Currently no CI check enforces recipe section structure — the
+contract is held by review.
+
+* See also
+
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I create a new doc?]] — the generic codegen flow this
+  recipe specialises.
+- [[id:D1AE0786-5F2F-4437-8449-0E480C278A1B][How do I find docs matching a pattern?]] — locate the topic
+  inventory and existing recipes before adding a new one.
+- [[id:E8231C22-CB31-4D85-A9C0-7602953764FF][How do I show a doc by UUID?]] — verify links resolve after the
+  recipe is wired in.
+- [[id:8B29A8D8-E004-4E87-B81D-ABEAF68F2B98][Document types]]§=recipe= — the contract every recipe satisfies.
+- [[id:46F5ED07-9E63-77B4-2783-E0147EFF45D0][Recipes index]] — sibling topics.

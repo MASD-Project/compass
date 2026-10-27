@@ -1,0 +1,83 @@
+:PROPERTIES:
+:ID: DA003A23-1604-43E7-A98F-A305148FBCF4
+:END:
+#+title: How do I start work on a story?
+#+description: Create a feature branch from main and mark the story STARTED in the sprint.
+#+type: recipe
+#+level: cross
+#+filetags: :git:branch:agile:story:recipe:
+#+created: 2026-05-21
+#+updated: 2026-05-21
+
+This recipe covers the transition =BACKLOG → STARTED= for a
+[[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]]. It is the entry point to [[id:227958A5-0F78-4CC6-A116-B83988592B68][Sprint execution]] — the phase owned by
+[[id:DBFD530B-4B56-48D1-9F03-3A0D0DA16552][System 1]] in which tasks are picked up and PRs are opened. For
+multi-phase stories (several PRs after the first has merged), use
+[[id:479E7E27-4060-4BFD-AC38-F11EFA3BB306][How do I start a new feature branch phase?]] instead.
+
+* Question
+
+I have a =BACKLOG= story in the current sprint. How do I create a
+branch and mark it active?
+
+* Answer
+
+1. /Locate the story./ Stories live under
+   =doc/agile/versions/v0/sprint_NN/<story>/story.org= — pick the
+   highest-numbered sprint:
+
+   #+begin_src sh :results verbatim
+   ls doc/agile/versions/v0/ | sort | tail -5
+   #+end_src
+
+2. /Fetch and branch from main./  Always branch from the current
+   tip of =main=, not from an older local copy:
+
+   #+begin_src sh :results verbatim
+   git fetch origin main
+   git checkout -b feature/concise-lowercase-description origin/main
+   #+end_src
+
+   Branch names follow =feature/<3-5-word-slug>= matching the story
+   title — e.g. =feature/session-history-dialog=,
+   =feature/currency-domain-type=.
+
+3. /Mark the story STARTED./ Open =story.org= and update the
+   =* Status= table:
+
+   - Change the TODO keyword on the headline from =BACKLOG= to =STARTED=.
+   - Set =#+owner:= to the agent or person doing the work.
+   - Update =#+updated:= to today's date (=YYYY-MM-DD=).
+   - Fill "Now" and "Next" rows with the first task.
+
+4. /Commit the status change on the feature branch/:
+
+   #+begin_src sh :results verbatim
+   git add doc/agile/versions/v0/sprint_NN/<story>/story.org
+   git commit -m "[agile] Mark <story> STARTED"
+   #+end_src
+
+The [[id:8810E0F9-C5B9-4CFA-A710-774AD6C771DD][heartbeat rule]] applies from this point: every agent session that
+touches the story must refresh the Status rows and =#+updated= before
+yielding.
+
+* Script
+
+Bare =git= CLI only. No wrapper script.
+
+* Tested by
+
+Manual. The status change is audited by [[id:ED29C99B-1507-49C9-9937-D296FFFE428E][System 3*]] as part of the
+sprint heartbeat audit.
+
+* See also
+
+- [[id:227958A5-0F78-4CC6-A116-B83988592B68][Sprint execution phase]] — the cybernetic context for this recipe.
+- [[id:8810E0F9-C5B9-4CFA-A710-774AD6C771DD][Lifecycle]] — full =BACKLOG → STARTED → DONE= state machine and
+  heartbeat rule.
+- [[id:479E7E27-4060-4BFD-AC38-F11EFA3BB306][How do I start a new feature branch phase?]] — for stories that
+  span more than one PR after the first has merged.
+- =Feature Branch Manager= — the skill that orchestrates branch
+  creation and phase transitions.
+- [[id:46DFE47F-967B-4C24-95BF-3E21F97CFD20][Agile process]] — the full sprint loop; phase detail in [[id:F5426198-ACAF-41DA-A043-FF15785E4A1D][Sprint planning]],
+  [[id:227958A5-0F78-4CC6-A116-B83988592B68][Sprint execution]] and [[id:7D72A9DA-984F-4130-BFF6-97B66B233907][Sprint closure]].

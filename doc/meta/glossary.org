@@ -1,0 +1,619 @@
+:PROPERTIES:
+:ID: 47341FC6-B8FB-499E-AAE0-F4EE0ABFDA05
+:END:
+#+title: Glossary
+#+description: Definitions of every load-bearing term in the compass-ng information architecture.
+#+type: meta
+#+level: cross
+#+filetags: :meta:glossary:terminology:
+#+created: 2026-05-18
+#+updated: 2026-09-10
+
+Every term used across the compass-ng [[id:C0CF98E8-082F-2F04-2533-94B2DA9BE3D2][information architecture]] has a single
+definition here. Other documents link to these entries with =[[id:...]]= so
+meaning is defined once and reused everywhere. Each entry says what the term is
+and (where applicable) carries a small table covering its owner among the
+[[id:926B916E-A57E-498E-99AB-720B583C0362][cybernetic systems]], how to generate one, a representative example, and the
+inventory page that lists every instance.
+
+* Terminology register
+:PROPERTIES:
+:ID: 9C2E4A17-5B3D-4E88-A6F1-2D7B0C4E8351
+:END:
+
+One word per concept, across every document and not only the skills. Where a
+synonym below still appears in older prose, the left-hand column is what the
+text should say. The full entries follow; this table is the index and the
+retirement notice.
+
+#+ATTR_HTML: :class hug-leading
+| Concept                          | We use    | Retired synonyms                         |
+|----------------------------------+-----------+------------------------------------------|
+| A unit of work an agent executes | task      | ticket, issue, unit, slice               |
+| A body of related tasks          | story     | epic, spec, map                          |
+| A recorded idea, not yet work    | capture   | backlog item, inbox item                 |
+| The approach to a kind of work   | method    | playbook, flow                           |
+| The sticky posture for a session | mode      | stance skill, style                      |
+| A rule that is cited, not run    | principle | rule, guideline                          |
+| A durable fact about the domain  | knowledge | research note, doc, ADR                  |
+| Intended behaviour, checkable    | spec      | —                                        |
+| The role a session or delegate acts as | System | persona, agent type, role, function   |
+| Any LLM process doing work       | agent     | —                                        |
+| The agent a human talks to       | session   | —                                        |
+| An agent spawned by another      | delegate  | subagent                                 |
+| The typed thing acted upon       | target    | object, candidate, entity                |
+| The operation applied to it      | action    | command, verb, skill                     |
+| The topic a journey is grouped under | journey group | menu section, module, area, category |
+| Where a journey happens          | screen    | page, surface, view                      |
+| A position within a screen       | step      | stage, phase                             |
+
+Two terms admit a misreading, and both are worth stating negatively.
+
+- *Spec* denotes an Allium specification and nothing else. A story's plan is a
+  *plan*.
+- *Persona* denotes a Council member and nothing else. The role a session
+  adopts is a *System*.
+
+/Function/ is likewise reserved: it names a
+[[id:F5CB5A45-6557-410B-9E4F-542957561A16][regulatory function]], never the
+role a session adopts.
+
+* Task
+:PROPERTIES:
+:ID: 31C868B9-306E-4282-BA8C-07E647021B34
+:END:
+
+The smallest unit of executable work. One task should correspond to one PR.
+Bounded by a concrete size limit as per [[id:8B29A8D8-E004-4E87-B81D-ABEAF68F2B98][document types]]. The full
+domain treatment — sizing limits, discovered tasks, ready/done — is
+on the [[id:A7CF5191-6786-408F-A4A6-3A508DCADAC1][Tasks]] page.
+
+#+ATTR_HTML: :class hug-leading
+| Field           | Value                         |
+|-----------------+-------------------------------|
+| Owner           | [[id:DBFD530B-4B56-48D1-9F03-3A0D0DA16552][System 1]]                      |
+| How to generate | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][New task]] in the codegen recipe |
+| Example         | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Update C++ standard]]           |
+
+* Story
+:PROPERTIES:
+:ID: 699A8D45-B67E-4D3E-9206-24FA17C51ADA
+:END:
+
+A coherent user-visible outcome, composed of one or more tasks. The unit of
+sprint planning. The full domain treatment — themes and epics, sizing,
+ready/done, cross-sprint continuations — is on the [[id:4FAC3AE2-04A8-4C35-B72E-78C7A862EED9][Stories]] page.
+
+#+ATTR_HTML: :class hug-leading
+| Field           | Value                          |
+|-----------------+--------------------------------|
+| Owner           | [[id:BF4F183F-BB33-44F2-A53F-D9BD602E9BE8][System 2]]                       |
+| How to generate | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][New story]] in the codegen recipe |
+| Example         | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Build quality]] (from Sprint 01) |
+
+* Sprint
+:PROPERTIES:
+:ID: 0820B7FD-147C-4832-AC25-C043D38D5B61
+:END:
+
+A bounded period of work delivering a set of stories aligned to a [[id:198DA730-D9FB-4BDE-B1C0-B930CD019917][sprint
+mission]]. Closes with a [[id:FABB50E5-518C-42D6-901E-848644E56CA2][release]].
+
+#+ATTR_HTML: :class hug-leading
+| Field           | Value                           |
+|-----------------+---------------------------------|
+| Owner           | [[id:8F13BA75-EDAA-46CC-9BE2-E356D60BF4F4][System 3]]                        |
+| How to generate | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][New sprint]] in the codegen recipe |
+| Example         | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Sprint 01]]                       |
+
+* Sprint mission
+:PROPERTIES:
+:ID: 198DA730-D9FB-4BDE-B1C0-B930CD019917
+:END:
+
+A one-sentence statement of what the sprint exists to achieve. Used to filter
+candidate stories.
+
+#+ATTR_HTML: :class hug-leading
+| Field   | Value                                |
+|---------+--------------------------------------|
+| Owner   | [[id:8F13BA75-EDAA-46CC-9BE2-E356D60BF4F4][System 3]]                             |
+| Example | the =* Mission= section of [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Sprint 01]] |
+
+* Release
+:PROPERTIES:
+:ID: FABB50E5-518C-42D6-901E-848644E56CA2
+:END:
+
+The artefact a [[id:0820B7FD-147C-4832-AC25-C043D38D5B61][sprint]] produces when it closes — a tagged build plus release
+notes capturing the sprint's landed work. The release is the upward signal that
+work happened (per [[id:926B916E-A57E-498E-99AB-720B583C0362][cybernetic levels]] information flow). Every sprint cuts a
+release; not every release ships a [[id:CA4D4BDE-2EAB-4F0A-BC8B-7C0BCB17BC82][version]] — version-level release decisions sit
+with [[id:6CA8B181-BD81-4EF4-AF27-64F5491D62F0][System 4]].
+
+#+ATTR_HTML: :class hug-leading
+| Field           | Value                                                           |
+|-----------------+-----------------------------------------------------------------|
+| Owner           | [[id:8F13BA75-EDAA-46CC-9BE2-E356D60BF4F4][System 3]] (sprint-level); [[id:6CA8B181-BD81-4EF4-AF27-64F5491D62F0][System 4]] (version-level cut decision)  |
+| How to generate | See [[id:7D72A9DA-984F-4130-BFF6-97B66B233907][Sprint closure]] in the agile process — release notes,        |
+|                 | release cut, post-mortem are steps 2–4 of the closure sequence. |
+
+* Milestone
+:PROPERTIES:
+:ID: 65B2F1A0-3C4D-4E7A-9B8D-1F2A3C4D5E6F
+:END:
+
+The named major release target that a [[id:CA4D4BDE-2EAB-4F0A-BC8B-7C0BCB17BC82][version]] series works towards. A
+milestone owns the /what and why/: identity, theme, mission, definition
+of done, and time horizon. It does not contain sprints — that is the
+version's job. When the milestone's definition of done is met, the
+current version series closes and the software cuts the milestone
+release (e.g. 1.0.0). The next version series then begins.
+
+#+ATTR_HTML: :class hug-leading
+| Field           | Value                                          |
+|-----------------+------------------------------------------------|
+| Owner           | [[id:6CA8B181-BD81-4EF4-AF27-64F5491D62F0][System 4]]                                       |
+| Example         | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Milestone v1.0 — Static World]]                  |
+| Inventory       | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Milestones]]                                     |
+
+* Version
+:PROPERTIES:
+:ID: CA4D4BDE-2EAB-4F0A-BC8B-7C0BCB17BC82
+:END:
+
+A release series — a coherent set of [[id:0820B7FD-147C-4832-AC25-C043D38D5B61][sprints]] producing incremental
+builds (e.g. 0.0.x, 1.0.x) as it works towards a target [[id:65B2F1A0-3C4D-4E7A-9B8D-1F2A3C4D5E6F][milestone]]. The
+version name matches the CMake =MAJOR= component: =v0= produces 0.x.x
+builds; =v1= produces 1.x.x builds. A version does not carry a mission
+statement of its own — that lives in its target milestone.
+
+#+ATTR_HTML: :class hug-leading
+| Field           | Value                              |
+|-----------------+------------------------------------|
+| Owner           | [[id:6CA8B181-BD81-4EF4-AF27-64F5491D62F0][System 4]]                           |
+| How to generate | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][New version]] in the codegen recipe   |
+| Example         | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Version 0]] (targets [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Milestone v1.0]])   |
+| Inventory       | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Versions]]                           |
+
+* Version identity
+:PROPERTIES:
+:ID: 83BC06E5-77DD-4ABA-87CB-48A10EC0208A
+:END:
+
+Deprecated. Identity now lives in the target [[id:65B2F1A0-3C4D-4E7A-9B8D-1F2A3C4D5E6F][milestone]] document, not
+in the version. See the =* Identity= section of [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Milestone v1.0]] for the
+current example.
+
+* Product identity
+:PROPERTIES:
+:ID: 436FB40C-422A-465B-B949-E9F0760820C1
+:END:
+
+The durable statement of what compass-ng is and is not. Used to filter candidate
+versions, far captures, and feature requests.
+
+#+ATTR_HTML: :class hug-leading
+| Field           | Value                                     |
+|-----------------+-------------------------------------------|
+| Owner           | [[id:6DF00A64-7CC3-40A7-950B-55D2B05A31C7][System 5]]                                  |
+| How to generate | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][New product identity]] in the codegen recipe |
+| Example         | [[id:2F71292F-CDB0-4E2E-B50F-4F02E10597C4][compass-ng product identity]]               |
+
+* System
+:PROPERTIES:
+:ID: 66F2A9E8-0385-4D56-B4B1-0957208990DC
+:END:
+
+A named role a session acts as, in the sense Stafford Beer gives the word: one
+of the five Systems of a viable system, plus the audit System. Each system
+document is the priming context an LLM session loads when it takes the role on:
+its purpose, what to pre-read, which [[id:4F6384FE-CDE9-40F6-B13D-8A84B6CD77F7][skills]] to invoke, and what /not/ to do.
+Systems are role-shaped (descriptive); skills are task-shaped (operational).
+Systems compose skills; skills do not own Systems.
+
+Capitalised and numbered throughout, so that System 3* is never confused with
+the system, meaning the compass-ng software.
+
+#+ATTR_HTML: :class hug-leading
+| Field     | Value                                             |
+|-----------+---------------------------------------------------|
+| Owner     | cross-cutting (one System per cybernetic level)   |
+| Example   | [[id:EECA6981-3240-44D9-ADA7-4B8C64A76B44][S2 Orchestrator]]                                   |
+| Inventory | [[id:1A5E0079-5771-4213-B624-62FA9AC947B4][Systems]]                                         |
+
+* Skill
+:PROPERTIES:
+:ID: 4F6384FE-CDE9-40F6-B13D-8A84B6CD77F7
+:END:
+
+A concrete, executable capability — /how to do a kind of work/ — in Claude
+Code's skill format (=doc/llm/skills/<slug>/SKILL.org=). Each skill is
+self-contained: it describes when to use it, the procedure, and any artefacts it
+expects. A skill is /task-shaped/: invokable in one session to perform a unit of
+work. Contrast with [[id:66F2A9E8-0385-4D56-B4B1-0957208990DC][System]], which is /role-shaped/: a description of what
+someone does, listing the skills that role draws on.
+
+#+ATTR_HTML: :class hug-leading
+| Field           | Value                                      |
+|-----------------+--------------------------------------------|
+| Owner           | cross-cutting                              |
+| How to generate | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][New Claude Code skill]] in the codegen recipe |
+| Example         | [[id:4B6536DF-56B6-A634-C7FB-FA3CF51E916D][compass-skill-add]]                  |
+| Inventory       | [[id:2003934B-ED05-D114-404B-08C0E0D844BB][Skills]]                                     |
+
+* Recipe
+:PROPERTIES:
+:ID: 117A95F9-B03D-490B-BB74-DA9FE74537E2
+:END:
+
+A how-to document answering one operational question. Has executable scripts
+where applicable. Tested by CI.
+
+#+ATTR_HTML: :class hug-leading
+| Field           | Value                           |
+|-----------------+---------------------------------|
+| Owner           | cross-cutting                   |
+| How to generate | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][New recipe]] in the codegen recipe |
+| Example         | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][How do I run the tests?]]         |
+| Inventory       | [[id:46F5ED07-9E63-77B4-2783-E0147EFF45D0][Recipes]]                         |
+
+* Runbook
+:PROPERTIES:
+:ID: B555D2A6-10CA-4A93-973E-F2AF4E1D7E55
+:END:
+
+A named, repeatable composition of [[id:117A95F9-B03D-490B-BB74-DA9FE74537E2][recipes]] and [[id:4F6384FE-CDE9-40F6-B13D-8A84B6CD77F7][skills]] into a complete
+multi-step procedure. Owned by [[id:227958A5-0F78-4CC6-A116-B83988592B68][System 2 (Orchestrator)]] — it coordinates S1
+operations into higher-level runbooks. Lives under [[proj:doc/llm/runbooks][=doc/llm/runbooks/=]].
+
+#+ATTR_HTML: :class hug-leading
+| Field           | Value                                 |
+|-----------------+---------------------------------------|
+| Owner           | [[id:227958A5-0F78-4CC6-A116-B83988592B68][System 2 (Orchestrator)]]               |
+| How to generate | =compass add runbook=               |
+| Example         | [[id:4F01E2FF-69AB-4839-88D1-4D8C21D99D3C][Start work on a new story]]            |
+| Inventory       | [[id:D1125E49-3C4E-48D4-B7F9-15CAA45B3ADD][Runbooks catalogue]]                  |
+
+* Workflow
+:PROPERTIES:
+:ID: 902A5312-B3A2-4C66-8017-34F0F26658C6
+:END:
+
+A durable design document for one named server-side process: what it achieves,
+who takes part, which messages it exchanges, the steps it runs and what each one
+produces, the failure policy it declares, and the read a client follows to
+render its progress. A workflow page is written from the definition a service
+registers, not from a run of it — the run is a
+[[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][workflow instance]]. Lives under
+[[proj:doc/knowledge/workflows][=doc/knowledge/workflows/=]]. See
+[[id:C4F7114C-B454-4B07-A804-64442D989FD4][Document type: workflow]] for the
+contract.
+
+#+ATTR_HTML: :class hug-leading
+| Field           | Value                                       |
+|-----------------+---------------------------------------------|
+| Owner           | cross-cutting                               |
+| How to generate | =compass add workflow=                      |
+| Inventory       | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Workflow pages]] |
+
+* Report
+:PROPERTIES:
+:ID: A7FCC423-1CA3-4345-BF5B-18D54207B00B
+:END:
+
+A durable description of one report the platform can produce: the decision it
+feeds, the roles that read it, how often it runs, what it reads and produces,
+the measures it carries, the ORE XML that configures it, the parameters a
+definition of it states, and the test that exercises it. A report page is
+written from the report's definition and its configuration, not from a run of
+it — the run is a report instance. Lives under
+[[proj:doc/knowledge/reports][=doc/knowledge/reports/=]]. See
+[[id:4498456E-71DE-4250-8080-727690FAEFE6][Document type: report]] for the
+contract.
+
+#+ATTR_HTML: :class hug-leading
+| Field           | Value                                       |
+|-----------------+---------------------------------------------|
+| Owner           | cross-cutting                               |
+| How to generate | =compass add report=                        |
+| Inventory       | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Report pages]] |
+
+* Service architecture pattern
+:PROPERTIES:
+:ID: 68FAC606-569C-4B9B-932B-3B3A0181AC8B
+:END:
+
+A named, established solution to a recurring problem of service interaction,
+written in the pattern-language form: its context, the problem, the forces, the
+solution, how it handles errors, timeouts and retries, its pitfalls, its
+security, its use in compass-ng, and the authoritative sources that define it.
+A pattern page is named for the pattern in its source, so a design can say "use
+pattern X" and inherit what is known about X. Lives under
+[[proj:doc/knowledge/service_architecture_patterns][=doc/knowledge/service_architecture_patterns/=]]. See
+[[id:2BF68189-57CF-42F7-BA33-9673B7D620DD][Document type: service_architecture_pattern]] for the
+contract.
+
+#+ATTR_HTML: :class hug-leading
+| Field           | Value                                       |
+|-----------------+---------------------------------------------|
+| Owner           | cross-cutting                               |
+| How to generate | =compass add service_architecture_pattern=                       |
+| Inventory       | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Service architecture patterns]] |
+
+* Knowledge document
+:PROPERTIES:
+:ID: BD1F3458-F991-46BE-ABEB-5F06C2633375
+:END:
+
+A durable factual document about the domain, architecture, or components. Not
+state, not process — just facts that outlive any sprint.
+
+#+ATTR_HTML: :class hug-leading
+| Field           | Value                                       |
+|-----------------+---------------------------------------------|
+| Owner           | cross-cutting                               |
+| How to generate | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][New knowledge document]] in the codegen recipe |
+| Example         | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Open Source Risk Engine (ORE)]]               |
+| Inventory       | [[id:7474935C-95D1-3034-B833-83DCD9FB3A09][Knowledge]]                                   |
+
+* Plan
+:PROPERTIES:
+:ID: 58D491A6-E4BD-4B0D-86BD-BB8465DFD4C7
+:END:
+
+A transient implementation strategy for a single task or story.
+Lives next to the work as the =* Plan= section inside that document.
+Distilled into the parent story's =* Decisions= when the work
+closes; the =* Plan= section is then cleared. Plans do not outlive
+their task.
+
+#+ATTR_HTML: :class hug-leading
+| Field   | Value                                                    |
+|---------+----------------------------------------------------------|
+| Owner   | the [[id:BF4F183F-BB33-44F2-A53F-D9BD602E9BE8][System 2]] orchestrator running the task or story        |
+| Example | the =* Plan= section of any =STARTED= task in [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Versions]]   |
+
+* Discovered task
+:PROPERTIES:
+:ID: 4EA506F5-C3E9-4F92-8024-A5EED0B3DF43
+:END:
+
+Work spotted in passing while executing another task. Filed without triage in
+=DISCOVERED= state; must leave =DISCOVERED= within one orchestrator session (see
+[[id:8810E0F9-C5B9-4CFA-A710-774AD6C771DD][lifecycle]]).
+
+#+ATTR_HTML: :class hug-leading
+| Field | Value                                              |
+|-------+----------------------------------------------------|
+| Owner | filed by [[id:DBFD530B-4B56-48D1-9F03-3A0D0DA16552][System 1]]; triaged by [[id:BF4F183F-BB33-44F2-A53F-D9BD602E9BE8][System 2]] or [[id:8F13BA75-EDAA-46CC-9BE2-E356D60BF4F4][System 3]] |
+
+* Backlog
+:PROPERTIES:
+:ID: E7ACB613-01ED-4351-B704-E6C279E31157
+:END:
+
+A TODO state, not a folder. Tasks and stories in =BACKLOG= have been triaged but
+not started. The /product backlog/ (work not yet pulled into a sprint) lives
+separately under =agile/product_backlog/{inbox,next,deferred,discarded}/= as a tree of [[id:671F18E4-E09C-4B3B-BD24-D33DF8AE38A6][captures]].
+
+#+ATTR_HTML: :class hug-leading
+| Field     | Value           |
+|-----------+-----------------|
+| Inventory | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Product backlog]] |
+
+* Capture
+:PROPERTIES:
+:ID: 671F18E4-E09C-4B3B-BD24-D33DF8AE38A6
+:END:
+
+A pre-sprint idea: something we may want to do but have not yet pulled into a
+sprint as a story. Captures live within the capture document in a sprint, if
+long-lived. New captures land in =inbox/= (untriaged); at triage they move to
+=next/= (candidate for the next version), =deferred/= (longer-term wishlist),
+or =discarded/= (explicitly rejected). Captures are /not stateful/ — no
+TODO keyword, no =* Status= table. They have only two effective states:
+/pending/ (the file exists in a bucket) and /promoted/ (the file has been
+converted into a =story=). On promotion the file is moved into the appropriate
+sprint folder and its =#+type:= flips from =capture= to =story=; *the =:ID:= is
+preserved* so existing links keep working.
+
+#+ATTR_HTML: :class hug-leading
+| Field           | Value                                                                                               |
+|-----------------+-----------------------------------------------------------------------------------------------------|
+| Owner           | cross-cutting: filed by [[id:BF4F183F-BB33-44F2-A53F-D9BD602E9BE8][System 2]]; identity-fit reviewed by [[id:6DF00A64-7CC3-40A7-950B-55D2B05A31C7][System 5]]; horizon by [[id:6CA8B181-BD81-4EF4-AF27-64F5491D62F0][System 4]] / [[id:8F13BA75-EDAA-46CC-9BE2-E356D60BF4F4][System 3]] |
+| How to generate | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][New capture]] in the codegen recipe                                                                    |
+| Example         | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Add a dashboard for users]] (in the [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][next]] bucket)                                                      |
+| Inventory       | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Product backlog]] (browse via [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][next]] / [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][deferred]])                                                             |
+
+* Memory
+:PROPERTIES:
+:ID: 32B3A055-63FA-4EDF-8DCC-901E9D883F22
+:END:
+
+A short, durable note an LLM session writes for the benefit of future
+sessions — feedback the user gave, a fact about them, a fact about
+the work in flight, or a pointer to an external system. One memory
+per file under [[proj:doc/llm/memory][=doc/llm/memory/=]]; carries =#+type: memory= and a
+=#+memory_subtype:= of =feedback=, =user=, =project=, or
+=reference=. Memory captures /how to work together/; code-derivable
+facts and architecture belong in [[id:BD1F3458-F991-46BE-ABEB-5F06C2633375][knowledge]] instead.
+
+#+ATTR_HTML: :class hug-leading
+| Field           | Value                                                            |
+|-----------------+------------------------------------------------------------------|
+| Owner           | cross-cutting (any LLM session may write, with user approval)    |
+| How to generate | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][New memory]] in the codegen recipe; [[id:391B9231-DBA8-4E8C-97AB-A75E2B9FEA07][How do I create a memory?]] |
+|                 | for the full conventions                                         |
+| Example         | [[id:F9B796DF-2C06-42EF-AACF-D69E53621FF9][Do not re-export ORES_* env vars]]                                 |
+| Inventory       | [[id:DC0BBA22-9D4F-4FDD-B011-E30B02B4B82F][Project memory]]                                                   |
+
+* Investigation report
+:PROPERTIES:
+:ID: A7F8D9E2-3C4B-4A5D-B67C-8E9F0A1B2C3D
+:END:
+
+A formal historical record of a technical investigation. Captures the original
+problem, the methodology used, paths explored (including failures), and
+conclusions reached. Designed to preserve knowledge and context for future
+sessions. See [[id:8B29A8D8-E004-4E87-B81D-ABEAF68F2B98][document types]] for the full contract.
+
+#+ATTR_HTML: :class hug-leading
+| Field           | Value                                           |
+|-----------------+-------------------------------------------------|
+| Owner           | cross-cutting                                   |
+| How to generate | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][New investigation report]] in the codegen recipe |
+
+* User journey
+:PROPERTIES:
+:ID: F44766FA-1E9C-416F-849A-E131101B2ECA
+:END:
+
+A design document describing what one person is trying to do: the actor, the
+trigger, the steps, the screens, the entity fields each screen shows, and the
+operations and messages each step needs. Lives under
+[[proj:doc/knowledge/journeys][=doc/knowledge/journeys/=]], one subfolder per group of journeys. The groups are
+logical topics, not components — a component is an implementation concept, and a
+journey is grouped by what the person is trying to do.
+
+A user journey is written before anything is built. The journey itself is the
+definition it becomes, and the state that lets a client resume it is a
+[[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][workflow instance]]: the journey is not
+server-side, its state is. Most user journeys keep no such state at all. See
+[[id:CA94C762-B0C8-40E7-85CE-D4C6355023CC][Document type: user_journey]] for the
+contract, and [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Journey execution]] for how a
+journey is executed.
+
+#+ATTR_HTML: :class hug-leading
+| Field           | Value                                       |
+|-----------------+---------------------------------------------|
+| Owner           | cross-cutting                               |
+| How to generate | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][New user journey]] in the codegen recipe |
+| Inventory       | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][User Journeys]] |
+
+* Journey screen
+:PROPERTIES:
+:ID: FA7DCE9E-FB6B-439D-86C8-8BF138D38A96
+:END:
+
+Where a journey happens. A screen is not a journey and not an entity: it is the
+arrangement a person meets, and several journeys may share one.
+
+The work has already produced the case that separates the three. The
+[[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Profile]] group holds three
+journeys — [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Present myself]],
+[[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Keep my details current]] and
+[[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Change someone's details]] — and
+one screen. Three intents, two actors, one arrangement. A menu built from
+journeys would therefore offer three entries that open the same screen, which
+is why a menu holds a *journey group* and not a journey.
+
+#+ATTR_HTML: :class hug-leading
+| Term          | What it is                                                   |
+|---------------+--------------------------------------------------------------|
+| Journey group | The topic a journey is looked up under. What a menu holds. Small and stable, because it is a topic and not a component. |
+| Journey       | What one person is trying to do. A design document, and the unit the catalogue counts. |
+| Screen        | Where journeys happen. May serve several journeys and several actors. |
+| Step          | A position within a screen. An ordered list of steps is a *rail*, which is one screen shape among several. |
+
+A journey whose screen is a rail is not more of a journey than one whose screen
+is a page. The rail is a shape, and the shape answers to the work: the
+[[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][First run]] journey is a run and
+takes a rail, and the profile screen is a page a person returns to and does
+not.
+
+* Journey group
+:PROPERTIES:
+:ID: 272B7F9A-69A4-419E-B0FF-B20A823749DA
+:END:
+
+The topic a journey is looked up under, and what a menu holds. The
+[[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][User Journeys]] catalogue's groups
+are the definition: a group is a logical topic, never a component, because a
+component is an implementation concept and it moves while what a person is
+trying to do does not. A journey that does not belong to a group is a
+catalogue defect, not a group of its own.
+
+#+ATTR_HTML: :class hug-leading
+| Field           | Value                                       |
+|-----------------+---------------------------------------------|
+| Owner           | cross-cutting                               |
+| Inventory       | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][User Journeys]] |
+
+* TODO state
+:PROPERTIES:
+:ID: 8A246D60-6A87-4B54-A023-564EC1965C61
+:END:
+
+The [[https://orgmode.org/manual/TODO-Items.html][TODO keyword]] on a stateful document's =* Status= headline. The full
+vocabulary is =DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED= (active
+states left of the bar, terminal states right). Documents that are not stateful
+(knowledge, recipes, systems, meta) have no Status headline. See [[id:8810E0F9-C5B9-4CFA-A710-774AD6C771DD][lifecycle]] for
+transitions.
+
+* Status headline
+:PROPERTIES:
+:ID: 26AF1BC4-8B83-4AA4-A324-6FBEBC2DE960
+:END:
+
+The =* Status= headline inside a stateful document. Carries the TODO keyword
+(state) and four subheadings (=** Now=, =** Waiting on=, =** Next=, =** Last
+touched=) that describe the live operational detail. Updated every time an
+orchestrator or agent acts on the document.
+
+* Predecessor story
+:PROPERTIES:
+:ID: CF9B011E-7FF1-4FDB-8B5F-148ADF43A75F
+:END:
+
+A story in a prior sprint that the current story continues. Captured as
+=#+predecessor: <id>= frontmatter plus a =Continued from: [[id:...][...]]= line
+in the body. See cross-sprint stories in [[id:8810E0F9-C5B9-4CFA-A710-774AD6C771DD][lifecycle]].
+
+* Successor story
+:PROPERTIES:
+:ID: 65976DF1-57A0-4BA3-B6A5-A947886C20BD
+:END:
+
+A story in a later sprint that picks up where this one left off. Captured as
+=#+successor: <id>= frontmatter plus a =Continued in: [[id:...][...]]= note in
+=* Decisions=. Audit verifies bidirectional linkage.
+
+* Agent
+:PROPERTIES:
+:ID: 366D6521-79E0-42CE-97F4-5FD0F443A923
+:END:
+
+Any LLM process doing work. The general word: use it when the distinction
+between a session and a delegate does not matter. An agent is not a role, so
+it names no level; the level designated S1 is called *Agent*, but that is a
+[[id:5365DE9F-E3F9-4B5F-ACC1-B347B5FCE2A9][System]], acted as by a session or
+a delegate. See [[id:F58CA9E7-C65F-4D17-A9A7-95FDE25B9EBD][execution model]]
+for how the roles compose, and [[id:B544713A-BA23-4D5A-9CEE-084212D7C8BA][S1
+Agent]] for the priming context.
+
+* Session
+:PROPERTIES:
+:ID: 4E8B1D63-7A05-49C2-B3F7-8C1A5D02E9B4
+:END:
+
+The agent a human is talking to. It has a conversation and an operator, which
+is what separates it from a delegate.
+
+* Delegate
+:PROPERTIES:
+:ID: 6B0F92C5-1E47-4A38-95D2-7F4C3E81A0D6
+:END:
+
+An agent spawned by another agent to do a bounded piece of work and report
+back. It has no operator, only a brief. Claude Code calls this a *subagent*;
+we say delegate because the relationship is what matters, not the mechanism.
+
+* Orchestrator
+:PROPERTIES:
+:ID: 32FBC685-B81D-4AF8-9B10-294F9055BC75
+:END:
+
+The [[id:BF4F183F-BB33-44F2-A53F-D9BD602E9BE8][System 2]] LLM session the user has assigned to a story. Forks agents, reviews
+their output, decides what to do with discovered work. See [[id:EECA6981-3240-44D9-ADA7-4B8C64A76B44][S2 Orchestrator]] for the priming
+context.

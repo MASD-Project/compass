@@ -1,0 +1,102 @@
+:PROPERTIES:
+:ID: 5373A4E5-172B-44FD-BAE0-07E25BBD3292
+:END:
+#+title: Handle a PR review round
+#+description: Sync with main, read review comments, decide per comment, apply fixes, push, reply, resolve threads, and record.
+#+type: runbook
+#+level: cross
+#+filetags: :llm:runbook:pr:review:github:
+#+created: 2026-05-26
+#+updated: 2026-07-11
+
+This page documents a [[id:B555D2A6-10CA-4A93-973E-F2AF4E1D7E55][runbook]] — a named, repeatable composition of [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][recipes]] and [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][skills]] for a complete multi-step procedure. Each step references a recipe or skill by id-link.
+
+* Goal
+
+Handle one complete review round: sync with main, read all review
+comments, decide accept/decline per comment, apply fixes bundled with
+the round's =* Review= table update, push once, reply to every
+comment, resolve threads, and — if this was the final round — merge
+immediately on green CI. Task/story bookkeeping is not part of this
+runbook: it happens before the PR exists (see [[id:2EA7FF1B-CC23-4275-9ADA-8C43103E3103][Work a task through to
+merged PR]]), so no bookkeeping-only commit should ever follow a
+review round.
+
+* Preconditions
+
+- PR is open with review comments.
+- You are on the feature branch.
+- The session's SSH agent is used as-is (see [[id:F7E4C41F-AF34-43E5-ADC3-1D837126B3DE][Do not interfere with SSH session variables]]).
+
+* Steps
+
+In execution order:
+
+0. /Gate: confirm there is a round to handle./ =compass review list <N>
+   --detail= before anything else:
+   - No comments yet, or the reviewer is still running ("Working on
+     review…" placeholders) → stop and wait; do not sync.
+   - Every comment already has a reply and all threads are resolved →
+     the round is done; stop.
+   Only proceed when unaddressed comments exist. Syncing first churns
+   CI and forces a force-push even when there is nothing to do.
+
+1. /Sync with main./ =compass pr sync= — fetch, rebase, and report; on conflicts it stops with the conflicted files and the ways out. Never address review comments on a stale branch.
+
+2. /Check CI status./ Before reading comments, inspect the current CI state:
+
+   #+begin_src sh :results verbatim
+   compass pr checks <N>
+   #+end_src
+
+   - If any check is *failing*, identify and fix the root cause first — as a separate commit — before looking at review comments. A CI failure may explain or supersede some review comments.
+   - If checks are *pending / running*, notify the user and proceed to step 3; CI will be re-verified after fixes are pushed (step 7).
+   - If CI is *green*, proceed immediately.
+
+3. /Read the comments./ =compass review list <N> --detail= — line-level threads and conversation-level comments/review summaries in one view. See [[id:26C1DC06-82D2-46C4-94D6-DF9231BA171B][How do I address PR review comments?]] step 1.
+
+4. /Decide per comment./ For each comment, make an explicit accept/decline decision. Never silently ignore a comment.
+
+5. /Apply fixes./ One commit per logical fix. Never amend commits on a
+   branch under review. Use [[id:F4B1A670-3B02-11F1-BCE2-4B06F4BBA5D9][commit conventions]]. Build and run tests
+   locally before pushing — the only local verification this round
+   gets. Update the task's =* Review= table for this round (what step
+   10 used to do as a separate step) now, so it lands in the same
+   commit set as the fixes — never as a later, code-free commit.
+
+6. /Push./ =git push= — fixes and the =* Review= table update together.
+
+7. /Verify CI is green./ Re-run =compass pr checks <N>= (or =--watch= to poll) and wait until no checks are pending. If any check fails, fix, commit, push, and repeat this step. Do not reply to review comments while CI is red.
+
+8. /Reply to every comment./ Accepted: "Fixed in commit <sha> — <description>." Declined: "Not changed. <reason>." Use =compass review reply <N> <comment-id> "<message>"= per the recipe.
+
+9. /Resolve threads./ =compass review resolve <N>= (=--dry-run= to preview).
+
+Replying (step 8) and resolving (step 9) are GitHub API calls, not
+commits — they never trigger CI, so they're safe to do after step 7's
+green check without starting a new cycle.
+
+10. /If this was the final round and the PR delivers the task, merge
+    immediately./ Task/story bookkeeping should already be in place
+    from *before* the PR was raised (see [[id:67FDB9A1-3EBE-45A5-97BD-5E5123661553][compass-agile-close-task]] — it runs
+    ahead of [[id:CC928252-E0C5-4C3C-A7A8-D613593E4E37][compass-pr-raise]], not after review). Do not push a bookkeeping
+    commit now: that would force a fresh CI cycle for a change with no
+    code content, on a PR that was already green and approved. Go
+    straight to [[id:95D560C6-3551-4810-9D11-55F9F82B483C][How do I merge a PR?]].
+
+* Postconditions
+
+- All CI checks on the PR are green.
+- All review comments have replies.
+- All threads are resolved.
+- Review round is recorded in the task's =* Review= table, committed
+  together with this round's fixes (not a separate commit).
+- Branch is pushed and PR is updated.
+- If this was the final round: the PR is merged, with no commits
+  pushed after the last green CI run.
+
+* See also
+
+- [[id:26C1DC06-82D2-46C4-94D6-DF9231BA171B][How do I address PR review comments?]] — the detailed recipe.
+- [[id:2EA7FF1B-CC23-4275-9ADA-8C43103E3103][Work a task through to merged PR]] — the full task lifecycle including review.
+- [[id:D1125E49-3C4E-48D4-B7F9-15CAA45B3ADD][Runbooks catalogue]] — all runbooks.

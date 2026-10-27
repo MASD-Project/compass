@@ -1,0 +1,81 @@
+:PROPERTIES:
+:ID: B079DA67-8408-4BD0-A93C-D108AC780872
+:END:
+#+title: Facet
+#+description: The MASD facet concept — a container for related file artefacts of one technical space, a partitioning of the logical space by artefact role, and the mechanism for composing trivial functions — together with archetypes and the SRPP it encodes. Pure methodology; no project-specific content.
+#+type: knowledge
+#+level: cross
+#+filetags: :masd:facet:codegen:archetype:
+#+created: 2026-06-07
+#+updated: 2026-06-07
+#+startup: inlineimages
+
+A /facet/ is "a container for a set of related file artefacts, all belonging to
+the same [[id:E7B74138-9ADA-4B4B-A983-23B3FDB55F44][technical space]]". It groups the artefacts that give a [[id:4F24EEB9-58F1-42FD-BF4F-121D890F2D85][logical entity]]
+one particular capability or role in [[id:787A7429-71D5-4295-829B-A9B56275B1F8][physical space]] — its serialisation, its
+hashing, its persistence, its UI — and was introduced as the mechanism that
+implements the composition of trivial structural functions.
+
+In the four-level physical-space address —
+
+: [technical space].[part].[facet].[archetype]
+
+— the facet is the third segment.
+
+#+attr_html: :class note
+#+begin_quote
+*Not a subdivision of the technical space.* Parts and facets are arbitrary
+partitionings of the /logical/ space — choices about how to classify a problem
+domain's entities by the role each artefact plays. They "belong" to a technical
+space only because the TS's language is used to /express/ the partitioning. See
+[[id:787A7429-71D5-4295-829B-A9B56275B1F8][Physical Space]] for the full treatment.
+#+end_quote
+
+#+caption: Figure 16 (Dogen): a sample facet taxonomy. Source: [[https://mcraveiro.github.io/dogen/docs/domain_architecture.html][Domain Architecture]].
+#+attr_html: :alt A taxonomy of facets grouping related file artefacts within a technical space.
+[[proj:assets/images/masd/masd_facet_taxonomy.png]]
+
+See [[https://mcraveiro.github.io/dogen/docs/domain_architecture.html][Domain Architecture]] for the formal treatment.
+
+* SRPP: what a facet encodes
+
+Before any template is written, the analyst identifies a /Schematic and
+Repetitive Pattern in Physical Space/ (SRPP) — a class of infrastructure code
+that varies predictably across entities but is otherwise mechanically
+identical. A pattern is judged an SRPP operationally: by reproducing it through
+automated means. A facet is where the SRPPs that confer one role are collected;
+each archetype within the facet is the mechanical extraction of one such
+pattern.
+
+A facet aligns with the *trivial functions* of input variability. The
+composition rule is strict: "a generated artefact may only be composed of zero
+or one trivial structural functions and zero or more trivial non-structural
+functions" — so each distinct structural pattern earns its own archetype.
+
+* Archetypes
+
+A facet contains one or more /archetypes/ — the generating functions and
+templates for individual files. An archetype produces exactly one output file
+per [[id:4F24EEB9-58F1-42FD-BF4F-121D890F2D85][logical entity]] and is parameterised by the logical model: entity name,
+fields, namespace, and containment. The archetype is the abstract template
+(a region of physical space); the file it produces for a specific entity is the
+*artefact* (an instance). See [[id:787A7429-71D5-4295-829B-A9B56275B1F8][Physical Space]] for the archetype-versus-artefact
+distinction and the metamodelling levels.
+
+* Activation
+
+Which facets are active for a given entity is not fixed: it is configured
+through the [[id:CE95C751-2125-4BA9-A78D-C30F9540FC5E][variability model]]. Each logical entity type has a default active
+facet set (see [[id:4F24EEB9-58F1-42FD-BF4F-121D890F2D85][Logical Space]]), and that default is overridden — enabled or
+disabled — per product, per component, or per element. Disabling a facet
+suppresses all of its archetypes' output.
+
+* See also
+
+- [[id:338DCC6D-4913-4FDC-9078-1F0B0486A9E5][MASD]] — the structure note that orders this cluster, and where to read this page in it.
+- [[id:BA0E3273-DC4B-7CD4-447B-06227B7D09A8][MASD]] — methodology overview and the conceptual model.
+- [[id:787A7429-71D5-4295-829B-A9B56275B1F8][Physical Space]] — the TS→Part→Facet→Archetype hierarchy and the PMM.
+- [[id:E7B74138-9ADA-4B4B-A983-23B3FDB55F44][Technical Space]] — the language ecosystem whose artefacts a facet groups.
+- [[id:4F24EEB9-58F1-42FD-BF4F-121D890F2D85][Logical Space]] — the entities a facet's artefacts express.
+- [[id:CE95C751-2125-4BA9-A78D-C30F9540FC5E][Variability]] — how facets are activated and configured.
+- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][Applied MASD]] — the concrete facet catalogue of one product.

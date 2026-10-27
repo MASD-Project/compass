@@ -1,0 +1,51 @@
+:PROPERTIES:
+:ID: A337654E-A6C2-4CC1-9BD2-9559AC6B2213
+:END:
+#+title: Task: Record the storage decision
+#+description: Write the decision and its reasons into the story.
+#+type: task
+#+level: s1
+#+filetags: :choose_storage:sprint_01:v0:
+#+owner: marco
+#+branch:
+#+pr:
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-10-27
+#+updated: 2026-10-27
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a task in the [[id:41B1692D-7666-4BEE-B724-EDB329A5B5CE][Choose the storage engine]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+Write the decision and its reasons into the story.
+
+* Status
+
+| Field        | Value                                                                  |
+|--------------+------------------------------------------------------------------------|
+| State        | BACKLOG                                                                |
+| Parent story | [[id:41B1692D-7666-4BEE-B724-EDB329A5B5CE][Choose the storage engine]] |
+| Now          | Not started.                                                           |
+| Waiting on   | Nothing.                                                               |
+| Next         | Start the task.                                                        |
+| Last touched | 2026-10-27                                                             |
+
+* Acceptance
+
+- The story's Decisions section names the engine, the concurrency model and the reasons.
+
+* Plan
+
+* Measurements
+
+* Notes
+
+* Test Scenarios
+
+* PRs
+
+* Review
+
+* Result

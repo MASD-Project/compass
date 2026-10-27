@@ -1,0 +1,108 @@
+:PROPERTIES:
+:ID: 8A0E6F32-C4BC-4667-88E8-7F80CA25437C
+:END:
+#+title: Component architecture
+#+description: Ground-truth reference for compass-ng's component directory layout, naming, parts and facets. Adapted from ORE Studio's component architecture.
+#+type: knowledge
+#+level: cross
+#+filetags: :modeling:architecture:component:cmake:masd:
+#+created: 2026-10-27
+#+updated: 2026-10-27
+
+This is the ground-truth reference for the component layout. Tooling and CMake
+must agree with it. It adapts ORE Studio's
+=projects/modeling/component_architecture.org=; where this page is silent, the
+ORE Studio page applies.
+
+* MASD vocabulary
+From MASD's physical space (ORE Studio =doc/knowledge/masd/physical_space.org=):
+
+- A *component* holds one or more *parts*.
+- A *part* groups related files; for C++ the canonical parts are =include=
+  and =src=. In a composite component the sub-components (=api=, =core=, ...)
+  are also called parts.
+- A *facet* groups files that do one job inside a part (=types=, =io=, ...).
+- The physical address of an artefact is
+  =[technical space].[part].[facet].[archetype]=, e.g. =cpp.include.types.class_header=.
+
+* Naming
+| Thing               | Pattern                            | Example                        |
+|---------------------+------------------------------------+--------------------------------|
+| Component directory | =projects/compass.<name>/=         | =projects/compass.graph/=      |
+| Part directory      | =projects/compass.<name>/<part>/=  | =projects/compass.graph/core/= |
+| Include directory   | =include/compass.<name>[.<part>]/= | =include/compass.graph.api/=   |
+| C++ namespace       | =compass::<name>[::<part>]=        | =compass::graph::api=          |
+| Library target      | =compass.<name>[.<part>].lib=      | =compass.graph.api.lib=        |
+| Executable target   | =compass.<name>[.<part>].exe=      | =compass.server.service.exe=   |
+| Test target         | =compass.<name>[.<part>].tests=    | =compass.graph.core.tests=     |
+
+The CLI executable installs as =compass=.
+
+* Two component meta-models
+** Simple component
+#+begin_example
+projects/compass.utility/
+├── CMakeLists.txt
+├── include/compass.utility/
+├── src/
+├── tests/
+└── modeling/
+    └── component_overview.org
+#+end_example
+
+Use for foundation and infrastructure libraries and single-purpose tools.
+
+** Composite component
+#+begin_example
+projects/compass.graph/
+├── CMakeLists.txt          ← adds its parts, in dependency order
+├── api/
+│   ├── CMakeLists.txt
+│   ├── include/compass.graph.api/
+│   ├── src/
+│   ├── tests/
+│   └── modeling/
+├── core/
+│   └── …
+└── modeling/
+    └── component_overview.org
+#+end_example
+
+=projects/CMakeLists.txt= adds the component, never its parts directly.
+
+* Part catalogue
+| Part      | Role                                                                                                   |
+|-----------+--------------------------------------------------------------------------------------------------------|
+| =api=     | Public types: columnar tables, handles, ids, views. No I/O, no threads. Everything else depends on it. |
+| =core=    | Algorithms and mutation over the =api= types; storage access. Not runnable.                            |
+| =service= | Runnable host: process entry point, configuration, wiring.                                             |
+| =client=  | Typed request facades for frontends. No dependency on =core=.                                          |
+
+* Facets
+Facets sit directly under =include/<component>/= and =src/=. The shared floor:
+
+| Facet    | Holds                                                          |
+|----------+----------------------------------------------------------------|
+| =types=  | Data definitions: tables, rows, handles, enums.                |
+| =io=     | Serialisation of those types (wire, text, JSON for debugging). |
+| =ops=    | Pure functions over =types= --- the data-oriented transforms.  |
+| =app=    | Process hosting (in =service= and executables only).           |
+| =config= | Option parsing and configuration structs.                      |
+
+As in ORE Studio, a component may add a local facet when no shared facet fits.
+Name the facet after what its code does, not the library it wraps.
+
+* Data-oriented conventions
+These are the compass-ng departures from ORE Studio, which is object-oriented:
+
+- Types in =types= are plain aggregates. Collections are struct-of-arrays
+  tables indexed by dense 32-bit handles, not vectors of objects.
+- Strings are interned once; tables store string ids.
+- Functions in =ops= take tables or spans and return new data or write into
+  caller-owned buffers. No hidden allocation on hot paths.
+- Ownership of large data sits with the server's store; everything else holds
+  handles or spans.
+
+* Modeling directory
+=modeling/= is not a CMake target. It holds =component_overview.org= and, later,
+diagrams. Each component overview has =type: component=.

@@ -1,0 +1,117 @@
+:PROPERTIES:
+:ID: 479E7E27-4060-4BFD-AC38-F11EFA3BB306
+:END:
+#+title: How do I start a new feature branch phase?
+#+description: Transition from a merged feature branch to a fresh one based on the latest main — for multi-phase implementations where each phase is one PR.
+#+type: recipe
+#+level: cross
+#+filetags: :git:branch:phase:recipe:
+#+created: 2026-05-21
+#+updated: 2026-05-21
+
+For the surrounding skill (when this fits in the workflow and how
+many phases to plan for), see =Feature Branch Manager=.
+
+* Question
+
+The current phase's PR has merged. How do I cleanly start the next
+phase on a fresh branch, without losing in-flight work or leaving
+stale branches behind?
+
+* Answer
+
+The procedure preserves uncommitted work, branches from the
+post-merge main, and removes the old branch locally and remotely.
+
+1. /Note the current branch/ for cleanup later:
+
+   #+begin_src sh :results verbatim
+   git branch --show-current
+   #+end_src
+
+2. /Confirm the current PR has merged/. Do not transition before
+   merge:
+
+   #+begin_src sh :results verbatim
+   gh pr view --json state,mergedAt
+   #+end_src
+
+   =state: MERGED= and a populated =mergedAt= mean it's safe to
+   move on. If =gh= isn't available:
+
+   #+begin_src sh :results verbatim
+   git fetch origin main
+   git branch --contains "$(git rev-parse HEAD)" -r | grep origin/main
+   #+end_src
+
+3. /Stash any uncommitted changes/:
+
+   #+begin_src sh :results verbatim
+   git status --short
+   git stash push -m "WIP: transitioning to next phase"
+   #+end_src
+
+4. /Fetch the latest main/ (the gh path skipped this; the git
+   fallback already did it):
+
+   #+begin_src sh :results verbatim
+   git fetch origin main
+   #+end_src
+
+5. /Create the new branch/ from the freshly-fetched main:
+
+   #+begin_src sh :results verbatim
+   git checkout -b feature/<entity>_<next_phase> origin/main
+   #+end_src
+
+   Branch naming follows =feature/<entity>_<phase_description>= —
+   e.g. =feature/currency_generator=, =feature/session_history_dialog=.
+
+6. /Restore the stash/, if any:
+
+   #+begin_src sh :results verbatim
+   git stash pop
+   #+end_src
+
+   If pop produces conflicts, resolve before continuing.
+
+7. /Delete the old local branch/:
+
+   #+begin_src sh :results verbatim
+   git branch -d <old-branch-name>
+   #+end_src
+
+   Use =-D= only if the branch was abandoned without merge (rare).
+
+8. /Delete the old remote branch/:
+
+   #+begin_src sh :results verbatim
+   git push origin --delete <old-branch-name>
+   #+end_src
+
+* Conventions
+
+- /Always branch from fresh main/ — each phase includes all prior
+  phases' merged work.
+- /Never rebase + force-push/ — confuses reviewers and can break
+  protected-branch policy.
+- /Delete after merge/ — keeps both ends of the remote clean.
+- /Hotfix branches/ — emergency fixes use =hotfix/<broken-thing>=,
+  created with =compass story new --slug <broken_thing> --kind hotfix=.
+  They are branched from fresh =main= and follow the same PR process.
+  The story lands in the sprint's =** Hotfixes= section. See
+  [[id:0CED1212-6763-4238-B861-9740C62AE499][Handle a hotfix]] for the full procedure.
+
+* Script
+
+Bare =git= + =gh= CLI.
+
+* Tested by
+
+Manual. Catches in CI are limited to "did the branch get pushed
+successfully"; the workflow correctness is held by review.
+
+* See also
+
+- =Feature Branch Manager= — the skill that indexes this recipe.
+- [[id:95D560C6-3551-4810-9D11-55F9F82B483C][How do I merge a PR?]] — the prerequisite step.
