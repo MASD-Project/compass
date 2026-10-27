@@ -17,6 +17,8 @@ documentation tree.
   follow ORE Studio.
 - **Component layout** is defined in
   `projects/modeling/component_architecture.org`. Tooling must agree with it.
+- **Pull requests only.** `main` is protected. Every change goes on a
+  `feature/` branch and lands through a pull request.
 - **Memory rule:** all project memories live in `doc/llm/memory/` and must be
   created with `./compass.sh add memory`, then listed in the catalogue of
   `doc/llm/memory/memory.org`. Never write to the Claude Code harness memory

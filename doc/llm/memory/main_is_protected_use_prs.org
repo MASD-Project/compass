@@ -1,0 +1,17 @@
+:PROPERTIES:
+:ID: E374C72B-9BC7-4ED2-971C-0BC34B420A24
+:END:
+#+title: Main is protected: every change goes through a PR
+#+description: Direct pushes to main are refused; work on a feature branch and merge through a pull request.
+#+type: memory
+#+memory_subtype: project
+#+level: cross
+#+filetags: :git:github:pr:memory:project:
+#+created: 2026-10-27
+#+updated: 2026-10-27
+
+main is protected on GitHub: no direct pushes, no force pushes, no deletion, and the rule applies to admins. Every change lands through a pull request from a feature branch.
+
+*Why:* The product owner asked on 2026-10-27 to protect main and use PRs from then on.
+
+*How to apply:* Start each unit of work on a feature/ branch, push it, and open a PR with gh pr create. A PR needs no approving review, but every review conversation must be resolved before it merges.

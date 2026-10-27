@@ -131,6 +131,7 @@ of these exclusions, push back: the right home is somewhere else.
 
 ** Project
 
+- [[id:E374C72B-9BC7-4ED2-971C-0BC34B420A24][Main is protected: every change goes through a PR]] — no direct pushes to main; work on a feature branch and merge through a pull request.
 - [[id:768CD631-5525-47A0-A780-1140AD7EABB0][Browser org-mode UI is ores.org-js; 'dashboard' is reserved]] — =projects/ores.org-js/=; =ores-dashboard.el= owns the "dashboard" name.
 - [[id:ABF849AE-7E40-4557-B58B-1C3F273603DE][ores.iam repository tests poison the shared test DB across rat runs]] — deterministic "CD N" rows left current in the system tenant collide with the next run; delete the test-user rows to soft-close them.
 
