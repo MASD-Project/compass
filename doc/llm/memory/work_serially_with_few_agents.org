@@ -1,0 +1,17 @@
+:PROPERTIES:
+:ID: A5C5166B-3767-421C-9337-E0E2BEF96066
+:END:
+#+title: Work serially with few agents
+#+description: The token budget is limited: do tasks serially and inline, and do not fan out parallel subagents.
+#+type: memory
+#+memory_subtype: feedback
+#+level: cross
+#+filetags: :llm:agents:tokens:memory:feedback:
+#+created: 2026-10-27
+#+updated: 2026-10-27
+
+Do not spawn multiple parallel agents. Work through tasks serially and inline, reading only what is needed.
+
+*Why:* The product owner stopped a fan-out of three research agents: we do not have a lot of tokens.
+
+*How to apply:* Research with targeted reads and greps; break large jobs into sequential steps; build a script for bulk work instead of delegating it.

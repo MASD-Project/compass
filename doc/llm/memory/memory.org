@@ -123,6 +123,7 @@ of these exclusions, push back: the right home is somewhere else.
 - [[id:B4E38241-6AD1-4859-9610-033CC39C0AF4][Use ores.platform for cross-platform functionality]] — always use ores.platform for getenv and any other cross-platform functionality it supports, rather than the native approach.
 - [[id:177EDB1C-6241-45AA-81B1-46C4B9D6329D][Do not number org headings]] — org numbers sections itself on export; a typed number renders after org's own as =4.1. 1. What is already settled=.
 - [[id:BA740C1B-8307-47D1-B359-AF20D0B2CBF0][Run pgTAP under a role that row-level security binds]] — =pg_prove= as the test DDL role; the owner role bypasses RLS and sees every tenant.
+- [[id:A5C5166B-3767-421C-9337-E0E2BEF96066][Work serially with few agents]] — the token budget is limited; do tasks serially and inline, never fan out parallel subagents.
 
 ** User
 

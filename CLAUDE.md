@@ -17,5 +17,10 @@ documentation tree.
   follow ORE Studio.
 - **Component layout** is defined in
   `projects/modeling/component_architecture.org`. Tooling must agree with it.
+- **Memory rule:** all project memories live in `doc/llm/memory/` and must be
+  created with `./compass.sh add memory`, then listed in the catalogue of
+  `doc/llm/memory/memory.org`. Never write to the Claude Code harness memory
+  (`~/.claude/projects/*/memory/`); it is disabled via `autoMemoryEnabled: false`
+  in `.claude/settings.json`.
 - **Code comments:** use sparingly, place above the code, never end-of-line,
   never narrate edit history, no commented-out code.
