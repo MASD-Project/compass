@@ -20,7 +20,7 @@ A knowledge document that states the compass data model as compass-ng has it, an
 
 | Field         | Value                                                 |
 |---------------+-------------------------------------------------------|
-| State         | BACKLOG                                               |
+| State         | STARTED                                               |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
 | Now           | Not started.                                          |
 | Waiting on    | Nothing.                                              |
@@ -38,9 +38,9 @@ A knowledge document that states the compass data model as compass-ng has it, an
 
 | Task                                                                         | State   | Start | End | Description                                                                                                                        |
 |------------------------------------------------------------------------------+---------+-------+-----+------------------------------------------------------------------------------------------------------------------------------------|
-| [[id:B1A01CD5-C912-4396-BEA8-87378BE6019E][Read the document contract]]      | BACKLOG |       |     | Extract the conceptual model from compass-ng doc/meta: glossary, cybernetic levels, document types, lifecycle and execution model. |
-| [[id:7A3769DB-2B92-4EAC-8DC1-9B27380AA3AC][Read the compass tool model]]     | BACKLOG |       |     | Extract the model compass.legacy uses at runtime: its index, database, search and graph, for the document-management commands only.  |
-| [[id:E77E6111-47EC-4E20-8E3B-DF7254B6E25A][Measure the corpus]]              | BACKLOG |       |     | Measure the compass-ng corpus: documents per type, sizes, links.                                                                   |
+| [[id:B1A01CD5-C912-4396-BEA8-87378BE6019E][Read the document contract]]      | DONE | 2026-10-27 | 2026-10-27 | Extract the conceptual model from compass-ng doc/meta: glossary, cybernetic levels, document types, lifecycle and execution model. |
+| [[id:7A3769DB-2B92-4EAC-8DC1-9B27380AA3AC][Read the compass tool model]]     | DONE |       | 2026-10-27 | Extract the model compass.legacy uses at runtime: its index, database, search and graph, for the document-management commands only.  |
+| [[id:E77E6111-47EC-4E20-8E3B-DF7254B6E25A][Measure the corpus]]              | DONE |       | 2026-10-27 | Measure the compass-ng corpus: documents per type, sizes, links.                                                                   |
 | [[id:D88E1DA6-CF28-4A09-9A5A-BD06E0733B6C][Propose the data-oriented model]] | BACKLOG |       |     | Propose the compass-ng representation: tables, handles, string interning and graph layout.                                         |
 
 * Decisions
