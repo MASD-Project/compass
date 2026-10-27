@@ -1,0 +1,158 @@
+:PROPERTIES:
+:ID: 379EC6BB-620D-4A5D-8A17-33B1D7353586
+:END:
+#+title: Compass document model
+#+description: The data model of compass as ORE Studio implements it: documents, keywords, types, lifecycles, links, headings and the work hierarchy, with the size of the ORE Studio corpus and the runtime index compass legacy builds.
+#+type: knowledge
+#+level: cross
+#+filetags: :compass:data_model:knowledge:
+#+created: 2026-10-27
+#+updated: 2026-10-27
+
+* Summary
+
+A compass corpus is a set of org-mode files. Each file is one document with
+a UUID, a fixed set of =#+= keywords, a type, a cybernetic level and a tag
+set. Documents link to each other by UUID; those links form the knowledge
+graph. Work items (version, sprint, story, task) are documents too: their
+lifecycle state lives in a =* Status= table and is repeated in the parent's
+table, and the hierarchy is carried by both directory placement and links.
+The ORE Studio corpus holds 7,310 documents (43.8 MB) and 37,221 id links;
+compass legacy indexes it with SQLite FTS5 plus an in-memory scan of the files.
+
+* Detail
+
+** Document
+
+A document is one =.org= file. Its header is fixed:
+
+| Element          | Form                       | Notes                                              |
+|------------------+----------------------------+----------------------------------------------------|
+| Identity         | =:ID:= in a top =:PROPERTIES:= drawer | Upper-case UUID; 7,266 of 7,310 files carry one. |
+| Title            | =#+title:=                 | Story and task titles carry a =Story: = / =Task: = prefix. |
+| Description      | =#+description:=           | One or two sentences; search and listings show it. |
+| Type             | =#+type:=                  | Selects the template, sections and lifecycle.      |
+| Level            | =#+level:=                 | =s1= to =s5=, or =cross=.                          |
+| Tags             | =#+filetags: :a:b:=        | Lower-case; 2,264 distinct, 3.9 per document.      |
+| Dates            | =#+created:=, =#+updated:= | ISO dates.                                         |
+| Lifecycle        | =#+todo: A B \vert C D=    | The state vocabulary; work types only.             |
+| Type keywords    | other =#+key:= lines       | Per type, e.g. task =owner=, =branch=, =pr=, =blocked_on=. |
+
+The body is a tree of headings (68,143 in the corpus: 64% level 1, 29%
+level 2, the rest deeper). Required level-1 sections depend on the type.
+
+** Types
+
+The scaffold templates in =projects/compass.legacy/library/templates/= are
+the exact schema. The types that matter to compass-ng:
+
+| Type               | Level | Lifecycle                                   | Required sections |
+|--------------------+-------+---------------------------------------------+-------------------|
+| =version=          | s4    | STARTED \vert RELEASED                      | Identity, Mission, Definition of done, Status, Sprints, Release scope |
+| =sprint=           | s3    | STARTED \vert DONE                          | Mission, Status, Stories, Achievements, Captures, Health Review, Charts, Retrospective |
+| =story=            | s2    | BACKLOG STARTED \vert DONE ABANDONED        | Goal, Status, Acceptance, Tasks, Decisions, Out of scope |
+| =task=             | s1    | DISCOVERED BACKLOG STARTED BLOCKED \vert DONE ABANDONED | Goal, Status, Acceptance, Plan, Measurements, Notes, Test Scenarios, PRs, Review, Result |
+| =test_scenario=    | s1    | PENDING \vert PASSED FAILED                 | Before you start, Scenario Info, Steps, Results, Notes |
+| =capture=          | cross | bucket folder: inbox, next, deferred, discarded | What, Why, References, See also |
+| =knowledge=        | cross | —                                           | Summary, Detail, Patterns used, See also |
+| =recipe=           | cross | —                                           | Question, Answer, Script, Tested by, See also |
+| =runbook=          | cross | —                                           | Goal, Preconditions, Steps, Postconditions, See also |
+| =memory=           | cross | — (=#+memory_subtype:= feedback, user, project, reference) | statement, *Why*, *How to apply* |
+| =skill=            | —     | —                                           | When to use, How to use, Recipes, Reference, Artefacts |
+| =investigation=    | s1    | —                                           | Context, Methodology, Paths taken, Conclusions, Recommendations |
+| =product_identity= | s5    | —                                           | Vision, Out of scope, Relationship to versions |
+| =meta=, =system=, =manual=, =release_notes=, =timeline= | various | — | free or generated |
+
+ORE Studio adds product types (=ores.codegen.*=, =user_journey=,
+=service_architecture_pattern=, ...). They follow the same header and are
+out of scope for compass-ng except as opaque documents.
+
+** Lifecycle and the work hierarchy
+
+- *Version → sprint → story → task* (plus test scenarios under stories).
+  The hierarchy is encoded three times: by folder
+  (=versions/v0/sprint_26/<story>/task_*.org=), by the =Parent …= row of the
+  child's =* Status= table, and by the parent's table of children.
+- *State* is stored in the child's =* Status= table (=State= row) and
+  repeated in the parent's table (=* Tasks=, =* Stories=, =* Sprints=), with
+  start and end dates. =compass sprint audit= exists to detect drift
+  between the copies.
+- The =* Status= table also carries =Now=, =Waiting on=, =Next= and
+  =Last touched= — the working memory of the agent on that item.
+- Tasks link to git: =#+branch:=, =#+pr:=, =#+environment:=.
+- Captures are triaged by moving the file between bucket folders under
+  =doc/agile/product_backlog/=.
+
+** Links
+
+| Scheme   | Count  | Meaning |
+|----------+--------+---------|
+| =id:=    | 37,221 | Link to a document or heading by UUID: the knowledge graph. Mean 5.1 per document, max 398. |
+| =https:= | 3,203  | External reference. |
+| =proj:=  | 2,275  | Link to a repository path (a custom scheme). |
+| =file:=  | 574    | Mostly images and diagrams. |
+
+Links are untyped. The relationship is implied by where the link sits: a
+row of a =* Tasks= table is containment, a =Parent …= row is the inverse, a
+=* See also= item is association, a glossary link names a concept.
+Backlinks are computed, never stored.
+
+** Headings as nodes
+
+3,439 headings carry their own =:ID:= and are link targets in their own
+right (compass legacy calls them /anchors/). Heading property drawers also
+carry structured data — mostly codegen entity columns (=cpp_type=,
+=nullable=, =primary_key=, ...), which is ORE Studio product data.
+
+** Body content
+
+Blocks: 9,622 =src=, 3,865 =example=, 284 =quote=, 76 =export=, 47 =note=.
+Tables are common (Status, Tasks, catalogues). Some sections are generated
+between markers by scripts under =build/scripts/= and checked by
+=compass lint=.
+
+** Corpus size (ORE Studio at =b9268cc7c5=)
+
+Measured with a script over every =.org= file outside =build/=, =external/=,
+=vcpkg/= and virtual environments:
+
+| Measure                 | Value |
+|-------------------------+-------|
+| Documents               | 7,310 |
+| Bytes                   | 43.8 MB |
+| Tasks / stories / captures | 2,753 / 787 / 947 |
+| Recipes / knowledge     | 617 / 584 |
+| Median task / story     | 4.1 KB / 3.8 KB |
+| Largest document        | 578 KB (knowledge) |
+| =id:= links             | 37,221 |
+| Headings                | 68,143 |
+| Headings with =:ID:=    | 3,439 |
+| Distinct tags           | 2,264 |
+
+** Runtime model in compass legacy
+
+- =doc_index.py= walks the files on every command and builds a =Doc=
+  per file (=id=, =title=, =description=, =doctype=, =version=, =tags=,
+  =path=, =updated=, =blurb=, =outbound= ids) plus =Anchor=s for headings
+  with an =:ID:=. Backlinks are a dictionary built on demand.
+- Search uses org-roam's SQLite database (rebuilt by Emacs) and a local
+  FTS5 table =compass_fts(roam_id, file_path, title, description, tags,
+  content, olp)= with a =compass_meta= table of modification times.
+- =search_scorer.py= ranks by a weighted linear model: core words in
+  title/description 0.45, full words 0.20, body BM25 0.20, inbound-link
+  count 0.10, recipe bonus 0.05; ranks are normalised with Reciprocal Rank
+  Fusion (k = 60).
+- Every command re-reads and re-parses files; there is no server and no
+  shared in-memory state. Writes are file edits followed by a re-index.
+
+** What is awkward to keep
+
+- Hierarchy and state stored redundantly, reconciled by an audit.
+- Links carry no type; meaning depends on position in the body.
+- Headings are both structure and graph nodes.
+- Structured data (Status tables, drawers, keywords) is embedded in free
+  text and recovered by regular expressions.
+
+* See also
+
+- [[id:82F08C3E-D00F-4888-8C11-CC4358AA9FB7][Meta]] — the document contract this page summarises.
