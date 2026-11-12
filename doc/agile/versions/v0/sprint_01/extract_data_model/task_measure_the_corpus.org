@@ -2,7 +2,7 @@
 :ID: E77E6111-47EC-4E20-8E3B-DF7254B6E25A
 :END:
 #+title: Task: Measure the corpus
-#+description: Measure the compass-ng corpus: documents per type, sizes, links.
+#+description: Measure the ORE Studio corpus: documents per type, sizes, links.
 #+type: task
 #+level: s1
 #+filetags: :extract_data_model:sprint_01:v0:
@@ -19,7 +19,7 @@ This page documents a task in the [[id:E20F0268-BB77-4E40-9FC3-CB2928C64C23][Ext
 
 * Goal
 
-Measure the compass-ng corpus: documents per type, sizes, links.
+Measure the ORE Studio corpus: documents per type, sizes, links.
 
 * Status
 

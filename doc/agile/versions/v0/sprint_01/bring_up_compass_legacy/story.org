@@ -2,7 +2,7 @@
 :ID: 9226D15F-B6A7-458E-970F-BFC839036CBE
 :END:
 #+title: Story: Bring up compass legacy
-#+description: Copy the document-management slice of compass.legacy into projects/compass.legacy, so the org documents are created and checked by the tool compass-ng uses until compass-ng replaces it.
+#+description: Copy the document-management slice of ores.compass into projects/compass.legacy, so the org documents are created and checked by the tool compass-ng uses until compass-ng replaces it.
 #+type: story
 #+level: s2
 #+filetags: :compass:tooling:sprint_01:v0:
@@ -16,7 +16,7 @@ This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id
 * Goal
 
 compass legacy runs from this repository and owns the org documents: it
-scaffolds them from the compass-ng templates, indexes and searches them, and
+scaffolds them from the ORE Studio templates, indexes and searches them, and
 checks them for state drift. It stays until compass-ng replaces it.
 
 * Status
@@ -35,7 +35,7 @@ checks them for state drift. It stays until compass-ng replaces it.
 - =./compass.sh= at the repository root runs =projects/compass.legacy=.
 - =where=, =list=, =show=, =search=, =index=, =lint=, =sprint status= and
   =sprint audit= work against this repository.
-- =add= scaffolds documents from the compass-ng =doc_*.org.mustache= templates.
+- =add= scaffolds documents from the ORE Studio =doc_*.org.mustache= templates.
 - The copied tests pass.
 
 * Tasks
@@ -56,7 +56,7 @@ checks them for state drift. It stays until compass-ng replaces it.
 - Prune =compass.py= mechanically: remove the dropped commands from =main=,
   then remove every top-level definition no longer reachable, to a fixed
   point. 7,799 lines became about 5,600.
-- Keep the code otherwise verbatim, so fixes in compass-ng port across.
+- Keep the code otherwise verbatim, so fixes in ores.compass port across.
 
 * Out of scope
 

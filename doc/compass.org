@@ -10,11 +10,11 @@
 #+updated: 2026-10-27
 
 compass-ng is a high-performance, data-oriented re-implementation of the
-document-management part of compass from compass-ng. See
+document-management part of compass from ORE Studio. See
 [[id:2F71292F-CDB0-4E2E-B50F-4F02E10597C4][Product identity]] for what it is and why.
 
 During the bootstrap phase the documentation is plain org-mode in this
-repository. It follows the compass-ng contract verbatim; see
+repository. It follows the ORE Studio contract verbatim; see
 [[id:82F08C3E-D00F-4888-8C11-CC4358AA9FB7][Meta]].
 
 * Folder layout
@@ -38,6 +38,6 @@ projects/
 4. [[id:2ABEC8F1-4A0B-4E79-8BFC-D1AF9B340A23][Version 0]] --- what we are working on now.
 
 * Upstream
-compass-ng lives at =~/Development/OreStudio=. Its =doc/compass.org=,
+ORE Studio lives at =~/Development/OreStudio=. Its =doc/compass.org=,
 =doc/meta/= and =projects/modeling/= are the reference for every convention
-here. When this tree is silent, follow compass-ng.
+here. When this tree is silent, follow ORE Studio.
