@@ -20,18 +20,15 @@
 #include "compass.bench/ops/warm_stage.hpp"
 
 #include <chrono>
-#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <map>
 #include <sstream>
 #include <string>
 #include <string_view>
-#include <unistd.h>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 #include "compass.bench/io/report.hpp"
-#include "compass.bench/ops/listing.hpp"
 #include "compass.ingest/org/parser.hpp"
 #include "compass.org/io/dump.hpp"
 #include "compass.org/io/object.hpp"
@@ -39,72 +36,18 @@
 #include "compass.store/io/collection.hpp"
 #include "compass.store/io/location.hpp"
 #include "compass.store/ops/blob_hash.hpp"
+#include "scoped_git_repo.hpp"
 
 namespace {
 
 using namespace compass::bench;
 
-/**
- * @brief A git repository and a store in a fresh directory, with git's
- * system and global configuration out of reach.
- */
-class scoped_git_repo final {
-public:
-    scoped_git_repo() {
-        static int counter = 0;
-        root_ = std::filesystem::temp_directory_path() /
-            ("compass.bench.warm.tests." + std::to_string(::getpid()) + "." +
-                std::to_string(counter++));
-        std::filesystem::create_directories(checkout());
-        std::filesystem::create_directories(root_ / "home");
-        ::setenv("HOME", (root_ / "home").c_str(), 1);
-        ::setenv("XDG_CONFIG_HOME", (root_ / "home" / ".config").c_str(), 1);
-        ::setenv("GIT_CONFIG_NOSYSTEM", "1", 1);
-        git("init -q");
-    }
-    ~scoped_git_repo() { std::filesystem::remove_all(root_); }
-    scoped_git_repo(const scoped_git_repo&) = delete;
-    scoped_git_repo& operator=(const scoped_git_repo&) = delete;
+using tests::scoped_git_repo;
 
-    /**
-     * @brief Writes a file an hour in the past, so no index written from
-     * now on finds it racily clean.
-     */
-    void write(const std::string& relative, std::string_view content) const {
-        const auto path = checkout() / relative;
-        std::filesystem::create_directories(path.parent_path());
-        {
-            std::ofstream os(path, std::ios::binary);
-            os.write(content.data(),
-                static_cast<std::streamsize>(content.size()));
-        }
-        std::filesystem::last_write_time(path,
-            std::filesystem::file_time_type::clock::now() -
-                std::chrono::hours(1));
-    }
-
-    void git(const std::string& command) const {
-        const auto line = "git -C '" + checkout().string() + "' " + command +
-            " >/dev/null 2>&1";
-        REQUIRE(std::system(line.c_str()) == 0);
-    }
-
-    types::file_table list() const {
-        const auto raw = ops::git_ls_files(checkout());
-        return ops::build_file_table(checkout(), ops::parse_listing(raw));
-    }
-
-    types::warm_result run(unsigned repetitions) const {
-        return ops::run_warm_stage(checkout(), list(), objects(), 2,
-            repetitions);
-    }
-
-    std::filesystem::path checkout() const { return root_ / "checkout"; }
-    std::filesystem::path objects() const { return root_ / "objects"; }
-
-private:
-    std::filesystem::path root_;
-};
+types::warm_result run(const scoped_git_repo& repo, unsigned repetitions) {
+    return ops::run_warm_stage(repo.checkout(), repo.list(), repo.objects(),
+        2, repetitions);
+}
 
 /**
  * @brief Two org files git's index names, two it cannot because an
@@ -153,7 +96,7 @@ TEST_CASE("the first run fills the store and the worktree index and the "
     scoped_git_repo repo;
     fill(repo);
 
-    const auto r = repo.run(3);
+    const auto r = run(repo, 3);
 
     REQUIRE(r.runs.size() == 3);
     CHECK(r.files == 4);
@@ -180,10 +123,10 @@ TEST_CASE("a changed file is hashed and its object written on the next run",
     "[ops][warm_stage]") {
     scoped_git_repo repo;
     fill(repo);
-    (void)repo.run(1);
+    (void)run(repo, 1);
 
     repo.write("converted/c.org", "* C changed\n");
-    const auto r = repo.run(2);
+    const auto r = run(repo, 2);
 
     CHECK(r.runs[0].hashed == 1);
     CHECK(r.runs[0].from_worktree_index == 1);
@@ -197,7 +140,7 @@ TEST_CASE("a changed file is hashed and its object written on the next run",
 TEST_CASE("a damaged object is rewritten", "[ops][warm_stage]") {
     scoped_git_repo repo;
     fill(repo);
-    (void)repo.run(1);
+    (void)run(repo, 1);
     for (const auto& entry :
         std::filesystem::recursive_directory_iterator(repo.objects())) {
         if (entry.is_regular_file()) {
@@ -207,7 +150,7 @@ TEST_CASE("a damaged object is rewritten", "[ops][warm_stage]") {
         }
     }
 
-    const auto r = repo.run(1);
+    const auto r = run(repo, 1);
     CHECK(r.runs[0].loaded == 3);
     CHECK(r.runs[0].written == 1);
 }
@@ -237,12 +180,12 @@ TEST_CASE("a run after collection parses the removed objects again and they "
     "dump as before", "[ops][warm_stage]") {
     scoped_git_repo repo;
     fill(repo);
-    (void)repo.run(1);
+    (void)run(repo, 1);
     const auto before = stored_dumps(repo);
     for (const auto* path : org_paths)
         repo.write(path, std::string("* Rewritten ") + path + "\n");
     repo.git("add -A");
-    CHECK(repo.run(1).runs[0].written == 4);
+    CHECK(run(repo, 1).runs[0].written == 4);
     for (const auto& entry :
         std::filesystem::recursive_directory_iterator(repo.objects())) {
         std::filesystem::last_write_time(entry.path(),
@@ -256,7 +199,7 @@ TEST_CASE("a run after collection parses the removed objects again and they "
     CHECK(collected.removed.objects == 4);
 
     fill(repo);
-    const auto r = repo.run(2);
+    const auto r = run(repo, 2);
     CHECK(r.runs[0].loaded == 0);
     CHECK(r.runs[0].written == 4);
     CHECK(r.runs[1].loaded == 4);
