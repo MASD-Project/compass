@@ -46,6 +46,11 @@ value_id entity_context(compass::model::ops::builder& b, value_id library,
     format_columns(b, entity);
     derive_column_flags(b, entity);
     derive_column_aggregates(b, entity);
+    derive_field_groups(b, entity);
+    derive_group_prefixes(b, entity);
+    derive_stamp_members(b, entity);
+    derive_key_group_prefixes(b, entity);
+    inject_group_includes(b, entity);
     project_sql_table(b, context, loaded, entity);
     b.set_copy(context, "domain_entity", entity);
     return context;

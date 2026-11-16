@@ -116,6 +116,46 @@ void derive_column_aggregates(compass::model::ops::builder& b,
     compass::model::types::value_id entity);
 
 /**
+ * @brief The field-group contract of core.py 4606-4654: has_identity_group,
+ * has_audit_group, identity_group_type, audit_group_qualified, each domain
+ * group's type_qualified (unqualified when the group is the entity's own
+ * component's) and header, and has_domain_groups.
+ */
+void derive_field_groups(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief Each column's is_identity_group_column and group_prefix, the
+ * member it is reached through, and the entity's scaffold_prefix and
+ * audit_prefix (core.py 4655-4682). Reads has_identity_group and
+ * has_audit_group from derive_field_groups.
+ */
+void derive_group_prefixes(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief stamp_members and has_stamp_members (core.py 4683-4710): the
+ * domain groups holding a field stamp() writes or, without domain groups,
+ * the scaffold and audit members.
+ */
+void derive_stamp_members(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief The group prefixes of the primary key, its columns and the
+ * natural keys (core.py 4711-4719).
+ */
+void derive_key_group_prefixes(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief Puts the identity, audit and domain group headers, sorted, before
+ * the model's own cpp.includes.domain (core.py 4867-4888).
+ */
+void inject_group_includes(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
  * @brief data['table']: domain_entity_to_table_context and
  * normalise_sql_table_context, written to table of @p context. The
  * snapshot parts (the scalars, the primary key's own members, the column
