@@ -1,0 +1,48 @@
+:PROPERTIES:
+:ID: AA6DE55E-DAD3-47E5-B485-DAD2365898E9
+:END:
+#+title: How do I configure compass?
+#+description: Edit .compass.org at the repository root to choose the codecs and their options, and run compass config to see the effective settings.
+#+type: recipe
+#+level: cross
+#+filetags: :compass:cli:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+
+(One- or two-sentence pointer to the component model and any knowledge
+doc this recipe relies on.)
+
+* Question
+
+How do I choose which codecs compass runs, their options and where outputs go?
+
+* Answer
+
+Edit =.compass.org= at the repository root. =#+output:= sets the output
+root and =#+meta:= the contract directory, both relative to the checkout. The
+=* Codecs= table has one row per codec: its name, =yes= or =no= for enabled,
+and its options as =key=value= pairs. Values on the command line override
+the file, which overrides each codec's defaults.
+
+Show the effective settings and where each came from:
+
+#+begin_src sh :results verbatim
+build/output/linux-clang-release/publish/bin/compass config
+#+end_src
+
+: document_index.path = doc/document_index.tsv (.compass.org:33)
+
+A mistake in the file names the line and the fix and exits 2. Changing a
+codec's row re-runs only that codec on the next =generate= or =check=.
+
+* Script
+
+=compass config= and =projects/compass.cli/src/config/=.
+
+* Tested by
+
+=compass.cli.tests=.
+
+* See also
+
+-

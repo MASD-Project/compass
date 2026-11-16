@@ -1,0 +1,47 @@
+:PROPERTIES:
+:ID: 2AD84580-A94E-4EEE-A234-3EB437A8B492
+:END:
+#+title: How do I see what compass would change?
+#+description: Run compass diff to print, as unified diffs, every change compass generate would make, writing nothing.
+#+type: recipe
+#+level: cross
+#+filetags: :compass:cli:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+
+(One- or two-sentence pointer to the component model and any knowledge
+doc this recipe relies on.)
+
+* Question
+
+How do I see what =compass generate= would change without writing anything?
+
+* Answer
+
+Run =compass diff=. It runs the same plan as =generate= and prints each
+change as a unified diff in git's format, on standard output, with a summary
+on standard error. It writes nothing: no outputs, no records and no cache.
+
+#+begin_src sh :results verbatim
+build/output/linux-clang-release/publish/bin/compass diff
+#+end_src
+
+The exit status makes it a drift check: 0 when nothing would change, 1 when
+something would, 2 on failure. Use it before committing, or in CI, to prove
+generated files are up to date:
+
+#+begin_src sh :results verbatim
+build/output/linux-clang-release/publish/bin/compass diff > /dev/null && echo up to date
+#+end_src
+
+* Script
+
+=compass diff= (=projects/compass.cli=).
+
+* Tested by
+
+=compass.cli.tests= and =compass.cli.end_to_end=.
+
+* See also
+
+-
