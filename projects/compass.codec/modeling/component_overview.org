@@ -2,7 +2,7 @@
 :ID: 995ECC12-860C-4009-B9A2-8CA1A6102BD6
 :END:
 #+title: compass.codec
-#+description: The codec runtime: a codec as a descriptor and one function, the view of the corpus it reads through, the tables of files and diagnostics it fills, the registry the configuration enables codecs in, the runner, the dependency record that lets a run call only the units whose inputs changed, and the two codecs that need only the org tables.
+#+description: The codec runtime: a codec as a descriptor and one function, the view of the corpus it reads through, the tables of files and diagnostics it fills, the registry the configuration enables codecs in, the runner, the dependency record that lets a run call only the units whose inputs changed, the output sink that writes only the files that changed, and the two codecs that need only the org tables.
 #+type: component
 #+level: cross
 #+filetags: :codec:pipeline:gates:component:
@@ -17,9 +17,11 @@ the domain layer of the
 
 Every output and every check of compass-ng is a /codec/: a function that reads
 the corpus in memory and emits either files or diagnostics. =compass.codec=
-defines what a codec is and runs codecs. It does not load the corpus and it
-does not write files. A host loads the documents, calls the runner and decides
-what happens to the result: write it, diff it, cache it or report it.
+defines what a codec is and runs codecs. It does not load the corpus. A host
+loads the documents, calls the runner and decides what happens to the result:
+write it, diff it, cache it or report it. A codec never writes a file; when the
+host chooses to write, the output sink puts the files under an output root and
+touches only those whose content changed.
 
 A codec is a =descriptor=, which is constant data, and one function. Nothing
 in the runtime knows a codec by name. What a codec does differently from the
@@ -39,6 +41,9 @@ others is in its descriptor, so adding a codec adds a row to a list.
   takes =true= or =false=. Any other key must be an option the codec declares.
 - The dependency record of the previous run, if any: =<git dir>/compass/deps=
   of the checkout, read by =io::read_dependency_file=.
+- To write outputs: an absolute output root and the record of what the sink
+  wrote last time, =<git dir>/compass/outputs= of the checkout, read by
+  =io::read_written_outputs=.
 
 * Outputs
 
@@ -116,6 +121,39 @@ others is in its descriptor, so adding a codec adds a row to a list.
   call's would have, so a run with a record returns what a run without one
   does, and its row is copied into the new record. The record of a run holds
   only the units of enabled codecs.
+- *Output set.* =types::output_set= is what a run asks to have on disk: per
+  file its codec, its path relative to the output root, its bytes and its
+  blob ID, and the names of the /complete/ codecs, whose every unit ran or
+  was reused. =ops::outputs_of= builds it from a =run_result=; every enabled
+  codec is complete. =ops::check_outputs= lists a path that is not plain
+  relative (absolute, empty, or with an empty, =.= or =..= component) and a
+  path two rows produce, naming both codecs.
+- *Output sink.* =io::write_outputs= makes the files under the root hold the
+  output set and writes nothing when =check_outputs= finds a problem. An
+  output whose recorded entry has the same blob ID and whose file has the
+  recorded stat data is left alone without being read. Any other output whose
+  file exists is hashed and left alone when it already holds the bytes; a
+  lost or damaged record therefore costs a read of each file, not a write.
+  Only then is the file written, through a temporary file and a rename, and
+  its stat data recorded. =io::sink_result= counts each output once:
+  written (new bytes for the path), restored (bytes compass wrote before, put
+  back after a hand edit or a deletion) or unchanged. A recorded file of a
+  complete codec that no output names is removed when it still holds what
+  compass wrote, with the directories that removal empties, up to the root;
+  one edited since is kept in place and forgotten. Files of other codecs are
+  carried over, and a file compass never recorded is never touched.
+- *Written-outputs record.* =types::written_outputs= holds the absolute root
+  and, sorted by path, each file's codec, blob ID and stat data after the
+  write. A record of another root is ignored. Its =written= time is the start
+  of the run that last changed it; an entry modified in that second or later
+  is racily clean and is compared by content, as git treats its index. The
+  file is =compass/outputs= beside the dependency record:
+  =ops::encode_written_outputs= writes magic =CMPSOUT\n=, version, entry
+  count, written time, root, the entries and a SHA-1 trailer.
+  =io::read_written_outputs= reads a missing, damaged or other-version file
+  as an empty record, with the reason when there was a file.
+  =io::write_written_outputs= writes by temporary file and rename, and only
+  when the bytes differ.
 - *Document type.* =ops::document_type= gives the registered type the first
   =#+type:= keyword of a document names.
 - *=document_index=.* A corpus codec that emits one tab-separated file: a
@@ -144,6 +182,10 @@ others is in its descriptor, so adding a codec adds a row to a list.
 | =include/compass.codec/ops/run.hpp=            | =run= and =document_type=.                        |
 | =include/compass.codec/ops/dependencies.hpp=   | Hashes, the corpus index and the record encoding. |
 | =include/compass.codec/io/dependency_file.hpp= | Where the record lives; reading and writing it.   |
+| =include/compass.codec/types/output_set.hpp=   | The files a run asks to have on disk.             |
+| =include/compass.codec/types/written_outputs.hpp= | What the sink wrote under a root.              |
+| =include/compass.codec/ops/outputs.hpp=        | =outputs_of=, =check_outputs= and the record encoding. |
+| =include/compass.codec/io/output_sink.hpp=     | =write_outputs= and the written-outputs file.     |
 | =include/compass.codec/codecs/catalogue.hpp=   | The codecs this component ships.                  |
 | =include/compass.codec/codecs/*.hpp=           | One header per codec.                             |
 | =tests/test_corpus.hpp=                        | A parsed corpus and a type registry for tests.    |
@@ -158,8 +200,10 @@ others is in its descriptor, so adding a codec adds a row to a list.
 * Dependencies
 
 - =compass.org= for the tables, the type registry and the document lookups.
-- =compass.store= for =blob_id=, the content ID of a document, for SHA-1, and
-  for =write_object=, which puts the record file in place by rename.
+- =compass.store= for =blob_id=, the content ID of a document, for SHA-1, for
+  =write_object=, which puts the record files and the outputs in place by
+  rename, and for =stat_of=, =hash_file= and =is_unchanged=, which decide
+  whether an output on disk still holds what compass wrote.
 - The C++23 standard library and threads.
 - =compass.ingest= and Catch2, for the tests only: the tests parse their
   documents and build their registry from contract pages.

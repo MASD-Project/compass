@@ -66,9 +66,12 @@ of a checkout with one =git ls-files -z= call and map files with
   document is resolved against the registry of a meta directory. The enabled
   codecs then run =--repeat= times on N threads, each repetition from the
   dependency record the checkout had, so a unit whose inputs are unchanged
-  is skipped. The outputs stay in memory: nothing is written to the
-  checkout, and only the worktree index and the dependency record, when it
-  changed, are written to its git directory.
+  is skipped. Without =--write= the outputs stay in memory. With it, the
+  files of the last repetition go to the output root through
+  =compass.codec='s output sink, which writes only those whose content
+  changed. The worktree index, the dependency record and, with =--write=,
+  the written-outputs record are written to the git directory, each only
+  when it changed.
 
 =gc= is not a stage either. It collects the store once with
 =compass.store='s =io::collect= and reports what it found and removed.
@@ -98,10 +101,11 @@ the line format of =compass::org::io::dump=, which
   =--store= is the objects directory; without it the stage uses
   =compass/objects= under the git common directory of the checkout.
 - =compass-bench codecs <checkout> --meta <dir> [--store <dir>] [--set
-  <codec>.<key>=<value>]... [-j N] [--repeat R]=. =--meta= and =--store= are
-  as for =types= and =store=. =--set= adds one row to the codec
-  configuration: =--set required_sections.enabled=false= disables a codec
-  and =--set document_index.path=build/index.tsv= sets an option.
+  <codec>.<key>=<value>]... [--write <root>] [-j N] [--repeat R]=. =--meta=
+  and =--store= are as for =types= and =store=. =--set= adds one row to the
+  codec configuration: =--set required_sections.enabled=false= disables a
+  codec and =--set document_index.path=build/index.tsv= sets an option.
+  =--write= names the output root; output paths are relative to it.
 - =compass-bench gc <checkout> [--store <dir>] [--cap <bytes>] [--grace
   <seconds>] [--dry-run]=. =--store= is as for =store=. =--cap= defaults to
   0, which removes every unreferenced object past the grace period, and
@@ -161,7 +165,9 @@ the line format of =compass::org::io::dump=, which
   types, the load time with the objects loaded and written, every
   problem of the codec registry, and the units and bytes of the dependency
   record read, with whether the new one was rewritten and why an old one
-  was not used. One row per codec: its unit and output kind, the documents
+  was not used. With =--write=, the outputs written, unchanged, restored,
+  removed and kept, the time of the sink, whether the written-outputs record
+  was rewritten, and why an old one was not used. One row per codec: its unit and output kind, the documents
   it was given, the units it ran and skipped, its output files and their
   bytes, its
   diagnostics, and the median, min and max milliseconds spent inside it,
@@ -169,7 +175,8 @@ the line format of =compass::org::io::dump=, which
   its size. Per codec with diagnostics: the documents with any, the count by
   rule, the 15 most frequent messages and the first 10 findings as
   =path:line: severity: codec/rule: message. fix=. A file that does not
-  load or a registry problem fails the run; diagnostics are data.
+  load, a registry problem or outputs the sink refuses (an escaping path,
+  a path two codecs produce) fail the run; diagnostics are data.
 - For =ids=: the index version, its entries and how many may lend their
   ID, and whether =core.autocrlf= converts; the thread count and setup
   times; the files whose ID came from the index and those hashed, with the

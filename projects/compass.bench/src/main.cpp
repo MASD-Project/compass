@@ -65,7 +65,8 @@ constexpr std::string_view usage =
     "       compass-bench warm <checkout> [--store <dir>] [-j N]\n"
     "           [--repeat R]\n"
     "       compass-bench codecs <checkout> --meta <dir> [--store <dir>]\n"
-    "           [--set <codec>.<key>=<value>]... [-j N] [--repeat R]\n"
+    "           [--set <codec>.<key>=<value>]... [--write <root>]\n"
+    "           [-j N] [--repeat R]\n"
     "       compass-bench gc <checkout> [--store <dir>] [--cap <bytes>]\n"
     "           [--grace <seconds>] [--dry-run]\n"
     "       compass-bench ids <checkout> [-j N] [--repeat R]\n"
@@ -88,6 +89,7 @@ struct options {
     std::vector<std::string> implicit_system;
     std::filesystem::path meta;
     std::filesystem::path store;
+    std::filesystem::path output_root;
     compass::codec::types::configuration settings;
     compass::store::types::collection_options collection;
     std::uint64_t verify = 0;
@@ -207,6 +209,8 @@ std::optional<options> parse_options(int argc, char** argv) {
             o.meta = value;
         } else if (stored && flag == "--store") {
             o.store = absolute_path(value);
+        } else if (codecs && flag == "--write") {
+            o.output_root = absolute_path(value);
         } else if (codecs && flag == "--set") {
             if (!add_setting(value, o.settings))
                 return std::nullopt;
@@ -353,7 +357,7 @@ int run_codecs(const options& o) {
     const auto table = list_checkout(o, setup);
     const auto objects = objects_of(o);
     const auto stage = ops::run_codecs_stage(o.checkout, table, o.meta,
-        objects, o.settings, o.threads, o.repetitions);
+        objects, o.settings, o.threads, o.repetitions, o.output_root);
     io::write_codecs_report(std::cout, stage, setup, objects);
     return io::failed(stage) ? 1 : 0;
 }

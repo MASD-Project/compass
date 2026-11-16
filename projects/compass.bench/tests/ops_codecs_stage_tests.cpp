@@ -116,6 +116,34 @@ TEST_CASE("the codecs stage loads the corpus, runs both codecs and writes "
         "Add the heading \"* Result\"; the task contract requires it.");
 }
 
+TEST_CASE("writing the outputs of the codecs stage writes the index once "
+    "and leaves it alone while nothing changes", "[ops][codecs_stage]") {
+    scoped_git_repo repo;
+    fill(repo);
+    const auto root = repo.checkout() / "generated";
+    const auto write = [&] {
+        return ops::run_codecs_stage(repo.checkout(), repo.list(),
+            repo.checkout() / "doc" / "meta", repo.objects(), {}, 2, 1, root);
+    };
+
+    const auto first = write();
+    CHECK(first.wrote_outputs);
+    CHECK(first.sink.written == 1);
+    CHECK(first.outputs_written);
+    REQUIRE(files_of(root).size() == 1);
+    const auto index = root / *files_of(root).begin();
+    const auto written_at = std::filesystem::last_write_time(index);
+
+    const auto second = write();
+    CHECK(second.sink.written + second.sink.restored == 0);
+    CHECK(second.sink.unchanged == 1);
+    CHECK(std::filesystem::last_write_time(index) == written_at);
+    std::ostringstream os;
+    io::write_codecs_report(os, second, {}, repo.objects());
+    CHECK_THAT(os.str(), ContainsSubstring("outputs: 0 written, 1 unchanged"));
+    CHECK_FALSE(io::failed(second));
+}
+
 TEST_CASE("a second run of the codecs stage loads every object from the "
     "store", "[ops][codecs_stage]") {
     scoped_git_repo repo;

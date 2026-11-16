@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include "compass.codec/io/output_sink.hpp"
 #include "compass.codec/types/registry.hpp"
 #include "compass.codec/types/run_result.hpp"
 
@@ -67,6 +68,11 @@ struct findings_summary {
  * record_units its units; record_written is true when the record the last
  * repetition made differed from the file and replaced it.
  *
+ * sink is what writing the outputs did when an output root was given, and
+ * sink_ms its time; outputs_problem says why a written-outputs record that
+ * was there was not used, and outputs_written is true when the record was
+ * rewritten.
+ *
  * registry holds the codecs. ms has one row per codec and one time per
  * repetition, summed over threads, and wall_ms one wall time per
  * repetition. last is what the last repetition produced, and findings
@@ -88,6 +94,11 @@ struct codecs_result {
     double record_read_ms = 0;
     bool record_written = false;
     double record_write_ms = 0;
+    bool wrote_outputs = false;
+    codec::io::sink_result sink;
+    double sink_ms = 0;
+    std::string outputs_problem;
+    bool outputs_written = false;
     codec::types::registry registry;
     std::vector<std::vector<double>> ms;
     std::vector<double> wall_ms;

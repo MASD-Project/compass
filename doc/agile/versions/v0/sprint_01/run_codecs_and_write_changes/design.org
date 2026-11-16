@@ -36,8 +36,10 @@ the overview.
 The interface, the registry, the runner and two codecs are implemented and
 run over this repository and over ORE Studio. Dependency recording is built:
 the view records what each unit reads and a run calls only the units whose
-inputs changed. Changed-only writes, diff mode and the result cache are the
-next tasks. This page says where each one attaches.
+inputs changed. Changed-only writes are built: an output sink writes a file
+only when its content changed and restores generated files edited by hand.
+Diff mode and the result cache are the next tasks. This page says where each
+one attaches.
 
 * Summary
 
@@ -252,6 +254,58 @@ Diff mode is the same run with a different last step. Removing an output that
 a codec no longer emits needs a record of what each codec emitted last time;
 that record belongs to the runner.
 
+** The sink as built
+
+The writing task built it this way.
+
+- /Where./ =io::write_outputs= in =compass.codec=, with its record types in
+  =types= and the pure parts (=outputs_of=, =check_outputs=, the record
+  encoding) in =ops=. The sink reads codec outputs and its record sits
+  beside the dependency record, so it belongs with the runtime.
+  =compass.store= sits below the codecs and knows nothing of them, and a
+  component of its own would have one host and one function.
+- /Input./ =types::output_set=: per file the codec, the path relative to
+  the output root, the bytes and the blob ID, plus the names of the
+  /complete/ codecs. =ops::outputs_of= takes the files and hashes from the
+  run's dependency record, which already holds them in run order. Every
+  enabled codec is complete, because a skipped unit's outputs come from the
+  record; a disabled codec is not, so its files stay.
+- /Refusals first./ A path that is absolute, empty, or has an empty, =.= or
+  =..= component, or a path two rows produce, is a problem, and nothing is
+  written when there is one. A path that passes through a directory under
+  the root that is a symbolic link is also refused, since the link could
+  send the write outside the root; a removal through one is skipped and its
+  file kept. A final component that is a link is replaced by the rename,
+  never written through.
+- /Decision per output./ When the recorded entry has the same blob ID and
+  the file's stat data equals the recorded stat data and is not racily
+  clean, the file is not opened. Otherwise an existing file is hashed and
+  left alone when it holds the bytes. Only then is it written, by temporary
+  file and rename, and stat'ed. So a lost or damaged record costs a read of
+  every output, not a write, and the build sees no change.
+- /Counts./ written (new bytes for the path), restored (bytes compass wrote
+  before, put back after an edit or a deletion), unchanged, removed, and
+  kept: a recorded file of a complete codec that no output names is removed
+  only when it still holds what compass wrote, with the directories the
+  removal empties up to the root. One edited since is left in place and
+  dropped from the record. The plan said only that files compass never wrote
+  are never touched; a generated file someone has since edited is treated
+  the same way, because removing it would lose the edit.
+- /Racy entries./ Stat data says nothing about an edit made in the same
+  clock tick as compass's write. The record keeps =written=, the start of
+  the run that last changed it, and an entry modified in that second or
+  later is compared by content, as git and the worktree index do. Every
+  file a run writes is racy for the next run, which hashes it and moves
+  =written= on, so the record is rewritten once more after a write and is
+  then stable.
+- /Record./ =<git dir>/compass/outputs=: magic =CMPSOUT\n=, version, entry
+  count, written time, root, then per path (sorted) the codec, blob ID and
+  the nine stat fields git keeps, and a SHA-1 trailer. It is written by
+  temporary file and rename, only when its bytes change. A damaged file, one
+  of another version, or one whose path is not plain relative is ignored. A
+  record of another root is ignored too, so pointing =--write= somewhere new
+  writes there and removes nothing.
+
 ** The result cache
 
 The key of a result is the codec's name and version, its option values in
@@ -378,6 +432,41 @@ for 9 MB), about 20 ms of each read and of each write check is the SHA-1 of
 stored twice per document unit, as the unit's name and as its input, and
 the encoded findings.
 
+** Changed-only writes
+
+Numbers are indicative: one run each, 8 cores under a load average of 10,
+=-j 8=, a release build of commit =fab78f7=. The repository is a
+=git archive= of that commit committed as one commit, so each run reads
+the same 401 documents. The one output is =doc/document_index.tsv=, about
+50 KB. =sink= is the time of reading the written-outputs record, the
+sink and writing the record.
+
+| Run                                | written | unchanged | restored | sink    | Record    | Index mtime |
+|------------------------------------+---------+-----------+----------+---------+-----------+-------------|
+| First                              | 1       | 0         | 0        | 0.08 ms | written   | set         |
+| Nothing changed, same second       | 0       | 1         | 0        | 0.31 ms | rewritten | kept        |
+| Nothing changed again              | 0       | 1         | 0        | 0.05 ms | unchanged | kept        |
+| A task's body edited               | 0       | 1         | 0        | 0.04 ms | unchanged | kept        |
+| The same task's title edited       | 1       | 0         | 0        | 0.10 ms | rewritten | new         |
+| The index edited by hand           | 0       | 0         | 1        | 0.36 ms | rewritten | new         |
+| The index deleted                  | 0       | 0         | 1        | 0.14 ms | rewritten | new         |
+| The record deleted                 | 0       | 1         | 0        | 0.30 ms | written   | kept        |
+
+Commands, from the root of the snapshot, with =$S= a scratch directory:
+
+#+begin_src sh
+compass-bench codecs . --meta doc/meta --store $S/store --write $S/out -j 8 --repeat 1
+#+end_src
+
+The second run hashes the index because the first run wrote it in the
+second the record was stamped with; the third trusts its stat data and
+reads nothing. Editing a task's body re-runs =document_index=, which
+produces the same bytes, so nothing is written: the build sees a change
+only when an output's content changes. The racy and lost-record runs cost
+0.3 ms, about the hash of 50 KB and one more record write. Removal is
+covered by the tests, not measured here: both codecs always produce their
+outputs.
+
 * Alternatives rejected
 
 - *A virtual interface.* =class codec= with virtual =name()=, =version()=,
@@ -422,6 +511,15 @@ the encoded findings.
   using a raw array. The codec runtime will write results to the store, so
   it uses =store::types::blob_id= and one type means one thing.
 - *An org table for the index.* See The two codecs.
+- *Writing every output on every run.* Simple, and it touches every
+  modification time, so a build that depends on generated files rebuilds
+  everything after any run.
+- *Trusting the record alone.* Comparing hashes with the record and never
+  looking at the disk misses a hand edit and a deleted file, and a lost
+  record would rewrite every file. Stat data catches both at the cost of
+  one lstat per output.
+- *Removing every file under the root that no codec produces.* The root may
+  hold files compass never wrote; only recorded paths are compass's.
 
 * Least certain
 
@@ -451,6 +549,9 @@ the encoded findings.
 - *The =codecs= stage loads the corpus with its own code.* It repeats about
   sixty lines of the =warm= stage, which measures its phases apart and keeps
   nothing mapped. The real host should own one loader.
+- *Stat data stands for content.* A tool that rewrites a generated file
+  with the same size and restores its times and inode would go unnoticed,
+  as it would by git. The racy rule covers the same-second case only.
 - *Unregistered input types run anyway.* A codec that lists a type the
   registry lacks runs over the rest and the registry reports a problem. A
   host may prefer to refuse to run.

@@ -23,7 +23,9 @@ add_library(${lib_target_name}
     codecs/document_index.cpp
     codecs/required_sections.cpp
     io/dependency_file.cpp
+    io/output_sink.cpp
     ops/dependencies.cpp
+    ops/outputs.cpp
     ops/registry.cpp
     ops/run.cpp)
 
