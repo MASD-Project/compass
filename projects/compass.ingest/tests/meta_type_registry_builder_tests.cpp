@@ -67,6 +67,7 @@ This page defines the =story= document type.
   - /Blurb/ — opens with =This page documents a story=.
   - =* Goal= — the user-visible outcome.
   - =* Status= — table.
+  - =* Documents= — /Optional/; required once the story produces any.
   - A =#+begin_export= block, which is not a section.
   - =* Artefacts :noexport:= — the licence.
 )";

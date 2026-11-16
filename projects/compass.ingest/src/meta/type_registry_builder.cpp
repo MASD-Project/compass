@@ -331,7 +331,8 @@ private:
                     p_.kind(para) != ot::element_kind::paragraph)
                     continue;
                 const auto v = p_.opening_verbatim(para);
-                if (const auto title = v ? heading_title(*v) : std::nullopt) {
+                const auto title = v ? heading_title(*v) : std::nullopt;
+                if (title && !contains_word(p_.contents(para), "optional")) {
                     f.sections.emplace_back(*title);
                     ++f.report.sections;
                 }
