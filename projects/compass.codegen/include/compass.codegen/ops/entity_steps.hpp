@@ -149,6 +149,27 @@ void derive_key_group_prefixes(compass::model::ops::builder& b,
     compass::model::types::value_id entity);
 
 /**
+ * @brief Who supplies each field (core.py 4720-4776): is_user_supplied,
+ * is_minted, is_session_party and member_access on the columns, the
+ * primary key and its members (a uuid key is minted by default), then
+ * user_supplied_count, is_bool and enum_short_name, has_bool_columns and
+ * has_session_party_columns. An entity without a primary key counts the
+ * empty key Python's .get('primary_key', {}) gives it as one user-supplied
+ * member.
+ */
+void derive_supply(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief The shell tests' tokens (core.py 4777-4866): positional_index and
+ * sample_token on each user-supplied key member and column, in read
+ * order, malformed_token_column (the first whose parse can reject a token,
+ * or null) and add_positional_count.
+ */
+void derive_sample_tokens(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
  * @brief Puts the identity, audit and domain group headers, sorted, before
  * the model's own cpp.includes.domain (core.py 4867-4888).
  */

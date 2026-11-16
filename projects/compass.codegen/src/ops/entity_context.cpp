@@ -50,6 +50,8 @@ value_id entity_context(compass::model::ops::builder& b, value_id library,
     derive_group_prefixes(b, entity);
     derive_stamp_members(b, entity);
     derive_key_group_prefixes(b, entity);
+    derive_supply(b, entity);
+    derive_sample_tokens(b, entity);
     inject_group_includes(b, entity);
     project_sql_table(b, context, loaded, entity);
     b.set_copy(context, "domain_entity", entity);

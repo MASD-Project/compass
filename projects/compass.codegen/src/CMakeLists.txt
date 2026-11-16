@@ -26,6 +26,7 @@ add_library(${lib_target_name}
     ops/entity_groups.cpp
     ops/entity_markers.cpp
     ops/entity_sql_table.cpp
+    ops/entity_supply.cpp
     ops/manifest.cpp
     ops/output.cpp
     ops/physical_space.cpp
