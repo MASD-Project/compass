@@ -27,6 +27,7 @@
 #include "compass.bench/ops/model_corpus.hpp"
 #include "compass.codegen/ops/compile.hpp"
 #include "compass.codegen/ops/context.hpp"
+#include "compass.codegen/ops/entity_context.hpp"
 #include "compass.codegen/ops/manifest.hpp"
 #include "compass.codegen/ops/output.hpp"
 #include "compass.codegen/ops/physical_space.hpp"
@@ -91,14 +92,17 @@ template_map compile_templates(const std::filesystem::path& checkout) {
     return templates;
 }
 
-void write_output(const std::filesystem::path& out, std::string_view path,
-    std::string_view text) {
-    const auto target = out / "renders" / std::filesystem::path(path);
+void write_file(const std::filesystem::path& target, std::string_view text) {
     std::filesystem::create_directories(target.parent_path());
     std::ofstream os(target, std::ios::binary);
     os << text;
     if (!os)
         throw std::runtime_error("cannot write " + target.string());
+}
+
+void write_output(const std::filesystem::path& out, std::string_view path,
+    std::string_view text) {
+    write_file(out / "renders" / std::filesystem::path(path), text);
 }
 
 struct unit {
@@ -204,16 +208,25 @@ compass::codegen::types::physical_space load_graph(
 struct planned {
     compass::codegen::ops::unit unit;
     value_id context;
+    std::string_view type;
 };
 
 /**
- * @brief The model types compass.codegen builds whole contexts for. Their
- * ores.codegen names are the same as compass.model's.
+ * @brief The model types compass.codegen builds whole contexts for, with
+ * their ores.codegen names.
  */
-constexpr compass::model::types::model_type context_types[] = {
-    compass::model::types::model_type::component,
-    compass::model::types::model_type::asset_class_catalogue,
-    compass::model::types::model_type::outcome_catalogue};
+struct context_type {
+    compass::model::types::model_type type;
+    std::string_view name;
+};
+
+constexpr context_type context_types[] = {
+    {compass::model::types::model_type::entity, "domain_entity"},
+    {compass::model::types::model_type::component, "component"},
+    {compass::model::types::model_type::asset_class_catalogue,
+     "asset_class_catalogue"},
+    {compass::model::types::model_type::outcome_catalogue,
+     "outcome_catalogue"}};
 
 /**
  * @brief The outputs compass builds contexts for, each with its context:
@@ -256,10 +269,11 @@ std::vector<planned> plan_models(const std::filesystem::path& checkout,
             continue;
         const auto type = mops::model_type_of(
             mops::declared_type(document_of(*p)));
-        if (!type || std::ranges::find(context_types, *type) ==
-            std::end(context_types))
+        const auto known = std::ranges::find_if(context_types,
+            [&](const context_type& c) { return type && c.type == *type; });
+        if (known == std::end(context_types))
             continue;
-        const auto type_name = compass::model::types::name_of(*type);
+        const auto type_name = known->name;
         std::string error;
         const auto id = mops::load_model(b, document_of(*p), *type, find,
             cache, &error);
@@ -278,13 +292,43 @@ std::vector<planned> plan_models(const std::filesystem::path& checkout,
         if (units.empty())
             continue;
         const auto stem = std::filesystem::path(path).stem().string();
-        const auto context = compass::codegen::ops::model_context(b,
-            library, root, stem, type_name);
+        const auto context = *type == compass::model::types::model_type::entity
+            ? compass::codegen::ops::entity_context(b, library, root, stem)
+            : compass::codegen::ops::model_context(b, library, root, stem,
+                type_name);
         ++r.contexts;
         for (const auto& u : units)
-            plan.push_back({u, context});
+            plan.push_back({u, context, type_name});
     }
     return plan;
+}
+
+/**
+ * @brief Writes each distinct context of @p plan once, as
+ * <out>/contexts/<n>.json, and <out>/context_index.json, which names for
+ * every output its context and its model type, for
+ * build/scripts/codegen_render_diff.py.
+ */
+void write_contexts(const std::filesystem::path& out, const model_tables& t,
+    const std::vector<planned>& plan) {
+    std::map<std::uint32_t, std::size_t> numbers;
+    std::string index = "[\n";
+    std::string text;
+    for (std::size_t i = 0; i < plan.size(); ++i) {
+        const auto& p = plan[i];
+        const auto [it, added] = numbers.try_emplace(p.context.value,
+            numbers.size());
+        const auto number = std::to_string(it->second);
+        if (added) {
+            text.clear();
+            compass::model::io::write_json(text, t, p.context);
+            write_file(out / "contexts" / (number + ".json"), text);
+        }
+        index += "{\"output\": \"" + p.unit.output + "\", \"context\": \"" +
+            number + "\", \"type\": \"" + std::string(p.type) + "\"}" +
+            (i + 1 < plan.size() ? ",\n" : "\n");
+    }
+    write_file(out / "context_index.json", index + "]\n");
 }
 
 void render_models(render_result& r, const template_map& templates,
@@ -295,10 +339,12 @@ void render_models(render_result& r, const template_map& templates,
     compass::model::ops::builder b(t);
     const auto plan = plan_models(checkout, table, b, r);
     r.setup_ms = elapsed_ms(start);
+    if (!out.empty())
+        write_contexts(out, t, plan);
 
     r.render_ms.assign(repetitions, 0.0);
     std::string text;
-    for (const auto& [u, context] : plan) {
+    for (const auto& [u, context, type] : plan) {
         const auto it = templates.find(u.template_name);
         if (it == templates.end()) {
             r.messages.push_back(u.output + ": no template " +
