@@ -19,6 +19,13 @@
  */
 #include "compass.codegen/ops/physical_space.hpp"
 
+#include <algorithm>
+#include <map>
+#include <set>
+#include <span>
+#include <string>
+#include <tuple>
+#include <vector>
 #include <catch2/catch_test_macros.hpp>
 #include "compass.codegen/ops/manifest.hpp"
 #include "compass.model/io/json.hpp"
@@ -75,13 +82,13 @@ TEST_CASE("a component renders the archetypes of its kind it enables",
          "kind": "flat"}})");
     const std::string path = "projects/ores.http/assets/modeling/c.org";
 
-    auto units = codegen::ops::model_units(g, "component", t, flat, path, {});
+    auto units = codegen::ops::model_units(g, {}, "component", t, flat, path, {});
     REQUIRE(units.size() == 1);
     CHECK(units[0].output == "projects/ores.http/assets/CMakeLists.txt");
 
     const codegen::ops::drawer_property on[] = {
         {"ores.cmake.component.extra.enabled", "yes"}};
-    units = codegen::ops::model_units(g, "component", t, flat, path, on);
+    units = codegen::ops::model_units(g, {}, "component", t, flat, path, on);
     REQUIRE(units.size() == 2);
     CHECK(units[1].output ==
         "projects/ores.http/assets/include/ores.http.assets/x");
@@ -89,14 +96,290 @@ TEST_CASE("a component renders the archetypes of its kind it enables",
     const auto adapter = model::io::read_json(b, R"({"component":
         {"name": "http.assets", "full_name": "ores.http.assets",
          "kind": "adapter"}})");
-    units = codegen::ops::model_units(g, "component", t, adapter, path, on);
+    units = codegen::ops::model_units(g, {}, "component", t, adapter, path, on);
     REQUIRE(units.size() == 1);
     CHECK(units[0].output == "projects/ores.http/assets/include/ores.http/x");
 
     const codegen::ops::drawer_property off[] = {
         {"ores.cmake.enabled", "false"}};
-    CHECK(codegen::ops::model_units(g, "component", t, flat, path, off)
+    CHECK(codegen::ops::model_units(g, {}, "component", t, flat, path, off)
         .empty());
+}
+
+namespace {
+
+/*
+ * Entity facets and archetypes as ORE Studio's library declares them, with
+ * their output patterns verbatim.
+ */
+const codegen::ops::node_document entity_nodes[] = {
+    {"ores.cpp.domain.class_header.org",
+     "#+title: ores.cpp.domain.class_header\n#+type: archetype\n"
+     "#+facet: ores.cpp.domain\n#+output: projects/{component_dir}/include/"
+     "ores.{component_include}/domain/{entity}.hpp\n"
+     ":tangle cpp_domain_type_class.hpp.mustache\n"},
+    {"ores.cpp.domain.org",
+     "#+title: ores.cpp.domain\n#+type: facet\n"
+     "#+model_types: schema domain_entity junction\n"
+     "#+facet_group: ores.cpp\n"},
+    {"ores.cpp.history-provider-registrar.header.org",
+     "#+title: ores.cpp.history-provider-registrar.header\n"
+     "#+type: archetype\n#+facet: ores.cpp.history-provider-registrar\n"
+     "#+output: projects/{component_core_dir}/include/ores.{component_core}/"
+     "messaging/{entity}_history_provider_registrar.hpp\n"
+     ":tangle cpp_history_provider_registrar.hpp.mustache\n"},
+    {"ores.cpp.history-provider-registrar.org",
+     "#+title: ores.cpp.history-provider-registrar\n#+type: facet\n"
+     "#+model_types: domain_entity junction\n#+facet_group: ores.cpp\n"},
+    {"ores.cpp.http-route.org",
+     "#+title: ores.cpp.http-route\n#+type: facet\n"
+     "#+model_types: domain_entity junction operation\n"
+     "#+facet_group: ores.cpp\n#+default: disabled\n"},
+    {"ores.cpp.http-route.web_records_header.org",
+     "#+title: ores.cpp.http-route.web_records_header\n#+type: archetype\n"
+     "#+facet: ores.cpp.http-route\n#+model_types: domain_entity junction\n"
+     "#+output: projects/ores.http/{component}/include/ores.http/routes/"
+     "{component}/{web_entity}_routes.hpp\n"
+     ":tangle cpp_http_route_web_records.hpp.mustache\n"},
+    {"ores.cpp.presentation.history_field_mapper_header.org",
+     "#+title: ores.cpp.presentation.history_field_mapper_header\n"
+     "#+type: archetype\n#+facet: ores.cpp.presentation\n"
+     "#+output: projects/{component_core_dir}/include/ores.{component_core}/"
+     "presentation/{entity}_history_field_mapper.hpp\n"
+     ":tangle cpp_history_field_mapper.hpp.mustache\n"},
+    {"ores.cpp.presentation.org",
+     "#+title: ores.cpp.presentation\n#+type: facet\n"
+     "#+model_types: schema domain_entity junction\n"
+     "#+facet_group: ores.cpp\n"},
+    {"ores.cpp.protocol.org",
+     "#+title: ores.cpp.protocol\n#+type: facet\n"
+     "#+model_types: domain_entity schema junction operation family\n"
+     "#+facet_group: ores.cpp\n"},
+    {"ores.cpp.protocol.protocol_header.org",
+     "#+title: ores.cpp.protocol.protocol_header\n#+type: archetype\n"
+     "#+facet: ores.cpp.protocol\n#+output: projects/{component_dir}/include/"
+     "ores.{component_include}/messaging/{entity}_protocol.hpp\n"
+     ":tangle cpp_protocol.hpp.mustache\n"},
+    {"ores.cpp.shell-command.command_aggregator_header.org",
+     "#+title: ores.cpp.shell-command.command_aggregator_header\n"
+     "#+type: archetype\n#+facet: ores.cpp.shell-command\n"
+     "#+model_types: domain_entity junction\n"
+     "#+output: projects/ores.shell/application/include/ores.shell/app/"
+     "commands/{component}/{component}_commands.hpp\n"
+     ":tangle cpp_shell_command_aggregator_header.hpp.mustache\n"},
+    {"ores.cpp.shell-command.command_header.org",
+     "#+title: ores.cpp.shell-command.command_header\n#+type: archetype\n"
+     "#+facet: ores.cpp.shell-command\n#+model_types: domain_entity junction\n"
+     "#+output: projects/ores.shell/{component}/include/ores.shell/app/"
+     "commands/{component}/{entity}_commands.hpp\n"
+     ":tangle cpp_shell_command_header.hpp.mustache\n"},
+    {"ores.cpp.shell-command.org",
+     "#+title: ores.cpp.shell-command\n#+type: facet\n"
+     "#+model_types: domain_entity junction operation\n"
+     "#+facet_group: ores.cpp\n#+default: disabled\n"},
+    {"ores.doc.shell-recipe.org",
+     "#+title: ores.doc.shell-recipe\n#+type: facet\n"
+     "#+model_types: domain_entity junction operation\n"
+     "#+facet_group: ores.doc\n#+default: enabled\n"},
+    {"ores.doc.shell-recipe.recipe.org",
+     "#+title: ores.doc.shell-recipe.recipe\n#+type: archetype\n"
+     "#+facet: ores.doc.shell-recipe\n"
+     "#+model_types: domain_entity junction operation\n"
+     "#+requires_facet: ores.cpp.shell-command\n"
+     "#+output: doc/recipes/shell/{shell_menu}/{entity}.org\n"
+     ":tangle shell_recipe.org.mustache\n"},
+    {"ores.sql.schema.domain_entity_create.org",
+     "#+title: ores.sql.schema.domain_entity_create\n#+type: archetype\n"
+     "#+facet: ores.sql.schema\n#+output: projects/ores.sql/create/"
+     "{component}/{component}_{entity_plural}_create.sql\n"
+     ":tangle sql_schema_domain_entity_create.mustache\n"},
+    {"ores.sql.schema.org",
+     "#+title: ores.sql.schema\n#+type: facet\n"
+     "#+model_types: domain_entity junction schema\n"
+     "#+facet_group: ores.sql\n"}};
+
+const std::string_view entity_path =
+    "projects/ores.analytics/modeling/"
+    "ores.analytics.credit_simulation_config.org";
+
+const codegen::ops::drawer_property shell_on[] = {
+    {"ores.cpp.shell-command.enabled", "true"}};
+
+std::vector<std::string> outputs(const std::vector<codegen::ops::unit>& us) {
+    std::vector<std::string> out;
+    for (const auto& u : us)
+        out.push_back(u.output);
+    return out;
+}
+
+/**
+ * @brief The outputs model_units lists for the domain entity @p json
+ * (the members of its domain_entity) at entity_path.
+ */
+std::vector<std::string> entity_outputs(const std::string& json,
+    const codegen::types::checkout_registry& registry = {},
+    std::span<const codegen::ops::drawer_property> properties = shell_on) {
+    const auto g = codegen::ops::load_physical_space(entity_nodes);
+    model::types::model_tables t;
+    model::ops::builder b(t);
+    const auto model = model::io::read_json(b,
+        "{\"domain_entity\": " + json + "}");
+    return outputs(codegen::ops::model_units(g, registry, "domain_entity", t,
+        model, entity_path, properties));
+}
+
+const std::string credit_simulation_config = R"({"component": "analytics",
+    "subcomponent": "api", "entity_singular": "credit_simulation_config",
+    "entity_plural": "credit_simulation_configs"})";
+
+}
+
+/*
+ * Expected paths are the ones ores.codegen wrote for ORE Studio's
+ * ores.analytics.credit_simulation_config and ores.refdata.business_centre.
+ */
+TEST_CASE("a domain entity's outputs resolve its component and names",
+    "[codegen][physical_space]") {
+    CHECK(entity_outputs(credit_simulation_config) ==
+        std::vector<std::string>{
+            "projects/ores.analytics/api/include/ores.analytics.api/domain/"
+            "credit_simulation_config.hpp",
+            "projects/ores.analytics/core/include/ores.analytics.core/"
+            "messaging/credit_simulation_config_history_provider_registrar.hpp",
+            "projects/ores.analytics/core/include/ores.analytics.core/"
+            "presentation/credit_simulation_config_history_field_mapper.hpp",
+            "projects/ores.analytics/api/include/ores.analytics.api/"
+            "messaging/credit_simulation_config_protocol.hpp",
+            "projects/ores.shell/analytics/include/ores.shell/app/commands/"
+            "analytics/credit_simulation_config_commands.hpp",
+            "doc/recipes/shell/credit_simulation_configs/"
+            "credit_simulation_config.org",
+            "projects/ores.sql/create/analytics/"
+            "analytics_credit_simulation_configs_create.sql"});
+
+    const auto off = entity_outputs(credit_simulation_config, {}, {});
+    CHECK(std::ranges::none_of(off, [](const std::string& o) {
+        return o.contains("ores.shell") || o.contains("recipes/shell");
+    }));
+}
+
+TEST_CASE("a web placeholder resolves only for an entity that states it",
+    "[codegen][physical_space]") {
+    const codegen::ops::drawer_property http_on[] = {
+        {"ores.cpp.http-route.enabled", "true"}};
+    const std::string web = R"({"component": "refdata",
+        "subcomponent": "api", "entity_singular": "business_centre",
+        "web_resource": "business-centres"})";
+    const std::string plain = R"({"component": "refdata",
+        "subcomponent": "api", "entity_singular": "business_centre"})";
+    const std::string route = "projects/ores.http/refdata/include/ores.http/"
+        "routes/refdata/business_centre_web_routes.hpp";
+
+    CHECK(std::ranges::count(entity_outputs(web, {}, http_on), route) == 1);
+    CHECK(std::ranges::count(entity_outputs(plain, {}, http_on), route) == 0);
+}
+
+TEST_CASE("an operation model that owns the protocol takes it from the entity",
+    "[codegen][physical_space]") {
+    codegen::types::checkout_registry registry;
+    registry.protocol_owners.emplace("projects/ores.analytics/modeling",
+        "analytics", "credit_simulation_config");
+    const auto units = entity_outputs(credit_simulation_config, registry);
+    CHECK(std::ranges::none_of(units, [](const std::string& o) {
+        return o.contains("_protocol.hpp") || o.contains("ores.shell") ||
+            o.contains("recipes/shell");
+    }));
+    CHECK(units.size() == 4);
+
+    registry.protocol_owners = {{"projects/ores.other/modeling", "analytics",
+        "credit_simulation_config"}};
+    CHECK(entity_outputs(credit_simulation_config, registry).size() == 7);
+}
+
+TEST_CASE("a current-state entity renders no history surface",
+    "[codegen][physical_space]") {
+    const auto units = entity_outputs(R"({"component": "analytics",
+        "subcomponent": "api", "entity_singular": "credit_simulation_config",
+        "entity_plural": "credit_simulation_configs",
+        "sql": {"current_state": true}})");
+    CHECK(std::ranges::none_of(units, [](const std::string& o) {
+        return o.contains("history");
+    }));
+    CHECK(units.size() == 5);
+
+    const auto audit = entity_outputs(R"({"component": "analytics",
+        "subcomponent": "api", "entity_singular": "credit_simulation_config",
+        "domain_audit_group": "audit"})");
+    CHECK(std::ranges::count_if(audit, [](const std::string& o) {
+        return o.contains("history");
+    }) == 1);
+}
+
+TEST_CASE("a staging shim renders no menu another component also models",
+    "[codegen][physical_space]") {
+    const std::string shim = R"({"component": "analytics",
+        "subcomponent": "api", "entity_singular": "credit_simulation_config",
+        "entity_plural": "credit_simulation_configs",
+        "profile": "simple-lookup, artefact-staging-only"})";
+    const auto has_menu = [](const std::vector<std::string>& units) {
+        return std::ranges::any_of(units, [](const std::string& o) {
+            return o.contains("ores.shell");
+        });
+    };
+    codegen::types::checkout_registry registry;
+    registry.plural_owners["credit_simulation_configs"] = {"ores.analytics"};
+    CHECK(has_menu(entity_outputs(shim, registry)));
+
+    registry.plural_owners["credit_simulation_configs"].emplace("ores.dq");
+    CHECK(!has_menu(entity_outputs(shim, registry)));
+}
+
+TEST_CASE("the shell registrar renders where the component opts into it",
+    "[codegen][physical_space]") {
+    const std::string swap = R"({"component": "trading",
+        "subcomponent": "api", "entity_singular": "vanilla_swap_instrument"})";
+    const std::string aggregator = "projects/ores.shell/application/include/"
+        "ores.shell/app/commands/trading/trading_commands.hpp";
+    CHECK(std::ranges::count(entity_outputs(swap), aggregator) == 0);
+
+    codegen::types::checkout_registry registry;
+    registry.shell_registrars.emplace("trading");
+    CHECK(std::ranges::count(entity_outputs(swap, registry), aggregator) == 1);
+}
+
+TEST_CASE("a store-only entity renders only its SQL",
+    "[codegen][physical_space]") {
+    CHECK(entity_outputs(R"({"component": "compute",
+        "entity_singular": "grid_sample", "entity_plural": "grid_samples",
+        "sql_only": true})") == std::vector<std::string>{
+            "projects/ores.sql/create/compute/compute_grid_samples_create.sql"});
+}
+
+TEST_CASE("the registry reads operations, plurals and shell opt-ins",
+    "[codegen][physical_space]") {
+    const codegen::ops::checkout_file files[] = {
+        {"projects/ores.workflow/modeling/ores.workflow.workflow_messages.org",
+         ":PROPERTIES:\n:END:\n#+title: x\n#+type: ores.codegen.operation\n"
+         "#+component: workflow\n#+entity_singular: workflow\n"},
+        {"projects/ores.dq/modeling/ores.dq.lei_entity.org",
+         "#+title: x\n#+type: ores.codegen.entity\n"
+         "#+entity_plural: lei_entities\n#+name: ignored\n"},
+        {"projects/ores.refdata/api/modeling/ores.refdata.nested.org",
+         "#+entity_plural: nested_things\n"},
+        {"projects/ores.shell/trading/modeling/component_overview.org",
+         "#+title: x\n#+shell_command_aggregator: true\n"},
+        {"projects/ores.shell/iam/modeling/component_overview.org",
+         "#+title: x\n#+shell_command_aggregator: false\n"}};
+    const auto r = codegen::ops::read_checkout_registry(files);
+
+    CHECK(r.protocol_owners == std::set<std::tuple<std::string, std::string,
+        std::string>>{
+            {"projects/ores.workflow/modeling", "workflow", "workflow"},
+            {"projects/ores.workflow", "workflow", "workflow"}});
+    CHECK(r.plural_owners == std::map<std::string, std::set<std::string>,
+        std::less<>>{{"lei_entities", {"ores.dq"}}});
+    CHECK(r.shell_registrars == std::set<std::string, std::less<>>{
+        "trading"});
 }
 
 TEST_CASE("regenerate --all reaches the catalogue's modeling directories",

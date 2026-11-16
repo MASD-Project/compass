@@ -20,7 +20,10 @@
 #ifndef COMPASS_CODEGEN_TYPES_PHYSICAL_SPACE_HPP
 #define COMPASS_CODEGEN_TYPES_PHYSICAL_SPACE_HPP
 
+#include <map>
+#include <set>
 #include <string>
+#include <tuple>
 #include <vector>
 
 namespace compass::codegen::types {
@@ -77,6 +80,24 @@ struct archetype_table {
 struct physical_space {
     facet_table facets;
     archetype_table archetypes;
+};
+
+/**
+ * @brief What resolve_targets reads from the checkout around a model,
+ * beyond the graph and the model itself, read once for every model.
+ *
+ * protocol_owners holds, for each operation model, (directory, component,
+ * entity_singular) for the directory it lives in and the one above it,
+ * the two levels _operation_protocol_owners scans. plural_owners maps each
+ * plural a projects/<component>/modeling/ document names to those
+ * components, as _plural_owners reads them. shell_registrars holds the
+ * components whose shell part opts into the command registrar.
+ */
+struct checkout_registry {
+    std::set<std::tuple<std::string, std::string, std::string>>
+        protocol_owners;
+    std::map<std::string, std::set<std::string>, std::less<>> plural_owners;
+    std::set<std::string, std::less<>> shell_registrars;
 };
 
 }

@@ -205,6 +205,27 @@ compass::codegen::types::physical_space load_graph(
     return compass::codegen::ops::load_physical_space(nodes);
 }
 
+/**
+ * @brief The registry of the checkout's models resolve_targets consults,
+ * read from every .org file under a modeling/ directory of projects/.
+ */
+compass::codegen::types::checkout_registry load_registry(
+    const std::filesystem::path& checkout, const types::file_table& table) {
+    std::vector<compass::platform::filesystem::mapped_file> files;
+    std::vector<std::string_view> paths;
+    for (const auto& path : table.paths) {
+        if (!path.starts_with("projects/") || !path.ends_with(".org") ||
+            path.find("/modeling/") == std::string::npos)
+            continue;
+        files.emplace_back(checkout / std::filesystem::path(path));
+        paths.push_back(path);
+    }
+    std::vector<compass::codegen::ops::checkout_file> documents;
+    for (std::size_t i = 0; i < files.size(); ++i)
+        documents.push_back({paths[i], files[i].text()});
+    return compass::codegen::ops::read_checkout_registry(documents);
+}
+
 struct planned {
     compass::codegen::ops::unit unit;
     value_id context;
@@ -245,6 +266,7 @@ std::vector<planned> plan_models(const std::filesystem::path& checkout,
     const auto library = compass::codegen::ops::library_values(b,
         licence.text(), modelines.text(), current_year());
     const auto graph = load_graph(checkout);
+    const auto registry = load_registry(checkout, table);
 
     model_corpus documents(checkout);
     const compass::platform::filesystem::mapped_file catalogue(
@@ -287,7 +309,7 @@ std::vector<planned> plan_models(const std::filesystem::path& checkout,
         for (std::size_t i = 0; i < outline.file_property_keys.size(); ++i)
             properties.push_back({outline.file_property_keys[i],
                 outline.file_property_values[i]});
-        const auto units = compass::codegen::ops::model_units(graph,
+        const auto units = compass::codegen::ops::model_units(graph, registry,
             type_name, b.tables(), root, path, properties);
         if (units.empty())
             continue;

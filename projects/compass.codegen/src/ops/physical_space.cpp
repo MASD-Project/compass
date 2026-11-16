@@ -24,20 +24,60 @@
 #include <map>
 #include <optional>
 #include <set>
+#include "compass.codegen/ops/values.hpp"
 
 namespace compass::codegen::ops {
 
 namespace {
 
 using compass::model::types::model_tables;
-using compass::model::types::text_id;
 using compass::model::types::value_id;
-using compass::model::types::value_kind;
 
 constexpr std::string_view protocol_dependent_facets[] = {
     "ores.cpp.http-route", "ores.doc.http-recipe", "ores.cpp.nats-eventing",
     "ores.cpp.nats-event-registrar", "ores.cpp.eventing-integration-test",
     "ores.cpp.shell-command", "ores.doc.shell-recipe"};
+
+/**
+ * @brief _PROTOCOL_FACETS: what an operation model that owns an entity's
+ * protocol takes from the entity.
+ */
+constexpr std::string_view protocol_facets[] = {
+    "ores.cpp.protocol", "ores.ts.protocol", "ores.cpp.nats-eventing",
+    "ores.cpp.nats-event-registrar", "ores.cpp.eventing-integration-test",
+    "ores.cpp.shell-command", "ores.doc.shell-recipe", "ores.cpp.http-route",
+    "ores.doc.http-recipe"};
+
+/**
+ * @brief _NO_FLAT_AUDIT_HISTORY_PROVIDER_FACETS: what needs version rows
+ * with a flat actor.
+ */
+constexpr std::string_view no_flat_audit_facets[] = {
+    "ores.cpp.history-provider-registrar"};
+
+/**
+ * @brief _STAGING_ONLY_FACETS: the menu a staging shim must not render
+ * when another component models its plural.
+ */
+constexpr std::string_view staging_only_facets[] = {
+    "ores.cpp.shell-command", "ores.doc.shell-recipe"};
+
+/**
+ * @brief _STAGING_ONLY_EVENTING_FACETS: what a model with no notify
+ * trigger cannot announce.
+ */
+constexpr std::string_view staging_only_eventing_facets[] = {
+    "ores.cpp.nats-eventing", "ores.cpp.nats-event-registrar",
+    "ores.cpp.eventing-integration-test"};
+
+/**
+ * @brief _NO_TEMPORAL_HISTORY_ARCHETYPES: what a current-state entity,
+ * which has no version rows, cannot build.
+ */
+constexpr std::string_view no_temporal_archetypes[] = {
+    "ores.cpp.presentation.history_field_mapper_header",
+    "ores.cpp.presentation.history_field_mapper_impl",
+    "ores.cpp.eventing-integration-test.nats_integration_test"};
 
 constexpr std::string_view shell_aggregator_templates[] = {
     "cpp_shell_command_aggregator_header.hpp.mustache",
@@ -159,24 +199,20 @@ std::string get_or(const std::map<std::string, std::string>& kw,
     return v ? *v : std::string(fallback);
 }
 
-value_id member(const model_tables& t, value_id object, std::string_view key) {
-    if (object.is_none() || t.values.kinds[object] != value_kind::object)
-        return value_id::none();
-    for (auto c = t.values.firsts[object]; !c.is_none();
-         c = t.values.nexts[c]) {
-        if (compass::model::types::text_of(t.texts, t.values.keys[c]) == key)
-            return c;
-    }
-    return value_id::none();
-}
-
+/**
+ * @brief Python's object.get(key) of a string member: none when absent.
+ */
 std::optional<std::string_view> string_member(const model_tables& t,
     value_id object, std::string_view key) {
-    const auto v = member(t, object, key);
-    if (v.is_none() || t.values.kinds[v] != value_kind::string)
+    const auto v = values::member(t, object, key);
+    if (v.is_none())
         return std::nullopt;
-    return compass::model::types::text_of(t.texts,
-        text_id{static_cast<std::uint32_t>(t.values.scalars[v])});
+    return values::str(t, v);
+}
+
+std::string get_or(const model_tables& t, value_id object,
+    std::string_view key, std::string_view fallback) {
+    return std::string(string_member(t, object, key).value_or(fallback));
 }
 
 using overrides = std::map<std::string, bool, std::less<>>;
@@ -259,6 +295,257 @@ void replace_all(std::string& s, std::string_view from, std::string_view to) {
         s.replace(p, from.size(), to);
 }
 
+using facet_set = std::set<std::string, std::less<>>;
+
+void drop(facet_set& facets, std::span<const std::string_view> dropped) {
+    for (const auto d : dropped) {
+        const auto it = facets.find(d);
+        if (it != facets.end())
+            facets.erase(it);
+    }
+}
+
+std::string_view parent(std::string_view path) {
+    const auto slash = path.rfind('/');
+    return slash == std::string_view::npos ? "" : path.substr(0, slash);
+}
+
+std::string_view file_name(std::string_view path) {
+    const auto slash = path.rfind('/');
+    return slash == std::string_view::npos ? path : path.substr(slash + 1);
+}
+
+/**
+ * @brief Whether @p profile is one of the comma-separated @p profiles.
+ */
+bool has_profile(std::string_view profiles, std::string_view profile) {
+    for (;;) {
+        const auto comma = profiles.find(',');
+        if (strip(profiles.substr(0, comma)) == profile)
+            return true;
+        if (comma == std::string_view::npos)
+            return false;
+        profiles.remove_prefix(comma + 1);
+    }
+}
+
+/**
+ * @brief The #+type: of a document, as _ORG_TYPE_RE finds it in its first
+ * 4096 bytes: the first such line holding one word, the key in any case.
+ */
+std::string_view org_type(std::string_view text) {
+    text = text.substr(0, 4096);
+    constexpr std::string_view key = "#+type:";
+    std::size_t start = 0;
+    while (start < text.size()) {
+        auto end = text.find('\n', start);
+        if (end == std::string_view::npos)
+            end = text.size();
+        const auto line = text.substr(start, end - start);
+        start = end + 1;
+        if (line.size() < key.size() ||
+            lower(line.substr(0, key.size())) != key)
+            continue;
+        const auto value = strip(line.substr(key.size()));
+        if (!value.empty() && std::ranges::none_of(value, is_space))
+            return value;
+    }
+    return {};
+}
+
+/**
+ * @brief The plural _plural_owners reads from a document: the value of
+ * its first #+entity_plural: or #+name: line that states one.
+ */
+std::string_view stated_plural(std::string_view text) {
+    std::size_t start = 0;
+    while (start < text.size()) {
+        auto end = text.find('\n', start);
+        if (end == std::string_view::npos)
+            end = text.size();
+        const auto line = text.substr(start, end - start);
+        start = end + 1;
+        if (!line.starts_with("#+"))
+            continue;
+        const auto colon = line.find(':');
+        const auto key = strip(line.substr(2, colon == std::string_view::npos
+            ? std::string_view::npos : colon - 2));
+        const auto value = colon == std::string_view::npos
+            ? std::string_view() : strip(line.substr(colon + 1));
+        if ((key == "entity_plural" || key == "name") && !value.empty())
+            return value;
+    }
+    return {};
+}
+
+/**
+ * @brief snake_to_pascal: each underscore-separated word capitalised as
+ * str.capitalize does it.
+ */
+std::string snake_to_pascal(std::string_view snake) {
+    std::string out;
+    bool first = true;
+    for (const auto c : snake) {
+        if (c == '_') {
+            first = true;
+            continue;
+        }
+        const auto u = static_cast<unsigned char>(c);
+        out += static_cast<char>(first ? std::toupper(u) : std::tolower(u));
+        first = false;
+    }
+    return out;
+}
+
+/**
+ * @brief A placeholder of an output pattern, braces included, and its
+ * value; none when the model lacks what the placeholder needs, so a
+ * pattern naming it does not resolve.
+ */
+struct placeholder {
+    std::string name;
+    std::optional<std::string> value;
+};
+
+/**
+ * @brief @p pattern with each placeholder replaced in turn, or none when
+ * it names one with no value.
+ */
+std::optional<std::string> resolve(std::string pattern,
+    std::span<const placeholder> placeholders) {
+    for (const auto& p : placeholders) {
+        if (pattern.find(p.name) == std::string::npos)
+            continue;
+        if (!p.value)
+            return std::nullopt;
+        replace_all(pattern, p.name, *p.value);
+    }
+    return pattern;
+}
+
+/**
+ * @brief resolve_output_path's placeholders for a component, whose
+ * directory under projects/ is the one above the modeling/ of
+ * @p model_path.
+ */
+std::vector<placeholder> component_placeholders(const model_tables& t,
+    value_id component, std::optional<std::string_view> kind,
+    std::string_view model_path) {
+    const auto name = get_or(t, component, "name", "unknown");
+    const auto full_name = get_or(t, component, "full_name", "ores." + name);
+    std::string_view dir = parent(parent(model_path));
+    if (dir.starts_with("projects/"))
+        dir.remove_prefix(9);
+    const std::string component_dir(dir);
+    const auto include_root = kind && *kind == "adapter" &&
+        component_dir.find('/') != std::string::npos
+        ? component_dir.substr(0, component_dir.find('/')) : full_name;
+    return {{"{component_dir}", component_dir}, {"{component}", name},
+        {"{component_full}", full_name},
+        {"{component_include_root}", include_root}};
+}
+
+/**
+ * @brief resolve_output_path's placeholders for a domain entity:
+ * _component_path_vars, the entity's names, its shell menu and the
+ * placeholders _resolve_flagged_entity fills only for an entity that
+ * declares what they need.
+ */
+std::vector<placeholder> entity_placeholders(const model_tables& t,
+    value_id entity) {
+    const auto component = get_or(t, entity, "component", "unknown");
+    const auto subcomponent = get_or(t, entity, "subcomponent", "");
+    const bool split = !subcomponent.empty();
+    const auto own_dir = "ores." + component;
+    const auto cached_by = get_or(t, entity, "cached_by", component);
+    const auto dot = cached_by.find('.');
+    const auto cache_component = cached_by.substr(0, dot);
+    const auto cache_subcomponent = dot == std::string::npos
+        ? std::string("core") : cached_by.substr(dot + 1);
+    const auto singular = get_or(t, entity, "entity_singular", "unknown");
+    const auto plural = get_or(t, entity, "entity_plural", singular + "s");
+    const auto menu = values::str(t, entity, "entity_plural");
+
+    const auto stated = [&](std::string_view key) {
+        return !strip(values::str(t, entity, key)).empty();
+    };
+    const auto when = [](bool declared, std::string value) {
+        return declared ? std::optional(std::move(value)) : std::nullopt;
+    };
+    const bool writable = !(values::truthy(t, entity, "read_only") ||
+        values::truthy(t, entity, "client_read_only"));
+
+    return {
+        {"{component}", component},
+        {"{component_dir}", split ? own_dir + "/" + subcomponent : own_dir},
+        {"{component_core_dir}", split ? own_dir + "/core" : own_dir},
+        {"{component_service_dir}", split ? own_dir + "/service" : own_dir},
+        {"{component_include}", split ? component + "." + subcomponent
+            : get_or(t, entity, "component_include", component)},
+        {"{component_core}", split ? component + ".core"
+            : get_or(t, entity, "component_core", component)},
+        {"{component_service}", split ? component + ".service"
+            : get_or(t, entity, "component_service", component)},
+        {"{cache_component_dir}", "ores." + cache_component},
+        {"{cache_component}", cache_component},
+        {"{cache_subcomponent}", cache_subcomponent},
+        {"{generator_facet_name}",
+            get_or(t, entity, "generator_facet_name", "generators")},
+        {"{entity_plural}", plural},
+        {"{entity}", singular},
+        {"{EntityPascal}", snake_to_pascal(singular)},
+        {"{shell_menu}", std::string(menu.empty()
+            ? values::str(t, entity, "entity_singular") : menu)},
+        {"{web_entity}", when(stated("web_resource"), singular + "_web")},
+        {"{web_classification_entity}",
+            when(stated("web_classification"), singular + "_classification")},
+        {"{system_owned_entity}", when(writable &&
+            values::truthy(t, entity, "system_tenant_validation"),
+            singular + "_system_owned")}};
+}
+
+/**
+ * @brief resolve_targets' gates for the domain entity @p entity of the
+ * model at @p model_path: drops from @p facets what the entity cannot
+ * render, and returns whether its history archetypes are withheld, as
+ * they are for a current-state entity.
+ */
+bool gate_entity(facet_set& facets, const types::physical_space& g,
+    const types::checkout_registry& registry, const model_tables& t,
+    value_id entity, std::string_view model_path) {
+    if (values::truthy(t, entity, "sql_only")) {
+        std::erase_if(facets, [&](const std::string& f) {
+            const auto row = facet_row(g, f);
+            return !row || g.facets.technical_spaces[*row] != "ores.sql";
+        });
+    }
+    if (registry.protocol_owners.contains({std::string(parent(model_path)),
+            std::string(values::str(t, entity, "component")),
+            std::string(values::str(t, entity, "entity_singular"))}))
+        drop(facets, protocol_facets);
+
+    const auto sql = values::member(t, entity, "sql");
+    const bool current_state = values::truthy(t, sql, "current_state");
+    if (values::truthy(t, entity, "domain_audit_group") ||
+        values::truthy(t, sql, "no_audit_columns") || current_state)
+        drop(facets, no_flat_audit_facets);
+
+    const auto profiles = values::str(t, entity, "profile");
+    if (has_profile(profiles, "artefact-staging-only")) {
+        const auto plural = values::str(t, entity, "entity_plural");
+        const auto component = file_name(parent(parent(model_path)));
+        const auto owners = registry.plural_owners.find(plural);
+        if (!plural.empty() && owners != registry.plural_owners.end() &&
+            std::ranges::any_of(owners->second,
+                [&](const std::string& c) { return c != component; }))
+            drop(facets, staging_only_facets);
+        drop(facets, staging_only_eventing_facets);
+    }
+    if (has_profile(profiles, "read-model"))
+        drop(facets, staging_only_eventing_facets);
+    return current_state;
+}
+
 }
 
 types::physical_space load_physical_space(
@@ -312,14 +599,50 @@ types::physical_space load_physical_space(
     return g;
 }
 
+types::checkout_registry read_checkout_registry(
+    std::span<const checkout_file> files) {
+    types::checkout_registry r;
+    constexpr std::string_view shell = "projects/ores.shell/";
+    constexpr std::string_view overview = "/modeling/component_overview.org";
+    for (const auto& f : files) {
+        const auto dir = parent(f.path);
+        if (org_type(f.text) == "ores.codegen.operation") {
+            const auto kw = keywords(f.text);
+            const auto component = get_or(kw, "component");
+            const auto singular = get_or(kw, "entity_singular");
+            if (!component.empty() && !singular.empty()) {
+                for (const auto d : {dir, parent(dir)})
+                    r.protocol_owners.emplace(std::string(d), component,
+                        singular);
+            }
+        }
+        const auto component = file_name(parent(dir));
+        if (file_name(dir) == "modeling" && parent(parent(dir)) == "projects") {
+            const auto plural = stated_plural(f.text);
+            if (!plural.empty())
+                r.plural_owners[std::string(plural)].emplace(component);
+        }
+        if (f.path.starts_with(shell) && f.path.ends_with(overview) &&
+            f.path.size() == shell.size() + component.size() +
+                overview.size()) {
+            const auto v = lower(strip(get_or(keywords(f.text),
+                "shell_command_aggregator")));
+            if (v == "true" || v == "t" || v == "yes" || v == "1")
+                r.shell_registrars.emplace(component);
+        }
+    }
+    return r;
+}
+
 std::vector<unit> model_units(const types::physical_space& g,
-    std::string_view type, const model_tables& models, value_id model,
-    std::string_view model_path, std::span<const drawer_property> properties) {
+    const types::checkout_registry& registry, std::string_view type,
+    const model_tables& models, value_id model, std::string_view model_path,
+    std::span<const drawer_property> properties) {
     const auto o = enabled_overrides(properties);
     const auto& f = g.facets;
     const auto& a = g.archetypes;
 
-    std::set<std::string, std::less<>> facets;
+    facet_set facets;
     for (std::size_t i = 0; i < f.size(); ++i) {
         if (!serves(f.model_types[i], type))
             continue;
@@ -334,37 +657,24 @@ std::vector<unit> model_units(const types::physical_space& g,
                 f.technical_spaces[i], o, f.defaults[i] != 0))
             facets.insert(f.addresses[i]);
     }
-    if (!facet_renders(g, "ores.cpp.protocol", type, o)) {
-        for (const auto d : protocol_dependent_facets) {
-            const auto it = facets.find(d);
-            if (it != facets.end())
-                facets.erase(it);
-        }
-    }
 
-    const bool is_component = type == "component" &&
-        !member(models, model, "component").is_none();
-    const auto component = member(models, model, "component");
-    const std::string name(string_member(models, component, "name")
-        .value_or("unknown"));
-    const auto declared_full = string_member(models, component, "full_name");
-    const std::string full_name = declared_full
-        ? std::string(*declared_full) : "ores." + name;
+    const auto entity = type == "domain_entity"
+        ? values::member(models, model, "domain_entity") : value_id::none();
+    const bool no_temporal = type == "domain_entity" &&
+        gate_entity(facets, g, registry, models, entity, model_path);
+    if (!facet_renders(g, "ores.cpp.protocol", type, o))
+        drop(facets, protocol_dependent_facets);
+
+    const auto component = values::member(models, model, "component");
+    const bool is_component = type == "component" && !component.is_none();
     const auto kind = is_component
         ? string_member(models, component, "kind") : std::nullopt;
-
-    // resolve_targets sets the component's dir to its root relative to
-    // projects/, the directory above the model's modeling/.
-    std::string_view dir = model_path;
-    for (int up = 0; up < 2; ++up)
-        dir = dir.substr(0, dir.rfind('/') == std::string_view::npos
-            ? 0 : dir.rfind('/'));
-    if (dir.starts_with("projects/"))
-        dir.remove_prefix(9);
-    const std::string component_dir(dir);
-    const std::string include_root = kind && *kind == "adapter" &&
-        component_dir.find('/') != std::string::npos
-        ? component_dir.substr(0, component_dir.find('/')) : full_name;
+    const bool registrar = !entity.is_none() && registry.shell_registrars
+        .contains(values::str(models, entity, "component"));
+    const auto placeholders = is_component
+        ? component_placeholders(models, component, kind, model_path)
+        : !entity.is_none() ? entity_placeholders(models, entity)
+        : std::vector<placeholder>{};
 
     std::vector<std::size_t> deferred;
     std::vector<std::string> outputs;
@@ -378,23 +688,21 @@ std::vector<unit> model_units(const types::physical_space& g,
             if (!a.kinds[j].empty() && (!kind ||
                 std::ranges::find(a.kinds[j], *kind) == a.kinds[j].end()))
                 continue;
+            if (no_temporal && std::ranges::find(no_temporal_archetypes,
+                    a.addresses[j]) != std::end(no_temporal_archetypes))
+                continue;
             if (!is_enabled(a.addresses[j], facet, ts, o, a.defaults[j] != 0))
                 continue;
             if (a.template_names[j].empty() || a.outputs[j].empty())
                 continue;
-            if (std::ranges::find(shell_aggregator_templates,
+            if (!registrar && std::ranges::find(shell_aggregator_templates,
                     a.template_names[j]) != std::end(shell_aggregator_templates))
                 continue;
-            auto output = a.outputs[j];
-            if (is_component) {
-                replace_all(output, "{component_dir}", component_dir);
-                replace_all(output, "{component}", name);
-                replace_all(output, "{component_full}", full_name);
-                replace_all(output, "{component_include_root}",
-                    include_root);
-            }
+            auto output = resolve(a.outputs[j], placeholders);
+            if (!output)
+                continue;
             deferred.push_back(j);
-            outputs.push_back(std::move(output));
+            outputs.push_back(std::move(*output));
         }
     }
 
