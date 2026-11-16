@@ -40,6 +40,10 @@ value_id entity_context(compass::model::ops::builder& b, value_id library,
         return context;
     const auto loaded = values::member(b.tables(), model, "domain_entity");
     derive_sql_table_flags(b, entity);
+    suppress_manual_coding_scheme(b, entity);
+    mark_artefact_last_items(b, entity);
+    derive_cardinality_limit_flag(b, entity);
+    format_columns(b, entity);
     project_sql_table(b, context, loaded, entity);
     b.set_copy(context, "domain_entity", entity);
     return context;

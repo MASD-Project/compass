@@ -65,6 +65,37 @@ void derive_sql_table_flags(compass::model::ops::builder& b,
     compass::model::types::value_id entity);
 
 /**
+ * @brief Clears has_coding_scheme and has_nullable_coding_scheme when the
+ * entity declares its own coding_scheme_code column (core.py 4138-4152),
+ * so the generic column is not emitted twice; has_any_coding_scheme stays.
+ */
+void suppress_manual_coding_scheme(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief Marks the last item of artefact_indexes and artefact_columns
+ * (core.py 4153-4156).
+ */
+void mark_artefact_last_items(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief sql.has_cardinality_limit_validations, true when an insert
+ * trigger validation names a cardinality_limit_table (core.py 4157-4161);
+ * absent otherwise.
+ */
+void derive_cardinality_limit_flag(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief Marks the last column and formats each column's detail for a
+ * doxygen comment, prefixing continuation lines with "     * "
+ * (core.py 4164-4166, _format_columns_for_doxygen).
+ */
+void format_columns(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
  * @brief data['table']: domain_entity_to_table_context and
  * normalise_sql_table_context, written to table of @p context. The
  * snapshot parts (the scalars, the primary key's own members, the column

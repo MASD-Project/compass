@@ -22,6 +22,7 @@ add_library(${lib_target_name}
     ops/compile.cpp
     ops/context.cpp
     ops/entity_context.cpp
+    ops/entity_markers.cpp
     ops/entity_sql_table.cpp
     ops/manifest.cpp
     ops/output.cpp
