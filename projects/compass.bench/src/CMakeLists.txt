@@ -38,6 +38,7 @@ add_library(${lib_target_name}
     ops/parse_stage.cpp
     ops/partition.cpp
     ops/read_stage.cpp
+    ops/render_stage.cpp
     ops/search_paths.cpp
     ops/store_stage.cpp
     ops/types_stage.cpp
@@ -51,6 +52,7 @@ target_include_directories(${lib_target_name} PUBLIC
 target_link_libraries(${lib_target_name}
     PUBLIC
         compass.codec.lib
+        compass.codegen.lib
         compass.ingest.lib
         compass.model.lib
         compass.platform.lib
