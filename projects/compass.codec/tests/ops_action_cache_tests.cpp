@@ -339,3 +339,16 @@ TEST_CASE("the record names the manifest and result of every unit",
             record.results[{u}]));
     }
 }
+
+TEST_CASE("two documents with the same bytes at different paths keep "
+    "their own results", "[ops][action_cache]") {
+    scoped_cache cache;
+    auto docs = base();
+    docs["task_d.org"] = docs["task_a.org"];
+    const auto first = run(cache, docs);
+
+    const auto second = run(cache, docs);
+
+    CHECK(second.ran == counts{0, 0});
+    CHECK(second.record == first.record);
+}
