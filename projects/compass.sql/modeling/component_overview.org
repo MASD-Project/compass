@@ -1,0 +1,88 @@
+:PROPERTIES:
+:ID: E457A2C8-04A0-4DBC-A560-BD1ACE1B6DB5
+:END:
+#+title: compass.sql
+#+description: The checks over SQL sources as text: a scanner that follows PostgreSQL's lexer the way ORE Studio's sql-hygiene script does, and the codec that runs that gate in the codec runtime.
+#+type: component
+#+level: cross
+#+filetags: :sql:gates:checks:component:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+
+This page is the component overview for =compass.sql=, a simple component in
+the domain layer of the
+[[id:8A9A460F-8024-4890-B091-C0D02FD84218][System Model]].
+
+* Summary
+
+=compass.sql= runs ORE Studio's =sql-hygiene= gate
+(=projects/ores.sql/utility/check_sql_hygiene.py=) as a corpus codec. The
+script reread every SQL file of the tree on each run; the codec reads them
+through its view, so a run in which no SQL file changed reuses its findings
+without reading any.
+
+The scanner is a port, not a parser: it reproduces the script's rules,
+including what they get wrong, such as reporting =create  table  if not
+exists= with two spaces before =if=, because the acceptance of the port is
+the same verdict on the same commit. It works on bytes: a byte of 0x80 or
+more counts as a word character, and the non-ASCII spaces Python's =\s=
+matches are not spaces. tree-sitter is not used: its SQL grammar does not
+read psql scripts (see
+[[id:E2DCD7CE-4CFC-47D8-A65D-E05A4CA48EB6][Measure tree-sitter parsing]]).
+
+The codec is off by default.
+
+* Inputs
+
+- The =.sql= files under each directory of the option =roots=,
+  comma-separated, default =projects/ores.sql=, through =list_files= and
+  =read_file= of the corpus view.
+
+* Outputs
+
+- *=sql_hygiene=.* One finding per defect, under four rules.
+  - =unterminated_block_comment=: a block comment is still open at the end
+    of the file. Block comments nest, as in PostgreSQL; =--= comments,
+    dollar-quoted bodies and both quote styles hide the markers. The finding
+    is at the outermost comment still open.
+  - =duplicate_index=: =create [unique] index if not exists= appears more
+    than once with the same name, table and columns, compared lower-cased
+    with the columns' spaces collapsed. The finding is at the first.
+  - =comment_splits_literals=: a comment stands between two string literals,
+    which PostgreSQL joins only across whitespace; dollar-quoted bodies are
+    scanned too. The finding is at the comment.
+  - =not_re_runnable=: in the text with comments, literals and bodies
+    masked (=ops::mask_non_code=), =create table=, =sequence=, =extension=,
+    =schema= or =materialized view= without =if not exists=; =create
+    trigger=, =rule=, =view=, =function= or =procedure= without =or
+    replace=; =create index= without =if not exists=; =create policy= with
+    no =drop policy if exists= of the same name and table in the file; and
+    =create type= or =domain= with no =drop ... if exists= of the same name.
+  A message holds no count: the script's depth of an open comment and the
+  number of times an index is created are left out.
+
+* Entry points
+
+| Path                                           | Role                                         |
+|------------------------------------------------+----------------------------------------------|
+| =include/compass.sql/codecs/sql_hygiene.hpp=   | The =sql_hygiene= codec.                     |
+| =include/compass.sql/ops/hygiene.hpp=          | The four rules over the text of one file.    |
+
+| Target              | Kind                                      |
+|---------------------+-------------------------------------------|
+| =compass.sql.lib=   | Library.                                  |
+| =compass.sql.tests= | Catch2 executable, registered with CTest. |
+
+* Dependencies
+
+- =compass.codec= for the descriptor, the corpus view and the diagnostic
+  table.
+- The C++23 standard library.
+- =compass.store= and Catch2, for the tests only.
+
+* See also
+
+- [[id:1B649514-55E4-4015-B71A-62BA58BEFA26][compass.cpp]] --- the C++ gates,
+  built the same way.
+- [[id:AFF665C4-739C-4BDB-93BD-9D547351AE4F][Investigation: ORE Studio gate classification]]
+  --- the gates and their baseline times.

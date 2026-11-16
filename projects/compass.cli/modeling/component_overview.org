@@ -20,8 +20,9 @@ checkout, resolves the IDs of its org files from git's index or the
 worktree index, maps each parsed object from the store or parses the file,
 builds the type registry from the contract pages, and runs the enabled
 codecs from the dependency record and the result cache: those
-=compass.codec= ships, the =codegen= codec of =compass.codegen= and the C++
-gates of =compass.cpp=, which =app::codecs= lists. The codecs read the other files of the checkout
+=compass.codec= ships, the =codegen= codec of =compass.codegen=, the C++
+gates of =compass.cpp= and the =sql_hygiene= codec of =compass.sql=, which
+=app::codecs= lists. The codecs read the other files of the checkout
 through =app::checkout_files_of=, whose content IDs come from the same
 resolver. =generate=, =diff= and =check= then format the files of each codec that
 names formatters, through the result cache. Then each command does one
@@ -176,6 +177,7 @@ range, 1-based, the column counted in bytes. The rule is written as
   cache, the sink and the diff.
 - =compass.codegen= for the =codegen= codec.
 - =compass.cpp= for the C++ gates.
+- =compass.sql= for the =sql_hygiene= codec.
 - =compass.ingest= for the parser and the type registry builder.
 - =compass.store= for IDs, the store and collection.
 - =compass.org= and =compass.platform= for the tables and mapped files,

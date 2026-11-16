@@ -178,7 +178,9 @@ TEST_CASE("config prints every value with where it came from",
         "codegen.prettier =  (default)\n"
         "codegen.prettier_style =  (default)\n"
         "enum_attributes.enabled = false (default)\n"
-        "exported_types.enabled = false (default)\n");
+        "exported_types.enabled = false (default)\n"
+        "sql_hygiene.enabled = false (default)\n"
+        "sql_hygiene.roots = projects/ores.sql (default)\n");
 }
 
 TEST_CASE("an error in the configuration file exits 2 naming the line and "
@@ -271,7 +273,8 @@ TEST_CASE("editing one codec's option in the file runs only that codec's "
     const auto again = run_on(repo, "gen");
     CHECK_THAT(again.out, ContainsSubstring(
         "units run: document_index 0, required_sections 0, tangle 0, "
-        "tangle_check 0, codegen 0, enum_attributes 0, exported_types 0;"));
+        "tangle_check 0, codegen 0, enum_attributes 0, exported_types 0, "
+        "sql_hygiene 0;"));
 
     configure("second.tsv");
     const auto edited = run_on(repo, "gen");
@@ -281,7 +284,8 @@ TEST_CASE("editing one codec's option in the file runs only that codec's "
         "1 removed"));
     CHECK_THAT(edited.out, ContainsSubstring(
         "units run: document_index 1, required_sections 0, tangle 0, "
-        "tangle_check 0, codegen 0, enum_attributes 0, exported_types 0;"));
+        "tangle_check 0, codegen 0, enum_attributes 0, exported_types 0, "
+        "sql_hygiene 0;"));
     CHECK(std::filesystem::exists(repo.output_root() / "second.tsv"));
     CHECK_FALSE(std::filesystem::exists(repo.output_root() / "first.tsv"));
 }
