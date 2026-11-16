@@ -26,11 +26,11 @@ Record the inputs each codec reads at run time, as compiler dependency files do,
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:8DC60B89-1605-4281-90FF-5AC8B33F629A][Run codecs and write only changes]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -68,7 +68,14 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| ORE Studio first run: units ran, wall | 1 + 10,117, 32.8 ms | =compass-bench codecs <archive> --meta <archive>/doc/meta -j 8 --repeat 5= | ORE Studio 7aa4435e21 |
+| ORE Studio, nothing changed | 0 + 0, 17.7 ms | same | ORE Studio 7aa4435e21 |
+| ORE Studio, one task edited | 1 + 1, 31.6 ms | same | ORE Studio 7aa4435e21 |
+| ORE Studio dependency record | 6.2 MB; read 39 ms, write check 41 ms | same | ORE Studio 7aa4435e21 |
+| This repository: first run, unchanged run | 1 + 348 units in 1.16 ms, 0 units in 0.69 ms, same outputs | =compass-bench codecs . --meta doc/meta= | compass-ng 016c60a |
+
+Indicative timings on a shared machine. Running both codecs over ORE Studio with
+no recording took 12.4 ms (Define the codec interface).
 
 * Notes
 
@@ -96,3 +103,20 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- Codecs record their reads through the view with no opt-in: documents
+  handed out, lookups by ID or path with their answer (misses included), and
+  reads of the type registry. A corpus unit records the hash of its type set.
+- The record at =<gitdir>/compass/deps= keeps each unit's inputs and outputs;
+  a unit re-runs only when an input changed, a missed lookup now resolves, its
+  type set changed, or its codec's version or configuration changed. A skipped
+  unit's outputs come from the record, because the store's collection would
+  remove objects no git index names.
+- On ORE Studio a run with nothing changed runs no unit, and editing one task
+  re-runs one unit per codec.
+- *Recording costs more than it saves for cheap codecs.* An unchanged run over
+  ORE Studio takes 17.7 ms against 12.4 ms for running both codecs with no
+  record: the 6.2 MB record costs about 40 ms to read and 40 ms to check, much
+  of it SHA-1 (estimated, not profiled). It pays off for expensive codecs such
+  as codegen and the HTML export; a cheaper integrity check, or letting cheap
+  codecs opt out, is the follow-up.
