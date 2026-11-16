@@ -16,10 +16,11 @@ in the domain layer of the
 * Summary
 
 =compass.ingest= turns source files into the tables of
-[[id:44C128E0-BCF3-4574-B171-BF5E72325085][compass.org]]. Today it holds one
-facet, =org=, with the org-mode parser. =parse= reads the bytes of one
-document and fills one document's tables. It is hand-written, uses no regular
-expression, and allocates per table and never per node.
+[[id:44C128E0-BCF3-4574-B171-BF5E72325085][compass.org]]. It holds two
+facets. =org= is the org-mode parser: =parse= reads the bytes of one document
+and fills one document's tables. It is hand-written, uses no regular
+expression, and allocates per table and never per node. =meta= builds the
+=compass.org= type registry from contract pages the parser has filled.
 
 The parser follows =org-element.el= as Org 9.7 ships it. Where the Org Syntax
 specification and org-element disagree, org-element wins, because the HTML
@@ -75,6 +76,40 @@ Not recognised:
   =org-inlinetask= loaded.
 - =#+setupfile:=: keywords of another file are not read.
 
+* The type registry builder
+
+=meta::type_registry_builder= takes one parsed =document_type_*.org= page at a
+time, then the codegen model names, and builds a =type_registry=. The title
+=Document type: a, b= names the types the page defines; a page may define
+several. The fields come from the subtree of the level-1 =Contract= heading:
+
+| Field             | Read from                                                              |
+|-------------------+------------------------------------------------------------------------|
+| Level             | The first verbatim of a =Level ::= item.                               |
+| Folder            | The first verbatim of a =Folder ::= or =Path ::= item.                 |
+| TODO keywords     | A =TODO vocabulary ::= item, a =State ::= item that holds =#+todo:=,   |
+|                   | or a =#+todo:= line in a block.                                        |
+| Not stateful      | An item that opens with =Not stateful=.                                |
+| Required sections | The list under a =Required ... ::= item, or under a sub-heading whose  |
+|                   | title names sections; only items that open with a verbatim heading.    |
+
+=add_contract= returns a =contract_report= saying where each field came from,
+or that it is missing, so a contract page that drifts from these shapes shows
+in =compass-bench types= instead of silently registering less. The model
+names are =meta::model_types=, the =#+type:= values ORE Studio's codegen
+loader dispatches on. A name added twice keeps its first row.
+
+Measured on this repository's 24 contract pages: 17 fit every field. The
+level comes from an item on 23 pages, the folder from a =Folder= item on 19
+and a =Path= item on 1, the state from =TODO vocabulary= on 3, =State= on 1,
+a =#+todo:= block on 1 and =Not stateful= on 15, the sections from an item on
+17 and a heading on 2. The seven that do not fit are =decision= and =plan=,
+which live inside other documents and state no folder, state or sections;
+=design=, whose folder is prose and which lists no sections; =meta=, with no
+state or sections; =memory=, whose required structure names no headings; and
+=retrospective, release_note, audit_report=, which states none of the fields.
+The command is =compass-bench types . --meta doc/meta=.
+
 * Verification
 
 | Check                 | Result                                                             |
@@ -102,7 +137,8 @@ covered by the unit tests alone, whose expected results are org-element's.
 
 | Path                                   | Role                                                         |
 |----------------------------------------+--------------------------------------------------------------|
-| =include/compass.ingest/org/parser.hpp= | =parse=, the only public function.                           |
+| =include/compass.ingest/org/parser.hpp= | =parse=, the only public function of =org=.                  |
+| =include/compass.ingest/meta/type_registry_builder.hpp= | The builder, =contract_report= and =model_types=. |
 | =src/org/parser.cpp=                   | The two passes and the TODO vocabulary.                      |
 | =src/org/elements.cpp=                 | First pass: elements, after =org-element--current-element=.  |
 | =src/org/objects.cpp=                  | Second pass: objects, after =org-element--object-lex=.       |
@@ -111,6 +147,7 @@ covered by the unit tests alone, whose expected results are org-element's.
 | =src/org/entities.cpp=                 | The names of =org-entities=.                                 |
 | =tests/org_*_tests.cpp=                | One file per construct group; expected dumps from the oracle. |
 | =tests/org_parser_tests.cpp=           | The columns the dump does not print.                         |
+| =tests/meta_type_registry_builder_tests.cpp= | Contract pages of each shape, built into a registry.   |
 
 | Target                 | Kind                                      |
 |------------------------+-------------------------------------------|
@@ -119,7 +156,7 @@ covered by the unit tests alone, whose expected results are org-element's.
 
 * Dependencies
 
-- =compass.org= for the tables and the dump.
+- =compass.org= for the tables, the dump and the type registry.
 - The C++23 standard library.
 - Catch2, for the tests only. Emacs is needed to run the differential, not to
   build or test.

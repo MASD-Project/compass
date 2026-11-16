@@ -20,6 +20,7 @@ set(lib_target_name ${name}.lib)
 set(tests_target_name ${name}.tests)
 
 add_executable(${tests_target_name}
+    meta_type_registry_builder_tests.cpp
     org_block_tests.cpp
     org_crlf_tests.cpp
     org_document_tests.cpp

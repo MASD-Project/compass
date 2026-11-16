@@ -19,6 +19,7 @@ set(name "compass.ingest")
 set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
+    meta/type_registry_builder.cpp
     org/elements.cpp
     org/entities.cpp
     org/objects.cpp
