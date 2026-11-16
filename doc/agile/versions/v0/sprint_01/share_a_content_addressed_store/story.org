@@ -21,11 +21,11 @@ A run never re-parses a file whose content any worktree of the repository has al
 
 | Field         | Value                                  |
 |---------------+----------------------------------------|
-| State         | STARTED                              |
+| State         | DONE                              |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
-| Now           | Not yet started.                       |
+| Now           | Nothing. |
 | Waiting on    | Nothing.                               |
-| Next          | Break the story into tasks.            |
+| Next          | Nothing. |
 | Last touched  | 2026-11-16                               |
 
 * Acceptance
@@ -42,10 +42,29 @@ A run never re-parses a file whose content any worktree of the repository has al
 | [[id:BBF84991-7193-4B2C-8E2E-362FB0F30B26][Design the object format]] | DONE | 2026-11-16 | 2026-11-16 | Define the object and pack format: position-independent tables that are memory-mapped, with a format and parser version in the header. |
 | [[id:1FB5EF03-F09F-448B-9416-E2EE53E77F94][Read blob IDs from the git index]] | DONE | 2026-11-16 | 2026-11-16 | Take blob IDs for clean tracked files from git's index, and hash changed or untracked files the same way. |
 | [[id:0FE04F02-0E86-4751-8DF2-B50DA95E64E8][Write the worktree index]] | DONE | 2026-11-16 | 2026-11-16 | Keep a per-worktree index that maps each path to its stat data and content hash. |
-| [[id:E18B47E6-E7A0-4427-9933-E2F9FDC1DEF8][Collect unused objects]] | STARTED | 2026-11-16 | | Evict least recently used objects when the store passes its size cap. |
+| [[id:E18B47E6-E7A0-4427-9933-E2F9FDC1DEF8][Collect unused objects]] | DONE | 2026-11-16 | 2026-11-16 | Evict least recently used objects when the store passes its size cap. |
+
+* Documents
+
+| Document | Kind | Description |
+|----------+------+-------------|
+| [[id:4EA2D9C6-CE60-44A0-8B37-EEF23EA614E8][Design: the object format of the content-addressed store]] | design | The object format, keys and collection, with the rejected alternatives. |
+| [[id:EB285F25-4AF8-482D-B679-C650DA718CF6][compass.store]] | component | The durable description of the store. |
 
 * Decisions
 
 * Out of scope
 
 -
+
+* Result
+
+- Parsed org documents are stored once per content in loose objects under the
+  repository's git common directory and loaded by memory-mapping with no
+  decode. IDs come from git's index for 95% of ORE Studio's files and from the
+  compass worktree index for most of the rest.
+- A warm run over ORE Studio with nothing changed hashes nothing, writes
+  nothing and takes about 210 ms (about 330 ms with the file listing), against
+  a 1 s budget.
+- The store is collected by reachability across all worktrees, under a size
+  cap, and deleting it loses only speed.
