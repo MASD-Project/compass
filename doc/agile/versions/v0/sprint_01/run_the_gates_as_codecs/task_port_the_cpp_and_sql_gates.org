@@ -26,11 +26,11 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -66,7 +66,11 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Gates ported | 21 of 25; each matches its original on ORE 545cafca45, as it is and planted | original vs codec, =cppsql/bin/plant.py= | d8b50e5 |
+| Added to a warm ORE check | about 0.75 s at load 1 (2.95 to 3.70 s), 0.84 s at load 4 (agent, medians of 5) | =compass check= before and after | d8b50e5 |
+| Warm ORE check with all 21 | 5.04-5.16 s at load 20; 75 findings (24 drift, 51 baseline entries not yet inline exceptions) | =compass check= | d8b50e5 |
+| Slowest originals vs codec, cold | unity-collisions 9.66 to 1.94 s; portable-stop 11.24 to 2.34 s; populate-refs 7.06 to 0.52 s | scratch harness | d8b50e5 |
+| ctest | 12 of 12 suites pass | =ctest --preset linux-clang-release= | d8b50e5 |
 
 * Notes
 
@@ -94,3 +98,34 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+21 of the 25 C++ and SQL gates are compass check codecs, each matching its
+original's verdict on ORE Studio, and together they add about 0.75 s to a
+warm check, inside the 2 s budget.
+
+=compass.platform= gains a =text= facet: Python-compatible regular
+expressions over PCRE2 (a new vcpkg dependency) and Python's text decoding,
+so each gate's rules are copied nearly line for line.
+
+Baselines moved to inline exceptions: forward-declarable-includes (1),
+core-link-edges (37 live edges; its 2 dead entries are why the original fails
+today) and rls-widenings (13 policies). Data that CMake reads, pattern-shaped
+exemptions and ceilings stay as data or codec options.
+
+Not ported:
+
+- boost-deps reads files inside the vcpkg submodule, which compass's listing
+  shows as one entry.
+- xml-benchmark-recorded compares files at commits named in =history.tsv=;
+  it needs a runtime input for a file at a named commit.
+- format would format every C++ file on a first run (about 99 s) and needs a
+  formatter in a check codec; whole-tree format with ratchet would match it.
+- parameter-value-sets-only imports ORE's value-set generator; it moves to
+  the generator gates task.
+
+Decisions to revisit:
+
+- PCRE2 and text handling live in =compass.platform=, which held only OS code.
+- bff-list-requests reproduces prettier's array layout instead of running
+  prettier; it matches the committed table byte for byte.
+- Path and ceiling defaults are ORE's values as codec options.
