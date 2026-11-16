@@ -8,7 +8,7 @@
 #+filetags: :ship_the_compass_cli:sprint_01:v0:
 #+owner: marco
 #+branch: feature/write-the-cli-recipes
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/28
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -74,7 +74,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/28][#28]] | [doc] Add recipes for every compass command |
 
 * Review
 
