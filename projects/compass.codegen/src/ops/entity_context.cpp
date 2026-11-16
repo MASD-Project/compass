@@ -67,6 +67,8 @@ value_id entity_context(compass::model::ops::builder& b, value_id library,
     derive_list_requests(b, entity);
     apply_stated_order(b, entity);
     derive_foreign_key_seeds(b, entity, registry);
+    derive_party_scope(b, entity);
+    derive_storage_shape(b, entity);
     project_enforced_foreign_keys(b, entity);
     project_sql_table(b, context, loaded, entity);
     b.set_copy(context, "domain_entity", entity);

@@ -289,6 +289,24 @@ void derive_foreign_key_seeds(compass::model::ops::builder& b,
     const types::entity_registry& registry);
 
 /**
+ * @brief index_name_prefix (sql.index_prefix, else entity_plural),
+ * has_party_column, party_column_optional and party_scoped_writes (core.py
+ * 5423-5465). Reads parent_is_party from derive_foreign_key_seeds.
+ */
+void derive_party_scope(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief The table's shape (core.py 5466-5559): current_state,
+ * has_as_of_lookup (on unless the model says otherwise), immutable,
+ * append_insert, nullable_tenant_id, has_newest_read, fixed_columns,
+ * immutable_tenant_key, has_tenant_in_pk, validates_tenant_on_insert, and
+ * on the sql section hypertable, bitemporal_soft_update and rls_hot_path.
+ */
+void derive_storage_shape(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
  * @brief enforced_foreign_keys (core.py 5306), the foreign keys with
  * enforce set. The Python's list holds the very key objects, so the
  * oracle shows them as later steps leave them: run after the last change
