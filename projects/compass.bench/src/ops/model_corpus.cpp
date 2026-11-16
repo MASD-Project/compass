@@ -60,6 +60,17 @@ compass::model::ops::document_finder model_corpus::finder() {
     };
 }
 
+compass::model::ops::document_lister model_corpus::lister() const {
+    return [paths = paths_](std::string_view prefix) {
+        std::vector<std::string_view> out;
+        for (const auto& p : *paths) {
+            if (p.starts_with(prefix))
+                out.push_back(p);
+        }
+        return out;
+    };
+}
+
 compass::model::ops::document document_of(const parsed_document& p) {
     return {p.path, p.file.text(), &p.view};
 }

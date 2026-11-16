@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :port_codegen:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/load-family-and-trade-type-models
+#+pr: https://github.com/MASD-Project/compass/pull/33
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -26,22 +26,27 @@ Port the loaders for the 4 family models and the trade type catalogue, which rea
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                              |
 | Parent story | [[id:4F499B47-4AB8-4049-A72F-495351A6E2C7][Port ORE Studio codegen]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
 
 - All 844 ORE Studio models load identically to ores.codegen.
+- The 8 trade type catalogue outputs render byte-identical, so all 26,212 do.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Family models already load, from the junction task. What remains is the
+  trade type catalogue loader (org_loader.py 7221-7775) and
+  =_batch_shape_includes=.
+- Check the loaders with =codegen_model_diff.py= against all 844 models, then
+  build the trade type catalogue context and check its 8 outputs with
+  =codegen_render_diff.py --every-path=. That makes all 26,212 outputs
+  identical.
 
 * Measurements
 
@@ -55,7 +60,12 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Models identical | 844 of 844 (839 before) | =compass-bench models --dump= then =codegen_model_diff.py= against =codegen_model_dump.py= | a63cc3f |
+| Renders identical | 26,212 of 26,212; 0 missing, 0 different, 0 extra | =compass-bench render= then =codegen_render_diff.py --every-path= | a63cc3f |
+| Model load | 81.9 ms median of 5 (63.6 ms before), loaded machine | =compass-bench models= | a63cc3f |
+| Context build | 1.84 s for 825 contexts, loaded machine | =compass-bench render= | a63cc3f |
+| Render | 0.45 s median of 5 for 26,366 outputs | =compass-bench render= | a63cc3f |
+| ctest | 10 of 10 suites pass | =ctest --preset linux-clang-release= | a63cc3f |
 
 * Notes
 
@@ -74,7 +84,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/33][#33]] | [model] Load family and trade type models |
 
 * Review
 
@@ -83,3 +93,24 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+All 844 ORE Studio models load identically to ores.codegen, and every one of
+the 26,212 outputs ores.codegen produces renders byte-identical from contexts
+compass builds.
+
+- The trade type catalogue loader ports org_loader.py 7221-7775 into
+  =compass.model/src/ops/trade_type_catalogue.cpp=. =load_model= gains a
+  =document_lister= so the loader can scan the checkout's documents.
+- The family loader now derives the family's protocol as
+  =load_org_family_model= does, reading the central entity through a new
+  =entity_document_model=. The codegen copies of that derivation are deleted.
+- =trade_type_catalogue_context= ports =_batch_shape_includes=.
+
+Decisions to revisit:
+
+- =_require_family_part= is still checked only in codegen's service view, not
+  in the family loader.
+- =compass-bench= reads trade type routes with its own parse, which duplicates
+  the loader's =routes=.
+- The trade type loader re-parses each entity document it reads for columns,
+  with no cache; model load rose from 64 to 82 ms.

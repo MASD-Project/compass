@@ -61,7 +61,7 @@ models_result run_models_stage(const std::filesystem::path& checkout,
     const types::file_table& table, unsigned repetitions,
     const std::filesystem::path& dump_root) {
     models_result r;
-    model_corpus documents(checkout);
+    model_corpus documents(checkout, table.paths);
     std::vector<std::pair<parsed_document*, model_type>> models;
 
     const auto start = std::chrono::steady_clock::now();
@@ -81,6 +81,7 @@ models_result run_models_stage(const std::filesystem::path& checkout,
     r.models = models.size();
 
     const auto find = documents.finder();
+    const auto list = documents.lister();
 
     compass::model::types::model_tables tables;
     compass::model::ops::load_cache cache;
@@ -94,7 +95,7 @@ models_result run_models_stage(const std::filesystem::path& checkout,
         for (const auto& [p, type] : models) {
             std::string error;
             compass::model::ops::load_model(b, document_of(*p), type, find,
-                cache, &error);
+                list, cache, &error);
             const auto t = static_cast<std::size_t>(type);
             ++r.by_type[t];
             if (!error.empty()) {

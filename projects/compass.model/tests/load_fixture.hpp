@@ -25,6 +25,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 #include "compass.ingest/org/parser.hpp"
 #include "compass.model/io/json.hpp"
 #include "compass.model/ops/load.hpp"
@@ -86,7 +87,7 @@ public:
         types::model_tables tables;
         ops::builder b(tables);
         ops::load_cache cache;
-        const auto id = ops::load_model(b, doc, *type, find, cache);
+        const auto id = ops::load_model(b, doc, *type, find, lister(), cache);
         std::string out;
         io::write_json(out, tables, tables.models.roots[id]);
         return out;
@@ -110,6 +111,17 @@ public:
     }
 
 private:
+    [[nodiscard]] ops::document_lister lister() const {
+        return [this](std::string_view prefix) {
+            std::vector<std::string_view> out;
+            for (const auto& [path, d] : index_) {
+                if (path.starts_with(prefix))
+                    out.push_back(d->path);
+            }
+            return out;
+        };
+    }
+
     [[nodiscard]] ops::document_finder finder() const {
         return [this](std::string_view p) -> std::optional<ops::document> {
             const auto it = index_.find(std::string(p));

@@ -40,53 +40,6 @@ bool is_lower_or_digit(char c) {
     return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_';
 }
 
-/*
- * ^#\+entity_singular:\s*(\S+), multi-line.
- */
-std::string first_entity_singular(std::string_view text) {
-    constexpr std::string_view marker = "#+entity_singular:";
-    for (auto at = text.find(marker); at != std::string_view::npos;
-         at = text.find(marker, at + 1)) {
-        if (at != 0 && text[at - 1] != '\n')
-            continue;
-        auto p = at + marker.size();
-        while (p < text.size() && is_space(text[p]))
-            ++p;
-        auto end = p;
-        while (end < text.size() && !is_space(text[end]))
-            ++end;
-        if (end > p)
-            return std::string(text.substr(p, end - p));
-    }
-    return {};
-}
-
-/*
- * :tablename:\s+([a-z][a-z0-9_]*_tbl), first match: the longest run of
- * name characters that ends in _tbl.
- */
-std::string first_tablename(std::string_view text) {
-    constexpr std::string_view marker = ":tablename:";
-    constexpr std::string_view suffix = "_tbl";
-    for (auto at = text.find(marker); at != std::string_view::npos;
-         at = text.find(marker, at + 1)) {
-        auto p = at + marker.size();
-        const auto spaced = p;
-        while (p < text.size() && is_space(text[p]))
-            ++p;
-        if (p == spaced || p == text.size() || text[p] < 'a' || text[p] > 'z')
-            continue;
-        auto end = p + 1;
-        while (end < text.size() && is_lower_or_digit(text[end]))
-            ++end;
-        for (auto stop = end; stop >= p + 1 + suffix.size(); --stop) {
-            if (text.substr(stop - suffix.size(), suffix.size()) == suffix)
-                return std::string(text.substr(p, stop - p));
-        }
-    }
-    return {};
-}
-
 std::string name_or_column(const model_tables& t, value_id c) {
     const auto name = values::member(t, c, "name");
     return values::truthy(t, name) ? values::py_str(t, name)
@@ -229,17 +182,6 @@ const types::model_directory& directory_of(
     const auto it = registry.directories.find(at == std::string_view::npos ?
         std::string_view() : model_path.substr(0, at));
     return it == registry.directories.end() ? none : it->second;
-}
-
-std::optional<entity_table_claim> entity_table_claim_of(
-    std::string_view org_text) {
-    auto singular = first_entity_singular(org_text);
-    if (singular.empty())
-        return std::nullopt;
-    auto table = first_tablename(org_text);
-    if (table.empty())
-        return std::nullopt;
-    return entity_table_claim{std::move(table), std::move(singular)};
 }
 
 std::vector<types::trade_type_route> trade_type_routes_of(

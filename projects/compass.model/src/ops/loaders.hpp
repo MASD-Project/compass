@@ -71,6 +71,7 @@ struct load_context {
     const document& d;
     const outline& o;
     const document_finder& find;
+    const document_lister& list;
     load_cache& cache;
 };
 
@@ -219,11 +220,19 @@ void load_component_overview(load_context& c, types::value_id root);
 void load_field_group(load_context& c, types::value_id root);
 void load_family(load_context& c, types::value_id root);
 void load_entity(load_context& c, types::value_id root);
+
+/**
+ * @brief org_document_to_model: the domain_entity load_entity writes under
+ * @p root, before it resolves the domain group fields and validates the
+ * model. A family reads the entities it names this way.
+ */
+types::value_id entity_document_model(load_context& c, types::value_id root);
 void load_operation(load_context& c, types::value_id root);
 void load_outcome_catalogue(load_context& c, types::value_id root);
 void load_asset_class_catalogue(load_context& c, types::value_id root);
 void load_service_registry(load_context& c, types::value_id root);
 void load_junction(load_context& c, types::value_id root);
+void load_trade_type_catalogue(load_context& c, types::value_id root);
 
 }
 

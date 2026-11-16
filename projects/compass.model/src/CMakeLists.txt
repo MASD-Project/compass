@@ -26,6 +26,7 @@ add_library(${lib_target_name}
     ops/component.cpp
     ops/entity.cpp
     ops/entity_checks.cpp
+    ops/entity_claim.cpp
     ops/family.cpp
     ops/field_group.cpp
     ops/junction.cpp
@@ -36,7 +37,8 @@ add_library(${lib_target_name}
     ops/outline.cpp
     ops/physical_space.cpp
     ops/service_registry.cpp
-    ops/text.cpp)
+    ops/text.cpp
+    ops/trade_type_catalogue.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
 

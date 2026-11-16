@@ -38,6 +38,7 @@
 #include "compass.codegen/ops/values.hpp"
 #include "compass.model/io/json.hpp"
 #include "compass.model/ops/builder.hpp"
+#include "compass.model/ops/entity_claim.hpp"
 #include "compass.model/ops/load.hpp"
 #include "compass.model/ops/outline.hpp"
 #include "compass.platform/filesystem/mapped_file.hpp"
@@ -280,7 +281,7 @@ compass::codegen::types::entity_registry load_entity_registry(
                 compass::codegen::ops::trade_type_routes_of(outline);
         }
         const auto claim =
-            compass::codegen::ops::entity_table_claim_of(p->file.text());
+            compass::model::ops::entity_claim_of(p->file.text());
         if (!claim)
             continue;
         auto& owner = registry.tables[claim->table];
@@ -288,7 +289,8 @@ compass::codegen::types::entity_registry load_entity_registry(
         if (!type)
             continue;
         std::string error;
-        const auto id = mops::load_model(b, doc, *type, find, cache, &error);
+        const auto id = mops::load_model(b, doc, *type, find,
+            documents.lister(), cache, &error);
         if (error.empty())
             owner.parent = compass::codegen::ops::parent_entity_of(scratch,
                 scratch.models.roots[id]);
@@ -337,8 +339,8 @@ compass::codegen::types::entity_registry load_entity_registry(
             continue;
         std::string error;
         const auto id = mops::load_model(b, document_of(*p),
-            compass::model::types::model_type::field_group, find, cache,
-            &error);
+            compass::model::types::model_type::field_group, find,
+            documents.lister(), cache, &error);
         if (!error.empty())
             continue;
         const auto& t = b.tables();
@@ -413,7 +415,7 @@ std::map<std::string, std::set<std::string>, std::less<>> shell_units(
             continue;
         std::string error;
         const auto id = mops::load_model(b, document_of(*p), *type, find,
-            cache, &error);
+            documents.lister(), cache, &error);
         if (!error.empty())
             continue;
         const auto& t = b.tables();
@@ -456,7 +458,9 @@ constexpr context_type context_types[] = {
     {compass::model::types::model_type::asset_class_catalogue,
      "asset_class_catalogue"},
     {compass::model::types::model_type::outcome_catalogue,
-     "outcome_catalogue"}};
+     "outcome_catalogue"},
+    {compass::model::types::model_type::trade_type_catalogue,
+     "trade_type_catalogue"}};
 
 /**
  * @brief A model's shared context and what its template variants are
@@ -470,14 +474,16 @@ struct built_context {
 /**
  * @brief The shared context of the model @p root of @p type, whose
  * ores.codegen name is @p type_name. @p members are the entity models a
- * family names.
+ * family names, @p groups the field group models beside a trade type
+ * catalogue.
  */
 built_context build_context(compass::model::ops::builder& b,
     compass::model::types::model_type type, value_id library, value_id root,
     std::string_view stem, std::string_view type_name,
     const compass::codegen::types::entity_registry& entities,
     const compass::codegen::types::entity_site& site,
-    const compass::codegen::ops::family_members& members) {
+    const compass::codegen::ops::family_members& members,
+    const compass::codegen::ops::field_group_models& groups) {
     namespace cops = compass::codegen::ops;
     using compass::model::types::model_type;
     switch (type) {
@@ -500,6 +506,9 @@ built_context build_context(compass::model::ops::builder& b,
     case model_type::field_group:
         return {cops::field_group_context(b, library, root, stem, entities,
             site), value_id::none()};
+    case model_type::trade_type_catalogue:
+        return {cops::trade_type_catalogue_context(b, library, root, stem,
+            entities, site, groups), value_id::none()};
     default:
         return {cops::model_context(b, library, root, stem, type_name),
             value_id::none()};
@@ -532,7 +541,8 @@ compass::codegen::ops::family_members family_members_of(
             continue;
         std::string error;
         const auto id = mops::load_model(b, document_of(*d),
-            compass::model::types::model_type::entity, find, cache, &error);
+            compass::model::types::model_type::entity, find, documents.lister(),
+            cache, &error);
         if (!error.empty())
             continue;
         const auto entity = compass::codegen::ops::values::member(b.tables(),
@@ -541,6 +551,39 @@ compass::codegen::ops::family_members family_members_of(
             b.tables(), entity, "entity_singular"));
         if (!singular.empty())
             out.try_emplace(singular, entity);
+    }
+    return out;
+}
+
+/**
+ * @brief The field group models beside the model at @p path, by the
+ * dotted name of their file (<name>_field_group.org), loaded into @p b.
+ */
+compass::codegen::ops::field_group_models field_group_models_of(
+    std::string_view path, model_corpus& documents,
+    compass::model::ops::builder& b,
+    const compass::model::ops::document_finder& find,
+    compass::model::ops::load_cache& cache) {
+    namespace mops = compass::model::ops;
+    constexpr std::string_view suffix = "_field_group.org";
+    const auto dir = path.substr(0, path.rfind('/') + 1);
+    compass::codegen::ops::field_group_models out;
+    for (const auto p : documents.lister()(dir)) {
+        if (!p.ends_with(suffix) || p.find('/', dir.size()) != std::string::npos)
+            continue;
+        auto* d = documents.get(p);
+        if (d == nullptr)
+            continue;
+        std::string error;
+        const auto id = mops::load_model(b, document_of(*d),
+            compass::model::types::model_type::field_group, find,
+            documents.lister(), cache, &error);
+        if (!error.empty())
+            continue;
+        const auto name = p.substr(dir.size());
+        out.try_emplace(std::string(name.substr(0, name.size() - suffix.size())),
+            compass::codegen::ops::values::member(b.tables(),
+                b.tables().models.roots[id], "field_group"));
     }
     return out;
 }
@@ -564,7 +607,7 @@ std::vector<planned> plan_models(const std::filesystem::path& checkout,
     const auto graph = load_graph(checkout);
     const auto registry = load_registry(checkout, table);
 
-    model_corpus documents(checkout);
+    model_corpus documents(checkout, table.paths);
     const compass::platform::filesystem::mapped_file catalogue(
         checkout / "projects/ores.codegen/library/component_catalogue.org");
     const auto regenerated = compass::codegen::ops::regenerated_models(
@@ -597,7 +640,7 @@ std::vector<planned> plan_models(const std::filesystem::path& checkout,
         const auto type_name = known->name;
         std::string error;
         const auto id = mops::load_model(b, document_of(*p), *type, find,
-            cache, &error);
+            documents.lister(), cache, &error);
         if (!error.empty()) {
             r.messages.push_back(path + ": " + error);
             continue;
@@ -626,8 +669,12 @@ std::vector<planned> plan_models(const std::filesystem::path& checkout,
         const auto members = *type == compass::model::types::model_type::family
             ? family_members_of(path, table, documents, b, find, cache)
             : compass::codegen::ops::family_members{};
+        const auto groups =
+            *type == compass::model::types::model_type::trade_type_catalogue
+            ? field_group_models_of(path, documents, b, find, cache)
+            : compass::codegen::ops::field_group_models{};
         const auto [context, prepared] = build_context(b, *type, library,
-            root, stem, type_name, entities, site, members);
+            root, stem, type_name, entities, site, members, groups);
         ++r.contexts;
         for (const auto& u : units) {
             const auto variant = compass::codegen::ops::template_context(b,

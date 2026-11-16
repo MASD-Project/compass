@@ -825,7 +825,7 @@ void presentation_drawer(load_context& c, value_id out, node_id drawer,
         flag_icon || key_flag || has_icon_columns || combo_flag);
 }
 
-void load_entity(load_context& c, value_id root) {
+value_id entity_document_model(load_context& c, value_id root) {
     auto& b = c.b;
     const auto& o = c.o;
     const node_id document{0};
@@ -1236,7 +1236,11 @@ void load_entity(load_context& c, value_id root) {
             throw model_error("* Messages and a protocol paste block");
         declared_messages(c, b.list(de, "declared_messages"));
     }
+    return de;
+}
 
+void load_entity(load_context& c, value_id root) {
+    const auto de = entity_document_model(c, root);
     resolve_domain_group_fields(c, de);
     validate_entity(c, de);
 }
