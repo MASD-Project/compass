@@ -49,6 +49,21 @@ struct entity_table_claim {
     std::string_view org_text);
 
 /**
+ * @brief Adds what the model @p org_text declares to @p d, by its #+type:
+ * as _model_type_names reads it: an entity's #+entity_singular:, a
+ * junction's #+name_singular: and a field group's first of the two.
+ */
+void add_directory_model(types::model_directory& d,
+    std::string_view org_text);
+
+/**
+ * @brief The directory of the model at @p model_path in @p registry,
+ * empty when none of its models is registered.
+ */
+[[nodiscard]] const types::model_directory& directory_of(
+    const types::entity_registry& registry, std::string_view model_path);
+
+/**
  * @brief _parent_entity_info of a model as loaded: @p model is its root,
  * which holds domain_entity for an entity model; any other model reads as
  * an entity that states nothing.

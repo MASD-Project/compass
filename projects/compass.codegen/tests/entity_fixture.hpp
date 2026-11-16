@@ -22,6 +22,7 @@
 
 #include <string>
 #include <string_view>
+#include <vector>
 #include "compass.codegen/ops/values.hpp"
 #include "compass.model/io/json.hpp"
 #include "compass.model/ops/builder.hpp"
@@ -60,6 +61,21 @@ struct entity_fixture {
     }
 
     std::string json(std::string_view key) { return json(entity, key); }
+
+    /**
+     * @brief str() of each item of the list member @p key of @p object.
+     */
+    std::vector<std::string> strings(model::types::value_id object,
+        std::string_view key) {
+        std::vector<std::string> out;
+        for (const auto v : codegen::ops::values::items(tables, object, key))
+            out.push_back(codegen::ops::values::py_str(tables, v));
+        return out;
+    }
+
+    std::vector<std::string> strings(std::string_view key) {
+        return strings(entity, key);
+    }
 };
 
 }

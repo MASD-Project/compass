@@ -29,13 +29,6 @@ namespace {
 using namespace compass;
 using strings = std::vector<std::string>;
 
-strings names(codegen::tests::entity_fixture& f, std::string_view key) {
-    strings out;
-    for (const auto v : codegen::ops::values::items(f.tables, f.entity, key))
-        out.emplace_back(codegen::ops::values::py_str(f.tables, v));
-    return out;
-}
-
 /*
  * ores.trading.bond_instrument as the oracle shows it: the identity group
  * carries three columns, which reach no flat member and declare nothing.
@@ -58,9 +51,9 @@ TEST_CASE("a struct declaring its members lists the economic ones",
     codegen::tests::entity_fixture f(bond);
     codegen::ops::derive_economic_declaration(f.b, f.entity, {});
     CHECK(f.json("has_economic_declaration") == "true");
-    CHECK(names(f, "economic_fields") == strings{"notional"});
+    CHECK(f.strings("economic_fields") == strings{"notional"});
     CHECK(f.json("has_economic_fields") == "true");
-    CHECK(names(f, "canonical_members") == strings{"notional"});
+    CHECK(f.strings("canonical_members") == strings{"notional"});
     CHECK(f.json("has_canonical_members") == "true");
 }
 
@@ -71,8 +64,8 @@ TEST_CASE("groups declaring economic fields join the canonical form",
     registry.economic_field_groups = {"ores.trading.instrument_identity",
         "ores.dq.audit_record"};
     codegen::ops::derive_economic_declaration(f.b, f.entity, registry);
-    CHECK(names(f, "economic_fields") == strings{"notional"});
-    CHECK(names(f, "canonical_members") ==
+    CHECK(f.strings("economic_fields") == strings{"notional"});
+    CHECK(f.strings("canonical_members") ==
         strings{"identity", "notional", "audit"});
 }
 
@@ -107,5 +100,5 @@ TEST_CASE("a grouped entity declares through its groups",
     codegen::ops::derive_economic_declaration(f.b, f.entity, registry);
     CHECK(f.json("has_economic_declaration") == "true");
     CHECK(f.json("economic_fields") == "[]");
-    CHECK(names(f, "canonical_members") == strings{"leg"});
+    CHECK(f.strings("canonical_members") == strings{"leg"});
 }

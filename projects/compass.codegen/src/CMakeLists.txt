@@ -21,6 +21,7 @@ set(lib_target_name ${name}.lib)
 add_library(${lib_target_name}
     ops/compile.cpp
     ops/context.cpp
+    ops/entity_codecs.cpp
     ops/entity_columns.cpp
     ops/entity_context.cpp
     ops/entity_economics.cpp
@@ -28,6 +29,7 @@ add_library(${lib_target_name}
     ops/entity_groups.cpp
     ops/entity_keys.cpp
     ops/entity_markers.cpp
+    ops/entity_messages.cpp
     ops/entity_names.cpp
     ops/entity_order.cpp
     ops/entity_presentation.cpp
@@ -41,6 +43,7 @@ add_library(${lib_target_name}
     ops/entity_storage.cpp
     ops/entity_supply.cpp
     ops/entity_typescript.cpp
+    ops/entity_wire.cpp
     ops/manifest.cpp
     ops/output.cpp
     ops/physical_space.cpp

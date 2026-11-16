@@ -55,6 +55,16 @@ struct drawer_property {
 };
 
 /**
+ * @brief _facet_enabled: whether every one of @p addresses of @p facet is
+ * enabled under the ores.cpp tech space, after the
+ * :ores.<address>.enabled: entries of @p properties, the most specific
+ * address first, @p fallback when none speaks.
+ */
+[[nodiscard]] bool facet_enabled(std::span<const drawer_property> properties,
+    std::string_view facet, std::span<const std::string_view> addresses,
+    bool fallback);
+
+/**
  * @brief One output to render: the template and the output path relative
  * to the root of the checkout.
  */

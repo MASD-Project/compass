@@ -88,6 +88,29 @@ struct trade_type_route {
 };
 
 /**
+ * @brief What a directory's .org models declare, by their #+type:
+ * (_model_type_names and _entity_singulars_in): the entity singulars, the
+ * entity and junction singulars, and the field group singulars.
+ */
+struct model_directory {
+    std::set<std::string, std::less<>> entity_singulars;
+    std::set<std::string, std::less<>> member_names;
+    std::set<std::string, std::less<>> group_names;
+};
+
+/**
+ * @brief What the enrichment reads about the model file itself: its path
+ * relative to the checkout, whether it enables every wire-codec address
+ * (_has_wire_codec) and whether it generates its protocol header
+ * (_protocol_enabled), after its own overrides.
+ */
+struct entity_site {
+    std::string path;
+    bool has_generated_wire_codec = false;
+    bool protocol_enabled = true;
+};
+
+/**
  * @brief The models a domain entity's enrichment reads besides its own,
  * read once for every model.
  *
@@ -98,6 +121,10 @@ struct trade_type_route {
  * the rows of the custom-type registry the TypeScript projections read.
  * economic_field_groups holds the dotted names of the field groups whose
  * models declare an economic field (_group_declares_economic_fields).
+ * directories maps the directory of every .org model under a modeling/
+ * directory of projects/ to what its models declare. domain_headers holds
+ * the path of every header under a domain/ directory of projects/, which
+ * _foreign_root asks about.
  */
 struct entity_registry {
     std::map<std::string, table_owner, std::less<>> tables;
@@ -105,6 +132,8 @@ struct entity_registry {
         trade_type_routes;
     compass::model::ops::custom_types custom_types;
     std::set<std::string, std::less<>> economic_field_groups;
+    std::map<std::string, model_directory, std::less<>> directories;
+    std::set<std::string, std::less<>> domain_headers;
 };
 
 }

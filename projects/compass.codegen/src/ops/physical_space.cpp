@@ -548,6 +548,15 @@ bool gate_entity(facet_set& facets, const types::physical_space& g,
 
 }
 
+bool facet_enabled(std::span<const drawer_property> properties,
+    std::string_view facet, std::span<const std::string_view> addresses,
+    bool fallback) {
+    const auto o = enabled_overrides(properties);
+    return std::ranges::all_of(addresses, [&](std::string_view a) {
+        return is_enabled(a, facet, "ores.cpp", o, fallback);
+    });
+}
+
 types::physical_space load_physical_space(
     std::span<const node_document> nodes) {
     types::physical_space g;

@@ -494,6 +494,43 @@ void derive_economic_declaration(compass::model::ops::builder& b,
     const types::entity_registry& registry);
 
 /**
+ * @brief messages (core.py 6641-6647): entity_protocol_messages, the
+ * derived records and operations followed by the declared messages, with
+ * requires_session set on every message that states a subject. A
+ * read-only entity keeps no write operation and no write-only record.
+ * @p siblings are the entity singulars modelled beside the entity
+ * (sibling_entity_singulars): when one is <singular>_version the versions
+ * sub-resource takes the plural as its stem. The declared messages are
+ * the very dicts the Python appends, so requires_session is set on them
+ * in declared_messages too.
+ */
+void derive_messages(compass::model::ops::builder& b,
+    compass::model::types::value_id entity,
+    const types::entity_registry& registry,
+    const std::set<std::string, std::less<>>& siblings);
+
+/**
+ * @brief The codec headers (core.py 6648-6656): wire_codec_includes, the
+ * headers declaring the types a row holds (_codec_includes: the groups'
+ * own headers, the audit group's, then _member_headers of the columns,
+ * primary key columns and natural keys); message_codec_includes,
+ * _member_headers of every message field; and has_generated_wire_codec,
+ * from @p site. _require_visible_write_observer only refuses a model, so
+ * it is not ported.
+ */
+void derive_codec_includes(compass::model::ops::builder& b,
+    compass::model::types::value_id entity,
+    const types::entity_registry& registry, const types::entity_site& site);
+
+/**
+ * @brief struct_name (core.py 6657-6662), the message's name again, on
+ * every message. A declared message is the very dict the Python appends
+ * to messages, so it is set on declared_messages too.
+ */
+void derive_message_struct_names(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
  * @brief presentation.import_preview_columns, the columns with
  * import_preview set (org_loader.py's presentation parse). The Python's
  * list holds the very column objects, so the oracle shows them as the

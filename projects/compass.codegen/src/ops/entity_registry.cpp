@@ -169,6 +169,66 @@ std::vector<std::set<std::string>> unique_keys_of(const model_tables& t,
     return keys;
 }
 
+/*
+ * ^#\+<key>:\s*(\S+)\s*$, multi-line: the token of the first line that
+ * states the key and one token after it, the key matched ignoring case
+ * when @p any_case.
+ */
+std::string single_token_keyword(std::string_view text, std::string_view key,
+    bool any_case = false) {
+    const auto head = "#+" + std::string(key) + ":";
+    std::size_t start = 0;
+    while (start < text.size()) {
+        auto end = text.find('\n', start);
+        if (end == std::string_view::npos)
+            end = text.size();
+        const auto line = text.substr(start, end - start);
+        start = end + 1;
+        if (line.size() < head.size())
+            continue;
+        const auto prefix = line.substr(0, head.size());
+        if (any_case ? text::lower(prefix) != head : prefix != head)
+            continue;
+        const auto rest = values::strip(line.substr(head.size()));
+        if (!rest.empty() && std::ranges::none_of(rest, is_space))
+            return std::string(rest);
+    }
+    return {};
+}
+
+}
+
+void add_directory_model(types::model_directory& d,
+    std::string_view org_text) {
+    const auto type = single_token_keyword(org_text, "type", true);
+    if (type == "ores.codegen.entity") {
+        auto name = single_token_keyword(org_text, "entity_singular");
+        if (!name.empty()) {
+            d.entity_singulars.insert(name);
+            d.member_names.insert(std::move(name));
+        }
+    } else if (type == "ores.codegen.junction") {
+        auto name = single_token_keyword(org_text, "name_singular");
+        if (!name.empty())
+            d.member_names.insert(std::move(name));
+    } else if (type == "ores.codegen.field_group") {
+        auto entity = single_token_keyword(org_text, "entity_singular");
+        auto name = single_token_keyword(org_text, "name_singular");
+        if (!entity.empty() && !name.empty())
+            d.group_names.insert(org_text.find("#+entity_singular:") <
+                org_text.find("#+name_singular:") ? entity : name);
+        else if (!entity.empty() || !name.empty())
+            d.group_names.insert(entity.empty() ? name : entity);
+    }
+}
+
+const types::model_directory& directory_of(
+    const types::entity_registry& registry, std::string_view model_path) {
+    static const types::model_directory none;
+    const auto at = model_path.rfind('/');
+    const auto it = registry.directories.find(at == std::string_view::npos ?
+        std::string_view() : model_path.substr(0, at));
+    return it == registry.directories.end() ? none : it->second;
 }
 
 std::optional<entity_table_claim> entity_table_claim_of(

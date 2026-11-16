@@ -35,14 +35,15 @@ namespace compass::codegen::ops {
  * step by step in the order generate_from_model applies the steps, under
  * domain_entity, with its SQL projection under table.
  *
- * @p registry holds what the steps read from the checkout's other models.
+ * @p registry holds what the steps read from the checkout's other models,
+ * @p site what they read about the model's own file.
  *
  * Returns an object no value holds.
  */
 compass::model::types::value_id entity_context(
     compass::model::ops::builder& b, compass::model::types::value_id library,
     compass::model::types::value_id model, std::string_view model_key,
-    const types::entity_registry& registry);
+    const types::entity_registry& registry, const types::entity_site& site);
 
 }
 

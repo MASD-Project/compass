@@ -291,6 +291,24 @@ compass::codegen::types::entity_registry load_entity_registry(
                 scratch.models.roots[id]);
     }
 
+    for (const auto& path : table.paths) {
+        if (!path.starts_with(projects) || !path.ends_with(".org") ||
+            path.find(modeling) == std::string::npos)
+            continue;
+        auto* p = documents.get(path);
+        if (p == nullptr)
+            continue;
+        compass::codegen::ops::add_directory_model(
+            registry.directories[path.substr(0, path.rfind('/'))],
+            p->file.text());
+    }
+
+    for (const auto& path : table.paths) {
+        if (path.starts_with(projects) && path.ends_with(".hpp") &&
+            path.find("/domain/") != std::string::npos)
+            registry.domain_headers.insert(path);
+    }
+
     constexpr std::string_view group_suffix = "_field_group.org";
     for (const auto& path : table.paths) {
         if (!path.starts_with(projects) || !path.ends_with(group_suffix) ||
@@ -410,9 +428,19 @@ std::vector<planned> plan_models(const std::filesystem::path& checkout,
         if (units.empty())
             continue;
         const auto stem = std::filesystem::path(path).stem().string();
+        constexpr std::string_view wire_codec_addresses[] = {
+            "ores.cpp.wire-codec.codec_header",
+            "ores.cpp.wire-codec.codec_impl",
+            "ores.cpp.wire-codec.protocol_codec_impl"};
+        constexpr std::string_view protocol_addresses[] = {"ores.cpp.protocol"};
+        const compass::codegen::types::entity_site site{path,
+            compass::codegen::ops::facet_enabled(properties,
+                "ores.cpp.wire-codec", wire_codec_addresses, false),
+            compass::codegen::ops::facet_enabled(properties,
+                "ores.cpp.protocol", protocol_addresses, true)};
         const auto context = *type == compass::model::types::model_type::entity
             ? compass::codegen::ops::entity_context(b, library, root, stem,
-                entities)
+                entities, site)
             : compass::codegen::ops::model_context(b, library, root, stem,
                 type_name);
         ++r.contexts;

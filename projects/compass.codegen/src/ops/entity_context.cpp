@@ -20,6 +20,7 @@
 #include "compass.codegen/ops/entity_context.hpp"
 
 #include <string>
+#include "compass.codegen/ops/entity_registry.hpp"
 #include "compass.codegen/ops/entity_steps.hpp"
 #include "compass.codegen/ops/values.hpp"
 
@@ -30,7 +31,7 @@ using compass::model::types::value_kind;
 
 value_id entity_context(compass::model::ops::builder& b, value_id library,
     value_id model, std::string_view model_key,
-    const types::entity_registry& registry) {
+    const types::entity_registry& registry, const types::entity_site& site) {
     const auto context = b.detached_object();
     for (const auto c : values::items(b.tables(), library))
         b.set_copy(context, std::string(values::key_of(b.tables(), c)), c);
@@ -87,6 +88,10 @@ value_id entity_context(compass::model::ops::builder& b, value_id library,
     derive_ts_group_imports(b, entity);
     derive_ts_column_imports(b, entity, registry);
     derive_economic_declaration(b, entity, registry);
+    derive_messages(b, entity, registry,
+        directory_of(registry, site.path).entity_singulars);
+    derive_codec_includes(b, entity, registry, site);
+    derive_message_struct_names(b, entity);
     project_enforced_foreign_keys(b, entity);
     project_primary_key_extra_columns(b, entity);
     project_import_preview_columns(b, entity);
