@@ -26,11 +26,11 @@ Compare each output's hash with the recorded one and write only on a difference.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:8DC60B89-1605-4281-90FF-5AC8B33F629A][Run codecs and write only changes]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -66,7 +66,14 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| First run | 1 written, 0.08 ms | =compass-bench codecs <snapshot> --meta doc/meta --write <root>= | compass-ng fab78f7 snapshot |
+| Nothing changed | 1 unchanged, mtime kept | same | same |
+| Task body edited | 1 unchanged, mtime kept | same | same |
+| Task title edited | 1 written | same | same |
+| Index edited by hand, then deleted | 1 restored each time, byte-identical | same | same |
+| Record deleted | 1 unchanged, mtime kept | same | same |
+
+One sample each at load average 10; timings are indicative.
 
 * Notes
 
@@ -94,3 +101,18 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- The sink in =compass.codec= writes an output only when its hash differs from
+  the recorded one, or when the file on disk is missing or its stat data no
+  longer matches (a hand edit or deletion is restored). Unchanged outputs keep
+  their modification time, so the build does not see them change.
+- compass removes only the files it wrote and a codec no longer produces; one
+  edited by hand after compass wrote it is kept and reported. Directories left
+  empty are pruned up to the root.
+- The record at =<gitdir>/compass/outputs= holds path, codec, hash and stat per
+  output and its output root; a record for another root is ignored. A lost
+  record means comparing by content, not rewriting.
+- Refused before anything is written: absolute paths, empty, =.= or =..=
+  components, a path two codecs produce, and (added in review) a path through
+  a symbolic link under the root, which could have written or deleted outside
+  it.
