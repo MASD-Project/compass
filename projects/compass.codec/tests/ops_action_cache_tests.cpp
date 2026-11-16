@@ -1,0 +1,354 @@
+/* -*- mode: c++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+#include "compass.codec/ops/action_cache.hpp"
+
+#include <array>
+#include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <map>
+#include <string>
+#include <string_view>
+#include <vector>
+#include <unistd.h>
+#include <catch2/catch_test_macros.hpp>
+#include "compass.codec/codecs/document_index.hpp"
+#include "compass.codec/io/action_cache.hpp"
+#include "compass.codec/ops/dependencies.hpp"
+#include "compass.codec/ops/registry.hpp"
+#include "compass.codec/ops/run.hpp"
+#include "compass.codec/types/corpus_view.hpp"
+#include "compass.org/ops/document_fields.hpp"
+#include "compass.store/io/action_file.hpp"
+#include "compass.store/io/location.hpp"
+#include "test_corpus.hpp"
+
+namespace {
+
+using namespace compass::codec;
+namespace ot = compass::org::types;
+
+using sources = std::map<std::string, std::string>;
+using counts = std::vector<std::uint64_t>;
+
+constexpr std::array<std::string_view, 2> stories_and_tasks{"story", "task"};
+constexpr std::array<types::rule, 1> quote_rules{{{"quote", ""}}};
+constexpr std::array<types::option, 1> quote_options{{
+    {"prefix", "quotes", ""}}};
+
+/**
+ * @brief Reports, for each id: link of a document, the source of the
+ * document it leads to, or that it leads nowhere, so a finding changes
+ * with the content of the document looked up.
+ */
+void quote_links(const types::document& d, const types::corpus_view& corpus,
+    types::diagnostic_table& out) {
+    const auto& links = d.tables.links;
+    for (std::uint32_t i = 0; i < links.size(); ++i) {
+        const ot::link_id l{i};
+        if (compass::org::ops::name_text(d.tables, links.types[l]) != "id")
+            continue;
+        const auto found = corpus.find_id(links.paths[l].of(d.source));
+        const auto message = std::string(corpus.option("prefix")) + " " +
+            (found ? std::string(found->source) : std::string("nothing"));
+        out.add({d.row, {}, {0}, types::severity::warning, message, ""});
+    }
+}
+
+types::descriptor link_quoter(std::uint32_t version = 1) {
+    return {.name = "quote_links", .version = version, .summary = "",
+        .reads = types::inputs::of_types(stories_and_tasks),
+        .options = quote_options, .rules = quote_rules,
+        .enabled_by_default = true,
+        .run = types::document_function<types::diagnostic_table>{
+            quote_links}};
+}
+
+/**
+ * @brief A story with an ID, a task quoting it and an ID nobody has, and
+ * two tasks that link nowhere.
+ */
+sources base() {
+    return {
+        {"story.org", ":PROPERTIES:\n:ID: S-1\n:END:\n#+type: story\n"
+                      "* Goal\n* Status\n"},
+        {"task_a.org", "#+type: task\n* Goal\nSee [[id:S-1][the story]] "
+                       "and [[id:X-404][later]].\n* Result\n"},
+        {"task_b.org", "#+type: task\n* Goal\n"},
+        {"task_c.org", "#+type: task\n* Goal\n* Result\n"}};
+}
+
+/**
+ * @brief The git common directory both worktrees share, as far as the
+ * cache is concerned.
+ */
+class scoped_cache final {
+public:
+    scoped_cache() {
+        static int counter = 0;
+        root_ = std::filesystem::temp_directory_path() /
+            ("compass.codec.cache_tests." + std::to_string(::getpid()) + "." +
+                std::to_string(counter++));
+        std::filesystem::create_directories(root_);
+    }
+    ~scoped_cache() { std::filesystem::remove_all(root_); }
+    scoped_cache(const scoped_cache&) = delete;
+    scoped_cache& operator=(const scoped_cache&) = delete;
+
+    [[nodiscard]] const std::filesystem::path& root() const { return root_; }
+
+    [[nodiscard]] std::vector<std::filesystem::path> files(
+        compass::store::types::action_kind kind) const {
+        std::vector<std::filesystem::path> out;
+        const auto dir = compass::store::io::actions_dir(root_, kind);
+        for (const auto& e :
+            std::filesystem::recursive_directory_iterator(dir)) {
+            if (e.is_regular_file())
+                out.push_back(e.path());
+        }
+        return out;
+    }
+
+private:
+    std::filesystem::path root_;
+};
+
+/**
+ * @brief What one worktree's run produced, in bytes that hold no corpus
+ * row: its record, which holds every output, and its counts.
+ */
+struct outcome {
+    counts ran;
+    counts skipped;
+    counts cached;
+    std::string record;
+};
+
+/**
+ * @brief Runs document_index and quote_links over @p docs as a worktree
+ * with the record @p previous would, with the cache of @p cache, stores
+ * what ran, and checks the outputs equal those of a run with neither.
+ */
+outcome run(const scoped_cache& cache, const sources& docs,
+    const types::dependency_record& previous = {},
+    const types::configuration& settings = {}, std::uint32_t version = 1,
+    types::dependency_record* record = nullptr) {
+    tests::test_corpus t;
+    for (const auto& [path, source] : docs)
+        t.add(path, source);
+    const std::array<types::descriptor, 2> codecs{codecs::document_index,
+        link_quoter(version)};
+    const auto r = ops::make_registry(codecs, t.types(), settings);
+    const auto result = ops::run(r, t.corpus(), t.types(), 2, previous,
+        io::action_source_of(cache.root()));
+    (void)io::store_actions(cache.root(), result.record, result.fresh, 2);
+
+    const auto plain = ops::run(r, t.corpus(), t.types(), 2);
+    for (std::size_t c = 0; c < codecs.size(); ++c) {
+        const auto& f = result.files[c];
+        REQUIRE(f.size() == plain.files[c].size());
+        for (std::uint32_t i = 0; i < f.size(); ++i) {
+            CHECK(f.paths[{i}] == plain.files[c].paths[{i}]);
+            CHECK(f.contents[{i}] == plain.files[c].contents[{i}]);
+        }
+        CHECK(ops::encode_diagnostics(t.corpus(), result.diagnostics[c], 0,
+                  static_cast<std::uint32_t>(result.diagnostics[c].size())) ==
+            ops::encode_diagnostics(t.corpus(), plain.diagnostics[c], 0,
+                static_cast<std::uint32_t>(plain.diagnostics[c].size())));
+    }
+    CHECK(ops::encode_dependency_record(result.record) ==
+        ops::encode_dependency_record(plain.record));
+    if (record != nullptr)
+        *record = result.record;
+    return {result.ran, result.skipped, result.cached,
+        ops::encode_dependency_record(result.record)};
+}
+
+void damage(const std::filesystem::path& file) {
+    std::fstream f(file, std::ios::binary | std::ios::in | std::ios::out);
+    f.seekp(12);
+    f.put('!');
+}
+
+}
+
+TEST_CASE("a second worktree with no record of its own runs no unit and "
+    "records what the first did", "[ops][action_cache]") {
+    scoped_cache cache;
+    const auto first = run(cache, base());
+    CHECK(first.ran == counts{1, 4});
+
+    const auto second = run(cache, base());
+
+    CHECK(second.ran == counts{0, 0});
+    CHECK(second.cached == counts{1, 4});
+    CHECK(second.record == first.record);
+}
+
+TEST_CASE("an edited document runs its own unit and the corpus unit and "
+    "takes the rest from the cache", "[ops][action_cache]") {
+    scoped_cache cache;
+    (void)run(cache, base());
+    auto docs = base();
+    docs["task_c.org"] += "Some words.\n";
+
+    const auto second = run(cache, docs);
+
+    CHECK(second.ran == counts{1, 1});
+    CHECK(second.cached == counts{0, 3});
+}
+
+TEST_CASE("a unit that looked up a document misses the cache when that "
+    "document differs between the worktrees", "[ops][action_cache]") {
+    scoped_cache cache;
+    (void)run(cache, base());
+    auto docs = base();
+    docs["story.org"] += "Other words.\n";
+
+    const auto second = run(cache, docs);
+
+    CHECK(second.ran == counts{1, 2});
+    CHECK(second.cached == counts{0, 2});
+}
+
+TEST_CASE("a unit whose lookup missed misses the cache when a document "
+    "answers it in the other worktree", "[ops][action_cache]") {
+    scoped_cache cache;
+    (void)run(cache, base());
+    auto docs = base();
+    docs["later.org"] = ":PROPERTIES:\n:ID: X-404\n:END:\n#+type: task\n"
+                        "* Goal\n";
+
+    const auto second = run(cache, docs);
+
+    CHECK(second.ran == counts{1, 2});
+    CHECK(second.cached == counts{0, 3});
+}
+
+TEST_CASE("each of several input sets of one manifest gives back its own "
+    "result", "[ops][action_cache]") {
+    scoped_cache cache;
+    auto old_story = base();
+    auto new_story = base();
+    new_story["story.org"] += "Newer words.\n";
+    (void)run(cache, old_story);
+    (void)run(cache, new_story);
+
+    const auto old_again = run(cache, old_story);
+    const auto new_again = run(cache, new_story);
+
+    CHECK(old_again.ran == counts{0, 0});
+    CHECK(new_again.ran == counts{0, 0});
+    CHECK(old_again.record != new_again.record);
+}
+
+TEST_CASE("a manifest keeps only its newest input sets",
+    "[ops][action_cache]") {
+    scoped_cache cache;
+    for (std::size_t i = 0; i <= ops::manifest_capacity; ++i) {
+        auto docs = base();
+        docs["story.org"] += std::to_string(i) + "\n";
+        (void)run(cache, docs);
+    }
+    auto first = base();
+    first["story.org"] += "0\n";
+    auto last = base();
+    last["story.org"] += std::to_string(ops::manifest_capacity) + "\n";
+
+    CHECK(run(cache, last).ran == counts{0, 0});
+    CHECK(run(cache, first).ran == counts{0, 1});
+}
+
+TEST_CASE("a change of version or configuration misses the cache",
+    "[ops][action_cache]") {
+    scoped_cache cache;
+    (void)run(cache, base());
+
+    const auto newer = run(cache, base(), {}, {}, 2);
+    CHECK(newer.ran == counts{0, 4});
+
+    types::configuration settings;
+    settings.set("quote_links", "prefix", "cites");
+    const auto configured = run(cache, base(), {}, settings);
+    CHECK(configured.ran == counts{0, 4});
+}
+
+TEST_CASE("a damaged result or manifest is ignored and its unit runs",
+    "[ops][action_cache]") {
+    using compass::store::types::action_kind;
+    scoped_cache cache;
+    (void)run(cache, base());
+    for (const auto& file : cache.files(action_kind::result))
+        damage(file);
+
+    const auto results_damaged = run(cache, base());
+    CHECK(results_damaged.ran == counts{1, 4});
+    CHECK(run(cache, base()).ran == counts{0, 0});
+
+    for (const auto& file : cache.files(action_kind::manifest))
+        damage(file);
+    const auto manifests_damaged = run(cache, base());
+    CHECK(manifests_damaged.ran == counts{1, 4});
+    CHECK(run(cache, base()).ran == counts{0, 0});
+}
+
+TEST_CASE("units the worktree's record stands in for are skipped, not "
+    "looked up", "[ops][action_cache]") {
+    scoped_cache cache;
+    types::dependency_record record;
+    (void)run(cache, base(), {}, {}, 1, &record);
+
+    const auto second = run(cache, base(), record);
+
+    CHECK(second.skipped == counts{1, 4});
+    CHECK(second.cached == counts{0, 0});
+}
+
+TEST_CASE("the record names the manifest and result of every unit",
+    "[io][action_cache]") {
+    scoped_cache cache;
+    types::dependency_record record;
+    (void)run(cache, base(), {}, {}, 1, &record);
+
+    const auto manifests = cache.files(
+        compass::store::types::action_kind::manifest);
+    const auto results = cache.files(
+        compass::store::types::action_kind::result);
+    CHECK(manifests.size() == 5);
+    CHECK(results.size() == 5);
+    for (std::uint32_t u = 0; u < record.size(); ++u) {
+        CHECK(compass::store::io::read_action(compass::store::io::actions_dir(
+            cache.root(), compass::store::types::action_kind::result),
+            record.results[{u}]));
+    }
+}
+
+TEST_CASE("two documents with the same bytes at different paths keep "
+    "their own results", "[ops][action_cache]") {
+    scoped_cache cache;
+    auto docs = base();
+    docs["task_d.org"] = docs["task_a.org"];
+    const auto first = run(cache, docs);
+
+    const auto second = run(cache, docs);
+
+    CHECK(second.ran == counts{0, 0});
+    CHECK(second.record == first.record);
+}

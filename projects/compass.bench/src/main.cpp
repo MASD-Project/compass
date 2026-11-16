@@ -33,6 +33,7 @@
 #include "compass.bench/io/compile_commands.hpp"
 #include "compass.bench/io/report.hpp"
 #include "compass.bench/ops/codecs_stage.hpp"
+#include "compass.bench/ops/gc_stage.hpp"
 #include "compass.bench/ops/ids_stage.hpp"
 #include "compass.bench/ops/includes_stage.hpp"
 #include "compass.bench/ops/listing.hpp"
@@ -46,7 +47,6 @@
 #include "compass.bench/ops/types_stage.hpp"
 #include "compass.bench/ops/warm_stage.hpp"
 #include "compass.platform/filesystem/mapped_file.hpp"
-#include "compass.store/io/collection.hpp"
 #include "compass.store/io/location.hpp"
 
 namespace {
@@ -384,7 +384,7 @@ int run_codecs_diff(const options& o) {
 int run_gc(const options& o) {
     const auto objects = objects_of(o);
     const auto result =
-        compass::store::io::collect(o.checkout, objects, o.collection);
+        ops::run_gc_stage(o.checkout, objects, o.collection);
     io::write_gc_report(std::cout, result, o.collection, objects);
     return 0;
 }

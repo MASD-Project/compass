@@ -66,18 +66,22 @@ of a checkout with one =git ls-files -z= call and map files with
   document is resolved against the registry of a meta directory. The enabled
   codecs then run =--repeat= times on N threads, each repetition from the
   dependency record the checkout had, so a unit whose inputs are unchanged
-  is skipped. Without =--write= the outputs stay in memory. With it, the
+  is skipped, and with the repository's result cache, so a unit another
+  worktree ran with the same inputs is taken from it. Without =--write= the outputs stay in memory. With it, the
   files of the last repetition go to the output root through
   =compass.codec='s output sink, which writes only those whose content
-  changed. After the run the parsed objects go to the store, and the
-  worktree index, the dependency record and, with =--write=, the
+  changed. After the run the parsed objects go to the store, the units that
+  ran go to the result cache, and the worktree index, the dependency record
+  and, with =--write=, the
   written-outputs record are written to the git directory, each only when it
   changed. With =--diff= the outputs are planned against the root by the
   same sink and printed as a unified diff, and nothing is written: no
   object, no record and no output.
 
-=gc= is not a stage either. It collects the store once with
-=compass.store='s =io::collect= and reports what it found and removed.
+=gc= is not a stage either. =ops::run_gc_stage= collects the store once with
+=compass.store='s =io::collect=, keeping the action objects of the result
+cache that any worktree's dependency record names (=compass.codec='s
+=io::action_keys=), and reports what it found and removed.
 
 =org-dump= is not a stage. It parses one org file and prints its tables in
 the line format of =compass::org::io::dump=, which
@@ -162,8 +166,10 @@ the line format of =compass::org::io::dump=, which
   source bytes with their ratio, the objects that did not load and the files
   whose two dumps differ. Either of the last two counts fails the run.
 - For =gc=: the store and options, the git directory of each worktree read,
-  the live IDs, then counts and bytes of the files stored, live, within the
-  grace period, old and unreferenced, temporary, chosen and removed; the
+  the live IDs and the action keys the records name, then counts and bytes
+  of the files stored, live, within the grace period, old and unreferenced,
+  temporary, chosen and removed, and of the action objects stored and named;
+  the
   size of the store after the collection against the cap; and the wall
   milliseconds of each phase. A store left over its cap because its live
   objects fill it is data, not failure. An index that cannot be read exits
@@ -172,10 +178,12 @@ the line format of =compass::org::io::dump=, which
   types, the load time with the objects loaded, parsed and written, every
   problem of the codec registry, and the units and bytes of the dependency
   record read, with whether the new one was rewritten and why an old one
-  was not used. With =--write=, the outputs written, unchanged, restored,
+  was not used. The result cache: the lookup time, and the results and
+  manifests stored, with their bytes and time. With =--write=, the outputs written, unchanged, restored,
   removed and kept, the time of the sink, whether the written-outputs record
   was rewritten, and why an old one was not used. One row per codec: its unit and output kind, the documents
-  it was given, the units it ran and skipped, its output files and their
+  it was given, the units it ran, skipped and took from the cache, its
+  output files and their
   bytes, its
   diagnostics, and the median, min and max milliseconds spent inside it,
   summed over threads; then the wall time of a run. Each output file with
@@ -272,6 +280,7 @@ Linux.
 | =include/compass.bench/ops/ids_stage.hpp=       | The =ids= stage.                                       |
 | =include/compass.bench/ops/types_stage.hpp=     | The registry from a meta directory; the =types= stage. |
 | =include/compass.bench/ops/codecs_stage.hpp=    | Corpus loading and the =codecs= stage.                 |
+| =include/compass.bench/ops/gc_stage.hpp=        | The =gc= command with the result cache's roots.        |
 | =include/compass.bench/io/compile_commands.hpp= | The compile_commands.json reader and word splitting.   |
 | =include/compass.bench/io/report.hpp=           | Plain-text reports and the failure predicates.         |
 | =src/main.cpp=                                  | Argument parsing and wiring.                           |

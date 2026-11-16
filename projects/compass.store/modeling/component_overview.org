@@ -2,7 +2,7 @@
 :ID: EB285F25-4AF8-482D-B679-C650DA718CF6
 :END:
 #+title: compass.store
-#+description: The content-addressed store every worktree of a repository shares: git blob IDs as keys, taken from git's index when git would call a file clean, else from a per-worktree index of the files compass hashed, else hashed; object paths under the git common directory, writes that land whole or not at all, and collection of the objects no worktree refers to.
+#+description: The content-addressed store every worktree of a repository shares: git blob IDs as keys, taken from git's index when git would call a file clean, else from a per-worktree index of the files compass hashed, else hashed; object paths under the git common directory, action objects named by a key their writer computes, writes that land whole or not at all, and collection of the objects and action objects no worktree refers to.
 #+type: component
 #+level: cross
 #+filetags: :store:cache:worktrees:component:
@@ -43,9 +43,11 @@ and hands the bytes to =write_object=; later it maps the file with
   never written, and no lock is taken. The worktree index under its git
   directory is read, and written when the caller asks.
 - The bytes of an object, to write.
+- The key and body of an action object, to write or read.
 - For collection: the git directory of every worktree, read from the common
   directory; the git index and worktree index of each, read, never written;
-  the objects directory, listed; a size cap and a grace period.
+  for each, the action keys a caller-supplied function says it names; the
+  objects and action directories, listed; a size cap and a grace period.
 
 * Outputs
 
@@ -126,6 +128,18 @@ and hands the bytes to =write_object=; later it maps the file with
   checks of its decoder and is written again.
 - *Reads.* An object is read by mapping its file with =mapped_file=. A missing
   file is a miss.
+- *Action objects.* An action object is named by a key its writer computes
+  from what an action depends on, not by the hash of its bytes, so the store
+  cannot check it against its name. =types::action_kind= has two kinds, each
+  in its own directory under the git common directory: =compass/manifests=
+  and =compass/results= (=io::actions_dir=), laid out as objects are.
+  =ops::encode_action= frames a body with the magic =CMPSACT\n= and a SHA-1
+  of the key, the magic and the body, so an object damaged, cut short, or
+  copied under another key fails =ops::decode_action=. =io::write_action=
+  writes through =write_object=; =io::read_action= returns the body, or
+  nothing for a missing or damaged object, which its caller treats as a
+  miss. What a body holds is the writer's: =compass.codec= keeps its result
+  cache here.
 - *Leftovers.* A crash between write and rename leaves a file whose name
   starts with =tmp_=. Nothing reads it, and collection removes it once it is
   older than the grace period.
@@ -137,7 +151,12 @@ and hands the bytes to =write_object=; later it maps the file with
   or a worktree index. The checkout a linked worktree names is not looked
   at, so a worktree whose checkout was deleted keeps its objects until git
   prunes it. =io::live_ids= gathers every ID those indexes name, at every
-  stage. =io::list_objects= stats each object and temporary file.
+  stage. An action object is live while a worktree names its key:
+  =io::collect= asks its =action_roots= function for the keys of each
+  worktree, since the record that names them belongs to the component that
+  wrote them. =io::list_objects= stats each object and temporary file, of
+  the objects directory and of both action directories, and the plan treats
+  them as one store under one cap and grace period.
   =ops::plan_collection= keeps the live objects and any file modified within
   the grace period, an hour by default, so a run in progress never loses an
   object it just wrote; it takes the other objects oldest first by
@@ -203,6 +222,9 @@ the numbers are indicative.
 | =include/compass.store/ops/blob_hash.hpp=        | =blob_id_of= and =to_hex=.                                                        |
 | =include/compass.store/io/location.hpp=          | =git_dir=, =git_common_dir=, =objects_dir=, =worktree_index_path=, =object_path=. |
 | =include/compass.store/io/object_file.hpp=       | =write_object=.                                                                   |
+| =include/compass.store/types/action_kind.hpp=    | =action_kind=: manifest or result.                                                |
+| =include/compass.store/ops/action_object.hpp=    | =encode_action=, =decode_action=.                                                 |
+| =include/compass.store/io/action_file.hpp=       | =read_action=, =write_action=.                                                    |
 | =include/compass.store/types/git_index.hpp=      | =git_index=, =stat_data=, =index_time=.                                           |
 | =include/compass.store/ops/git_index.hpp=        | =parse_git_index=, =is_regular_file=, =is_unchanged=, =is_clean=.                 |
 | =include/compass.store/types/git_settings.hpp=   | =git_config=, =attribute_rules=.                                                  |
@@ -213,7 +235,7 @@ the numbers are indicative.
 | =include/compass.store/ops/worktree_index.hpp=   | =encode_worktree_index=, =decode_worktree_index=.                                 |
 | =include/compass.store/types/collection.hpp=     | =stored_objects=, =collection_plan=, =collection_options=, =collection_result=.   |
 | =include/compass.store/ops/collection.hpp=       | =plan_collection=.                                                                |
-| =include/compass.store/io/collection.hpp=        | =worktree_git_dirs=, =live_ids=, =list_objects=, =collect=.                       |
+| =include/compass.store/io/collection.hpp=        | =worktree_git_dirs=, =live_ids=, =list_objects=, =action_roots=, =collect=.       |
 | =tests/ops_blob_hash_tests.cpp=                  | IDs checked against =git hash-object=.                                            |
 | =tests/io_location_tests.cpp=                    | A main checkout, a linked worktree, bad input.                                    |
 | =tests/io_object_file_tests.cpp=                 | Replacement, failure and concurrent writers.                                      |
@@ -221,7 +243,7 @@ the numbers are indicative.
 | =tests/ops_git_settings_tests.cpp=               | Configuration, attribute rules and patterns.                                      |
 | =tests/io_id_resolver_tests.cpp=                 | Real repositories; IDs checked against =git hash-object=.                         |
 | =tests/io_worktree_index_tests.cpp=              | Reuse with no read, changes, racy entries, damage, pruning, linked worktrees.     |
-| =tests/io_collection_tests.cpp=                  | Linked and deleted worktrees, worktree indexes, cap, grace, order, dry runs.      |
+| =tests/io_collection_tests.cpp=                  | Linked and deleted worktrees, worktree indexes, cap, grace, order, dry runs, action objects. |
 
 | Target                | Kind                                      |
 |-----------------------+-------------------------------------------|

@@ -21,6 +21,7 @@
 #define COMPASS_STORE_IO_COLLECTION_HPP
 
 #include <filesystem>
+#include <functional>
 #include <span>
 #include <vector>
 #include "compass.store/types/blob_id.hpp"
@@ -62,11 +63,22 @@ namespace compass::store::io {
     const std::filesystem::path& objects_dir);
 
 /**
+ * @brief The keys of the action objects the record of one worktree names,
+ * given its git directory. The store does not know the record; its writer
+ * does.
+ */
+using action_roots = std::function<std::vector<types::blob_id>(
+    const std::filesystem::path& git_dir)>;
+
+/**
  * @brief Collects the store of the repository @p checkout belongs to.
  *
- * Reads the indexes of every worktree, lists @p objects_dir, chooses the
- * victims with ops::plan_collection, the cutoff being now less the grace
- * period, and unlinks each unless this is a dry run. A victim whose size
+ * Reads the indexes of every worktree and the action keys @p roots gives
+ * for each, lists @p objects_dir and the action directories of the git
+ * common directory, chooses the victims with ops::plan_collection over all
+ * of them, so one cap and one grace period cover objects and action
+ * objects, the cutoff being now less the grace period, and unlinks each
+ * unless this is a dry run. A victim whose size
  * or modification time changed since it was listed is left alone, as is
  * one already gone. A process that has an object mapped keeps its mapping,
  * and a run that looks up a removed object parses its source again.
@@ -77,7 +89,7 @@ namespace compass::store::io {
 [[nodiscard]] types::collection_result collect(
     const std::filesystem::path& checkout,
     const std::filesystem::path& objects_dir,
-    const types::collection_options& options);
+    const types::collection_options& options, const action_roots& roots);
 
 }
 

@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include "compass.codec/io/action_cache.hpp"
 #include "compass.codec/io/output_sink.hpp"
 #include "compass.codec/types/registry.hpp"
 #include "compass.codec/types/run_result.hpp"
@@ -69,6 +70,10 @@ struct findings_summary {
  * record_units its units; record_written is true when the record the last
  * repetition made differed from the file and replaced it.
  *
+ * Every repetition looks up the result cache the same way, since only
+ * persisting writes to it. actions is what the last repetition's units
+ * that ran added to the cache, and actions_ms its time.
+ *
  * sink is what writing the outputs did when an output root was given, and
  * sink_ms its time; outputs_problem says why a written-outputs record that
  * was there was not used, and outputs_written is true when the record was
@@ -96,6 +101,8 @@ struct codecs_result {
     double record_read_ms = 0;
     bool record_written = false;
     double record_write_ms = 0;
+    codec::io::action_writes actions;
+    double actions_ms = 0;
     bool wrote_outputs = false;
     codec::io::sink_result sink;
     double sink_ms = 0;

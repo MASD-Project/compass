@@ -21,6 +21,7 @@
 #define COMPASS_STORE_IO_LOCATION_HPP
 
 #include <filesystem>
+#include "compass.store/types/action_kind.hpp"
 #include "compass.store/types/blob_id.hpp"
 
 namespace compass::store::io {
@@ -57,6 +58,14 @@ namespace compass::store::io {
  */
 [[nodiscard]] std::filesystem::path objects_dir(
     const std::filesystem::path& git_common_dir);
+
+/**
+ * @brief Where the action objects of kind @p kind live: compass/manifests
+ * or compass/results under the git common directory, so every worktree
+ * reuses the actions of the others. They are laid out as objects are.
+ */
+[[nodiscard]] std::filesystem::path actions_dir(
+    const std::filesystem::path& git_common_dir, types::action_kind kind);
 
 /**
  * @brief The worktree index of one checkout: compass/index under its own

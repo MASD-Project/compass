@@ -21,11 +21,11 @@ Any output or check is a codec over the in-memory tables; a run touches only out
 
 | Field         | Value                                  |
 |---------------+----------------------------------------|
-| State         | STARTED                              |
+| State         | DONE                              |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
-| Now           | Not yet started.                       |
+| Now           | Nothing. |
 | Waiting on    | Nothing.                               |
-| Next          | Break the story into tasks.            |
+| Next          | Nothing. |
 | Last touched  | 2026-11-16                               |
 
 * Acceptance
@@ -44,7 +44,7 @@ Any output or check is a codec over the in-memory tables; a run touches only out
 | [[id:E5E19782-2B3C-487C-88F7-2682151E4474][Record dependencies]] | DONE | 2026-11-16 | 2026-11-16 | Record the inputs each codec reads at run time, as compiler dependency files do, and use them to select codecs. |
 | [[id:2F227B43-C350-46EE-ADA8-FCDA80F4AC45][Write only changed outputs]] | DONE | 2026-11-16 | 2026-11-16 | Compare each output's hash with the recorded one and write only on a difference. |
 | [[id:99083079-E8FC-4126-8056-91B9C4853452][Add diff mode]] | DONE | 2026-11-16 | 2026-11-16 | Run the pipeline without writing and print a unified diff of each output that would change. |
-| [[id:479C0817-C14C-4D2C-876E-674D91A84E2C][Cache codec results]] | BACKLOG | | | Key codec results by codec version, configuration and input hashes in the shared store. |
+| [[id:479C0817-C14C-4D2C-876E-674D91A84E2C][Cache codec results]] | DONE | 2026-11-16 | 2026-11-16 | Key codec results by codec version, configuration and input hashes in the shared store. |
 
 * Documents
 
@@ -57,3 +57,18 @@ Any output or check is a codec over the in-memory tables; a run touches only out
 * Out of scope
 
 -
+
+* Result
+
+- A codec is a descriptor and a function over a view of the corpus; the view
+  records what each unit reads, so only units whose inputs changed run again,
+  and results are shared by every worktree through a two-level cache.
+- Outputs are written only when their content changes; hand-edited or deleted
+  generated files are restored, and files a codec stops producing are
+  removed. Diff mode prints the same plan as unified diffs, writes nothing,
+  and exits 1 when anything would change.
+- For the two codecs so far, a document index and a required-sections check,
+  the bookkeeping costs more time than it saves: running both over ORE
+  Studio takes about 12 ms. It is built for expensive codecs. Two follow-ups
+  are recorded in the tasks: a cheaper integrity check than SHA-1 for the
+  dependency record, and packing the small action objects.

@@ -127,6 +127,17 @@ bool remove_unchanged(const std::filesystem::path& file,
     return ::unlink(file.c_str()) == 0;
 }
 
+void append(types::stored_objects& to, const types::stored_objects& from,
+    std::string_view prefix) {
+    for (std::size_t row = 0; row < from.size(); ++row) {
+        to.names.push_back(std::string(prefix) + from.names[row]);
+        to.ids.push_back(from.ids[row]);
+        to.temporary.push_back(from.temporary[row]);
+        to.sizes.push_back(from.sizes[row]);
+        to.mtimes.push_back(from.mtimes[row]);
+    }
+}
+
 }
 
 std::vector<std::filesystem::path> worktree_git_dirs(
@@ -187,20 +198,46 @@ types::stored_objects list_objects(const std::filesystem::path& objects_dir) {
 
 types::collection_result collect(const std::filesystem::path& checkout,
     const std::filesystem::path& objects_dir,
-    const types::collection_options& options) {
+    const types::collection_options& options, const action_roots& roots) {
     types::collection_result r;
 
     auto start = std::chrono::steady_clock::now();
-    r.worktrees = worktree_git_dirs(git_common_dir(checkout));
+    const auto common = git_common_dir(checkout);
+    r.worktrees = worktree_git_dirs(common);
     r.worktrees_ms = since(start);
 
     start = std::chrono::steady_clock::now();
-    const auto live = live_ids(r.worktrees);
+    auto live = live_ids(r.worktrees);
     r.live_ids = live.size();
+    std::vector<types::blob_id> keys;
+    for (const auto& dir : r.worktrees) {
+        const auto named = roots(dir);
+        keys.insert(keys.end(), named.begin(), named.end());
+    }
+    std::ranges::sort(keys);
+    keys.erase(std::ranges::unique(keys).begin(), keys.end());
+    r.live_keys = keys.size();
+    live.insert(live.end(), keys.begin(), keys.end());
+    std::ranges::sort(live);
+    live.erase(std::ranges::unique(live).begin(), live.end());
     r.live_ms = since(start);
 
     start = std::chrono::steady_clock::now();
-    const auto objects = list_objects(objects_dir);
+    auto objects = list_objects(objects_dir);
+    const auto object_rows = objects.size();
+    const auto compass_dir = common / "compass";
+    for (const auto kind : {types::action_kind::manifest,
+             types::action_kind::result}) {
+        const auto dir = actions_dir(common, kind);
+        const auto prefix = dir.filename().string() + "/";
+        append(objects, list_objects(dir), prefix);
+    }
+    for (auto row = object_rows; row < objects.size(); ++row) {
+        r.actions.add(objects.sizes[row]);
+        if (objects.temporary[row] == 0 &&
+            std::ranges::binary_search(keys, objects.ids[row]))
+            r.live_actions.add(objects.sizes[row]);
+    }
     r.list_ms = since(start);
 
     start = std::chrono::steady_clock::now();
@@ -214,7 +251,8 @@ types::collection_result collect(const std::filesystem::path& checkout,
     start = std::chrono::steady_clock::now();
     if (!options.dry_run) {
         for (const auto row : r.plan.victim_rows) {
-            if (remove_unchanged(objects_dir / objects.names[row],
+            const auto& base = row < object_rows ? objects_dir : compass_dir;
+            if (remove_unchanged(base / objects.names[row],
                     objects.sizes[row], objects.mtimes[row]))
                 r.removed.add(objects.sizes[row]);
         }

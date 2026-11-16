@@ -95,13 +95,20 @@ struct collection_options {
  * @brief What a collection found and did, with the wall time of each phase.
  *
  * worktrees are the git directories whose indexes were read. live_ids counts
- * the distinct IDs they refer to. victims names the files chosen, oldest
- * first, and removed counts those actually unlinked: none in a dry run, and
- * fewer when a file went or changed under the collection.
+ * the distinct IDs they refer to, and live_keys the distinct action keys
+ * their records name. actions and live_actions count the action objects
+ * stored and those a record names; the plan counts them with the objects.
+ * victims names the files chosen, oldest first, objects relative to the
+ * objects directory and action objects as "manifests/..." or "results/...",
+ * and removed counts those actually unlinked: none in a dry run, and fewer
+ * when a file went or changed under the collection.
  */
 struct collection_result {
     std::vector<std::filesystem::path> worktrees;
     std::uint64_t live_ids = 0;
+    std::uint64_t live_keys = 0;
+    object_tally actions;
+    object_tally live_actions;
     collection_plan plan;
     std::vector<std::string> victims;
     object_tally removed;

@@ -26,6 +26,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <vector>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 #include "compass.bench/io/report.hpp"
@@ -194,7 +195,9 @@ TEST_CASE("a run after collection parses the removed objects again and they "
     }
 
     const auto collected = compass::store::io::collect(repo.checkout(),
-        repo.objects(), {});
+        repo.objects(), {}, [](const std::filesystem::path&) {
+            return std::vector<compass::store::types::blob_id>{};
+        });
     CHECK(collected.plan.stored.objects == 8);
     CHECK(collected.removed.objects == 4);
 

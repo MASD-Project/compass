@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :run_codecs_and_write_changes:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/cache-codec-results
+#+pr: https://github.com/MASD-Project/compass/pull/22
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -26,11 +26,11 @@ Key codec results by codec version, configuration and input hashes in the shared
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                              |
 | Parent story | [[id:8DC60B89-1605-4281-90FF-5AC8B33F629A][Run codecs and write only changes]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -39,9 +39,22 @@ Key codec results by codec version, configuration and input hashes in the shared
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- A codec unit's result is cached in the shared store under an action key:
+  the hash of the codec's name, version and configuration hash and of the
+  unit's sorted inputs (key and content ID, misses included). The value is the
+  unit's outputs: file bytes and diagnostics, as one object.
+- Before running a unit, the runner computes its key from the inputs the
+  dependency record says it read and checks the store; a hit restores the
+  outputs and records the unit as cached. A unit with no record in this
+  worktree runs once to learn its inputs, unless another worktree's result can
+  be found by a key that does not need them (corpus units keyed by their type
+  set).
+- Collection keeps an action object while any worktree's dependency record
+  names its key; otherwise it is an unreferenced object and ages out like the
+  rest.
+- =compass-bench codecs= reports units ran, skipped, and taken from the cache.
+  The test: two worktrees of one repository on the same commit; the second
+  runs no unit that the first already ran.
 
 * Measurements
 
@@ -55,7 +68,13 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| First worktree: units ran, run wall, process | 10,118, 64 ms, 0.88 s | =compass-bench codecs <wt1> --meta doc/meta -j 8= | ORE Studio 4ca9411b70 |
+| Second worktree, same commit: ran, cached, run wall, process | 0, 10,118, 67 ms, 0.45 s | same in <wt2> | ORE Studio 4ca9411b70 |
+| Repeated medians: every unit run, every unit cached | 58 ms, 65 ms | same | ORE Studio 4ca9411b70 |
+| Cache: objects, data, disk | 20,236, 5.3 MB, about 81 MB | =du= and =gc --dry-run= | ORE Studio 4ca9411b70 |
+| This repository, linked worktree | ran 0, cached 349, same 50,615 bytes and 58 diagnostics | =compass-bench codecs . --meta doc/meta= | compass-ng 64d3c3c |
+
+Load around 6 on 8 cores; timings are indicative.
 
 * Notes
 
@@ -74,7 +93,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/22][#22]] | [codec] Share codec results across worktrees |
 
 * Review
 
@@ -83,3 +102,20 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- Unit results are cached under the git common directory in two levels, as
+  ccache's direct mode does: a manifest keyed by codec, version,
+  configuration and the unit's path and content lists the input sets seen;
+  a result keyed by the manifest key and the full inputs holds the outputs.
+  A fresh worktree finds results without running anything first.
+- A second ORE Studio worktree on the same commit ran no unit, and the two
+  dependency records came out byte-identical.
+- *For the two cheap codecs so far the cache saves nothing*: a fully cached
+  run took 65 ms against 58 ms with every unit running. It is built for
+  codegen and the HTML export.
+- *The cache is wasteful on disk*: 5.3 MB of data in 20,236 small files
+  takes about 81 MB, because each file takes a whole block. Packing action
+  objects is the follow-up.
+- Collection keeps action objects while any worktree's dependency record
+  names them; the store takes a callback for those keys, so it does not
+  depend on the codec component.

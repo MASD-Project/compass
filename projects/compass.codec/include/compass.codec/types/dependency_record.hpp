@@ -59,7 +59,9 @@ enum class input_kind : std::uint8_t { path, id, type_set, type_registry };
  * of u are the rows of files from file_firsts[u] in the same way, with the
  * blob ID of each content in file_hashes. diagnostics holds the findings of
  * u encoded with no corpus row, each naming its document by path, and
- * diagnostic_hashes the SHA-1 of those bytes.
+ * diagnostic_hashes the SHA-1 of those bytes. manifests and results hold
+ * the keys of the unit's action objects in the result cache, which keep
+ * them through collection while this record names them.
  */
 struct dependency_record {
     text_column<record_unit_id> codecs;
@@ -74,6 +76,10 @@ struct dependency_record {
     compass::org::types::column<record_unit_id,
         compass::store::types::blob_id> diagnostic_hashes;
     text_column<record_unit_id, std::uint64_t> diagnostics;
+    compass::org::types::column<record_unit_id,
+        compass::store::types::blob_id> manifests;
+    compass::org::types::column<record_unit_id,
+        compass::store::types::blob_id> results;
 
     compass::org::types::column<input_id, input_kind> input_kinds;
     text_column<input_id> input_keys;

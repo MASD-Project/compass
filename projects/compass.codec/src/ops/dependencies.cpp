@@ -255,6 +255,8 @@ std::string encode_dependency_record(const types::dependency_record& record) {
         put(out, record.diagnostic_counts[unit]);
         put(out, record.diagnostic_hashes[unit]);
         put_text(out, record.diagnostics[unit]);
+        put(out, record.manifests[unit]);
+        put(out, record.results[unit]);
     }
     const auto digest = compass::store::ops::sha1_of(out);
     out.append(reinterpret_cast<const char*>(digest.data()), digest.size());
@@ -312,6 +314,8 @@ types::dependency_record decode_dependency_record(std::string_view bytes) {
         record.diagnostic_counts.values.push_back(r.u32());
         record.diagnostic_hashes.values.push_back(r.id());
         record.diagnostics.add(r.text());
+        record.manifests.values.push_back(r.id());
+        record.results.values.push_back(r.id());
     }
     if (!r.done())
         reject("bytes after the last unit");
