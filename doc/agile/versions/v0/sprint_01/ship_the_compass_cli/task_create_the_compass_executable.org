@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :ship_the_compass_cli:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/create-the-compass-executable
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ The compass.cli component and the compass executable with write, diff, check and
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:FEABA8E9-D541-45AA-9278-64DC1264C794][Ship the compass CLI]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,23 @@ The compass.cli component and the compass executable with write, diff, check and
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- New application component =compass.cli= with the =compass= executable. Its
+  library holds the pipeline host: list the checkout, resolve IDs, load or
+  parse objects, build the type registry, run the enabled codecs with
+  dependency records and the result cache, then hand the outputs to the sink,
+  the diff or the diagnostics report. =compass.bench= keeps its own copy until
+  Hand the pipeline to the CLI.
+- Commands, each over the current directory's checkout unless =-C <dir>=:
+  - =compass write= writes changed outputs and prints a summary.
+  - =compass diff= prints the plan as unified diffs and writes nothing.
+  - =compass check= prints diagnostics, one per line as
+    =path:line:column: rule: message (fix: ...)=.
+  - =compass gc= collects the store, with =--dry-run=.
+- Exit status: 0 when nothing would change or no diagnostic fires, 1 when
+  something would or does, 2 on failure or bad usage.
+- Until Configure codecs from the repository, the defaults are the codecs'
+  own and the output root is =build/output/compass=; =--meta= defaults to
+  =doc/meta=.
 
 * Measurements
 
