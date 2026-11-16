@@ -20,10 +20,23 @@
 #ifndef COMPASS_INGEST_ORG_PARSER_HPP
 #define COMPASS_INGEST_ORG_PARSER_HPP
 
+#include <cstdint>
 #include <string_view>
 #include "compass.org/types/tables.hpp"
 
 namespace compass::ingest::org {
+
+/**
+ * @brief The version of what parse puts in the tables.
+ *
+ * Bumped by hand whenever some source would now give tables that differ
+ * from the ones the previous version gave it: a fixed position, a new
+ * construct, a changed name. A store keeps the tables of a source under
+ * this number, so tables an older parser wrote are parsed again and never
+ * read as current. A change that leaves every table as it was, such as a
+ * faster scan, keeps the number and the store.
+ */
+inline constexpr std::uint32_t parser_version = 1;
 
 /**
  * @brief Parses one org-mode document into the compass.org tables.

@@ -32,6 +32,7 @@ add_executable(${tests_target_name}
     org_object_tests.cpp
     org_paragraph_tests.cpp
     org_parser_tests.cpp
+    org_stored_tests.cpp
     org_table_tests.cpp)
 
 target_link_libraries(${tests_target_name}
