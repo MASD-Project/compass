@@ -48,8 +48,14 @@ No compass-ng dependency. Generic, reusable code.
 | Component         | Role                                                                                                                |
 |-------------------+---------------------------------------------------------------------------------------------------------------------|
 | =compass.storage= | Persistence engine behind one interface: write-ahead log, snapshots, recovery. Backend chosen by the storage story. |
+| =compass.store=   | Content-addressed cache shared by the worktrees of a repository: git blob IDs as keys, loose object files.          |
 | =compass.wire=    | Binary protocol: framing, message schema, encode/decode, versioning. Shared by server and all clients.              |
 | =compass.testing= | Catch2 fixtures, corpus generators, benchmark harness.                                                              |
+
+=compass.store= holds what is derived from files and can be computed again.
+=compass.storage= is the proposed engine for data the server owns. The store
+does not know what an object holds: =compass.org= lays out the object of a
+parsed document, so the store stays below the domain layer.
 
 * Domain layer
 The document model. Composite components use the =api= / =core= split.
