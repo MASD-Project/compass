@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :port_codegen:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/load-codegen-models
+#+pr: https://github.com/MASD-Project/compass/pull/24
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -26,11 +26,11 @@ Load the codegen model types and their data sources from the parsed org tables.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                              |
 | Parent story | [[id:4F499B47-4AB8-4049-A72F-495351A6E2C7][Port ORE Studio codegen]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -39,9 +39,21 @@ Load the codegen model types and their data sources from the parsed org tables.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- ores.codegen is the oracle. A small Python script, run against an ORE Studio
+  archive with ORE Studio's own codegen environment, loads every model through
+  =ores.codegen='s loader and dumps each as canonical JSON (sorted keys, one
+  file per model). It reads ORE Studio and writes only to scratch.
+- compass loads the same models from the parsed =compass.org= tables into
+  data-oriented model tables in a new component, and dumps them in the same
+  JSON shape.
+- A differential runner compares the two dumps model by model and reports
+  identical models, and per field the count of first differences, as the org
+  parser's differential did. Model types and fields are added in order of how
+  many models use them.
+- Models read JSON payloads through =#+data_source:=; those are inputs like
+  any other file and are recorded as reads.
+- =compass-bench models <checkout>= loads every model and reports time; the
+  ORE Studio Python loader's time for the same set is the baseline.
 
 * Measurements
 
@@ -55,7 +67,13 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Models identical to =ores.codegen= | 839 of 844 | =build/scripts/codegen_model_diff.py= over both dumps | ORE Studio 4ca9411b70 |
+| By type | entity 556/556, component 128/128, operation 80/80, field_group 45/45, junction 27/27, three catalogues 3/3; family 0/4, trade_type_catalogue 0/1 | same | same |
+| Python loader, all models, one process | 0.70 to 0.91 s | =build/scripts/codegen_model_dump.py= | same |
+| compass: parse 980 modeling documents, load 844 models | 75 ms, 69 ms median of 3 | =compass-bench models <archive> --repeat 3= | ORE Studio main, compass-ng this branch |
+
+The agent's runs were at load average 34 to 41; mine on a fresh archive gave
+the same counts. Timings are indicative.
 
 * Notes
 
@@ -74,7 +92,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/24][#24]] | [model] Load ORE Studio codegen models in compass.model |
 
 * Review
 
@@ -83,3 +101,17 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- =compass.model= loads ORE Studio's codegen models from the =compass.org=
+  tables. The oracle is =ores.codegen='s own =core.load_model=, the one entry
+  point generation uses; =codegen_model_dump.py= dumps its models as canonical
+  JSON and =codegen_model_diff.py= compares them with compass's.
+- 839 of 844 models are identical. The 4 family models and the trade type
+  catalogue need other entity models of their directory and are refused, not
+  approximated; the Load family and trade type models task finishes them.
+- A model is a generic value tree in rows with handles, because the templates
+  consume dictionary trees. The outline mixes the =compass.org= tables with
+  =parse_org='s line rules where they disagree with org-element, so documents
+  outside ORE Studio's could load differently.
+- Loading is about 4 times faster than the Python loader in one process; line
+  splitting is the next cheap win (about 15% of instructions).
