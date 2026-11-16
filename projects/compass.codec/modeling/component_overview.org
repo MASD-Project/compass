@@ -107,7 +107,8 @@ others is in its descriptor, so adding a codec adds a row to a list.
   a damaged one, or one of another version, as an empty record with the
   reason, so every unit runs. =io::write_dependency_file= writes through a
   temporary file and a rename, and only when the bytes differ from the
-  file's.
+  file's. A run whose previous record stood in for every unit, and held no
+  other, sets =same_record=, and a host need not encode or write it.
 - *Files.* =types::file_table= has a path and the bytes of each file. Paths
   are relative to the checkout root.
 - *Diagnostics.* =types::diagnostic_table= has, per finding, the document

@@ -186,7 +186,8 @@ codec::io::action_writes store_results(const std::filesystem::path& checkout,
 
 /**
  * @brief Replaces the dependency record of @p checkout with the one of
- * @p run when it differs, and returns true when it was written.
+ * @p run when it differs, and returns true when it was written. A run
+ * whose record is the previous one writes nothing and encodes nothing.
  */
 bool write_dependency_record(const std::filesystem::path& checkout,
     const codec::types::run_result& run);

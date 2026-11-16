@@ -255,6 +255,8 @@ codec::io::action_writes store_results(const std::filesystem::path& checkout,
 
 bool write_dependency_record(const std::filesystem::path& checkout,
     const codec::types::run_result& run) {
+    if (run.same_record)
+        return false;
     return codec::io::write_dependency_file(
         codec::io::dependency_file_path(store::io::git_dir(checkout)),
         run.record);

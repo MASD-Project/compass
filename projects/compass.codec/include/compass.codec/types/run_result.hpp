@@ -48,6 +48,9 @@ namespace compass::codec::types {
  * it. record holds what every unit of the enabled codecs read and
  * produced, for the next run, and fresh names its units that were called,
  * whose results the cache does not yet hold.
+ * same_record is true when the previous record stood in for every unit and
+ * held no other, so the record of the run says what it did and a host
+ * need not write it again.
  * formatted_ids is empty until the files are formatted after the run, by
  * io::format_outputs: it then holds, per codec whose files were formatted,
  * the blob ID of each of its files, row for row, and nothing for any other
@@ -65,6 +68,7 @@ struct run_result {
     double lookup_ms = 0;
     dependency_record record;
     std::vector<record_unit_id> fresh;
+    bool same_record = false;
     std::vector<std::optional<std::vector<compass::store::types::blob_id>>>
         formatted_ids;
 };

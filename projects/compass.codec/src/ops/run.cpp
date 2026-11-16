@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <functional>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -590,6 +591,10 @@ types::run_result run(const types::registry& r, const types::corpus& c,
             units.manifests[u], logs[u], p, at, registry);
         ++result.ran[codec.value];
     }
+    const auto skipped = std::ranges::fold_left(result.skipped,
+        std::uint64_t{0}, std::plus<>{});
+    result.same_record = skipped == units.size() &&
+        previous.size() == units.size();
     result.wall_ms = since(start);
     return result;
 }

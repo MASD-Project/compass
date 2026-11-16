@@ -120,6 +120,7 @@ struct outcome {
     counts cached;
     std::string output;
     types::dependency_record record;
+    bool same_record = false;
 };
 
 /**
@@ -145,7 +146,7 @@ outcome run(const sources& docs, const sources& plain,
         plain_run.files[0].contents[{0}]);
     return {result.ran, result.skipped, result.cached,
         std::string(result.files[0].contents[{0}]),
-        std::move(result.record)};
+        std::move(result.record), result.same_record};
 }
 
 class scoped_cache final {
@@ -292,6 +293,33 @@ TEST_CASE("file inputs survive the record's encoding", "[ops][file_inputs]") {
     CHECK(std::ranges::count(kinds, types::input_kind::listing) == 1);
     CHECK(std::ranges::count(kinds, types::input_kind::path) == 1);
     CHECK(std::ranges::count(kinds, types::input_kind::type_set) == 1);
+}
+
+TEST_CASE("a run is said to keep the record only when the record stood "
+    "in for every unit and held no other", "[ops][file_inputs]") {
+    const auto first = run(documents(), files());
+    CHECK_FALSE(first.same_record);
+    CHECK(run(documents(), files(), first.record).same_record);
+
+    auto edited = files();
+    edited["data/template.txt"] = "bye\n";
+    CHECK_FALSE(run(documents(), edited, first.record).same_record);
+
+    auto larger = first.record;
+    larger.codecs.add("gone");
+    larger.versions.values.push_back(1);
+    larger.configurations.values.push_back({});
+    larger.documents.add("");
+    larger.input_firsts.values.push_back(
+        {static_cast<std::uint32_t>(larger.input_count())});
+    larger.file_firsts.values.push_back(
+        {static_cast<std::uint32_t>(larger.files.size())});
+    larger.diagnostic_counts.values.push_back(0);
+    larger.diagnostic_hashes.values.push_back({});
+    larger.diagnostics.add("");
+    larger.manifests.values.push_back({});
+    larger.results.values.push_back({});
+    CHECK_FALSE(run(documents(), files(), larger).same_record);
 }
 
 TEST_CASE("a listing prefix with a star is refused", "[ops][file_inputs]") {
