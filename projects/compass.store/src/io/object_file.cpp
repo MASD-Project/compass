@@ -67,4 +67,18 @@ void write_object(const std::filesystem::path& target,
     }
 }
 
+std::optional<std::string> read_file(const std::filesystem::path& path) {
+    std::ifstream is(path, std::ios::binary | std::ios::ate);
+    if (!is)
+        return std::nullopt;
+    const auto size = is.tellg();
+    if (size < 0)
+        return std::nullopt;
+    std::string bytes(static_cast<std::size_t>(size), '\0');
+    is.seekg(0);
+    if (!is.read(bytes.data(), size))
+        return std::nullopt;
+    return bytes;
+}
+
 }
