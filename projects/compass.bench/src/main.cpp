@@ -26,6 +26,7 @@
 #include <iostream>
 #include <limits>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -48,6 +49,11 @@
 #include "compass.bench/ops/store_stage.hpp"
 #include "compass.bench/ops/types_stage.hpp"
 #include "compass.bench/ops/warm_stage.hpp"
+#include "compass.cli/app/codecs.hpp"
+#include "compass.cli/config/precedence.hpp"
+#include "compass.cli/config/repository_file.hpp"
+#include "compass.codec/ops/registry.hpp"
+#include "compass.codegen/codecs/codegen.hpp"
 #include "compass.platform/filesystem/mapped_file.hpp"
 #include "compass.store/io/location.hpp"
 
@@ -430,11 +436,38 @@ int run_models(const options& o) {
     return 0;
 }
 
+/**
+ * @brief The codecs of the compass executable with the settings the
+ * configuration file of the checkout gives them.
+ * @throws std::runtime_error when the file has a problem.
+ */
+compass::codec::types::registry configured_codecs(
+    const std::filesystem::path& checkout) {
+    namespace config = compass::cli::config;
+    const auto file = config::read_repository_file(checkout);
+    if (!file)
+        throw std::runtime_error(file.error());
+    const auto c = config::resolve(compass::cli::app::codecs(), checkout,
+        checkout / config::repository_file_name, *file, {});
+    if (!c.problems.empty())
+        throw std::runtime_error(c.problems.front());
+    return compass::codec::ops::make_registry(compass::cli::app::codecs(), {},
+        config::settings_of(c));
+}
+
 int run_render(const options& o) {
     io::setup_timing setup;
     const auto table = list_checkout(o, setup);
-    const auto result = ops::run_render_stage(o.checkout, table, o.oracle,
-        o.repetitions, o.render_out, o.format_store, o.threads);
+    const auto codecs = configured_codecs(o.checkout);
+    const auto codegen = std::ranges::find(codecs.codecs,
+        compass::codegen::codecs::codegen.name,
+        &compass::codec::types::descriptor::name);
+    const compass::codec::types::codec_id id{static_cast<std::uint32_t>(
+        codegen - codecs.codecs.begin())};
+    const compass::codec::types::option_values options{codegen->options,
+        compass::codec::ops::option_values(codecs, id)};
+    const auto result = ops::run_render_stage(o.checkout, table, options,
+        o.oracle, o.repetitions, o.render_out, o.format_store, o.threads);
     ops::write_render_report(std::cout, result);
     return result.messages.empty() ? 0 : 1;
 }

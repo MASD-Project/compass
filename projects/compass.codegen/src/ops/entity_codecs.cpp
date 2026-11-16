@@ -162,7 +162,7 @@ private:
         std::size_t count = 0;
         for (const auto& [root, base] : candidates) {
             const auto header = base + "/domain/" + std::string(name);
-            if (registry_.domain_headers.contains(header + ".hpp")) {
+            if (registry_.header_exists(header + ".hpp")) {
                 ++count;
                 found = &root;
             }
@@ -172,7 +172,7 @@ private:
                 "'s " + std::string(name) + " needs exactly one domain header");
         const auto base = *found == owner ?
             candidates[0][1] : candidates[1][1];
-        const auto codec = registry_.domain_headers.contains(
+        const auto codec = registry_.header_exists(
             base + "/domain/" + std::string(name) + "_codec.hpp");
         add(*found + "/domain/" + std::string(name) + (codec ? "_codec" : "") +
             ".hpp");

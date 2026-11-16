@@ -71,4 +71,5 @@ set_target_properties(${exe_target_name} PROPERTIES OUTPUT_NAME compass-bench)
 
 target_link_libraries(${exe_target_name}
     PRIVATE
-        ${lib_target_name})
+        ${lib_target_name}
+        compass.cli.lib)

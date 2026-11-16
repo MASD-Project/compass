@@ -19,6 +19,7 @@ set(name "compass.codegen")
 set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
+    codecs/codegen.cpp
     ops/compile.cpp
     ops/context.cpp
     ops/entity_codecs.cpp
@@ -50,6 +51,7 @@ add_library(${lib_target_name}
     ops/entity_wire.cpp
     ops/family_context.cpp
     ops/field_group_context.cpp
+    ops/generate.cpp
     ops/junction_context.cpp
     ops/manifest.cpp
     ops/model_steps.cpp
@@ -67,6 +69,7 @@ target_include_directories(${lib_target_name} PUBLIC
 
 target_link_libraries(${lib_target_name}
     PUBLIC
+        compass.codec.lib
         compass.model.lib
     PRIVATE
         compass.store.lib)

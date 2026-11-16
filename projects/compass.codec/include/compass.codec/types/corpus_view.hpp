@@ -343,7 +343,15 @@ public:
      * option, which is a defect of the codec.
      */
     [[nodiscard]] std::string_view option(std::string_view key) const {
-        return option_values{options_, values_}[key];
+        return options()[key];
+    }
+
+    /**
+     * @brief The value of every option, in the order the descriptor
+     * declares them.
+     */
+    [[nodiscard]] option_values options() const noexcept {
+        return {options_, values_};
     }
 
 private:

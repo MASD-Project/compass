@@ -2,7 +2,7 @@
 :ID: ADDF10CB-A992-4E35-A727-A38463915085
 :END:
 #+title: compass.codegen
-#+description: Code generation from the codegen models: a Mustache engine with pystache's semantics that compiles each template once, the text ores.codegen writes for an output before formatting, the render contexts and output units ores.codegen builds, and the physical-space graph of the template library.
+#+description: Code generation from the codegen models: a Mustache engine with pystache's semantics that compiles each template once, the text ores.codegen writes for an output before formatting, the render contexts and output units ores.codegen builds, the physical-space graph of the template library, and the codegen codec that runs all of it in the codec runtime with ores.codegen's formatters.
 #+type: component
 #+level: cross
 #+filetags: :codegen:mustache:render:component:
@@ -32,9 +32,24 @@ models and of the asset class and outcome catalogues.
 ores.codegen's =regenerate --all= with the formatters patched out and
 captures, per output, the text it writes and the context it rendered from.
 
+The =codegen= codec runs the whole of =regenerate --all= in the codec
+runtime of =compass.codec=: =compass generate= writes, =compass diff= shows
+and a later run reuses what it produced while none of its inputs changed.
+Where the library is and which programs format the outputs are options of
+the codec, set in the checkout's =.compass.org=.
+
 * Inputs
 
-- The =.mustache= files of =projects/ores.codegen/library/templates/=.
+- The options of the =codegen= codec: =library=, the directory of
+  ores.codegen's library (=projects/ores.codegen/library= in ORE Studio);
+  =convention_component=, the component of the catalogue whose modeling
+  directory declares the convention families (=refdata=, which
+  =convention_family_registry.py= names); =year=, the copyright year,
+  empty for the year of the run; =clang_format= and =prettier=, each a
+  comma-separated list of candidate programs, a name searched on =PATH= and
+  a path relative to the checkout, empty for none; and
+  =clang_format_style= and =prettier_style=, their style files.
+- The =.mustache= files of the library's =templates/= directory.
 - The =ores.*.org= node documents of the same directory, whose =#+= header
   keywords state the physical-space graph: facets, archetypes, their model
   types, component kinds, defaults and output patterns, and the template
@@ -70,6 +85,29 @@ captures, per output, the text it writes and the context it rendered from.
   =ops::model_units= lists a model's outputs as =resolve_targets= does.
   =ops::read_component_catalogue= and =ops::regenerated_models= give the
   models =regenerate --all= visits.
+- *Generation.* =ops::checkout_reader= is everything generation reads of a
+  checkout: documents by path, file listings by prefix and suffix, file
+  bytes and whether a file exists. =ops::plan_generation= loads the models
+  =regenerate --all= visits, builds the entity registry and every context,
+  and lists one =ops::planned_output= per output path; a path two models
+  name is rendered from the later, as the later write wins on disk.
+  =ops::compile_templates= compiles the library's templates and
+  =ops::render_planned= renders one output. =ops::generate= is the three
+  in turn, and throws naming every model that did not load, since a codec
+  that emits files cannot report findings.
+- *Codec.* =codecs::codegen= is a corpus codec over every document, off by
+  default. =codecs::reader_of= reads through the codec's view, so the unit
+  records each document it looks up, each library file it reads, the
+  listing of =projects/*.org= and of the templates, and each domain header
+  whose existence an entity's includes depend on. It does not enumerate
+  the corpus, so an edit to a document it did not read, or to a source
+  file, does not run it again. =codecs::settings_of= parses the options and
+  =codecs::formatters_of= gives ores.codegen's formatter table:
+  clang-format twice over =.cpp=, =.hpp=, =.h=, =.cxx= and =.cc= with
+  =-i --style=file:{style}=, and prettier once over =.ts= and =.tsx= with
+  =--write --log-level warn --config {style}=, as generate.py's
+  =clang_format_files= and =prettier_format_files= run them. The runtime
+  formats the codec's files through the result cache in every run.
 
 | Outputs at ORE Studio =5ce3cd7e6c=    | Identical | Of    |
 |---------------------------------------+-----------+-------|
@@ -98,6 +136,8 @@ reading the contexts.
 | =include/compass.codegen/ops/context.hpp=             | The library values and the model contexts.  |
 | =include/compass.codegen/ops/physical_space.hpp=      | The graph and a model's units.              |
 | =include/compass.codegen/ops/manifest.hpp=            | The models =regenerate --all= visits.       |
+| =include/compass.codegen/ops/generate.hpp=            | The reader, the plan and its rendering.     |
+| =include/compass.codegen/codecs/codegen.hpp=          | The codec, its settings and formatters.     |
 | =tests/data/mustache_spec/=                           | The Mustache spec v1.4.3, MIT licence.      |
 
 | Target                  | Kind                                      |
@@ -105,15 +145,20 @@ reading the contexts.
 | =compass.codegen.lib=   | Library.                                  |
 | =compass.codegen.tests= | Catch2 executable, registered with CTest. |
 
-=compass-bench render <checkout> --out <dir>= renders every output compass
-builds a context for; with =--oracle <dump>= it renders the dump's outputs
-from the dump's contexts. =build/scripts/codegen_render_diff.py= compares
+=compass-bench render <checkout> --out <dir>= runs the codec's generation
+code on the checkout read from disk, with the options its =.compass.org=
+gives; with =--oracle <dump>= it renders the dump's outputs from the dump's
+contexts. =build/scripts/codegen_render_diff.py= compares
 either with the oracle, output by output and template by template.
 
 * Dependencies
 
 - =compass.model= for the value tables contexts are made of, and the JSON
   reader for the oracle's contexts and the spec suite.
+- =compass.codec= for the descriptor, the corpus view the codec reads
+  through, the file table it emits, the formatter type and =find_program=.
+- =compass.ingest=, for the tests only: the codec's tests parse a small
+  checkout.
 - The C++23 standard library.
 - Catch2, for the tests only. The tests run the required files of the
   Mustache spec, expecting pystache's output for the three cases

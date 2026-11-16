@@ -20,10 +20,12 @@
 #ifndef COMPASS_CODEGEN_TYPES_ENTITY_REGISTRY_HPP
 #define COMPASS_CODEGEN_TYPES_ENTITY_REGISTRY_HPP
 
+#include <functional>
 #include <map>
 #include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <vector>
 #include "compass.model/ops/typescript.hpp"
 
@@ -140,9 +142,9 @@ struct convention_family {
  * economic_field_groups holds the dotted names of the field groups whose
  * models declare an economic field (_group_declares_economic_fields).
  * directories maps the directory of every .org model under a modeling/
- * directory of projects/ to what its models declare. domain_headers holds
- * the path of every header under a domain/ directory of projects/, which
- * _foreign_root asks about. convention_families holds the convention
+ * directory of projects/ to what its models declare. header_exists says
+ * whether the checkout has a header at a path under a domain/ directory of
+ * projects/, which _foreign_root asks about; by default none exists. convention_families holds the convention
  * families (discover_entries), by key. shell_units maps a modeling
  * directory to the singulars of the entity and junction models in it, or
  * one level below it, that enable ores.cpp.shell-command
@@ -157,7 +159,8 @@ struct entity_registry {
     compass::model::ops::custom_types custom_types;
     std::set<std::string, std::less<>> economic_field_groups;
     std::map<std::string, model_directory, std::less<>> directories;
-    std::set<std::string, std::less<>> domain_headers;
+    std::function<bool(std::string_view)> header_exists =
+        [](std::string_view) { return false; };
     std::vector<convention_family> convention_families;
     std::map<std::string, std::set<std::string>, std::less<>> shell_units;
     std::map<std::string, std::vector<std::string>, std::less<>>

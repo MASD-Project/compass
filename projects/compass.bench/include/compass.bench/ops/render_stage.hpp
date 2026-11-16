@@ -28,7 +28,7 @@
 #include <vector>
 #include "compass.bench/types/file_table.hpp"
 #include "compass.codec/io/format_cache.hpp"
-#include "compass.codec/types/formatter.hpp"
+#include "compass.codec/types/descriptor.hpp"
 
 namespace compass::bench::ops {
 
@@ -54,35 +54,28 @@ struct render_result {
 };
 
 /**
- * @brief Renders every output of the checkout @p repetitions times.
+ * @brief Renders every output of the checkout @p repetitions times,
+ * through compass.codegen with the settings the codegen codec's options
+ * @p options give.
  *
  * With @p oracle empty, the outputs and their contexts are the ones
- * compass.codegen builds from the models compass.model loads. With
+ * compass.codegen plans from the models compass.model loads. With
  * @p oracle naming a dump of build/scripts/codegen_render_dump.py, they are
  * the dump's outputs rendered from the dump's contexts, which checks the
  * renderer apart from the contexts. When @p out is not empty, each output
  * is written to <out>/renders/<path>, the dump's layout.
  *
- * When @p format_store is not empty, the outputs are then formatted as
- * ores.codegen formats them, through the result cache of the git common
- * directory @p format_store, @p threads formatter processes at a time, and
- * each formatted output is written to <out>/formatted/<path>.
+ * When @p format_store is not empty, the outputs are then formatted with
+ * the formatters @p options give, through the result cache of the git
+ * common directory @p format_store, @p threads formatter processes at a
+ * time, and each formatted output is written to <out>/formatted/<path>.
  */
 [[nodiscard]] render_result run_render_stage(
     const std::filesystem::path& checkout, const types::file_table& table,
+    const compass::codec::types::option_values& options,
     const std::filesystem::path& oracle, unsigned repetitions,
     const std::filesystem::path& out,
     const std::filesystem::path& format_store, unsigned threads);
-
-/**
- * @brief The formatters ores.codegen runs over what it writes, as
- * generate.py's clang_format_files and prettier_format_files run them:
- * clang-format twice over C++ with the checkout's .clang-format, and
- * prettier once over TypeScript with its .prettierrc.yaml, the workspace's
- * own prettier first. A program that cannot be found is left out.
- */
-[[nodiscard]] std::vector<compass::codec::types::formatter> ores_formatters(
-    const std::filesystem::path& checkout);
 
 void write_render_report(std::ostream& os, const render_result& r);
 

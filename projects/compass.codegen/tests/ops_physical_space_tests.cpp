@@ -450,7 +450,7 @@ TEST_CASE("regenerate --all reaches the catalogue's modeling directories",
     REQUIRE(components.size() == 2);
     CHECK(components[0].excluded_types ==
         std::vector<std::string>{"junction"});
-    const std::vector<std::string> paths{
+    const std::vector<std::string_view> paths{
         "projects/ores.a/modeling/e.org",
         "projects/ores.a/modeling/j.org",
         "projects/ores.a/modeling/notes.org",

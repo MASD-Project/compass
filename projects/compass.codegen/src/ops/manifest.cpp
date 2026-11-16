@@ -149,7 +149,7 @@ std::vector<catalogue_component> read_component_catalogue(
 
 std::set<std::string, std::less<>> regenerated_models(
     std::span<const catalogue_component> components,
-    std::span<const std::string> paths,
+    std::span<const std::string_view> paths,
     const std::function<std::string(std::string_view path)>& type_of) {
     std::set<std::string, std::less<>> out;
     for (const auto& c : components) {

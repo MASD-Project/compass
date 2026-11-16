@@ -27,7 +27,7 @@
 #include "compass.cli/config/precedence.hpp"
 #include "compass.cli/config/repository_file.hpp"
 #include "compass.cli/io/report.hpp"
-#include "compass.codec/codecs/catalogue.hpp"
+#include "compass.cli/app/codecs.hpp"
 
 namespace compass::cli::app {
 
@@ -67,7 +67,7 @@ int run_command(const types::invocation& i, std::ostream& out,
         err << "compass: " << file.error() << "\n";
         return exit_failure;
     }
-    const auto c = config::resolve(codec::codecs::catalogue(), i.checkout,
+    const auto c = config::resolve(codecs(), i.checkout,
         i.checkout / config::repository_file_name, *file, i.command_line);
     if (!c.problems.empty()) {
         for (const auto& p : c.problems)

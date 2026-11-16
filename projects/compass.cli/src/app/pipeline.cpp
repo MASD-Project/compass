@@ -27,7 +27,7 @@
 #include <tuple>
 #include <vector>
 #include "compass.cli/app/steps.hpp"
-#include "compass.codec/codecs/catalogue.hpp"
+#include "compass.cli/app/codecs.hpp"
 #include "compass.codec/ops/registry.hpp"
 #include "compass.store/io/location.hpp"
 
@@ -83,7 +83,7 @@ void evaluate(pipeline& p, const types::options& o) {
     p.corpus = corpus_of(p.files, type_registry);
     s.documents = p.corpus.size();
 
-    p.codecs = codec::ops::make_registry(codec::codecs::catalogue(),
+    p.codecs = codec::ops::make_registry(codecs(),
         type_registry, o.settings);
     s.problems = p.codecs.problems;
     const auto previous = read_dependency_record(o.checkout);
