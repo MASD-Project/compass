@@ -22,10 +22,13 @@
 
 #include <cstddef>
 #include <filesystem>
+#include <optional>
 #include <ostream>
 #include <string>
 #include <vector>
 #include "compass.bench/types/file_table.hpp"
+#include "compass.codec/io/format_cache.hpp"
+#include "compass.codec/types/formatter.hpp"
 
 namespace compass::bench::ops {
 
@@ -35,7 +38,8 @@ namespace compass::bench::ops {
  * templates counts the .mustache files compiled once, in compile_ms.
  * outputs and bytes count what one repetition rendered. setup_ms is the
  * time to build or read the contexts, render_ms one time per repetition of
- * rendering every output. messages names each output that failed.
+ * rendering every output. messages names each output that failed. format
+ * says what formatting the outputs did, when they were formatted.
  */
 struct render_result {
     std::size_t templates = 0;
@@ -46,6 +50,7 @@ struct render_result {
     double setup_ms = 0;
     std::vector<double> render_ms;
     std::vector<std::string> messages;
+    std::optional<compass::codec::io::format_stats> format;
 };
 
 /**
@@ -57,11 +62,27 @@ struct render_result {
  * the dump's outputs rendered from the dump's contexts, which checks the
  * renderer apart from the contexts. When @p out is not empty, each output
  * is written to <out>/renders/<path>, the dump's layout.
+ *
+ * When @p format_store is not empty, the outputs are then formatted as
+ * ores.codegen formats them, through the result cache of the git common
+ * directory @p format_store, @p threads formatter processes at a time, and
+ * each formatted output is written to <out>/formatted/<path>.
  */
 [[nodiscard]] render_result run_render_stage(
     const std::filesystem::path& checkout, const types::file_table& table,
     const std::filesystem::path& oracle, unsigned repetitions,
-    const std::filesystem::path& out);
+    const std::filesystem::path& out,
+    const std::filesystem::path& format_store, unsigned threads);
+
+/**
+ * @brief The formatters ores.codegen runs over what it writes, as
+ * generate.py's clang_format_files and prettier_format_files run them:
+ * clang-format twice over C++ with the checkout's .clang-format, and
+ * prettier once over TypeScript with its .prettierrc.yaml, the workspace's
+ * own prettier first. A program that cannot be found is left out.
+ */
+[[nodiscard]] std::vector<compass::codec::types::formatter> ores_formatters(
+    const std::filesystem::path& checkout);
 
 void write_render_report(std::ostream& os, const render_result& r);
 

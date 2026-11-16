@@ -111,6 +111,23 @@ void write_output(const std::filesystem::path& out, std::string_view path,
     write_file(out / "renders" / std::filesystem::path(path), text);
 }
 
+/**
+ * @brief Where the rendered outputs go: written under <out>/renders when
+ * out is set, and kept in rendered when they are to be formatted.
+ */
+struct render_sink {
+    std::filesystem::path out;
+    bool keep = false;
+    compass::codec::types::file_table rendered;
+
+    void add(std::string_view path, std::string_view text) {
+        if (!out.empty())
+            write_output(out, path, text);
+        if (keep)
+            rendered.add(path, text);
+    }
+};
+
 struct unit {
     std::string output;
     std::string template_name;
@@ -140,7 +157,7 @@ std::map<std::string, std::vector<unit>> oracle_units(
 
 void render_oracle(render_result& r, const template_map& templates,
     const std::filesystem::path& oracle, unsigned repetitions,
-    const std::filesystem::path& out) {
+    render_sink& sink) {
     const auto start = clock_type::now();
     const auto by_context = oracle_units(oracle);
     r.setup_ms += elapsed_ms(start);
@@ -171,8 +188,7 @@ void render_oracle(render_result& r, const template_map& templates,
             }
             ++r.outputs;
             r.bytes += text.size();
-            if (!out.empty())
-                write_output(out, u.output, text);
+            sink.add(u.output, text);
         }
     }
 }
@@ -717,14 +733,14 @@ void write_contexts(const std::filesystem::path& out, const model_tables& t,
 
 void render_models(render_result& r, const template_map& templates,
     const std::filesystem::path& checkout, const types::file_table& table,
-    unsigned repetitions, const std::filesystem::path& out) {
+    unsigned repetitions, render_sink& sink) {
     const auto start = clock_type::now();
     model_tables t;
     compass::model::ops::builder b(t);
     const auto plan = plan_models(checkout, table, b, r);
     r.setup_ms = elapsed_ms(start);
-    if (!out.empty())
-        write_contexts(out, t, plan);
+    if (!sink.out.empty())
+        write_contexts(sink.out, t, plan);
 
     r.render_ms.assign(repetitions, 0.0);
     std::string text;
@@ -744,25 +760,65 @@ void render_models(render_result& r, const template_map& templates,
         }
         ++r.outputs;
         r.bytes += text.size();
-        if (!out.empty())
-            write_output(out, u.output, text);
+        sink.add(u.output, text);
     }
 }
 
 }
 
+std::vector<compass::codec::types::formatter> ores_formatters(
+    const std::filesystem::path& checkout) {
+    using compass::codec::io::find_program;
+    std::vector<compass::codec::types::formatter> out;
+    if (const auto clang_format = find_program("clang-format")) {
+        out.push_back({.name = "clang-format", .program = *clang_format,
+            .extensions = {".cpp", ".hpp", ".h", ".cxx", ".cc"},
+            .arguments = {"-i", "--style=file:{style}"}, .passes = 2,
+            .style = checkout / ".clang-format"});
+    }
+    const auto local = checkout /
+        "projects/ores.web/node_modules/.bin/prettier";
+    const auto prettier = find_program(local.string()).or_else(
+        [] { return find_program("prettier"); });
+    if (prettier) {
+        out.push_back({.name = "prettier", .program = *prettier,
+            .extensions = {".ts", ".tsx"},
+            .arguments = {"--write", "--log-level", "warn", "--config",
+                "{style}"},
+            .passes = 1, .style = checkout / ".prettierrc.yaml"});
+    }
+    return out;
+}
+
 render_result run_render_stage(const std::filesystem::path& checkout,
     const types::file_table& table, const std::filesystem::path& oracle,
-    unsigned repetitions, const std::filesystem::path& out) {
+    unsigned repetitions, const std::filesystem::path& out,
+    const std::filesystem::path& format_store, unsigned threads) {
     render_result r;
     const auto start = clock_type::now();
     const auto templates = compile_templates(checkout);
     r.compile_ms = elapsed_ms(start);
     r.templates = templates.size();
+    render_sink sink{out, !format_store.empty(), {}};
     if (oracle.empty())
-        render_models(r, templates, checkout, table, repetitions, out);
+        render_models(r, templates, checkout, table, repetitions, sink);
     else
-        render_oracle(r, templates, oracle, repetitions, out);
+        render_oracle(r, templates, oracle, repetitions, sink);
+    if (format_store.empty())
+        return r;
+
+    const auto formatters = ores_formatters(checkout);
+    const auto formatted = compass::codec::io::format_files(format_store,
+        formatters, sink.rendered, threads);
+    r.format = formatted.stats;
+    if (!out.empty()) {
+        const auto& files = formatted.files;
+        for (std::uint32_t i = 0; i < files.size(); ++i) {
+            const compass::codec::types::file_id id{i};
+            write_file(out / "formatted" /
+                std::filesystem::path(files.paths[id]), files.contents[id]);
+        }
+    }
     return r;
 }
 
@@ -777,6 +833,12 @@ void write_render_report(std::ostream& os, const render_result& r) {
         os << "render ms: min " << sorted.front() << ", median "
            << sorted[sorted.size() / 2] << ", max " << sorted.back()
            << " over " << sorted.size() << " runs\n";
+    }
+    if (r.format) {
+        const auto& f = *r.format;
+        os << "format: " << f.hits << " stored, " << f.formatted
+           << " formatted, " << f.unformatted << " unformatted, " << f.runs
+           << " formatter processes, " << f.format_ms << " ms\n";
     }
     for (const auto& m : r.messages)
         os << "  " << m << "\n";

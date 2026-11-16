@@ -75,7 +75,7 @@ constexpr std::string_view usage =
     "           [--verify N|all]\n"
     "       compass-bench models <checkout> [--dump <dir>] [--repeat R]\n"
     "       compass-bench render <checkout> [--oracle <dir>] [--out <dir>]\n"
-    "           [--repeat R]\n"
+    "           [--format <git-dir>] [-j N] [--repeat R]\n"
     "       compass-bench org-dump <file>\n"
     "       compass-bench org-dump --list <list>\n";
 
@@ -104,6 +104,7 @@ struct options {
     std::filesystem::path model_dump;
     std::filesystem::path oracle;
     std::filesystem::path render_out;
+    std::filesystem::path format_store;
 };
 
 std::filesystem::path absolute_path(const std::filesystem::path& p) {
@@ -250,6 +251,8 @@ std::optional<options> parse_options(int argc, char** argv) {
             o.oracle = absolute_path(value);
         } else if (render && flag == "--out") {
             o.render_out = absolute_path(value);
+        } else if (render && flag == "--format") {
+            o.format_store = absolute_path(value);
         } else {
             return std::nullopt;
         }
@@ -431,7 +434,7 @@ int run_render(const options& o) {
     io::setup_timing setup;
     const auto table = list_checkout(o, setup);
     const auto result = ops::run_render_stage(o.checkout, table, o.oracle,
-        o.repetitions, o.render_out);
+        o.repetitions, o.render_out, o.format_store, o.threads);
     ops::write_render_report(std::cout, result);
     return result.messages.empty() ? 0 : 1;
 }
