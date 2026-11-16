@@ -1,0 +1,88 @@
+/* -*- mode: c++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+#ifndef COMPASS_CODEGEN_OPS_PHYSICAL_SPACE_HPP
+#define COMPASS_CODEGEN_OPS_PHYSICAL_SPACE_HPP
+
+#include <span>
+#include <string>
+#include <string_view>
+#include <vector>
+#include "compass.codegen/types/physical_space.hpp"
+#include "compass.model/types/model_tables.hpp"
+
+namespace compass::codegen::ops {
+
+/**
+ * @brief One ores.*.org node document of the template library: its file
+ * name and its text.
+ */
+struct node_document {
+    std::string_view name;
+    std::string_view text;
+};
+
+/**
+ * @brief The graph physical_space.load_graph builds from @p nodes, which
+ * must be in file-name order: each node's #+ keywords up to its first
+ * heading, and the template its :tangle names.
+ */
+[[nodiscard]] types::physical_space load_physical_space(
+    std::span<const node_document> nodes);
+
+/**
+ * @brief A property of a model document's file-level drawer.
+ */
+struct drawer_property {
+    std::string_view key;
+    std::string_view value;
+};
+
+/**
+ * @brief One output to render: the template and the output path relative
+ * to the root of the checkout.
+ */
+struct unit {
+    std::string template_name;
+    std::string output;
+};
+
+/**
+ * @brief What generate.resolve_targets returns, with no --address, for a
+ * model of @p model_type, which is ores.codegen's name for it (component,
+ * domain_entity, ...): the archetypes the graph enables for it, in its
+ * order, each with its output path, an output named twice kept once.
+ *
+ * Output paths are resolved as resolve_output_path resolves them for a
+ * component: its directory under projects/ is the one above the modeling/
+ * of @p model_path, the model's path relative to the checkout. Any other
+ * model type's pattern is kept as written, which is right only for the
+ * types whose patterns name no placeholder, such as the catalogues.
+ * @p properties is the model's drawer, whose :ores.<address>.enabled:
+ * entries override the defaults, the most specific address first.
+ */
+[[nodiscard]] std::vector<unit> model_units(
+    const types::physical_space& graph, std::string_view model_type,
+    const compass::model::types::model_tables& models,
+    compass::model::types::value_id model, std::string_view model_path,
+    std::span<const drawer_property> properties);
+
+}
+
+#endif

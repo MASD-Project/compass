@@ -20,7 +20,10 @@ set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
     ops/compile.cpp
+    ops/context.cpp
+    ops/manifest.cpp
     ops/output.cpp
+    ops/physical_space.cpp
     ops/render.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})

@@ -21,7 +21,9 @@ set(tests_target_name ${name}.tests)
 
 add_executable(${tests_target_name}
     ops_compile_tests.cpp
+    ops_context_tests.cpp
     ops_output_tests.cpp
+    ops_physical_space_tests.cpp
     ops_render_tests.cpp
     ops_spec_tests.cpp)
 
