@@ -25,11 +25,16 @@ One process per command. =compass= lists the files of a checkout, resolves
 their content IDs from git's index, maps the parsed objects it already holds
 from the store shared by every worktree, parses only what is missing, runs the
 enabled codecs whose inputs changed, and writes only the outputs whose content
-changed, or prints them as a diff.
+changed, or prints them as a diff. =compass check --commit= runs the same
+pipeline over a past commit: the files and their IDs come from the commit's
+trees in git's object database, and a blob is read only when its bytes are
+needed.
 
 #+begin_example
  files ──▶ ids (git index) ──▶ store (mapped objects) ──▶ codecs ──▶ sink / diff
              compass.store       compass.store, .org        .codec     .codec
+ commit ─▶ ids (git trees) ──┘
+             compass.store
 #+end_example
 
 * Foundation layer
@@ -42,11 +47,18 @@ No compass-ng dependency. Generic, reusable code.
 * Infrastructure layer
 | Component       | Role                                                                                                                       |
 |-----------------+----------------------------------------------------------------------------------------------------------------------------|
-| =compass.store= | Content-addressed store shared by the worktrees of a repository: git blob IDs as keys, loose objects, the git and worktree indexes, action objects, collection by reachability. |
+| =compass.store= | Content-addressed store shared by the worktrees of a repository: git blob IDs as keys, loose objects, the git and worktree indexes, action objects, collection by reachability; and a reader of git's object database, loose and packed, for commits with no checkout. |
 
 The store holds what is derived from files and can be computed again. It does
 not know what an object holds: =compass.org= lays out the object of a parsed
-document, so the store stays below the domain layer.
+document, so the store stays below the domain layer. It depends on
+=compass.platform= for mapped files.
+
+The reader of git's object database is in =compass.store= rather than a
+component of its own because it serves the store's key: a blob's git object
+ID is its blob ID, so the blobs of a commit are found in the store, parsed or
+not, by the same key as the files of a checkout. Like the git index reader
+beside it, it reads one of git's formats and keeps nothing.
 
 * Domain layer
 | Component         | Role                                                                                                                                                                                                                                     |

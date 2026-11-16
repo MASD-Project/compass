@@ -2,7 +2,7 @@
 :ID: EB285F25-4AF8-482D-B679-C650DA718CF6
 :END:
 #+title: compass.store
-#+description: The content-addressed store every worktree of a repository shares: git blob IDs as keys, taken from git's index when git would call a file clean, else from a per-worktree index of the files compass hashed, else hashed; object paths under the git common directory, action objects named by a key their writer computes, writes that land whole or not at all, and collection of the objects and action objects no worktree refers to.
+#+description: The content-addressed store every worktree of a repository shares: git blob IDs as keys, taken from git's index when git would call a file clean, else from a per-worktree index of the files compass hashed, else hashed; object paths under the git common directory, action objects named by a key their writer computes, writes that land whole or not at all, and collection of the objects and action objects no worktree refers to; and a reader of git's own object database, loose and packed, so a commit is read with no checkout.
 #+type: component
 #+level: cross
 #+filetags: :store:cache:worktrees:component:
@@ -44,6 +44,9 @@ and hands the bytes to =write_object=; later it maps the file with
   directory is read, and written when the caller asks.
 - The bytes of an object, to write.
 - The key and body of an action object, to write or read.
+- For a commit: git's object database under the git common directory, its
+  pack files, their indexes, its loose objects and the databases its
+  =info/alternates= names, read, never written.
 - For collection: the git directory of every worktree, read from the common
   directory; the git index and worktree index of each, read, never written;
   for each, the action keys a caller-supplied function says it names; the
@@ -164,6 +167,31 @@ and hands the bytes to =write_object=; later it maps the file with
   temporary file. =io::collect= runs the four and unlinks each victim whose
   size and modification time are still the ones listed; a dry run unlinks
   nothing.
+- *Git objects.* =io::git_objects= reads git's object database with no git
+  process, so a commit can be read without a checkout. Opening it maps
+  every version 2 pack index and its pack, its own and those of its
+  alternates; =read= finds an ID in the indexes, then among the loose
+  objects, and returns the object's type and bytes, or nothing when no
+  database holds it. A pack entry that is a delta is applied to its base,
+  following offset deltas and reference deltas, whose base may be in
+  another pack or loose, down to a whole object. Every intermediate base
+  goes into a cache of 4,096 slots and at most 96 MB shared by every
+  thread, as git's delta base cache does, so the objects of one chain do
+  not inflate it again. zlib inflates every stream, and an object's size
+  must be the one its header or delta records; objects are not hashed
+  against their IDs. A damaged stream, a delta that does not apply, a
+  reference delta whose base is missing and a chain longer than 10,000
+  throw, naming the object. A pack written after opening is not seen.
+  The formats are parsed by the pure functions of =ops/git_object.hpp=:
+  =parse_pack_index=, =find_offset=, =parse_pack_entry=, =inflate=,
+  =apply_delta=, =parse_loose_object=, =parse_tree= and =tree_of_commit=.
+  A blob's object ID is its blob ID, so a blob of a commit has the key its
+  parse is stored under in every worktree.
+- *Commits.* =io::list_commit= reads a commit and every tree under it
+  into =types::commit_files=: path, mode and ID of each file, symbolic
+  link and submodule, in byte order of the path, as =git ls-tree -r=
+  lists them. =io::read_commit_file= reads one file of a commit, reading
+  only the trees on its path. Neither reads a blob it is not asked for.
 - *Collection is safe to run at any time.* An index that exists and cannot
   be read, split, damaged or of another version, stops the collection before
   anything is removed, since the IDs it holds cannot be kept. A process that
@@ -214,6 +242,13 @@ wrote none; restoring the edits in the linked worktree parsed and wrote the
 517 removed objects and loaded the other 10,400. The machine was shared, so
 the numbers are indicative.
 
+On a copy of ORE Studio at =08a73b6767= whose objects =git gc= had put in
+one 613 MB pack, listing the commit's 60,552 paths took 32 ms. Reading
+all of their blobs, 1,619 MB, took 3.7 s on one thread and 0.83 s on 8;
+=git cat-file --batch= read the same blobs in 4.0 s. Reading the 10,928
+org blobs, 70 MB, took 250 ms on one thread and 34 ms on 8. The machine
+was shared, so the numbers are indicative.
+
 * Entry points
 
 | Path                                             | Role                                                                              |
@@ -236,6 +271,9 @@ the numbers are indicative.
 | =include/compass.store/types/collection.hpp=     | =stored_objects=, =collection_plan=, =collection_options=, =collection_result=.   |
 | =include/compass.store/ops/collection.hpp=       | =plan_collection=.                                                                |
 | =include/compass.store/io/collection.hpp=        | =worktree_git_dirs=, =live_ids=, =list_objects=, =action_roots=, =collect=.       |
+| =include/compass.store/types/git_object.hpp=     | =object_id=, =object_type=, =git_object=, =tree_entry=, =commit_files=.           |
+| =include/compass.store/ops/git_object.hpp=       | The pack, index, delta, loose object, tree and commit formats.                    |
+| =include/compass.store/io/git_objects.hpp=       | =git_objects=, =git_objects_dir=, =list_commit=, =read_commit_file=.              |
 | =tests/ops_blob_hash_tests.cpp=                  | IDs checked against =git hash-object=.                                            |
 | =tests/io_location_tests.cpp=                    | A main checkout, a linked worktree, bad input.                                    |
 | =tests/io_object_file_tests.cpp=                 | Replacement, failure and concurrent writers.                                      |
@@ -244,6 +282,8 @@ the numbers are indicative.
 | =tests/io_id_resolver_tests.cpp=                 | Real repositories; IDs checked against =git hash-object=.                         |
 | =tests/io_worktree_index_tests.cpp=              | Reuse with no read, changes, racy entries, damage, pruning, linked worktrees.     |
 | =tests/io_collection_tests.cpp=                  | Linked and deleted worktrees, worktree indexes, cap, grace, order, dry runs, action objects. |
+| =tests/ops_git_object_tests.cpp=                 | Deltas, trees, commits, zlib streams and pack entry headers, well formed and not. |
+| =tests/io_git_objects_tests.cpp=                 | Loose and packed objects, deep offset and reference delta chains, alternates, missing and damaged objects; checked against =git cat-file=. |
 
 | Target                | Kind                                      |
 |-----------------------+-------------------------------------------|
@@ -252,7 +292,10 @@ the numbers are indicative.
 
 * Dependencies
 
-- The C++23 standard library. No other compass-ng component.
+- The C++23 standard library.
+- =compass.platform=, the foundation layer, for =mapped_file=: the git
+  object reader maps packs, their indexes and loose objects.
+- zlib, from its vcpkg port, to inflate git's objects.
 - POSIX (=open=, =fstat=, =lstat=, =read=, =unlink=, =clock_gettime=), and
   Linux's =CLOCK_REALTIME_COARSE=.
 - Catch2 and the =git= command, for the tests only. The store itself starts

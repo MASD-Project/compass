@@ -23,6 +23,7 @@ The =compass= executable of compass-ng.
 - [[id:22EC58E3-C413-402C-96D5-93E34230C887][How do I generate code with compass?]] — Configure the codegen codec in .compass.org and run compass diff, generate and check to regenerate a checkout's generated code, formatted, touching only files whose content changed.
 - [[id:2AD84580-A94E-4EEE-A234-3EB437A8B492][How do I see what compass would change?]] — Run compass diff to print, as unified diffs, every change compass generate would make, writing nothing.
 - [[id:5A6EBB88-638D-43A3-96E5-068340C7AEEA][How do I check documents with compass?]] — Run compass check to report every diagnostic of the enabled codecs, one line each with the fix to apply.
+- [[id:A604E719-D542-4C81-BB5B-AF0A70425BF6][How do I check a past commit?]] — Run compass check --commit to check any commit from git's object database, with no checkout, reusing every parse and result the store holds.
 - [[id:AA6DE55E-DAD3-47E5-B485-DAD2365898E9][How do I configure compass?]] — Edit .compass.org at the repository root to choose the codecs and their options, and run compass config to see the effective settings.
 - [[id:F16E0DF4-46E0-4254-8FEB-593463C41ACB][How do I collect the compass store?]] — Run compass gc to remove old objects and cached results no worktree refers to.
 

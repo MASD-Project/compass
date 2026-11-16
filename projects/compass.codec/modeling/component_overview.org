@@ -38,7 +38,11 @@ others is in its descriptor, so adding a codec adds a row to a list.
 - Optionally, =types::checkout_files=: every file of the checkout, documents
   or not, in byte order of the paths, with a function that gives a file's
   content ID as the host resolves IDs and one that reads its bytes. The
-  corpus points at it; with none, every file input is a miss.
+  corpus points at it; with none, every file input is a miss. The host
+  may back it with a checkout on disk or with a commit's trees and blobs:
+  the runtime sees only paths, IDs and bytes, so a check of a past commit
+  runs every codec unchanged, and a unit whose recorded inputs have the
+  same IDs in the commit is reused without reading a blob.
 - The type registry of =compass.org=, which the input types of a codec are
   resolved against.
 - A span of descriptors. =codecs::catalogue()= lists the ones this component
