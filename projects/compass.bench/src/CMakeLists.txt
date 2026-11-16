@@ -22,10 +22,12 @@ set(exe_target_name ${name}.exe)
 add_library(${lib_target_name}
     io/compile_commands.cpp
     io/report.cpp
+    ops/include_resolve.cpp
     ops/include_scan.cpp
     ops/listing.cpp
     ops/partition.cpp
-    ops/read_stage.cpp)
+    ops/read_stage.cpp
+    ops/search_paths.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
 
