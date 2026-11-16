@@ -45,6 +45,10 @@ included.
   name. A host that records reads, such as a codec's corpus view, sees every
   one, because the finder is asked for each read even when the
   =load_cache= spares parsing the document again.
+- A =document_lister= that lists the paths of the checkout under a prefix.
+  A model that reads the models beside it finds them through it, as
+  ores.codegen globs the directories: the =trade_type_catalogue= lists the
+  entity models of every =projects/*/modeling/= directory.
 
 No model at this commit reads a =#+data_source:= JSON file: in ORE Studio
 only the populate archetypes of the template library name one, and an
@@ -72,8 +76,7 @@ as inputs it records like any other file.
   interned, so the loaders read like the code they follow.
 - *Refusals.* Where ores.codegen raises =ValueError= the model's value is
   ={"error": "ValueError"}=, which is what the oracle records, and the loader
-  hands back the message. A type that is not ported loads as
-  ={"error": "NotPorted"}=.
+  hands back the message.
 - *Dump.* =io::write_json= writes a value as Python's
   =json.dumps(sort_keys=True, indent=2, ensure_ascii=False)= does, so the
   two dumps compare as text. =io::read_json= reads a JSON object or array
@@ -92,13 +95,14 @@ as inputs it records like any other file.
 | =service_registry=      | =load_service_registry=      |                 1 |         1 |
 | =asset_class_catalogue= | =load_asset_class_catalogue= |                 1 |         1 |
 | =outcome_catalogue=     | =load_outcome_catalogue=     |                 1 |         1 |
-| =trade_type_catalogue=  | none                         |                 1 |         0 |
+| =trade_type_catalogue=  | =load_trade_type_catalogue=  |                 1 |         1 |
 
 The counts are of ORE Studio =origin/main= at =4ca9411b70=, from
 =build/scripts/codegen_model_diff.py=. A =family= needs the derived key
 records of its central entity and a directory index of the entity models
-beside it; the =trade_type_catalogue= reads the entity models and headers
-of every trade type. Neither is ported.
+beside it, which are not ported. The =trade_type_catalogue= finds the
+entity models of every component by the table each claims, as
+=ops::entity_claim_of= scans their raw text.
 
 * Entry points
 
@@ -107,7 +111,8 @@ of every trade type. Neither is ported.
 | =include/compass.model/types/model_tables.hpp= | The tables, handles and model types.          |
 | =include/compass.model/ops/builder.hpp=        | Writing values with dict and list semantics.  |
 | =include/compass.model/ops/outline.hpp=        | The =parse_org= view of a parsed document.    |
-| =include/compass.model/ops/load.hpp=           | =load_model=, the finder and the load cache.  |
+| =include/compass.model/ops/load.hpp=           | =load_model=, the finder, lister and cache.   |
+| =include/compass.model/ops/entity_claim.hpp=   | The table an org file's raw text claims.      |
 | =include/compass.model/io/json.hpp=            | The canonical JSON dump and the JSON reader.  |
 | =src/ops/*.cpp=                                | One loader per model type.                    |
 | =tests/ops_load_*_tests.cpp=                   | One model per type against the oracle's JSON. |

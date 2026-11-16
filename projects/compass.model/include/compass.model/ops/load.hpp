@@ -57,6 +57,17 @@ using document_finder =
     std::function<std::optional<document>(std::string_view path)>;
 
 /**
+ * @brief The paths, relative to the root, of the documents of the checkout
+ * that start with @p prefix, in any order.
+ *
+ * A model that reads the models beside it, as a family reads its entities
+ * and the trade type catalogue reads every entity of projects/, finds them
+ * through the lister, as ores.codegen globs the directories.
+ */
+using document_lister =
+    std::function<std::vector<std::string_view>(std::string_view prefix)>;
+
+/**
  * @brief A model ores.codegen refuses to load, as its ValueError.
  */
 class model_error final : public std::runtime_error {
@@ -108,8 +119,8 @@ private:
  * it, and @p error, when given, gets the message.
  */
 types::model_id load_model(builder& b, const document& d, types::model_type t,
-    const document_finder& find, load_cache& cache,
-    std::string* error = nullptr);
+    const document_finder& find, const document_lister& list,
+    load_cache& cache, std::string* error = nullptr);
 
 /**
  * @brief read_physical_space_overrides for the model whose outline is

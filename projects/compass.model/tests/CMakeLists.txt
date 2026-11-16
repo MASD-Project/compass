@@ -30,7 +30,8 @@ add_executable(${tests_target_name}
     ops_load_junction_tests.cpp
     ops_load_operation_tests.cpp
     ops_load_outcome_catalogue_tests.cpp
-    ops_load_service_registry_tests.cpp)
+    ops_load_service_registry_tests.cpp
+    ops_load_trade_type_catalogue_tests.cpp)
 
 target_link_libraries(${tests_target_name}
     PRIVATE

@@ -32,23 +32,6 @@
 namespace compass::codegen::ops {
 
 /**
- * @brief The table an org file's raw text claims for an entity, as
- * _entity_org_by_table scans it: the first #+entity_singular: at the start
- * of a line and the first ":tablename: <name>_tbl".
- */
-struct entity_table_claim {
-    std::string table;
-    std::string entity_singular;
-};
-
-/**
- * @brief The claim of @p org_text, or none when it states no entity
- * singular or no table name.
- */
-[[nodiscard]] std::optional<entity_table_claim> entity_table_claim_of(
-    std::string_view org_text);
-
-/**
  * @brief Adds what the model @p org_text declares to @p d, by its #+type:
  * as _model_type_names reads it: an entity's #+entity_singular:, a
  * junction's #+name_singular: and a field group's first of the two.

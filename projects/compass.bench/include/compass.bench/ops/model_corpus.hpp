@@ -25,6 +25,7 @@
 #include <map>
 #include <string>
 #include <string_view>
+#include <vector>
 #include "compass.model/ops/load.hpp"
 #include "compass.org/types/tables.hpp"
 #include "compass.platform/filesystem/mapped_file.hpp"
@@ -47,12 +48,13 @@ struct parsed_document {
 /**
  * @brief The parsed documents of a checkout, by path, parsing one the first
  * time it is asked for. Addresses are stable, so a view handed out stays
- * valid.
+ * valid. @p paths are the files of the checkout, which the lister lists.
  */
 class model_corpus final {
 public:
-    explicit model_corpus(const std::filesystem::path& checkout)
-        : checkout_(checkout) {}
+    model_corpus(const std::filesystem::path& checkout,
+        const std::vector<std::string>& paths)
+        : checkout_(checkout), paths_(&paths) {}
 
     /**
      * @brief The document at @p path, or null when there is no such file.
@@ -64,8 +66,14 @@ public:
      */
     [[nodiscard]] compass::model::ops::document_finder finder();
 
+    /**
+     * @brief A lister over the paths of the checkout, for the model loader.
+     */
+    [[nodiscard]] compass::model::ops::document_lister lister() const;
+
 private:
     std::filesystem::path checkout_;
+    const std::vector<std::string>* paths_;
     std::deque<parsed_document> documents_;
     std::map<std::string, parsed_document*, std::less<>> index_;
 };

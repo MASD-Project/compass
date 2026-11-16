@@ -78,13 +78,14 @@ load_cache::load_cache() : impl_(std::make_unique<impl>()) {}
 load_cache::~load_cache() = default;
 
 types::model_id load_model(builder& b, const document& d, model_type t,
-    const document_finder& find, load_cache& cache, std::string* error) {
+    const document_finder& find, const document_lister& list,
+    load_cache& cache, std::string* error) {
     const types::model_id id{
         static_cast<std::uint32_t>(b.tables().models.size())};
     const auto root = b.add_model(d.path, t);
     outline o;
     build_outline(d.source, *d.tables, o);
-    load_context c{b, d, o, find, cache};
+    load_context c{b, d, o, find, list, cache};
     try {
         switch (t) {
         case model_type::component:
@@ -118,9 +119,7 @@ types::model_id load_model(builder& b, const document& d, model_type t,
             load_family(c, root);
             break;
         case model_type::trade_type_catalogue:
-            b.set(root, "error", "NotPorted");
-            if (error != nullptr)
-                *error = "not ported: " + std::string(types::name_of(t));
+            load_trade_type_catalogue(c, root);
             break;
         }
     } catch (const model_error& e) {

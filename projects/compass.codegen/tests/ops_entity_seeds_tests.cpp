@@ -130,20 +130,6 @@ TEST_CASE("an entity without foreign keys gains no seeding flags",
     CHECK(f.json("enforced_foreign_keys") == "<absent>");
 }
 
-TEST_CASE("an org file claims the first table name after its singular",
-    "[codegen][entity][registry]") {
-    const auto claim = codegen::ops::entity_table_claim_of(
-        "#+title: x\n#+entity_singular: currency\n* SQL\n"
-        ":PROPERTIES:\n:tablename:     ores_refdata_currencies_tbl\n:END:\n");
-    REQUIRE(claim);
-    CHECK(claim->table == "ores_refdata_currencies_tbl");
-    CHECK(claim->entity_singular == "currency");
-    CHECK_FALSE(codegen::ops::entity_table_claim_of(
-        "A doc naming =:tablename:= x_tbl\n:tablename: x_tbl\n"));
-    CHECK_FALSE(codegen::ops::entity_table_claim_of(
-        "#+entity_singular: doc\nthe =:tablename:= drawer\n"));
-}
-
 /*
  * A trade-style entity: grouped fields, an identity group and an audit
  * group decide the members its columns are reached through.

@@ -71,6 +71,7 @@ struct load_context {
     const document& d;
     const outline& o;
     const document_finder& find;
+    const document_lister& list;
     load_cache& cache;
 };
 
@@ -224,6 +225,7 @@ void load_outcome_catalogue(load_context& c, types::value_id root);
 void load_asset_class_catalogue(load_context& c, types::value_id root);
 void load_service_registry(load_context& c, types::value_id root);
 void load_junction(load_context& c, types::value_id root);
+void load_trade_type_catalogue(load_context& c, types::value_id root);
 
 }
 

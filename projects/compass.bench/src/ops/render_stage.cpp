@@ -38,6 +38,7 @@
 #include "compass.codegen/ops/values.hpp"
 #include "compass.model/io/json.hpp"
 #include "compass.model/ops/builder.hpp"
+#include "compass.model/ops/entity_claim.hpp"
 #include "compass.model/ops/load.hpp"
 #include "compass.model/ops/outline.hpp"
 #include "compass.platform/filesystem/mapped_file.hpp"
@@ -280,7 +281,7 @@ compass::codegen::types::entity_registry load_entity_registry(
                 compass::codegen::ops::trade_type_routes_of(outline);
         }
         const auto claim =
-            compass::codegen::ops::entity_table_claim_of(p->file.text());
+            compass::model::ops::entity_claim_of(p->file.text());
         if (!claim)
             continue;
         auto& owner = registry.tables[claim->table];
@@ -288,7 +289,8 @@ compass::codegen::types::entity_registry load_entity_registry(
         if (!type)
             continue;
         std::string error;
-        const auto id = mops::load_model(b, doc, *type, find, cache, &error);
+        const auto id = mops::load_model(b, doc, *type, find,
+            documents.lister(), cache, &error);
         if (error.empty())
             owner.parent = compass::codegen::ops::parent_entity_of(scratch,
                 scratch.models.roots[id]);
@@ -337,8 +339,8 @@ compass::codegen::types::entity_registry load_entity_registry(
             continue;
         std::string error;
         const auto id = mops::load_model(b, document_of(*p),
-            compass::model::types::model_type::field_group, find, cache,
-            &error);
+            compass::model::types::model_type::field_group, find,
+            documents.lister(), cache, &error);
         if (!error.empty())
             continue;
         const auto& t = b.tables();
@@ -413,7 +415,7 @@ std::map<std::string, std::set<std::string>, std::less<>> shell_units(
             continue;
         std::string error;
         const auto id = mops::load_model(b, document_of(*p), *type, find,
-            cache, &error);
+            documents.lister(), cache, &error);
         if (!error.empty())
             continue;
         const auto& t = b.tables();
@@ -532,7 +534,8 @@ compass::codegen::ops::family_members family_members_of(
             continue;
         std::string error;
         const auto id = mops::load_model(b, document_of(*d),
-            compass::model::types::model_type::entity, find, cache, &error);
+            compass::model::types::model_type::entity, find, documents.lister(),
+            cache, &error);
         if (!error.empty())
             continue;
         const auto entity = compass::codegen::ops::values::member(b.tables(),
@@ -564,7 +567,7 @@ std::vector<planned> plan_models(const std::filesystem::path& checkout,
     const auto graph = load_graph(checkout);
     const auto registry = load_registry(checkout, table);
 
-    model_corpus documents(checkout);
+    model_corpus documents(checkout, table.paths);
     const compass::platform::filesystem::mapped_file catalogue(
         checkout / "projects/ores.codegen/library/component_catalogue.org");
     const auto regenerated = compass::codegen::ops::regenerated_models(
@@ -597,7 +600,7 @@ std::vector<planned> plan_models(const std::filesystem::path& checkout,
         const auto type_name = known->name;
         std::string error;
         const auto id = mops::load_model(b, document_of(*p), *type, find,
-            cache, &error);
+            documents.lister(), cache, &error);
         if (!error.empty()) {
             r.messages.push_back(path + ": " + error);
             continue;
