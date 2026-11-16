@@ -34,6 +34,7 @@ thing with what the codecs produced:
 | =diff=            | Prints what =generate= would change as unified diffs.                    | Nothing.                                          |
 | =check=           | Prints every diagnostic as =path:line:column: rule: message (fix: ...)=, and a =codec/drift= diagnostic for each file =generate= would change. | Store and records, no output.                     |
 | =check --commit=  | The same diagnostics at a commit, read from git's objects with no checkout. | Store and result cache only.                   |
+| =check --ratchet= | Only the diagnostics the merge base of HEAD and a base lacks.            | Store and records, as =check=.                    |
 | =gc=              | Removes old unreferenced objects and action objects from the store.      | Removes files from the store, unless =--dry-run=. |
 | =config=          | Prints every path and codec setting in effect, and where it came from.   | Nothing.                                          |
 
@@ -81,6 +82,37 @@ listing the commit. A second run took 2.9 s, and 2.2 s once the
 checkout's dependency record matched, against 2.9 s for =compass check=
 of the checkout itself, which lists, stats and reads files on disk.
 
+=check --ratchet= is =app::ratchet=. It resolves HEAD and the base with
+=git rev-parse= and their merge base with one =git merge-base=. It checks
+the checkout as =check= does, then the merge base with =options::commit=
+set, both with the checkout's configuration, so a gate the branch enables
+excuses what the merge base already broke. =ops::split_new= then splits
+the findings of the checkout into new and excused. A finding matches an
+old one by path, rule and message, not by line, and each old finding
+excuses one: a violation that moved is not new, a second copy of it is.
+Among matches, one on the same line is excused first, so the copy
+reported is the one on a new line. A file with findings that HEAD no
+longer holds is followed to the path where HEAD holds its blob
+(=ops::exact_renames=), and only when that leaves one unexplained does
+=git diff -M= pair it by similarity.
+
+A =codec/drift= finding carries =drift_sides=, the blob IDs of the file
+and of what the codec generates for it, and matches on those, not on its
+message. Drift is excused only when the branch changed neither side.
+Matching by path and rule alone would hide a branch that edits a model
+whose output already drifts. Matching by message would fail, since a
+check of a checkout and a check of a commit word the same drift
+differently. Excusing no drift would fail every branch of ORE Studio on
+its 24 standing drift findings.
+
+On the ORE Studio copy, a branch adding one =create table= to
+=setup_schema.sql= failed on that line only, with the 24 drift findings
+excused. With an empty store it took 27.2 s, 24.3 s of it the check of
+the checkout, which formatted for 17.5 s. Warm, it took 5.2 s: 3.2 s for
+the checkout and 1.8 s for the merge base, 0.8 s of each reading the
+dependency record. The same line added to a generated SQL file failed
+twice: on the line, and on the drift the edit caused.
+
 =app::generate=, =app::diff=, =app::check= and =app::gc= compose the steps;
 each takes the options and returns a result. =compass.bench= calls the same
 steps and adds only timing and repetition. =app::run= parses a command line, reads the configuration file,
@@ -104,6 +136,7 @@ the standard streams.
 | =--set <codec>.<key>=<value>=   | the file, else the codecs' own           | A codec setting; repeatable, the last one wins. |
 | =--timings=                     | no                                       | =generate=, =diff=, =check=: print each step's time and what each codec ran or reused. |
 | =--commit <rev>=                | the files on disk                        | =check= only: check the commit =<rev>= names, as =git rev-parse <rev>^{commit}= resolves it, with that commit's =.compass.org=. The output root and meta directory must be under the checkout. |
+| =--ratchet [<base>]=            | the upstream, else =origin/main=         | =check= only: fail only on findings the merge base of HEAD and =<base>= lacks. The next argument is the base unless it starts with =-= or names a command; =--ratchet=<base>= always takes one. Not with =--commit=. |
 | =--dry-run=, =--cap=, =--grace= | no, 0 bytes, 3600 s                      | =gc= only.                                      |
 | =--help=, =-h=, =--version=     |                                          | Print and exit 0, whatever else is there.       |
 
@@ -154,7 +187,9 @@ the standard streams.
   diagnostics include one per file =generate= would write, restore or
   remove, under the rule =drift= of the codec that emits it, at the first
   byte that differs; a file outside the checkout is named by its absolute
-  path. =gc= prints
+  path. =check --ratchet= prints only the new diagnostics, in the same
+  form, then one line with their count, the excused count, the merge base
+  and the renamed files followed. =gc= prints
   what it removed, or would remove, and the size of the store. =config=
   prints one line per path and codec setting, as
   =<key> = <value> (<source>)=, the source being =default=,
@@ -170,6 +205,10 @@ the standard streams.
   of a command that throws, as =compass: <what>=.
 - Exit status: 0 when nothing would change and no diagnostic fires, 1 when
   =diff= finds a change or =check= a diagnostic, 2 on failure or bad usage.
+  =check --ratchet= exits 1 only on a new diagnostic, and 2 when either
+  check fails or the base cannot be resolved. With =--timings= it prints
+  the steps of the checkout, then =compass: merge base:= and those of the
+  merge base.
   =generate= and =gc= exit 0 when they succeed.
 
 The line and column of a diagnostic are those of the first byte of its
@@ -186,7 +225,8 @@ range, 1-based, the column counted in bytes. The rule is written as
 | =include/compass.cli/config/precedence.hpp=      | =resolve=: defaults, then the file, then the command line.                         |
 | =include/compass.cli/types/results.hpp=          | What each command returns.                                                         |
 | =include/compass.cli/config/arguments.hpp=       | The command-line parser, the help and the version.                                 |
-| =include/compass.cli/io/listing.hpp=             | The org files of a checkout, from =git ls-files=; =resolve_commit=, from =git rev-parse=. |
+| =include/compass.cli/io/listing.hpp=             | The org files of a checkout, from =git ls-files=; =resolve_commit= and =resolve_base=, from =git rev-parse=; =merge_base=; =similar_renames=, from =git diff -M=. |
+| =include/compass.cli/ops/ratchet.hpp=            | =split_new= and =exact_renames=: the pure matching of ratchet mode.                |
 | =include/compass.cli/app/steps.hpp=              | One function per step of the pipeline.                                             |
 | =include/compass.cli/app/pipeline.hpp=           | One function per command, composed of the steps.                                   |
 | =include/compass.cli/io/report.hpp=              | Printing each result.                                                              |
