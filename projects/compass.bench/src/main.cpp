@@ -43,6 +43,7 @@
 #include "compass.bench/ops/search_paths.hpp"
 #include "compass.bench/ops/store_stage.hpp"
 #include "compass.bench/ops/types_stage.hpp"
+#include "compass.bench/ops/warm_stage.hpp"
 #include "compass.platform/filesystem/mapped_file.hpp"
 #include "compass.store/io/location.hpp"
 
@@ -59,12 +60,16 @@ constexpr std::string_view usage =
     "       compass-bench types <checkout> --meta <dir> [-j N] [--repeat R]\n"
     "       compass-bench store <checkout> [--store <dir>] [-j N]\n"
     "           [--repeat R]\n"
+    "       compass-bench warm <checkout> [--store <dir>] [-j N]\n"
+    "           [--repeat R]\n"
     "       compass-bench ids <checkout> [-j N] [--repeat R]\n"
     "           [--verify N|all]\n"
     "       compass-bench org-dump <file>\n"
     "       compass-bench org-dump --list <list>\n";
 
-enum class stage { read, includes, parse, org, types, store, ids, org_dump };
+enum class stage {
+    read, includes, parse, org, types, store, warm, ids, org_dump
+};
 
 struct options {
     stage which = stage::read;
@@ -125,6 +130,8 @@ std::optional<options> parse_options(int argc, char** argv) {
         o.which = stage::types;
     else if (name == "store")
         o.which = stage::store;
+    else if (name == "warm")
+        o.which = stage::warm;
     else if (name == "ids")
         o.which = stage::ids;
     else if (name == "org-dump")
@@ -135,7 +142,7 @@ std::optional<options> parse_options(int argc, char** argv) {
     o.threads = std::max(1u, std::thread::hardware_concurrency());
     const bool includes = o.which == stage::includes;
     const bool typed = o.which == stage::types;
-    const bool stored = o.which == stage::store;
+    const bool stored = o.which == stage::store || o.which == stage::warm;
     const bool ids = o.which == stage::ids;
     for (int i = 3; i < argc; ++i) {
         const std::string_view flag = argv[i];
@@ -260,16 +267,30 @@ int run_types(const options& o) {
     return io::failed(stage) ? 1 : 0;
 }
 
-int run_store(const options& o) {
-    io::setup_timing setup;
-    const auto table = list_checkout(o, setup);
-    const auto objects = o.store.empty()
+std::filesystem::path objects_of(const options& o) {
+    return o.store.empty()
         ? compass::store::io::objects_dir(
             compass::store::io::git_common_dir(o.checkout))
         : o.store;
+}
+
+int run_store(const options& o) {
+    io::setup_timing setup;
+    const auto table = list_checkout(o, setup);
+    const auto objects = objects_of(o);
     const auto stage = ops::run_store_stage(o.checkout, table, objects,
         o.threads, o.repetitions);
     io::write_store_report(std::cout, stage, setup, objects);
+    return io::failed(stage) ? 1 : 0;
+}
+
+int run_warm(const options& o) {
+    io::setup_timing setup;
+    const auto table = list_checkout(o, setup);
+    const auto objects = objects_of(o);
+    const auto stage = ops::run_warm_stage(o.checkout, table, objects,
+        o.threads, o.repetitions);
+    io::write_warm_report(std::cout, stage, setup, objects);
     return io::failed(stage) ? 1 : 0;
 }
 
@@ -298,6 +319,7 @@ int run(const options& o) {
     case stage::org: return run_org(o);
     case stage::types: return run_types(o);
     case stage::store: return run_store(o);
+    case stage::warm: return run_warm(o);
     case stage::ids: return run_ids(o);
     case stage::org_dump: return run_org_dump(o);
     }

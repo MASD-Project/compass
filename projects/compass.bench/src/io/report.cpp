@@ -27,6 +27,7 @@
 #include <functional>
 #include <map>
 #include <numeric>
+#include <ranges>
 #include <span>
 #include <string>
 #include <string_view>
@@ -591,6 +592,80 @@ void write_ids_report(std::ostream& os, const types::ids_result& stage,
         os << std::format("\nFAILED: {} ID(s) differ from git hash-object. "
                           "First: {}\n", stage.mismatches,
             stage.first_mismatch);
+}
+
+bool failed(const types::warm_result& stage) {
+    const auto busy = [](const types::warm_run& run) {
+        return run.hashed != 0 || run.written != 0;
+    };
+    const auto erred = [](const types::warm_run& run) {
+        return run.errors != 0;
+    };
+    return stage.files == 0 || std::ranges::any_of(stage.runs, erred) ||
+        (stage.runs.size() > 1 &&
+            std::ranges::any_of(stage.runs | std::views::drop(1), busy));
+}
+
+void write_warm_report(std::ostream& os, const types::warm_result& stage,
+    const setup_timing& setup, const std::filesystem::path& objects) {
+    os << std::format("org files: {}  repetitions: {}  threads: {}\n",
+        stage.files, stage.runs.size(), setup.threads);
+    os << std::format(
+        "git ls-files: {:.2f} ms  file table (lstat): {:.2f} ms\n",
+        setup.listing_ms, setup.table_ms);
+    os << std::format("store: {}\n", objects.string());
+    os << std::format("worktree index entries: {}\n", stage.index_entries);
+    if (!stage.git_index_problem.empty())
+        os << std::format("git index unusable: {}\n", stage.git_index_problem);
+    if (!stage.worktree_index_problem.empty())
+        os << std::format("worktree index ignored: {}\n",
+            stage.worktree_index_problem);
+
+    os << std::format("\n{:<4}{:>11}{:>9}{:>10}{:>10}{:>10}{:>11}{:>10}"
+                      "{:>8}{:>8}{:>9}{:>8}\n", "run", "resolve_ms",
+        "load_ms", "write_ms", "index_ms", "total_ms", "git_index",
+        "worktree", "hashed", "loaded", "written", "errors");
+    for (std::size_t i = 0; i < stage.runs.size(); ++i) {
+        const auto& r = stage.runs[i];
+        os << std::format("{:<4}{:>11.2f}{:>9.2f}{:>10.2f}{:>10.2f}{:>10.2f}"
+                          "{:>11}{:>10}{:>8}{:>8}{:>9}{:>8}\n", i + 1,
+            r.resolve_ms, r.load_ms, r.write_ms, r.index_ms, r.total_ms(),
+            r.from_git_index, r.from_worktree_index, r.hashed, r.loaded,
+            r.written, r.errors);
+    }
+
+    if (stage.runs.size() > 1) {
+        const auto warm = stage.runs | std::views::drop(1);
+        const auto phase = [&](auto member) {
+            std::vector<double> v;
+            for (const auto& r : warm)
+                v.push_back(std::invoke(member, r));
+            return median(std::move(v));
+        };
+        const double total = phase(&types::warm_run::total_ms);
+        os << std::format("\nwarm median of runs 2 to {}: resolve {:.2f}  "
+                          "load {:.2f}  write {:.2f}  index {:.2f}  "
+                          "total {:.2f} ms\n", stage.runs.size(),
+            phase(&types::warm_run::resolve_ms),
+            phase(&types::warm_run::load_ms),
+            phase(&types::warm_run::write_ms),
+            phase(&types::warm_run::index_ms), total);
+        os << std::format("budget: {:.0f} ms, {}\n", warm_budget_ms,
+            total < warm_budget_ms ? "met" : "NOT MET");
+    }
+
+    if (stage.files == 0)
+        os << "\nFAILED: stage 'warm' found zero org files.\n";
+    for (std::size_t i = 0; i < stage.runs.size(); ++i) {
+        const auto& r = stage.runs[i];
+        if (r.errors != 0)
+            os << std::format("\nFAILED: run {} hit {} error(s). First: {}\n",
+                i + 1, r.errors, stage.first_error);
+        if (i > 0 && (r.hashed != 0 || r.written != 0))
+            os << std::format("\nFAILED: warm run {} hashed {} file(s) and "
+                              "wrote {} object(s) with nothing changed.\n",
+                i + 1, r.hashed, r.written);
+    }
 }
 
 }
