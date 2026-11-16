@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :port_codegen:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/load-family-and-trade-type-models
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ Port the loaders for the 4 family models and the trade type catalogue, which rea
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:4F499B47-4AB8-4049-A72F-495351A6E2C7][Port ORE Studio codegen]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -36,12 +36,17 @@ Port the loaders for the 4 family models and the trade type catalogue, which rea
 * Acceptance
 
 - All 844 ORE Studio models load identically to ores.codegen.
+- The 8 trade type catalogue outputs render byte-identical, so all 26,212 do.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Family models already load, from the junction task. What remains is the
+  trade type catalogue loader (org_loader.py 7221-7775) and
+  =_batch_shape_includes=.
+- Check the loaders with =codegen_model_diff.py= against all 844 models, then
+  build the trade type catalogue context and check its 8 outputs with
+  =codegen_render_diff.py --every-path=. That makes all 26,212 outputs
+  identical.
 
 * Measurements
 
