@@ -29,7 +29,12 @@ The scan is line-based, not a parser. Where it is approximate:
 - Entities, emphasis and scripts inside a LaTeX fragment are not counted,
   because the fragment is one opaque object. Entities written with the
   \_<spaces> form are not counted at all.
-- A section whose count is zero is still printed, so an absent construct is
+- A section is counted for every heading, and for every document start,
+  that is followed by at least one non-blank line before the next heading.
+- Names are the strings the tables intern: keyword, affiliated keyword and
+  property names, heading tags, TODO keywords, block types and languages,
+  and link types. "names" sums the distinct names of each document.
+- A breakdown whose count is zero is still printed, so an absent construct is
   visible as absent.
 - Paragraphs are runs of text lines, split by any other element. The text
   on an item's bullet line is one paragraph, as it is in org-element.
@@ -186,6 +191,7 @@ class Census:
         self.footnote = collections.Counter()
         self.inline_src = collections.Counter()
         self.maxima = collections.Counter()
+        self.names = set()
 
     def peak(self, key, value):
         if value > self.maxima[key]:
@@ -227,6 +233,7 @@ def scan_objects(c, text):
         else:
             kind = "(fuzzy)"
         c.link[kind] += 1
+        c.names.add(kind)
         c.link_form["bracket, described" if m.group(2) else "bracket, bare"] += 1
         description = m.group(2) or ""
         return description + " " * (len(m.group(0)) - len(description))
@@ -234,12 +241,14 @@ def scan_objects(c, text):
 
     def strip_angle(m):
         c.link[m.group(1).lower()] += 1
+        c.names.add(m.group(1).lower())
         c.link_form["angle"] += 1
         return " " * len(m.group(0))
     text = ANGLE_LINK.sub(strip_angle, text)
 
     def strip_plain(m):
         c.link[m.group(1).lower()] += 1
+        c.names.add(m.group(1).lower())
         c.link_form["plain"] += 1
         return " " * len(m.group(0))
     text = PLAIN_LINK.sub(strip_plain, text)
@@ -303,6 +312,8 @@ def scan_file(c, text):
     c.peak("bytes in one document", len(text.encode("utf-8", "surrogateescape")))
 
     local = collections.Counter()
+    c.names = set()
+    section_open = False
     block = None
     drawer = None
     in_table = None
@@ -365,6 +376,7 @@ def scan_file(c, text):
                     c.count["node properties"] += 1
                     local["node properties"] += 1
                     c.property[m.group(1).upper()] += 1
+                    c.names.add(m.group(1).upper())
             else:
                 c.count["lines inside other drawers"] += 1
                 if CLOCK.match(line):
@@ -389,6 +401,7 @@ def scan_file(c, text):
         if m:
             end_runs()
             list_indents.clear()
+            section_open = False
             depth = len(m.group(1))
             title = m.group(2)
             c.count["headings"] += 1
@@ -400,6 +413,7 @@ def scan_file(c, text):
             word = title.split(" ", 1)[0]
             if word in todo:
                 c.todo[word] += 1
+                c.names.add(word)
                 c.count["headings with a TODO keyword"] += 1
                 title = title[len(word):].lstrip()
             p = PRIORITY.match(title)
@@ -414,12 +428,17 @@ def scan_file(c, text):
                 c.count["headings with tags"] += 1
                 for tag in t.group(1).strip(":").split(":"):
                     c.tags[tag] += 1
+                    c.names.add(tag)
                     c.count["heading tags"] += 1
                 title = title[:t.start()]
             scan_objects(c, title)
             after_heading = True
             after_planning = False
             continue
+
+        if not section_open:
+            section_open = True
+            c.count["sections"] += 1
 
         if after_heading and PLANNING.search(line):
             c.count["planning lines"] += 1
@@ -471,6 +490,8 @@ def scan_file(c, text):
             local["blocks"] += 1
             if kind == "src":
                 c.src_language[(b.group(2) or "(none)").lower()] += 1
+                c.names.add((b.group(2) or "").lower())
+            c.names.add(kind)
             if kind in VERBATIM_BLOCKS:
                 block = kind
             continue
@@ -486,6 +507,7 @@ def scan_file(c, text):
         k = KEYWORD.match(line)
         if k:
             name = k.group(1).lower()
+            c.names.add(name)
             if name in PARSED_KEYWORDS:
                 scan_objects(c, k.group(3))
             if name in AFFILIATED or name.startswith("attr_"):
@@ -627,6 +649,9 @@ def scan_file(c, text):
         scan_objects(c, line)
 
     end_table()
+    c.count["names"] += len(c.names)
+    c.count["name bytes"] += sum(len(name) for name in c.names)
+    c.peak("names in one document", len(c.names))
     for key, value in local.items():
         c.peak(key + " in one document", value)
     elements = sum(local[k] for k in ("headings", "blocks", "keywords",
@@ -705,7 +730,8 @@ def report(c, top):
 
 
 def as_json(c):
-    return json.dumps({name: dict(value) for name, value in vars(c).items()},
+    return json.dumps({name: dict(value) for name, value in vars(c).items()
+        if name != "names"},
         indent=2, sort_keys=True, default=str)
 
 
