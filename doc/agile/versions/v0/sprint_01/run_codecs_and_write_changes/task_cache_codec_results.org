@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :run_codecs_and_write_changes:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/cache-codec-results
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ Key codec results by codec version, configuration and input hashes in the shared
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:8DC60B89-1605-4281-90FF-5AC8B33F629A][Run codecs and write only changes]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,22 @@ Key codec results by codec version, configuration and input hashes in the shared
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- A codec unit's result is cached in the shared store under an action key:
+  the hash of the codec's name, version and configuration hash and of the
+  unit's sorted inputs (key and content ID, misses included). The value is the
+  unit's outputs: file bytes and diagnostics, as one object.
+- Before running a unit, the runner computes its key from the inputs the
+  dependency record says it read and checks the store; a hit restores the
+  outputs and records the unit as cached. A unit with no record in this
+  worktree runs once to learn its inputs, unless another worktree's result can
+  be found by a key that does not need them (corpus units keyed by their type
+  set).
+- Collection keeps an action object while any worktree's dependency record
+  names its key; otherwise it is an unreferenced object and ages out like the
+  rest.
+- =compass-bench codecs= reports units ran, skipped, and taken from the cache.
+  The test: two worktrees of one repository on the same commit; the second
+  runs no unit that the first already ran.
 
 * Measurements
 
