@@ -65,6 +65,15 @@ struct drawer_property {
     bool fallback);
 
 /**
+ * @brief _protocol_owned_by_operation: whether an operation model in the
+ * directory of @p model_path, or the one above it, states the protocol of
+ * the domain entity of @p model, by its component and singular.
+ */
+[[nodiscard]] bool protocol_owned(const types::checkout_registry& registry,
+    const compass::model::types::model_tables& models,
+    compass::model::types::value_id model, std::string_view model_path);
+
+/**
  * @brief One output to render: the template and the output path relative
  * to the root of the checkout.
  */

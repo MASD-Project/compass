@@ -581,6 +581,44 @@ void derive_message_struct_names(compass::model::ops::builder& b,
     compass::model::types::value_id entity);
 
 /**
+ * @brief The operations (core.py 6769-6777): operations
+ * (protocol_operations), one per derived message with a subject, with its
+ * method, verb, fields, request shape, guard and permission, a read being
+ * open when :open_reads: names its subject; and <verb>_operations, the
+ * same operations grouped by verb.
+ */
+void derive_operations(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief The surfaces the operations are addressed through (core.py
+ * 6778-6787): shell (entity_shell_plan), one command per operation and a
+ * put as add and set; http_route (entity_http_route_plan), one route per
+ * command; web_records (entity_web_records_plan) and web_classification
+ * (entity_web_classification_plan), the screens' routes when the model
+ * states #+web_resource: or #+web_classification:, null otherwise.
+ * Reads operations and write_fields.
+ */
+void derive_surface_plans(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief The service gates (core.py 6815-6826): protocol_derived (no
+ * operation model beside the entity owns its protocol, from @p site), the
+ * service's include gates (_service_include_gates) and
+ * repository_uses_utility.
+ */
+void derive_service_gates(compass::model::ops::builder& b,
+    compass::model::types::value_id entity, const types::entity_site& site);
+
+/**
+ * @brief The announcements (core.py 6827-6837): event_prefix
+ * (entity_event_prefix) and events, one subject per action.
+ */
+void derive_events(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
  * @brief presentation.import_preview_columns, the columns with
  * import_preview set (org_loader.py's presentation parse). The Python's
  * list holds the very column objects, so the oracle shows them as the

@@ -32,16 +32,19 @@ add_executable(${tests_target_name}
     ops_entity_markers_tests.cpp
     ops_entity_messages_tests.cpp
     ops_entity_names_tests.cpp
+    ops_entity_operations_tests.cpp
     ops_entity_order_tests.cpp
     ops_entity_presentation_tests.cpp
     ops_entity_primary_key_tests.cpp
     ops_entity_repository_tests.cpp
     ops_entity_rules_tests.cpp
     ops_entity_seeds_tests.cpp
+    ops_entity_service_tests.cpp
     ops_entity_sql_names_tests.cpp
     ops_entity_sql_table_tests.cpp
     ops_entity_storage_tests.cpp
     ops_entity_supply_tests.cpp
+    ops_entity_surfaces_tests.cpp
     ops_entity_typescript_tests.cpp
     ops_output_tests.cpp
     ops_physical_space_tests.cpp
@@ -49,7 +52,8 @@ add_executable(${tests_target_name}
     ops_spec_tests.cpp)
 
 target_compile_definitions(${tests_target_name} PRIVATE
-    COMPASS_CODEGEN_SPEC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/mustache_spec")
+    COMPASS_CODEGEN_SPEC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/mustache_spec"
+    COMPASS_CODEGEN_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data")
 
 target_link_libraries(${tests_target_name}
     PRIVATE

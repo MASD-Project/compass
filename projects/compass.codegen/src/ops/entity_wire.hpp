@@ -101,6 +101,20 @@ struct field {
 };
 
 /**
+ * @brief _key_cpp_type: the column's cpp_type, else boost::uuids::uuid
+ * when it is_uuid, else std::string.
+ */
+[[nodiscard]] std::string key_cpp_type(const model_tables& t,
+    value_id column);
+
+/**
+ * @brief key_record_fields: the declared key with its column's type, else
+ * the primary key columns.
+ */
+[[nodiscard]] std::vector<field> key_record_fields(const model_tables& t,
+    value_id entity);
+
+/**
  * @brief Whether @p name is one of SERVICE_PRESERVED_FIELDS, the
  * server-owned fields an update carries forward from the row it edits.
  */

@@ -437,7 +437,9 @@ std::vector<planned> plan_models(const std::filesystem::path& checkout,
             compass::codegen::ops::facet_enabled(properties,
                 "ores.cpp.wire-codec", wire_codec_addresses, false),
             compass::codegen::ops::facet_enabled(properties,
-                "ores.cpp.protocol", protocol_addresses, true)};
+                "ores.cpp.protocol", protocol_addresses, true),
+            compass::codegen::ops::protocol_owned(registry, b.tables(), root,
+                path)};
         const auto context = *type == compass::model::types::model_type::entity
             ? compass::codegen::ops::entity_context(b, library, root, stem,
                 entities, site)

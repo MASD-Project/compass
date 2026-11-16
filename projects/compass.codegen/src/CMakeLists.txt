@@ -32,6 +32,7 @@ add_library(${lib_target_name}
     ops/entity_markers.cpp
     ops/entity_messages.cpp
     ops/entity_names.cpp
+    ops/entity_operations.cpp
     ops/entity_order.cpp
     ops/entity_presentation.cpp
     ops/entity_primary_key.cpp
@@ -39,10 +40,12 @@ add_library(${lib_target_name}
     ops/entity_repository.cpp
     ops/entity_rules.cpp
     ops/entity_seeds.cpp
+    ops/entity_service.cpp
     ops/entity_sql_names.cpp
     ops/entity_sql_table.cpp
     ops/entity_storage.cpp
     ops/entity_supply.cpp
+    ops/entity_surfaces.cpp
     ops/entity_typescript.cpp
     ops/entity_wire.cpp
     ops/manifest.cpp

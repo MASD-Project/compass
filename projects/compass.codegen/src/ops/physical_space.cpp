@@ -548,6 +548,17 @@ bool gate_entity(facet_set& facets, const types::physical_space& g,
 
 }
 
+bool protocol_owned(const types::checkout_registry& registry,
+    const model_tables& models, value_id model, std::string_view model_path) {
+    const auto entity = values::member(models, model, "domain_entity");
+    const auto singular = values::truthy(models, entity, "entity_singular") ?
+        values::str(models, entity, "entity_singular") :
+        values::str(models, entity, "name_singular");
+    return registry.protocol_owners.contains({std::string(parent(model_path)),
+        std::string(values::str(models, entity, "component")),
+        std::string(singular)});
+}
+
 bool facet_enabled(std::span<const drawer_property> properties,
     std::string_view facet, std::span<const std::string_view> addresses,
     bool fallback) {

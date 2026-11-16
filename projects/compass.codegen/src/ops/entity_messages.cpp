@@ -95,29 +95,6 @@ std::vector<message> paged_list(const std::string& name, std::string subject,
              f("total", "std::uint64_t")}}};
 }
 
-/*
- * key_record_fields: the declared key with its column's type, else the
- * primary key columns.
- */
-std::vector<wire::field> key_record_fields(const builder& b, value_id entity) {
-    const auto& t = b.tables();
-    const auto key_type = [&](value_id column) {
-        const auto type = values::str(t, column, "cpp_type");
-        if (!type.empty())
-            return str(type);
-        return values::truthy(t, column, "is_uuid") ?
-            str("boost::uuids::uuid") : str("std::string");
-    };
-    const auto declared = wire::declared_key_column(t, entity);
-    if (!declared.is_none())
-        return {f(wire::declared_key_field(t, entity), key_type(declared))};
-    std::vector<wire::field> out;
-    for (const auto c : values::items(t,
-             values::member(t, entity, "primary_key"), "columns"))
-        out.push_back(f(wire::column_name(t, c), key_type(c)));
-    return out;
-}
-
 bool is_write_only(std::string_view name) {
     for (const auto prefix : {"put_", "put_many_", "delete_", "delete_many_"}) {
         if (name.starts_with(prefix))
@@ -156,7 +133,7 @@ std::vector<message> derived_messages(const builder& b, value_id entity,
         filter_fields.push_back(f("search", "std::optional<std::string>"));
 
     std::vector<message> out{
-        {.name = key, .fields = key_record_fields(b, entity)},
+        {.name = key, .fields = wire::key_record_fields(b.tables(), entity)},
         {.name = singular + "_write", .fields = wire::write_record_for(t, entity)},
         {.name = singular + "_change",
          .fields = {f("write", singular + "_write"),

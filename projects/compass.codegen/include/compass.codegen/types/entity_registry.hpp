@@ -102,12 +102,14 @@ struct model_directory {
  * @brief What the enrichment reads about the model file itself: its path
  * relative to the checkout, whether it enables every wire-codec address
  * (_has_wire_codec) and whether it generates its protocol header
- * (_protocol_enabled), after its own overrides.
+ * (_protocol_enabled), after its own overrides, and whether an operation
+ * model beside it owns its protocol (_protocol_owned_by_operation).
  */
 struct entity_site {
     std::string path;
     bool has_generated_wire_codec = false;
     bool protocol_enabled = true;
+    bool protocol_owned = false;
 };
 
 /**

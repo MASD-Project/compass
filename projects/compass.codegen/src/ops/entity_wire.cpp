@@ -155,6 +155,29 @@ value_id declared_key_column(const model_tables& t, value_id entity) {
     return value_id::none();
 }
 
+std::string key_cpp_type(const model_tables& t, value_id column) {
+    const auto type = values::str(t, column, "cpp_type");
+    if (!type.empty())
+        return std::string(type);
+    return values::truthy(t, column, "is_uuid") ? "boost::uuids::uuid" :
+        "std::string";
+}
+
+std::vector<field> key_record_fields(const model_tables& t, value_id entity) {
+    const auto declared = declared_key_column(t, entity);
+    if (!declared.is_none())
+        return {{.name = declared_key_field(t, entity),
+            .cpp_type = key_cpp_type(t, declared), .default_value = {},
+            .domain_member = {}}};
+    std::vector<field> out;
+    for (const auto c : values::items(t,
+             values::member(t, entity, "primary_key"), "columns"))
+        out.push_back({.name = column_name(t, c),
+            .cpp_type = key_cpp_type(t, c), .default_value = {},
+            .domain_member = {}});
+    return out;
+}
+
 std::string_view strip_optional(std::string_view cpp_type) {
     constexpr std::string_view prefix = "std::optional<";
     if (cpp_type.starts_with(prefix) && cpp_type.ends_with('>'))
