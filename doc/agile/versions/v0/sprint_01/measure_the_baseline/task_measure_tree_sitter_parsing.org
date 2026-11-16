@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :measure_the_baseline:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/measure-tree-sitter-parsing
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ Parse every ORE Studio C++ and SQL file with tree-sitter on all cores, recording
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:68ED0D5D-9A25-4886-B869-A30FF4A679A5][Measure the baseline]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,21 @@ Parse every ORE Studio C++ and SQL file with tree-sitter on all cores, recording
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- vcpkg overlay ports under =build/cmake/overlays/common=, as in ORE Studio:
+  =tree-sitter-cpp= 0.23.4 from its repository and =tree-sitter-sql= 0.3.13
+  from its release tarball. Both ship the generated =parser.c= and
+  =scanner.c=, so the ports compile them directly, without the tree-sitter CLI
+  or Node.js. =tree-sitter= itself comes from vcpkg.
+- Add a =parse= stage to =compass-bench=: parse every C and C++ file and every
+  SQL file in the file table with tree-sitter, one parser per thread, over the
+  mapped bytes.
+- Per file, record the parse time and the number of =ERROR= and =MISSING=
+  nodes. Trees are deleted after counting; nothing is kept.
+- Report per language: files, bytes, median, min and max wall time over the
+  repetitions, MB/s, files with errors, total error nodes, and the ten worst
+  files by error count and by parse time.
+- If parsing all ORE Studio C++ takes more than 5 seconds on 8 threads, the
+  result names a fallback: a lighter scanner for the facts the metrics need.
 
 * Measurements
 
