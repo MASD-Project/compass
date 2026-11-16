@@ -20,6 +20,7 @@ set(lib_target_name ${name}.lib)
 set(tests_target_name ${name}.tests)
 
 add_executable(${tests_target_name}
+    io_dump_tests.cpp
     types_column_tests.cpp
     types_handle_tests.cpp
     types_tables_tests.cpp)
