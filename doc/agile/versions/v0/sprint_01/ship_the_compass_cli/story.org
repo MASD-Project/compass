@@ -1,0 +1,52 @@
+:PROPERTIES:
+:ID: FEABA8E9-D541-45AA-9278-64DC1264C794
+:END:
+#+title: Story: Ship the compass CLI
+#+description: A real compass executable that hosts the pipeline, so the product owner can run it on ORE Studio: write outputs, show diffs, run checks and collect the store.
+#+type: story
+#+level: s2
+#+filetags: :cli:application:sprint_01:v0:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+#+environment:
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+The compass executable runs the pipeline on any checkout: it writes codec outputs, prints a diff that writes nothing, reports diagnostics with a check exit status, and collects the store, configured from a file in the repository.
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | BACKLOG                              |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | Not yet started.                       |
+| Waiting on    | Nothing.                               |
+| Next          | Break the story into tasks.            |
+| Last touched  | 2026-11-16                               |
+
+* Acceptance
+
+- compass write, compass diff, compass check and compass gc run on this repository and on an ORE Studio checkout.
+- Which codecs run, and their options, come from a configuration file in the repository, not from flags alone.
+- Exit status: 0 when nothing would change or no diagnostic fires, 1 when something would or does, 2 on failure.
+- compass.bench no longer hosts the pipeline; it measures it.
+- A recipe tells a person how to run each command.
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+| [[id:7E9CC2F3-4F53-4D2C-964B-61D22C95433B][Create the compass executable]] | BACKLOG | | | The compass.cli component and the compass executable with write, diff, check and gc, hosting the pipeline that compass.bench hosts today. |
+| [[id:6282261B-1DCD-456E-90B0-E523299430DE][Configure codecs from the repository]] | BACKLOG | | | Read which codecs run, their options and the output root from a configuration file at the repository root. |
+| [[id:0C218273-FF56-4C96-8464-7C8311E3B97F][Hand the pipeline to the CLI]] | BACKLOG | | | Move pipeline hosting from compass.bench into compass.cli, so the bench only measures. |
+| [[id:1E08D45F-984E-49C0-AF9A-6DBFF5A96BCA][Write the CLI recipes]] | BACKLOG | | | Recipes for running compass write, diff, check and gc on a checkout, including ORE Studio. |
+
+* Decisions
+
+* Out of scope
+
+-

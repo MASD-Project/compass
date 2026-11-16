@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :modeling:architecture:component:cmake:masd:
 #+created: 2026-10-27
-#+updated: 2026-10-27
+#+updated: 2026-11-16
 
 This is the ground-truth reference for the component layout. Tooling and CMake
 must agree with it. It adapts ORE Studio's
@@ -38,45 +38,20 @@ From MASD's physical space (ORE Studio =doc/knowledge/masd/physical_space.org=):
 
 The CLI executable installs as =compass=.
 
-* Two component meta-models
-** Simple component
+* Component meta-model
 #+begin_example
-projects/compass.utility/
+projects/compass.store/
 ├── CMakeLists.txt
-├── include/compass.utility/
+├── include/compass.store/
 ├── src/
 ├── tests/
 └── modeling/
     └── component_overview.org
 #+end_example
 
-Use for foundation and infrastructure libraries and single-purpose tools.
-
-** Composite component
-#+begin_example
-projects/compass.graph/
-├── CMakeLists.txt          ← adds its parts, in dependency order
-├── api/
-│   ├── CMakeLists.txt
-│   ├── include/compass.graph.api/
-│   ├── src/
-│   ├── tests/
-│   └── modeling/
-├── core/
-│   └── …
-└── modeling/
-    └── component_overview.org
-#+end_example
-
-=projects/CMakeLists.txt= adds the component, never its parts directly.
-
-* Part catalogue
-| Part      | Role                                                                                                   |
-|-----------+--------------------------------------------------------------------------------------------------------|
-| =api=     | Public types: columnar tables, handles, ids, views. No I/O, no threads. Everything else depends on it. |
-| =core=    | Algorithms and mutation over the =api= types; storage access. Not runnable.                            |
-| =service= | Runnable host: process entry point, configuration, wiring.                                             |
-| =client=  | Typed request facades for frontends. No dependency on =core=.                                          |
+Every component is a simple component. When a component needs parts (for
+example a public =api= its clients use without its =core=), it adopts ORE
+Studio's composite meta-model and part catalogue; until then neither is used.
 
 * Facets
 Facets sit directly under =include/<component>/= and =src/=. The shared floor:
@@ -86,7 +61,7 @@ Facets sit directly under =include/<component>/= and =src/=. The shared floor:
 | =types=  | Data definitions: tables, rows, handles, enums.                |
 | =io=     | Serialisation of those types (wire, text, JSON for debugging). |
 | =ops=    | Pure functions over =types= --- the data-oriented transforms.  |
-| =app=    | Process hosting (in =service= and executables only).           |
+| =app=    | Process hosting (in executables only).                         |
 | =config= | Option parsing and configuration structs.                      |
 
 As in ORE Studio, a component may add a local facet when no shared facet fits.

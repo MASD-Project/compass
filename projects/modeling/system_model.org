@@ -15,89 +15,67 @@ the layers and components are physical-space instances of the meta-layer and
 meta-component concepts (see ORE Studio =projects/modeling/applied_masd.org=).
 Component layout rules live in [[id:8A0E6F32-C4BC-4667-88E8-7F80CA25437C][Component architecture]].
 
-The component list below is a *proposal*. Two open stories can change it: the
-data model extraction and the storage decision (see
-[[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]).
+Every component below exists or has an agreed story. A component is added
+when a story needs it, never in advance; in particular there is no server
+until a measured use case needs one (see
+[[id:2F71292F-CDB0-4E2E-B50F-4F02E10597C4][Product identity]]).
 
-* Runtime topology (proposed)
-One server process owns the data. It keeps the working set in memory in a
-data-oriented layout (struct-of-arrays tables, interned strings, CSR adjacency
-for the graph) and persists through the storage component. Every frontend is a
-client of that server:
+* Runtime shape
+One process per command. =compass= lists the files of a checkout, resolves
+their content IDs from git's index, maps the parsed objects it already holds
+from the store shared by every worktree, parses only what is missing, runs the
+enabled codecs whose inputs changed, and writes only the outputs whose content
+changed, or prints them as a diff.
 
 #+begin_example
- LLM ──▶ compass (CLI) ──binary protocol──┐
- human ──▶ browser ──HTTP──▶ compass.web ─┼──▶ compass.server ──▶ storage
- human ──▶ compass.viewer (ImGui) ────────┘        (single writer)
+ files ──▶ ids (git index) ──▶ store (mapped objects) ──▶ codecs ──▶ sink / diff
+             compass.store       compass.store, .org        .codec     .codec
 #+end_example
-
-A single owning process removes most multi-client concurrency problems from the
-storage layer: many readers read immutable snapshots, one writer thread applies
-mutations. This is why the storage story can consider SQLite.
 
 * Foundation layer
 No compass-ng dependency. Generic, reusable code.
 
-| Component          | Role                                                                           |
-|--------------------+--------------------------------------------------------------------------------|
-| =compass.platform= | OS abstraction: memory-mapped files, filesystem, time, threads.                |
-| =compass.utility=  | UUIDs, hashing, string interning, arena and pool allocators, small containers. |
-| =compass.logging=  | Logger setup and factory.                                                      |
+| Component          | Role                                                    |
+|--------------------+---------------------------------------------------------|
+| =compass.platform= | OS abstraction: memory-mapped files.                    |
 
 * Infrastructure layer
-| Component         | Role                                                                                                                |
-|-------------------+---------------------------------------------------------------------------------------------------------------------|
-| =compass.storage= | Persistence engine behind one interface: write-ahead log, snapshots, recovery. Backend chosen by the storage story. |
-| =compass.store=   | Content-addressed cache shared by the worktrees of a repository: git blob IDs as keys, loose object files.          |
-| =compass.wire=    | Binary protocol: framing, message schema, encode/decode, versioning. Shared by server and all clients.              |
-| =compass.testing= | Catch2 fixtures, corpus generators, benchmark harness.                                                              |
+| Component       | Role                                                                                                                       |
+|-----------------+----------------------------------------------------------------------------------------------------------------------------|
+| =compass.store= | Content-addressed store shared by the worktrees of a repository: git blob IDs as keys, loose objects, the git and worktree indexes, action objects, collection by reachability. |
 
-=compass.store= holds what is derived from files and can be computed again.
-=compass.storage= is the proposed engine for data the server owns. The store
-does not know what an object holds: =compass.org= lays out the object of a
-parsed document, so the store stays below the domain layer.
+The store holds what is derived from files and can be computed again. It does
+not know what an object holds: =compass.org= lays out the object of a parsed
+document, so the store stays below the domain layer.
 
 * Domain layer
-The document model. Composite components use the =api= / =core= split.
-
-| Component           | Parts         | Role                                                                                                                                                                           |
-|---------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| =compass.org=       | ---           | The tables an org-mode document becomes: element tree, objects, headings, keywords, properties, blocks, lists, links and interned names, with byte ranges into the source.     |
-| =compass.documents=| =api=, =core= | Documents, frontmatter properties, sections, document types, lifecycle states. =api=: the columnar tables and handles. =core=: mutation, validation against the type contract. |
-| =compass.graph=     | =api=, =core= | The knowledge graph: typed links, backlinks, hierarchy (version → sprint → story → task), traversal and layout data for the viewer.                                            |
-| =compass.search=    | =api=, =core= | Inverted index, ranking, tag and type filters.                                                                                                                                 |
-| =compass.ingest=    | ---           | Readers that fill the =compass.org= tables: the org-mode parser first, then the C++ and SQL fact extractors.                                               |
-| =compass.codec=     | ---           | The codec runtime: the codec descriptor, the view of the corpus a codec reads through, the tables of files and diagnostics it fills, the registry and the runner; and the codecs that need only the org tables. |
+| Component        | Role                                                                                                                                                                       |
+|------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| =compass.org=    | The tables an org-mode document becomes: element tree, objects, headings, keywords, properties, blocks, lists, links and interned names, with byte ranges into the source; and the document type registry. |
+| =compass.ingest= | Readers that fill the =compass.org= tables: the org-mode parser and the type registry builder first, then the C++ and SQL fact extractors.                                   |
+| =compass.codec=  | The codec runtime: descriptors, the recorded view of the corpus, file and diagnostic tables, the registry and runner, dependency records, the output sink, diff mode and the result cache; and the codecs that need only the org tables. |
 
 =compass.codec= is in the domain layer because a codec is defined in terms of
 the document model: its inputs are document types and its diagnostics name
 documents and source ranges. It depends on =compass.org= for the tables and
-the type registry, and on =compass.store= for the content ID of a document.
-It does not depend on =compass.ingest=: the runtime takes a corpus that is
-already in memory, so it runs the same over a fresh parse, a mapped store and,
-later, the blobs of a past commit. A component that adds codecs, such as code
-generation or HTML export, depends on =compass.codec= and nothing depends on
-it in return. The host that loads the corpus and writes the outputs belongs
-to the application layer; until it exists, =compass.bench= is the host.
+the type registry, and on =compass.store= for content IDs. It does not depend
+on =compass.ingest=, so it runs the same over a fresh parse, a mapped store and
+the blobs of a past commit. A component that adds codecs, such as code
+generation or the HTML export, depends on =compass.codec= and nothing depends
+on it in return; each is added by the story that needs it.
 
-Work management (stories, tasks, sprints) is not a separate component. In
-compass a unit of work *is* a document with a lifecycle state; it lives in
-=compass.documents= and its hierarchy lives in =compass.graph=.
+Work management (stories, tasks, sprints) is not a separate component: a unit
+of work is a document with a lifecycle state, read through the same tables.
 
 * Application layer
-| Component        | Parts             | Role                                                                                    |
-|------------------+-------------------+-----------------------------------------------------------------------------------------|
-| =compass.server= | =core=, =service= | The owning process: in-memory store, request dispatch, snapshot readers, single writer. |
-| =compass.cli=    | ---               | =compass= executable used by LLMs; speaks =compass.wire= to the server.                 |
-| =compass.web=    | ---               | HTTP server that renders the corpus as a browsable wiki.                                |
-| =compass.viewer= | ---               | ImGui client for real-time visualisation, mainly the knowledge graph.                   |
+| Component     | Role                                                                                                                                 |
+|---------------+--------------------------------------------------------------------------------------------------------------------------------------|
+| =compass.cli= | The =compass= executable: loads the corpus, runs codecs, writes outputs or prints diffs, collects the store. The one host of the pipeline. |
 
 * Tooling layer
-| Component       | Role                                                                             |
-|-----------------+----------------------------------------------------------------------------------|
-| =compass.bench= | Benchmark harness: wall time and bytes per stage; later, server load generation. |
+| Component       | Role                                                                                   |
+|-----------------+----------------------------------------------------------------------------------------|
+| =compass.bench= | The frozen measurement harness: wall time, bytes and counts per stage of the pipeline. |
 
-* Open questions
-- Does =compass.search= need its own part split, or is a simple component enough?
-- Does the web frontend talk to the server through =compass.wire= or link the
-  read path directly?
+=compass.bench= hosts the pipeline until =compass.cli= exists; after that it
+only measures.
