@@ -42,6 +42,7 @@ target_link_libraries(${lib_target_name}
     PUBLIC
         compass.codec.lib
         compass.codegen.lib
+        compass.cpp.lib
         compass.org.lib
         compass.platform.lib
         compass.store.lib

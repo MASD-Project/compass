@@ -56,6 +56,7 @@ document, so the store stays below the domain layer.
 | =compass.model=   | The codegen models of ORE Studio as tables: one value row per object, list or scalar, linked by handles, loaded from the =compass.org= tables of a model document with the values ores.codegen's loader builds.                          |
 | =compass.codec=   | The codec runtime: descriptors, the recorded view of the corpus, file and diagnostic tables, the registry and runner, dependency records, the output sink, diff mode and the result cache; and the codecs that need only the org tables. |
 | =compass.codegen= | Code generation from the models: a Mustache engine with pystache's semantics, templates compiled once, the render contexts and output units ores.codegen builds, the physical-space graph of the template library, and the =codegen= codec. |
+| =compass.cpp=     | Checks over C++ sources as text: byte scanners that read includes, export macros, enum declarations and test cases as ORE Studio's gate scripts do, and the codecs that run those gates.                                                 |
 
 =compass.codec= is in the domain layer because a codec is defined in terms of
 the document model: its inputs are document types and its diagnostics name
@@ -85,6 +86,16 @@ usable without the codec runtime: =compass-bench render= drives the same
 generation code directly, reading the checkout from disk. It depends on
 =compass.model= and on =compass.codec=, whose runtime its =codegen= codec
 runs in; =compass.cli= adds that codec to the ones it runs.
+
+=compass.cpp= runs ORE Studio's C++ gates as codecs, =exported_types= and
+=enum_attributes=, with the byte scanners each gate needs. It is in the domain layer for the reason =compass.codegen= is,
+because what it reports is defined by the sources of a checkout, and it is
+a component of its own, not a facet of =compass.codec=, because the runtime
+must not grow a reader for each language a check reads, and not part of
+=compass.ingest=, whose fact extractors fill tables for the store: these
+scanners reproduce the rules of particular scripts and keep nothing. It
+depends on =compass.codec= only; =compass.cli= adds its codecs to the ones
+it runs.
 
 Work management (stories, tasks, sprints) is not a separate component: a unit
 of work is a document with a lifecycle state, read through the same tables.
