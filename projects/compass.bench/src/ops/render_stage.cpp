@@ -1,0 +1,355 @@
+/* -*- mode: c++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+#include "compass.bench/ops/render_stage.hpp"
+
+#include <algorithm>
+#include <chrono>
+#include <fstream>
+#include <map>
+#include <stdexcept>
+#include "compass.bench/ops/model_corpus.hpp"
+#include "compass.codegen/ops/compile.hpp"
+#include "compass.codegen/ops/context.hpp"
+#include "compass.codegen/ops/manifest.hpp"
+#include "compass.codegen/ops/output.hpp"
+#include "compass.codegen/ops/physical_space.hpp"
+#include "compass.model/io/json.hpp"
+#include "compass.model/ops/builder.hpp"
+#include "compass.model/ops/load.hpp"
+#include "compass.model/ops/outline.hpp"
+#include "compass.platform/filesystem/mapped_file.hpp"
+
+namespace compass::bench::ops {
+
+namespace {
+
+using compass::model::types::model_tables;
+using compass::model::types::text_id;
+using compass::model::types::value_id;
+using compass::model::types::value_kind;
+using clock_type = std::chrono::steady_clock;
+
+double elapsed_ms(clock_type::time_point start) {
+    return std::chrono::duration<double, std::milli>(
+        clock_type::now() - start).count();
+}
+
+value_id member(const model_tables& t, value_id object, std::string_view key) {
+    for (auto c = t.values.firsts[object]; !c.is_none();
+         c = t.values.nexts[c]) {
+        if (compass::model::types::text_of(t.texts, t.values.keys[c]) == key)
+            return c;
+    }
+    return value_id::none();
+}
+
+std::string_view string_member(const model_tables& t, value_id object,
+    std::string_view key) {
+    const auto v = member(t, object, key);
+    if (v.is_none() || t.values.kinds[v] != value_kind::string)
+        throw std::runtime_error("no string " + std::string(key));
+    return compass::model::types::text_of(t.texts,
+        text_id{static_cast<std::uint32_t>(t.values.scalars[v])});
+}
+
+/**
+ * @brief Every .mustache template of ores.codegen's library, compiled once
+ * and found by its file name.
+ */
+using template_map =
+    std::map<std::string, compass::codegen::types::compiled_template,
+        std::less<>>;
+
+template_map compile_templates(const std::filesystem::path& checkout) {
+    template_map templates;
+    const auto dir = checkout / "projects/ores.codegen/library/templates";
+    for (const auto& entry : std::filesystem::directory_iterator(dir)) {
+        const auto name = entry.path().filename().string();
+        if (!name.ends_with(".mustache"))
+            continue;
+        const compass::platform::filesystem::mapped_file file(entry.path());
+        templates.emplace(name,
+            compass::codegen::ops::compile(std::string(file.text())));
+    }
+    return templates;
+}
+
+void write_output(const std::filesystem::path& out, std::string_view path,
+    std::string_view text) {
+    const auto target = out / "renders" / std::filesystem::path(path);
+    std::filesystem::create_directories(target.parent_path());
+    std::ofstream os(target, std::ios::binary);
+    os << text;
+    if (!os)
+        throw std::runtime_error("cannot write " + target.string());
+}
+
+struct unit {
+    std::string output;
+    std::string template_name;
+};
+
+/**
+ * @brief The dump's outputs, grouped by the context they render from, so
+ * one context at a time is read and rendered.
+ */
+std::map<std::string, std::vector<unit>> oracle_units(
+    const std::filesystem::path& oracle) {
+    const compass::platform::filesystem::mapped_file file(
+        oracle / "index.json");
+    model_tables t;
+    compass::model::ops::builder b(t);
+    const auto index = compass::model::io::read_json(b, file.text());
+    std::map<std::string, std::vector<unit>> by_context;
+    const auto outputs = member(t, index, "outputs_by_path");
+    for (auto e = t.values.firsts[outputs]; !e.is_none();
+         e = t.values.nexts[e]) {
+        by_context[std::string(string_member(t, e, "context"))].push_back(
+            {std::string(string_member(t, e, "output")),
+             std::string(string_member(t, e, "template"))});
+    }
+    return by_context;
+}
+
+void render_oracle(render_result& r, const template_map& templates,
+    const std::filesystem::path& oracle, unsigned repetitions,
+    const std::filesystem::path& out) {
+    const auto start = clock_type::now();
+    const auto by_context = oracle_units(oracle);
+    r.setup_ms += elapsed_ms(start);
+    r.render_ms.assign(repetitions, 0.0);
+    std::string text;
+    for (const auto& [digest, units] : by_context) {
+        const auto read_start = clock_type::now();
+        const compass::platform::filesystem::mapped_file file(
+            oracle / "contexts" / (digest + ".json"));
+        model_tables t;
+        compass::model::ops::builder b(t);
+        const auto context = compass::model::io::read_json(b, file.text());
+        r.setup_ms += elapsed_ms(read_start);
+        ++r.contexts;
+        for (const auto& u : units) {
+            const auto it = templates.find(u.template_name);
+            if (it == templates.end()) {
+                r.messages.push_back(u.output + ": no template " +
+                    u.template_name);
+                continue;
+            }
+            for (unsigned rep = 0; rep < repetitions; ++rep) {
+                text.clear();
+                const auto render_start = clock_type::now();
+                compass::codegen::ops::render_output(text, u.template_name,
+                    it->second, t, context);
+                r.render_ms[rep] += elapsed_ms(render_start);
+            }
+            ++r.outputs;
+            r.bytes += text.size();
+            if (!out.empty())
+                write_output(out, u.output, text);
+        }
+    }
+}
+
+int current_year() {
+    const std::chrono::year_month_day today{
+        std::chrono::floor<std::chrono::days>(
+            std::chrono::system_clock::now())};
+    return static_cast<int>(today.year());
+}
+
+/**
+ * @brief The physical-space graph of the library's ores.*.org nodes, read
+ * in file-name order as load_graph reads them.
+ */
+compass::codegen::types::physical_space load_graph(
+    const std::filesystem::path& checkout) {
+    const auto dir = checkout / "projects/ores.codegen/library/templates";
+    std::vector<std::filesystem::path> paths;
+    for (const auto& entry : std::filesystem::directory_iterator(dir)) {
+        const auto name = entry.path().filename().string();
+        if (name.starts_with("ores.") && name.ends_with(".org"))
+            paths.push_back(entry.path());
+    }
+    std::ranges::sort(paths);
+    std::vector<compass::platform::filesystem::mapped_file> files;
+    std::vector<std::string> names;
+    files.reserve(paths.size());
+    for (const auto& p : paths) {
+        files.emplace_back(p);
+        names.push_back(p.filename().string());
+    }
+    std::vector<compass::codegen::ops::node_document> nodes;
+    for (std::size_t i = 0; i < files.size(); ++i)
+        nodes.push_back({names[i], files[i].text()});
+    return compass::codegen::ops::load_physical_space(nodes);
+}
+
+struct planned {
+    compass::codegen::ops::unit unit;
+    value_id context;
+};
+
+/**
+ * @brief The model types compass.codegen builds whole contexts for. Their
+ * ores.codegen names are the same as compass.model's.
+ */
+constexpr compass::model::types::model_type context_types[] = {
+    compass::model::types::model_type::component,
+    compass::model::types::model_type::asset_class_catalogue,
+    compass::model::types::model_type::outcome_catalogue};
+
+/**
+ * @brief The outputs compass builds contexts for, each with its context:
+ * those of the models regenerate --all visits whose type is one of
+ * context_types, as resolve_targets lists them.
+ */
+std::vector<planned> plan_models(const std::filesystem::path& checkout,
+    const types::file_table& table, compass::model::ops::builder& b,
+    render_result& r) {
+    namespace mops = compass::model::ops;
+    const auto data = checkout / "projects/ores.codegen/library/data";
+    const compass::platform::filesystem::mapped_file licence(
+        data / "licence-GPL-v3.txt");
+    const compass::platform::filesystem::mapped_file modelines(
+        data / "modeline.org");
+    const auto library = compass::codegen::ops::library_values(b,
+        licence.text(), modelines.text(), current_year());
+    const auto graph = load_graph(checkout);
+
+    model_corpus documents(checkout);
+    const compass::platform::filesystem::mapped_file catalogue(
+        checkout / "projects/ores.codegen/library/component_catalogue.org");
+    const auto regenerated = compass::codegen::ops::regenerated_models(
+        compass::codegen::ops::read_component_catalogue(catalogue.text()),
+        table.paths, [&](std::string_view path) {
+            auto* p = is_model_candidate(path) ? documents.get(path) : nullptr;
+            return p == nullptr ? std::string()
+                : std::string(mops::declared_type(document_of(*p)));
+        });
+
+    const auto find = documents.finder();
+    mops::load_cache cache;
+    mops::outline outline;
+    std::vector<planned> plan;
+    for (const auto& path : table.paths) {
+        if (!regenerated.contains(path))
+            continue;
+        auto* p = documents.get(path);
+        if (p == nullptr)
+            continue;
+        const auto type = mops::model_type_of(
+            mops::declared_type(document_of(*p)));
+        if (!type || std::ranges::find(context_types, *type) ==
+            std::end(context_types))
+            continue;
+        const auto type_name = compass::model::types::name_of(*type);
+        std::string error;
+        const auto id = mops::load_model(b, document_of(*p), *type, find,
+            cache, &error);
+        if (!error.empty()) {
+            r.messages.push_back(path + ": " + error);
+            continue;
+        }
+        const auto root = b.tables().models.roots[id];
+        mops::build_outline(p->file.text(), p->view, outline);
+        std::vector<compass::codegen::ops::drawer_property> properties;
+        for (std::size_t i = 0; i < outline.file_property_keys.size(); ++i)
+            properties.push_back({outline.file_property_keys[i],
+                outline.file_property_values[i]});
+        const auto units = compass::codegen::ops::model_units(graph,
+            type_name, b.tables(), root, path, properties);
+        if (units.empty())
+            continue;
+        const auto stem = std::filesystem::path(path).stem().string();
+        const auto context = compass::codegen::ops::model_context(b,
+            library, root, stem, type_name);
+        ++r.contexts;
+        for (const auto& u : units)
+            plan.push_back({u, context});
+    }
+    return plan;
+}
+
+void render_models(render_result& r, const template_map& templates,
+    const std::filesystem::path& checkout, const types::file_table& table,
+    unsigned repetitions, const std::filesystem::path& out) {
+    const auto start = clock_type::now();
+    model_tables t;
+    compass::model::ops::builder b(t);
+    const auto plan = plan_models(checkout, table, b, r);
+    r.setup_ms = elapsed_ms(start);
+
+    r.render_ms.assign(repetitions, 0.0);
+    std::string text;
+    for (const auto& [u, context] : plan) {
+        const auto it = templates.find(u.template_name);
+        if (it == templates.end()) {
+            r.messages.push_back(u.output + ": no template " +
+                u.template_name);
+            continue;
+        }
+        for (unsigned rep = 0; rep < repetitions; ++rep) {
+            text.clear();
+            const auto render_start = clock_type::now();
+            compass::codegen::ops::render_output(text, u.template_name,
+                it->second, t, context);
+            r.render_ms[rep] += elapsed_ms(render_start);
+        }
+        ++r.outputs;
+        r.bytes += text.size();
+        if (!out.empty())
+            write_output(out, u.output, text);
+    }
+}
+
+}
+
+render_result run_render_stage(const std::filesystem::path& checkout,
+    const types::file_table& table, const std::filesystem::path& oracle,
+    unsigned repetitions, const std::filesystem::path& out) {
+    render_result r;
+    const auto start = clock_type::now();
+    const auto templates = compile_templates(checkout);
+    r.compile_ms = elapsed_ms(start);
+    r.templates = templates.size();
+    if (oracle.empty())
+        render_models(r, templates, checkout, table, repetitions, out);
+    else
+        render_oracle(r, templates, oracle, repetitions, out);
+    return r;
+}
+
+void write_render_report(std::ostream& os, const render_result& r) {
+    os << "templates: " << r.templates << " compiled in " << r.compile_ms
+       << " ms\n";
+    os << "contexts: " << r.contexts << " in " << r.setup_ms << " ms\n";
+    os << "outputs: " << r.outputs << ", bytes: " << r.bytes << "\n";
+    auto sorted = r.render_ms;
+    std::ranges::sort(sorted);
+    if (!sorted.empty()) {
+        os << "render ms: min " << sorted.front() << ", median "
+           << sorted[sorted.size() / 2] << ", max " << sorted.back()
+           << " over " << sorted.size() << " runs\n";
+    }
+    for (const auto& m : r.messages)
+        os << "  " << m << "\n";
+}
+
+}

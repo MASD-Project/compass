@@ -190,6 +190,10 @@ void builder::append_integer(value_id list, std::int64_t value) {
     link(list, add_row(value_kind::integer, text_id::none(), value));
 }
 
+void builder::append_null(value_id list) {
+    link(list, add_row(value_kind::null, text_id::none(), 0));
+}
+
 value_id builder::append_copy(value_id list, value_id value) {
     const auto child = copy(value, text_id::none());
     link(list, child);

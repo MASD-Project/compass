@@ -1,0 +1,130 @@
+:PROPERTIES:
+:ID: ADDF10CB-A992-4E35-A727-A38463915085
+:END:
+#+title: compass.codegen
+#+description: Code generation from the codegen models: a Mustache engine with pystache's semantics that compiles each template once, the text ores.codegen writes for an output before formatting, the render contexts and output units ores.codegen builds, and the physical-space graph of the template library.
+#+type: component
+#+level: cross
+#+filetags: :codegen:mustache:render:component:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+
+This page is the component overview for =compass.codegen=, a simple component
+in the domain layer of the
+[[id:8A9A460F-8024-4890-B091-C0D02FD84218][System Model]].
+
+* Summary
+
+=compass.codegen= renders ORE Studio's codegen templates in process, to the
+bytes ores.codegen writes before clang-format and prettier run. ores.codegen
+renders with pystache, so the engine has pystache's semantics, not the
+Mustache spec's where the two differ. A template is parsed once into a flat
+table of nodes and rendered as often as there are outputs.
+
+A render has two inputs: the compiled template and a context. The context is
+a tree of =compass.model= values, the same tables a model loads into, so a
+model renders without being converted. Building the context ores.codegen
+builds for an output is most of the work of code generation: the engine is
+complete, the contexts are not. The ones built today are those of component
+models and of the asset class and outcome catalogues.
+
+=build/scripts/codegen_render_dump.py= is the oracle. It runs
+ores.codegen's =regenerate --all= with the formatters patched out and
+captures, per output, the text it writes and the context it rendered from.
+
+* Inputs
+
+- The =.mustache= files of =projects/ores.codegen/library/templates/=.
+- The =ores.*.org= node documents of the same directory, whose =#+= header
+  keywords state the physical-space graph: facets, archetypes, their model
+  types, component kinds, defaults and output patterns, and the template
+  each archetype tangles.
+- =library/data/licence-GPL-v3.txt= and =library/data/modeline.org=, which
+  every context starts from, and =library/component_catalogue.org=, whose
+  modeling directories say which models =regenerate --all= visits.
+- The models, as =compass.model= loads them, and each model document's
+  file-level drawer, whose =:ores.<address>.enabled:= entries override the
+  graph's defaults.
+
+* Outputs
+
+- *Compiled template.* =types::compiled_template= holds the source and one
+  row per node: text, escaped or literal interpolation, section, inverted
+  section or partial, with the source range of its text or name and the end
+  of its body. Comments and delimiter changes leave no node.
+- *Render.* =ops::render= appends a template rendered against a context
+  stack. Names resolve as pystache's =ContextStack.get= resolves them,
+  values render as Python's =str()=, a section repeats over a list and
+  pushes any other true value, and an empty object is false. The stack may
+  mix tables, so values that shadow some keys of a context for one render
+  need no copy of it.
+- *Output.* =ops::render_output= is =core.render_template= followed by
+  =_substitute_paste_markers=: the generated-file marker after the licence
+  of the template's language, =cpp_value_init= on the fields of the four
+  member-declaring templates, no escaping, the org marker after an org
+  output's drawer, and the =<<paste:UUID>>= blocks of the model.
+- *Contexts.* =ops::library_values= builds the licence and modeline values;
+  =ops::model_context= adds a model and what =generate_from_model= derives
+  for its type.
+- *Graph and units.* =ops::load_physical_space= reads the graph;
+  =ops::model_units= lists a model's outputs as =resolve_targets= does.
+  =ops::read_component_catalogue= and =ops::regenerated_models= give the
+  models =regenerate --all= visits.
+
+| Outputs at ORE Studio =5ce3cd7e6c=    | Identical | Of    |
+|---------------------------------------+-----------+-------|
+| Rendered from the oracle's contexts   | 26212     | 26212 |
+| Rendered from contexts compass builds | 676       | 26212 |
+
+The second row counts the outputs of component and catalogue models; the
+4 that differ are the convention family registry, whose context reads the
+entity models of the modelling tree. Every other output is missing: its
+context needs the values ores.codegen derives for entities, junctions,
+operations, field groups and families, which are not ported. The commands
+are in the task that built the component.
+
+Rendering all 26212 outputs from the oracle's contexts takes about 0.6 s
+after 3 ms of compiling the 176 templates; ores.codegen's =render_template=
+calls for the same outputs take 35.7 s. Neither time includes building or
+reading the contexts.
+
+* Entry points
+
+| Path                                                  | Role                                        |
+|-------------------------------------------------------+---------------------------------------------|
+| =include/compass.codegen/types/compiled_template.hpp= | The node table of a template.               |
+| =include/compass.codegen/types/physical_space.hpp=    | The facet and archetype tables.             |
+| =include/compass.codegen/ops/compile.hpp=             | Parsing a template once.                    |
+| =include/compass.codegen/ops/render.hpp=              | Rendering against a context stack.          |
+| =include/compass.codegen/ops/output.hpp=              | The text ores.codegen writes for an output. |
+| =include/compass.codegen/ops/context.hpp=             | The library values and the model contexts.  |
+| =include/compass.codegen/ops/physical_space.hpp=      | The graph and a model's units.              |
+| =include/compass.codegen/ops/manifest.hpp=            | The models =regenerate --all= visits.       |
+| =tests/data/mustache_spec/=                           | The Mustache spec v1.4.3, MIT licence.      |
+
+| Target                  | Kind                                      |
+|-------------------------+-------------------------------------------|
+| =compass.codegen.lib=   | Library.                                  |
+| =compass.codegen.tests= | Catch2 executable, registered with CTest. |
+
+=compass-bench render <checkout> --out <dir>= renders every output compass
+builds a context for; with =--oracle <dump>= it renders the dump's outputs
+from the dump's contexts. =build/scripts/codegen_render_diff.py= compares
+either with the oracle, output by output and template by template.
+
+* Dependencies
+
+- =compass.model= for the value tables contexts are made of, and the JSON
+  reader for the oracle's contexts and the spec suite.
+- The C++23 standard library.
+- Catch2, for the tests only. The tests run the required files of the
+  Mustache spec, expecting pystache's output for the three cases
+  =build/scripts/mustache_spec_deviations.py= records where pystache
+  renders =None= for a null.
+
+* See also
+
+- [[id:D28A3247-4CEE-4D3E-B630-0BC69E020533][compass.model]] --- the values a
+  context is made of.
+- [[id:3E360E31-ED4C-4C22-A097-C4FC1D00641B][Render Mustache templates]] ---
+  the task that built the component.

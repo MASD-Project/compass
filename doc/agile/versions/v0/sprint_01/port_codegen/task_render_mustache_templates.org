@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :port_codegen:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/render-mustache-templates
+#+pr: https://github.com/MASD-Project/compass/pull/29
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -26,11 +26,11 @@ Render the codegen Mustache templates in process, each template parsed once.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                              |
 | Parent story | [[id:4F499B47-4AB8-4049-A72F-495351A6E2C7][Port ORE Studio codegen]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -39,9 +39,23 @@ Render the codegen Mustache templates in process, each template parsed once.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- =ores.codegen= is the oracle again. A script runs its generation for every
+  model and every archetype, as =codegen.sh regenerate= does, but captures
+  each output's raw render before clang-format and prettier, and the context
+  dictionary it rendered from, into scratch. It reads ORE Studio and writes
+  only to scratch.
+- compass renders in process: a Mustache engine with the semantics pystache
+  uses (sections over lists, dictionaries and booleans, inverted sections,
+  partials, escaping rules, standalone-tag whitespace), each template parsed
+  once into a compiled form and reused for every model.
+- The render context is built from the =compass.model= tables as
+  =ores.codegen= builds its dictionary, including the values it adds outside
+  the model (licence, modeline, paths, the physical-space graph).
+- A differential runner compares compass's raw render with the oracle's for
+  every output: identical outputs of total, then the first difference per
+  template. Templates are added in order of how many outputs use them.
+- Templates come from the =.mustache= files ORE Studio has today; tangling
+  them from their org sources is the next task.
 
 * Measurements
 
@@ -55,7 +69,13 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Outputs identical, rendered from the oracle's contexts | 26,212 of 26,212 (114 templates) | =build/scripts/codegen_render_diff.py= | ORE Studio main |
+| Outputs identical, rendered from contexts compass builds | 676 of 26,212 | same | same |
+| ores.codegen render time, all outputs | 35.7 s | =build/scripts/codegen_render_dump.py= (time inside =render_template=) | same |
+| compass render time, all outputs from oracle contexts | about 0.58 s, plus 3.4 ms to compile 176 templates | the agent's run | same |
+| compass, the 680 outputs it builds contexts for | 1.1 ms render, 128 ms contexts, 3.1 ms compile | =compass-bench render <archive> --repeat 3= | ORE Studio main, compass-ng 8b4e8c6 |
+
+Neither render time includes building contexts. Timings are indicative.
 
 * Notes
 
@@ -74,7 +94,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/29][#29]] | [codegen] Render Mustache templates as ores.codegen does |
 
 * Review
 
@@ -83,3 +103,18 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- =compass.codegen= holds a Mustache engine with pystache's semantics, tested
+  against the official spec suite (v1.4.3, vendored with its MIT licence) and
+  differing only where pystache renders null as =None=. Templates are compiled
+  once.
+- Given the contexts ores.codegen builds, compass renders all 26,212 outputs of
+  ORE Studio byte-identical, in about 0.58 s against 35.7 s.
+- compass builds contexts only for component and catalogue models: 676 of
+  26,212 outputs. Entity enrichment (about 4,000 lines of
+  =generate_from_model=) is the bulk of what remains and has its own task, as
+  do junction, operation, field group and the four convention-family registry
+  outputs.
+- The oracle, =codegen_render_dump.py=, runs =generate.cmd_regenerate(all=True)=
+  with the formatters made no-ops and captures each output's text after paste
+  substitution, together with its context.

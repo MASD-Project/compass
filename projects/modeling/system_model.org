@@ -49,12 +49,13 @@ not know what an object holds: =compass.org= lays out the object of a parsed
 document, so the store stays below the domain layer.
 
 * Domain layer
-| Component        | Role                                                                                                                                                                       |
-|------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| =compass.org=    | The tables an org-mode document becomes: element tree, objects, headings, keywords, properties, blocks, lists, links and interned names, with byte ranges into the source; and the document type registry. |
-| =compass.ingest= | Readers that fill the =compass.org= tables: the org-mode parser and the type registry builder first, then the C++ and SQL fact extractors.                                   |
-| =compass.model=  | The codegen models of ORE Studio as tables: one value row per object, list or scalar, linked by handles, loaded from the =compass.org= tables of a model document with the values ores.codegen's loader builds. |
-| =compass.codec=  | The codec runtime: descriptors, the recorded view of the corpus, file and diagnostic tables, the registry and runner, dependency records, the output sink, diff mode and the result cache; and the codecs that need only the org tables. |
+| Component         | Role                                                                                                                                                                                                                                     |
+|-------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| =compass.org=     | The tables an org-mode document becomes: element tree, objects, headings, keywords, properties, blocks, lists, links and interned names, with byte ranges into the source; and the document type registry.                               |
+| =compass.ingest=  | Readers that fill the =compass.org= tables: the org-mode parser and the type registry builder first, then the C++ and SQL fact extractors.                                                                                               |
+| =compass.model=   | The codegen models of ORE Studio as tables: one value row per object, list or scalar, linked by handles, loaded from the =compass.org= tables of a model document with the values ores.codegen's loader builds.                          |
+| =compass.codec=   | The codec runtime: descriptors, the recorded view of the corpus, file and diagnostic tables, the registry and runner, dependency records, the output sink, diff mode and the result cache; and the codecs that need only the org tables. |
+| =compass.codegen= | Code generation from the models: a Mustache engine with pystache's semantics, templates compiled once, the render contexts and output units ores.codegen builds, and the physical-space graph of the template library.                   |
 
 =compass.codec= is in the domain layer because a codec is defined in terms of
 the document model: its inputs are document types and its diagnostics name
@@ -74,6 +75,17 @@ both read models without the codec runtime. A code generation component
 depends on both =compass.model= and =compass.codec=; its codec hands the
 loader a finder over the corpus view, which records every document a model
 reads.
+
+=compass.codegen= is that component. It is in the domain layer because what
+it computes is defined by the models and the template library, and it is a
+component of its own, not a facet of =compass.model=, because rendering is
+a transform over models, not model data, and not a facet of
+=compass.codec=, because the renderer, the contexts and the graph are
+usable without the codec runtime: =compass-bench render= drives them
+directly against ores.codegen's raw renders. Today it depends on
+=compass.model= only; it takes =compass.codec= as a dependency when its
+codec is added, by the task that matches the existing output, and nothing
+depends on it in return.
 
 Work management (stories, tasks, sprints) is not a separate component: a unit
 of work is a document with a lifecycle state, read through the same tables.

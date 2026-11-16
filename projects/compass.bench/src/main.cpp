@@ -43,6 +43,7 @@
 #include "compass.bench/ops/parse_stage.hpp"
 #include "compass.bench/ops/partition.hpp"
 #include "compass.bench/ops/read_stage.hpp"
+#include "compass.bench/ops/render_stage.hpp"
 #include "compass.bench/ops/search_paths.hpp"
 #include "compass.bench/ops/store_stage.hpp"
 #include "compass.bench/ops/types_stage.hpp"
@@ -73,12 +74,14 @@ constexpr std::string_view usage =
     "       compass-bench ids <checkout> [-j N] [--repeat R]\n"
     "           [--verify N|all]\n"
     "       compass-bench models <checkout> [--dump <dir>] [--repeat R]\n"
+    "       compass-bench render <checkout> [--oracle <dir>] [--out <dir>]\n"
+    "           [--repeat R]\n"
     "       compass-bench org-dump <file>\n"
     "       compass-bench org-dump --list <list>\n";
 
 enum class stage {
     read, includes, parse, org, types, store, warm, codecs, gc, ids,
-    models, org_dump
+    models, render, org_dump
 };
 
 struct options {
@@ -99,6 +102,8 @@ struct options {
     std::filesystem::path dump_file;
     std::filesystem::path dump_list;
     std::filesystem::path model_dump;
+    std::filesystem::path oracle;
+    std::filesystem::path render_out;
 };
 
 std::filesystem::path absolute_path(const std::filesystem::path& p) {
@@ -178,6 +183,8 @@ std::optional<options> parse_options(int argc, char** argv) {
         o.which = stage::ids;
     else if (name == "models")
         o.which = stage::models;
+    else if (name == "render")
+        o.which = stage::render;
     else if (name == "org-dump")
         return parse_dump_options(argc, argv);
     else
@@ -192,6 +199,7 @@ std::optional<options> parse_options(int argc, char** argv) {
         collect || codecs;
     const bool ids = o.which == stage::ids;
     const bool models = o.which == stage::models;
+    const bool render = o.which == stage::render;
     for (int i = 3; i < argc; ++i) {
         const std::string_view flag = argv[i];
         if (collect && flag == "--dry-run") {
@@ -238,6 +246,10 @@ std::optional<options> parse_options(int argc, char** argv) {
             o.verify = n ? *n : std::numeric_limits<std::uint64_t>::max();
         } else if (models && flag == "--dump") {
             o.model_dump = absolute_path(value);
+        } else if (render && flag == "--oracle") {
+            o.oracle = absolute_path(value);
+        } else if (render && flag == "--out") {
+            o.render_out = absolute_path(value);
         } else {
             return std::nullopt;
         }
@@ -415,6 +427,15 @@ int run_models(const options& o) {
     return 0;
 }
 
+int run_render(const options& o) {
+    io::setup_timing setup;
+    const auto table = list_checkout(o, setup);
+    const auto result = ops::run_render_stage(o.checkout, table, o.oracle,
+        o.repetitions, o.render_out);
+    ops::write_render_report(std::cout, result);
+    return result.messages.empty() ? 0 : 1;
+}
+
 int run_org_dump(const options& o) {
     if (o.dump_list.empty())
         ops::dump_org_file(o.dump_file, std::cout);
@@ -437,6 +458,7 @@ int run(const options& o) {
     case stage::gc: return run_gc(o);
     case stage::ids: return run_ids(o);
     case stage::models: return run_models(o);
+    case stage::render: return run_render(o);
     case stage::org_dump: return run_org_dump(o);
     }
     return 2;

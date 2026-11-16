@@ -21,6 +21,8 @@
 #define COMPASS_MODEL_IO_JSON_HPP
 
 #include <string>
+#include <string_view>
+#include "compass.model/ops/builder.hpp"
 #include "compass.model/types/model_tables.hpp"
 
 namespace compass::model::io {
@@ -36,6 +38,17 @@ namespace compass::model::io {
  */
 void write_json(std::string& out, const types::model_tables& t,
     types::value_id value);
+
+/**
+ * @brief Reads the JSON object or array @p text into new values of @p b and
+ * returns the value, which nothing holds.
+ *
+ * The model has no real numbers, so a number with a fraction or an exponent
+ * becomes a string holding its text; Python's str() of a float that
+ * json.dumps wrote is the same text. Throws std::runtime_error on text that
+ * is not JSON, or whose top level is not an object or an array.
+ */
+types::value_id read_json(ops::builder& b, std::string_view text);
 
 }
 

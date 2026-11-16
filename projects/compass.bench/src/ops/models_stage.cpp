@@ -21,15 +21,11 @@
 
 #include <algorithm>
 #include <chrono>
-#include <deque>
 #include <fstream>
-#include <map>
-#include <optional>
 #include <stdexcept>
-#include "compass.ingest/org/parser.hpp"
+#include "compass.bench/ops/model_corpus.hpp"
 #include "compass.model/io/json.hpp"
 #include "compass.model/ops/load.hpp"
-#include "compass.platform/filesystem/mapped_file.hpp"
 
 namespace compass::bench::ops {
 
@@ -40,58 +36,6 @@ using compass::model::types::model_type;
 double elapsed_ms(std::chrono::steady_clock::time_point start) {
     return std::chrono::duration<double, std::milli>(
         std::chrono::steady_clock::now() - start).count();
-}
-
-bool is_model_candidate(std::string_view path) {
-    if (!path.starts_with("projects/") || !path.ends_with(".org"))
-        return false;
-    const auto slash = path.rfind('/');
-    const auto dir = path.substr(0, slash);
-    return dir.ends_with("/modeling");
-}
-
-struct parsed {
-    std::string path;
-    compass::platform::filesystem::mapped_file file;
-    compass::org::types::tables tables;
-    compass::org::types::tables_view view;
-};
-
-/**
- * @brief The parsed documents, by path, parsing one the first time it is
- * asked for. Addresses are stable, so a view handed out stays valid.
- */
-class corpus final {
-public:
-    explicit corpus(const std::filesystem::path& checkout)
-        : checkout_(checkout) {}
-
-    parsed* get(std::string_view path) {
-        const auto it = index_.find(path);
-        if (it != index_.end())
-            return it->second;
-        const auto full = checkout_ / std::filesystem::path(path);
-        std::error_code ec;
-        if (!std::filesystem::is_regular_file(full, ec)) {
-            index_.emplace(std::string(path), nullptr);
-            return nullptr;
-        }
-        auto& p = documents_.emplace_back(parsed{std::string(path),
-            compass::platform::filesystem::mapped_file(full), {}, {}});
-        compass::ingest::org::parse(p.file.text(), p.tables);
-        p.view = compass::org::types::view(p.tables);
-        index_.emplace(std::string(path), &p);
-        return &p;
-    }
-
-private:
-    std::filesystem::path checkout_;
-    std::deque<parsed> documents_;
-    std::map<std::string, parsed*, std::less<>> index_;
-};
-
-compass::model::ops::document document_of(const parsed& p) {
-    return {p.path, p.file.text(), &p.view};
 }
 
 void dump(const std::filesystem::path& root,
@@ -117,8 +61,8 @@ models_result run_models_stage(const std::filesystem::path& checkout,
     const types::file_table& table, unsigned repetitions,
     const std::filesystem::path& dump_root) {
     models_result r;
-    corpus documents(checkout);
-    std::vector<std::pair<parsed*, model_type>> models;
+    model_corpus documents(checkout);
+    std::vector<std::pair<parsed_document*, model_type>> models;
 
     const auto start = std::chrono::steady_clock::now();
     for (const auto& path : table.paths) {
@@ -136,14 +80,7 @@ models_result run_models_stage(const std::filesystem::path& checkout,
     r.parse_ms = elapsed_ms(start);
     r.models = models.size();
 
-    const compass::model::ops::document_finder find =
-        [&](std::string_view path)
-        -> std::optional<compass::model::ops::document> {
-        auto* p = documents.get(path);
-        if (p == nullptr)
-            return std::nullopt;
-        return document_of(*p);
-    };
+    const auto find = documents.finder();
 
     compass::model::types::model_tables tables;
     compass::model::ops::load_cache cache;
