@@ -21,6 +21,7 @@ set(lib_target_name ${name}.lib)
 add_library(${lib_target_name}
     ops/compile.cpp
     ops/context.cpp
+    ops/entity_columns.cpp
     ops/entity_context.cpp
     ops/entity_markers.cpp
     ops/entity_sql_table.cpp

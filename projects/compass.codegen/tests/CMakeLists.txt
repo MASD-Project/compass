@@ -22,6 +22,7 @@ set(tests_target_name ${name}.tests)
 add_executable(${tests_target_name}
     ops_compile_tests.cpp
     ops_context_tests.cpp
+    ops_entity_columns_tests.cpp
     ops_entity_markers_tests.cpp
     ops_entity_sql_table_tests.cpp
     ops_output_tests.cpp

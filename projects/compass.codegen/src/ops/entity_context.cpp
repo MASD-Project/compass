@@ -44,6 +44,8 @@ value_id entity_context(compass::model::ops::builder& b, value_id library,
     mark_artefact_last_items(b, entity);
     derive_cardinality_limit_flag(b, entity);
     format_columns(b, entity);
+    derive_column_flags(b, entity);
+    derive_column_aggregates(b, entity);
     project_sql_table(b, context, loaded, entity);
     b.set_copy(context, "domain_entity", entity);
     return context;

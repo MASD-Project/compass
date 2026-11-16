@@ -96,6 +96,26 @@ void format_columns(compass::model::ops::builder& b,
     compass::model::types::value_id entity);
 
 /**
+ * @brief The per-column flags of core.py 4167-4557, on every column, natural
+ * key and primary-key column: the type and representation flags each layer
+ * switches on (is_uuid, is_optional_timestamp, is_date, is_decimal,
+ * is_simple, is_text_stored and the rest), the render_* flags of the
+ * domain member's type (a field group's declaration for a domain-grouped
+ * column), render_label, the bool and int default_value, iter_var, the
+ * jsonb generator_expr, sql_only and, unless sql_only, no_wire. The date
+ * and decimal projections apply to plain columns only.
+ */
+void derive_column_flags(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief The has_* column aggregates and wire_left_out of core.py
+ * 4558-4605, read from the columns as derive_column_flags leaves them.
+ */
+void derive_column_aggregates(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
  * @brief data['table']: domain_entity_to_table_context and
  * normalise_sql_table_context, written to table of @p context. The
  * snapshot parts (the scalars, the primary key's own members, the column
