@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :port_codegen:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/render-mustache-templates
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ Render the codegen Mustache templates in process, each template parsed once.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:4F499B47-4AB8-4049-A72F-495351A6E2C7][Port ORE Studio codegen]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,23 @@ Render the codegen Mustache templates in process, each template parsed once.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- =ores.codegen= is the oracle again. A script runs its generation for every
+  model and every archetype, as =codegen.sh regenerate= does, but captures
+  each output's raw render before clang-format and prettier, and the context
+  dictionary it rendered from, into scratch. It reads ORE Studio and writes
+  only to scratch.
+- compass renders in process: a Mustache engine with the semantics pystache
+  uses (sections over lists, dictionaries and booleans, inverted sections,
+  partials, escaping rules, standalone-tag whitespace), each template parsed
+  once into a compiled form and reused for every model.
+- The render context is built from the =compass.model= tables as
+  =ores.codegen= builds its dictionary, including the values it adds outside
+  the model (licence, modeline, paths, the physical-space graph).
+- A differential runner compares compass's raw render with the oracle's for
+  every output: identical outputs of total, then the first difference per
+  template. Templates are added in order of how many outputs use them.
+- Templates come from the =.mustache= files ORE Studio has today; tangling
+  them from their org sources is the next task.
 
 * Measurements
 
