@@ -23,6 +23,7 @@
 #include <string>
 #include <string_view>
 #include "compass.codegen/ops/values.hpp"
+#include "compass.codegen/types/entity_registry.hpp"
 #include "compass.model/ops/builder.hpp"
 
 /**
@@ -66,6 +67,16 @@ inline context_base base_context(compass::model::ops::builder& b,
  */
 void set_component_path_vars(compass::model::ops::builder& b,
     compass::model::types::value_id model);
+
+/**
+ * @brief _project_wire_codec on an operation or family @p model: whether
+ * the model at @p site states its own wire shape, the codec headers its
+ * messages' member types are declared in when it does, and each
+ * message's name again as struct_name.
+ */
+void project_wire_codec(compass::model::ops::builder& b,
+    compass::model::types::value_id model,
+    const types::entity_registry& registry, const types::entity_site& site);
 
 }
 

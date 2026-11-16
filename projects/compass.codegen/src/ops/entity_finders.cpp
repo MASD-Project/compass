@@ -55,18 +55,6 @@ std::string and_list(const std::vector<std::string>& names) {
 }
 
 /*
- * key_is_primary: whether the primary key is exactly the declared key.
- */
-bool key_is_primary(const model_tables& t, value_id entity) {
-    const auto name = wire::declared_key_field(t, entity);
-    if (name.empty())
-        return true;
-    const auto columns = values::items(t,
-        values::member(t, entity, "primary_key"), "columns");
-    return columns.size() == 1 && wire::column_name(t, columns[0]) == name;
-}
-
-/*
  * The model's own implementation blocks, joined by line ends.
  */
 std::string stated_code(const model_tables& t, value_id entity) {
@@ -228,7 +216,7 @@ void derive_key_finders(builder& b, value_id entity) {
         values::py_str(t, values::member(t, legacy, "parent_column")) :
         std::string();
     const auto declared = wire::declared_key_field(t, entity);
-    const auto primary = key_is_primary(t, entity);
+    const auto primary = wire::key_is_primary(t, entity);
     const auto stated = stated_code(t, entity);
 
     const auto finders = b.list(entity, "key_finders");
@@ -269,7 +257,7 @@ void derive_key_finders(builder& b, value_id entity) {
 void derive_declared_key(builder& b, value_id entity) {
     const auto& t = b.tables();
     const auto declared = wire::declared_key_field(t, entity);
-    const auto primary = key_is_primary(t, entity);
+    const auto primary = wire::key_is_primary(t, entity);
     b.set(entity, "declared_key", declared);
     b.set(entity, "key_is_primary", primary);
 

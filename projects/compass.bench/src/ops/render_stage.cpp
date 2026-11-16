@@ -452,28 +452,48 @@ constexpr context_type context_types[] = {
     {compass::model::types::model_type::junction, "junction"},
     {compass::model::types::model_type::operation, "operation"},
     {compass::model::types::model_type::field_group, "field_group"},
+    {compass::model::types::model_type::family, "family"},
     {compass::model::types::model_type::asset_class_catalogue,
      "asset_class_catalogue"},
     {compass::model::types::model_type::outcome_catalogue,
      "outcome_catalogue"}};
 
 /**
- * @brief The shared context of the model @p root of @p type, whose
- * ores.codegen name is @p type_name, and for a junction its surface shape.
+ * @brief A model's shared context and what its template variants are
+ * built from: a junction's surface shape or a family's service context.
  */
-compass::codegen::ops::junction_contexts build_context(compass::model::ops::builder& b,
+struct built_context {
+    value_id context;
+    value_id prepared;
+};
+
+/**
+ * @brief The shared context of the model @p root of @p type, whose
+ * ores.codegen name is @p type_name. @p members are the entity models a
+ * family names.
+ */
+built_context build_context(compass::model::ops::builder& b,
     compass::model::types::model_type type, value_id library, value_id root,
     std::string_view stem, std::string_view type_name,
     const compass::codegen::types::entity_registry& entities,
-    const compass::codegen::types::entity_site& site) {
+    const compass::codegen::types::entity_site& site,
+    const compass::codegen::ops::family_members& members) {
     namespace cops = compass::codegen::ops;
     using compass::model::types::model_type;
     switch (type) {
     case model_type::entity:
         return {cops::entity_context(b, library, root, stem, entities, site),
             value_id::none()};
-    case model_type::junction:
-        return cops::junction_context(b, library, root, stem, entities, site);
+    case model_type::junction: {
+        const auto [context, surface] = cops::junction_context(b, library,
+            root, stem, entities, site);
+        return {context, surface};
+    }
+    case model_type::family: {
+        const auto [context, service] = cops::family_context(b, library, root,
+            stem, entities, site, members);
+        return {context, service};
+    }
     case model_type::operation:
         return {cops::operation_context(b, library, root, stem, entities,
             site), value_id::none()};
@@ -484,6 +504,45 @@ compass::codegen::ops::junction_contexts build_context(compass::model::ops::buil
         return {cops::model_context(b, library, root, stem, type_name),
             value_id::none()};
     }
+}
+
+/**
+ * @brief The entity models beside the family at @p path, by the singular
+ * each declares, the first in path order winning, loaded into @p b.
+ */
+compass::codegen::ops::family_members family_members_of(
+    std::string_view path, const types::file_table& table,
+    model_corpus& documents, compass::model::ops::builder& b,
+    const compass::model::ops::document_finder& find,
+    compass::model::ops::load_cache& cache) {
+    namespace mops = compass::model::ops;
+    const auto dir = path.substr(0, path.rfind('/') + 1);
+    std::vector<std::string_view> paths;
+    for (const auto& p : table.paths) {
+        if (p.starts_with(dir) && p.ends_with(".org") &&
+            p.find('/', dir.size()) == std::string::npos)
+            paths.push_back(p);
+    }
+    std::ranges::sort(paths);
+    compass::codegen::ops::family_members out;
+    for (const auto p : paths) {
+        auto* d = documents.get(p);
+        if (d == nullptr || mops::model_type_of(mops::declared_type(
+                document_of(*d))) != compass::model::types::model_type::entity)
+            continue;
+        std::string error;
+        const auto id = mops::load_model(b, document_of(*d),
+            compass::model::types::model_type::entity, find, cache, &error);
+        if (!error.empty())
+            continue;
+        const auto entity = compass::codegen::ops::values::member(b.tables(),
+            b.tables().models.roots[id], "domain_entity");
+        const std::string singular(compass::codegen::ops::values::str(
+            b.tables(), entity, "entity_singular"));
+        if (!singular.empty())
+            out.try_emplace(singular, entity);
+    }
+    return out;
 }
 
 /**
@@ -564,13 +623,16 @@ std::vector<planned> plan_models(const std::filesystem::path& checkout,
             compass::codegen::ops::protocol_owned(registry, b.tables(),
                 compass::codegen::ops::values::member(b.tables(), root,
                     type_name), path)};
-        const auto [context, surface] = build_context(b, *type, library, root,
-            stem, type_name, entities, site);
+        const auto members = *type == compass::model::types::model_type::family
+            ? family_members_of(path, table, documents, b, find, cache)
+            : compass::codegen::ops::family_members{};
+        const auto [context, prepared] = build_context(b, *type, library,
+            root, stem, type_name, entities, site, members);
         ++r.contexts;
         for (const auto& u : units) {
             const auto variant = compass::codegen::ops::template_context(b,
                 context, stem, type_name, u.template_name, entities, site,
-                surface);
+                prepared);
             plan.push_back({u, variant.is_none() ? context : variant,
                 type_name});
         }

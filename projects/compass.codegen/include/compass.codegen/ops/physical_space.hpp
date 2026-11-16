@@ -110,7 +110,8 @@ struct checkout_file {
  * order, each with its output path, an output named twice kept once.
  *
  * Output paths are resolved as resolve_output_path resolves them for a
- * component, a domain entity, a junction, an operation and a field group.
+ * component, a domain entity, a junction, an operation, a field group
+ * and a family.
  * A component's directory under projects/ is the one above the modeling/
  * of @p model_path, the model's path relative to the checkout. A domain
  * entity is narrowed first by the gates resolve_targets applies to one:

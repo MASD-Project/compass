@@ -19,6 +19,9 @@
  */
 #include "model_steps.hpp"
 
+#include <vector>
+#include "compass.codegen/ops/entity_steps.hpp"
+
 namespace compass::codegen::ops {
 
 using compass::model::ops::builder;
@@ -63,6 +66,26 @@ void set_component_path_vars(builder& b, value_id model) {
     b.set(model, "cache_component", cache_component);
     b.set(model, "cache_subcomponent", cache_subcomponent);
     b.set(model, "generator_facet_name", facet);
+}
+
+void project_wire_codec(builder& b, value_id model,
+    const types::entity_registry& registry, const types::entity_site& site) {
+    b.set(model, "has_generated_wire_codec", site.has_generated_wire_codec);
+    std::vector<std::string> cpp_types;
+    if (site.has_generated_wire_codec) {
+        for (const auto m : values::items(b.tables(), model, "messages")) {
+            for (const auto f : values::items(b.tables(), m, "fields"))
+                cpp_types.emplace_back(values::str(b.tables(), f, "cpp_type"));
+        }
+    }
+    const auto headers = site.has_generated_wire_codec
+        ? member_headers_of(b, model, cpp_types, registry, site.path)
+        : std::vector<std::string>{};
+    const auto list = b.list(model, "message_codec_includes");
+    for (const auto& h : headers)
+        b.append(list, h);
+    for (const auto m : values::items(b.tables(), model, "messages"))
+        b.set_copy(m, "struct_name", values::member(b.tables(), m, "name"));
 }
 
 }

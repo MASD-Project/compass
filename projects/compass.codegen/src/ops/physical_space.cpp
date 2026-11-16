@@ -583,6 +583,20 @@ std::vector<placeholder> operation_placeholders(const model_tables& t,
 }
 
 /**
+ * @brief resolve_output_path's placeholders for a family.
+ */
+std::vector<placeholder> family_placeholders(const model_tables& t,
+    value_id family) {
+    auto out = path_placeholders(t, family);
+    const auto singular = get_or(t, family, "entity_singular", "unknown");
+    out.push_back({"{entity_plural}",
+        get_or(t, family, "entity_plural", singular + "s")});
+    out.push_back({"{entity}", singular});
+    out.push_back({"{EntityPascal}", snake_to_pascal(singular)});
+    return out;
+}
+
+/**
  * @brief resolve_output_path's placeholders for a field group.
  */
 std::vector<placeholder> field_group_placeholders(const model_tables& t,
@@ -836,6 +850,7 @@ std::vector<unit> model_units(const types::physical_space& g,
         : type == "junction" ? junction_placeholders(models, owned)
         : type == "operation" ? operation_placeholders(models, owned)
         : type == "field_group" ? field_group_placeholders(models, owned)
+        : type == "family" ? family_placeholders(models, owned)
         : std::vector<placeholder>{};
 
     std::vector<std::size_t> deferred;

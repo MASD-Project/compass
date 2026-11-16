@@ -560,6 +560,19 @@ void derive_codec_includes(compass::model::ops::builder& b,
     const types::entity_registry& registry, std::string_view model_path);
 
 /**
+ * @brief family_protocol_messages for the family @p family whose central
+ * entity model, as loaded, is @p central: messages, the key record (the
+ * central row's own), the item and write records and the get, get_many,
+ * put and put_many pairs; key_fields, item_fields and write_fields; and
+ * the domain_includes, protocol_includes and protocol_imports of each
+ * entity it names, the central row first.
+ */
+void derive_family_messages(compass::model::ops::builder& b,
+    compass::model::types::value_id family,
+    compass::model::types::value_id central,
+    const types::entity_registry& registry);
+
+/**
  * @brief filter_members, as filter_members derives them from @p entity.
  * Returns whether one of them is a range.
  */

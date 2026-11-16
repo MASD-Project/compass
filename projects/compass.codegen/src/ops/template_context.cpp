@@ -497,6 +497,16 @@ value_id junction_template_context(builder& b, value_id context,
     return copy;
 }
 
+/*
+ * _FAMILY_SERVICE_TEMPLATES: what reads a family's service view.
+ */
+bool is_family_service_template(std::string_view name) {
+    constexpr std::string_view names[] = {"cpp_service.hpp.mustache",
+        "cpp_service.cpp.mustache", "cpp_nats_handler.hpp.mustache",
+        "cpp_nats_registrar.hpp.mustache", "cpp_nats_registrar.cpp.mustache"};
+    return std::ranges::find(names, name) != std::end(names);
+}
+
 bool is_shell_aggregator_template(std::string_view name) {
     return name == "cpp_shell_command_aggregator_header.hpp.mustache" ||
         name == "cpp_shell_command_aggregator_impl.cpp.mustache";
@@ -714,7 +724,7 @@ std::optional<types::convention_family> convention_family_of(
 value_id template_context(builder& b, value_id context,
     std::string_view model_key, std::string_view model_type,
     std::string_view template_name, const types::entity_registry& registry,
-    const types::entity_site& site, value_id surface) {
+    const types::entity_site& site, value_id prepared) {
     const auto& t = b.tables();
     if ((model_type == "domain_entity" || model_type == "junction") &&
         is_shell_aggregator_template(template_name))
@@ -733,7 +743,10 @@ value_id template_context(builder& b, value_id context,
     }
     if (model_type == "junction")
         return junction_template_context(b, context, model_key, template_name,
-            surface);
+            prepared);
+    if (model_type == "family")
+        return is_family_service_template(template_name) ? prepared :
+            value_id::none();
     if (model_type == "operation")
         return operation_template_context(b, context, model_key,
             template_name);

@@ -48,6 +48,7 @@ add_library(${lib_target_name}
     ops/entity_surfaces.cpp
     ops/entity_typescript.cpp
     ops/entity_wire.cpp
+    ops/family_context.cpp
     ops/field_group_context.cpp
     ops/junction_context.cpp
     ops/manifest.cpp

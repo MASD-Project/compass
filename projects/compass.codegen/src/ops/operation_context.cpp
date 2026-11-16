@@ -31,35 +31,6 @@ namespace compass::codegen::ops {
 using compass::model::ops::builder;
 using compass::model::types::value_id;
 
-namespace {
-
-/*
- * _project_wire_codec: whether the model states its own wire shape, the
- * codec headers its messages' member types are declared in when it does,
- * and each message's name again as struct_name.
- */
-void project_wire_codec(builder& b, value_id operation,
-    const types::entity_registry& registry, const types::entity_site& site) {
-    b.set(operation, "has_generated_wire_codec", site.has_generated_wire_codec);
-    std::vector<std::string> cpp_types;
-    if (site.has_generated_wire_codec) {
-        for (const auto m : values::items(b.tables(), operation, "messages")) {
-            for (const auto f : values::items(b.tables(), m, "fields"))
-                cpp_types.emplace_back(values::str(b.tables(), f, "cpp_type"));
-        }
-    }
-    const auto headers = site.has_generated_wire_codec
-        ? member_headers_of(b, operation, cpp_types, registry, site.path)
-        : std::vector<std::string>{};
-    const auto list = b.list(operation, "message_codec_includes");
-    for (const auto& h : headers)
-        b.append(list, h);
-    for (const auto m : values::items(b.tables(), operation, "messages"))
-        b.set_copy(m, "struct_name", values::member(b.tables(), m, "name"));
-}
-
-}
-
 value_id operation_context(builder& b, value_id library, value_id model,
     std::string_view model_key, const types::entity_registry& registry,
     const types::entity_site& site) {

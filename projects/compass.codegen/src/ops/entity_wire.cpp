@@ -138,6 +138,15 @@ std::string declared_key_field(const model_tables& t, value_id entity) {
     return {};
 }
 
+bool key_is_primary(const model_tables& t, value_id entity) {
+    const auto name = declared_key_field(t, entity);
+    if (name.empty())
+        return true;
+    const auto columns = values::items(t,
+        values::member(t, entity, "primary_key"), "columns");
+    return columns.size() == 1 && column_name(t, columns[0]) == name;
+}
+
 value_id declared_key_column(const model_tables& t, value_id entity) {
     const auto name = declared_key_field(t, entity);
     if (name.empty())

@@ -297,3 +297,95 @@ TEST_CASE("an operation gains its component names and codec facts",
         "messages").front();
     CHECK(f.json(m, "struct_name") == "\"pricing_engines_document\"");
 }
+
+/*
+ * ores.refdata.commodity_future_convention: the grouped convention row
+ * and its averaging_terms part (oracle: the family of its
+ * cpp_service.hpp context).
+ */
+TEST_CASE("a family's service view joins its parts to the central row",
+    "[codegen][model_contexts][family]") {
+    context_fixture f(R"j({"family": {"component": "refdata",
+        "subcomponent": "api",
+        "entity_singular": "commodity_future_convention",
+        "entity_plural": "commodity_future_conventions",
+        "central_entity": "convention",
+        "parts": [{"part": "averaging_terms",
+            "entity": "commodity_future_averaging_terms",
+            "cardinality": "optional", "group": ""}]}})j");
+    const auto central = model::io::read_json(f.b, R"j({
+        "entity_singular": "convention", "entity_plural": "conventions",
+        "component": "refdata",
+        "primary_key": {"columns": [{"column": "id", "type": "uuid",
+            "cpp_type": "boost::uuids::uuid"}]},
+        "columns": [{"name": "party_id", "type": "uuid",
+            "cpp_type": "boost::uuids::uuid"}],
+        "domain_groups": [{"member": "identity"}, {"member": "audit"}],
+        "domain_group_fields": [
+            {"name": "identity.id", "cpp_type": "boost::uuids::uuid"},
+            {"name": "identity.party_id", "cpp_type": "boost::uuids::uuid"},
+            {"name": "identity.version", "cpp_type": "int"},
+            {"name": "audit.modified_by", "cpp_type": "std::string"},
+            {"name": "audit.change_commentary", "cpp_type": "std::string"}]})j");
+    const auto part = model::io::read_json(f.b, R"j({
+        "entity_singular": "commodity_future_averaging_terms",
+        "entity_plural": "commodity_future_averaging_terms",
+        "component": "refdata",
+        "primary_key": {"columns": [{"column": "id", "type": "uuid",
+            "cpp_type": "boost::uuids::uuid"}]},
+        "columns": [{"name": "convention_id", "type": "uuid",
+            "cpp_type": "boost::uuids::uuid"},
+            {"name": "party_id", "type": "uuid",
+            "cpp_type": "boost::uuids::uuid"}],
+        "foreign_keys": [{"column": "convention_id",
+            "parent_entity": "convention", "list_by_uuid": true}]})j");
+    const codegen::ops::family_members members{{"convention", central},
+        {"commodity_future_averaging_terms", part}};
+    const auto [context, service] = codegen::ops::family_context(f.b,
+        f.library, f.model, "ores.refdata.commodity_future_convention",
+        codegen::types::entity_registry{}, refdata_site, members);
+    f.context = context;
+    const auto family = f.at("family");
+    CHECK(message_names(f, family) == strings{
+        "commodity_future_convention_key", "commodity_future_convention_item",
+        "commodity_future_convention_write",
+        "get_commodity_future_convention_request",
+        "get_commodity_future_convention_response",
+        "get_many_commodity_future_conventions_request",
+        "get_many_commodity_future_conventions_response",
+        "put_commodity_future_convention_request",
+        "put_commodity_future_convention_response",
+        "put_many_commodity_future_conventions_request",
+        "put_many_commodity_future_conventions_response"});
+    CHECK(f.json(family, "central") == "<absent>");
+
+    const auto serviced = codegen::ops::values::member(f.tables, service,
+        "family");
+    const auto view = codegen::ops::values::member(f.tables, serviced,
+        "central");
+    CHECK(f.json(view, "pk_member") == "\"identity.id\"");
+    CHECK(f.json(view, "pk_text_expr") ==
+        "\"boost::uuids::to_string(row.identity.id)\"");
+    CHECK(f.json(view, "read_key_expr") ==
+        "\"boost::uuids::to_string(key.id)\"");
+    CHECK(f.json(view, "version_member") == "\"identity.version\"");
+    CHECK(f.json(view, "commentary_member") ==
+        "\"audit.change_commentary\"");
+    CHECK(f.json(view, "party_member") == "\"identity.party_id\"");
+    CHECK(f.json(view, "stamp_members") == f.canon(
+        R"([{"member": "identity"}, {"member": "audit"}])"));
+    const auto joined = codegen::ops::values::items(f.tables, serviced,
+        "parts").front();
+    CHECK(f.json(joined, "fk_read_expr") ==
+        "\"boost::uuids::to_string(central.identity.id)\"");
+    CHECK(f.json(joined, "fk_assign_expr") == "\"central.identity.id\"");
+    CHECK(f.json(joined, "fk_list_by_uuid") == "true");
+    CHECK(f.json(joined, "copy_party_id") == "true");
+    CHECK(f.json(serviced, "permission_prefix") ==
+        "\"refdata::conventions\"");
+    const auto get = codegen::ops::values::items(f.tables, serviced,
+        "get_operations").front();
+    CHECK(f.json(get, "permission_code") == "\"refdata::conventions:read\"");
+    CHECK(f.json(serviced, "entity_singular_words") ==
+        "\"commodity future convention\"");
+}
