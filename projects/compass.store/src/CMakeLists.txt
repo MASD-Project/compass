@@ -25,7 +25,8 @@ add_library(${lib_target_name}
     io/object_file.cpp
     ops/blob_hash.cpp
     ops/git_index.cpp
-    ops/git_settings.cpp)
+    ops/git_settings.cpp
+    ops/worktree_index.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
 

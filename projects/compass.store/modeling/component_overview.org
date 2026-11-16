@@ -2,7 +2,7 @@
 :ID: EB285F25-4AF8-482D-B679-C650DA718CF6
 :END:
 #+title: compass.store
-#+description: The content-addressed store every worktree of a repository shares: git blob IDs as keys, taken from git's index when git would call a file clean and hashed otherwise, object paths under the git common directory, and writes that land whole or not at all.
+#+description: The content-addressed store every worktree of a repository shares: git blob IDs as keys, taken from git's index when git would call a file clean, else from a per-worktree index of the files compass hashed, else hashed; object paths under the git common directory, and writes that land whole or not at all.
 #+type: component
 #+level: cross
 #+filetags: :store:cache:worktrees:component:
@@ -22,8 +22,9 @@ done once per repository. The store is a cache: deleting it loses speed and
 nothing else.
 
 Most keys cost nothing to find. Git's index already holds the ID of every
-clean tracked file, so the store reads the index and hashes only the files
-whose index ID it cannot trust.
+clean tracked file, so the store reads the index. A file whose index ID it
+cannot trust is hashed once, and its stat data and ID go into a worktree
+index of its own, so the next run finds it from stat data too.
 
 The component knows keys, places and files. It does not know what an object
 holds. The bytes of a parsed org document are laid out by
@@ -38,7 +39,8 @@ and hands the bytes to =write_object=; later it maps the file with
 - The bytes of a source file, to compute its blob ID.
 - The root of a git checkout, to find the store and to resolve the IDs of
   its files: its index, its configuration and its attributes files are read,
-  never written, and no lock is taken.
+  never written, and no lock is taken. The worktree index under its git
+  directory is read, and written when the caller asks.
 - The bytes of an object, to write.
 
 * Outputs
@@ -57,12 +59,13 @@ and hands the bytes to =write_object=; later it maps the file with
   =io::id_resolver= treats a rejected index as no index: every file is
   hashed, and =index_problem= says why, so an unusable index costs speed and
   never correctness.
-- *Clean.* =ops::is_clean= says whether git would call a file clean from
-  stat data alone. Every field must match, nanoseconds included, which is
-  stricter than git on Linux. A size of zero is never trusted, since git
-  zeroes the size of an entry it could not prove clean. An entry modified
-  in the second the index was written, or later, is racily clean (see
-  git's racy-git documentation) and is not trusted.
+- *Clean.* =ops::is_unchanged= says whether a file is unchanged since its
+  entry was recorded, from stat data alone. Every field must match,
+  nanoseconds included, which is stricter than git on Linux. An entry
+  modified in the second the record was written, or later, is racily clean
+  (see git's racy-git documentation) and is not trusted. =ops::is_clean=,
+  for git's index, also never trusts a size of zero, since git zeroes the
+  size of an entry it could not prove clean.
 - *Conversion.* Git's ID names the bytes after line-ending conversion and
   clean filters. =ops::read_git_config= notes =core.autocrlf=, the object
   format, =core.attributesFile= and includes; =ops::read_attributes= keeps
@@ -81,15 +84,39 @@ and hands the bytes to =write_object=; later it maps the file with
   regular file, was not added with intent to add, matches no conversion
   rule and is clean; otherwise it hashes the file with =io::hash_file=. A
   conflicted, untracked or racily clean path is hashed, and so is every path
-  when =core.autocrlf= converts or the object format is not SHA-1. The
-  answer names its source: =index= or =hashed=.
+  when =core.autocrlf= converts or the object format is not SHA-1, unless
+  the worktree index knows it. The answer names its source (=git_index=,
+  =worktree_index= or =hashed=) and carries the stat data the file had.
+- *Worktree index.* =<git dir>/compass/index= (=io::worktree_index_path=),
+  under the checkout's own git directory, so each linked worktree keeps its
+  own. It holds path, stat data and ID of each file compass hashed; a file
+  whose ID git's index gives has no entry. =ops::encode_worktree_index=
+  lays it out little-endian: magic =CMPSWTI\n=, version, entry count and
+  written time, then each entry in path order, then the SHA-1 of all of it.
+  =ops::decode_worktree_index= rejects a file whose magic, version or
+  checksum is wrong, that is cut short, or whose paths are out of order;
+  the resolver then treats the index as empty and says why in
+  =worktree_index_problem=. An entry is used when =ops::is_unchanged=
+  holds against the written time, which is the time the resolver that
+  wrote it was built, read from the coarse clock the kernel stamps files
+  with. That time is no later than any hash in the file, so a file
+  modified after compass hashed it is never trusted, even when the
+  modification kept its stat data.
+- *Index rewrite.* =id_resolver::write_worktree_index= takes the paths
+  resolved in the run and their answers, keeps an entry for each that was
+  not from git's index, carries over the previous entries of other paths
+  whose files are still unchanged, and drops the rest, so a removed file
+  loses its entry. It writes a temporary file and renames it. Two runs in
+  one worktree that write at once do not corrupt the file: the last rename
+  wins, and the entries of the other are hashed again on the next run.
 - *Location.* =io::git_common_dir= resolves the git directory every worktree
   shares, reading =.git= and =commondir= as git writes them, with no git
   process. =io::objects_dir= is =compass/objects= under it. =io::object_path=
   is =<first two hex digits>/<other 38>= under that, the layout of git's loose
   objects.
 - *Writes.* =io::write_object= writes to a temporary file in the directory of
-  the object and renames it into place. A reader sees the old object, the new
+  the object and renames it into place; the worktree index is written the
+  same way. A reader sees the old object, the new
   one or none. Concurrent writers of one object all succeed and leave one
   file. Nothing is synced to disk; an object a crash cut short fails the
   checks of its decoder and is written again.
@@ -114,26 +141,42 @@ the index and hashed 2,764 files (74.7 MB), all of them sent to hashing by
 8 threads of a shared machine, so the numbers are indicative. Every one of
 the 60,047 IDs matched =git hash-object= in a =--verify all= run.
 
+On a repository made from an archive of ORE Studio =origin/main= at
+=a04ad2a5c3= (60,213 files, 10,910 of them org),
+=compass-bench warm --repeat 5= after one cold run took 10,898 org IDs from
+git's index and 12 from the worktree index, hashed none, loaded and checked
+all 10,910 objects and wrote none. The median warm repetition took 210 ms:
+115 ms to build the resolver and resolve every ID, 86 ms to load, 2 ms in
+the empty write phase and 2 ms to rewrite the worktree index, against a
+budget of one second. Listing the files with =git ls-files= and =lstat=
+took another 120 ms outside the stage. The cold run took 399 ms, 289 ms of
+it parsing and writing. Load average was 7 to 10 on 8 cores. A
+=compass-bench ids --verify all= run on the same repository afterwards
+matched all 60,213 IDs, the 12 from the worktree index among them.
+
 * Entry points
 
-| Path                                           | Role                                                      |
-|------------------------------------------------+-----------------------------------------------------------|
-| =include/compass.store/types/blob_id.hpp=      | =blob_id=: the key of the store.                          |
-| =include/compass.store/ops/blob_hash.hpp=      | =blob_id_of= and =to_hex=.                                |
-| =include/compass.store/io/location.hpp=        | =git_common_dir=, =objects_dir=, =object_path=.           |
-| =include/compass.store/io/object_file.hpp=     | =write_object=.                                           |
-| =include/compass.store/types/git_index.hpp=    | =git_index=, =stat_data=, =index_time=.                   |
-| =include/compass.store/ops/git_index.hpp=      | =parse_git_index=, =is_regular_file=, =is_clean=.         |
-| =include/compass.store/types/git_settings.hpp= | =git_config=, =attribute_rules=.                          |
-| =include/compass.store/ops/git_settings.hpp=   | =read_git_config=, =read_attributes=, =converts=.         |
-| =include/compass.store/io/git_files.hpp=       | =read_git_index=, =stat_of=, =hash_file=.                 |
-| =include/compass.store/io/id_resolver.hpp=     | =id_resolver=, =resolved_id=, =id_source=.                |
-| =tests/ops_blob_hash_tests.cpp=                | IDs checked against =git hash-object=.                    |
-| =tests/io_location_tests.cpp=                  | A main checkout, a linked worktree, bad input.            |
-| =tests/io_object_file_tests.cpp=               | Replacement, failure and concurrent writers.              |
-| =tests/ops_git_index_tests.cpp=                | Stat matching, racy entries, malformed bytes.             |
-| =tests/ops_git_settings_tests.cpp=             | Configuration, attribute rules and patterns.              |
-| =tests/io_id_resolver_tests.cpp=               | Real repositories; IDs checked against =git hash-object=. |
+| Path                                             | Role                                                                              |
+|--------------------------------------------------+-----------------------------------------------------------------------------------|
+| =include/compass.store/types/blob_id.hpp=        | =blob_id=: the key of the store.                                                  |
+| =include/compass.store/ops/blob_hash.hpp=        | =blob_id_of= and =to_hex=.                                                        |
+| =include/compass.store/io/location.hpp=          | =git_dir=, =git_common_dir=, =objects_dir=, =worktree_index_path=, =object_path=. |
+| =include/compass.store/io/object_file.hpp=       | =write_object=.                                                                   |
+| =include/compass.store/types/git_index.hpp=      | =git_index=, =stat_data=, =index_time=.                                           |
+| =include/compass.store/ops/git_index.hpp=        | =parse_git_index=, =is_regular_file=, =is_unchanged=, =is_clean=.                 |
+| =include/compass.store/types/git_settings.hpp=   | =git_config=, =attribute_rules=.                                                  |
+| =include/compass.store/ops/git_settings.hpp=     | =read_git_config=, =read_attributes=, =converts=.                                 |
+| =include/compass.store/io/git_files.hpp=         | =read_git_index=, =stat_of=, =hash_file=.                                         |
+| =include/compass.store/io/id_resolver.hpp=       | =id_resolver=, =resolved_id=, =id_source=.                                        |
+| =include/compass.store/types/worktree_index.hpp= | =worktree_index=.                                                                 |
+| =include/compass.store/ops/worktree_index.hpp=   | =encode_worktree_index=, =decode_worktree_index=.                                 |
+| =tests/ops_blob_hash_tests.cpp=                  | IDs checked against =git hash-object=.                                            |
+| =tests/io_location_tests.cpp=                    | A main checkout, a linked worktree, bad input.                                    |
+| =tests/io_object_file_tests.cpp=                 | Replacement, failure and concurrent writers.                                      |
+| =tests/ops_git_index_tests.cpp=                  | Stat matching, racy entries, malformed bytes.                                     |
+| =tests/ops_git_settings_tests.cpp=               | Configuration, attribute rules and patterns.                                      |
+| =tests/io_id_resolver_tests.cpp=                 | Real repositories; IDs checked against =git hash-object=.                         |
+| =tests/io_worktree_index_tests.cpp=              | Reuse with no read, changes, racy entries, damage, pruning, linked worktrees.     |
 
 | Target                | Kind                                      |
 |-----------------------+-------------------------------------------|
@@ -143,7 +186,8 @@ the 60,047 IDs matched =git hash-object= in a =--verify all= run.
 * Dependencies
 
 - The C++23 standard library. No other compass-ng component.
-- POSIX (=open=, =fstat=, =lstat=, =read=).
+- POSIX (=open=, =fstat=, =lstat=, =read=), and Linux's
+  =CLOCK_REALTIME_COARSE=.
 - Catch2 and the =git= command, for the tests only. The store itself starts
   no git process.
 

@@ -31,6 +31,7 @@
 #include "compass.bench/types/stage_result.hpp"
 #include "compass.bench/types/store_result.hpp"
 #include "compass.bench/types/types_result.hpp"
+#include "compass.bench/types/warm_result.hpp"
 
 namespace compass::bench::io {
 
@@ -164,6 +165,28 @@ void write_store_report(std::ostream& os, const types::store_result& stage,
  */
 void write_ids_report(std::ostream& os, const types::ids_result& stage,
     const setup_timing& setup);
+
+/**
+ * @brief The time a warm run of compass has, in milliseconds.
+ */
+inline constexpr double warm_budget_ms = 1000;
+
+/**
+ * @brief True when the warm stage found no org file, hit any error, or
+ * hashed or wrote anything in a repetition after the first, which finds
+ * the store and the worktree index full when nothing changed.
+ */
+[[nodiscard]] bool failed(const types::warm_result& stage);
+
+/**
+ * @brief Writes one row per repetition with the time of each phase and the
+ * counts by ID source, loaded and written, then the medians of the warm
+ * repetitions, every one after the first, against warm_budget_ms.
+ *
+ * A failed stage gets a FAILED banner naming the reason.
+ */
+void write_warm_report(std::ostream& os, const types::warm_result& stage,
+    const setup_timing& setup, const std::filesystem::path& objects);
 
 }
 

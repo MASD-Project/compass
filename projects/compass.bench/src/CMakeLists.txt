@@ -36,7 +36,8 @@ add_library(${lib_target_name}
     ops/read_stage.cpp
     ops/search_paths.cpp
     ops/store_stage.cpp
-    ops/types_stage.cpp)
+    ops/types_stage.cpp
+    ops/warm_stage.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
 

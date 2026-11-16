@@ -71,6 +71,11 @@ std::filesystem::path objects_dir(const std::filesystem::path& git_common_dir) {
     return git_common_dir / "compass" / "objects";
 }
 
+std::filesystem::path worktree_index_path(
+    const std::filesystem::path& git_dir) {
+    return git_dir / "compass" / "index";
+}
+
 std::filesystem::path object_path(const std::filesystem::path& objects_dir,
     const types::blob_id& id) {
     const auto hex = ops::to_hex(id);

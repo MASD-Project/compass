@@ -59,6 +59,13 @@ namespace compass::store::io {
     const std::filesystem::path& git_common_dir);
 
 /**
+ * @brief The worktree index of one checkout: compass/index under its own
+ * @p git_dir, so each worktree keeps its own.
+ */
+[[nodiscard]] std::filesystem::path worktree_index_path(
+    const std::filesystem::path& git_dir);
+
+/**
  * @brief The file of one object, laid out as git lays out loose objects: a
  * directory named by the first two hexadecimal digits of the ID, then a
  * file named by the other 38.

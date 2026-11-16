@@ -34,8 +34,11 @@ documentation; the link runs one way, from here to the overviews.
 | Parent story | [[id:10A99211-DCE0-4237-8D23-0599C2D00628][Share a content-addressed store]] |
 | Last touched | 2026-11-16                                                                   |
 
-The first task, the object format, is implemented and measured. The state
-moves to =LANDED= when the story closes.
+The object format, the keys from git's index and the worktree index are
+implemented and measured; a warm run over ORE Studio's org files takes
+about 0.2 s. The design stays =STARTED= because eviction is not designed:
+it needs to know when an object was last used, and recording that may
+change the store. The state moves to =LANDED= when the story closes.
 
 * Summary
 
@@ -182,6 +185,11 @@ API.
   shares, and it is outside every working tree, so the store is never listed,
   committed or cleaned. It is resolved by reading =.git= and =commondir=, with
   no git process.
+- *Worktree index.* A file git's index cannot vouch for is hashed once;
+  its path, stat data and ID go into =<git dir>/compass/index=, which is
+  per worktree because stat data is. The next run trusts the entry by the
+  same stat rule as git's index. It is a cache too: a damaged file is
+  ignored, and losing it costs one hash per file.
 - *Keys.* The blob ID git computes: SHA-1 over ="blob <size>\0<content>"=. The
   next task takes the same ID from git's index for a clean tracked file and
   hashes nothing. SHA-1 is a hundred lines in =compass.store=; OpenSSL would

@@ -80,8 +80,8 @@ TEST_CASE("a clean file takes its ID from a version 2 index",
 
     const io::id_resolver r(repo.root());
     CHECK(r.index().version == 2);
-    CHECK(checked(repo, r, "a.txt") == io::id_source::index);
-    CHECK(checked(repo, r, "dir/b.org") == io::id_source::index);
+    CHECK(checked(repo, r, "a.txt") == io::id_source::git_index);
+    CHECK(checked(repo, r, "dir/b.org") == io::id_source::git_index);
 }
 
 TEST_CASE("a version 4 index decodes prefix-compressed paths and IDs",
@@ -100,7 +100,7 @@ TEST_CASE("a version 4 index decodes prefix-compressed paths and IDs",
         listed += (listed.empty() ? "" : "\n") + path;
     CHECK(listed == repo.git("ls-files"));
     for (const auto& path : r.index().paths)
-        CHECK(checked(repo, r, path) == io::id_source::index);
+        CHECK(checked(repo, r, path) == io::id_source::git_index);
 }
 
 TEST_CASE("a file rewritten with the same size and mtime is hashed",
@@ -129,7 +129,7 @@ TEST_CASE("a racily clean entry is hashed even when its stat data matches",
 
     const io::id_resolver r(repo.root());
     CHECK(checked(repo, r, "racy.txt") == io::id_source::hashed);
-    CHECK(checked(repo, r, "old.txt") == io::id_source::index);
+    CHECK(checked(repo, r, "old.txt") == io::id_source::git_index);
 }
 
 TEST_CASE("a modified file of the same size whose mtime is in the second the "
@@ -167,7 +167,7 @@ TEST_CASE("a path an attributes rule may convert is hashed",
         CHECK(checked(repo, r, path) == io::id_source::hashed);
     for (const auto* path : {"image.png", "a.md", "deep/rooted.md",
              "other/populate.sql", "x.c", ".gitattributes"})
-        CHECK(checked(repo, r, path) == io::id_source::index);
+        CHECK(checked(repo, r, path) == io::id_source::git_index);
 }
 
 TEST_CASE("core.autocrlf set to true or input sends every file to hashing",
@@ -176,7 +176,7 @@ TEST_CASE("core.autocrlf set to true or input sends every file to hashing",
         git_repository repo;
         add_clean(repo, {{"a.txt", "a\n"}});
         CHECK(source_of(io::id_resolver(repo.root()), "a.txt") ==
-            io::id_source::index);
+            io::id_source::git_index);
 
         repo.git(std::string("config core.autocrlf ") + value);
         const io::id_resolver r(repo.root());
@@ -203,7 +203,7 @@ TEST_CASE("core.autocrlf set to false keeps the index IDs",
     repo.git("config core.autocrlf false");
 
     CHECK(source_of(io::id_resolver(repo.root()), "a.txt") ==
-        io::id_source::index);
+        io::id_source::git_index);
 }
 
 TEST_CASE("a conflicted path is hashed", "[io][id_resolver]") {
@@ -221,7 +221,7 @@ TEST_CASE("a conflicted path is hashed", "[io][id_resolver]") {
 
     const io::id_resolver r(repo.root());
     CHECK(checked(repo, r, "c.txt") == io::id_source::hashed);
-    CHECK(checked(repo, r, "calm.txt") == io::id_source::index);
+    CHECK(checked(repo, r, "calm.txt") == io::id_source::git_index);
 }
 
 TEST_CASE("a path added with intent to add is hashed", "[io][id_resolver]") {
@@ -262,9 +262,9 @@ TEST_CASE("a linked worktree reads the index of its own git directory",
     repo.git("-C '" + linked.string() + "' add only_here.txt");
 
     const io::id_resolver r(linked);
-    CHECK(source_of(r, "only_here.txt") == io::id_source::index);
-    CHECK(source_of(r, "a.txt") == io::id_source::index);
-    CHECK_FALSE(io::id_resolver(repo.root()).index_id("only_here.txt"));
+    CHECK(source_of(r, "only_here.txt") == io::id_source::git_index);
+    CHECK(source_of(r, "a.txt") == io::id_source::git_index);
+    CHECK_FALSE(io::id_resolver(repo.root()).known_id("only_here.txt"));
 }
 
 TEST_CASE("a corrupt index is not trusted and every file is hashed",
@@ -299,7 +299,7 @@ TEST_CASE("an index written under index.skipHash has no checksum to verify",
     REQUIRE(tests::read(repo.index_file()).ends_with(std::string(20, '\0')));
 
     const io::id_resolver r(repo.root());
-    CHECK(checked(repo, r, "a.txt") == io::id_source::index);
+    CHECK(checked(repo, r, "a.txt") == io::id_source::git_index);
 }
 
 TEST_CASE("a split index falls back to hashing every file",

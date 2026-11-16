@@ -24,11 +24,14 @@
 #include <fstream>
 #include <iterator>
 #include <set>
+#include <time.h>
 #include <unordered_set>
 #include "compass.store/io/git_files.hpp"
 #include "compass.store/io/location.hpp"
+#include "compass.store/io/object_file.hpp"
 #include "compass.store/ops/git_index.hpp"
 #include "compass.store/ops/git_settings.hpp"
+#include "compass.store/ops/worktree_index.hpp"
 
 namespace compass::store::io {
 
@@ -41,6 +44,18 @@ std::optional<std::string> read_text(const std::filesystem::path& file) {
     if (!is)
         return std::nullopt;
     return std::string(std::istreambuf_iterator<char>(is), {});
+}
+
+/**
+ * @brief The time as the kernel stamps a file it modifies. Local file
+ * systems take the coarse clock, so a file modified after this call has a
+ * modification time no earlier than the answer.
+ */
+types::index_time now() noexcept {
+    struct timespec t{};
+    ::clock_gettime(CLOCK_REALTIME_COARSE, &t);
+    return {static_cast<std::uint32_t>(t.tv_sec),
+        static_cast<std::uint32_t>(t.tv_nsec)};
 }
 
 std::filesystem::path environment(const char* name) {
@@ -148,12 +163,19 @@ types::attribute_rules read_attribute_rules(
 }
 
 id_resolver::id_resolver(const std::filesystem::path& checkout)
-    : checkout_(checkout) {
+    : checkout_(checkout), started_(now()) {
     const auto dir = git_dir(checkout);
     const auto common_dir = git_common_dir(checkout);
+    worktree_file_ = worktree_index_path(dir);
+    // Either index can be unusable, and that costs speed but not
+    // correctness: its IDs are not used and the reason is kept.
+    try {
+        if (const auto bytes = read_text(worktree_file_))
+            worktree_ = ops::decode_worktree_index(*bytes);
+    } catch (const std::runtime_error& e) {
+        worktree_problem_ = e.what();
+    }
     config_ = read_config(dir, common_dir);
-    // An index this reader cannot use, such as a split index, costs speed but
-    // not correctness: every file is hashed and the reason is kept.
     if (const auto file = dir / "index"; std::filesystem::exists(file)) {
         try {
             index_ = read_git_index(file);
@@ -183,24 +205,81 @@ id_resolver::id_resolver(const std::filesystem::path& checkout)
         });
 }
 
-std::optional<types::blob_id> id_resolver::index_id(
-    std::string_view path) const {
-    const auto found = std::ranges::lower_bound(trusted_, path, {},
+std::optional<resolved_id> id_resolver::known_id(std::string_view path) const {
+    const auto trusted = std::ranges::lower_bound(trusted_, path, {},
         [this](std::uint32_t row) -> std::string_view {
             return index_.paths[row];
         });
-    if (found == trusted_.end() || index_.paths[*found] != path)
+    const bool in_index =
+        trusted != trusted_.end() && index_.paths[*trusted] == path;
+    const auto entry = std::ranges::lower_bound(worktree_.paths, path);
+    const bool in_worktree =
+        entry != worktree_.paths.end() && *entry == path;
+    if (!in_index && !in_worktree)
         return std::nullopt;
+
     const auto file = stat_of(checkout_ / path);
-    if (!file || !ops::is_clean(index_.stats[*found], *file, index_.written))
+    if (!file)
         return std::nullopt;
-    return index_.ids[*found];
+    if (in_index && ops::is_clean(index_.stats[*trusted], *file, index_.written))
+        return resolved_id{index_.ids[*trusted], id_source::git_index, file};
+    const auto row = entry - worktree_.paths.begin();
+    if (in_worktree &&
+        ops::is_unchanged(worktree_.stats[row], *file, worktree_.written))
+        return resolved_id{worktree_.ids[row], id_source::worktree_index, file};
+    return std::nullopt;
 }
 
 resolved_id id_resolver::resolve(std::string_view path) const {
-    if (const auto id = index_id(path))
-        return {*id, id_source::index};
-    return {hash_file(checkout_ / path), id_source::hashed};
+    if (auto known = known_id(path))
+        return *known;
+    const auto file = checkout_ / path;
+    const auto stat = stat_of(file);
+    return {hash_file(file), id_source::hashed, stat};
+}
+
+std::size_t id_resolver::write_worktree_index(
+    std::span<const std::string_view> paths,
+    std::span<const resolved_id> resolved) const {
+    struct entry {
+        std::string_view path;
+        types::stat_data stat;
+        types::blob_id id;
+    };
+    std::vector<entry> entries;
+    std::unordered_set<std::string_view> seen;
+    for (std::size_t row = 0; row < paths.size(); ++row) {
+        seen.insert(paths[row]);
+        const auto& r = resolved[row];
+        if (r.source != id_source::git_index && r.stat)
+            entries.push_back({paths[row], *r.stat, r.id});
+    }
+    for (std::size_t row = 0; row < worktree_.size(); ++row) {
+        const auto& path = worktree_.paths[row];
+        if (seen.contains(path))
+            continue;
+        const auto file = stat_of(checkout_ / path);
+        if (file && ops::is_unchanged(worktree_.stats[row], *file,
+                worktree_.written))
+            entries.push_back({path, worktree_.stats[row], worktree_.ids[row]});
+    }
+    std::ranges::sort(entries, {}, &entry::path);
+
+    types::worktree_index next;
+    next.written = started_;
+    for (const auto& e : entries) {
+        next.paths.emplace_back(e.path);
+        next.stats.push_back(e.stat);
+        next.ids.push_back(e.id);
+    }
+    // A run that changed nothing writes nothing. The file on disk keeps its
+    // earlier write time, which is still the right bound for these entries.
+    if (next.paths == worktree_.paths && next.stats == worktree_.stats &&
+        next.ids == worktree_.ids)
+        return next.size();
+    const auto bytes = ops::encode_worktree_index(next);
+    write_object(worktree_file_, std::as_bytes(std::span(bytes)));
+    return next.size();
 }
 
 }

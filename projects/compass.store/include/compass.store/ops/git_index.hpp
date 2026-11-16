@@ -48,16 +48,23 @@ namespace compass::store::ops {
 [[nodiscard]] bool is_regular_file(std::uint32_t mode) noexcept;
 
 /**
- * @brief True when git would call a file clean, so the ID of its entry
- * names the file's bytes, judged from stat data alone.
+ * @brief True when a file is unchanged since its @p entry was recorded,
+ * judged from stat data alone.
  *
  * Every field of @p entry must equal the one of @p file, nanoseconds
  * included; git on Linux checks a subset of them, so this never trusts an
- * entry git would not. An entry whose size is zero is never trusted: git
- * zeroes the size of an entry it could not prove clean when it wrote the
- * index. An entry modified in the same second as the index was @p written,
- * or later, is racily clean: the file could have changed after git hashed
- * it without its stat data changing, so it is not trusted either.
+ * entry git would not. An entry modified in the same second as the record
+ * was @p written, or later, is racily clean: the file could have changed
+ * after it was hashed without its stat data changing, so it is not trusted.
+ */
+[[nodiscard]] bool is_unchanged(const types::stat_data& entry,
+    const types::stat_data& file, types::index_time written) noexcept;
+
+/**
+ * @brief True when git would call a file clean, so the ID of its entry
+ * names the file's bytes: the entry is_unchanged and its size is not zero.
+ * Git zeroes the size of an entry it could not prove clean when it wrote
+ * the index, so such an entry is never trusted.
  */
 [[nodiscard]] bool is_clean(const types::stat_data& entry,
     const types::stat_data& file, types::index_time written) noexcept;

@@ -32,9 +32,10 @@ namespace compass::bench::ops {
  * times, on @p threads threads, and checks @p verify of them against
  * `git hash-object`.
  *
- * Each repetition builds a store::io::id_resolver, which reads the index,
- * then asks it for the index ID of every file, which costs one lstat each,
- * then hashes the files that got none. The three steps are timed apart.
+ * Each repetition builds a store::io::id_resolver, which reads git's index
+ * and the worktree index, then asks it for the ID of every file from either
+ * index, which costs one lstat each, then hashes the files that got none.
+ * The three steps are timed apart.
  *
  * The check runs once, outside any timing, on the IDs of the last
  * repetition: @p verify files spread evenly over the table, or all of them

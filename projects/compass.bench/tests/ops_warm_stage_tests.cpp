@@ -1,0 +1,201 @@
+/* -*- mode: c++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+#include "compass.bench/ops/warm_stage.hpp"
+
+#include <chrono>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <string_view>
+#include <unistd.h>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_string.hpp>
+#include "compass.bench/io/report.hpp"
+#include "compass.bench/ops/listing.hpp"
+#include "compass.store/io/location.hpp"
+
+namespace {
+
+using namespace compass::bench;
+
+/**
+ * @brief A git repository and a store in a fresh directory, with git's
+ * system and global configuration out of reach.
+ */
+class scoped_git_repo final {
+public:
+    scoped_git_repo() {
+        static int counter = 0;
+        root_ = std::filesystem::temp_directory_path() /
+            ("compass.bench.warm.tests." + std::to_string(::getpid()) + "." +
+                std::to_string(counter++));
+        std::filesystem::create_directories(checkout());
+        std::filesystem::create_directories(root_ / "home");
+        ::setenv("HOME", (root_ / "home").c_str(), 1);
+        ::setenv("XDG_CONFIG_HOME", (root_ / "home" / ".config").c_str(), 1);
+        ::setenv("GIT_CONFIG_NOSYSTEM", "1", 1);
+        git("init -q");
+    }
+    ~scoped_git_repo() { std::filesystem::remove_all(root_); }
+    scoped_git_repo(const scoped_git_repo&) = delete;
+    scoped_git_repo& operator=(const scoped_git_repo&) = delete;
+
+    /**
+     * @brief Writes a file an hour in the past, so no index written from
+     * now on finds it racily clean.
+     */
+    void write(const std::string& relative, std::string_view content) const {
+        const auto path = checkout() / relative;
+        std::filesystem::create_directories(path.parent_path());
+        {
+            std::ofstream os(path, std::ios::binary);
+            os.write(content.data(),
+                static_cast<std::streamsize>(content.size()));
+        }
+        std::filesystem::last_write_time(path,
+            std::filesystem::file_time_type::clock::now() -
+                std::chrono::hours(1));
+    }
+
+    void git(const std::string& command) const {
+        const auto line = "git -C '" + checkout().string() + "' " + command +
+            " >/dev/null 2>&1";
+        REQUIRE(std::system(line.c_str()) == 0);
+    }
+
+    types::file_table list() const {
+        const auto raw = ops::git_ls_files(checkout());
+        return ops::build_file_table(checkout(), ops::parse_listing(raw));
+    }
+
+    types::warm_result run(unsigned repetitions) const {
+        return ops::run_warm_stage(checkout(), list(), objects(), 2,
+            repetitions);
+    }
+
+    std::filesystem::path checkout() const { return root_ / "checkout"; }
+    std::filesystem::path objects() const { return root_ / "objects"; }
+
+private:
+    std::filesystem::path root_;
+};
+
+/**
+ * @brief Two org files git's index names, two it cannot because an
+ * attributes rule may convert them, and a file that is not org.
+ */
+void fill(const scoped_git_repo& repo) {
+    repo.write(".gitattributes", "converted/*.org text\n");
+    repo.write("a.org", "* A\ntext\n");
+    repo.write("doc/b.org", "#+title: b\n\n- item\n");
+    repo.write("converted/c.org", "* C\n");
+    repo.write("converted/d.org", "* D\n** E\n");
+    repo.write("e.cpp", "int x;\n");
+    repo.git("add -A");
+}
+
+}
+
+TEST_CASE("the first run fills the store and the worktree index and the "
+    "next ones hash and write nothing", "[ops][warm_stage]") {
+    scoped_git_repo repo;
+    fill(repo);
+
+    const auto r = repo.run(3);
+
+    REQUIRE(r.runs.size() == 3);
+    CHECK(r.files == 4);
+    const auto& cold = r.runs[0];
+    CHECK(cold.from_git_index == 2);
+    CHECK(cold.hashed == 2);
+    CHECK(cold.loaded == 0);
+    CHECK(cold.written == 4);
+    for (std::size_t i = 1; i < r.runs.size(); ++i) {
+        CHECK(r.runs[i].from_git_index == 2);
+        CHECK(r.runs[i].from_worktree_index == 2);
+        CHECK(r.runs[i].hashed == 0);
+        CHECK(r.runs[i].loaded == 4);
+        CHECK(r.runs[i].written == 0);
+        CHECK(r.runs[i].errors == 0);
+    }
+    CHECK(r.index_entries == 2);
+    CHECK(std::filesystem::exists(compass::store::io::worktree_index_path(
+        repo.checkout() / ".git")));
+    CHECK_FALSE(io::failed(r));
+}
+
+TEST_CASE("a changed file is hashed and its object written on the next run",
+    "[ops][warm_stage]") {
+    scoped_git_repo repo;
+    fill(repo);
+    (void)repo.run(1);
+
+    repo.write("converted/c.org", "* C changed\n");
+    const auto r = repo.run(2);
+
+    CHECK(r.runs[0].hashed == 1);
+    CHECK(r.runs[0].from_worktree_index == 1);
+    CHECK(r.runs[0].written == 1);
+    CHECK(r.runs[0].loaded == 3);
+    CHECK(r.runs[1].hashed == 0);
+    CHECK(r.runs[1].written == 0);
+    CHECK_FALSE(io::failed(r));
+}
+
+TEST_CASE("a damaged object is rewritten", "[ops][warm_stage]") {
+    scoped_git_repo repo;
+    fill(repo);
+    (void)repo.run(1);
+    for (const auto& entry :
+        std::filesystem::recursive_directory_iterator(repo.objects())) {
+        if (entry.is_regular_file()) {
+            std::ofstream os(entry.path(), std::ios::binary | std::ios::trunc);
+            os << "not an object";
+            break;
+        }
+    }
+
+    const auto r = repo.run(1);
+    CHECK(r.runs[0].loaded == 3);
+    CHECK(r.runs[0].written == 1);
+}
+
+TEST_CASE("a warm run that hashes or writes fails the stage",
+    "[ops][warm_stage]") {
+    types::warm_result r;
+    r.files = 1;
+    r.runs.resize(2);
+    r.runs[0].hashed = 1;
+    r.runs[0].written = 1;
+    CHECK_FALSE(io::failed(r));
+
+    r.runs[1].hashed = 1;
+    CHECK(io::failed(r));
+    r.runs[1].hashed = 0;
+    r.runs[1].written = 1;
+    CHECK(io::failed(r));
+
+    std::ostringstream os;
+    io::write_warm_report(os, r, {}, "store");
+    CHECK_THAT(os.str(), Catch::Matchers::ContainsSubstring(
+        "FAILED: warm run 2 hashed 0 file(s) and wrote 1 object(s)"));
+}
