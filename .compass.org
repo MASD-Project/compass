@@ -32,3 +32,5 @@ defaults.
 |-------------------+---------+-----------------------------|
 | document_index    | yes     | path=doc/document_index.tsv |
 | required_sections | yes     |                             |
+| tangle            | yes     |                             |
+| tangle_check      | yes     |                             |

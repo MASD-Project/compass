@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :port_codegen:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/tangle-templates-from-org
+#+pr: https://github.com/MASD-Project/compass/pull/30
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -26,11 +26,11 @@ Extract the Mustache templates from their literate org sources without Emacs.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                              |
 | Parent story | [[id:4F499B47-4AB8-4049-A72F-495351A6E2C7][Port ORE Studio codegen]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -39,9 +39,24 @@ Extract the Mustache templates from their literate org sources without Emacs.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Tangling is a codec over the org tables compass already holds: no Emacs.
+  The product owner's rule is that tangles stay simple concatenations.
+- In ORE Studio's 226 template sources, 185 blocks carry =:tangle=; none uses
+  =:noweb=, =:padline=, =:comments=, =:mkdirp= or =:shebang=, and no file sets
+  header arguments by =#+PROPERTY=. One file contains a =<<...>>= pattern,
+  which without =:noweb yes= stays literal text.
+- So a tangle codec takes each source block with =:tangle <path>= (=no= and
+  absent mean skip), concatenates the bodies in document order per target
+  path, and copies the three Emacs defaults that change bytes: a blank line
+  between blocks tangled to the same file (=:padline yes=), the leading comma
+  removed from escaped lines (=,*=, =,#+=), and the path resolved against the
+  org file's directory.
+- A header argument the codec does not implement makes it emit a diagnostic
+  for that block rather than guess, so a template that needs more than
+  concatenation is caught, not silently mistangled.
+- The oracle is the =.mustache= files Emacs tangled, as committed in ORE
+  Studio: every tangled file must be byte-identical. Diff mode then replaces
+  the =template-drift= check.
 
 * Measurements
 
@@ -55,7 +70,9 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| ORE Studio template targets identical to Emacs's files | 171 of 171 (226 sources, 170 with =:tangle=) | the tangle differential | ORE Studio main |
+| Tangle time, 260-document template directory, one thread | 4.1 ms median for 171 files (873 KB) | =compass-bench codecs -j 1= | same |
+| This repository: first =generate= with tangling on | 85 files written, 935.6 ms | =compass generate= | compass-ng 29ca1b1 |
 
 * Notes
 
@@ -74,7 +91,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/30][#30]] | [codec] Tangle org sources without Emacs |
 
 * Review
 
@@ -83,3 +100,22 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- Two codecs in =compass.codec=, off by default: =tangle= writes the files and
+  =tangle_check= reports blocks it will not tangle. Tangling needs only the org
+  tables, so it is not codegen-specific.
+- All 171 targets of ORE Studio's template sources are byte-identical to the
+  files Emacs tangled, so codegen no longer needs Emacs.
+- The byte rules, each taken from Org 9.7's source and confirmed against
+  =emacs -Q=: comma unescaping (=,,#+= becomes =,#+=), one trailing newline
+  dropped, common indentation removed with tabs counted to the next multiple
+  of 8, =org-trim= at both ends, and a newline after each body with one padline
+  before every block but the first.
+- Blocks under =COMMENT= or =ARCHIVE= headings are skipped, as Emacs does. Any
+  other header argument, =#+header:= line or inherited =header-args= is a
+  diagnostic, not a guess.
+- This repository enables both codecs. =tangle_check= reports the three hook
+  scripts in =claude_code_settings.org= that use =:shebang=; supporting it
+  (a first line and an executable mode) is a small follow-up if wanted.
+- Five committed ORE Studio templates have no source that tangles them; they
+  are stale files for ORE Studio to remove.

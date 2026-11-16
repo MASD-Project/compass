@@ -165,7 +165,9 @@ TEST_CASE("config prints every value with where it came from",
         "meta = doc/meta (default)\n"
         "document_index.enabled = true (.compass.org:8)\n"
         "document_index.path = index.tsv (.compass.org:8)\n"
-        "required_sections.enabled = false (command line)\n");
+        "required_sections.enabled = false (command line)\n"
+        "tangle.enabled = false (default)\n"
+        "tangle_check.enabled = false (default)\n");
 }
 
 TEST_CASE("an error in the configuration file exits 2 naming the line and "
@@ -217,7 +219,8 @@ TEST_CASE("editing one codec's option in the file runs only that codec's "
     REQUIRE(run_on(repo, "gen").status == 0);
     const auto again = run_on(repo, "gen");
     CHECK_THAT(again.out, ContainsSubstring(
-        "units run: document_index 0, required_sections 0;"));
+        "units run: document_index 0, required_sections 0, tangle 0, "
+        "tangle_check 0;"));
 
     configure("second.tsv");
     const auto edited = run_on(repo, "gen");
@@ -226,7 +229,8 @@ TEST_CASE("editing one codec's option in the file runs only that codec's "
     CHECK_THAT(edited.out, StartsWith("1 written, 0 unchanged, 0 restored, "
         "1 removed"));
     CHECK_THAT(edited.out, ContainsSubstring(
-        "units run: document_index 1, required_sections 0;"));
+        "units run: document_index 1, required_sections 0, tangle 0, "
+        "tangle_check 0;"));
     CHECK(std::filesystem::exists(repo.output_root() / "second.tsv"));
     CHECK_FALSE(std::filesystem::exists(repo.output_root() / "first.tsv"));
 }
