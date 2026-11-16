@@ -1,0 +1,310 @@
+:PROPERTIES:
+:ID: AFF665C4-739C-4BDB-93BD-9D547351AE4F
+:END:
+#+title: Investigation: ORE Studio gate classification
+#+description: Every gate in ORE Studio's local_checks.py and CI workflows at origin/main 545cafca45, classified as port, replace by diff mode, or keep as a build gate, with its baseline time.
+#+type: investigation
+#+level: s1
+#+filetags: :gates:checks:run_the_gates_as_codecs:sprint_01:v0:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+
+A point-in-time record, written while the story that commissioned it was open, of an [[id:A7F8D9E2-3C4B-4A5D-B67C-8E9F0A1B2C3D][investigation]] into which of ORE Studio's gates compass should port, which diff mode replaces, and which stay build gates. It is evidence for the [[id:9CBCFC60-6AA4-40A7-A6B3-7DB43ED18A42][Classify the gates]] task and was written on 2026-11-16.
+
+It is a snapshot, not a description of the system. It builds on the gate
+census in [[id:AA2CA7E4-6B27-4771-9F74-F2EEC15D902E][Investigation: ORE Studio codegen and gates]].
+
+* Method
+
+- Source: =git archive= of ORE Studio =origin/main= at
+  =545cafca4545dfe3c9fa353429f797338c839bb1= (2026-11-16, PR #4788), extracted
+  into a scratch directory on tmpfs. No ORE Studio worktree was changed.
+- The copy was made a one-commit git repository so the gates that call =git
+  diff= work. =vcpkg/ports= was copied from a worktree at the same submodule
+  commit (=ec48c11eae=), because =git archive= leaves submodules out. Fresh
+  venvs were built from =projects/ores.codegen/requirements.txt= and
+  =projects/ores.compass/requirements.txt=.
+- The catalogue was read from =local_checks.py= by importing it, not by hand:
+  96 checks. Workflows were read from =.github/workflows/= (32 files). A
+  workflow step that runs a local check shares that check's row, and the
+  Source column names both. Gates only CI runs get rows of their own.
+- Every check that needs no build, database or services was run one at a
+  time, in catalogue order, by a script that records wall time, the CPU time
+  of the whole process tree (=wait4=), the 1-minute load average just before
+  it started, and the exit code. The tree was reset to =HEAD= after each one.
+  Every Python interpreter ran with =-I=; a launcher put back only the
+  script's own directory on =sys.path=. Wall times have a 0.05 s resolution.
+- ={base}= was =HEAD=, so =site-page= and =format= saw no changed file and
+  their times are those of a no-op. =component-drift --changed= still rendered
+  every component.
+- Build, database and test gates were not run. Their times come from CI step
+  durations (=gh run view --json jobs= on the latest successful run of each
+  workflow, read on 2026-11-16) and from ORE Studio's own =local_checks= reports
+  (=build/output/local_checks/*.json= in =ores_dev_brave_hopper=, written on
+  2026-10-18, bases =691b3d55df= and =e6eeec37b5=). The Time from column says
+  which.
+
+*The machine was loaded.* It has 8 cores. The load average was 9 to 12 for the
+first half of the run, partly because an ORE Studio =compass check= ran in
+another worktree at the same time, and 2.4 to 7 for the second half. The Load
+column gives the figure for each gate. CPU seconds compare more fairly than
+wall seconds. The investigation measured =exported-types= at 200 s and
+=sql-hygiene= at 160 s at a load of 48; here they took 62 s and 50 s.
+
+* Classes
+
+- port :: compass reimplements the gate as a check over its loaded
+  documents and sources. "Generator" in the notes marks a gate that
+  regenerates an artefact compass does not yet produce and compares it; it
+  becomes diff mode once compass has a codec for it.
+- replace by diff mode :: the gate renders ores.codegen output and compares
+  it with the tree. compass's codegen codec already produces all 26,212 of
+  those outputs byte for byte, so =compass generate= in diff mode replaces the
+  gate with no new check.
+- keep as build gate :: the gate needs a compiler, a build tree, a database,
+  services, a toolchain compass does not drive, or it is not a gate on the
+  tree at all. These stay outside compass.
+
+* Gates
+
+| Gate | Source | Reads | Checks | Class | Wall s | CPU s | Load | Time from | Notes |
+|------+--------+-------+--------+-------+--------+-------+------+-----------+-------|
+| tangle-templates | local_checks; template-drift.yml | org docs (literate template sources) | The templates tangle to the committed files | port | 11.1 | 10.1 | 9.78 | measured | Generator: Emacs tangles org to mustache. Needs an org-babel tangle in compass. CI 11 s. |
+| tangle-shell | local_checks; shell-script-drift.yml | org docs (shell recipes) | The shell recipes tangle to the committed scripts | port | 41.2 | 38.3 | 10.27 | measured | Generator: Emacs tangle. Exit 1 here: one recipe tangles differently (real drift or local Emacs). CI 48 s. |
+| tangle-http | local_checks | org docs (HTTP recipes) | The HTTP recipes tangle to the committed files | port | 4.06 | 3.85 | 11.09 | measured | Generator: Emacs tangle. |
+| site-page | local_checks | org docs (changed pages) | The changed pages build and their links resolve | keep as build gate | 0.15 | 0.11 | 11.08 | measured | Builds changed pages with the Emacs site exporter. Time is for no changed page. |
+| lint | local_checks; doc-lint.yml, site-cdash.yml | org docs | Filetags, generator markers and id links are valid | port | 3.86 | 3.7 | 11.08 | measured | Filetags, generator markers, id links. CI 7 s. |
+| no-committed-credentials | local_checks | all tracked files, .env | No file git would commit holds a public source secret of .env | port | 0.05 | 0.03 | 11.56 | measured |  |
+| no-pr-triggers | local_checks | workflow YAML | No workflow triggers on a pull request | port | 0.05 | 0.03 | 11.56 | measured |  |
+| org-links | local_checks; doc-lint.yml | org docs | Every org link resolves | port | 2.31 | 2.27 | 11.56 | measured | Emacs script. CI 2 s. |
+| heading-numbers | local_checks | org docs | No org heading carries its own number | port | 1.2 | 1.16 | 11.56 | measured |  |
+| skill-namespace | local_checks; doc-lint.yml | org docs (skills) | Every skill uses the compass namespace | port | 0.1 | 0.06 | 11.59 | measured |  |
+| skill-catalogue | local_checks; doc-lint.yml | org docs (skills) | The skills catalogue matches the skill tree | port | 0.1 | 0.05 | 11.59 | measured | Generator --check. |
+| skill-type-tables | local_checks; doc-lint.yml | org docs (skills) | The skill type tables match the catalogue | port | 0.1 | 0.06 | 11.59 | measured | Generator --check. |
+| skill-levels | local_checks; doc-lint.yml | org docs (skills) | Every skill declares its level | port | 0.1 | 0.05 | 11.59 | measured | Generator --check. |
+| skill-recipes | local_checks; doc-lint.yml | org docs (skills, recipes) | Every skill links its recipes both ways | port | 0.1 | 0.05 | 11.59 | measured | Generator --check. |
+| rule-identifiers | local_checks; doc-lint.yml | org docs (UX standards) | Every UX rule carries one identifier and the checklist cites them | port | 0.05 | 0.04 | 11.59 | measured |  |
+| structure-notes | local_checks; doc-lint.yml | org docs | Every structure note is linked from and to its neighbours | port | 0.45 | 0.43 | 11.59 | measured | Generator --check. |
+| pattern-uses | local_checks; doc-lint.yml | org docs | Pattern links run both ways | port | 1.05 | 1.02 | 11.59 | measured | CI 2 s. |
+| trade-type-coverage | local_checks | org docs, ORE samples, C++ sources | The trade type coverage page matches its sources | port | 0.1 | 0.08 | 11.30 | measured | Generator --check. |
+| xml-bindings-drift | local_checks | XSD schemas, generated C++ codec tables | The generated codec tables match the schemas | port | 9.04 | 8.9 | 11.30 | measured | Generator: not an ores.codegen output, so not covered by the codec. |
+| xml-benchmark-recorded | local_checks | git history, C++ sources, benchmark TSV | An XML code change has a benchmark row recorded after it | port | 0.1 | 0.1 | 2.43 | measured | Needs history. Exit 1 here is an artefact of the one-commit scratch repository. |
+| translation-unit-budget | local_checks | C++ sources | No unit reflects more convention families than its budget | port | 0.25 | 0.23 | 11.18 | measured |  |
+| unity-collisions | local_checks | C++ sources, CMake | No two sources of a target define the same file-local name | port | 11.6 | 11.5 | 11.18 | measured |  |
+| unique-type-names | local_checks | C++ headers | No two headers define a type of the same name in one namespace | port | 4.71 | 4.68 | 11.75 | measured |  |
+| xml-family-census | local_checks | ORE samples XML, C++ tests | Every ORE document family is classified and the tree agrees | port | 0.25 | 0.25 | 11.61 | measured |  |
+| http-areas | local_checks | org models | Every declared HTTP area is published | port | 0.1 | 0.1 | 11.61 | measured |  |
+| route-units | local_checks | C++ sources (ores.http), org models | Every route unit a component opts into is registered by its aggregate | port | 0.1 | 0.07 | 11.61 | measured |  |
+| route-inventory | local_checks | C++ sources, TypeScript, org docs | Every HTTP route is in the inventory | port | 0.3 | 0.29 | 11.61 | measured | Generator --check. |
+| prototypes | local_checks; doc-lint.yml | org docs, tree listing | The prototype inventory matches the tree | port | 0.1 | 0.06 | 11.64 | measured |  |
+| component-docs | local_checks | org docs (component overviews, diagrams) | Every component has an overview and a diagram | port | 1.36 | 1.34 | 11.64 | measured |  |
+| cmake-sources | local_checks | org models, source tree listing, CMake | Every component_files.cmake list matches the tree | port | 1.15 | 1.15 | 11.64 | measured | Generator: component_files.cmake is not a codec output. |
+| template-sections | local_checks | mustache templates | A mustache line holds one section tag, so the renderer can strip it | port | 0.15 | 0.11 | 11.64 | measured |  |
+| component-drift | local_checks | org models, templates, generated outputs | The components this branch changed match their models, rendered without writing | replace by diff mode | 539.4 | 546.1 | 11.64 | measured | --changed against HEAD still rendered every component here. Exit 1 is the 24 known drift files. ORE reports give 188 to 737 s. |
+| drift-sweep | local_checks; codegen-sweep.yml | org models, templates, generated outputs | A render of every catalogue component matches the tree | replace by diff mode | 350.2 | 374.3 | 2.43 | measured | Renders every catalogue component. CI 349 s. |
+| paste-blocks | local_checks; codegen-sweep.yml | org models, C++ sources | Every pasted block names a symbol that exists | port | 28.9 | 28.9 | 8.26 | measured | CI 27 s. |
+| model-drift | local_checks; codegen-drift.yml | org models | Every model matches its schema | port | 0.15 | 0.14 | 7.28 | measured | Model rule over the loaded models. |
+| er-diagram | local_checks; codegen-drift.yml | SQL, PlantUML schema files | The committed ER diagrams match the schema | port | 2.31 | 2.27 | 7.28 | measured | Generator: the puml files are not codec outputs. Exit 1 here: ores_schema.dq_datasets.puml is stale in ORE. CI 2 s. |
+| money-decimal-columns | local_checks | org models, SQL | A money quantity is an exact decimal, not a binary float | port | 0.8 | 0.78 | 7.01 | measured |  |
+| model-sql-types | local_checks | org models, SQL | A column's model type is the type the table is created with | port | 0.3 | 0.27 | 7.01 | measured |  |
+| entity-binary-types | local_checks | org models, SQL, generated entity headers | A row binds each column in the format its column's type defines | port | 0.4 | 0.37 | 7.01 | measured | Reads generated output for facts the models state. |
+| sql-hygiene | local_checks; codegen-drift.yml | SQL | The SQL tree has no split string, unterminated comment or repeated index | port | 50.2 | 50.2 | 7.01 | measured | CI 57 s. |
+| file-types-seed | local_checks | ORE samples, SQL populate | The seeded file type names are the names the ORE samples use | port | 0.25 | 0.21 | 6.11 | measured | Generator --check. |
+| ore-parameters-seed | local_checks | ORE texts, SQL populate | The staged ore parameters match their texts | port | 0.25 | 0.21 | 6.11 | measured | Generator --check. |
+| script-library-seed | local_checks | ORE script library, SQL populate | The script library seed is what ORE's library gives | port | 0.1 | 0.07 | 5.94 | measured | Generator --check. |
+| ore-renderings-tables | local_checks | JSON renderings, generated C++ tables | The reader's rendering tables are the ones the renderings file states | port | 0.05 | 0.04 | 5.94 | measured | Generator --check. |
+| ore-parameter-value-sets | local_checks | ORE sources, SQL populate | The ore parameter value sets match their sources | port | 0.1 | 0.09 | 5.94 | measured | Generator --check. Exit 1 here: stops early on conventions_fx_projection.cpp (r.id), a defect in ORE, so the time understates a full run. |
+| parameter-value-sets-only | local_checks | SQL populate | A parameter's control and rule come only from its value set | port | 0.1 | 0.08 | 5.94 | measured | Exit 1 here: stops early on conventions_fx_projection.cpp (r.id), a defect in ORE, so the time understates a full run. |
+| convention-kind-terms | local_checks | C++ mapper, ORE terms, SQL populate | The convention kind terms match the mapper and the ORE terms | port | 0.05 | 0.04 | 5.94 | measured | Generator --check. Exit 1 here: stops early on conventions_fx_projection.cpp (r.id), a defect in ORE, so the time understates a full run. |
+| curve-sections-wiring | local_checks | SQL, TypeScript (generated), ORE schema | The curve screen's column wiring is the projection's | port | 0.15 | 0.12 | 5.94 | measured | Generator --check. |
+| shell-command-units | local_checks | C++ sources (ores.shell) | The shell composes each command unit once, under one name | port | 0.2 | 0.16 | 5.94 | measured |  |
+| curve-parameter-paths | local_checks | SQL populate, ORE XSD | Every curve parameter path is one the ORE schema declares | port | 0.1 | 0.09 | 5.94 | measured |  |
+| ore-element-map | local_checks | SQL populate, ORE XSD | The ORE element map and its columns are the tree's | port | 0.1 | 0.07 | 5.94 | measured | Generator --check. Exit 1 here: stops early on conventions_fx_projection.cpp (r.id), a defect in ORE, so the time understates a full run. |
+| curve-column-guards | local_checks | SQL | The curve column map and its guard are the projection's | port | 0.15 | 0.1 | 5.94 | measured | Generator --check. |
+| marketdata-identity-columns | local_checks | C++ sources, SQL | The series identity projection matches the codec schema | port | 0.05 | 0.03 | 5.94 | measured |  |
+| generated-column-refs | local_checks | generated outputs, org models | Generated code names no column its entity does not have | port | 0.3 | 0.3 | 5.94 | measured | Reads generated output for facts the models state. |
+| protocol-twins | local_checks; codegen-drift.yml | generated C++ and TypeScript, org models | Every protocol header has its TypeScript twin | port | 0.15 | 0.12 | 5.94 | measured | Reads generated output for facts the models state. |
+| subject-conformance | local_checks | org models, C++ sources | Every declared subject is inside the entity protocol | port | 7.92 | 7.88 | 5.70 | measured |  |
+| handler-permissions | local_checks; codegen-drift.yml | generated handlers, SQL populate | Every handler permission code is seeded | port | 0.2 | 0.16 | 5.56 | measured |  |
+| open-reads | local_checks; codegen-drift.yml | C++ sources, org docs | Every open read is declared | port | 0.4 | 0.37 | 5.56 | measured |  |
+| shell-menus | local_checks; codegen-drift.yml | C++ sources (ores.shell) | No two shell menu entries collide | port | 0.15 | 0.13 | 5.56 | measured |  |
+| route-auth | local_checks; codegen-drift.yml | C++ sources (ores.http) | Every route declares its authorisation | port | 2 | 1.96 | 5.56 | measured | CI 4 s. |
+| recipe-inventories | local_checks; codegen-drift.yml | org docs (recipes) | The shell and HTTP recipe inventories match the tree | port | 0.15 | 0.11 | 5.36 | measured | Generator --check, two scripts. CI 2 s. |
+| physical-inventory | local_checks | org docs (physical-space graph) | The physical-space inventories match the templates | port | 0.1 | 0.05 | 5.36 | measured | Generator --check. |
+| registry-exceptions | local_checks; codegen-drift.yml | org docs (registry) | Every registry exception is justified | port | 0.05 | 0.03 | 5.36 | measured |  |
+| reachability | local_checks; codegen-drift.yml | C++ test sources | No test case sits inside a conditional compilation block | port | 13.4 | 13.3 | 5.36 | measured | CI 19 s. |
+| portable-stop | local_checks; portable-stop-types.yml | C++ sources | No code outside ores.platform names a C++20 stop type | port | 10.8 | 10.8 | 4.69 | measured | CI 10 s. |
+| event-registrars | local_checks; event-registrar-composition.yml | generated C++, C++ sources | Every generated event registrar is composed | port | 0.05 | 0.03 | 4.28 | measured |  |
+| history-registrars | local_checks; history-registrar-composition.yml | generated C++, C++ sources | Every generated history-provider registrar is composed | port | 0.05 | 0.03 | 4.28 | measured |  |
+| handler-registrars | local_checks | generated C++, C++ sources | Every generated handler registrar has a responder | port | 2.35 | 2.34 | 4.28 | measured |  |
+| stream-coverage | local_checks | C++ sources | Every durable subject has one stream, and no two streams overlap | port | 5.36 | 5.36 | 4.10 | measured |  |
+| populate-refs | local_checks; populate-reference-drift.yml | SQL populate | Every populate script names a reference something defines | port | 6.96 | 6.93 | 4.17 | measured | CI 10 s. |
+| sql-reachability | local_checks | SQL | Every SQL file is reached by a schema entry point | port | 0.7 | 0.69 | 4.08 | measured |  |
+| rls-widenings | local_checks; rls-system-tenant-widenings.yml | SQL | No row-level security policy widens the system tenant | port | 0.15 | 0.1 | 4.08 | measured |  |
+| entity-writes | local_checks; entity-writes.yml | C++ sources, SQL | Only the repositories write an entity table | port | 4.36 | 4.31 | 3.91 | measured | CI 7 s. |
+| enum-attributes | local_checks; header-hygiene.yml | C++ headers | No visibility macro decorates an enum | port | 19.9 | 19.9 | 3.91 | measured | CI 23 s. |
+| exported-types | local_checks; header-hygiene.yml | C++ sources, CMake | Every exported type is compiled | port | 62.0 | 60.9 | 3.45 | measured | CI 52 s. |
+| boost-deps | local_checks; continuous-linux.yml | C++ includes, vcpkg.json | No Boost header is included where it is not declared | port | 1.1 | 1.1 | 2.97 | measured | CI 2 s. |
+| forward-declarable-includes | local_checks | C++ headers | No header includes the definition of a type it only names | port | 4.56 | 4.45 | 3.20 | measured |  |
+| format | local_checks | changed C++ sources | The changed C++ files are clang-formatted | port | 0.05 | 0.05 | 3.26 | measured | Wraps clang-format, which compass already drives. Time is for no changed file. |
+| web | local_checks; typescript.yml | TypeScript, npm packages | ores.web typechecks, formats and tests | keep as build gate | 127 to 165 |  |  | ORE reports | npm ci, tsc, prettier, unit tests. Not run here. CI 136 s. |
+| bff-list-requests | local_checks | TypeScript (BFF), C++ protocol | Every hand-written list request states what the protocol decodes | port | 1.25 | 1.65 | 3.26 | measured |  |
+| backlog-indexes | local_checks | org docs (backlog) | The backlog bucket indexes match the captures | port | 0.2 | 0.25 | 3.26 | measured | Generator, then git diff. Exit 1 here: a backlog index is stale in ORE. |
+| conventions-dataset | local_checks | dataset table, SQL populate | The conventions dataset's populate script is what its table generates | port | 0.15 | 0.2 | 3.26 | measured | Generator, then git diff. |
+| conventions-coverage | local_checks | ORE samples XML, dataset | The conventions dataset holds every convention ORE holds, or says why not | port | 0.7 | 0.68 | 3.32 | measured | Two scripts: extract, then propose --check. |
+| conventions-generator-tests | local_checks | Python tool tests | The conventions dataset generator's tests pass | keep as build gate | 0.1 | 0.06 | 3.32 | measured | Tool test suite, not a tree check. |
+| ore-output-catalogue | local_checks | ORE sources, org docs | The output catalogue matches the ORE samples | port | 0.65 | 0.64 | 3.32 | measured | Generator --check. |
+| dsh-environment | local_checks; dsh-environment.yml | Node plugin sources | The DSH environment plugin passes its own checks | keep as build gate | 0.25 | 0.36 | 3.32 | measured | Tool test suite, not a tree check. |
+| codegen-tests | local_checks; codegen-drift.yml; per-check pytest steps in 6 workflows | Python tool tests | The codegen suite passes | keep as build gate | 96.9 | 98.1 | 3.32 | measured | Tool test suite. Retires with ores.codegen. Exit 1 here: 3 of 1,809 tests fail at this commit. CI 114 s. |
+| build-script-tests | local_checks | Python tool tests | The build-script suite passes | keep as build gate | 1 | 1 | 4.37 | measured | Tool test suite for build/scripts. |
+| compass-tests | local_checks | Python tool tests | The compass suite passes | keep as build gate | 7.67 | 2.35 | 4.37 | measured | Tool test suite for ores.compass. |
+| build | local_checks | build tree, C++ sources | The tree configures and compiles | keep as build gate | 693 to 1,519 |  |  | ORE reports |  |
+| db | local_checks | database, SQL | The database rebuilds from the schema and the populate scripts | keep as build gate | 59 to 94 |  |  | ORE reports | Recreates the database. |
+| ctest | local_checks | build tree, database | Every test suite passes | keep as build gate | 1,026 to 2,037 |  |  | ORE reports | ctest -j 4. |
+| ticks-smoke | local_checks | build tree, database, services | A provisioned tenant ticks on a fresh database | keep as build gate | none |  |  | none | No timed run found. |
+| ore-xml-roundtrip | local_checks | build tree, ORE samples, XSD | The ORE XML written back from the corpus still validates | keep as build gate | 179 to 218 |  |  | ORE reports | Runs a built binary over the corpus. |
+| pgtap | local_checks | database | Every pgTAP suite passes | keep as build gate | 20 to 23 |  |  | ORE reports |  |
+| step-consumers | local_checks | running services, NATS | Every step stream carries one consumer, and the claim's own numbers | keep as build gate | 1 to 2 |  |  | ORE reports |  |
+| component-drift --all | codegen-drift.yml | org models, templates, generated outputs | Every component's render matches the tree | replace by diff mode | 423.2 | 452.2 | 4.06 | measured | The full drift render CI runs on push. Exit 1 is the 24 known drift files. CI 415 s. |
+| pending-models | codegen-drift.yml | org models | Every pending-change model is derived from its entity | port | 0.15 | 0.14 | 2.97 | measured | Generator --check over models. |
+| core-link-edges | core-link-edges.yml | CMake files | No core library links another component's core or service | port | 0.2 | 0.2 | 2.97 | measured | Exit 1 here: two baseline entries in ORE name links that are gone. |
+| shell-command-composition | shell-command-composition.yml | generated C++, C++ sources (ores.shell) | Every generated shell command unit is registered | port | 0.05 | 0.04 | 2.97 | measured |  |
+| shell-recipe-provenance | shell-recipe-provenance.yml | shell scripts, org recipes | Every shell recipe names the document it was tangled from | port | 0.2 | 0.17 | 3.05 | measured |  |
+| shell-menus --self-test | codegen-drift.yml | planted fixture | The shell-menus check fails on a planted defect | port | 0.05 | 0.04 | 3.05 | measured | A check's own test. In compass it is the check's proof on past commits. |
+| portable-stop --self-test | portable-stop-types.yml | planted fixture | The portable-stop check fails on a planted defect | port | 0.05 | 0.04 | 3.05 | measured | A check's own test, as above. CI 2 s. |
+| validate-sql-schema | continuous-linux.yml, nightly-linux.yml | SQL | SQL schema conventions hold under the strict ER parser, then sql-hygiene | port | 52.2 | 52.0 | 3.05 | measured | Includes a second sql-hygiene run. CI 70 s. |
+| compass verb exists | dsh-environment.yml | ores.compass CLI | compass env status --help runs | keep as build gate | 9 |  |  | CI logs | Tool smoke test, not a tree check. |
+| continuous-linux build | continuous-linux.yml | build tree, database, services | linux-clang debug and release configure, build, ctest, package | keep as build gate | 7,824 debug, 10,811 release |  |  | CI logs | Debug run 43658615736: configure 413 s, build 5,919 s, ctest 1,183 s. |
+| nightly-linux build | nightly-linux.yml | build tree, database, services | linux-gcc and linux-clang release, linux-clang debug, with ctest | keep as build gate | 2,991 to 11,969 per job |  |  | CI logs | Latest run 43805771293 failed (gcc release); no recent success. |
+| nightly-macos build | nightly-macos.yml | build tree, database, services | macos-clang debug and release, with ctest | keep as build gate | 9,086 debug, 13,128 release |  |  | CI logs |  |
+| nightly-windows build | nightly-windows.yml | build tree, database, services | windows-msvc and windows-clang release, with ctest | keep as build gate | 13,040 to 15,154 per job |  |  | CI logs | Latest run 43824003749 failed; no recent success. |
+| nightly-format | nightly-format.yml | all C++ sources | clang-format twice over the tree, opens a PR if anything changed | keep as build gate | 99 |  |  | CI logs | A fixer, not a gate. |
+| nightly-includes | nightly-includes.yml | build tree (compile_commands.json), C++ sources | clang-tidy misc-include-cleaner, opens a PR with fixes | keep as build gate | 658 configure + 3,238 |  |  | CI logs | A fixer that needs a configured tree. |
+| build-site | build-site.yml | org docs | The whole site builds with the Emacs exporter | keep as build gate | 5,188 |  |  | CI logs | Every 2 hours. |
+| build-site deploy | build-site.yml | C++ sources | Doxygen, then deploy to GitHub Pages | keep as build gate | 2,136 Doxygen |  |  | CI logs | Publishing, not a gate. |
+| site-cdash | site-cdash.yml | build tree, org docs | CTest site build, submitted to CDash | keep as build gate | 11,321 |  |  | CI logs | Called from build-site.yml. |
+| agent-component | agent-component.yml | Node agent sources, NATS | Agent verifies persisted FX data through NATS, image smoke test | keep as build gate | 45 to 92 per job |  |  | CI logs |  |
+| agent-cpu-evaluation | agent-cpu-evaluation.yml | Node agent, CPU inference model | Agent evaluated against a real model on fixture data | keep as build gate | 260 to 594 per job |  |  | CI logs |  |
+| ci-image | ci-image.yml | Dockerfile | CI container image builds and publishes | keep as build gate | 36 (tag already published) |  |  | CI logs | Infrastructure. |
+| unity-batch-measurement | unity-batch-measurement.yml | build tree | Measures unity batch sizes over cold, incremental and warm builds | keep as build gate | 1,218 to 8,077 per job |  |  | CI logs | Manual measurement, not a gate. Latest run failed. |
+| ore-engine-windows | ore-engine-windows.yml | ORE engine sources | Builds and packages the pinned ORE engine for Windows | keep as build gate | no run found |  |  | none | Manual packaging, not a gate. |
+| stale | stale.yml | issues and PRs | Marks and closes stale issues and PRs | keep as build gate | 4 |  |  | CI logs | Repository bot, not a gate. |
+| claude | claude.yml | issue and review comments | Runs Claude Code on a mention | keep as build gate | 46 |  |  | CI logs | Repository bot, not a gate. |
+
+* Summary
+
+** Counts by class
+
+| Class                | Gates | From local_checks | CI only |
+|----------------------+-------+-------------------+---------|
+| port                 |    87 |                80 |       7 |
+| replace by diff mode |     3 |                 2 |       1 |
+| keep as build gate   |    31 |                14 |      17 |
+| Total                |   121 |                96 |      25 |
+
+The investigation counted about 105 gates. This table has 121 rows because it
+gives each CI-only gate its own row, including two self-tests, the platform
+builds and the two repository bots.
+
+** Time of the port class
+
+All 87 ports were timed in the archive copy. Run one after another they take
+379 s wall and 372 s CPU. 15 gates take 335 s of that. 58 gates take under
+1 s each, 10.8 s together. The figure counts =sql-hygiene= twice, because
+=validate-sql-schema= runs it again after the ER parser. Without the second
+run the ports take about 329 s.
+
+Five ports stop early on a defect in ORE at this commit
+(=ore-parameter-value-sets=, =parameter-value-sets-only=,
+=convention-kind-terms=, =ore-element-map=, =core-link-edges=), so their times
+understate a passing run. Each finished in 0.2 s or less.
+
+The three diff-mode gates take 1,313 s wall here: =component-drift= 539 s,
+=component-drift --all= 423 s and =drift-sweep= 350 s. CI records 415 s and
+349 s for the last two. All three render the same models, so one compass diff
+over the codec's output replaces them.
+
+** Slowest ports, in order
+
+| # | Gate                        | Wall s | CPU s | Load  | Reads                          |
+|---+-----------------------------+--------+-------+-------+--------------------------------|
+| 1 | exported-types              |   62.0 |  60.9 |  3.45 | C++ sources, CMake             |
+| 2 | validate-sql-schema         |   52.2 |  52.0 |  3.05 | SQL (50 s of it is sql-hygiene) |
+| 3 | sql-hygiene                 |   50.2 |  50.2 |  7.01 | SQL                            |
+| 4 | tangle-shell                |   41.2 |  38.3 | 10.27 | org recipes (Emacs tangle)     |
+| 5 | paste-blocks                |   28.9 |  28.9 |  8.26 | org models, C++ sources        |
+| 6 | enum-attributes             |   19.9 |  19.9 |  3.91 | C++ headers                    |
+| 7 | reachability                |   13.4 |  13.3 |  5.36 | C++ test sources               |
+| 8 | unity-collisions            |   11.6 |  11.5 | 11.18 | C++ sources, CMake             |
+| 9 | tangle-templates            |   11.1 |  10.1 |  9.78 | org template sources (Emacs)   |
+| 10 | portable-stop              |   10.8 |  10.8 |  4.69 | C++ sources                    |
+| 11 | xml-bindings-drift         |    9.0 |   8.9 | 11.30 | XSD, generated C++ tables      |
+| 12 | subject-conformance        |    7.9 |   7.9 |  5.70 | org models, C++ sources        |
+| 13 | populate-refs              |    7.0 |   6.9 |  4.17 | SQL populate                   |
+| 14 | stream-coverage            |    5.4 |   5.4 |  4.10 | C++ sources                    |
+| 15 | unique-type-names          |    4.7 |   4.7 | 11.75 | C++ headers                    |
+
+Most of the cost is whole-tree scans of C++ and SQL text. Each of the top 15
+reads the tree again on its own. One parse shared by all of them is the lever
+the story expects.
+
+** Gates that do not fit the three classes
+
+- Tool test suites: =codegen-tests=, =build-script-tests=, =compass-tests=,
+  =conventions-generator-tests=, =dsh-environment= and the =compass verb
+  exists= step. They test ORE Studio's own tools, not the tree. They are
+  listed as keep, but each retires with the tool it tests rather than moving
+  to a build tier.
+- Self-tests of a check: =shell-menus --self-test= and =portable-stop
+  --self-test=. They prove a check fails on a planted defect. They are listed
+  as port because compass's equivalent is proving each check on past commits.
+- Fixers, not gates: =nightly-format= and =nightly-includes= rewrite the tree
+  and open a pull request.
+- Not gates at all: =stale= and =claude= (repository bots), =build-site
+  deploy= (publishing), =ci-image= (infrastructure), and
+  =unity-batch-measurement= and =ore-engine-windows= (manual runs).
+- Generator ports: 28 of the 87 ports regenerate an artefact other than
+  ores.codegen output and compare it (tangled scripts, skill tables, seed SQL,
+  =component_files.cmake=, PlantUML, inventories). They are listed as port,
+  but each becomes diff mode once compass has a codec that writes the
+  artefact.
+
+** Classifications I was unsure of
+
+- =tangle-templates=, =tangle-shell=, =tangle-http=: port only if compass
+  tangles org-babel blocks exactly as Emacs does. Otherwise they stay with
+  Emacs as a build-time step.
+- =site-page=: listed as keep because it runs the Emacs site exporter. If
+  compass's HTML codec replaces that exporter, it becomes diff mode.
+- =format=: listed as port because compass already drives clang-format for
+  the codec. It needs the clang-format binary, like a build gate.
+- =entity-binary-types=, =generated-column-refs=, =protocol-twins=: they read
+  generated output for facts the models state. Each could be a model rule
+  instead, which is cheaper and does not need the generated tree.
+- =xml-benchmark-recorded=: it reads git history, so its port depends on the
+  Check a past commit task. It fails in the one-commit scratch repository.
+- =web=: listed as keep because it needs =npm ci=. Its prettier and type check
+  parts could move to a fast tier if compass gains a TypeScript reader.
+
+** Measurement caveats
+
+- The load average was 9 to 12 on 8 cores for the first 31 gates, partly
+  from an ORE Studio =compass check= in another worktree, and 2.4 to 7 later.
+  Wall times early in the run are inflated. CPU times are fairer.
+- =component-drift= was run with =--base HEAD=, and it still rendered every
+  component. Its ORE reports give 188 to 737 s for real changes.
+- =site-page= and =format= saw no changed files, so their times are those of
+  a no-op.
+- Ten local gates and two CI gates exit non-zero here. Eleven reflect ORE at
+  this commit: the 24 known drift files in two of the diff-mode gates, a tangle
+  difference in =tangle-shell=, a stale PlantUML file, a stale backlog index,
+  the shared =r.id= defect in four SQL generators, two stale entries in the
+  core-link baseline, and three failing codegen tests. =xml-benchmark-recorded=
+  fails because the scratch repository has one commit.
+- Build, database and service gates were not run. Their numbers come from CI
+  step durations or from ORE Studio's own local_checks reports, as marked.
+  =ticks-smoke= has no recorded time. =nightly-linux= and =nightly-windows=
+  have no recent successful run, so their times are from failed runs.
+- CI step durations have 1 s resolution and steps under 2 s were not listed.
+- Python ran with =-I= through a launcher. A gate that relied on the current
+  directory or =PYTHONPATH= would have failed, and none did.
