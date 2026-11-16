@@ -2,7 +2,7 @@
 :ID: 995ECC12-860C-4009-B9A2-8CA1A6102BD6
 :END:
 #+title: compass.codec
-#+description: The codec runtime: a codec as a descriptor and one function, the view of the corpus it reads through, the tables of files and diagnostics it fills, the registry the configuration enables codecs in, the runner, the dependency record that lets a run call only the units whose inputs changed, the result cache that lets one worktree reuse the units another ran, the output sink that plans and then writes only the files that changed, the unified diff that shows such a plan without writing, and the two codecs that need only the org tables.
+#+description: The codec runtime: a codec as a descriptor and one function, the view of the corpus it reads through, the tables of files and diagnostics it fills, the registry the configuration enables codecs in, the runner, the dependency record that lets a run call only the units whose inputs changed, the result cache that lets one worktree reuse the units another ran, the output sink that plans and then writes only the files that changed, the unified diff that shows such a plan without writing, and the codecs that need only the org tables: the document index, the required sections check and tangling.
 #+type: component
 #+level: cross
 #+filetags: :codec:pipeline:gates:component:
@@ -207,6 +207,39 @@ others is in its descriptor, so adding a codec adds a row to a list.
 - *=required_sections=.* A document codec over every typed document. It
   reports each section the type requires and no heading of the document
   carries, under the rule =missing_section=. The fix names the heading to add.
+- *Tangling.* =ops::tangle= does what org-babel-tangle-file does under
+  =emacs -Q=, without Emacs. It reads the block table of one document and
+  returns the files its source blocks tangle to and the blocks it cannot
+  tangle. A block with a language and =:tangle <path>= is tangled. A block
+  with =:tangle no= or without =:tangle=, or under a =COMMENT= heading or a
+  heading tagged =ARCHIVE=, is not. The path is resolved against the
+  document's directory and is relative to the checkout root. The blocks of
+  one target are joined in document order: each body is followed by a
+  newline, with an empty line between two blocks (Emacs's default
+  =:padline yes=). A body is the block's text with the escaping comma
+  removed from lines that are blanks, commas, then =*= or =#+=
+  (=org-unescape-code-in-string=). Its last newline is dropped and the
+  indentation common to its non-blank lines is removed as
+  =org-remove-indentation= removes it: a tab counts to the next multiple of
+  eight, a tab that crosses the cut stays, and nothing is removed when a
+  non-blank line is at column 0. Last, blanks and line ends at both ends
+  are trimmed (=org-trim=), because =org-src-preserve-indentation= is nil.
+  These rules come from Org 9.7's =ob-tangle.el=, =ob-core.el= and
+  =org-macs.el=. Header arguments that leave the bytes alone are accepted:
+  =:results=, =:exports=, =:eval=, =:cache=, =:session=, =:mkdirp=,
+  =:noweb-ref=, =:padline yes=, =:comments no= and =:noweb no=. Any other
+  argument, a switch, a =:tangle= value that is not a plain path, a
+  =#+header:= line, and =header-args= set by =#+property:= or a property
+  drawer are problems. A target with a problem block is not written.
+  =build/scripts/tangle_diff.py= compares the files the codec writes with
+  the files Emacs wrote.
+- *=tangle=.* A document codec over every document that emits the targets
+  of =ops::tangle=. It is off by default. =ops::check_outputs= refuses two
+  documents that tangle to one path, and names the path.
+- *=tangle_check=.* A document codec over every document that reports each
+  problem of =ops::tangle=, under the rules =unsupported_header_argument=
+  and =target_outside_checkout=. It is a codec of its own because a codec
+  emits files or diagnostics, not both. Enable it with =tangle=.
 
 * Entry points
 
@@ -235,6 +268,7 @@ others is in its descriptor, so adding a codec adds a row to a list.
 | =include/compass.codec/ops/outputs.hpp=        | =outputs_of=, =check_outputs= and the record encoding. |
 | =include/compass.codec/io/output_sink.hpp=     | The plan, its apply and diff, =write_outputs= and the written-outputs file. |
 | =include/compass.codec/ops/unified_diff.hpp=   | =unified_diff= of two texts.                      |
+| =include/compass.codec/ops/tangle.hpp=         | =tangle= of a document and =tangle_body= of a block. |
 | =include/compass.codec/codecs/catalogue.hpp=   | The codecs this component ships.                  |
 | =include/compass.codec/codecs/*.hpp=           | One header per codec.                             |
 | =tests/test_corpus.hpp=                        | A parsed corpus and a type registry for tests.    |
