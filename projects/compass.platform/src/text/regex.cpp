@@ -30,18 +30,34 @@ namespace {
 
 constexpr std::size_t jit_stack_bytes = 64 * 1024 * 1024;
 
+constexpr std::uint32_t most_groups = 256;
+
 /**
- * @brief One JIT stack per thread, grown on demand up to the limit, so a
- * lazy loop over a large file does not exhaust the default 32 KiB.
+ * @brief What one thread matches with: a JIT stack grown on demand up to
+ * the limit, so a lazy loop over a large file does not exhaust the default
+ * 32 KiB, and match data for any pattern, so a match allocates nothing.
  */
-pcre2_jit_stack* thread_stack() {
-    struct holder {
-        pcre2_jit_stack* stack = pcre2_jit_stack_create(32 * 1024,
-            jit_stack_bytes, nullptr);
-        ~holder() { pcre2_jit_stack_free(stack); }
-    };
-    thread_local holder h;
-    return h.stack;
+struct thread_state {
+    pcre2_jit_stack* stack = pcre2_jit_stack_create(32 * 1024,
+        jit_stack_bytes, nullptr);
+    pcre2_match_context* context = pcre2_match_context_create(nullptr);
+    pcre2_match_data* data = pcre2_match_data_create(most_groups, nullptr);
+
+    thread_state() { pcre2_jit_stack_assign(context, nullptr, stack); }
+
+    ~thread_state() {
+        pcre2_match_data_free(data);
+        pcre2_match_context_free(context);
+        pcre2_jit_stack_free(stack);
+    }
+
+    thread_state(const thread_state&) = delete;
+    thread_state& operator=(const thread_state&) = delete;
+};
+
+thread_state& state() {
+    thread_local thread_state s;
+    return s;
 }
 
 std::string error_text(int code) {
@@ -62,7 +78,7 @@ std::size_t next_character(std::string_view s, std::size_t i) noexcept {
 
 struct regex::impl {
     pcre2_code* code = nullptr;
-    std::shared_ptr<const std::vector<std::string>> names;
+    std::vector<std::string> names;
     std::uint32_t capture_count = 0;
 
     ~impl() { pcre2_code_free(code); }
@@ -116,6 +132,9 @@ regex::regex(std::string_view pattern, regex_flags flags)
     pcre2_jit_compile(impl_->code, PCRE2_JIT_COMPLETE);
     pcre2_pattern_info(impl_->code, PCRE2_INFO_CAPTURECOUNT,
         &impl_->capture_count);
+    if (impl_->capture_count >= most_groups)
+        throw std::invalid_argument("regex " + std::string(pattern) +
+            " has more than " + std::to_string(most_groups - 1) + " groups");
 
     std::vector<std::string> names(impl_->capture_count + 1);
     std::uint32_t count = 0;
@@ -130,8 +149,7 @@ regex::regex(std::string_view pattern, regex_flags flags)
             entry[1];
         names[number] = reinterpret_cast<const char*>(entry + 2);
     }
-    impl_->names = std::make_shared<const std::vector<std::string>>(
-        std::move(names));
+    impl_->names = std::move(names);
 }
 
 regex::~regex() = default;
@@ -140,21 +158,18 @@ regex& regex::operator=(regex&&) noexcept = default;
 
 std::optional<regex_match> regex::run(std::string_view subject,
     std::size_t from, std::uint32_t options) const {
-    auto* data = pcre2_match_data_create_from_pattern(impl_->code, nullptr);
-    auto* context = pcre2_match_context_create(nullptr);
-    pcre2_jit_stack_assign(context, nullptr, thread_stack());
+    auto& s = state();
+    // Compiled with PCRE2_MATCH_INVALID_UTF, a subject needs no check.
     const auto rc = pcre2_match(impl_->code,
         reinterpret_cast<PCRE2_SPTR>(subject.data()), subject.size(), from,
-        options, data, context);
+        options | PCRE2_NO_UTF_CHECK, s.data, s.context);
     std::optional<regex_match> out;
     if (rc > 0) {
-        const auto* ovector = pcre2_get_ovector_pointer(data);
+        const auto* ovector = pcre2_get_ovector_pointer(s.data);
         std::vector<std::size_t> offsets(ovector,
             ovector + 2 * (impl_->capture_count + 1));
-        out.emplace(subject, std::move(offsets), impl_->names);
+        out.emplace(subject, std::move(offsets), &impl_->names);
     }
-    pcre2_match_context_free(context);
-    pcre2_match_data_free(data);
     if (rc < 0 && rc != PCRE2_ERROR_NOMATCH)
         throw std::runtime_error("regex match failed: " + error_text(rc));
     return out;

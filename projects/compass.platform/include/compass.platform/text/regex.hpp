@@ -53,14 +53,14 @@ struct regex_flags {
 
 /**
  * @brief One match: the byte range of the whole match and of each group.
- * An unmatched group has no range.
+ * An unmatched group has no range. It refers to its subject and pattern,
+ * which must outlive it.
  */
 class regex_match final {
 public:
     regex_match(std::string_view subject, std::vector<std::size_t> offsets,
-        std::shared_ptr<const std::vector<std::string>> names) noexcept
-        : subject_(subject), offsets_(std::move(offsets)),
-          names_(std::move(names)) {}
+        const std::vector<std::string>* names) noexcept
+        : subject_(subject), offsets_(std::move(offsets)), names_(names) {}
 
     [[nodiscard]] std::size_t start(std::size_t group = 0) const noexcept {
         return offsets_[2 * group];
@@ -117,7 +117,7 @@ public:
 private:
     std::string_view subject_;
     std::vector<std::size_t> offsets_;
-    std::shared_ptr<const std::vector<std::string>> names_;
+    const std::vector<std::string>* names_;
 };
 
 /**
