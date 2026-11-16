@@ -81,62 +81,6 @@ std::vector<value_id> items(const builder& b, value_id list) {
     return out;
 }
 
-bool ident(char ch) {
-    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
-        (ch >= '0' && ch <= '9') || ch == '_';
-}
-
-bool ident_start(char ch) {
-    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_';
-}
-
-std::size_t identifier_end(std::string_view s, std::size_t i) {
-    if (i >= s.size() || !ident_start(s[i]))
-        return i;
-    while (i < s.size() && ident(s[i]))
-        ++i;
-    return i;
-}
-
-/**
- * @brief Every match of
- * ores::(?!utility::)<ident>::domain::(<ident>) in @p s, as (whole match,
- * entity, owner).
- */
-struct domain_ref {
-    std::string_view whole;
-    std::string_view entity;
-    std::string_view owner;
-};
-
-std::vector<domain_ref> domain_refs(std::string_view s) {
-    std::vector<domain_ref> out;
-    std::size_t i = 0;
-    while ((i = s.find("ores::", i)) != std::string_view::npos) {
-        const auto start = i;
-        auto p = i + 6;
-        if (s.substr(p).starts_with("utility::")) {
-            ++i;
-            continue;
-        }
-        const auto owner_end = identifier_end(s, p);
-        if (owner_end == p || s.substr(owner_end, 10) != "::domain::") {
-            ++i;
-            continue;
-        }
-        const auto entity_start = owner_end + 10;
-        const auto entity_end = identifier_end(s, entity_start);
-        if (entity_end == entity_start) {
-            ++i;
-            continue;
-        }
-        out.push_back({s.substr(start, entity_end - start),
-            s.substr(entity_start, entity_end - entity_start),
-            s.substr(p, owner_end - p)});
-        i = entity_end;
-    }
-    return out;
-}
 
 void derived_subject(load_context& c, value_id op,
     const std::vector<value_id>& messages, std::string_view singular) {
@@ -182,34 +126,22 @@ void derived_subject(load_context& c, value_id op,
 void domain_imports(load_context& c, value_id op,
     const std::vector<value_id>& messages, value_id component) {
     auto& b = c.b;
-    const auto custom = custom_type_headers(c.find, c.cache);
-    std::map<std::string, std::string> entities;
+    std::vector<std::string_view> cpp_types;
     for (const auto m : messages) {
-        for (const auto f : items(b, b.find(m, "fields"))) {
-            const auto cpp_type = string_of(b, b.find(f, "cpp_type"));
-            for (const auto& ref : domain_refs(cpp_type)) {
-                const bool registered = std::ranges::any_of(custom,
-                    [&](const auto& row) { return row.first == ref.whole; });
-                if (!registered)
-                    entities[std::string(ref.entity)] = ref.owner;
-            }
-        }
+        for (const auto f : items(b, b.find(m, "fields")))
+            cpp_types.push_back(string_of(b, b.find(f, "cpp_type")));
     }
     const auto list = b.list(op, "domain_imports");
-    const auto owner_of = text_value(b, component);
-    for (const auto& [entity, owner] : entities) {
-        const bool hand_written = std::ranges::any_of(ts_utility_types(),
-            [&](const ts_utility_type& u) {
-                const auto at = u.cpp.rfind("::");
-                return u.cpp.substr(at + 2) == entity;
-            });
-        if (hand_written)
-            continue;
+    const auto component_text = component.is_none() ? std::string() :
+        text_value(b, component);
+    const auto owner_of = component.is_none() ? std::nullopt :
+        std::optional<std::string_view>(component_text);
+    for (const auto& i : ts_domain_imports(cpp_types, owner_of,
+             custom_type_headers(c.find, c.cache))) {
         const auto item = b.append_object(list);
-        b.set(item, "entity", entity);
-        b.set(item, "entity_pascal", pascal_case(entity));
-        b.set(item, "module_dir", component.is_none() || owner == owner_of
-            ? std::string("../domain") : "../../" + owner + "/domain");
+        b.set(item, "entity", i.entity);
+        b.set(item, "entity_pascal", i.entity_pascal);
+        b.set(item, "module_dir", i.module_dir);
     }
 }
 

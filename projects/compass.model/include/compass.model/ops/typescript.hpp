@@ -20,6 +20,7 @@
 #ifndef COMPASS_MODEL_OPS_TYPESCRIPT_HPP
 #define COMPASS_MODEL_OPS_TYPESCRIPT_HPP
 
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -78,6 +79,26 @@ struct ts_import {
 [[nodiscard]] std::vector<ts_import> field_group_ts_imports(
     std::string_view component, std::string_view own,
     const std::vector<std::string>& cpp_types, const custom_types& custom);
+
+/**
+ * @brief One import of ts_domain_imports: a domain entity, its interface
+ * and the directory of its module relative to the protocol module.
+ */
+struct ts_domain_import {
+    std::string entity;
+    std::string entity_pascal;
+    std::string module_dir;
+};
+
+/**
+ * @brief ts_domain_imports: the domain interfaces that @p cpp_types name
+ * as ores::<owner>::domain::<entity>, by entity, a registered custom type
+ * and a hand-written utility interface left out. The module is beside
+ * the protocol's when @p component is none or owns it.
+ */
+[[nodiscard]] std::vector<ts_domain_import> ts_domain_imports(
+    const std::vector<std::string_view>& cpp_types,
+    std::optional<std::string_view> component, const custom_types& custom);
 
 /**
  * @brief ts_utility_imports: the hand-written interfaces of

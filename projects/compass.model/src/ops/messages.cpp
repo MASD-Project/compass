@@ -150,6 +150,63 @@ std::string ts_of(std::string_view t, const custom_types& custom) {
     return {};
 }
 
+bool ident(char ch) {
+    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
+        (ch >= '0' && ch <= '9') || ch == '_';
+}
+
+bool ident_start(char ch) {
+    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_';
+}
+
+std::size_t identifier_end(std::string_view s, std::size_t i) {
+    if (i >= s.size() || !ident_start(s[i]))
+        return i;
+    while (i < s.size() && ident(s[i]))
+        ++i;
+    return i;
+}
+
+/*
+ * Every match of
+ * ores::(?!utility::)<ident>::domain::(<ident>) in @p s, as (whole match,
+ * entity, owner).
+ */
+struct domain_ref {
+    std::string_view whole;
+    std::string_view entity;
+    std::string_view owner;
+};
+
+std::vector<domain_ref> domain_refs(std::string_view s) {
+    std::vector<domain_ref> out;
+    std::size_t i = 0;
+    while ((i = s.find("ores::", i)) != std::string_view::npos) {
+        const auto start = i;
+        auto p = i + 6;
+        if (s.substr(p).starts_with("utility::")) {
+            ++i;
+            continue;
+        }
+        const auto owner_end = identifier_end(s, p);
+        if (owner_end == p || s.substr(owner_end, 10) != "::domain::") {
+            ++i;
+            continue;
+        }
+        const auto entity_start = owner_end + 10;
+        const auto entity_end = identifier_end(s, entity_start);
+        if (entity_end == entity_start) {
+            ++i;
+            continue;
+        }
+        out.push_back({s.substr(start, entity_end - start),
+            s.substr(entity_start, entity_end - entity_start),
+            s.substr(p, owner_end - p)});
+        i = entity_end;
+    }
+    return out;
+}
+
 bool is_yes(std::string_view lowered) {
     return lowered == "true" || lowered == "yes" || lowered == "1";
 }
@@ -213,12 +270,36 @@ std::span<const ts_utility_type> ts_utility_types() noexcept {
     return types;
 }
 
+std::vector<ts_domain_import> ts_domain_imports(
+    const std::vector<std::string_view>& cpp_types,
+    std::optional<std::string_view> component, const custom_types& custom) {
+    std::map<std::string, std::string> entities;
+    for (const auto cpp_type : cpp_types) {
+        for (const auto& ref : domain_refs(cpp_type)) {
+            const bool registered = std::ranges::any_of(custom,
+                [&](const auto& row) { return row.first == ref.whole; });
+            if (!registered)
+                entities[std::string(ref.entity)] = ref.owner;
+        }
+    }
+    std::vector<ts_domain_import> out;
+    for (const auto& [entity, owner] : entities) {
+        const bool hand_written = std::ranges::any_of(ts_utility_types(),
+            [&](const ts_utility_type& u) {
+                const auto at = u.cpp.rfind("::");
+                return u.cpp.substr(at + 2) == entity;
+            });
+        if (hand_written)
+            continue;
+        out.push_back({entity, pascal_case(entity),
+            !component || owner == *component ? std::string("../domain") :
+                "../../" + owner + "/domain"});
+    }
+    return out;
+}
+
 std::vector<ts_import> ts_utility_imports(
     const std::vector<std::string_view>& cpp_types) {
-    const auto ident = [](char ch) {
-        return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
-            (ch >= '0' && ch <= '9') || ch == '_';
-    };
     std::map<std::string, std::string_view> found;
     for (const auto cpp_type : cpp_types) {
         for (const auto& u : ts_utility_types()) {
