@@ -87,6 +87,23 @@ std::vector<std::string_view> split_lines(std::string_view text) {
     return out;
 }
 
+std::vector<std::string_view> split_lines_keeping_ends(std::string_view text) {
+    std::vector<std::string_view> out;
+    std::size_t start = 0;
+    for (std::size_t i = 0; i < text.size();) {
+        if (const auto n = separator_at(text, i); n != 0) {
+            i += n;
+            out.push_back(text.substr(start, i - start));
+            start = i;
+        } else {
+            ++i;
+        }
+    }
+    if (start < text.size())
+        out.push_back(text.substr(start));
+    return out;
+}
+
 std::string_view strip(std::string_view text) noexcept {
     std::size_t begin = 0;
     auto end = text.size();

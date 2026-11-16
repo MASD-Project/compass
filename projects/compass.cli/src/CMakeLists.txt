@@ -46,6 +46,7 @@ target_link_libraries(${lib_target_name}
         compass.cpp.lib
         compass.sql.lib
         compass.crosscheck.lib
+        compass.docs.lib
         compass.org.lib
         compass.platform.lib
         compass.store.lib
