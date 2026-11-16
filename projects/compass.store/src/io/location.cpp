@@ -71,6 +71,12 @@ std::filesystem::path objects_dir(const std::filesystem::path& git_common_dir) {
     return git_common_dir / "compass" / "objects";
 }
 
+std::filesystem::path actions_dir(const std::filesystem::path& git_common_dir,
+    types::action_kind kind) {
+    return git_common_dir / "compass" /
+        (kind == types::action_kind::manifest ? "manifests" : "results");
+}
+
 std::filesystem::path worktree_index_path(
     const std::filesystem::path& git_dir) {
     return git_dir / "compass" / "index";

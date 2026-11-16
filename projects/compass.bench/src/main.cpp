@@ -384,7 +384,10 @@ int run_codecs_diff(const options& o) {
 int run_gc(const options& o) {
     const auto objects = objects_of(o);
     const auto result =
-        compass::store::io::collect(o.checkout, objects, o.collection);
+        compass::store::io::collect(o.checkout, objects, o.collection,
+            [](const std::filesystem::path&) {
+                return std::vector<compass::store::types::blob_id>{};
+            });
     io::write_gc_report(std::cout, result, o.collection, objects);
     return 0;
 }

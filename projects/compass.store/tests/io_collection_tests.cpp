@@ -26,6 +26,7 @@
 #include <string>
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
+#include "compass.store/io/action_file.hpp"
 #include "compass.store/io/location.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 #include "compass.store/ops/worktree_index.hpp"
@@ -76,8 +77,38 @@ public:
 
     [[nodiscard]] types::collection_result collect(std::uint64_t cap = 0,
         std::chrono::seconds grace = 1h, bool dry_run = false) const {
-        return io::collect(repo_.root(), objects(), {cap, grace, dry_run});
+        return io::collect(repo_.root(), objects(), {cap, grace, dry_run},
+            [this](const std::filesystem::path& dir) {
+                return dir.filename() == "linked" ? linked_keys
+                                                  : std::vector<types::blob_id>{};
+            });
     }
+
+    /**
+     * @brief Writes an action object of kind @p kind named by the hash of
+     * @p name, modified @p age ago, and returns its key.
+     */
+    types::blob_id put_action(types::action_kind kind,
+        const std::string& name, std::chrono::seconds age = 2h) const {
+        const auto key = ops::blob_id_of(name);
+        const auto dir = io::actions_dir(io::git_common_dir(repo_.root()),
+            kind);
+        io::write_action(dir, key, std::string(object_size, 'x'));
+        std::filesystem::last_write_time(io::object_path(dir, key),
+            std::filesystem::file_time_type::clock::now() - age);
+        return key;
+    }
+
+    [[nodiscard]] bool has_action(types::action_kind kind,
+        const types::blob_id& key) const {
+        return io::read_action(io::actions_dir(
+            io::git_common_dir(repo_.root()), kind), key).has_value();
+    }
+
+    /**
+     * @brief The action keys the record of the linked worktree names.
+     */
+    std::vector<types::blob_id> linked_keys;
 
     /**
      * @brief Adds a linked worktree at the commit, whose index names b.txt
@@ -255,4 +286,50 @@ TEST_CASE("a store that does not exist has nothing to collect",
 
     CHECK(r.plan.stored.objects == 0);
     CHECK(r.live_ids == 1);
+}
+
+TEST_CASE("an action object a linked worktree's record names is kept and an "
+    "old one nobody names goes", "[io][collection]") {
+    store_fixture f;
+    (void)f.add_linked_worktree();
+    const auto named = f.put_action(types::action_kind::manifest, "named");
+    const auto result = f.put_action(types::action_kind::result, "result");
+    const auto old = f.put_action(types::action_kind::result, "old");
+    const auto recent = f.put_action(types::action_kind::manifest, "recent",
+        1min);
+    f.linked_keys = {named, result};
+
+    const auto r = f.collect();
+
+    CHECK(f.has_action(types::action_kind::manifest, named));
+    CHECK(f.has_action(types::action_kind::result, result));
+    CHECK_FALSE(f.has_action(types::action_kind::result, old));
+    CHECK(f.has_action(types::action_kind::manifest, recent));
+    CHECK(r.live_keys == 2);
+    CHECK(r.actions.objects == 4);
+    CHECK(r.live_actions.objects == 2);
+    CHECK(r.removed.objects == 1);
+    REQUIRE(r.victims.size() == 1);
+    CHECK(r.victims[0].starts_with("results/"));
+}
+
+TEST_CASE("an action object read under another key or damaged reads as "
+    "missing", "[io][action_file]") {
+    store_fixture f;
+    const auto key = f.put_action(types::action_kind::result, "k");
+    const auto dir = io::actions_dir(io::git_common_dir(f.repo().root()),
+        types::action_kind::result);
+    REQUIRE(io::read_action(dir, key) == std::string(object_size, 'x'));
+    CHECK_FALSE(io::read_action(dir, ops::blob_id_of("other")));
+    const auto copy = io::object_path(dir, ops::blob_id_of("copy"));
+    std::filesystem::create_directories(copy.parent_path());
+    std::filesystem::copy_file(io::object_path(dir, key), copy);
+    CHECK_FALSE(io::read_action(dir, ops::blob_id_of("copy")));
+
+    std::fstream file(io::object_path(dir, key),
+        std::ios::binary | std::ios::in | std::ios::out);
+    file.seekp(10);
+    file.put('y');
+    file.close();
+    CHECK_FALSE(io::read_action(dir, key));
 }
