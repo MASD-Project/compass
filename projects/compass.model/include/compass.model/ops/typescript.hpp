@@ -80,6 +80,15 @@ struct ts_import {
     const std::vector<std::string>& cpp_types, const custom_types& custom);
 
 /**
+ * @brief ts_utility_imports: the hand-written interfaces of
+ * _TS_UTILITY_DOMAIN_TYPES that @p cpp_types name, a registered name
+ * counting only when no identifier character follows it, each with its
+ * module, sorted by interface name.
+ */
+[[nodiscard]] std::vector<ts_import> ts_utility_imports(
+    const std::vector<std::string_view>& cpp_types);
+
+/**
  * @brief _to_pascal_case.
  */
 [[nodiscard]] std::string pascal_case(std::string_view name);

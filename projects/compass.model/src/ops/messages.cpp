@@ -213,6 +213,31 @@ std::span<const ts_utility_type> ts_utility_types() noexcept {
     return types;
 }
 
+std::vector<ts_import> ts_utility_imports(
+    const std::vector<std::string_view>& cpp_types) {
+    const auto ident = [](char ch) {
+        return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
+            (ch >= '0' && ch <= '9') || ch == '_';
+    };
+    std::map<std::string, std::string_view> found;
+    for (const auto cpp_type : cpp_types) {
+        for (const auto& u : ts_utility_types()) {
+            for (auto at = cpp_type.find(u.cpp); at != std::string_view::npos;
+                 at = cpp_type.find(u.cpp, at + 1)) {
+                const auto end = at + u.cpp.size();
+                if (end < cpp_type.size() && ident(cpp_type[end]))
+                    continue;
+                found[std::string(u.pascal)] = u.module;
+                break;
+            }
+        }
+    }
+    std::vector<ts_import> out;
+    for (const auto& [pascal, module] : found)
+        out.push_back({pascal, std::string(module)});
+    return out;
+}
+
 const custom_types& custom_type_headers(const document_finder& find,
     load_cache& cache) {
     static const custom_types none;

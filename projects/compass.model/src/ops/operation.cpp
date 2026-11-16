@@ -216,28 +216,17 @@ void domain_imports(load_context& c, value_id op,
 void utility_imports(load_context& c, value_id op,
     const std::vector<value_id>& messages) {
     auto& b = c.b;
-    std::map<std::string, std::string_view> found;
+    std::vector<std::string_view> cpp_types;
     for (const auto m : messages) {
-        for (const auto f : items(b, b.find(m, "fields"))) {
-            const auto cpp_type = string_of(b, b.find(f, "cpp_type"));
-            for (const auto& u : ts_utility_types()) {
-                for (auto at = cpp_type.find(u.cpp);
-                     at != std::string_view::npos;
-                     at = cpp_type.find(u.cpp, at + 1)) {
-                    const auto end = at + u.cpp.size();
-                    if (end < cpp_type.size() && ident(cpp_type[end]))
-                        continue;
-                    found[std::string(u.pascal)] = u.module;
-                    break;
-                }
-            }
-        }
+        for (const auto f : items(b, b.find(m, "fields")))
+            cpp_types.push_back(string_of(b, b.find(f, "cpp_type")));
     }
+    const auto found = ts_utility_imports(cpp_types);
     const auto list = b.list(op, "utility_imports");
-    for (const auto& [pascal, module] : found) {
+    for (const auto& i : found) {
         const auto item = b.append_object(list);
-        b.set(item, "name_pascal", pascal);
-        b.set(item, "module", module);
+        b.set(item, "name_pascal", i.pascal);
+        b.set(item, "module", i.module);
     }
 }
 
