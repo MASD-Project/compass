@@ -129,10 +129,15 @@ types::attribute_rules read_attribute_rules(
     read_attributes_file(common_dir / "info" / "attributes", "", rules);
 
     std::set<std::string_view> directories;
-    for (const auto& path : index.paths) {
-        for (auto slash = path.find('/'); slash != std::string::npos;
-            slash = path.find('/', slash + 1))
-            directories.insert(std::string_view(path).substr(0, slash + 1));
+    std::string_view previous;
+    for (const std::string_view path : index.paths) {
+        const auto directory = path.substr(0, path.rfind('/') + 1);
+        if (directory == previous)
+            continue;
+        previous = directory;
+        for (auto slash = directory.find('/'); slash != std::string::npos;
+            slash = directory.find('/', slash + 1))
+            directories.insert(directory.substr(0, slash + 1));
     }
     for (const auto directory : directories)
         read_attributes_file(checkout / directory / ".gitattributes",
