@@ -177,6 +177,54 @@ void inject_group_includes(compass::model::ops::builder& b,
     compass::model::types::value_id entity);
 
 /**
+ * @brief The natural-keys block of core.py 4889-4939: the artefact last
+ * marker (false when plain columns follow), each key's iter_var, is_uuid,
+ * is_int, is_timestamp, is_date, optional flags and render_label, then
+ * has_multiple_natural_keys, has_text_natural_keys, has_date_natural_keys,
+ * has_date_or_timestamp_natural_keys and the composite key names. Without
+ * natural keys, has_text_natural_keys defaults to false.
+ */
+void derive_natural_key_flags(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief unique_keys, has_date_or_timestamp_natural_keys broadened to
+ * timestamp columns, has_unique_suffix_columns, needs_counter and
+ * has_uuid_to_string_generator (core.py 4940-4997).
+ */
+void derive_key_aggregates(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief Marks the last item of indexes and validations (core.py
+ * 4998-5001).
+ */
+void mark_index_and_validation_last_items(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief description_formatted, description_lines and description_oneline
+ * (core.py 5002-5014, _format_description_as_comment).
+ */
+void format_description(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief The component's include, directory, core and service names and
+ * their upper-case forms, component_is_database and the cache component
+ * cached_by names (core.py 5015-5061).
+ */
+void derive_component_names(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief The entity's upper, pascal, short, plural and title name forms
+ * (core.py 5062-5091).
+ */
+void derive_entity_names(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
  * @brief data['table']: domain_entity_to_table_context and
  * normalise_sql_table_context, written to table of @p context. The
  * snapshot parts (the scalars, the primary key's own members, the column

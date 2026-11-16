@@ -53,6 +53,12 @@ value_id entity_context(compass::model::ops::builder& b, value_id library,
     derive_supply(b, entity);
     derive_sample_tokens(b, entity);
     inject_group_includes(b, entity);
+    derive_natural_key_flags(b, entity);
+    derive_key_aggregates(b, entity);
+    mark_index_and_validation_last_items(b, entity);
+    format_description(b, entity);
+    derive_component_names(b, entity);
+    derive_entity_names(b, entity);
     project_sql_table(b, context, loaded, entity);
     b.set_copy(context, "domain_entity", entity);
     return context;

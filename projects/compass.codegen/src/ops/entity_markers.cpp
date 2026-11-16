@@ -92,4 +92,9 @@ void format_columns(builder& b, value_id entity) {
     }
 }
 
+void mark_index_and_validation_last_items(builder& b, value_id entity) {
+    mark_last_item(b, values::member(b.tables(), entity, "indexes"));
+    mark_last_item(b, values::member(b.tables(), entity, "validations"));
+}
+
 }

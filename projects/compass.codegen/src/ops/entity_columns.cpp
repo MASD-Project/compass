@@ -20,13 +20,13 @@
 #include "compass.codegen/ops/entity_steps.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <cstdint>
 #include <initializer_list>
 #include <optional>
 #include <string>
 #include <unordered_map>
 #include "compass.codegen/ops/values.hpp"
+#include "entity_text.hpp"
 
 namespace compass::codegen::ops {
 
@@ -35,12 +35,6 @@ using compass::model::types::model_tables;
 using compass::model::types::value_id;
 
 namespace {
-
-std::string lower(std::string s) {
-    std::ranges::transform(s, s.begin(),
-        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    return s;
-}
 
 /*
  * The member type a domain-grouped column is reached through, by column
@@ -134,41 +128,14 @@ bool is_one_of(std::string_view s, std::initializer_list<std::string_view> l) {
     return std::ranges::find(l, s) != l.end();
 }
 
-/*
- * The column's name in title case, with id, iso and fx in capitals.
- */
-std::string render_label(std::string_view name) {
-    std::string out;
-    std::size_t start = 0;
-    for (;;) {
-        const auto end = name.find('_', start);
-        auto word = lower(std::string(name.substr(start,
-            end == std::string_view::npos ? std::string_view::npos
-                                          : end - start)));
-        if (start != 0)
-            out += ' ';
-        if (word == "id" || word == "iso" || word == "fx")
-            std::ranges::transform(word, word.begin(), [](unsigned char c) {
-                return static_cast<char>(std::toupper(c));
-            });
-        else if (!word.empty())
-            word[0] = static_cast<char>(
-                std::toupper(static_cast<unsigned char>(word[0])));
-        out += word;
-        if (end == std::string_view::npos)
-            return out;
-        start = end + 1;
-    }
-}
-
 column_flags derive(const model_tables& t, value_id col, bool plain,
     const domain_types& domain_type_of, bool entity_has_image_id) {
     column_flags f;
     const auto name_value = values::member(t, col, "name");
     const auto name = values::str(t, name_value);
     const auto type = values::str(t, col, "type");
-    const auto sql_type = lower(std::string(values::strip(
-        values::py_str(t, values::member(t, col, "type")))));
+    const auto sql_type = text::lower(values::strip(
+        values::py_str(t, values::member(t, col, "type"))));
     const std::string cpp_type(values::str(t, col, "cpp_type"));
     const bool nullable = values::truthy(t, col, "nullable");
 
@@ -242,7 +209,7 @@ column_flags derive(const model_tables& t, value_id col, bool plain,
         domain_type.contains("time_point");
     f.render_cpp_type = std::move(domain_type);
     f.render_is_enum = is_enum_type;
-    f.render_label = render_label(name);
+    f.render_label = text::render_label(name);
 
     if (!values::truthy(t, col, "default_value") && f.is_simple) {
         if (cpp_type == "bool")
@@ -250,7 +217,7 @@ column_flags derive(const model_tables& t, value_id col, bool plain,
         else if (cpp_type == "int")
             f.default_value = "0";
     }
-    if (!has_generator_expr && is_one_of(lower(values::py_str(t,
+    if (!has_generator_expr && is_one_of(text::lower(values::py_str(t,
             values::member(t, col, "type"))), {"json", "jsonb"}))
         f.generator_expr = "std::string(\"{}\")";
     f.sql_only = values::truthy(t, col, "sql_only");

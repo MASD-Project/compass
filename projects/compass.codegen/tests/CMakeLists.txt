@@ -24,7 +24,9 @@ add_executable(${tests_target_name}
     ops_context_tests.cpp
     ops_entity_columns_tests.cpp
     ops_entity_groups_tests.cpp
+    ops_entity_keys_tests.cpp
     ops_entity_markers_tests.cpp
+    ops_entity_names_tests.cpp
     ops_entity_sql_table_tests.cpp
     ops_entity_supply_tests.cpp
     ops_output_tests.cpp
