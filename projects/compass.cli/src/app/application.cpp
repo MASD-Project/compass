@@ -70,6 +70,20 @@ int run_check(const types::options& o, bool timings, std::ostream& out,
     return r.findings.empty() ? exit_success : exit_findings;
 }
 
+int run_ratchet(const types::options& o, std::string_view base,
+    bool timings, std::ostream& out, std::ostream& err) {
+    const auto r = ratchet(o, base);
+    io::write_ratchet(out, err, r);
+    if (timings) {
+        io::write_timings(err, r.current.run);
+        err << "compass: merge base:\n";
+        io::write_timings(err, r.previous.run);
+    }
+    if (r.failed())
+        return exit_failure;
+    return r.split.fresh.empty() ? exit_success : exit_findings;
+}
+
 int run_command(const types::invocation& i, std::ostream& out,
     std::ostream& err) {
     std::optional<store::types::object_id> commit;
@@ -103,7 +117,10 @@ int run_command(const types::invocation& i, std::ostream& out,
     case types::command::generate:
         return run_generate(o, i.timings, out, err);
     case types::command::diff: return run_diff(o, i.timings, out, err);
-    case types::command::check: return run_check(o, i.timings, out, err);
+    case types::command::check:
+        if (i.ratchet)
+            return run_ratchet(o, *i.ratchet, i.timings, out, err);
+        return run_check(o, i.timings, out, err);
     case types::command::gc:
         io::write_gc(out, gc(o));
         return exit_success;

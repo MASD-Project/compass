@@ -43,12 +43,14 @@ enum class command : std::uint8_t { generate, diff, check, gc, config };
  * checkout is absolute. command_line holds --out, --meta and every
  * --set, as written, and collection the options of gc. timings asks for
  * the time of each step and what each codec ran or reused. revision is
- * the --commit of check as written, or empty.
+ * the --commit of check as written, or empty. ratchet, when set, is the
+ * base of check --ratchet as written, empty for the default.
  */
 struct invocation {
     command which = command::generate;
     std::filesystem::path checkout;
     std::string revision;
+    std::optional<std::string> ratchet;
     unsigned threads = 1;
     bool timings = false;
     layer command_line;

@@ -24,6 +24,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include "compass.cli/types/results.hpp"
 #include "compass.store/types/git_object.hpp"
 
 namespace compass::cli::io {
@@ -62,6 +63,47 @@ namespace compass::cli::io {
  */
 [[nodiscard]] store::types::object_id resolve_commit(
     const std::filesystem::path& checkout, std::string_view revision);
+
+/**
+ * @brief A commit and the name it was resolved from.
+ */
+struct named_commit {
+    std::string name;
+    store::types::object_id id;
+};
+
+/**
+ * @brief The commit ratchet mode compares against: @p base when it is
+ * not empty, else the upstream of the current branch, else origin/main.
+ *
+ * @throws std::system_error when git cannot be started, and
+ * std::runtime_error when @p base names no commit, or, with no @p base,
+ * when there is neither an upstream nor origin/main.
+ */
+[[nodiscard]] named_commit resolve_base(
+    const std::filesystem::path& checkout, std::string_view base);
+
+/**
+ * @brief The best common ancestor of the commits @p a and @p b, as one
+ * `git merge-base` prints it.
+ *
+ * @throws std::system_error when git cannot be started, and
+ * std::runtime_error when they share no history.
+ */
+[[nodiscard]] store::types::object_id merge_base(
+    const std::filesystem::path& checkout, const store::types::object_id& a,
+    const store::types::object_id& b);
+
+/**
+ * @brief The renames from the commit @p from to the commit @p to that
+ * `git diff -M` finds, by similarity of content as well as identity.
+ *
+ * @throws std::system_error when git cannot be started, and
+ * std::runtime_error when it fails.
+ */
+[[nodiscard]] std::vector<types::rename> similar_renames(
+    const std::filesystem::path& checkout,
+    const store::types::object_id& from, const store::types::object_id& to);
 
 }
 

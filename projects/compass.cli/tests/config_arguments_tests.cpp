@@ -108,6 +108,27 @@ TEST_CASE("check takes the revision of --commit as written",
     CHECK(std::get<types::invocation>(parse({"check"})).revision.empty());
 }
 
+TEST_CASE("check takes the base of --ratchet when one follows it",
+    "[config][arguments]") {
+    const auto base_of = [](std::vector<std::string_view> args) {
+        const auto parsed = parse(std::move(args));
+        REQUIRE(std::holds_alternative<types::invocation>(parsed));
+        return std::get<types::invocation>(parsed).ratchet;
+    };
+    CHECK_FALSE(base_of({"check"}));
+    CHECK(base_of({"check", "--ratchet"}) == "");
+    CHECK(base_of({"check", "--ratchet", "main"}) == "main");
+    CHECK(base_of({"check", "--ratchet", "--timings"}) == "");
+    CHECK(base_of({"--ratchet", "check"}) == "");
+    CHECK(base_of({"check", "--ratchet=check"}) == "check");
+
+    for (const auto& args :
+         std::vector<std::vector<std::string_view>>{{"diff", "--ratchet"},
+             {"check", "--ratchet=", "x"},
+             {"check", "--ratchet", "main", "--commit", "HEAD"}})
+        CHECK(std::holds_alternative<config::usage_error>(parse(args)));
+}
+
 TEST_CASE("--help and --version win over everything else",
     "[config][arguments]") {
     CHECK(std::holds_alternative<config::show_help>(
