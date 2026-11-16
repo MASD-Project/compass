@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/port-the-slowest-gates
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ Port the drift checks through diff mode and the slowest whole-tree scans: export
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,16 @@ Port the drift checks through diff mode and the slowest whole-tree scans: export
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Replace the three drift gates (component-drift, component-drift --all and
+  drift-sweep, about 22 minutes together) with =compass diff= over the codegen
+  codec, and show it reports the same drift on the same commit.
+- Port the slowest whole-tree scans from the [[id:AFF665C4-739C-4BDB-93BD-9D547351AE4F][gate classification]] as compass
+  check codecs, in order of cost: exported-types, sql-hygiene, enum-attributes,
+  reachability. Each reads the store's parsed files, not the disk, and emits
+  diagnostics.
+- For each port, check its verdict against the original on the same ORE
+  commit, both on the commit as it is and on a copy with planted violations.
+  Measure each port cold and warm against its baseline.
 
 * Measurements
 
