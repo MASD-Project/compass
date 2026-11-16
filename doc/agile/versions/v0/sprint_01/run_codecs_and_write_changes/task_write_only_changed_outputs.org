@@ -8,7 +8,7 @@
 #+filetags: :run_codecs_and_write_changes:sprint_01:v0:
 #+owner: marco
 #+branch: feature/write-only-changed-outputs
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/20
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -92,7 +92,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/20][#20]] | [codec] Write codec outputs only when they change |
 
 * Review
 
