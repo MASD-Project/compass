@@ -2,7 +2,7 @@
 :ID: 995ECC12-860C-4009-B9A2-8CA1A6102BD6
 :END:
 #+title: compass.codec
-#+description: The codec runtime: a codec as a descriptor and one function, the view of the corpus it reads through, the tables of files and diagnostics it fills, the registry the configuration enables codecs in, the runner, and the two codecs that need only the org tables.
+#+description: The codec runtime: a codec as a descriptor and one function, the view of the corpus it reads through, the tables of files and diagnostics it fills, the registry the configuration enables codecs in, the runner, the dependency record that lets a run call only the units whose inputs changed, and the two codecs that need only the org tables.
 #+type: component
 #+level: cross
 #+filetags: :codec:pipeline:gates:component:
@@ -37,6 +37,8 @@ others is in its descriptor, so adding a codec adds a row to a list.
   ships; a host appends those of other components.
 - A =types::configuration=: rows of codec, key and value. The key =enabled=
   takes =true= or =false=. Any other key must be an option the codec declares.
+- The dependency record of the previous run, if any: =<git dir>/compass/deps=
+  of the checkout, read by =io::read_dependency_file=.
 
 * Outputs
 
@@ -53,9 +55,38 @@ others is in its descriptor, so adding a codec adds a row to a list.
 - *View.* =types::corpus_view= is all a codec can read. It numbers the
   documents of the declared types from zero, so a codec cannot name a document
   of another type. =operator[]= returns a =types::document=: corpus row, path,
-  content ID, type, source and tables. Every read goes through that one
-  function. The view also gives the type registry and =option(key)=, the
-  configured value or the default.
+  content ID, type, source and tables. =find_id= and =find_path= return the
+  visible document with that ID property or at that path, or nothing; a
+  document of an undeclared type is not found. The view also gives the type
+  registry and =option(key)=, the configured value or the default.
+- *Recording.* The runner gives each call a =types::read_log= through the
+  view, so a codec records what it reads by reading, with no code of its own.
+  Every document handed out is an input keyed by its path, with its content
+  ID, so the path is part of every document read. Every lookup is an input
+  with its answer: for =find_id= the blob ID of the path found, for
+  =find_path= the content ID, and a miss when nothing answered. A read of the
+  type registry is an input with the SHA-1 of its tables. A corpus unit does
+  not list its documents: it depends on all of them, as one =type_set= input,
+  the SHA-1 of the sorted paths and content IDs of every document it may
+  read. =types::corpus_index=, built by =ops::index_corpus=, finds documents
+  by path and ID for the view and for selection alike.
+- *Dependency record.* =types::dependency_record= has one row per unit: one
+  call of a document codec, for one document, or the call of a corpus codec.
+  A unit is keyed by codec name and document path, and carries the codec's
+  version, the SHA-1 of its option values (=ops::configuration_hash=), its
+  inputs (kind, key, found, value) and its outputs: each file with its path,
+  blob ID and bytes, or the count, SHA-1 and encoded bytes of its findings.
+  An encoded finding names its document by path, not by corpus row, so a
+  record outlives the corpus it was made from.
+- *Record file.* =io::dependency_file_path= is =compass/deps= under the
+  checkout's own git directory, beside the worktree index, so each worktree
+  keeps its own. =ops::encode_dependency_record= lays it out little-endian:
+  magic =CMPSDEP\n=, version, unit count, each unit, then the SHA-1 of all of
+  it. =io::read_dependency_file= reads a missing file as an empty record and
+  a damaged one, or one of another version, as an empty record with the
+  reason, so every unit runs. =io::write_dependency_file= writes through a
+  temporary file and a rename, and only when the bytes differ from the
+  file's.
 - *Files.* =types::file_table= has a path and the bytes of each file. Paths
   are relative to the checkout root.
 - *Diagnostics.* =types::diagnostic_table= has, per finding, the document
@@ -72,9 +103,19 @@ others is in its descriptor, so adding a codec adds a row to a list.
   A document codec is split into runs of documents, four per thread. Each
   piece fills its own tables and the tables of a codec are joined in document
   order, so the result is the same on any thread count. =types::run_result=
-  holds, per codec, the documents given, the files, the diagnostics and the
-  time summed over threads. An exception from a codec is rethrown after every
-  thread has stopped.
+  holds, per codec, the documents given, the units run and skipped, the
+  files, the diagnostics and the time summed over threads, and the record
+  of the run. An exception from a codec is rethrown after every thread has
+  stopped.
+- *Selection.* Given the previous record, =ops::run= calls a unit only when
+  it is new, its codec's version or configuration hash changed, or one of
+  its inputs has another answer now: a document's content ID changed, an ID
+  now names another document, a lookup that missed now finds one, the type
+  set of a corpus codec changed, or the type registry changed. A unit that is
+  not called is skipped: its recorded outputs go into the result where the
+  call's would have, so a run with a record returns what a run without one
+  does, and its row is copied into the new record. The record of a run holds
+  only the units of enabled codecs.
 - *Document type.* =ops::document_type= gives the registered type the first
   =#+type:= keyword of a document names.
 - *=document_index=.* A corpus codec that emits one tab-separated file: a
@@ -91,7 +132,9 @@ others is in its descriptor, so adding a codec adds a row to a list.
 |------------------------------------------------+---------------------------------------------------|
 | =include/compass.codec/types/descriptor.hpp=   | =descriptor=, =inputs=, =option=, =rule= and the function types. |
 | =include/compass.codec/types/corpus.hpp=       | The corpus a host fills.                          |
-| =include/compass.codec/types/corpus_view.hpp=  | =document= and =corpus_view=.                     |
+| =include/compass.codec/types/corpus_view.hpp=  | =document=, =read_log= and =corpus_view=.         |
+| =include/compass.codec/types/corpus_index.hpp= | Documents by path and by ID.                      |
+| =include/compass.codec/types/dependency_record.hpp= | What each unit read and produced.            |
 | =include/compass.codec/types/file_table.hpp=   | The files a codec emits.                          |
 | =include/compass.codec/types/diagnostic_table.hpp= | The findings a codec emits.                   |
 | =include/compass.codec/types/text_column.hpp=  | A column of byte strings.                         |
@@ -99,6 +142,8 @@ others is in its descriptor, so adding a codec adds a row to a list.
 | =include/compass.codec/types/registry.hpp=     | The resolved codecs.                              |
 | =include/compass.codec/ops/registry.hpp=       | =make_registry=, =reads= and =option_values=.     |
 | =include/compass.codec/ops/run.hpp=            | =run= and =document_type=.                        |
+| =include/compass.codec/ops/dependencies.hpp=   | Hashes, the corpus index and the record encoding. |
+| =include/compass.codec/io/dependency_file.hpp= | Where the record lives; reading and writing it.   |
 | =include/compass.codec/codecs/catalogue.hpp=   | The codecs this component ships.                  |
 | =include/compass.codec/codecs/*.hpp=           | One header per codec.                             |
 | =tests/test_corpus.hpp=                        | A parsed corpus and a type registry for tests.    |
@@ -113,7 +158,8 @@ others is in its descriptor, so adding a codec adds a row to a list.
 * Dependencies
 
 - =compass.org= for the tables, the type registry and the document lookups.
-- =compass.store= for =blob_id=, the content ID of a document.
+- =compass.store= for =blob_id=, the content ID of a document, for SHA-1, and
+  for =write_object=, which puts the record file in place by rename.
 - The C++23 standard library and threads.
 - =compass.ingest= and Catch2, for the tests only: the tests parse their
   documents and build their registry from contract pages.

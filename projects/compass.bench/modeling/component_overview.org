@@ -64,9 +64,11 @@ of a checkout with one =git ls-files -z= call and map files with
   checked, and a file with no usable object is parsed and its object
   written. Every source and object stays mapped, and the type of each
   document is resolved against the registry of a meta directory. The enabled
-  codecs then run =--repeat= times on N threads. The outputs stay in memory:
-  nothing is written to the checkout, and only the worktree index is written
-  to its git directory.
+  codecs then run =--repeat= times on N threads, each repetition from the
+  dependency record the checkout had, so a unit whose inputs are unchanged
+  is skipped. The outputs stay in memory: nothing is written to the
+  checkout, and only the worktree index and the dependency record, when it
+  changed, are written to its git directory.
 
 =gc= is not a stage either. It collects the store once with
 =compass.store='s =io::collect= and reports what it found and removed.
@@ -156,9 +158,12 @@ the line format of =compass::org::io::dump=, which
   objects fill it is data, not failure. An index that cannot be read exits
   with status 1 and removes nothing.
 - For =codecs=: the org files and the documents loaded, the registered
-  types, the load time with the objects loaded and written, and every
-  problem of the codec registry. One row per codec: its unit and output
-  kind, the documents it was given, its output files and their bytes, its
+  types, the load time with the objects loaded and written, every
+  problem of the codec registry, and the units and bytes of the dependency
+  record read, with whether the new one was rewritten and why an old one
+  was not used. One row per codec: its unit and output kind, the documents
+  it was given, the units it ran and skipped, its output files and their
+  bytes, its
   diagnostics, and the median, min and max milliseconds spent inside it,
   summed over threads; then the wall time of a run. Each output file with
   its size. Per codec with diagnostics: the documents with any, the count by
