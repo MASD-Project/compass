@@ -74,8 +74,13 @@ value_id entity_context(compass::model::ops::builder& b, value_id library,
     resolve_routed_check(b, entity, registry);
     derive_table_rules(b, entity);
     derive_primary_key(b, entity);
+    derive_presentation_columns(b, entity);
+    derive_presentation_detail_defaults(b, entity);
+    derive_detail_fields(b, entity);
+    derive_presentation_flags(b, entity);
     project_enforced_foreign_keys(b, entity);
     project_primary_key_extra_columns(b, entity);
+    project_import_preview_columns(b, entity);
     project_sql_table(b, context, loaded, entity);
     b.set_copy(context, "domain_entity", entity);
     return context;

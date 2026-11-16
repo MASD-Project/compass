@@ -87,6 +87,17 @@ namespace compass::codegen::ops::text {
 }
 
 /**
+ * @brief snake_to_pascal: each word of a snake_case name capitalised,
+ * joined.
+ */
+[[nodiscard]] inline std::string snake_to_pascal(std::string_view name) {
+    std::string out;
+    for (const auto w : split(name, '_'))
+        out += capitalize(w);
+    return out;
+}
+
+/**
  * @brief A snake_case name as the label templates show: its words
  * capitalised, id, iso and fx in capitals, joined by spaces.
  */

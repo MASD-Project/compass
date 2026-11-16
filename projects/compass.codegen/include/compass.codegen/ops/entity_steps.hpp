@@ -365,6 +365,54 @@ void derive_primary_key(compass::model::ops::builder& b,
     compass::model::types::value_id entity);
 
 /**
+ * @brief The presentation's list columns (core.py 6059-6177): the default
+ * domain_class, the last markers on the columns and on the last of the
+ * columns hidden by default, the optional-type flags from the domain
+ * column types, the column_index and column_style defaults, and the
+ * has_badge_columns and has_self_colour_columns flags. Nothing without a
+ * presentation; only domain_class without its columns.
+ */
+void derive_presentation_columns(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief The presentation's controller knobs and default detail form
+ * (core.py 6178-6266): has_parent_relationship, the item_var default and,
+ * when the model states no detail_fields, the code, name and description
+ * rows the entity's members allow. Nothing without a presentation.
+ */
+void derive_presentation_detail_defaults(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief The per-field flags of presentation.detail_fields (core.py
+ * 6267-6403): widget kinds, combo promotions and helpers, the type flags
+ * from the domain, natural key and primary key types, the position
+ * markers, the key and lock flags and the derived widget names. Nothing
+ * without a presentation.
+ */
+void derive_detail_fields(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief The presentation's list and dialog flags (core.py 6404-6451):
+ * the has_pagination, has_readonly_paginated_list and
+ * has_parent_scoped_list defaults, has_combo_badge_source and the
+ * delete_request_id_field default. Nothing without a presentation.
+ */
+void derive_presentation_flags(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief presentation.import_preview_columns, the columns with
+ * import_preview set (org_loader.py's presentation parse). The Python's
+ * list holds the very column objects, so the oracle shows them as the
+ * presentation steps leave them: run after the last change to a column.
+ */
+void project_import_preview_columns(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
  * @brief primary_key.extra_columns (core.py 5793), the key's columns
  * after the first. The Python's list holds the very column objects, so
  * the oracle shows them as later steps leave them: run after the last
