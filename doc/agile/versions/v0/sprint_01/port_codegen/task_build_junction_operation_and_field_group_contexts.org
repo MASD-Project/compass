@@ -8,7 +8,7 @@
 #+filetags: :port_codegen:sprint_01:v0:
 #+owner: marco
 #+branch: feature/build-junction-operation-and-field-group-contexts
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/32
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -87,7 +87,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/32][#32]] | [codegen] Build junction, operation and field group contexts |
 
 * Review
 
