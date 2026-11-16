@@ -31,6 +31,7 @@
 #include "compass.cpp/ops/paths.hpp"
 #include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
+#include "compass.platform/text/decoding.hpp"
 #include "compass.platform/text/regex.hpp"
 
 namespace compass::cpp::codecs {
@@ -202,9 +203,9 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
     std::unordered_map<std::string_view, std::string> texts;
     for (const auto p : sources) {
         const auto bytes = v.read_file(p).value_or("");
-        if (!ops::is_utf8(bytes))
+        if (!pt::is_utf8(bytes))
             continue;
-        const auto text = ops::universal_newlines(bytes);
+        const auto text = pt::universal_newlines(bytes);
         const auto target = target_dir(p);
         for (const auto& [key, line] : internal_names(text))
             groups[{target, key.first, key.second}].push_back({p, line});

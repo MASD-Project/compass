@@ -27,6 +27,7 @@
 #include "compass.cpp/ops/paths.hpp"
 #include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
+#include "compass.platform/text/decoding.hpp"
 #include "compass.platform/text/regex.hpp"
 
 namespace compass::cpp::codecs {
@@ -81,7 +82,7 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
     }
     for (const auto path : paths) {
         const auto bytes = v.read_file(path).value_or("");
-        const auto text = ops::universal_newlines(ops::decode_ignoring(bytes));
+        const auto text = pt::universal_newlines(pt::decode_ignoring(bytes));
         const auto blanked = noise.substitute(text, [](const auto& m) {
             return pt::blank_keeping_newlines(m.group());
         });
