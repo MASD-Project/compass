@@ -20,7 +20,9 @@ set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
     codecs/catalogue.cpp
+    codecs/handler_permissions.cpp
     codecs/populate_refs.cpp
+    codecs/rls_widenings.cpp
     codecs/sql_hygiene.cpp
     codecs/sql_reachability.cpp
     ops/hygiene.cpp
