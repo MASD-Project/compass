@@ -8,7 +8,7 @@
 #+filetags: :ship_the_compass_cli:sprint_01:v0:
 #+owner: marco
 #+branch: feature/hand-the-pipeline-to-the-cli
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/27
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -82,7 +82,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/27][#27]] | [cli] Run the bench on the pipeline steps compass runs |
 
 * Review
 
