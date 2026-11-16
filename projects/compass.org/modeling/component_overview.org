@@ -1,0 +1,109 @@
+:PROPERTIES:
+:ID: 44C128E0-BCF3-4574-B171-BF5E72325085
+:END:
+#+title: compass.org
+#+description: The data-oriented tables an org-mode document becomes: an element tree and object rows in pre-order, detail tables for the fields codecs filter on, interned names, and byte ranges into the source instead of copied text.
+#+type: component
+#+level: cross
+#+filetags: :org:data_model:data_oriented:component:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+
+This page is the component overview for =compass.org=, a simple component in
+the domain layer of the
+[[id:8A9A460F-8024-4890-B091-C0D02FD84218][System Model]].
+
+* Summary
+
+=compass.org= defines the tables that hold parsed org documents. The tables
+follow the taxonomy of the Org Syntax specification and of =org-element.el=:
+greater elements and elements share one tree, objects have their own rows, and
+plain text is the source between objects. Every row holds handles and byte
+offsets and no pointer, so a column can be written to a pack and mapped back
+unchanged. A codec finds every heading, keyword, property, block or link with
+one scan of one table, and walks a document in order with one scan of the
+element table. The component holds types only; it has no parser.
+
+* Inputs
+
+- The source bytes of each document, which the caller keeps mapped. The tables
+  never copy text; a =source_range= is read against those bytes.
+
+* Outputs
+
+One =tables= value holds one document, or a corpus of documents end to end.
+
+| Table          | Handle          | Row bytes | One row per                                               |
+|----------------+-----------------+-----------+-----------------------------------------------------------|
+| =elements=     | =element_id=    |        30 | Greater element or element; row 0 is the document.        |
+| =objects=      | =object_id=     |        22 | Object: markup, link, table cell, entity, timestamp.      |
+| =headings=     | =heading_id=    |        29 | Heading or inlinetask.                                    |
+| =heading_tags= | =tag_id=        |         4 | Tag written on a heading.                                 |
+| =keywords=     | =keyword_id=    |        16 | Keyword line or babel call.                               |
+| =properties=   | =property_id=   |        16 | Node property.                                            |
+| =affiliated=   | =affiliated_id= |        28 | Affiliated keyword: name, caption, attr_html, results.    |
+| =blocks=       | =block_id=      |        24 | Block of any kind, dynamic blocks included.               |
+| =lists=        | =list_id=       |         5 | Plain list.                                               |
+| =items=        | =item_id=       |        13 | List item.                                                |
+| =links=        | =link_id=       |        17 | Link.                                                     |
+| =names=        | =name_id=       |         4 | Distinct interned string of a document.                   |
+| =documents=    | =document_id=   |        60 | Document of a corpus: where its rows start in each table. |
+
+- *Tree.* Element rows are in pre-order. The children of =e= start at the next
+  row and each following sibling starts at =subtree_ends= of the one before.
+  =parents= gives the way up. Object rows nest the same way.
+- *Objects of an element.* =object_firsts= gives the first object an element
+  holds directly: the title of a heading, the tag of an item, the text of a
+  paragraph, the cells of a table row. The run ends where the next element's
+  run starts.
+- *Positions.* =ranges=, =contents= and =post_blanks= have the meaning of
+  org-element's =:begin=, =:end=, =:contents-begin=, =:contents-end= and
+  =:post-blank=.
+- *Detail tables.* A detail table lists its rows in document order with the
+  element or object each belongs to, so the row of an element is found by
+  binary search, or by advancing a cursor during a walk.
+- *Names.* Keyword and property keys, tags, TODO keywords, block languages and
+  link types are interned once per document, in canonical case. Values, titles
+  and bodies are byte ranges.
+- *Raw text.* A construct with no detail table is its kind and its range, and
+  the codec that exports it reads its fields from the source: timestamps,
+  macros, export snippets, entities, LaTeX, footnote labels, drawer names,
+  list bullets and counters, table formulas, block switches.
+- *Handles.* A handle is a 32-bit row index local to its document. Each table
+  has its own handle type, and a column accepts only that type.
+- *Limits.* A document is smaller than 4 GiB. A =post_blanks= value of 255
+  means 255 or more.
+
+* Entry points
+
+| Path                                          | Role                                              |
+|-----------------------------------------------+---------------------------------------------------|
+| =include/compass.org/types/tables.hpp=        | The whole table set; includes every table header. |
+| =include/compass.org/types/handle.hpp=        | =handle= and the handle type of each table.       |
+| =include/compass.org/types/column.hpp=        | =column=, =column_view= and =row_bytes=.          |
+| =include/compass.org/types/element_table.hpp= | =element_kind= and the element tree.              |
+| =include/compass.org/types/object_table.hpp=  | =object_kind= and the object rows.                |
+| =include/compass.org/types/*_table.hpp=       | One header per remaining table.                   |
+| =tests/types_tables_tests.cpp=                | A document built by hand and queried.             |
+
+| Target              | Kind                                      |
+|---------------------+-------------------------------------------|
+| =compass.org.lib=   | Header-only library.                      |
+| =compass.org.tests= | Catch2 executable, registered with CTest. |
+
+The counts that size the tables come from =build/scripts/org_census.py=, which
+counts every org construct under a directory.
+
+* Dependencies
+
+- The C++23 standard library.
+- Catch2, for the tests only.
+
+* See also
+
+- [[id:8A0E6F32-C4BC-4667-88E8-7F80CA25437C][Component architecture]] --- layout,
+  naming, facets and the data-oriented conventions.
+- [[id:8A9A460F-8024-4890-B091-C0D02FD84218][System Model]] --- where the domain
+  layer sits.
+- [[id:379EC6BB-620D-4A5D-8A17-33B1D7353586][Compass document model]] --- the
+  documents these tables hold, as ORE Studio writes them.

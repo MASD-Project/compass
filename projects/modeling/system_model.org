@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :modeling:architecture:system_model:masd:
 #+created: 2026-10-27
-#+updated: 2026-10-27
+#+updated: 2026-11-16
 
 compass-ng follows the ORE Studio system model: components grouped into layers,
 with one invariant --- *a layer depends only on layers below it*. In MASD terms
@@ -56,10 +56,11 @@ The document model. Composite components use the =api= / =core= split.
 
 | Component           | Parts         | Role                                                                                                                                                                           |
 |---------------------+---------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| =compass.documents= | =api=, =core= | Documents, frontmatter properties, sections, document types, lifecycle states. =api=: the columnar tables and handles. =core=: mutation, validation against the type contract. |
+| =compass.org=       | ---           | The tables an org-mode document becomes: element tree, objects, headings, keywords, properties, blocks, lists, links and interned names, with byte ranges into the source.     |
+| =compass.documents=| =api=, =core= | Documents, frontmatter properties, sections, document types, lifecycle states. =api=: the columnar tables and handles. =core=: mutation, validation against the type contract. |
 | =compass.graph=     | =api=, =core= | The knowledge graph: typed links, backlinks, hierarchy (version → sprint → story → task), traversal and layout data for the viewer.                                            |
 | =compass.search=    | =api=, =core= | Inverted index, ranking, tag and type filters.                                                                                                                                 |
-| =compass.ingest=    | ---           | Org-mode parser; import of the ORE Studio corpus and of this repository's documentation.                                                                    |
+| =compass.ingest=    | ---           | Readers that fill the =compass.org= tables: the org-mode parser first, then the C++ and SQL fact extractors.                                               |
 
 Work management (stories, tasks, sprints) is not a separate component. In
 compass a unit of work *is* a document with a lifecycle state; it lives in
@@ -79,8 +80,6 @@ compass a unit of work *is* a document with a lifecycle state; it lives in
 | =compass.bench= | Benchmark harness: wall time and bytes per stage; later, server load generation. |
 
 * Open questions
-- Is =compass.ingest= domain or tooling? It is domain while the server imports
-  files at runtime; it becomes tooling if import is a one-off.
 - Does =compass.search= need its own part split, or is a simple component enough?
 - Does the web frontend talk to the server through =compass.wire= or link the
   read path directly?

@@ -21,7 +21,7 @@ Every org file in ORE Studio and in this repository loads into data-oriented tab
 
 | Field         | Value                                  |
 |---------------+----------------------------------------|
-| State         | BACKLOG                              |
+| State         | STARTED                              |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
 | Now           | Not yet started.                       |
 | Waiting on    | Nothing.                               |
@@ -39,10 +39,17 @@ Every org file in ORE Studio and in this repository loads into data-oriented tab
 
 | Task | State | Start | End | Description |
 |------+-------+-------+-----+-------------|
-| [[id:80278EB3-59DC-4549-A790-14E20197F2C6][Define the org tables]] | BACKLOG | | | Name the data-oriented tables an org document becomes, with handles, interned strings and offsets instead of pointers. |
+| [[id:80278EB3-59DC-4549-A790-14E20197F2C6][Define the org tables]] | DONE | 2026-11-16 | 2026-11-16 | Name the data-oriented tables an org document becomes, with handles, interned strings and offsets instead of pointers. |
 | [[id:336678B6-1DD8-4E13-8217-251CA28B96CB][Write the org parser]] | BACKLOG | | | A hand-written org parser that follows org-element.el and the Org Syntax specification and fills the tables. |
 | [[id:B86647B3-59D7-4E28-8F5F-6AF7FF839173][Build the type registry]] | BACKLOG | | | Load the document types and their schemas from doc/meta, and mark which types are codegen models. |
 | [[id:C965FC11-2598-48FA-AD95-B29EED689E63][Parse the ORE Studio corpus]] | BACKLOG | | | Parse all ORE Studio org files on all cores and compare the time against the baseline. |
+
+* Documents
+
+| Document | Kind | Description |
+|----------+------+-------------|
+| [[id:613AB7F2-385D-4462-BD35-35E7A4A59702][Design: the org tables]] | design | The argued table set, with the census that justifies it and the rejected alternatives. |
+| [[id:44C128E0-BCF3-4574-B171-BF5E72325085][compass.org]] | component | The durable description of the tables. |
 
 * Decisions
 

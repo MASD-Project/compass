@@ -1,0 +1,473 @@
+:PROPERTIES:
+:ID: 613AB7F2-385D-4462-BD35-35E7A4A59702
+:END:
+#+title: Design: the org tables
+#+description: The argument for the table set an org-mode document becomes in compass-ng: an element tree and object rows in pre-order, detail tables for the fields codecs filter on, document-local handles and names, byte ranges into the source, and the alternatives rejected, sized against a census of the ORE Studio corpus.
+#+type: design
+#+level: s2
+#+filetags: :org:data_model:data_oriented:design:parse_org_documents:sprint_01:v0:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+#+todo: DRAFT STARTED | LANDED SUPERSEDED ABANDONED
+#+outcome: 44C128E0-BCF3-4574-B171-BF5E72325085
+
+#+begin_note
+*This document describes a transition, not the current state.* It argues from
+"compass-ng has no representation of an org document" to the table set of the
+=compass.org= component, and it expires when the
+[[id:F1C69FBB-C16B-4F10-ACDB-F059C6355730][Parse org documents]] story lands.
+
+The durable description of the tables is the
+[[id:44C128E0-BCF3-4574-B171-BF5E72325085][compass.org]] component overview,
+which =#+outcome:= names. Read that page for the tables as they are. Do not
+link to this page from durable documentation; the link runs one way, from
+here to the overview.
+#+end_note
+
+* Status
+
+| Field        | Value               |
+|--------------+---------------------|
+| State        | LANDED              |
+| Parent story | [[id:F1C69FBB-C16B-4F10-ACDB-F059C6355730][Parse org documents]] |
+| Last touched | 2026-11-16          |
+
+* Summary
+
+An org document becomes thirteen tables. Two of them carry structure: the
+=elements= table is the tree of greater elements and elements in pre-order,
+and the =objects= table holds the objects of each element in pre-order. Nine
+detail tables hold the fields a codec filters or joins on: headings, heading
+tags, keywords, properties, affiliated keywords, blocks, lists, items and
+links. The =names= table interns keys, tags and types per document. The
+=documents= table lays the documents of a corpus end to end.
+
+Text is never copied. A title, a value or a body is a byte range into the
+source of its document, and plain text is the source between two objects.
+Every handle is a 32-bit row index local to its document, so the parsed form
+of a document depends on its content alone and can be cached by content hash.
+
+For the ORE Studio corpus (10,905 documents, 69.6 MB) the tables take an
+estimated 59 MB, which is 0.84 bytes of table per byte of source.
+
+* What the tables must do
+
+1. *Hold every construct the HTML export needs.* The export must be
+   byte-identical to =ox-html=, which walks the tree =org-element.el= builds.
+   So the tables map onto the org-element taxonomy: greater elements,
+   elements and objects, with the same kinds and the same positions.
+2. *Be position-independent.* The parsed form is cached by content hash in
+   memory-mapped packs that every worktree shares. A pack must be usable as
+   mapped, with no decoding step, so a row holds offsets and handles and never
+   a pointer, and nothing in a row depends on which corpus the document is in.
+3. *Make the common scans cheap.* "All entities", "all links" and "the Status
+   table of every task" must each be a scan of one or two columns, not a walk
+   of every tree.
+
+* The corpus, counted
+
+=build/scripts/org_census.py= counts org constructs with line-based
+heuristics. It ran over an archive of ORE Studio =origin/main= at
+=800c3a6d09=, restricted to =.org= files outside the top-level =build/=,
+=external/= and =vcpkg/=. The script was at commit =1cc3f05=.
+
+| Construct                           | Count     | Notes                                                                 |
+|-------------------------------------+-----------+-----------------------------------------------------------------------|
+| Documents                           | 10,905    | 69,592,781 bytes, 1,415,405 lines; the largest is 1,318,460 bytes.    |
+| Headings                            | 108,544   | Depth 1: 71,447. 2: 29,824. 3: 6,898. 4: 345. 5: 24. 6: 6.            |
+| Headings with a TODO keyword        | 24        | TODO 16, DONE 8.                                                      |
+| Heading tags                        | 103       | 8 distinct; =noexport= 74.                                            |
+| Sections                            | 109,955   |                                                                       |
+| Planning lines                      | 0         |                                                                       |
+| Property drawers                    | 29,435    | 10,879 at document level.                                             |
+| Node properties                     | 52,589    | 268 distinct names; =ID= 16,431.                                      |
+| Other drawers                       | 1         | One =LOGBOOK=, holding one clock line.                                |
+| Keywords                            | 113,873   | 100 distinct names; =title= 10,909, =filetags= 10,733, =type= 10,701. |
+| Affiliated keywords                 | 7,482     | =name= 5,593, =attr_html= 1,269, =caption= 525, =results= 80.         |
+| Blocks                              | 21,144    | =src= 14,699, =example= 6,008, =quote= 307, =export= 76, =note= 51.   |
+| Dynamic blocks, babel calls         | 0         |                                                                       |
+| Tables                              | 28,266    | Up to 1,342 rows and 23 columns.                                      |
+| Table rows                          | 170,651   | 142,466 standard, 28,185 rules.                                       |
+| Table cells                         | 442,125   |                                                                       |
+| =table.el= tables                   | 1         |                                                                       |
+| Plain lists                         | 26,809    | Unordered 23,664, ordered 2,795, descriptive 350; nesting up to 3.    |
+| Items                               | 89,322    | 1,382 with a checkbox, 7 with a counter.                              |
+| Paragraphs                          | 189,202   |                                                                       |
+| Footnote definitions, references    | 8, 9      |                                                                       |
+| Links                               | 63,411    | =id= 53,231, =https= 5,342, =proj= 2,460, =file= 1,860; 23 types.     |
+| Emphasis                            | 261,725   | Verbatim 225,939, bold 25,982, code 5,057, italic 4,710, 37 others.   |
+| Subscripts and superscripts         | 84,408    | Almost all are underscores in identifiers; 129 documents set =^:nil=. |
+| LaTeX fragments, environments       | 1,170, 37 |                                                                       |
+| Entities                            | 237       |                                                                       |
+| Export snippets                     | 32        |                                                                       |
+| Timestamps                          | 4         | All inactive.                                                         |
+| Statistics cookies                  | 13        |                                                                       |
+| Line breaks                         | 49        |                                                                       |
+| Targets, radio targets              | 1, 0      |                                                                       |
+| Macros, inline source, inline calls | 0         |                                                                       |
+| Citations, diary sexps, inlinetasks | 0         |                                                                       |
+| Horizontal rules                    | 59        |                                                                       |
+| Comments, fixed-width areas         | 163, 32   |                                                                       |
+| Distinct names, summed per document | 163,446   | 1,137,453 bytes; at most 67 in one document.                          |
+
+The census is not a parser, so it was checked against one. Emacs with Org
+9.7.11 parsed every twentieth file (545 files) with =org-element-parse-buffer=
+and counted each type. The census and org-element agree exactly on headings
+(5,499), sections (5,552), node properties (2,614), property drawers (1,459),
+tables (1,378), table rows (8,004), table cells (20,269) and =src=, =example=
+and =quote= blocks (741, 315, 14). They differ by one keyword in 5,635, by
+0.2% on items, 0.6% on plain lists, 0.9% on links and 1.2% on paragraphs. The
+census misses markup that wraps a line: verbatim is 1.6% low, bold 7% low and
+italic 14% low. It counts 10% more subscripts than org-element. These errors
+move the size estimate by under 1 MB.
+
+* Shared conventions
+
+- *Struct of arrays.* A table is a plain aggregate with one =column= per
+  field. A column is an array of trivially copyable values, so it can be
+  written to a pack and mapped back as it is.
+- *Handles.* A row is named by a 32-bit handle. Each table has its own handle
+  type, and a column can be indexed only by the handle of its table. A
+  heading handle does not compile as an index into the block table. The value
+  =0xFFFFFFFF= is =none=.
+- *Ranges.* A =source_range= is a half-open pair of 32-bit byte offsets into
+  the source of the document, 8 bytes. The largest ORE Studio document is
+  1.3 MB; the limit is 4 GiB for one document.
+- *Runs.* Where a row owns a run of rows in another table, it stores the first
+  row of the run. The run ends at the first row of the next owner, or at the
+  end of the other table for the last owner. Every column of a table then has
+  the same length, so laying documents end to end is an append.
+- *Row sizes.* =row_bytes= sums the value sizes of the columns of a table and
+  fails to compile when a column is left out. Each header pins its row size
+  with a =static_assert=.
+
+* The tables
+
+** elements: 30 bytes, =element_id=
+
+One row per greater element or element, in pre-order. Row 0 is the document.
+The census gives about 951,000 rows.
+
+| Column          | Type           | Bytes | Meaning                                                 |
+|-----------------+----------------+-------+---------------------------------------------------------|
+| =kinds=         | =element_kind= |     1 | The org-element type.                                   |
+| =post_blanks=   | u8             |     1 | Blank lines after the element; 255 means 255 or more.   |
+| =ranges=        | =source_range= |     8 | =:begin= and =:end=.                                    |
+| =contents=      | =source_range= |     8 | =:contents-begin= and =:contents-end=; empty when none. |
+| =parents=       | =element_id=   |     4 | The enclosing element; =none= for the document.         |
+| =subtree_ends=  | =element_id=   |     4 | One past the last descendant.                           |
+| =object_firsts= | =object_id=    |     4 | First object the element holds directly.                |
+
+Parent and child order is pre-order with a subtree end. The first child of
+=e= is the next row. The next sibling of a row is its =subtree_ends=. The
+children of =e= end at =subtree_ends[e]=. An export is one forward scan of the
+table with a stack, and skipping a subtree is one assignment.
+
+The positions have the meaning org-element gives them. A parser test is then
+a diff of these columns against what Emacs prints for the same file.
+
+The kinds are those of org-element, with two splits. Where org-element tells
+variants apart by a property and the variant decides what children the row
+has, each variant is a kind: =table= and =table_el=, =table_row= and
+=table_rule=. A rule row has no cells and a =table.el= table has no rows. The
+170,651 table rows then need no detail table.
+
+** objects: 22 bytes, =object_id=
+
+One row per object, about 853,000 rows. Table cells are 52% of them and
+verbatim spans 26%.
+
+| Column         | Type           | Bytes | Meaning                                                |
+|----------------+----------------+-------+--------------------------------------------------------|
+| =kinds=        | =object_kind=  |     1 | The org-element type.                                  |
+| =post_blanks=  | u8             |     1 | Spaces after the object; 255 means 255 or more.        |
+| =ranges=       | =source_range= |     8 | =:begin= and =:end=.                                   |
+| =contents=     | =source_range= |     8 | The text that may hold other objects; empty when none. |
+| =subtree_ends= | =object_id=    |     4 | One past the last nested object.                       |
+
+Objects are held where org-element holds them. The objects of a paragraph,
+of a verse block or of a parsed keyword value are the run of that element.
+The title of a heading and the tag of an item are secondary strings in
+org-element; here they are the run of the heading and of the item. The cells
+of a table row are the run of the row, and the objects in a cell nest under
+it.
+
+Plain text has no rows. Inside a contents range, the text before the first
+object, between two objects and after the last is plain text. By the shape of the corpus this saves roughly one row per object; the
+census does not count text runs.
+
+An object has no parent column. Its element is found by binary search in
+=object_firsts=, which is sorted, and an enclosing object by scanning back a
+few rows.
+
+The parser emits subscripts and superscripts wherever the syntax matches, as
+org-element does. Whether the export honours them is an export option, and
+the cached parse must not depend on export options.
+
+** headings: 29 bytes, =heading_id=; heading_tags: 4 bytes, =tag_id=
+
+108,544 headings, in document order. Inlinetasks share the table and are told
+apart by the element kind.
+
+| Column            | Type            | Bytes | Meaning                                       |
+|-------------------+-----------------+-------+-----------------------------------------------|
+| =elements=        | =element_id=    |     4 | The heading's element row.                    |
+| =levels=          | u16             |     2 | Number of stars. The corpus goes to 6.        |
+| =todos=           | =name_id=       |     4 | The TODO keyword, or =none=.                  |
+| =todo_types=      | =todo_type=     |     1 | None, todo or done.                           |
+| =priorities=      | u8              |     1 | Org's priority value; 0 for none.             |
+| =comments=        | =comment_state= |     1 | Whether the heading starts with COMMENT.      |
+| =titles=          | =source_range=  |     8 | The title without keyword, priority and tags. |
+| =tag_firsts=      | =tag_id=        |     4 | First row in =heading_tags=.                  |
+| =property_firsts= | =property_id=   |     4 | First row in =properties=.                    |
+
+=heading_tags= has one column, the =name_id= of each tag. With 103 tags in
+the corpus it costs nothing, and it keeps the heading row fixed in size.
+
+"The Status table of every task" is a scan of =titles= for =Status=, then the
+first table under that heading's element.
+
+** keywords: 16 bytes, =keyword_id=
+
+113,873 rows: =elements=, =names= (=name_id=, lower case) and =values=
+(=source_range=). "All entities" starts as a scan of =names= for =type=. A
+babel call is a row with the name =call=; the corpus has none.
+
+** properties: 16 bytes, =property_id=
+
+52,589 rows: =elements=, =names= (=name_id=, upper case) and =values=. The
+rows of a heading are contiguous and start at its =property_firsts=. The rows
+before the first heading's belong to the document; they hold the document
+=:ID:=.
+
+** affiliated: 28 bytes, =affiliated_id=
+
+7,482 rows, sorted by owner: =owners= (=element_id=), =names=, =options= (the
+bracketed part of =#+caption[short]:=), =values= and =object_firsts=. A
+caption is parsed into objects. Those objects sit at the start of the object
+table, before the run of the document element, so the run of an element never
+contains the objects of its caption.
+
+** blocks: 24 bytes, =block_id=
+
+21,144 rows cover every block kind: =elements=, =names= (the language of a
+source block, the backend of an export block, the type of a special block,
+the name of a dynamic block), =parameters= (the rest of the opening line,
+unparsed) and =bodies=.
+
+** lists: 5 bytes, =list_id=; items: 13 bytes, =item_id=
+
+26,809 lists with =elements= and =types= (unordered, ordered, descriptive).
+89,322 items with =elements=, =checkboxes= (none, off, on, partial) and =tags=
+(the term of a descriptive item).
+
+** links: 17 bytes, =link_id=
+
+63,411 rows: =objects= (=object_id=), =types= (=name_id=), =formats= (plain,
+angle, bracket) and =paths= (the target without the scheme). The description
+is the contents of the object row. "All links" is a scan of this table, and
+the =id= links of the knowledge graph are the rows whose type is =id=.
+
+The type is the scheme as written, or =file=, =custom-id=, =coderef=, =fuzzy=
+or =radio= when there is none. Org treats an unregistered scheme such as
+=proj:= as a fuzzy link. That depends on configuration, so the parser records
+the scheme and the codec decides.
+
+** names: 4 bytes, =name_id=
+
+One row per distinct name of a document, with its bytes in a per-document
+byte array. Interned are keyword names, property names, tags, TODO keywords,
+block names and link types, each in canonical case. Two names of one document
+are equal when their handles are. The corpus has 163,446 name rows and 1.1 MB
+of name bytes, 15 names per document.
+
+Values are not interned. The value of =#+type:= is a byte range, and a codec
+compares it as text.
+
+** documents: 60 bytes, =document_id=
+
+A corpus is the same tables with the rows of its documents end to end. The
+=documents= table has one row per document and one column per table, holding
+the row where the document starts, plus the start of its source and of
+its name bytes. The source offset is 64 bits, because a
+corpus can pass 4 GiB; the row offsets are 32 bits.
+
+A handle stays local to its document. A codec takes the slice of each column
+for one document and indexes the slice. A row is named across the corpus by a
+document handle and a local handle.
+
+* Where every construct lives
+
+| Org construct                              | Home                                                           |
+|--------------------------------------------+----------------------------------------------------------------|
+| Document, section                          | =elements= row.                                                |
+| Heading, inlinetask                        | =elements= and =headings=; tags in =heading_tags=.             |
+| TODO keyword, priority, COMMENT            | =headings= columns.                                            |
+| Planning line, clock                       | =elements= row; its timestamps are objects of that row.        |
+| Property drawer                            | =elements= row.                                                |
+| Node property                              | =elements= and =properties=.                                   |
+| Other drawer                               | =elements= row; the name is read from the source.              |
+| Keyword, babel call                        | =elements= and =keywords=.                                     |
+| Affiliated keyword                         | =affiliated=.                                                  |
+| Source, example, export, comment, verse    | =elements= and =blocks=.                                       |
+| Quote, centre, special and dynamic blocks  | =elements= and =blocks=; the children are elements.            |
+| Table, =table.el= table                    | =elements= row; formulas and the =table.el= body are raw text. |
+| Table row, rule row                        | =elements= row.                                                |
+| Table cell                                 | =objects= row.                                                 |
+| Plain list                                 | =elements= and =lists=.                                        |
+| Item                                       | =elements= and =items=; bullet and counter are raw text.       |
+| Paragraph                                  | =elements= row.                                                |
+| Footnote definition                        | =elements= row; the label is raw text.                         |
+| Footnote reference                         | =objects= row; the label is raw text.                          |
+| Link                                       | =objects= and =links=.                                         |
+| Bold, italic, underline, strike-through    | =objects= row with contents.                                   |
+| Code, verbatim                             | =objects= row; the value is the range inside the markers.      |
+| Subscript, superscript                     | =objects= row with contents.                                   |
+| Timestamp                                  | =objects= row; date, time and repeater are raw text.           |
+| Inline source block, inline babel call     | =objects= row; raw text.                                       |
+| Macro, export snippet                      | =objects= row; raw text.                                       |
+| LaTeX fragment, entity                     | =objects= row; raw text.                                       |
+| Statistics cookie, line break              | =objects= row.                                                 |
+| Target, radio target                       | =objects= row.                                                 |
+| Citation, citation reference               | =objects= row; raw text.                                       |
+| LaTeX environment                          | =elements= row; raw text.                                      |
+| Comment, fixed-width area, horizontal rule | =elements= row; raw text.                                      |
+| Diary sexp                                 | =elements= row; raw text.                                      |
+| Plain text                                 | No row: the source between objects.                            |
+
+"Raw text" is a decision, not a gap. The row keeps the kind and the exact
+range, so nothing is lost, and the codec that exports the construct reads its
+fields from those bytes. A detail table exists where a codec filters or joins
+on a field. The constructs held as raw text are the ones the census found
+rare: 4 timestamps, 32 export snippets, 237 entities, 17 footnote labels, 7
+item counters, 1 drawer name, and no macro, citation or inline call.
+
+* Size of the ORE Studio corpus
+
+| Table        | Rows    | Row bytes |    MB |
+|--------------+---------+-----------+-------|
+| elements     | 950,997 |        30 | 28.53 |
+| objects      | 853,184 |        22 | 18.77 |
+| headings     | 108,544 |        29 |  3.15 |
+| keywords     | 113,873 |        16 |  1.82 |
+| properties   | 52,589  |        16 |  0.84 |
+| affiliated   | 7,482   |        28 |  0.21 |
+| blocks       | 21,144  |        24 |  0.51 |
+| lists        | 26,809  |         5 |  0.13 |
+| items        | 89,322  |        13 |  1.16 |
+| links        | 63,411  |        17 |  1.08 |
+| names        | 163,446 |         4 |  0.65 |
+| name bytes   |         |           |  1.14 |
+| documents    | 10,905  |        60 |  0.65 |
+| heading tags | 103     |         4 |  0.00 |
+|--------------+---------+-----------+-------|
+| Total        |         |           | 58.64 |
+
+This is an estimate: census counts times row sizes, with MB as 10^6 bytes.
+The element count is the sum of the element constructs in the census table.
+The source adds 69.6 MB of mapped file, so a fully touched corpus is about
+128 MB. Positions are 16 of the 30 element bytes and 16 of the 22 object
+bytes, 28.9 MB in all.
+
+* Alternatives rejected
+
+- *A pointer tree like the org-element AST.* It cannot be mapped from a pack
+  without rebuilding every node, and it scatters a scan across the heap.
+- *First-child and next-sibling links.* Two links cost 8 bytes a row and suit
+  a tree that is edited in place. Parsed documents are immutable and keyed by
+  content hash, so rows can sit in pre-order, where the first child is the
+  next row and one 4-byte subtree end gives the next sibling.
+- *One node table for elements and objects.* Elements need a parent and an
+  object run; objects need neither. A structural gate would also scan 47 MB
+  where the element table is 29 MB.
+- *A table per kind and no shared tree.* The earlier store proposal kept a
+  section table with the body as one blob. Export needs document order across
+  kinds, and a blob is not data: the Status table inside it is recovered by a
+  regular expression.
+- *Rows for plain text.* org-element stores strings between objects. The
+  gaps between object ranges give the same text for no rows.
+- *Copying text into a string pool or an arena.* The source is already
+  mapped. A range costs 8 bytes whatever the length, and copying titles,
+  values and bodies would store the corpus twice.
+- *Array-of-structs rows.* A scan for one kind would pull 30 bytes a row
+  through the cache where the kind column is 1. The component architecture
+  also sets struct-of-arrays as the convention.
+- *Global handles with a row range per document.* A row would then hold
+  corpus positions, and the parsed form of a file would differ between two
+  worktrees that hold the same content. Every mapped pack would need
+  rewriting on load.
+- *A string pool per corpus or per pack.* Parser threads would share one
+  interner, and the ids in a row would depend on what else is in the pool. A
+  name table per document keeps a parsed document self-contained, for 1.8 MB.
+- *A 64-bit hash of the name in the row.* It needs no table and compares
+  across documents, but a collision would be silent, and the name column
+  would double in width.
+- *A detail index in every element row.* It costs 4 bytes on 951,000 rows to
+  serve the 43% that have a detail row, and it is an untyped index whose
+  meaning depends on the kind. The detail tables are sorted by element, so a
+  walk advances a cursor and a lookup is a binary search.
+- *A variant byte in the element row.* Its meaning would depend on the kind.
+  A variant that changes the children is a kind; any other is a column of a
+  detail table.
+- *A detail table for every object kind.* A timestamp has twenty fields in
+  org-element and the corpus has four timestamps.
+- *A dense cell grid per table.* It would make cell (row, column) one lookup.
+  The Status lookup walks two rows of two cells; a grid waits for a
+  measurement that needs it.
+- *Affiliated keywords as element rows, or as a prefix of the owner's run.*
+  As rows they would break the meaning of =:begin=. As a prefix, every codec
+  that walks a paragraph would have to skip the caption first.
+- *An offsets column with one more entry than rows.* It is the usual CSR form,
+  but each document would add one extra entry to that column alone, and the
+  columns of a table would stop being the same length.
+- *A parent column on objects.* 3.4 MB for a lookup that a binary search
+  answers.
+- *Deriving =:post-blank= from the source, or a 16- or 32-bit count.*
+  Deriving it means repeating org-element's rule for which element owns
+  trailing blank lines in every codec. A wider count costs 1.8 to 5.4 MB for
+  a value that is 0 or 1 almost always. One byte that saturates is exact up
+  to 254 and falls back to the source beyond.
+- *Narrow position deltas.* A 16-bit distance from =:begin= to
+  =:contents-begin= overflows on a long caption. Positions stay absolute
+  until a measurement says the 28.9 MB matters.
+- *Dropping subscripts when =^:nil= is set.* The parse would depend on export
+  options, which are not part of the content hash.
+- *Resolved link targets and UUIDs as 128-bit values.* They belong to the
+  graph, which is built from the link table.
+- *64-bit offsets inside a document.* They would double the 28.9 MB of positions to hold
+  documents no project has.
+
+* What the earlier proposal contributed
+
+The Document store model proposed a server-side store. This design keeps its
+32-bit handles, its interned names, its struct-of-arrays tables and its rule
+that body text stays in a mapped arena, which here is the source file itself.
+It answers one of its open questions: a section body is a sequence of
+elements, so a Status table is data. The node table, the UUID map, the work
+table, typed edges and snapshots are not part of the parsed form; they are
+derived from these tables by other components.
+
+* Least certain
+
+1. *Names per document.* Comparing a name across documents goes through its
+   bytes or through a corpus-wide index built at load. If codecs compare
+   names across documents in inner loops, a hash column on =names= is the
+   cheap repair.
+2. *No detail index on the element row.* It is right for a forward walk. A
+   codec that jumps between elements and their details at random pays a
+   binary search each time.
+3. *Raw text for rare objects.* It is sized to ORE Studio. A corpus with many
+   timestamps or footnotes will want a detail table for them, which is an
+   added table and no change to the existing ones.
+
+The tables are vectors today. The mapped form of a table, with spans in place
+of vectors, arrives with the pack format; the row layout does not change.
+
+* See also
+
+- [[id:44C128E0-BCF3-4574-B171-BF5E72325085][compass.org]] --- the component
+  overview this design produces.
+- [[id:2E063662-CB56-4AA6-9447-811838A3DEF5][Document store model]] --- the
+  earlier proposal.
+- [[id:379EC6BB-620D-4A5D-8A17-33B1D7353586][Compass document model]] --- the
+  documents as ORE Studio writes them.
