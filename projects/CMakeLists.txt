@@ -24,4 +24,5 @@ add_compile_options(
 # modeling are not C++ components and are never added here.
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/compass.platform)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/compass.org)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/compass.ingest)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/compass.bench)
