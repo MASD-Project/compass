@@ -37,11 +37,15 @@ namespace compass::bench::ops {
  * from a store::io::id_resolver, its object is mapped from @p objects and
  * checked, and a file whose object is missing or rejected is parsed and
  * its object written. Sources and objects stay mapped while the codecs
- * run. The worktree index of the checkout is rewritten, so the checkout's
- * git directory is written to.
+ * run. The worktree index of the checkout is rewritten.
  *
- * What the codecs emit is kept in the result. No output file is written,
- * to the checkout or anywhere else.
+ * Each repetition starts from the dependency record of the checkout, so a
+ * unit whose recorded inputs are unchanged is not called, and the record
+ * the last repetition made replaces the file when it differs.
+ *
+ * What the codecs emit is kept in the result. No output file is written
+ * to the checkout; the worktree index and the dependency record under its
+ * git directory are the only files written there.
  *
  * @throws std::system_error or std::filesystem::filesystem_error when the
  * meta directory or a contract page cannot be read.

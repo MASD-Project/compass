@@ -19,10 +19,12 @@
  */
 #include "compass.bench/ops/codecs_stage.hpp"
 
+#include <cstdint>
 #include <filesystem>
 #include <set>
 #include <sstream>
 #include <string>
+#include <vector>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 #include "compass.bench/io/report.hpp"
@@ -176,4 +178,44 @@ TEST_CASE("a setting for a codec nobody registered fails the stage",
     io::write_codecs_report(os, r, {}, repo.objects());
     CHECK_THAT(os.str(), ContainsSubstring("registry problem: ") &&
         ContainsSubstring("FAILED: the codec registry has 1 problem(s)."));
+}
+
+TEST_CASE("a second run of the codecs stage with nothing changed calls no "
+    "unit and leaves the dependency record alone", "[ops][codecs_stage]") {
+    scoped_git_repo repo;
+    fill(repo);
+    const auto first = run(repo);
+    CHECK(first.last.ran == std::vector<std::uint64_t>{1, 2});
+    CHECK(first.record_written);
+    CHECK(first.record_problem.empty());
+
+    const auto second = run(repo);
+
+    CHECK(second.record_units == 3);
+    CHECK(second.last.ran == std::vector<std::uint64_t>{0, 0});
+    CHECK(second.last.skipped == std::vector<std::uint64_t>{1, 2});
+    CHECK_FALSE(second.record_written);
+    CHECK(second.last.diagnostics[1].size() == 1);
+    CHECK(std::string(second.last.files[0].contents[{0}]) ==
+        std::string(first.last.files[0].contents[{0}]));
+    std::ostringstream os;
+    io::write_codecs_report(os, second, {}, repo.objects());
+    CHECK_THAT(os.str(), ContainsSubstring("3 units") &&
+        ContainsSubstring("unchanged"));
+}
+
+TEST_CASE("editing one task calls its unit and the corpus unit only",
+    "[ops][codecs_stage]") {
+    scoped_git_repo repo;
+    fill(repo);
+    (void)run(repo);
+    repo.write("doc/task_b.org",
+        "#+title: Task: b\n#+type: task\n* Goal\n* Result\n");
+
+    const auto r = run(repo);
+
+    CHECK(r.last.ran == std::vector<std::uint64_t>{1, 1});
+    CHECK(r.last.skipped == std::vector<std::uint64_t>{0, 1});
+    CHECK(r.last.diagnostics[1].size() == 0);
+    CHECK(r.record_written);
 }

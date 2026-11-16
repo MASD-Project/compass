@@ -198,8 +198,10 @@ void write_warm_report(std::ostream& os, const types::warm_result& stage,
 
 /**
  * @brief Writes the report of the codecs stage: the corpus and how it
- * loaded, one row per codec with the documents it was given, its outputs
- * and their bytes, its diagnostics and its time summed over threads, then
+ * loaded, the dependency record and whether it was rewritten, one row per
+ * codec with the documents it was given, the units it called and skipped,
+ * its outputs and their bytes, its diagnostics and its time summed over
+ * threads, then
  * each output file with its size and, per codec with diagnostics, the
  * documents with any, the counts by rule, the most frequent messages and
  * the first findings.
