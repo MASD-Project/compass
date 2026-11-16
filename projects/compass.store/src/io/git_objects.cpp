@@ -59,6 +59,14 @@ struct located {
     std::uint64_t offset;
 };
 
+/**
+ * @brief One delta of a chain: where it is and its header.
+ */
+struct delta_link {
+    located at;
+    ops::pack_entry entry;
+};
+
 using shared_object = std::shared_ptr<const types::git_object>;
 
 std::runtime_error damaged(const types::object_id& id, const pack& p,
@@ -211,11 +219,7 @@ struct git_objects::state {
      */
     [[nodiscard]] types::git_object read_packed(const types::object_id& id,
         located at) const {
-        struct link {
-            located at;
-            ops::pack_entry entry;
-        };
-        std::vector<link> chain;
+        std::vector<delta_link> chain;
         shared_object base;
         for (auto here = at;;) {
             if (auto hit = cached(here)) {
@@ -264,9 +268,8 @@ struct git_objects::state {
         return {base->type, apply(id, chain.front(), *base)};
     }
 
-    template <typename Link>
     [[nodiscard]] std::string apply(const types::object_id& id,
-        const Link& l, const types::git_object& base) const {
+        const delta_link& l, const types::git_object& base) const {
         const auto delta = inflate(id, l.at, l.entry);
         auto bytes = ops::apply_delta(base.bytes, delta);
         if (!bytes)
