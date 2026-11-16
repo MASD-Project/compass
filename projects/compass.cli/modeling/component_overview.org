@@ -15,12 +15,17 @@ in the application layer of the
 
 * Summary
 
-=compass.cli= is the one host of the pipeline. It lists the org files of a
-checkout, resolves their IDs from git's index or the worktree index, maps
-each parsed object from the store or parses the file, builds the type
-registry from the contract pages, and runs the enabled codecs from the
-dependency record and the result cache. Then each command does one thing
-with what the codecs produced:
+=compass.cli= is the one host of the pipeline. It lists the files of a
+checkout, resolves the IDs of its org files from git's index or the
+worktree index, maps each parsed object from the store or parses the file,
+builds the type registry from the contract pages, and runs the enabled
+codecs from the dependency record and the result cache: those
+=compass.codec= ships and the =codegen= codec of =compass.codegen=, which
+=app::codecs= lists. The codecs read the other files of the checkout
+through =app::checkout_files_of=, whose content IDs come from the same
+resolver. =generate= and =diff= then format the files of each codec that
+names formatters, through the result cache. Then each command does one
+thing with what the codecs produced:
 
 | Command           | Does                                                                     | Writes                                            |
 |-------------------+--------------------------------------------------------------------------+---------------------------------------------------|
@@ -35,7 +40,8 @@ exposes it as one function per step, so a caller can time each:
 
 | Step                                       | Does                                                                          |
 |--------------------------------------------+-------------------------------------------------------------------------------|
-| =list=                                     | The org files of the checkout, without =.compass.org=.                        |
+| =list=                                     | Every file of the checkout, and its org files but =.compass.org=.             |
+| =checkout_files_of=                        | The files as the codecs read them: IDs from the resolver, bytes from disk.   |
 | =build_type_registry=                      | The type registry of the contract pages.                                      |
 | =open_files=, =resolve=                    | One row per file, and its ID from git's index, the worktree index or hashing. |
 | =load=                                     | Each object mapped from the store, or the file parsed into memory.            |
@@ -67,6 +73,7 @@ the standard streams.
 | =--out <dir>=                   | =#+output:=, else =build/output/compass= | The output root, relative to the checkout.      |
 | =-j <n>=                        | one per core                             | Threads.                                        |
 | =--set <codec>.<key>=<value>=   | the file, else the codecs' own           | A codec setting; repeatable, the last one wins. |
+| =--timings=                     | no                                       | =generate=, =diff=, =check=: print each step's time and what each codec ran or reused. |
 | =--dry-run=, =--cap=, =--grace= | no, 0 bytes, 3600 s                      | =gc= only.                                      |
 | =--help=, =-h=, =--version=     |                                          | Print and exit 0, whatever else is there.       |
 
@@ -97,10 +104,11 @@ the standard streams.
   named twice, a file with no =* Codecs= table, and a codec or option the
   catalogue lacks are errors. Each names the file, the line and the fix,
   and the command exits 2.
-- The checkout: every tracked org file and every untracked one no ignore
+- The checkout: every tracked file and every untracked one no ignore
   rule covers, as =git ls-files --cached --others --exclude-standard= lists
-  them, except =.compass.org=. A tracked file deleted from the worktree is
-  not in the corpus. The configuration file is not a document, so an edit
+  them. Its org files but =.compass.org= are the corpus; a tracked org
+  file deleted from the worktree is not in it. Every file is visible to
+  the codecs' file reads, listings and existence tests. The configuration file is not a document, so an edit
   to it re-runs exactly the codecs whose configuration changed, through
   the configuration hash in the dependency and cache keys.
 - The store and the result cache under the git common directory, and the
@@ -117,7 +125,11 @@ the standard streams.
   prints one line per path and codec setting, as
   =<key> = <value> (<source>)=, the source being =default=,
   =.compass.org:<line>= or =command line=.
-- Standard error: the summary of =diff=, every error of the configuration
+- Standard error: the summary of =diff=; with =--timings=, one line per
+  step (=types=, =list=, =resolve=, =load=, =record=, =codecs=, =format=,
+  =persist=, =write= or =plan=) with its wall time, and one line per codec
+  with the units it ran, took from the record and took from the cache,
+  and what formatting its files did; every error of the configuration
   file, every file that did not load,
   every problem of the codec registry or the output root, and the message
   of a command that throws, as =compass: <what>=.
@@ -156,8 +168,9 @@ range, 1-based, the column counted in bytes. The rule is written as
 
 * Dependencies
 
-- =compass.codec= for the codecs, the runner, the records, the sink and the
-  diff.
+- =compass.codec= for the codecs, the runner, the records, the format
+  cache, the sink and the diff.
+- =compass.codegen= for the =codegen= codec.
 - =compass.ingest= for the parser and the type registry builder.
 - =compass.store= for IDs, the store and collection.
 - =compass.org= and =compass.platform= for the tables and mapped files,

@@ -33,17 +33,22 @@ namespace compass::cli::app {
 
 namespace {
 
-int run_generate(const types::options& o, std::ostream& out,
+int run_generate(const types::options& o, bool timings, std::ostream& out,
     std::ostream& err) {
     const auto r = generate(o);
     io::write_generate(out, err, r);
+    if (timings)
+        io::write_timings(err, r.run);
     return r.run.failed() || !r.sink.problems.empty() ? exit_failure
                                                      : exit_success;
 }
 
-int run_diff(const types::options& o, std::ostream& out, std::ostream& err) {
+int run_diff(const types::options& o, bool timings, std::ostream& out,
+    std::ostream& err) {
     const auto r = diff(o);
     io::write_diff(out, err, r);
+    if (timings)
+        io::write_timings(err, r.run);
     if (r.run.failed() || !r.planned.problems.empty())
         return exit_failure;
     const auto& p = r.planned;
@@ -51,10 +56,12 @@ int run_diff(const types::options& o, std::ostream& out, std::ostream& err) {
                                                    : exit_success;
 }
 
-int run_check(const types::options& o, std::ostream& out,
+int run_check(const types::options& o, bool timings, std::ostream& out,
     std::ostream& err) {
     const auto r = check(o);
     io::write_check(out, err, r);
+    if (timings)
+        io::write_timings(err, r.run);
     if (r.run.failed())
         return exit_failure;
     return r.findings.empty() ? exit_success : exit_findings;
@@ -82,9 +89,10 @@ int run_command(const types::invocation& i, std::ostream& out,
         .settings = config::settings_of(c),
         .collection = i.collection};
     switch (o.which) {
-    case types::command::generate: return run_generate(o, out, err);
-    case types::command::diff: return run_diff(o, out, err);
-    case types::command::check: return run_check(o, out, err);
+    case types::command::generate:
+        return run_generate(o, i.timings, out, err);
+    case types::command::diff: return run_diff(o, i.timings, out, err);
+    case types::command::check: return run_check(o, i.timings, out, err);
     case types::command::gc:
         io::write_gc(out, gc(o));
         return exit_success;

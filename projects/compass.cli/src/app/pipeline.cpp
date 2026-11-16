@@ -28,6 +28,7 @@
 #include <vector>
 #include "compass.cli/app/steps.hpp"
 #include "compass.cli/app/codecs.hpp"
+#include "compass.codec/io/format_cache.hpp"
 #include "compass.codec/ops/registry.hpp"
 #include "compass.store/io/location.hpp"
 
@@ -44,16 +45,27 @@ double since(std::chrono::steady_clock::time_point start) {
 
 /**
  * @brief Everything a run of the pipeline read and computed, before
- * anything is written. The files and the corpus point into paths, so the
- * pipeline is never moved once evaluated.
+ * anything is written. The files, the checkout's files and the corpus
+ * point into listing, so the pipeline is never moved once evaluated.
  */
 struct pipeline {
-    std::vector<std::string> paths;
+    listing listed;
     corpus_files files;
+    ct::checkout_files checkout;
     ct::corpus corpus;
     ct::registry codecs;
     ct::run_result run;
     types::run_summary summary;
+
+    /**
+     * @brief Runs @p step and records its wall time as @p name.
+     */
+    template <typename Step>
+    void timed(std::string_view name, Step&& step) {
+        const auto start = std::chrono::steady_clock::now();
+        step();
+        summary.steps.emplace_back(name, since(start));
+    }
 };
 
 /**
@@ -64,46 +76,73 @@ struct pipeline {
 void evaluate(pipeline& p, const types::options& o) {
     const auto start = std::chrono::steady_clock::now();
     auto& s = p.summary;
-    const auto type_registry = build_type_registry(o.meta);
+    org::types::type_registry type_registry;
+    p.timed("types", [&] { type_registry = build_type_registry(o.meta); });
 
-    p.paths = list(o.checkout);
+    p.timed("list", [&] { list(p.listed, o.checkout); });
+    const auto& documents = p.listed.documents;
     p.files = open_files(o.checkout,
         store::io::objects_dir(store::io::git_common_dir(o.checkout)),
-        {p.paths.begin(), p.paths.end()});
-    s.files = p.paths.size();
-    resolve(p.files, o.threads);
-    load(p.files, o.threads);
+        documents);
+    s.files = documents.size();
+    p.timed("resolve", [&] { resolve(p.files, o.threads); });
+    p.timed("load", [&] { load(p.files, o.threads); });
 
-    for (std::size_t row = 0; row < p.paths.size(); ++row) {
+    for (std::size_t row = 0; row < documents.size(); ++row) {
         if (!p.files.errors[row].empty())
-            s.errors.push_back(p.paths[row] + ": " + p.files.errors[row]);
+            s.errors.push_back(std::string(documents[row]) + ": " +
+                p.files.errors[row]);
         else
             ++(p.files.mapped[row] ? s.loaded : s.parsed);
     }
+    p.checkout = checkout_files_of(p.files, p.listed);
     p.corpus = corpus_of(p.files, type_registry);
+    p.corpus.files = &p.checkout;
     s.documents = p.corpus.size();
 
     p.codecs = codec::ops::make_registry(codecs(),
         type_registry, o.settings);
     s.problems = p.codecs.problems;
-    const auto previous = read_dependency_record(o.checkout);
-    p.run = run_codecs(p.codecs, p.corpus, type_registry, o.threads,
-        previous.record, o.checkout);
+    codec::io::loaded_record previous;
+    p.timed("record", [&] { previous = read_dependency_record(o.checkout); });
+    p.timed("codecs", [&] {
+        p.run = run_codecs(p.codecs, p.corpus, type_registry, o.threads,
+            previous.record, o.checkout);
+    });
     for (std::size_t c = 0; c < p.codecs.size(); ++c)
         s.codecs.emplace_back(p.codecs.codecs[c].name);
     s.ran = p.run.ran;
+    s.skipped = p.run.skipped;
+    s.cached = p.run.cached;
+    s.formats.resize(p.codecs.size());
     s.ms = since(start);
+}
+
+/**
+ * @brief Formats the files of the codecs of @p p that name formatters,
+ * through the result cache of the repository of @p o's checkout. Nothing
+ * is formatted when the run failed.
+ */
+void format(pipeline& p, const types::options& o) {
+    if (p.summary.failed())
+        return;
+    p.timed("format", [&] {
+        p.summary.formats = codec::io::format_outputs(p.codecs, p.run,
+            o.checkout, store::io::git_common_dir(o.checkout), o.threads);
+    });
 }
 
 /**
  * @brief Writes what @p p computed that later runs reuse: the objects it
  * parsed, the worktree index, the result cache and the dependency record.
  */
-void persist(const pipeline& p, unsigned threads) {
-    store_objects(p.files);
-    write_worktree_index(p.files);
-    store_results(p.files.checkout, p.run, threads);
-    write_dependency_record(p.files.checkout, p.run);
+void persist(pipeline& p, unsigned threads) {
+    p.timed("persist", [&] {
+        store_objects(p.files);
+        write_worktree_index(p.files);
+        store_results(p.files.checkout, p.run, threads);
+        write_dependency_record(p.files.checkout, p.run);
+    });
 }
 
 /**
@@ -128,12 +167,15 @@ types::generate_result generate(const types::options& o) {
     r.root = o.output_root;
     pipeline p;
     evaluate(p, o);
+    format(p, o);
     persist(p, o.threads);
-    r.run = p.summary;
-    if (!r.run.failed()) {
-        r.sink = write_outputs(o.checkout, o.output_root, p.codecs, p.run)
-            .sink;
+    if (!p.summary.failed()) {
+        p.timed("write", [&] {
+            r.sink = write_outputs(o.checkout, o.output_root, p.codecs,
+                p.run).sink;
+        });
     }
+    r.run = p.summary;
     r.ms = since(start);
     return r;
 }
@@ -144,13 +186,16 @@ types::diff_result diff(const types::options& o) {
     r.root = o.output_root;
     pipeline p;
     evaluate(p, o);
-    r.run = p.summary;
-    if (!r.run.failed()) {
-        planned_outputs planned;
-        plan_outputs(planned, o.checkout, o.output_root, p.codecs, p.run);
-        r.planned = codec::io::summarise(planned.plan);
-        r.diff = codec::io::diff_outputs(planned.plan);
+    format(p, o);
+    if (!p.summary.failed()) {
+        p.timed("plan", [&] {
+            planned_outputs planned;
+            plan_outputs(planned, o.checkout, o.output_root, p.codecs, p.run);
+            r.planned = codec::io::summarise(planned.plan);
+            r.diff = codec::io::diff_outputs(planned.plan);
+        });
     }
+    r.run = p.summary;
     r.ms = since(start);
     return r;
 }

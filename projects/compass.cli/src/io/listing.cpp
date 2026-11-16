@@ -19,6 +19,7 @@
  */
 #include "compass.cli/io/listing.hpp"
 
+#include <algorithm>
 #include <stdexcept>
 #include <string_view>
 #include <sys/stat.h>
@@ -50,8 +51,7 @@ bool is_plain_file(const std::filesystem::path& path) {
 
 }
 
-std::vector<std::string> list_org_files(
-    const std::filesystem::path& checkout) {
+std::vector<std::string> list_files(const std::filesystem::path& checkout) {
     const auto raw = run_git(checkout,
         {"ls-files", "-z", "--cached", "--others", "--exclude-standard"});
     std::vector<std::string> out;
@@ -61,9 +61,18 @@ std::vector<std::string> list_org_files(
         const auto path = rest.substr(0, end);
         rest = end == std::string_view::npos ? std::string_view{}
                                              : rest.substr(end + 1);
-        // git lists a path with conflicts once per stage, one after another.
-        if (!out.empty() && out.back() == path)
-            continue;
+        out.emplace_back(path);
+    }
+    // git lists a path with conflicts once per stage.
+    std::ranges::sort(out);
+    out.erase(std::unique(out.begin(), out.end()), out.end());
+    return out;
+}
+
+std::vector<std::string_view> org_files(const std::filesystem::path& checkout,
+    const std::vector<std::string>& files) {
+    std::vector<std::string_view> out;
+    for (const auto& path : files) {
         if (path.ends_with(".org") && is_plain_file(checkout / path))
             out.emplace_back(path);
     }

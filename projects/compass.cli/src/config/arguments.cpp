@@ -54,6 +54,8 @@ constexpr std::string_view help =
     "  -j <n>                      threads (default: one per core)\n"
     "  --set <codec>.<key>=<value> set a codec option over .compass.org; "
     "repeatable\n"
+    "  --timings                   generate, diff, check: print each step's "
+    "time and what each codec ran or reused\n"
     "  --dry-run                   gc: remove nothing, report what would go\n"
     "  --cap <bytes>               gc: the size the store comes down to "
     "(default: 0)\n"
@@ -139,6 +141,10 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
         if (arg == "--dry-run") {
             o.collection.dry_run = true;
             gc_flag = arg;
+            continue;
+        }
+        if (arg == "--timings") {
+            o.timings = true;
             continue;
         }
         if (!arg.starts_with("-")) {

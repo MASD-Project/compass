@@ -22,8 +22,11 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
+#include "compass.codec/io/format_cache.hpp"
 #include "compass.codec/io/output_sink.hpp"
 #include "compass.codec/types/diagnostic_table.hpp"
 #include "compass.store/types/collection.hpp"
@@ -39,7 +42,11 @@ namespace compass::cli::types {
  * or parsed, and problems one line per defect of the codec registry, such
  * as a --set nobody declared; either makes the command fail. codecs
  * names each codec of the run and ran counts the units of that codec that
- * were called rather than reused. ms is the wall time from listing the
+ * were called rather than reused, skipped those the worktree's record
+ * stood in for and cached those the result cache stood in for. formats
+ * says, per codec, what formatting its files did, for a codec whose files
+ * were formatted. steps names each step of the command with its wall
+ * time, in the order they ran. ms is the wall time from listing the
  * checkout to the end of the codec run.
  */
 struct run_summary {
@@ -51,6 +58,10 @@ struct run_summary {
     std::vector<std::string> problems;
     std::vector<std::string> codecs;
     std::vector<std::uint64_t> ran;
+    std::vector<std::uint64_t> skipped;
+    std::vector<std::uint64_t> cached;
+    std::vector<std::optional<codec::io::format_stats>> formats;
+    std::vector<std::pair<std::string, double>> steps;
     double ms = 0;
 
     [[nodiscard]] bool failed() const noexcept {
