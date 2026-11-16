@@ -20,7 +20,16 @@ set(lib_target_name ${name}.lib)
 set(tests_target_name ${name}.tests)
 
 add_executable(${tests_target_name}
-    ops_load_component_tests.cpp)
+    io_json_tests.cpp
+    ops_builder_tests.cpp
+    ops_load_asset_class_catalogue_tests.cpp
+    ops_load_component_tests.cpp
+    ops_load_entity_tests.cpp
+    ops_load_field_group_tests.cpp
+    ops_load_junction_tests.cpp
+    ops_load_operation_tests.cpp
+    ops_load_outcome_catalogue_tests.cpp
+    ops_load_service_registry_tests.cpp)
 
 target_link_libraries(${tests_target_name}
     PRIVATE

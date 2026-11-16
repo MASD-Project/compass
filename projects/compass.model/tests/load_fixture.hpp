@@ -46,6 +46,35 @@ public:
     }
 
     /**
+     * @brief Adds the documents of projects/modeling a model reads: the
+     * simple-lookup profile and a custom type registry holding
+     * cron_expression, each with the rows of ORE Studio's own that the
+     * tests touch, so a model loads as it does there.
+     */
+    void add_modeling_documents() {
+        add("projects/modeling/variability_simple_lookup.org",
+            "#+title: variability_simple_lookup\n\n* Assignments\n\n"
+            "| Feature | Value |\n|------+-------|\n"
+            "| [[id:A7223BE6-4D0F-47CE-8E31-9D896D970CB3][has_tenant_id]] "
+            "| true |\n"
+            "| [[id:4F426ED0-E75D-47CC-B8E8-1775185D08D0][system_scope]] "
+            "| false |\n"
+            "| [[id:743EBB4F-46EE-48C2-AF8C-205FF7958AC2]"
+            "[nullable_tenant_id]] | false |\n"
+            "| [[id:9307F2AC-EFBE-4D4A-873A-C609CD94C363]"
+            "[has_uuid_primary_key]] | false |\n"
+            "| [[id:6EDA740C-D053-4E1B-98EB-E1AD87B6A639]"
+            "[has_change_reason_cache]] | true |\n"
+            "| [[id:26409919-470E-4820-B8C1-AC816181F894][has_pagination]] "
+            "| true |\n");
+        add("projects/modeling/cpp_custom_types.org",
+            "#+title: cpp_custom_types\n\n* The registry\n\n"
+            "| Type | Header |\n|------+--------|\n"
+            "| =cron_expression= "
+            "| =\"ores.scheduler.api/domain/cron_expression.hpp\"= |\n");
+    }
+
+    /**
      * @brief The canonical JSON of the model at @p path, loaded with every
      * other document of the checkout visible to it.
      */
