@@ -23,6 +23,7 @@
 #include <string_view>
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
+#include "compass.codegen/ops/entity_registry.hpp"
 #include "compass.codegen/ops/values.hpp"
 #include "compass.model/io/json.hpp"
 #include "compass.model/ops/builder.hpp"
@@ -382,4 +383,52 @@ TEST_CASE("a family's service view joins its parts to the central row",
     CHECK(f.json(get, "permission_code") == "\"refdata::conventions:read\"");
     CHECK(f.json(serviced, "entity_singular_words") ==
         "\"commodity future convention\"");
+}
+
+/*
+ * A trading directory whose batch holds a field group and an entity; the
+ * group names another group, which names the first back. The expected
+ * headers are what ores.codegen's _batch_shape_includes returned for the
+ * same directory.
+ */
+TEST_CASE("a trade type catalogue includes the shape of every batch "
+    "element and of the field groups they name",
+    "[codegen][model_contexts][trade_type_catalogue]") {
+    context_fixture f(R"j({"trade_type_catalogue": {"component": "trading",
+        "batch": [{"cpp_type": "bond_instrument_data"},
+            {"cpp_type": "rate_instrument"}]}})j");
+    const auto instrument_data = model::io::read_json(f.b, R"j({"fields": [
+        {"name": "option", "cpp_type": "std::optional<bond_option_data>"},
+        {"name": "legs", "cpp_type": "std::vector<bond_leg>"}]})j");
+    const auto option_data = model::io::read_json(f.b, R"j({"fields": [
+        {"name": "back", "cpp_type": "bond_instrument_data"},
+        {"name": "expiry", "cpp_type": "std::optional<std::string>"}]})j");
+    codegen::types::entity_registry registry;
+    auto& directory = registry.directories["projects/ores.trading/modeling"];
+    for (const auto* text : {
+             "#+type: ores.codegen.field_group\n"
+             "#+entity_singular: bond_instrument_data\n",
+             "#+type: ores.codegen.field_group\n"
+             "#+entity_singular: bond_option_data\n",
+             "#+type: ores.codegen.entity\n"
+             "#+entity_singular: rate_instrument\n",
+             "#+type: ores.codegen.entity\n#+entity_singular: bond_leg\n"})
+        codegen::ops::add_directory_model(directory, text);
+    const codegen::ops::field_group_models groups{
+        {"ores.trading.bond_instrument_data", instrument_data},
+        {"ores.trading.bond_option_data", option_data}};
+    f.context = codegen::ops::trade_type_catalogue_context(f.b, f.library,
+        f.model, "ores.trading.trade_type_catalogue", registry,
+        {"projects/ores.trading/modeling/"
+         "ores.trading.trade_type_catalogue.org", false, false}, groups);
+    const auto expected = f.canon(R"([
+        "ores.trading.api/domain/bond_instrument_data.hpp",
+        "ores.trading.api/domain/rate_instrument_codec.hpp",
+        "ores.trading.api/domain/bond_option_data.hpp",
+        "ores.trading.api/domain/bond_leg_codec.hpp"])");
+    CHECK(f.json(f.at("trade_type_catalogue"), "batch_shape_includes") ==
+        expected);
+    CHECK(f.json(codegen::ops::values::member(f.tables,
+        f.at("ores.trading.trade_type_catalogue"), "trade_type_catalogue"),
+        "batch_shape_includes") == expected);
 }

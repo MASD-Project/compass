@@ -74,14 +74,12 @@ captures, per output, the text it writes and the context it rendered from.
 | Outputs at ORE Studio =5ce3cd7e6c=    | Identical | Of    |
 |---------------------------------------+-----------+-------|
 | Rendered from the oracle's contexts   | 26212     | 26212 |
-| Rendered from contexts compass builds | 676       | 26212 |
+| Rendered from contexts compass builds | 26212     | 26212 |
 
-The second row counts the outputs of component and catalogue models; the
-4 that differ are the convention family registry, whose context reads the
-entity models of the modelling tree. Every other output is missing: its
-context needs the values ores.codegen derives for entities, junctions,
-operations, field groups and families, which are not ported. The commands
-are in the task that built the component.
+The second row was measured with =build/scripts/codegen_render_diff.py
+--every-path= over the outputs of =compass-bench render=, in the task that
+loaded the family and trade type models; the commands of the first are in
+the task that built the component.
 
 Rendering all 26212 outputs from the oracle's contexts takes about 0.6 s
 after 3 ms of compiling the 176 templates; ores.codegen's =render_template=

@@ -57,7 +57,8 @@ add_library(${lib_target_name}
     ops/output.cpp
     ops/physical_space.cpp
     ops/render.cpp
-    ops/template_context.cpp)
+    ops/template_context.cpp
+    ops/trade_type_catalogue_context.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
 

@@ -116,6 +116,27 @@ compass::model::types::value_id field_group_context(
     compass::model::types::value_id model, std::string_view model_key,
     const types::entity_registry& registry, const types::entity_site& site);
 
+/**
+ * @brief The field group models of a modelling directory, by dotted name
+ * (ores.<component>.<group>): each the field_group object of the
+ * ores.codegen.field_group model, as loaded.
+ */
+using field_group_models = std::map<std::string,
+    compass::model::types::value_id, std::less<>>;
+
+/**
+ * @brief The trade type catalogue block of generate_from_model (core.py
+ * 4048-4056): the catalogue at the top under its own name, with
+ * batch_shape_includes, the headers declaring the shape of every element
+ * type of the batch and, through the field groups of @p groups the
+ * elements name, of their members.
+ */
+compass::model::types::value_id trade_type_catalogue_context(
+    compass::model::ops::builder& b, compass::model::types::value_id library,
+    compass::model::types::value_id model, std::string_view model_key,
+    const types::entity_registry& registry, const types::entity_site& site,
+    const field_group_models& groups);
+
 }
 
 #endif
