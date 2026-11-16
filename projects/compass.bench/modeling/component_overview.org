@@ -1,0 +1,81 @@
+:PROPERTIES:
+:ID: 1F522775-710C-4EFE-8317-8354D902816D
+:END:
+#+title: compass.bench
+#+description: The frozen benchmark harness. Today it times reading every tracked file of a git checkout.
+#+type: component
+#+level: cross
+#+filetags: :bench:performance:component:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+
+This page is the component overview for =compass.bench=, a simple component
+in the tooling layer of the
+[[id:8A9A460F-8024-4890-B091-C0D02FD84218][System Model]].
+
+* Summary
+
+=compass.bench= is the harness every compass-ng measurement runs through. It
+installs as =compass-bench=. Today it has one stage, =read=: it lists the
+tracked files of a checkout with one =git ls-files -z= call, maps each regular
+file with =compass::platform::filesystem::mapped_file= and folds every byte into
+a checksum, on N threads. Later stages (include scan, tree-sitter) join the
+same executable and reuse the file table and the range split.
+
+* Inputs
+
+- =compass-bench read <checkout> [-j N] [--repeat R]=. =-j= defaults to all
+  cores and =--repeat= to 5.
+- A git checkout. Tracked entries that are not regular files (submodules,
+  symlinks) are skipped. A tracked file that is missing on disk is kept and
+  counted as an error.
+
+* Outputs
+
+- A stage table: files, bytes, errors, median, min and max wall milliseconds
+  over the repetitions, and MB/s (10^6 bytes) at the median.
+- The checksum, the thread count, and the =git ls-files= and =lstat= setup
+  times on their own lines.
+- The top 15 extensions by bytes, with file counts.
+- A =FAILED= line and exit status 1 when the stage read no files or hit any
+  error. A usage error exits with status 2.
+
+* Data shape
+
+| Type           | Holds                                                                         |
+|----------------+-------------------------------------------------------------------------------|
+| =file_table=   | Columns of path, size and extension id; extensions interned once.             |
+| =file_range=   | A contiguous run of file ids for one thread, balanced by bytes.               |
+| =stage_result= | Files, bytes, errors, checksum, first error and one wall time per repetition. |
+
+* Entry points
+
+| Path                                         | Role                                         |
+|----------------------------------------------+----------------------------------------------|
+| =include/compass.bench/types/=               | =file_table=, =file_range=, =stage_result=.  |
+| =include/compass.bench/ops/listing.hpp=      | Git listing, parsing and table building.     |
+| =include/compass.bench/ops/partition.hpp=    | Byte-balanced contiguous ranges.             |
+| =include/compass.bench/ops/read_stage.hpp=   | The =read= stage.                            |
+| =include/compass.bench/io/report.hpp=        | Plain-text report and the failure predicate. |
+| =src/main.cpp=                               | Argument parsing and wiring.                 |
+| =tests/=                                     | Catch2 tests.                                |
+
+| Target                | Kind                                      |
+|-----------------------+-------------------------------------------|
+| =compass.bench.lib=   | Library.                                  |
+| =compass.bench.exe=   | Executable, output name =compass-bench=.  |
+| =compass.bench.tests= | Catch2 executable, registered with CTest. |
+
+* Dependencies
+
+- =compass.platform= for =mapped_file=.
+- The C++23 standard library, POSIX (=posix_spawnp=, =lstat=) and =git= on
+  the =PATH=.
+- Catch2, for the tests only.
+
+* See also
+
+- [[id:8A0E6F32-C4BC-4667-88E8-7F80CA25437C][Component architecture]] --- layout,
+  naming and facets.
+- [[id:68ED0D5D-9A25-4886-B869-A30FF4A679A5][Measure the baseline]] --- the story
+  that commissioned the harness.

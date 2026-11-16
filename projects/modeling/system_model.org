@@ -76,7 +76,7 @@ compass a unit of work *is* a document with a lifecycle state; it lives in
 * Tooling layer
 | Component       | Role                                                                             |
 |-----------------+----------------------------------------------------------------------------------|
-| =compass.bench= | Load generator: simulates N concurrent LLM and human clients against the server. |
+| =compass.bench= | Benchmark harness: wall time and bytes per stage; later, server load generation. |
 
 * Open questions
 - Is =compass.ingest= domain or tooling? It is domain while the server imports

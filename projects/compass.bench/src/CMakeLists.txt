@@ -17,8 +17,10 @@
 #
 set(name "compass.bench")
 set(lib_target_name ${name}.lib)
+set(exe_target_name ${name}.exe)
 
 add_library(${lib_target_name}
+    io/report.cpp
     ops/listing.cpp
     ops/partition.cpp
     ops/read_stage.cpp)
@@ -32,3 +34,12 @@ target_link_libraries(${lib_target_name}
     PUBLIC
         compass.platform.lib
         Threads::Threads)
+
+add_executable(${exe_target_name}
+    main.cpp)
+
+set_target_properties(${exe_target_name} PROPERTIES OUTPUT_NAME compass-bench)
+
+target_link_libraries(${exe_target_name}
+    PRIVATE
+        ${lib_target_name})
