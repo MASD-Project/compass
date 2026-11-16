@@ -32,17 +32,18 @@
 #include "compass.cpp/codecs/translation_unit_budget.hpp"
 #include "compass.cpp/codecs/unique_type_names.hpp"
 #include "compass.cpp/codecs/unity_collisions.hpp"
+#include "compass.cpp/codecs/xml_family_census.hpp"
 
 namespace compass::cpp::codecs {
 
 std::span<const compass::codec::types::descriptor> catalogue() noexcept {
-    static const std::array<compass::codec::types::descriptor, 16> all{
+    static const std::array<compass::codec::types::descriptor, 17> all{
         bff_list_requests, enum_attributes, event_registrars,
         exported_types, forward_declarable_includes, handler_registrars,
         history_registrars, portable_stop, route_auth,
         shell_command_composition, shell_command_units, shell_menus,
         test_case_reachability, translation_unit_budget, unique_type_names,
-        unity_collisions};
+        unity_collisions, xml_family_census};
     return all;
 }
 

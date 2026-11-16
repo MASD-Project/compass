@@ -31,7 +31,8 @@ add_executable(${tests_target_name}
     codecs_test_case_reachability_tests.cpp
     codecs_translation_unit_budget_tests.cpp
     codecs_unique_type_names_tests.cpp
-    codecs_unity_collisions_tests.cpp)
+    codecs_unity_collisions_tests.cpp
+    codecs_xml_family_census_tests.cpp)
 
 target_link_libraries(${tests_target_name}
     PRIVATE

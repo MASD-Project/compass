@@ -32,6 +32,7 @@ add_library(${lib_target_name}
     codecs/translation_unit_budget.cpp
     codecs/unique_type_names.cpp
     codecs/unity_collisions.cpp
+    codecs/xml_family_census.cpp
     ops/enum_attributes.cpp
     ops/exported_types.cpp
     ops/paths.cpp
