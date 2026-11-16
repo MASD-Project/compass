@@ -225,6 +225,55 @@ void derive_entity_names(compass::model::ops::builder& b,
     compass::model::types::value_id entity);
 
 /**
+ * @brief The table display rows' iter_var, member-prefixed column,
+ * is_uuid, is_optional and is_bool, and cpp.has_uuid_table_display and
+ * cpp.has_optional_table_display (core.py 5092-5129,
+ * _prepare_table_display).
+ */
+void derive_table_display(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief Copies each repository member to the entity's top level (core.py
+ * 5130-5133). The Python assigns the same object, so a later change to a
+ * copied list or object shows under repository too; a later step that
+ * makes one must make it in both places.
+ */
+void copy_repository_fields(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief read_tenant_filtered (derive_tenant_read_flags),
+ * system_tenant_visible, tenant_where and sys_decl (core.py 5134-5170).
+ */
+void derive_tenant_scope(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief The messaging handler defaults a model may override: the delete
+ * and history request id fields, the composite key's extra arguments and
+ * single_delete (core.py 5171-5191).
+ */
+void derive_messaging_defaults(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief extra_list_requests from the foreign keys opted in with list_by,
+ * and each such key's list_by_order_column and list_by_order_desc (core.py
+ * 5194-5228).
+ */
+void derive_list_requests(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief apply_stated_order (core.py 5229): sortable_fields,
+ * order_key_columns, default_order_columns, default_order_desc and each
+ * list_by foreign key's default order.
+ */
+void apply_stated_order(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
  * @brief data['table']: domain_entity_to_table_context and
  * normalise_sql_table_context, written to table of @p context. The
  * snapshot parts (the scalars, the primary key's own members, the column

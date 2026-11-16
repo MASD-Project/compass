@@ -59,6 +59,12 @@ value_id entity_context(compass::model::ops::builder& b, value_id library,
     format_description(b, entity);
     derive_component_names(b, entity);
     derive_entity_names(b, entity);
+    derive_table_display(b, entity);
+    copy_repository_fields(b, entity);
+    derive_tenant_scope(b, entity);
+    derive_messaging_defaults(b, entity);
+    derive_list_requests(b, entity);
+    apply_stated_order(b, entity);
     project_sql_table(b, context, loaded, entity);
     b.set_copy(context, "domain_entity", entity);
     return context;
