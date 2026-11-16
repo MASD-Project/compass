@@ -264,6 +264,11 @@ formatted_files format_files(const std::filesystem::path& git_common_dir,
         out.files.add(raw.paths[id],
             chosen[i] ? std::string_view(texts[i]) : raw.contents[id]);
     }
+    out.ids.resize(n);
+    ops::parallel_for(n, threads, [&](std::size_t i) {
+        out.ids[i] = store::ops::blob_id_of(
+            out.files.contents[types::file_id{static_cast<std::uint32_t>(i)}]);
+    });
     out.stats.runs = runs;
     out.stats.format_ms = std::chrono::duration<double, std::milli>(
         std::chrono::steady_clock::now() - start).count();
@@ -275,6 +280,7 @@ std::vector<std::optional<format_stats>> format_outputs(
     const std::filesystem::path& checkout,
     const std::filesystem::path& git_common_dir, unsigned threads) {
     std::vector<std::optional<format_stats>> out(r.size());
+    run.formatted_ids.resize(r.size());
     for (std::uint32_t c = 0; c < r.size(); ++c) {
         const auto& d = r.codecs[c];
         if (r.enabled[c] == 0 || d.formatters == nullptr)
@@ -284,6 +290,7 @@ std::vector<std::optional<format_stats>> format_outputs(
         auto formatted = format_files(git_common_dir, formatters,
             run.files[c], threads);
         run.files[c] = std::move(formatted.files);
+        run.formatted_ids[c] = std::move(formatted.ids);
         out[c] = formatted.stats;
     }
     return out;

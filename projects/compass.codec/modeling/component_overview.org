@@ -180,15 +180,18 @@ others is in its descriptor, so adding a codec adds a row to a list.
   =types::formatters_function=: given its =types::option_values= and the
   root of the checkout, it returns the formatters its files go through.
   =io::format_outputs= formats, in place, the files a =run_result= holds
-  for each enabled codec that has one, through =io::format_files=. The
-  record keeps the bytes the codec emitted, so a unit is reused whatever
-  the formatters are, and a change of formatter or style file costs only
-  the formatting.
+  for each enabled codec that has one, through =io::format_files=, and
+  sets the codec's =formatted_ids=, the blob ID of each formatted file,
+  hashed on as many threads as formatting. =ops::outputs_of= takes such a
+  codec's files from the run, not from its record. The record keeps the
+  bytes the codec emitted, so a unit is reused whatever the formatters
+  are, and a change of formatter or style file costs only the
+  formatting.
 - *Output set.* =types::output_set= is what a run asks to have on disk: per
   file its codec, its path relative to the output root, its bytes and its
   blob ID, and the names of the /complete/ codecs, whose every unit ran or
-  was reused. =ops::outputs_of= builds it from a =run_result=; every enabled
-  codec is complete. =ops::check_outputs= lists a path that is not plain
+  was reused. =ops::outputs_of= builds it from a =run_result=, from the
+  record but for formatted codecs; every enabled codec is complete. =ops::check_outputs= lists a path that is not plain
   relative (absolute, empty, or with an empty, =.= or =..= component) and a
   path two rows produce, naming both codecs.
 - *Output sink.* The sink is a plan and an apply. =io::plan_outputs= reads

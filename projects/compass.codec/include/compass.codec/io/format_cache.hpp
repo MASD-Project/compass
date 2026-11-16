@@ -60,10 +60,12 @@ struct format_stats {
 };
 
 /**
- * @brief The files of a table formatted, row for row, and what it took.
+ * @brief The files of a table formatted, row for row, the blob ID of each
+ * and what it took.
  */
 struct formatted_files {
     types::file_table files;
+    std::vector<compass::store::types::blob_id> ids;
     format_stats stats;
 };
 
@@ -102,8 +104,8 @@ inline constexpr std::size_t format_batch = 512;
  * @brief Formats, in place, the files @p run holds for each enabled codec
  * of @p r whose descriptor has formatters, with the formatters its option
  * values give for the checkout @p checkout, through format_files and the
- * result cache of @p git_common_dir. The record of @p run keeps the bytes
- * the codecs emitted.
+ * result cache of @p git_common_dir, and sets the codec's formatted_ids.
+ * The record of @p run keeps the bytes the codecs emitted.
  * @return per codec, what formatting its files did, or nothing for a codec
  * that was not formatted.
  * @throws as format_files does, and what a formatters function throws.

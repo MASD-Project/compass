@@ -29,7 +29,9 @@
 #include <utility>
 #include <unistd.h>
 #include <catch2/catch_test_macros.hpp>
+#include "compass.codec/ops/outputs.hpp"
 #include "compass.codec/ops/registry.hpp"
+#include "compass.store/ops/blob_hash.hpp"
 #include "compass.codec/types/corpus_view.hpp"
 
 namespace {
@@ -368,4 +370,12 @@ TEST_CASE("format_outputs formats the files of the enabled codecs that "
     CHECK(stats[0]->unformatted == 1);
     CHECK_FALSE(stats[1].has_value());
     CHECK_FALSE(stats[2].has_value());
+
+    // The output set takes the formatted codec's files, not its record's.
+    const auto set = ops::outputs_of(r, run);
+    REQUIRE(set.size() == 2);
+    CHECK(set.files.contents[types::file_id{0}] == "[lower:x.hpp]one");
+    CHECK(set.hashes[types::file_id{0}] ==
+        compass::store::ops::blob_id_of("[lower:x.hpp]one"));
+    CHECK(set.codecs[types::file_id{1}] == "formatted");
 }

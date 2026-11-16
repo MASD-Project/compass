@@ -21,10 +21,12 @@
 #define COMPASS_CODEC_TYPES_RUN_RESULT_HPP
 
 #include <cstdint>
+#include <optional>
 #include <vector>
 #include "compass.codec/types/dependency_record.hpp"
 #include "compass.codec/types/diagnostic_table.hpp"
 #include "compass.codec/types/file_table.hpp"
+#include "compass.store/types/blob_id.hpp"
 
 namespace compass::codec::types {
 
@@ -46,6 +48,10 @@ namespace compass::codec::types {
  * it. record holds what every unit of the enabled codecs read and
  * produced, for the next run, and fresh names its units that were called,
  * whose results the cache does not yet hold.
+ * formatted_ids is empty until the files are formatted after the run, by
+ * io::format_outputs: it then holds, per codec whose files were formatted,
+ * the blob ID of each of its files, row for row, and nothing for any other
+ * codec. The record keeps what the codecs emitted either way.
  */
 struct run_result {
     std::vector<std::uint64_t> documents;
@@ -59,6 +65,8 @@ struct run_result {
     double lookup_ms = 0;
     dependency_record record;
     std::vector<record_unit_id> fresh;
+    std::vector<std::optional<std::vector<compass::store::types::blob_id>>>
+        formatted_ids;
 };
 
 }
