@@ -20,6 +20,7 @@ set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
     io/git_files.cpp
+    io/id_resolver.cpp
     io/location.cpp
     io/object_file.cpp
     ops/blob_hash.cpp
