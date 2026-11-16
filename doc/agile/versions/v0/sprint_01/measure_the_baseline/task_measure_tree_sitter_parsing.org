@@ -26,11 +26,11 @@ Parse every ORE Studio C++ and SQL file with tree-sitter on all cores, recording
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:68ED0D5D-9A25-4886-B869-A30FF4A679A5][Measure the baseline]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -67,7 +67,19 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| C++ files parsed | 24,549 (197 MB) | =compass-bench parse <archive> --repeat 5= | ORE Studio 800c3a6 |
+| C++ parse, 8 threads (median of 5) | 11.5 s (17 MB/s) | same run | ORE Studio 800c3a6 |
+| C++ parse, 1 thread | 55.0 s (3.6 MB/s) | =compass-bench parse <archive> -j 1 --repeat 1= | ORE Studio 800c3a6 |
+| C++ files with error nodes | 7,804 (41,310 nodes) | same run | ORE Studio 800c3a6 |
+| SQL files parsed | 3,470 (68 MB) | same run | ORE Studio 800c3a6 |
+| SQL parse, 8 threads (median of 5) | 2.2 s | same run | ORE Studio 800c3a6 |
+| SQL files with error nodes | 3,003 of 3,470 (29,144 nodes) | same run | ORE Studio 800c3a6 |
+| Slowest file | =ores.ore/core/src/xml/generated/portfolio.cpp=, 290 ms | same run | ORE Studio 800c3a6 |
+| Clean configure, grammar ports built from source | 29.5 s | =cmake --preset linux-clang-release= | compass-ng a2bb3f8 |
+
+The machine's load average was 7 to 21 during these runs, so the timings are
+indicative. The counts were identical across runs. Even a perfect 8x speedup
+of the single-thread run gives 6.9 s, so the miss is not only contention.
 
 * Notes
 
@@ -95,3 +107,20 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- tree-sitter 0.27 with the C++ (0.23.4) and SQL (0.3.13) grammars comes in
+  through overlay ports in =build/cmake/overlays/common= that compile the
+  shipped generated sources, with no CLI or Node.js.
+- =compass-bench parse= parses every C++ and SQL file on all cores, counts
+  =ERROR= and =MISSING= nodes per file, and reports per language.
+- *The C++ budget is missed.* All of ORE Studio's C++ takes 11.5 s on 8
+  threads, against a 5 s budget, and 55 s on one thread (3.6 MB/s). The
+  fallback named in the plan applies; see the story's Decisions.
+- *The SQL grammar does not fit ORE Studio's SQL.* 3,003 of 3,470 files have
+  error nodes. The files are psql scripts: =\ir= meta-commands produce about
+  one error each, and PL/pgSQL =$$= function bodies do not parse.
+- C++ error nodes cluster in test files (7,804 files in all), which needs a
+  closer look before any check relies on tree-sitter's C++ verdict.
+- A language with no files is reported as a note; the run fails only when no
+  language has files or on an I/O error. Eight injected defects in error
+  counting and routing all failed the tests.
