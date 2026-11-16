@@ -131,6 +131,18 @@ namespace compass::cpp::ops {
 [[nodiscard]] bool is_utf8(std::string_view text) noexcept;
 
 /**
+ * @brief @p text decoded with errors="ignore": each byte that does not
+ * start a valid character dropped.
+ */
+[[nodiscard]] std::string decode_ignoring(std::string_view text);
+
+/**
+ * @brief @p text decoded with errors="replace": each byte that does not
+ * start a valid character turned into U+FFFD.
+ */
+[[nodiscard]] std::string decode_replacing(std::string_view text);
+
+/**
  * @brief @p text as Python's read_text() gives it: every \r\n and lone
  * \r turned into \n.
  */

@@ -22,6 +22,7 @@ add_library(${lib_target_name}
     codecs/catalogue.cpp
     codecs/enum_attributes.cpp
     codecs/exported_types.cpp
+    codecs/portable_stop.cpp
     codecs/test_case_reachability.cpp
     codecs/unity_collisions.cpp
     ops/enum_attributes.cpp

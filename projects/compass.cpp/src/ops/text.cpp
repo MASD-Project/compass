@@ -35,6 +35,9 @@ constexpr char fold(char c) noexcept {
  */
 std::size_t separator_at(std::string_view text, std::size_t i) noexcept {
     const auto c = text[i];
+    const auto byte = static_cast<unsigned char>(c);
+    if (byte >= 0x20 && byte != 0xc2 && byte != 0xe2)
+        return 0;
     if (c == '\r')
         return i + 1 < text.size() && text[i + 1] == '\n' ? 2 : 1;
     if (c == '\n' || c == '\v' || c == '\f' || c == '\x1c' || c == '\x1d' ||
@@ -117,50 +120,100 @@ std::size_t characters(std::string_view text) noexcept {
     }));
 }
 
-bool is_utf8(std::string_view text) noexcept {
-    const auto byte = [&](std::size_t i) {
-        return static_cast<unsigned char>(text[i]);
+namespace {
+
+/**
+ * @brief The length of the UTF-8 character at @p i that Python's strict
+ * decoder accepts, or 0 when the bytes there are not one.
+ */
+std::size_t character_at(std::string_view text, std::size_t i) noexcept {
+    const auto byte = [&](std::size_t k) {
+        return static_cast<unsigned char>(text[k]);
     };
+    const auto lead = byte(i);
+    if (lead < 0x80)
+        return 1;
+    std::size_t length = 0;
+    unsigned char low = 0x80;
+    unsigned char high = 0xBF;
+    if (lead >= 0xC2 && lead <= 0xDF) {
+        length = 2;
+    } else if (lead >= 0xE0 && lead <= 0xEF) {
+        length = 3;
+        if (lead == 0xE0)
+            low = 0xA0;
+        else if (lead == 0xED)
+            high = 0x9F;
+    } else if (lead >= 0xF0 && lead <= 0xF4) {
+        length = 4;
+        if (lead == 0xF0)
+            low = 0x90;
+        else if (lead == 0xF4)
+            high = 0x8F;
+    } else {
+        return 0;
+    }
+    if (i + length > text.size())
+        return 0;
+    if (byte(i + 1) < low || byte(i + 1) > high)
+        return 0;
+    for (std::size_t k = 2; k < length; ++k) {
+        if ((byte(i + k) & 0xC0) != 0x80)
+            return 0;
+    }
+    return length;
+}
+
+
+}
+
+bool is_utf8(std::string_view text) noexcept {
     for (std::size_t i = 0; i < text.size();) {
-        const auto lead = byte(i);
-        if (lead < 0x80) {
+        if (static_cast<unsigned char>(text[i]) < 0x80) {
             ++i;
             continue;
         }
-        std::size_t length = 0;
-        unsigned char low = 0x80;
-        unsigned char high = 0xBF;
-        if (lead >= 0xC2 && lead <= 0xDF) {
-            length = 2;
-        } else if (lead >= 0xE0 && lead <= 0xEF) {
-            length = 3;
-            if (lead == 0xE0)
-                low = 0xA0;
-            else if (lead == 0xED)
-                high = 0x9F;
-        } else if (lead >= 0xF0 && lead <= 0xF4) {
-            length = 4;
-            if (lead == 0xF0)
-                low = 0x90;
-            else if (lead == 0xF4)
-                high = 0x8F;
-        } else {
+        const auto n = character_at(text, i);
+        if (n == 0)
             return false;
-        }
-        if (i + length > text.size())
-            return false;
-        if (byte(i + 1) < low || byte(i + 1) > high)
-            return false;
-        for (std::size_t k = 2; k < length; ++k) {
-            if ((byte(i + k) & 0xC0) != 0x80)
-                return false;
-        }
-        i += length;
+        i += n;
     }
     return true;
 }
 
+namespace {
+
+std::string decode(std::string_view text, std::string_view replacement) {
+    if (is_utf8(text))
+        return std::string(text);
+    std::string out;
+    out.reserve(text.size());
+    for (std::size_t i = 0; i < text.size();) {
+        const auto n = character_at(text, i);
+        if (n == 0) {
+            out += replacement;
+            ++i;
+        } else {
+            out.append(text.substr(i, n));
+            i += n;
+        }
+    }
+    return out;
+}
+
+}
+
+std::string decode_ignoring(std::string_view text) {
+    return decode(text, {});
+}
+
+std::string decode_replacing(std::string_view text) {
+    return decode(text, "\xEF\xBF\xBD");
+}
+
 std::string universal_newlines(std::string_view text) {
+    if (text.find('\r') == std::string_view::npos)
+        return std::string(text);
     std::string out;
     out.reserve(text.size());
     for (std::size_t i = 0; i < text.size(); ++i) {
