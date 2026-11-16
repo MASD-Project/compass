@@ -1,0 +1,22 @@
+:PROPERTIES:
+:ID: 71D11229-7ABD-4938-94C7-BD903609F188
+:END:
+#+title: One branch and one PR per task, merged before the next
+#+description: Work one task at a time on a single feature branch off main, raise its PR, review it, merge it, then start the next task. Never stack branches.
+#+type: memory
+#+memory_subtype: feedback
+#+level: cross
+#+filetags: :memory:feedback:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+
+Work one task at a time on a single feature branch cut from an up-to-date main. When the task is done, raise its PR, review it, merge it, sync main, and only then start the next task. Never base a branch on another unmerged branch.
+
+*Why:* Stacked branches had to be rebased one by one when an older PR merged first, and every rebase replayed conflicts in the same status tables. The user asked on 2026-11-16 to stop stacking: one feature branch, one PR per task, merge, then proceed.
+
+*How to apply:* Before starting a task, switch to main and pull. Cut the task's branch from main. Do not start the next task until the current PR is merged. A small fix found mid-task that is not part of the task becomes its own task after the merge.
+Pushing, raising, reviewing and merging the task's PR are part of finishing
+the task, so this memory takes precedence over
+[[id:B874EB53-4ECB-47A3-A63A-6093DC83E9C9][no PR without an explicit request]],
+[[id:40003D46-DAEB-41DF-B4EE-947E223A8B8F][no auto-push after commits]] and
+[[id:68829E75-34A4-4A7F-915D-AED6285FFD9B][the PR review runbook does not merge]] for task branches.
