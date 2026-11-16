@@ -124,10 +124,13 @@ TEST_CASE("scan_includes counts lines across CRLF endings",
         "#include \"a.hpp\"\r\n"
         "\r\n"
         "  /* one\r\n two */\r\n"
-        "#include <b.hpp>\r\n");
+        "#include <b.hpp>\r\n"
+        "// continued \\\r\n"
+        "#include \"continued_comment.hpp\"\r\n"
+        "#include \"c.hpp\"\r\n");
 
     const std::vector<found> expected = {
-        {1, quoted, "a.hpp"}, {5, angle, "b.hpp"}};
+        {1, quoted, "a.hpp"}, {5, angle, "b.hpp"}, {8, quoted, "c.hpp"}};
     CHECK(r == expected);
 }
 
