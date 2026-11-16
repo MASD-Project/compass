@@ -25,6 +25,7 @@ add_executable(${tests_target_name}
     codecs_forward_declarable_includes_tests.cpp
     codecs_portable_stop_tests.cpp
     codecs_registrars_tests.cpp
+    codecs_route_auth_tests.cpp
     codecs_shell_tests.cpp
     codecs_test_case_reachability_tests.cpp
     codecs_unique_type_names_tests.cpp
