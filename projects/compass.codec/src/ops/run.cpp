@@ -300,9 +300,7 @@ void add_diagnostics(types::diagnostic_table& to,
     const types::diagnostic_table& from, std::uint32_t begin,
     std::uint32_t end) {
     for (auto i = begin; i < end; ++i) {
-        const types::diagnostic_id d{i};
-        to.add({from.documents[d], from.ranges[d], from.rules[d],
-            from.levels[d], from.messages[d], from.fixes[d]});
+        to.add(from[types::diagnostic_id{i}]);
     }
 }
 

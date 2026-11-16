@@ -39,7 +39,7 @@ namespace compass::codec::ops {
  * @brief The version of the dependency record file this build writes and
  * reads. A file of any other version is not read, so every unit runs.
  */
-inline constexpr std::uint32_t dependency_record_version = 3;
+inline constexpr std::uint32_t dependency_record_version = 4;
 
 /**
  * @brief The row of every document by path and by ID property.
@@ -69,8 +69,8 @@ inline constexpr std::uint32_t dependency_record_version = 3;
 
 /**
  * @brief The findings [@p begin, @p end) of @p t as the record keeps them:
- * per finding, the path of its document, its range, rule, severity,
- * message and fix.
+ * per finding, whether it names a file rather than a document, the path
+ * of its document or file, its range, rule, severity, message and fix.
  */
 [[nodiscard]] std::string encode_diagnostics(const types::corpus& c,
     const types::diagnostic_table& t, std::uint32_t begin,
@@ -80,7 +80,8 @@ inline constexpr std::uint32_t dependency_record_version = 3;
  * @brief Appends the findings of @p bytes to @p out, naming each document
  * by its row in the corpus of @p index; with no @p out, only checks that
  * they would decode.
- * @return false when a path names no document or the bytes are not what
+ * @return false when a document's path names no document of the corpus, or
+ * the bytes are not what
  * encode_diagnostics writes; @p out then holds a prefix of the findings.
  */
 [[nodiscard]] bool decode_diagnostics(std::string_view bytes,

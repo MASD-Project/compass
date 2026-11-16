@@ -58,10 +58,13 @@ TEST_CASE("check loads every org file, stores what it parsed and writes no "
     CHECK(first.run.documents == 4);
     CHECK(first.run.parsed == 4);
     CHECK_FALSE(first.run.failed());
-    REQUIRE(first.findings.size() == 1);
-    CHECK(first.findings[0].path == "doc/task_b.org");
-    CHECK(first.findings[0].line == 2);
-    CHECK(first.findings[0].column == 9);
+    REQUIRE(first.findings.size() == 2);
+    CHECK(first.findings[0].path ==
+        (repo.output_root() / "doc" / "document_index.tsv").string());
+    CHECK(first.findings[0].rule == "document_index/drift");
+    CHECK(first.findings[1].path == "doc/task_b.org");
+    CHECK(first.findings[1].line == 2);
+    CHECK(first.findings[1].column == 9);
     CHECK_FALSE(std::filesystem::exists(repo.output_root()));
 
     const auto second = app::check(options_of(repo));
@@ -75,7 +78,9 @@ TEST_CASE("an untracked org file is checked and a deleted one is not",
     repo.write("doc/task_c.org", "#+title: Task: c\n#+type: task\n");
     std::filesystem::remove(repo.checkout() / "doc" / "task_a.org");
 
-    const auto r = app::check(options_of(repo));
+    auto o = options_of(repo);
+    o.settings.set("document_index", "enabled", "false");
+    const auto r = app::check(o);
 
     CHECK(r.run.files == 4);
     CHECK_FALSE(r.run.failed());

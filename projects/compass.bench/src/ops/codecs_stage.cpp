@@ -86,8 +86,9 @@ types::findings_summary summarise(const ct::corpus& c,
         ++messages[std::string(t.messages[id])];
         if (s.first.size() < first_count)
             s.first.push_back(std::format("{}:{}: {}: {}/{}: {}. {}",
-                c.paths[document.value],
-                line_of(c.sources[document.value], t.ranges[id].begin),
+                document.is_none() ? t.files[id] : c.paths[document.value],
+                document.is_none() ? 0
+                    : line_of(c.sources[document.value], t.ranges[id].begin),
                 t.levels[id] == ct::severity::error ? "error" : "warning",
                 d.name, rule, t.messages[id], t.fixes[id]));
     }

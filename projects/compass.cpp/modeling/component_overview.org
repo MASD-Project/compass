@@ -1,0 +1,125 @@
+:PROPERTIES:
+:ID: 1B649514-55E4-4015-B71A-62BA58BEFA26
+:END:
+#+title: compass.cpp
+#+description: The checks over C++ sources as text: the scanners that read includes, export macros, enum declarations and test cases the way ORE Studio's gate scripts read them, and the codecs that run those gates in the codec runtime.
+#+type: component
+#+level: cross
+#+filetags: :cpp:gates:checks:component:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+
+This page is the component overview for =compass.cpp=, a simple component in
+the domain layer of the
+[[id:8A9A460F-8024-4890-B091-C0D02FD84218][System Model]].
+
+* Summary
+
+=compass.cpp= runs ORE Studio's C++ gates as codecs. Each gate was a Python
+script that read the whole tree on every run; here each is a corpus codec
+that reads the files of the checkout through its view, so the runtime
+records every file it read and a run in which none of them changed reuses
+the findings without reading anything.
+
+The scanners are ports, not parsers. Each reproduces the rules of one
+script, including what the script gets wrong, because the acceptance of the
+port is the same verdict on the same commit. They work on bytes: a byte of
+0x80 or more counts as a word character, as Python counts the letters of a
+multi-byte character, and the non-ASCII spaces Python's =\s= also matches
+are not spaces. tree-sitter is not used: it was measured too slow for the
+always-on path (see
+[[id:E2DCD7CE-4CFC-47D8-A65D-E05A4CA48EB6][Measure tree-sitter parsing]]).
+
+Every codec is off by default; a repository enables the ones whose rules it
+keeps in its =.compass.org=.
+
+* Inputs
+
+- The files of the checkout, through =types::corpus_view=: =list_files=
+  for the paths each gate walks and =read_file= for the bytes. No codec
+  reads a document.
+
+* Outputs
+
+- *=exported_types=.* ORE Studio's =exported-types= gate
+  (=build/scripts/check_exported_types_are_compiled.py=). A library is the
+  directory two levels above a
+  =projects/<component>/<part>/include/<name>/export.hpp= that defines an
+  =ORES_..._EXPORT= macro as =BOOST_SYMBOL...= at the start of a line and has
+  an =#ifdef ORES_..._LIBRARY= guard, and that has a =src/= directory. Its
+  translation units are the =.cpp= files under =src/=. A file reaches every
+  file its =#include "..."= lines name, comments included, resolved first
+  against the file's own directory and then against every
+  =projects/<component>/<part>/include= in pathlib order; =..= goes up only
+  from a directory that exists, as the operating system resolves it. Rule
+  =uncompiled_exported_type=: a header under the library's =include/=, not
+  marked =AUTO-GENERATED FILE=, declares =class MACRO name= or =struct MACRO
+  name= at the start of a line, and no translation unit reaches it. One
+  finding per header, at its first such declaration. The codec depends on
+  the listing of every path of the checkout, because an include may resolve
+  anywhere.
+- *=enum_attributes=.* ORE Studio's =enum-attributes= gate
+  (=build/scripts/check_enum_export_attributes.py=). It reads every =.hpp=,
+  =.h=, =.cpp=, =.ipp= and =.cc= file under =projects/= with its comments and
+  literals blanked (=ops::erase_comments_and_literals=). A visibility macro is
+  =BOOST_SYMBOL_EXPORT=, =BOOST_SYMBOL_IMPORT=, or a macro one of those files
+  =#define=s with a body holding one of them, =__declspec(dllimport)=,
+  =__declspec(dllexport)= or =__attribute__((visibility=. Rule
+  =visibility_macro_on_enum=: an enum declaration, =enum=, an optional
+  =class= or =struct=, a visibility macro, a name and =:=, ={= or =;=, not
+  after =using=. One finding per declaration, at its keyword.
+- *=test_case_reachability=.* ORE Studio's =reachability= gate
+  (=projects/ores.codegen/scripts/check_test_case_reachability.py=). It
+  reads every test source under =projects/=: a file with a C++ source or
+  fragment suffix (=.cpp=, =.cc=, =.cxx=, =.c++=, =.hpp=, =.h=, =.hxx=,
+  =.ipp=, =.inc=, in any case) under a =tests= directory or whose stem ends
+  in =_tests=, outside any =node_modules=, =venv=, =.venv=, =build= or
+  =external= directory (=ops::is_test_source=). =ops::scan_source= removes
+  the backslash-newline splices, blanks comments and string, raw string and
+  character literals (a quote after a digit separates digits), and reads the
+  logical lines: =#if=, =#ifdef= and =#ifndef= open a block, =#endif= closes
+  one, and a Catch2 test macro, or a name the file's own =#define= binds to
+  one, followed by =(= declares a case. Rule =case_in_conditional=: a case
+  declared inside a block, once per line and block, naming the directive
+  that opened the innermost block. Rule =unbalanced_conditional=: an
+  =#endif= that closes nothing, or a block still open at the end of the
+  file. Rule =raw_string_moves=: a raw string begins or ends elsewhere once
+  the splices are removed; the file's cases are left out. Rule
+  =no_test_case=: no test source, or no case in any readable one, reported
+  on =projects=.
+
+* Entry points
+
+| Path                                                    | Role                                                      |
+|---------------------------------------------------------+-----------------------------------------------------------|
+| =include/compass.cpp/codecs/catalogue.hpp=              | The codecs this component ships.                          |
+| =include/compass.cpp/codecs/exported_types.hpp=         | The =exported_types= codec.                               |
+| =include/compass.cpp/codecs/enum_attributes.hpp=        | The =enum_attributes= codec.                              |
+| =include/compass.cpp/codecs/test_case_reachability.hpp= | The =test_case_reachability= codec.                       |
+| =include/compass.cpp/ops/exported_types.hpp=            | Export macros, quoted includes and exported types.        |
+| =include/compass.cpp/ops/enum_attributes.hpp=           | Erasing, visibility macros and enum sites.                |
+| =include/compass.cpp/ops/test_case_reachability.hpp=    | Test sources, and the cases and conditionals of one.      |
+| =include/compass.cpp/ops/paths.hpp=                     | pathlib's suffixes and order, and which files exist.      |
+| =include/compass.cpp/ops/text.hpp=                      | Python's spaces, word characters and lines over bytes.    |
+| =tests/test_checkout.hpp=                               | Runs one codec over a checkout of files held in memory.   |
+
+| Target              | Kind                                      |
+|---------------------+-------------------------------------------|
+| =compass.cpp.lib=   | Library.                                  |
+| =compass.cpp.tests= | Catch2 executable, registered with CTest. |
+
+=codecs= is a local facet, as in =compass.codec=: one descriptor each.
+
+* Dependencies
+
+- =compass.codec= for the descriptor, the corpus view the codecs read
+  through and the diagnostic table they fill.
+- The C++23 standard library.
+- =compass.store= and Catch2, for the tests only.
+
+* See also
+
+- [[id:995ECC12-860C-4009-B9A2-8CA1A6102BD6][compass.codec]] --- the runtime the
+  codecs run in.
+- [[id:AFF665C4-739C-4BDB-93BD-9D547351AE4F][Investigation: ORE Studio gate classification]]
+  --- the gates and their baseline times.

@@ -44,10 +44,13 @@ enum class severity : std::uint8_t { warning, error };
  * @brief One finding, as a codec states it.
  *
  * document is the row of the document in the corpus and range the bytes of
- * its source the finding is about. message says what is wrong and fix what
- * to change. The message of a finding that is still there after an
- * unrelated edit must not change, so it holds no line number and no count:
- * a run is compared with another by document path, rule and message.
+ * its source the finding is about. A finding about a file of the checkout
+ * that is not a document has no row: document is none, file is the file's
+ * path relative to the root of the checkout and range the bytes of that
+ * file. message says what is wrong and fix what to change. The message
+ * of a finding that is still there after an unrelated edit must not
+ * change, so it holds no line number and no count: a run is compared with
+ * another by path, rule and message.
  */
 struct diagnostic {
     compass::org::types::document_id document;
@@ -56,6 +59,7 @@ struct diagnostic {
     severity level = severity::error;
     std::string_view message;
     std::string_view fix;
+    std::string_view file = {};
 };
 
 /**
@@ -70,6 +74,7 @@ struct diagnostic_table {
     compass::org::types::column<diagnostic_id, severity> levels;
     text_column<diagnostic_id> messages;
     text_column<diagnostic_id> fixes;
+    text_column<diagnostic_id> files;
 
     [[nodiscard]] std::size_t size() const noexcept {
         return documents.size();
@@ -82,6 +87,7 @@ struct diagnostic_table {
         levels.values.push_back(d.level);
         messages.add(d.message);
         fixes.add(d.fix);
+        files.add(d.file);
     }
 
     void append(const diagnostic_table& other) {
@@ -95,6 +101,15 @@ struct diagnostic_table {
         extend(levels, other.levels);
         messages.append(other.messages);
         fixes.append(other.fixes);
+        files.append(other.files);
+    }
+
+    /**
+     * @brief The finding of row @p d.
+     */
+    [[nodiscard]] diagnostic operator[](diagnostic_id d) const noexcept {
+        return {documents[d], ranges[d], rules[d], levels[d], messages[d],
+            fixes[d], files[d]};
     }
 };
 
