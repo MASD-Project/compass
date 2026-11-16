@@ -8,7 +8,7 @@
 #+filetags: :parse_org_documents:sprint_01:v0:
 #+owner: marco
 #+branch: feature/build-the-type-registry
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/12
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -86,7 +86,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/12][#12]] | [org] Add the document type registry |
 
 * Review
 
