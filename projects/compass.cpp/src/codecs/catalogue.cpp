@@ -29,18 +29,20 @@
 #include "compass.cpp/codecs/route_auth.hpp"
 #include "compass.cpp/codecs/shell.hpp"
 #include "compass.cpp/codecs/test_case_reachability.hpp"
+#include "compass.cpp/codecs/translation_unit_budget.hpp"
 #include "compass.cpp/codecs/unique_type_names.hpp"
 #include "compass.cpp/codecs/unity_collisions.hpp"
 
 namespace compass::cpp::codecs {
 
 std::span<const compass::codec::types::descriptor> catalogue() noexcept {
-    static const std::array<compass::codec::types::descriptor, 15> all{
+    static const std::array<compass::codec::types::descriptor, 16> all{
         bff_list_requests, enum_attributes, event_registrars,
         exported_types, forward_declarable_includes, handler_registrars,
         history_registrars, portable_stop, route_auth,
         shell_command_composition, shell_command_units, shell_menus,
-        test_case_reachability, unique_type_names, unity_collisions};
+        test_case_reachability, translation_unit_budget, unique_type_names,
+        unity_collisions};
     return all;
 }
 
