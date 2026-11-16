@@ -8,7 +8,7 @@
 #+filetags: :run_codecs_and_write_changes:sprint_01:v0:
 #+owner: marco
 #+branch: feature/define-the-codec-interface
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/18
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -92,7 +92,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/18][#18]] | [codec] Define the codec interface with two codecs |
 
 * Review
 
