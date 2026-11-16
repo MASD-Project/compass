@@ -33,6 +33,7 @@
 #include <unistd.h>
 #include "compass.codec/ops/format_cache.hpp"
 #include "compass.codec/ops/parallel_for.hpp"
+#include "compass.codec/ops/registry.hpp"
 #include "compass.platform/process/run_program.hpp"
 #include "compass.store/io/action_file.hpp"
 #include "compass.store/io/location.hpp"
@@ -263,9 +264,35 @@ formatted_files format_files(const std::filesystem::path& git_common_dir,
         out.files.add(raw.paths[id],
             chosen[i] ? std::string_view(texts[i]) : raw.contents[id]);
     }
+    out.ids.resize(n);
+    ops::parallel_for(n, threads, [&](std::size_t i) {
+        out.ids[i] = store::ops::blob_id_of(
+            out.files.contents[types::file_id{static_cast<std::uint32_t>(i)}]);
+    });
     out.stats.runs = runs;
     out.stats.format_ms = std::chrono::duration<double, std::milli>(
         std::chrono::steady_clock::now() - start).count();
+    return out;
+}
+
+std::vector<std::optional<format_stats>> format_outputs(
+    const types::registry& r, types::run_result& run,
+    const std::filesystem::path& checkout,
+    const std::filesystem::path& git_common_dir, unsigned threads) {
+    std::vector<std::optional<format_stats>> out(r.size());
+    run.formatted_ids.resize(r.size());
+    for (std::uint32_t c = 0; c < r.size(); ++c) {
+        const auto& d = r.codecs[c];
+        if (r.enabled[c] == 0 || d.formatters == nullptr)
+            continue;
+        const auto formatters = d.formatters(
+            {d.options, ops::option_values(r, types::codec_id{c})}, checkout);
+        auto formatted = format_files(git_common_dir, formatters,
+            run.files[c], threads);
+        run.files[c] = std::move(formatted.files);
+        run.formatted_ids[c] = std::move(formatted.ids);
+        out[c] = formatted.stats;
+    }
     return out;
 }
 

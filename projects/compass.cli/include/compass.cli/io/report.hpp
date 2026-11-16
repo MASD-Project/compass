@@ -65,6 +65,13 @@ void write_configuration(std::ostream& out, const types::configuration& c,
     const std::filesystem::path& checkout);
 
 /**
+ * @brief Writes to @p err the time of each step of @p s, one per line,
+ * then, per codec, how many units it ran, took from the record and took
+ * from the result cache, and what formatting its files did.
+ */
+void write_timings(std::ostream& err, const types::run_summary& s);
+
+/**
  * @brief Writes what gc removed, or would remove, to @p out.
  */
 void write_gc(std::ostream& out, const types::gc_result& r);

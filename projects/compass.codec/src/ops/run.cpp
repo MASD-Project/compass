@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <functional>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -148,7 +149,7 @@ struct call {
     template <typename Output>
     void operator()(types::corpus_function<Output> f) {
         const auto unit = called[p.begin];
-        logs[unit].by_document = false;
+        logs[unit].corpus = true;
         around<Output>(unit, [&](Output& out) { f(view, out); });
     }
 };
@@ -206,6 +207,10 @@ struct answers {
         }
         case types::input_kind::type_set: return key.type_set;
         case types::input_kind::type_registry: return registry;
+        case types::input_kind::file:
+        case types::input_kind::file_exists:
+        case types::input_kind::listing:
+            return types::file_answer(c, kind, input);
         }
         return std::nullopt;
     }
@@ -398,7 +403,7 @@ void add_called_unit(types::dependency_record& to, const types::corpus& c,
     for (std::size_t i = 0; i < log.size(); ++i)
         add_input(to, log.kinds[i], log.keys[i], log.found[i],
             log.values[i]);
-    if (!log.by_document)
+    if (log.whole)
         add_input(to, types::input_kind::type_set, {}, 1, key.type_set);
     if (log.registry)
         add_input(to, types::input_kind::type_registry, {}, 1, registry);
@@ -479,7 +484,7 @@ types::run_result run(const types::registry& r, const types::corpus& c,
         for (std::size_t v = 0; v < count; ++v) {
             const auto document = corpus_unit ? std::string_view{}
                 : c.paths[rows[i][v].value];
-            const auto& subject = corpus_unit ? keys[i].type_set
+            const auto subject = corpus_unit ? blob_id{}
                 : c.contents[rows[i][v].value];
             auto previous_unit = no_unit;
             const auto it = recorded.find(unit_name(d.name, document));
@@ -586,6 +591,10 @@ types::run_result run(const types::registry& r, const types::corpus& c,
             units.manifests[u], logs[u], p, at, registry);
         ++result.ran[codec.value];
     }
+    const auto skipped = std::ranges::fold_left(result.skipped,
+        std::uint64_t{0}, std::plus<>{});
+    result.same_record = skipped == units.size() &&
+        previous.size() == units.size();
     result.wall_ms = since(start);
     return result;
 }

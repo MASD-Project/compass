@@ -38,12 +38,14 @@ enum class command : std::uint8_t { generate, diff, check, gc, config };
  * is read.
  *
  * checkout is absolute. command_line holds --out, --meta and every
- * --set, as written, and collection the options of gc.
+ * --set, as written, and collection the options of gc. timings asks for
+ * the time of each step and what each codec ran or reused.
  */
 struct invocation {
     command which = command::generate;
     std::filesystem::path checkout;
     unsigned threads = 1;
+    bool timings = false;
     layer command_line;
     store::types::collection_options collection;
 };

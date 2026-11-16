@@ -98,9 +98,29 @@ types::output_set outputs_of(const types::registry& r,
         if (r.enabled[c] != 0)
             out.complete.emplace_back(r.codecs[c].name);
     }
+    const auto formatted = [&](std::size_t c) {
+        return c < result.formatted_ids.size() &&
+            result.formatted_ids[c].has_value();
+    };
+    for (std::size_t c = 0; c < r.size(); ++c) {
+        if (!formatted(c))
+            continue;
+        const auto& files = result.files[c];
+        const auto& ids = *result.formatted_ids[c];
+        for (std::uint32_t f = 0; f < files.size(); ++f)
+            out.add(r.codecs[c].name, files.paths[types::file_id{f}],
+                files.contents[types::file_id{f}], ids[f]);
+    }
+    std::vector<std::string_view> skipped;
+    for (std::size_t c = 0; c < r.size(); ++c) {
+        if (formatted(c))
+            skipped.push_back(r.codecs[c].name);
+    }
     const auto& record = result.record;
     for (std::uint32_t u = 0; u < record.size(); ++u) {
         const types::record_unit_id unit{u};
+        if (std::ranges::contains(skipped, record.codecs[unit]))
+            continue;
         const auto end = u + 1 < record.size()
             ? record.file_firsts[unit.next()].value
             : static_cast<std::uint32_t>(record.files.size());

@@ -122,3 +122,15 @@ TEST_CASE("concurrent writers of one object all succeed and leave it whole",
     CHECK(names_in(target.parent_path()) ==
         std::vector<std::string>{"cdef"});
 }
+
+TEST_CASE("read_file gives every byte of a file and nothing for a missing "
+    "one", "[io][object_file]") {
+    scoped_directory d;
+    const auto target = d.root() / "x";
+    const std::string content("a\0b\nc", 5);
+    io::write_object(target, bytes_of(content));
+
+    CHECK(io::read_file(target) == content);
+    CHECK(io::read_file(d.root() / "missing") == std::nullopt);
+    CHECK(io::read_file(d.root()) == std::nullopt);
+}

@@ -40,11 +40,25 @@ using input_id = compass::org::types::handle<struct input_tag>;
  * blob ID of its path, so the answer changes when another document takes
  * the ID. type_set: every document the codec may read; the value is the
  * SHA-1 of their paths and content IDs in path order. type_registry: the
- * type registry; the value is the SHA-1 of its tables.
- * Only documents of the codec's declared types answer a lookup, so a
- * document of another type is a miss.
+ * type registry; the value is the SHA-1 of its tables. file: the file of
+ * the checkout at the path the key holds, document or not; the value is
+ * its content ID. file_exists: whether the checkout has a file at the path
+ * the key holds; the value is all zeros. listing: the paths of the files of
+ * the checkout that match the pattern the key holds, a prefix and a suffix
+ * joined by '*'; the value is the SHA-1 of those paths in byte order.
+ * Only documents of the codec's declared types answer a path or ID lookup,
+ * so a document of another type is a miss. File inputs see every file of
+ * the checkout.
  */
-enum class input_kind : std::uint8_t { path, id, type_set, type_registry };
+enum class input_kind : std::uint8_t {
+    path, id, type_set, type_registry, file, file_exists, listing
+};
+
+/**
+ * @brief The last input kind, which bounds what a record or a manifest may
+ * hold.
+ */
+inline constexpr input_kind last_input_kind = input_kind::listing;
 
 /**
  * @brief What the codecs of a run read and produced, one row per unit: one

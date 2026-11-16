@@ -54,15 +54,21 @@ namespace compass::codec::ops {
  * call when its codec's version and configuration hash are unchanged and
  * every input it recorded has the same answer in @p c: a path or ID lookup
  * finds the same document, or still finds none; the set of documents of a
- * corpus codec has the same paths and content IDs; the type registry has
- * the same tables. Its recorded outputs are then put in the result where
- * the call's would be, so the result is the one a run with no record
- * gives.
+ * corpus codec that enumerated them has the same paths and content IDs;
+ * the type registry has the same tables; a file of the checkout it read
+ * has the same content ID, one it tested still exists or is still absent,
+ * and a listing it made matches the same paths. Its recorded outputs are
+ * then put in the result where the call's would be, so the result is the
+ * one a run with no record gives.
+ *
+ * A corpus unit is recorded as a document unit is, read by read, until it
+ * enumerates the documents through size() or operator[]; from then on it
+ * depends on the whole set of them.
  *
  * A unit no record stands in for is looked up in @p cache, which other
  * worktrees fill, in two steps. Its manifest key needs no inputs: the
  * codec's name, version and configuration hash and the unit's identity,
- * its document's path and content ID or, for a corpus unit, its type set.
+ * its document's path and content ID or, for a corpus unit, nothing.
  * The manifest lists the input sets seen for that key; the first whose
  * inputs all have the same answer in @p c, by the same test as a record's,
  * names the result object, whose outputs stand in for the call. Every

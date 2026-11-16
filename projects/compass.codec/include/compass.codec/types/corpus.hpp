@@ -23,6 +23,7 @@
 #include <cstddef>
 #include <string_view>
 #include <vector>
+#include "compass.codec/types/checkout_files.hpp"
 #include "compass.org/types/handle.hpp"
 #include "compass.org/types/tables.hpp"
 #include "compass.org/types/type_registry.hpp"
@@ -40,8 +41,11 @@ namespace compass::codec::types {
  * first #+type: keyword names, or none for a document with no such keyword
  * or with a value the registry does not hold.
  *
- * The corpus owns nothing: whoever loaded it keeps the paths, the sources
- * and the objects behind the tables alive and unchanged while a codec runs.
+ * files is every file of the checkout, or null when the host gives none,
+ * in which case every file input is a miss and every listing empty.
+ * The corpus owns nothing: whoever loaded it keeps the paths, the sources,
+ * the objects behind the tables and the files alive and unchanged while a
+ * codec runs.
  */
 struct corpus {
     std::vector<std::string_view> paths;
@@ -49,6 +53,7 @@ struct corpus {
     std::vector<std::string_view> sources;
     std::vector<compass::org::types::tables_view> tables;
     std::vector<compass::org::types::type_id> types;
+    const checkout_files* files = nullptr;
 
     [[nodiscard]] std::size_t size() const noexcept { return paths.size(); }
 };

@@ -30,17 +30,6 @@
 
 namespace compass::codec::io {
 
-namespace {
-
-std::optional<std::string> read_file(const std::filesystem::path& path) {
-    std::ifstream is(path, std::ios::binary);
-    if (!is)
-        return std::nullopt;
-    return std::string(std::istreambuf_iterator<char>(is), {});
-}
-
-}
-
 std::filesystem::path dependency_file_path(
     const std::filesystem::path& git_dir) {
     return git_dir / "compass" / "deps";
@@ -48,7 +37,7 @@ std::filesystem::path dependency_file_path(
 
 loaded_record read_dependency_file(const std::filesystem::path& path) {
     loaded_record r;
-    const auto bytes = read_file(path);
+    const auto bytes = store::io::read_file(path);
     if (!bytes)
         return r;
     r.bytes = bytes->size();
@@ -63,7 +52,7 @@ loaded_record read_dependency_file(const std::filesystem::path& path) {
 bool write_dependency_file(const std::filesystem::path& path,
     const types::dependency_record& record) {
     const auto bytes = ops::encode_dependency_record(record);
-    if (read_file(path) == bytes)
+    if (store::io::read_file(path) == bytes)
         return false;
     store::io::write_object(path, std::as_bytes(std::span(bytes)));
     return true;

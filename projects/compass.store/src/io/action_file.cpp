@@ -30,11 +30,10 @@ namespace compass::store::io {
 
 std::optional<std::string> read_action(const std::filesystem::path& dir,
     const types::blob_id& key) {
-    std::ifstream is(object_path(dir, key), std::ios::binary);
-    if (!is)
+    const auto bytes = read_file(object_path(dir, key));
+    if (!bytes)
         return std::nullopt;
-    const std::string bytes(std::istreambuf_iterator<char>(is), {});
-    const auto body = ops::decode_action(key, bytes);
+    const auto body = ops::decode_action(key, *bytes);
     if (!body)
         return std::nullopt;
     return std::string(*body);

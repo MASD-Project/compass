@@ -21,6 +21,7 @@ set(exe_target_name ${name}.exe)
 
 add_library(${lib_target_name}
     app/application.cpp
+    app/codecs.cpp
     app/pipeline.cpp
     app/steps.cpp
     config/arguments.cpp
@@ -40,6 +41,7 @@ target_compile_definitions(${lib_target_name} PRIVATE
 target_link_libraries(${lib_target_name}
     PUBLIC
         compass.codec.lib
+        compass.codegen.lib
         compass.org.lib
         compass.platform.lib
         compass.store.lib

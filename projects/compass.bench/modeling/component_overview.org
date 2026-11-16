@@ -98,15 +98,18 @@ and call it directly.
   parsed set, which parses a document outside it the first time it is
   asked for. =--dump= writes each model of the last repetition as
   canonical JSON, for =build/scripts/codegen_model_diff.py=.
-- =render= compiles every =.mustache= template of ORE Studio's
-  =projects/ores.codegen/library/templates/= once, then renders, =--repeat=
-  times, every output whose context =compass.codegen= builds: the models
-  =regenerate --all= visits, the units the physical-space graph gives each,
-  and the context built from its =compass.model= value. With =--oracle= it
-  renders instead every output of a =build/scripts/codegen_render_dump.py=
-  dump from the dump's own contexts, which checks the renderer apart from
-  the contexts. =--out= writes each output to =renders/<path>=, for
-  =build/scripts/codegen_render_diff.py=.
+- =render= runs the code of the =codegen= codec of =compass.codegen=
+  directly, with the options the checkout's =.compass.org= gives that
+  codec, reading the files from disk instead of through a codec view. It
+  compiles every =.mustache= template of the library once, plans every
+  output with =ops::plan_generation=, then renders the plan =--repeat=
+  times. With =--oracle= it renders instead every output of a
+  =build/scripts/codegen_render_dump.py= dump from the dump's own contexts,
+  which checks the renderer apart from the contexts. =--out= writes each
+  output to =renders/<path>=, for =build/scripts/codegen_render_diff.py=.
+  =--format <git-dir>= then formats the outputs with the formatters the
+  codec's options give, through the result cache of that git directory,
+  and writes them to =formatted/<path>=.
 
 =gc= is not a stage either. =ops::run_gc_stage= collects the store once with
 =compass.cli='s =app::collect=, keeping the action objects of the result
@@ -158,7 +161,8 @@ the line format of =compass::org::io::dump=, which
   defaults to none.
 - =compass-bench models <checkout> [--dump <dir>] [--repeat R]=.
 - =compass-bench render <checkout> [--oracle <dir>] [--out <dir>]
-  [--repeat R]=.
+  [--format <git-dir>] [-j N] [--repeat R]=. The checkout's =.compass.org=
+  must configure the =codegen= codec.
 - =compass-bench org-dump <file>= prints to standard output.
   =compass-bench org-dump --list <list>= reads one input path, a tab and an
   output path per line and writes each dump to its output.
@@ -349,14 +353,15 @@ Linux.
 * Dependencies
 
 - =compass.cli= for the steps of the pipeline the =warm=, =codecs= and =gc=
-  stages time. The bench is in the tooling layer, above it.
+  stages time, and for the configuration file and the catalogue of codecs
+  =render= reads the =codegen= options from. The bench is in the tooling layer, above it.
 - =compass.platform= for =mapped_file=.
 - =compass.ingest= for the org parser and the type registry builder, and
   =compass.org= for the tables, their dump, the object codec and the type
   lookup.
 - =compass.model= for the model tables, the loader and the JSON dump.
-- =compass.codegen= for the template compiler, the renderer, the contexts
-  and the physical-space graph.
+- =compass.codegen= for the generation plan, the template compiler, the
+  renderer and the formatter table of the =codegen= codec.
 - =compass.codec= for the codec registry, the runner and the codecs.
 - =compass.store= for blob IDs, object paths, object writes, the ID
   resolver and collection.

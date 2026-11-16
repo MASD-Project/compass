@@ -109,10 +109,33 @@ void load_row(corpus_files& f, std::size_t row, ot::tables& scratch) {
 
 }
 
-std::vector<std::string> list(const std::filesystem::path& checkout) {
-    auto paths = io::list_org_files(checkout);
-    std::erase(paths, config::repository_file_name);
-    return paths;
+void list(listing& l, const std::filesystem::path& checkout) {
+    l.files = io::list_files(checkout);
+    l.documents = io::org_files(checkout, l.files);
+    std::erase(l.documents, config::repository_file_name);
+}
+
+codec::types::checkout_files checkout_files_of(const corpus_files& f,
+    const listing& l) {
+    codec::types::checkout_files out;
+    out.paths.assign(l.files.begin(), l.files.end());
+    out.content_of = [&f](std::string_view path)
+        -> std::optional<store::types::blob_id> {
+        try {
+            return f.resolver->resolve(path).id;
+        } catch (const std::system_error&) {
+            return std::nullopt;
+        }
+    };
+    out.read = [&f](std::string_view path) -> std::optional<std::string> {
+        try {
+            const mapped_file file(f.checkout / path);
+            return std::string(file.text());
+        } catch (const std::system_error&) {
+            return std::nullopt;
+        }
+    };
+    return out;
 }
 
 ot::type_registry build_type_registry(const std::filesystem::path& meta) {
@@ -232,6 +255,8 @@ codec::io::action_writes store_results(const std::filesystem::path& checkout,
 
 bool write_dependency_record(const std::filesystem::path& checkout,
     const codec::types::run_result& run) {
+    if (run.same_record)
+        return false;
     return codec::io::write_dependency_file(
         codec::io::dependency_file_path(store::io::git_dir(checkout)),
         run.record);

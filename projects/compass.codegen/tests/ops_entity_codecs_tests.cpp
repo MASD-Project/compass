@@ -19,6 +19,7 @@
  */
 #include "compass.codegen/ops/entity_steps.hpp"
 
+#include <set>
 #include <string>
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
@@ -34,10 +35,13 @@ codegen::types::entity_registry registry() {
     auto& inbox = r.directories["projects/ores.inbox/modeling"];
     inbox.member_names = {"notification_delivery", "notification"};
     inbox.group_names = {"delivery_outcome"};
-    r.domain_headers = {
-        "projects/ores.diff/include/ores.diff/domain/diff_span.hpp",
-        "projects/ores.diff/include/ores.diff/domain/diff_span_codec.hpp",
-        "projects/ores.dq/api/include/ores.dq.api/domain/audit_record.hpp"};
+    r.header_exists = [](std::string_view path) {
+        static const std::set<std::string, std::less<>> headers{
+            "projects/ores.diff/include/ores.diff/domain/diff_span.hpp",
+            "projects/ores.diff/include/ores.diff/domain/diff_span_codec.hpp",
+            "projects/ores.dq/api/include/ores.dq.api/domain/audit_record.hpp"};
+        return headers.contains(path);
+    };
     return r;
 }
 

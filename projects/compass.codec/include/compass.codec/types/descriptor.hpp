@@ -20,12 +20,18 @@
 #ifndef COMPASS_CODEC_TYPES_DESCRIPTOR_HPP
 #define COMPASS_CODEC_TYPES_DESCRIPTOR_HPP
 
+#include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <span>
+#include <stdexcept>
+#include <string>
 #include <string_view>
 #include <variant>
+#include <vector>
 #include "compass.codec/types/diagnostic_table.hpp"
 #include "compass.codec/types/file_table.hpp"
+#include "compass.codec/types/formatter.hpp"
 
 namespace compass::codec::types {
 
@@ -110,13 +116,49 @@ using codec_function = std::variant<document_function<file_table>,
     corpus_function<diagnostic_table>>;
 
 /**
+ * @brief The value of each option of a codec, in the order its descriptor
+ * declares them.
+ */
+struct option_values {
+    std::span<const option> options;
+    std::span<const std::string> values;
+
+    /**
+     * @brief The value of the option @p key.
+     * @throws std::out_of_range when no option has that key, which is a
+     * defect of the codec.
+     */
+    [[nodiscard]] std::string_view operator[](std::string_view key) const {
+        for (std::size_t i = 0; i < options.size(); ++i) {
+            if (options[i].key == key)
+                return values[i];
+        }
+        throw std::out_of_range("codec option not declared: " +
+            std::string(key));
+    }
+};
+
+/**
+ * @brief The formatters the files of a codec go through before they are
+ * written, from the codec's option values and the root of the checkout.
+ * The formatted forms are not part of what the codec records: a unit
+ * keeps the bytes the function emitted, and the host formats them, through
+ * the result cache, in every run.
+ * @throws std::runtime_error when the options name a program that cannot
+ * be found.
+ */
+using formatters_function = std::vector<formatter> (*)(
+    const option_values& options, const std::filesystem::path& checkout);
+
+/**
  * @brief A codec: what it is, what it reads and the function that runs it.
  *
  * version is bumped by hand whenever some input would now give an output
  * that differs from the one the previous version gave it. A result is kept
  * under the name, the version, the option values and the content IDs of
  * the documents read, so a change to any of them runs the codec again.
- * rules is empty for a codec that emits files.
+ * rules is empty for a codec that emits files. formatters is null for a
+ * codec whose files are written as it emits them.
  *
  * A descriptor is constant data: every span and string points at storage
  * that outlives the registry it is added to.
@@ -130,6 +172,7 @@ struct descriptor {
     std::span<const rule> rules;
     bool enabled_by_default = true;
     codec_function run;
+    formatters_function formatters = nullptr;
 };
 
 enum class unit : std::uint8_t { document, corpus };

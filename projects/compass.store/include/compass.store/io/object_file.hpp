@@ -22,7 +22,9 @@
 
 #include <cstddef>
 #include <filesystem>
+#include <optional>
 #include <span>
+#include <string>
 
 namespace compass::store::io {
 
@@ -44,6 +46,13 @@ namespace compass::store::io {
  */
 void write_object(const std::filesystem::path& target,
     std::span<const std::byte> bytes);
+
+/**
+ * @brief The bytes of the file at @p path, read in one call, or nothing
+ * when it cannot be opened or read whole.
+ */
+[[nodiscard]] std::optional<std::string> read_file(
+    const std::filesystem::path& path);
 
 }
 

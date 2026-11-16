@@ -1,0 +1,106 @@
+:PROPERTIES:
+:ID: 22EC58E3-C413-402C-96D5-93E34230C887
+:END:
+#+title: How do I generate code with compass?
+#+description: Configure the codegen codec in .compass.org and run compass diff, generate and check to regenerate a checkout's generated code, formatted, touching only files whose content changed.
+#+type: recipe
+#+level: cross
+#+filetags: :compass:cli:codegen:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+
+The =codegen= codec of [[id:ADDF10CB-A992-4E35-A727-A38463915085][compass.codegen]] does what ores.codegen's
+=regenerate --all= does, in the codec runtime of
+[[id:995ECC12-860C-4009-B9A2-8CA1A6102BD6][compass.codec]]; [[id:45FA67C9-60BC-420D-BB66-8A272CB1106C][compass.cli]] runs it.
+
+* Question
+
+How do I regenerate all of a checkout's generated code, such as ORE
+Studio's, with compass instead of ores.codegen?
+
+* Answer
+
+Enable the =codegen= codec in the checkout's =.compass.org= and say where
+the library is and which programs format the outputs. The output root is
+the checkout itself, so the generated files land where they are committed.
+This is the configuration for ORE Studio:
+
+#+begin_src org
+,#+output: .
+,#+meta: doc/meta
+
+,* Codecs
+
+| name              | enabled | options                                                                                                                                                                                                                       |
+|-------------------+---------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| document_index    | no      |                                                                                                                                                                                                                               |
+| required_sections | no      |                                                                                                                                                                                                                               |
+| codegen           | yes     | library=projects/ores.codegen/library convention_component=refdata clang_format=clang-format clang_format_style=.clang-format prettier=projects/ores.web/node_modules/.bin/prettier,prettier prettier_style=.prettierrc.yaml |
+#+end_src
+
+The options:
+
+- =library= :: The directory of ores.codegen's library, with =templates/=,
+  =data/= and =component_catalogue.org=. Required.
+- =convention_component= :: The catalogue component whose modeling
+  directory declares the convention families. Required.
+- =year= :: The copyright year of the licence blocks. Empty, the default,
+  means the year of the run, as ores.codegen does.
+- =clang_format=, =prettier= :: Candidate programs, comma-separated; the
+  first found is used. A name is looked up on =PATH=; a path is relative
+  to the checkout. Empty means the outputs of that language are not
+  formatted. A non-empty option with no program found fails the command.
+- =clang_format_style=, =prettier_style= :: The style files, relative to
+  the checkout.
+
+Disable =document_index= so compass writes only generated code into the
+checkout. Then see what would change, write it, and check:
+
+#+begin_src sh :results verbatim
+compass diff -C ~/Development/OreStudio --timings
+compass generate -C ~/Development/OreStudio --timings
+compass check -C ~/Development/OreStudio
+#+end_src
+
+=diff= prints the unified diff of every file that would change and writes
+nothing to the checkout. =generate= writes only the files whose bytes
+differ and leaves a file compass never wrote untouched. =--timings= adds
+one line per step and one per codec, saying whether its unit ran or came
+from the record or the result cache, and what formatting did:
+
+: 0 written, 26212 unchanged, 0 restored, 0 removed, 0 kept under ... (10927 documents, ...; units run: ..., codegen 0; 2272.6 ms)
+: compass: codec codegen: 0 run, 1 from the record, 0 from the cache; format 22955 stored, 0 formatted, 3257 unformatted, 0 processes, 425.6 ms
+
+The first run on a checkout loads every model, renders every output and
+runs clang-format and prettier over them: about 20 to 30 seconds on ORE
+Studio, most of it formatting. Later runs take about 2.5 seconds. The
+codegen unit reruns only when a document it read, a library file, a
+domain header's existence or the list of =projects/**/*.org= files
+changes; an edit elsewhere reuses it. Formatting goes through the result
+cache, keyed by the raw bytes, so a rerun that changes a few outputs
+formats only those. Another worktree of the same repository reuses the
+unit and the formatted outputs from the shared cache.
+
+The outputs are the same bytes ores.codegen writes. On ORE Studio at the
+archived commit, all 26,212 outputs match ores.codegen's own formatted
+output, and 26,188 match the committed tree; the other 24 are drift in the
+committed tree.
+
+* Script
+
+=compass generate=, =diff= and =check= (=projects/compass.cli=); the
+codec is =projects/compass.codegen/src/codecs/codegen.cpp=.
+=compass-bench render <checkout> [--format <git-dir>]= runs the same
+generation code with the same options and times each stage.
+
+* Tested by
+
+=compass.codegen.tests= (the codec on a small library) and
+=compass.cli.tests= (=generate=, =diff= and the formatter through the
+executable's commands).
+
+* See also
+
+- [[id:AA6DE55E-DAD3-47E5-B485-DAD2365898E9][How do I configure compass?]]
+- [[id:2AD84580-A94E-4EEE-A234-3EB437A8B492][How do I see what compass would change?]]
+- [[id:521D0D78-E4CF-487A-A5BB-EC698DC76B99][How do I generate outputs with compass?]]

@@ -37,7 +37,7 @@ namespace compass::codec::ops {
  * every key, so a build that changes a format finds none of the objects of
  * another.
  */
-inline constexpr std::uint32_t action_format_version = 1;
+inline constexpr std::uint32_t action_format_version = 2;
 
 /**
  * @brief How many input sets a manifest keeps. A new set goes first and
@@ -50,7 +50,8 @@ inline constexpr std::size_t manifest_capacity = 8;
  * @brief The key of the manifest of a unit: what is known before it runs.
  * That is the codec's name and version, its configuration hash and the
  * unit's identity: for a document unit the path of its document and its
- * content ID, for a corpus unit an empty path and its type set hash.
+ * content ID, for a corpus unit an empty path and an all-zero ID, since
+ * what a corpus unit read is known only from its input sets.
  */
 [[nodiscard]] compass::store::types::blob_id manifest_key(
     std::string_view codec, std::uint32_t version,

@@ -293,7 +293,7 @@ types::dependency_record decode_dependency_record(std::string_view bytes) {
         for (std::uint32_t i = 0; i < inputs; ++i) {
             const auto kind = r.u8();
             if (kind > static_cast<std::uint8_t>(
-                    types::input_kind::type_registry))
+                    types::last_input_kind))
                 reject("unknown input kind " + std::to_string(kind));
             record.input_kinds.values.push_back(
                 static_cast<types::input_kind>(kind));

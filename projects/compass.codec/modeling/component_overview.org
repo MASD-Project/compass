@@ -35,6 +35,10 @@ others is in its descriptor, so adding a codec adds a row to a list.
   its source, the source bytes, the =compass.org= tables of its parse and its
   registered type. The corpus owns nothing; the host keeps the sources and
   the objects mapped.
+- Optionally, =types::checkout_files=: every file of the checkout, documents
+  or not, in byte order of the paths, with a function that gives a file's
+  content ID as the host resolves IDs and one that reads its bytes. The
+  corpus points at it; with none, every file input is a miss.
 - The type registry of =compass.org=, which the input types of a codec are
   resolved against.
 - A span of descriptors. =codecs::catalogue()= lists the ones this component
@@ -75,10 +79,16 @@ others is in its descriptor, so adding a codec adds a row to a list.
   ID, so the path is part of every document read. Every lookup is an input
   with its answer: for =find_id= the blob ID of the path found, for
   =find_path= the content ID, and a miss when nothing answered. A read of the
-  type registry is an input with the SHA-1 of its tables. A corpus unit does
-  not list its documents: it depends on all of them, as one =type_set= input,
-  the SHA-1 of the sorted paths and content IDs of every document it may
-  read. =types::corpus_index=, built by =ops::index_corpus=, finds documents
+  type registry is an input with the SHA-1 of its tables. The view also
+  reads the files of the checkout that are not documents: =read_file= is a
+  =file= input with the content ID of the bytes read, =file_exists= a
+  =file_exists= input whose answer is only found or missing, and
+  =list_files(prefix, suffix)= a =listing= input keyed =prefix*suffix= whose
+  value is the SHA-1 of the matching paths. A corpus unit is recorded read
+  by read, as a document unit is, until it enumerates the documents through
+  =size()= or =operator[]=; from then on it depends on all of them, as one
+  =type_set= input, the SHA-1 of the sorted paths and content IDs of every
+  document it may read, and lookups after that are not listed. =types::corpus_index=, built by =ops::index_corpus=, finds documents
   by path and ID for the view and for selection alike.
 - *Dependency record.* =types::dependency_record= has one row per unit: one
   call of a document codec, for one document, or the call of a corpus codec.
@@ -97,7 +107,8 @@ others is in its descriptor, so adding a codec adds a row to a list.
   a damaged one, or one of another version, as an empty record with the
   reason, so every unit runs. =io::write_dependency_file= writes through a
   temporary file and a rename, and only when the bytes differ from the
-  file's.
+  file's. A run whose previous record stood in for every unit, and held no
+  other, sets =same_record=, and a host need not encode or write it.
 - *Files.* =types::file_table= has a path and the bytes of each file. Paths
   are relative to the checkout root.
 - *Diagnostics.* =types::diagnostic_table= has, per finding, the document
@@ -122,7 +133,9 @@ others is in its descriptor, so adding a codec adds a row to a list.
   it is new, its codec's version or configuration hash changed, or one of
   its inputs has another answer now: a document's content ID changed, an ID
   now names another document, a lookup that missed now finds one, the type
-  set of a corpus codec changed, or the type registry changed. A unit that is
+  set of a corpus unit that enumerated changed, the type registry changed, a
+  file read has another content ID or appeared or went, a file tested
+  appeared or went, or a listing matches other paths. A unit that is
   not called is skipped: its recorded outputs go into the result where the
   call's would have, so a run with a record returns what a run without one
   does, and its row is copied into the new record. The record of a run holds
@@ -132,8 +145,8 @@ others is in its descriptor, so adding a codec adds a row to a list.
   does, so a unit never runs only to learn its inputs.
   =ops::manifest_key= is computed before the run: the format version, the
   codec's name, version and configuration hash, and the unit's identity, its
-  document's path and content ID, or an empty path and the type set hash of
-  a corpus unit. The manifest (=types::action_manifest=) under that key
+  document's path and content ID, or an empty path and an all-zero ID for a
+  corpus unit, whose reads are known only from its input sets. The manifest (=types::action_manifest=) under that key
   lists up to =ops::manifest_capacity= (8) input sets, newest first, each
   the inputs a call read, in its record's order, with the key of the result
   it produced. The first set whose every input has the same answer now,
@@ -164,11 +177,22 @@ others is in its descriptor, so adding a codec adds a row to a list.
   =io::format_batch= files, one process per pass per batch; rows of one key
   are formatted once. No record names
   these keys yet, so the collector keeps them only within its grace period.
+- *Formatted outputs.* A files codec may name, in its descriptor, a
+  =types::formatters_function=: given its =types::option_values= and the
+  root of the checkout, it returns the formatters its files go through.
+  =io::format_outputs= formats, in place, the files a =run_result= holds
+  for each enabled codec that has one, through =io::format_files=, and
+  sets the codec's =formatted_ids=, the blob ID of each formatted file,
+  hashed on as many threads as formatting. =ops::outputs_of= takes such a
+  codec's files from the run, not from its record. The record keeps the
+  bytes the codec emitted, so a unit is reused whatever the formatters
+  are, and a change of formatter or style file costs only the
+  formatting.
 - *Output set.* =types::output_set= is what a run asks to have on disk: per
   file its codec, its path relative to the output root, its bytes and its
   blob ID, and the names of the /complete/ codecs, whose every unit ran or
-  was reused. =ops::outputs_of= builds it from a =run_result=; every enabled
-  codec is complete. =ops::check_outputs= lists a path that is not plain
+  was reused. =ops::outputs_of= builds it from a =run_result=, from the
+  record but for formatted codecs; every enabled codec is complete. =ops::check_outputs= lists a path that is not plain
   relative (absolute, empty, or with an empty, =.= or =..= component) and a
   path two rows produce, naming both codecs.
 - *Output sink.* The sink is a plan and an apply. =io::plan_outputs= reads
@@ -262,6 +286,7 @@ others is in its descriptor, so adding a codec adds a row to a list.
 |------------------------------------------------+---------------------------------------------------|
 | =include/compass.codec/types/descriptor.hpp=   | =descriptor=, =inputs=, =option=, =rule= and the function types. |
 | =include/compass.codec/types/corpus.hpp=       | The corpus a host fills.                          |
+| =include/compass.codec/types/checkout_files.hpp= | Every file of the checkout, for file inputs.    |
 | =include/compass.codec/types/corpus_view.hpp=  | =document=, =read_log= and =corpus_view=.         |
 | =include/compass.codec/types/corpus_index.hpp= | Documents by path and by ID.                      |
 | =include/compass.codec/types/dependency_record.hpp= | What each unit read and produced.            |

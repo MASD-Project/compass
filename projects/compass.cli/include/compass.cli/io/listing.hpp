@@ -22,23 +22,32 @@
 
 #include <filesystem>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace compass::cli::io {
 
 /**
- * @brief The org files of @p checkout, relative to it, in git's order:
- * every tracked path and every untracked path no ignore rule covers, as
- * `git ls-files -z --cached --others --exclude-standard` lists them,
- * whose name ends in .org and which is a regular file on disk. A tracked
- * file deleted from the worktree is left out, so the corpus is what is on
- * disk.
+ * @brief The files of @p checkout, relative to it, in byte order, each
+ * once: every tracked path and every untracked path no ignore rule
+ * covers, as `git ls-files -z --cached --others --exclude-standard` lists
+ * them. A tracked file deleted from the worktree is listed; reading it
+ * fails.
  *
  * @throws std::system_error when git cannot be started, and
  * std::runtime_error when it fails.
  */
-[[nodiscard]] std::vector<std::string> list_org_files(
+[[nodiscard]] std::vector<std::string> list_files(
     const std::filesystem::path& checkout);
+
+/**
+ * @brief The org files among @p files of @p checkout: those whose name
+ * ends in .org and which are regular files on disk, so the corpus is what
+ * is on disk.
+ */
+[[nodiscard]] std::vector<std::string_view> org_files(
+    const std::filesystem::path& checkout,
+    const std::vector<std::string>& files);
 
 }
 

@@ -30,6 +30,7 @@
 #include "compass.codec/io/action_cache.hpp"
 #include "compass.codec/io/dependency_file.hpp"
 #include "compass.codec/io/output_sink.hpp"
+#include "compass.codec/types/checkout_files.hpp"
 #include "compass.codec/types/corpus.hpp"
 #include "compass.codec/types/output_set.hpp"
 #include "compass.codec/types/registry.hpp"
@@ -74,13 +75,33 @@ struct corpus_files {
 };
 
 /**
- * @brief The org files of @p checkout as io::list_org_files lists them,
- * without the repository file.
- *
- * @throws as io::list_org_files does.
+ * @brief Every file of a checkout, in byte order, and the org documents
+ * among them, which view files.
  */
-[[nodiscard]] std::vector<std::string> list(
-    const std::filesystem::path& checkout);
+struct listing {
+    std::vector<std::string> files;
+    std::vector<std::string_view> documents;
+
+    listing() = default;
+    listing(const listing&) = delete;
+    listing& operator=(const listing&) = delete;
+};
+
+/**
+ * @brief Lists into @p l the files of @p checkout as io::list_files lists
+ * them and, as documents, its org files as io::org_files picks them,
+ * without the repository file.
+ * @throws as io::list_files does.
+ */
+void list(listing& l, const std::filesystem::path& checkout);
+
+/**
+ * @brief The files of @p l as the codecs read them: content IDs from the
+ * resolver of @p f, bytes from disk.
+ * @pre resolve has run on @p f. @p f and @p l outlive the result.
+ */
+[[nodiscard]] codec::types::checkout_files checkout_files_of(
+    const corpus_files& f, const listing& l);
 
 /**
  * @brief The type registry the contract pages document_type_*.org under
@@ -165,7 +186,8 @@ codec::io::action_writes store_results(const std::filesystem::path& checkout,
 
 /**
  * @brief Replaces the dependency record of @p checkout with the one of
- * @p run when it differs, and returns true when it was written.
+ * @p run when it differs, and returns true when it was written. A run
+ * whose record is the previous one writes nothing and encodes nothing.
  */
 bool write_dependency_record(const std::filesystem::path& checkout,
     const codec::types::run_result& run);

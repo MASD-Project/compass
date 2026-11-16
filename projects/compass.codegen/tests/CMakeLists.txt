@@ -20,6 +20,7 @@ set(lib_target_name ${name}.lib)
 set(tests_target_name ${name}.tests)
 
 add_executable(${tests_target_name}
+    codecs_codegen_tests.cpp
     ops_compile_tests.cpp
     ops_context_tests.cpp
     ops_entity_codecs_tests.cpp
@@ -60,6 +61,7 @@ target_compile_definitions(${tests_target_name} PRIVATE
 target_link_libraries(${tests_target_name}
     PRIVATE
         ${lib_target_name}
+        compass.ingest.lib
         Catch2::Catch2WithMain)
 
 add_test(NAME ${tests_target_name}

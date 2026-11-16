@@ -119,6 +119,23 @@ void write_configuration(std::ostream& out, const types::configuration& c,
     }
 }
 
+void write_timings(std::ostream& err, const types::run_summary& s) {
+    for (const auto& [step, ms] : s.steps)
+        err << std::format("compass: step {} {:.1f} ms\n", step, ms);
+    for (std::size_t c = 0; c < s.codecs.size(); ++c) {
+        err << std::format("compass: codec {}: {} run, {} from the record, "
+                           "{} from the cache", s.codecs[c], s.ran[c],
+            s.skipped[c], s.cached[c]);
+        if (const auto& f = s.formats[c]) {
+            err << std::format("; format {} stored, {} formatted, {} "
+                               "unformatted, {} processes, {:.1f} ms",
+                f->hits, f->formatted, f->unformatted, f->runs,
+                f->format_ms);
+        }
+        err << "\n";
+    }
+}
+
 void write_gc(std::ostream& out, const types::gc_result& r) {
     const auto& c = r.collection;
     const auto& plan = c.plan;

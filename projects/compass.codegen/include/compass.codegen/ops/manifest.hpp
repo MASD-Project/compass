@@ -59,7 +59,7 @@ struct catalogue_component {
  */
 [[nodiscard]] std::set<std::string, std::less<>> regenerated_models(
     std::span<const catalogue_component> components,
-    std::span<const std::string> paths,
+    std::span<const std::string_view> paths,
     const std::function<std::string(std::string_view path)>& type_of);
 
 }
