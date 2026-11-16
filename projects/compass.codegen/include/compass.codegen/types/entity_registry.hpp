@@ -96,12 +96,15 @@ struct trade_type_route {
  * resolve it. trade_type_routes maps the file stem of each trade type
  * catalogue there to its rows, in catalogue order. custom_types holds
  * the rows of the custom-type registry the TypeScript projections read.
+ * economic_field_groups holds the dotted names of the field groups whose
+ * models declare an economic field (_group_declares_economic_fields).
  */
 struct entity_registry {
     std::map<std::string, table_owner, std::less<>> tables;
     std::map<std::string, std::vector<trade_type_route>, std::less<>>
         trade_type_routes;
     compass::model::ops::custom_types custom_types;
+    std::set<std::string, std::less<>> economic_field_groups;
 };
 
 }

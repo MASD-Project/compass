@@ -30,6 +30,7 @@
 #include <utility>
 #include <vector>
 #include "compass.model/ops/builder.hpp"
+#include "compass.model/ops/economic.hpp"
 #include "compass.model/ops/load.hpp"
 #include "compass.model/ops/outline.hpp"
 #include "compass.model/ops/typescript.hpp"
@@ -127,24 +128,6 @@ void ensure_profile_binding(const outline& o);
  */
 void reject_junction_only_flags(const outline& o, std::string_view kind,
     bool root_allowed = false);
-
-/**
- * @brief _member_name: the name or column of a member, or empty.
- */
-[[nodiscard]] std::string_view member_name(const builder& b,
-    types::value_id member);
-
-/**
- * @brief What economic_declaration returns: whether the members declare
- * :economic:, and the names of those that are.
- */
-struct economic {
-    bool declared = false;
-    std::vector<std::string> members;
-};
-[[nodiscard]] economic economic_declaration(const builder& b,
-    std::string_view owner, const std::vector<types::value_id>& members,
-    const std::vector<types::value_id>& carried);
 
 /**
  * @brief Writes has_economic_declaration, economic_fields and

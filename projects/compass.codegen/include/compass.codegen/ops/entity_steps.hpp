@@ -21,6 +21,7 @@
 #define COMPASS_CODEGEN_OPS_ENTITY_STEPS_HPP
 
 #include <string_view>
+#include <vector>
 #include "compass.model/ops/builder.hpp"
 #include "compass.codegen/types/entity_registry.hpp"
 #include "compass.model/types/model_tables.hpp"
@@ -467,6 +468,28 @@ void derive_ts_group_imports(compass::model::ops::builder& b,
  * over the columns, less the interfaces the groups already import.
  */
 void derive_ts_column_imports(compass::model::ops::builder& b,
+    compass::model::types::value_id entity,
+    const types::entity_registry& registry);
+
+/**
+ * @brief entity_struct_member_columns: the columns that reach the
+ * entity's flat domain struct, in template order. None for a grouped
+ * entity; the primary key and natural keys unless the identity group
+ * carries them; then every column that is neither an identity-group
+ * column nor sql_only.
+ */
+[[nodiscard]] std::vector<compass::model::types::value_id>
+entity_struct_member_columns(const compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief The economic declaration (core.py 6625-6640):
+ * has_economic_declaration, economic_fields and has_economic_fields, as
+ * entity_economic_declaration reads the struct's members, and, when it
+ * declares, canonical_members (entity_canonical_members) and
+ * has_canonical_members. A grouped entity declares an empty list.
+ */
+void derive_economic_declaration(compass::model::ops::builder& b,
     compass::model::types::value_id entity,
     const types::entity_registry& registry);
 

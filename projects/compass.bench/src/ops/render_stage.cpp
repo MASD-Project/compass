@@ -32,6 +32,7 @@
 #include "compass.codegen/ops/manifest.hpp"
 #include "compass.codegen/ops/output.hpp"
 #include "compass.codegen/ops/physical_space.hpp"
+#include "compass.codegen/ops/values.hpp"
 #include "compass.model/io/json.hpp"
 #include "compass.model/ops/builder.hpp"
 #include "compass.model/ops/load.hpp"
@@ -288,6 +289,30 @@ compass::codegen::types::entity_registry load_entity_registry(
         if (error.empty())
             owner.parent = compass::codegen::ops::parent_entity_of(scratch,
                 scratch.models.roots[id]);
+    }
+
+    constexpr std::string_view group_suffix = "_field_group.org";
+    for (const auto& path : table.paths) {
+        if (!path.starts_with(projects) || !path.ends_with(group_suffix) ||
+            path.find(modeling) == std::string::npos)
+            continue;
+        auto* p = documents.get(path);
+        if (p == nullptr)
+            continue;
+        std::string error;
+        const auto id = mops::load_model(b, document_of(*p),
+            compass::model::types::model_type::field_group, find, cache,
+            &error);
+        if (!error.empty())
+            continue;
+        const auto& t = b.tables();
+        const auto group = compass::codegen::ops::values::member(t,
+            scratch.models.roots[id], "field_group");
+        if (!compass::codegen::ops::values::truthy(t, group, "has_economic_fields"))
+            continue;
+        const auto name = std::filesystem::path(path).filename().string();
+        registry.economic_field_groups.insert(
+            name.substr(0, name.size() - group_suffix.size()));
     }
     return registry;
 }
