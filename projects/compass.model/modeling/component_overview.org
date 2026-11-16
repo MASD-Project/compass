@@ -47,8 +47,8 @@ included.
   =load_cache= spares parsing the document again.
 - A =document_lister= that lists the paths of the checkout under a prefix.
   A model that reads the models beside it finds them through it, as
-  ores.codegen globs the directories: the =trade_type_catalogue= lists the
-  entity models of every =projects/*/modeling/= directory.
+  ores.codegen globs the directories: a =family= lists its own directory
+  and the =trade_type_catalogue= every =projects/*/modeling/= directory.
 
 No model at this commit reads a =#+data_source:= JSON file: in ORE Studio
 only the populate archetypes of the template library name one, and an
@@ -91,18 +91,20 @@ as inputs it records like any other file.
 | =operation=             | =load_operation=             |                80 |        80 |
 | =field_group=           | =load_field_group=           |                45 |        45 |
 | =junction=              | =load_junction=              |                27 |        27 |
-| =family=                | none                         |                 4 |         0 |
+| =family=                | =load_family=                |                 4 |         4 |
 | =service_registry=      | =load_service_registry=      |                 1 |         1 |
 | =asset_class_catalogue= | =load_asset_class_catalogue= |                 1 |         1 |
 | =outcome_catalogue=     | =load_outcome_catalogue=     |                 1 |         1 |
 | =trade_type_catalogue=  | =load_trade_type_catalogue=  |                 1 |         1 |
 
 The counts are of ORE Studio =origin/main= at =4ca9411b70=, from
-=build/scripts/codegen_model_diff.py=. A =family= needs the derived key
-records of its central entity and a directory index of the entity models
-beside it, which are not ported. The =trade_type_catalogue= finds the
-entity models of every component by the table each claims, as
-=ops::entity_claim_of= scans their raw text.
+=build/scripts/codegen_model_diff.py=. A =family= finds the entity models
+beside it by the singular each declares, loads its central entity and
+derives its protocol from that entity's key record. It does not check that
+each part reaches the central row by a flagged foreign key, which
+=compass.codegen='s family context refuses instead. The
+=trade_type_catalogue= finds the entity models of every component by the
+table each claims, as =ops::entity_claim_of= scans their raw text.
 
 * Entry points
 

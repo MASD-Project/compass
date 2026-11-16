@@ -293,37 +293,6 @@ key_column write_entity_view(builder& b, value_id view, value_id model,
 }
 
 /*
- * The TypeScript twin's imports: domain_imports (ts_domain_imports) and
- * utility_imports (ts_utility_imports) of the family's messages.
- */
-void derive_family_imports(builder& b, value_id family,
-    const types::entity_registry& registry) {
-    std::vector<std::string> owned;
-    for (const auto m : values::items(b.tables(), family, "messages")) {
-        for (const auto f : values::items(b.tables(), m, "fields"))
-            owned.emplace_back(values::str(b.tables(), f, "cpp_type"));
-    }
-    const std::vector<std::string_view> cpp_types(owned.begin(), owned.end());
-    const std::string component(values::str(b.tables(), family, "component"));
-    const auto domain = compass::model::ops::ts_domain_imports(cpp_types,
-        component, registry.custom_types);
-    const auto utility = compass::model::ops::ts_utility_imports(cpp_types);
-    const auto domain_list = b.list(family, "domain_imports");
-    for (const auto& i : domain) {
-        const auto o = b.append_object(domain_list);
-        b.set(o, "entity", i.entity);
-        b.set(o, "entity_pascal", i.entity_pascal);
-        b.set(o, "module_dir", i.module_dir);
-    }
-    const auto utility_list = b.list(family, "utility_imports");
-    for (const auto& i : utility) {
-        const auto o = b.append_object(utility_list);
-        b.set(o, "name_pascal", i.pascal);
-        b.set(o, "module", i.module);
-    }
-}
-
-/*
  * A copy of the loaded entity @p model the view may change.
  */
 value_id scratch_copy(builder& b, value_id model) {
@@ -443,13 +412,6 @@ family_contexts family_context(builder& b, value_id library, value_id model,
         "family");
     if (family.is_none())
         return {context, value_id::none()};
-    const auto central = members.find(values::str(b.tables(), family,
-        "central_entity"));
-    if (central == members.end())
-        throw std::runtime_error(site.path + ": names a central entity no "
-            "ores.codegen.entity model beside it declares");
-    derive_family_messages(b, family, central->second, registry);
-    derive_family_imports(b, family, registry);
     set_component_path_vars(b, family);
     for (const auto key : {"component", "component_include", "component_core",
              "component_service"})

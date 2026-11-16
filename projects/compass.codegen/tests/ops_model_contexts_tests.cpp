@@ -312,7 +312,13 @@ TEST_CASE("a family's service view joins its parts to the central row",
         "central_entity": "convention",
         "parts": [{"part": "averaging_terms",
             "entity": "commodity_future_averaging_terms",
-            "cardinality": "optional", "group": ""}]}})j");
+            "cardinality": "optional", "group": ""}],
+        "messages": [{"name": "get_commodity_future_convention_request",
+            "derived": true,
+            "subject": "refdata.v1.commodity_future_conventions.get",
+            "response_type": "get_commodity_future_convention_response",
+            "fields": [{"name": "key",
+                "cpp_type": "commodity_future_convention_key"}]}]}})j");
     const auto central = model::io::read_json(f.b, R"j({
         "entity_singular": "convention", "entity_plural": "conventions",
         "component": "refdata",
@@ -345,19 +351,7 @@ TEST_CASE("a family's service view joins its parts to the central row",
         f.library, f.model, "ores.refdata.commodity_future_convention",
         codegen::types::entity_registry{}, refdata_site, members);
     f.context = context;
-    const auto family = f.at("family");
-    CHECK(message_names(f, family) == strings{
-        "commodity_future_convention_key", "commodity_future_convention_item",
-        "commodity_future_convention_write",
-        "get_commodity_future_convention_request",
-        "get_commodity_future_convention_response",
-        "get_many_commodity_future_conventions_request",
-        "get_many_commodity_future_conventions_response",
-        "put_commodity_future_convention_request",
-        "put_commodity_future_convention_response",
-        "put_many_commodity_future_conventions_request",
-        "put_many_commodity_future_conventions_response"});
-    CHECK(f.json(family, "central") == "<absent>");
+    CHECK(f.json(f.at("family"), "central") == "<absent>");
 
     const auto serviced = codegen::ops::values::member(f.tables, service,
         "family");
