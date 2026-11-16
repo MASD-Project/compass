@@ -8,7 +8,7 @@
 #+filetags: :project_shape:sprint_01:v0:
 #+owner: marco
 #+branch: feature/create-the-build-skeleton
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/5
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-10-27
@@ -63,6 +63,10 @@ Root CMakeLists.txt, CMakePresets.json, vcpkg.json and projects/CMakeLists.txt i
 * Test Scenarios
 
 * PRs
+
+| PR | Title |
+|----+-------|
+| [[https://github.com/MASD-Project/compass/pull/5][#5]] | [build] Add the build skeleton and compass.platform |
 
 * Review
 
