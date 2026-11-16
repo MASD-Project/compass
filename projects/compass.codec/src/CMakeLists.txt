@@ -30,6 +30,7 @@ add_library(${lib_target_name}
     io/output_sink.cpp
     ops/action_cache.cpp
     ops/dependencies.cpp
+    ops/exceptions.cpp
     ops/format_cache.cpp
     ops/outputs.cpp
     ops/registry.cpp
