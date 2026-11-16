@@ -309,6 +309,10 @@ std::vector<planned> plan_models(const std::filesystem::path& checkout,
         for (std::size_t i = 0; i < outline.file_property_keys.size(); ++i)
             properties.push_back({outline.file_property_keys[i],
                 outline.file_property_values[i]});
+        const auto overrides = mops::physical_space_overrides(outline, find,
+            cache);
+        for (const auto& [key, enabled] : overrides)
+            properties.push_back({key, enabled ? "true" : "false"});
         const auto units = compass::codegen::ops::model_units(graph, registry,
             type_name, b.tables(), root, path, properties);
         if (units.empty())
