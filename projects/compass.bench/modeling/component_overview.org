@@ -23,8 +23,9 @@ of a checkout with one =git ls-files -z= call and map files with
 =warm=, =codecs= and =gc= host no pipeline of their own. They call the steps
 of =compass.cli='s =app/steps.hpp=, the code the =compass= executable runs,
 and add only timing and repetition. Their files are the =.org= rows of the
-bench's file table, which, unlike =app::list=, keeps =.compass.org=. The
-other stages measure one primitive in isolation and call it directly.
+bench's file table without =.compass.org=, the files =app::list= gives the
+=compass= executable. The other stages measure one primitive in isolation
+and call it directly.
 
 - =read= folds every byte of every regular file into a checksum, on N
   threads.

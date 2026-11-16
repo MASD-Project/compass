@@ -17,6 +17,7 @@
  * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  */
+#include "compass.cli/config/repository_file.hpp"
 #include "compass.bench/ops/codecs_stage.hpp"
 
 #include <algorithm>
@@ -125,7 +126,8 @@ void evaluate(evaluation& e, const std::filesystem::path& checkout,
 
     std::vector<std::string_view> paths;
     for (std::uint32_t id = 0; id < table.size(); ++id) {
-        if (table.extensions[table.extension_ids[id]] == ".org")
+        if (table.extensions[table.extension_ids[id]] == ".org" &&
+            table.paths[id] != cli::config::repository_file_name)
             paths.emplace_back(table.paths[id]);
     }
     r.files = paths.size();
