@@ -343,12 +343,7 @@ public:
      * option, which is a defect of the codec.
      */
     [[nodiscard]] std::string_view option(std::string_view key) const {
-        for (std::size_t i = 0; i < options_.size(); ++i) {
-            if (options_[i].key == key)
-                return values_[i];
-        }
-        throw std::out_of_range("codec option not declared: " +
-            std::string(key));
+        return option_values{options_, values_}[key];
     }
 
 private:

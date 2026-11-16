@@ -29,6 +29,8 @@
 #include <utility>
 #include <unistd.h>
 #include <catch2/catch_test_macros.hpp>
+#include "compass.codec/ops/registry.hpp"
+#include "compass.codec/types/corpus_view.hpp"
 
 namespace {
 
@@ -310,4 +312,60 @@ TEST_CASE("find_program searches PATH and accepts a path with a slash",
     CHECK(io::find_program("sh").has_value());
     CHECK(io::find_program(f.program().string()) == f.program());
     CHECK_FALSE(io::find_program("compass-no-such-program").has_value());
+}
+
+namespace {
+
+void no_files(const types::corpus_view&, types::file_table&) {}
+
+std::vector<types::formatter> fake_formatters(const types::option_values& o,
+    const std::filesystem::path& checkout) {
+    return {{.name = "fake", .program = checkout / o["program"],
+        .extensions = {".hpp"}, .arguments = {"--style={style}"},
+        .passes = 1, .style = checkout / o["style"]}};
+}
+
+constexpr std::array<types::option, 2> fake_options{{
+    {"program", "fake-format", ""}, {"style", "style", ""}}};
+
+types::descriptor files_codec(std::string_view name,
+    types::formatters_function formatters) {
+    return {.name = name, .version = 1, .summary = "",
+        .reads = types::inputs::every_document(), .options = fake_options,
+        .rules = {}, .enabled_by_default = true,
+        .run = types::corpus_function<types::file_table>{no_files},
+        .formatters = formatters};
+}
+
+}
+
+TEST_CASE("format_outputs formats the files of the enabled codecs that "
+    "have formatters, with the formatters their options give",
+    "[format_cache]") {
+    const fixture f;
+    const auto checkout = f.git().parent_path();
+    write_file(checkout / "style2", "lower");
+    const std::array codecs{files_codec("formatted", fake_formatters),
+        files_codec("plain", nullptr), files_codec("off", fake_formatters)};
+    types::configuration settings;
+    settings.set("formatted", "style", "style2");
+    settings.set("off", types::enabled_key, "false");
+    const auto r = ops::make_registry(codecs, {}, settings);
+    REQUIRE(r.problems.empty());
+    types::run_result run;
+    for (std::size_t c = 0; c < codecs.size(); ++c)
+        run.files.push_back(table_of({{"x.hpp", "one"}, {"y.sql", "two"}}));
+
+    const auto stats = io::format_outputs(r, run, checkout, f.git(), 2);
+
+    CHECK(text(run.files[0], 0) == "[lower:x.hpp]one");
+    CHECK(text(run.files[0], 1) == "two");
+    CHECK(text(run.files[1], 0) == "one");
+    CHECK(text(run.files[2], 0) == "one");
+    REQUIRE(stats.size() == 3);
+    REQUIRE(stats[0].has_value());
+    CHECK(stats[0]->formatted == 1);
+    CHECK(stats[0]->unformatted == 1);
+    CHECK_FALSE(stats[1].has_value());
+    CHECK_FALSE(stats[2].has_value());
 }

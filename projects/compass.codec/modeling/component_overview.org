@@ -176,6 +176,14 @@ others is in its descriptor, so adding a codec adds a row to a list.
   =io::format_batch= files, one process per pass per batch; rows of one key
   are formatted once. No record names
   these keys yet, so the collector keeps them only within its grace period.
+- *Formatted outputs.* A files codec may name, in its descriptor, a
+  =types::formatters_function=: given its =types::option_values= and the
+  root of the checkout, it returns the formatters its files go through.
+  =io::format_outputs= formats, in place, the files a =run_result= holds
+  for each enabled codec that has one, through =io::format_files=. The
+  record keeps the bytes the codec emitted, so a unit is reused whatever
+  the formatters are, and a change of formatter or style file costs only
+  the formatting.
 - *Output set.* =types::output_set= is what a run asks to have on disk: per
   file its codec, its path relative to the output root, its bytes and its
   blob ID, and the names of the /complete/ codecs, whose every unit ran or

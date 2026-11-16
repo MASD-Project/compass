@@ -27,8 +27,11 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 #include "compass.codec/types/file_table.hpp"
 #include "compass.codec/types/formatter.hpp"
+#include "compass.codec/types/registry.hpp"
+#include "compass.codec/types/run_result.hpp"
 
 namespace compass::codec::io {
 
@@ -94,6 +97,21 @@ inline constexpr std::size_t format_batch = 512;
     const std::filesystem::path& git_common_dir,
     std::span<const types::formatter> formatters,
     const types::file_table& raw, unsigned threads);
+
+/**
+ * @brief Formats, in place, the files @p run holds for each enabled codec
+ * of @p r whose descriptor has formatters, with the formatters its option
+ * values give for the checkout @p checkout, through format_files and the
+ * result cache of @p git_common_dir. The record of @p run keeps the bytes
+ * the codecs emitted.
+ * @return per codec, what formatting its files did, or nothing for a codec
+ * that was not formatted.
+ * @throws as format_files does, and what a formatters function throws.
+ */
+[[nodiscard]] std::vector<std::optional<format_stats>> format_outputs(
+    const types::registry& r, types::run_result& run,
+    const std::filesystem::path& checkout,
+    const std::filesystem::path& git_common_dir, unsigned threads);
 
 }
 
