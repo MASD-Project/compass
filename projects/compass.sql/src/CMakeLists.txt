@@ -20,6 +20,7 @@ set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
     codecs/catalogue.cpp
+    codecs/curve_parameter_paths.cpp
     codecs/handler_permissions.cpp
     codecs/populate_refs.cpp
     codecs/rls_widenings.cpp
