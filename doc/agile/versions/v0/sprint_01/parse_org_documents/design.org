@@ -9,7 +9,7 @@
 #+created: 2026-11-16
 #+updated: 2026-11-16
 #+todo: DRAFT STARTED | LANDED SUPERSEDED ABANDONED
-#+outcome:
+#+outcome: 44C128E0-BCF3-4574-B171-BF5E72325085
 
 #+begin_note
 *This document describes a transition, not the current state.* It argues from
@@ -17,17 +17,18 @@
 =compass.org= component, and it expires when the
 [[id:F1C69FBB-C16B-4F10-ACDB-F059C6355730][Parse org documents]] story lands.
 
-The durable description of the tables is the =compass.org= component
-overview, which =#+outcome:= names once this design lands. Do not link to this
-page from durable documentation; the link runs one way, from here to the
-overview.
+The durable description of the tables is the
+[[id:44C128E0-BCF3-4574-B171-BF5E72325085][compass.org]] component overview,
+which =#+outcome:= names. Read that page for the tables as they are. Do not
+link to this page from durable documentation; the link runs one way, from
+here to the overview.
 #+end_note
 
 * Status
 
 | Field        | Value               |
 |--------------+---------------------|
-| State        | DRAFT               |
+| State        | LANDED              |
 | Parent story | [[id:F1C69FBB-C16B-4F10-ACDB-F059C6355730][Parse org documents]] |
 | Last touched | 2026-11-16          |
 
