@@ -20,7 +20,18 @@ set(lib_target_name ${name}.lib)
 set(tests_target_name ${name}.tests)
 
 add_executable(${tests_target_name}
-    org_parser_tests.cpp)
+    org_block_tests.cpp
+    org_crlf_tests.cpp
+    org_document_tests.cpp
+    org_drawer_tests.cpp
+    org_emphasis_tests.cpp
+    org_keyword_tests.cpp
+    org_link_tests.cpp
+    org_list_tests.cpp
+    org_object_tests.cpp
+    org_paragraph_tests.cpp
+    org_parser_tests.cpp
+    org_table_tests.cpp)
 
 target_link_libraries(${tests_target_name}
     PRIVATE
