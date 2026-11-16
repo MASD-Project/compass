@@ -51,20 +51,6 @@ constexpr std::pair<std::string_view, std::string_view> ts_scalars[] = {
     {"std::chrono::system_clock::time_point", "string"},
 };
 
-constexpr std::pair<std::string_view, std::string_view> ts_utility_types[] = {
-    {"ores::utility::domain::hierarchy_node", "HierarchyNode"},
-    {"ores::utility::domain::result", "Result"},
-    {"ores::utility::domain::precondition", "Precondition"},
-    {"ores::utility::domain::change_intent", "ChangeIntent"},
-    {"ores::utility::domain::order", "Order"},
-    {"ores::utility::domain::scope", "Scope"},
-    {"ores::trading::domain::instrument_batch", "InstrumentBatch"},
-    {"ores::trading::domain::trade_envelope_data", "TradeEnvelopeData"},
-    {"ores::security::jwt::storage_grant", "StorageGrant"},
-    {"ores::ore::messaging::ore_document", "OreDocument"},
-    {"ores::trading::messaging::trade_summaries_filter",
-        "TradeSummariesFilter"},
-};
 
 bool is_identifier(std::string_view s) {
     if (s.empty() || !((s[0] >= 'a' && s[0] <= 'z') ||
@@ -115,8 +101,7 @@ std::vector<std::string_view> split_template_arguments(std::string_view a) {
     return parts;
 }
 
-std::string ts_of(std::string_view t,
-    const std::vector<std::pair<std::string, std::string>>& custom) {
+std::string ts_of(std::string_view t, const custom_types& custom) {
     const auto wrapped = [&](std::string_view open) {
         return t.starts_with(open) && t.ends_with(">");
     };
@@ -147,9 +132,9 @@ std::string ts_of(std::string_view t,
         return pascal_case(name);
     if (t.starts_with("domain::"))
         return "string";
-    for (const auto& [cpp, ts] : ts_utility_types) {
-        if (cpp == t)
-            return std::string(ts);
+    for (const auto& u : ts_utility_types()) {
+        if (u.cpp == t)
+            return std::string(u.pascal);
     }
     if (t.find("::") == std::string_view::npos)
         return pascal_case(t);
@@ -193,17 +178,44 @@ std::string indent_block(std::string_view text, std::size_t spaces) {
 
 }
 
-std::vector<std::pair<std::string, std::string>>
-custom_type_headers(load_context& c) {
-    std::vector<std::pair<std::string, std::string>> out;
-    const auto d = c.find("projects/modeling/cpp_custom_types.org");
+std::span<const ts_utility_type> ts_utility_types() noexcept {
+    static constexpr ts_utility_type types[] = {
+        {"ores::utility::domain::hierarchy_node", "HierarchyNode",
+            "utility/hierarchy"},
+        {"ores::utility::domain::result", "Result", "utility/protocol"},
+        {"ores::utility::domain::precondition", "Precondition",
+            "utility/protocol"},
+        {"ores::utility::domain::change_intent", "ChangeIntent",
+            "utility/protocol"},
+        {"ores::utility::domain::order", "Order", "utility/protocol"},
+        {"ores::utility::domain::scope", "Scope", "utility/protocol"},
+        {"ores::trading::domain::instrument_batch", "InstrumentBatch",
+            "generated/trading/instrument_batch"},
+        {"ores::trading::domain::trade_envelope_data", "TradeEnvelopeData",
+            "trading/payload"},
+        {"ores::security::jwt::storage_grant", "StorageGrant",
+            "security/payload"},
+        {"ores::ore::messaging::ore_document", "OreDocument",
+            "generated/ore/protocol/ore_document_protocol"},
+        {"ores::trading::messaging::trade_summaries_filter",
+            "TradeSummariesFilter",
+            "generated/trading/protocol/trade_summary_protocol"},
+    };
+    return types;
+}
+
+const custom_types& custom_type_headers(load_context& c) {
+    static const custom_types none;
+    constexpr std::string_view path = "projects/modeling/cpp_custom_types.org";
+    const auto d = c.find(path);
     if (!d)
-        return out;
+        return none;
+    auto& cached = c.cache.get().registries[std::string(path)];
+    if (cached.source == d->source.data() && cached.size == d->source.size())
+        return cached.value;
     outline o;
     build_outline(d->source, *d->tables, o);
     const auto registry = section(o, node_id{0}, "The registry");
-    if (registry.is_none())
-        return out;
     std::map<std::string, std::string> rows;
     const auto bare = [](std::string_view s) {
         s = trim(s);
@@ -224,8 +236,9 @@ custom_type_headers(load_context& c) {
                 "' to two headers");
         rows[name] = header;
     }
-    out.assign(rows.begin(), rows.end());
-    return out;
+    cached = {d->source.data(), d->source.size(),
+        custom_types(rows.begin(), rows.end())};
+    return cached.value;
 }
 
 std::string ts_type(load_context& c, std::string_view cpp_type) {

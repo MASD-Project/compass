@@ -21,6 +21,7 @@
 #define COMPASS_MODEL_OPS_LOAD_HPP
 
 #include <functional>
+#include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -61,6 +62,29 @@ public:
 };
 
 /**
+ * @brief What a run of loads parses once and reuses: the custom type
+ * registry and the profile tables, as ores.codegen caches them for a run.
+ *
+ * Every model that needs one still asks the finder for its document, so a
+ * finder that records reads sees each read; the cache only spares parsing
+ * the same bytes again. An entry is reused while the finder hands out the
+ * same bytes for its path.
+ */
+class load_cache final {
+public:
+    load_cache();
+    ~load_cache();
+    load_cache(const load_cache&) = delete;
+    load_cache& operator=(const load_cache&) = delete;
+
+    struct impl;
+    [[nodiscard]] impl& get() noexcept { return *impl_; }
+
+private:
+    std::unique_ptr<impl> impl_;
+};
+
+/**
  * @brief The model type a #+type: value names, or nothing when it is not a
  * type ores.codegen's load_model loads.
  */
@@ -81,7 +105,8 @@ public:
  * it, and @p error, when given, gets the message.
  */
 types::model_id load_model(builder& b, const document& d, types::model_type t,
-    const document_finder& find, std::string* error = nullptr);
+    const document_finder& find, load_cache& cache,
+    std::string* error = nullptr);
 
 }
 

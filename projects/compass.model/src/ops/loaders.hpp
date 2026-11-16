@@ -22,7 +22,9 @@
 
 #include <cstdint>
 #include <initializer_list>
+#include <map>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -37,11 +39,37 @@
  */
 namespace compass::model::ops {
 
+/**
+ * @brief One literal row of a profile's Assignments table: a boolean or a
+ * text default for a feature.
+ */
+struct profile_assignment {
+    std::string feature;
+    bool is_bool = false;
+    bool flag = false;
+    std::string text;
+};
+
+using custom_types = std::vector<std::pair<std::string, std::string>>;
+
+struct load_cache::impl {
+    template <typename T>
+    struct entry {
+        const char* source = nullptr;
+        std::size_t size = 0;
+        T value;
+    };
+    std::map<std::string, entry<custom_types>, std::less<>> registries;
+    std::map<std::string, entry<std::vector<profile_assignment>>, std::less<>>
+        profiles;
+};
+
 struct load_context {
     builder& b;
     const document& d;
     const outline& o;
     const document_finder& find;
+    load_cache& cache;
 };
 
 /**
@@ -191,6 +219,17 @@ void set_properties(builder& b, types::value_id object, const outline& o,
 [[nodiscard]] std::string ts_type(load_context& c, std::string_view cpp_type);
 
 /**
+ * @brief One row of _TS_UTILITY_DOMAIN_TYPES: a C++ type with a
+ * hand-written TypeScript interface, and the module that exports it.
+ */
+struct ts_utility_type {
+    std::string_view cpp;
+    std::string_view pascal;
+    std::string_view module;
+};
+[[nodiscard]] std::span<const ts_utility_type> ts_utility_types() noexcept;
+
+/**
  * @brief _to_pascal_case.
  */
 [[nodiscard]] std::string pascal_case(std::string_view name);
@@ -199,8 +238,7 @@ void set_properties(builder& b, types::value_id object, const outline& o,
  * @brief The (type, header) rows of projects/modeling/cpp_custom_types.org,
  * sorted by type.
  */
-[[nodiscard]] std::vector<std::pair<std::string, std::string>>
-custom_type_headers(load_context& c);
+[[nodiscard]] const custom_types& custom_type_headers(load_context& c);
 
 /**
  * @brief parse_declared_messages: the * Messages section as the list both
@@ -212,6 +250,7 @@ void load_component(load_context& c, types::value_id root);
 void load_component_overview(load_context& c, types::value_id root);
 void load_field_group(load_context& c, types::value_id root);
 void load_entity(load_context& c, types::value_id root);
+void load_operation(load_context& c, types::value_id root);
 
 }
 

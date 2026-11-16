@@ -291,7 +291,7 @@ std::string feature_name(std::string_view cell) {
 
 }
 
-std::vector<profile_assignment> profile_assignments(load_context& c,
+const std::vector<profile_assignment>& profile_assignments(load_context& c,
     std::string_view slug) {
     std::string file(slug);
     std::ranges::replace(file, '-', '_');
@@ -299,9 +299,13 @@ std::vector<profile_assignment> profile_assignments(load_context& c,
     const auto d = c.find(path);
     if (!d)
         throw model_error("unknown profile '" + std::string(slug) + "'");
+    auto& cached = c.cache.get().profiles[path];
+    if (cached.source == d->source.data() && cached.size == d->source.size())
+        return cached.value;
+    cached = {d->source.data(), d->source.size(), {}};
+    auto& out = cached.value;
     outline o;
     build_outline(d->source, *d->tables, o);
-    std::vector<profile_assignment> out;
     const auto assignments = section(o, node_id{0}, "Assignments");
     if (assignments.is_none())
         return out;

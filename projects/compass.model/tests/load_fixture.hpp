@@ -62,7 +62,8 @@ public:
         const auto type = ops::model_type_of(ops::declared_type(doc));
         types::model_tables tables;
         ops::builder b(tables);
-        const auto id = ops::load_model(b, doc, *type, find);
+        ops::load_cache cache;
+        const auto id = ops::load_model(b, doc, *type, find, cache);
         std::string out;
         io::write_json(out, tables, tables.models.roots[id]);
         return out;

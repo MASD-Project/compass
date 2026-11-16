@@ -146,6 +146,7 @@ models_result run_models_stage(const std::filesystem::path& checkout,
     };
 
     compass::model::types::model_tables tables;
+    compass::model::ops::load_cache cache;
     for (unsigned rep = 0; rep < repetitions; ++rep) {
         tables = {};
         compass::model::ops::builder b(tables);
@@ -156,7 +157,7 @@ models_result run_models_stage(const std::filesystem::path& checkout,
         for (const auto& [p, type] : models) {
             std::string error;
             compass::model::ops::load_model(b, document_of(*p), type, find,
-                &error);
+                cache, &error);
             const auto t = static_cast<std::size_t>(type);
             ++r.by_type[t];
             if (!error.empty()) {

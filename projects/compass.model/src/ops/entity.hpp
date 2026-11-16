@@ -32,21 +32,10 @@
 namespace compass::model::ops {
 
 /**
- * @brief One literal row of a profile's Assignments table: a boolean or a
- * text default for a feature.
- */
-struct profile_assignment {
-    std::string feature;
-    bool is_bool = false;
-    bool flag = false;
-    std::string text;
-};
-
-/**
  * @brief _load_profile_assignments: the literal rows of
  * projects/modeling/variability_<slug>.org, read through the finder.
  */
-[[nodiscard]] std::vector<profile_assignment> profile_assignments(
+[[nodiscard]] const std::vector<profile_assignment>& profile_assignments(
     load_context& c, std::string_view slug);
 
 /**

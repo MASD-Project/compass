@@ -79,7 +79,7 @@ void resolve_domain_group_fields(load_context& c, value_id de) {
             throw model_error("domain group names a missing field group");
         outline fo;
         build_outline(d->source, *d->tables, fo);
-        load_context fc{b, *d, fo, c.find};
+        load_context fc{b, *d, fo, c.find, c.cache};
         const auto holder = b.detached_object();
         load_field_group(fc, holder);
         const auto fg = b.find(holder, "field_group");

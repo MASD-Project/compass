@@ -28,6 +28,7 @@ add_library(${lib_target_name}
     ops/field_group.cpp
     ops/load.cpp
     ops/messages.cpp
+    ops/operation.cpp
     ops/outline.cpp
     ops/text.cpp)
 

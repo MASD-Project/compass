@@ -73,14 +73,18 @@ void collect_implementations(load_context& c, value_id parent,
     }
 }
 
+load_cache::load_cache() : impl_(std::make_unique<impl>()) {}
+
+load_cache::~load_cache() = default;
+
 types::model_id load_model(builder& b, const document& d, model_type t,
-    const document_finder& find, std::string* error) {
+    const document_finder& find, load_cache& cache, std::string* error) {
     const types::model_id id{
         static_cast<std::uint32_t>(b.tables().models.size())};
     const auto root = b.add_model(d.path, t);
     outline o;
     build_outline(d.source, *d.tables, o);
-    load_context c{b, d, o, find};
+    load_context c{b, d, o, find, cache};
     try {
         switch (t) {
         case model_type::component:
@@ -91,6 +95,9 @@ types::model_id load_model(builder& b, const document& d, model_type t,
             break;
         case model_type::entity:
             load_entity(c, root);
+            break;
+        case model_type::operation:
+            load_operation(c, root);
             break;
         case model_type::field_group:
             load_field_group(c, root);
