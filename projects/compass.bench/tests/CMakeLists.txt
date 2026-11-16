@@ -21,7 +21,8 @@ set(tests_target_name ${name}.tests)
 
 add_executable(${tests_target_name}
     ops_listing_tests.cpp
-    ops_partition_tests.cpp)
+    ops_partition_tests.cpp
+    ops_read_stage_tests.cpp)
 
 target_link_libraries(${tests_target_name}
     PRIVATE

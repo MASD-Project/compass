@@ -20,7 +20,8 @@ set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
     ops/listing.cpp
-    ops/partition.cpp)
+    ops/partition.cpp
+    ops/read_stage.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
 
@@ -29,4 +30,5 @@ target_include_directories(${lib_target_name} PUBLIC
 
 target_link_libraries(${lib_target_name}
     PUBLIC
-        compass.platform.lib)
+        compass.platform.lib
+        Threads::Threads)
