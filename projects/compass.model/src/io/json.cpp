@@ -20,6 +20,7 @@
 #include "compass.model/io/json.hpp"
 
 #include <algorithm>
+#include <stdexcept>
 #include <string_view>
 #include <vector>
 
@@ -115,6 +116,264 @@ void write_json(std::string& out, const types::model_tables& t,
     value_id value) {
     write_value(out, t, value, 0);
     out += '\n';
+}
+
+namespace {
+
+/**
+ * @brief A recursive descent over JSON text. Each value is written where
+ * its parent puts it: under a key of an object or at the end of a list.
+ */
+class reader final {
+public:
+    reader(ops::builder& b, std::string_view text) : b_(b), text_(text) {}
+
+    value_id top() {
+        skip_space();
+        value_id root;
+        if (peek() == '{')
+            root = b_.detached_object();
+        else if (peek() == '[')
+            root = b_.detached_list();
+        else
+            fail("expected an object or an array");
+        fill(root);
+        skip_space();
+        if (pos_ != text_.size())
+            fail("text after the value");
+        return root;
+    }
+
+private:
+    [[noreturn]] void fail(std::string_view what) const {
+        throw std::runtime_error("JSON at byte " + std::to_string(pos_) +
+            ": " + std::string(what));
+    }
+
+    char peek() const { return pos_ < text_.size() ? text_[pos_] : '\0'; }
+
+    void skip_space() {
+        while (pos_ < text_.size() && (text_[pos_] == ' ' ||
+            text_[pos_] == '\n' || text_[pos_] == '\r' || text_[pos_] == '\t'))
+            ++pos_;
+    }
+
+    void expect(char c) {
+        skip_space();
+        if (peek() != c)
+            fail(std::string("expected '") + c + "'");
+        ++pos_;
+    }
+
+    bool literal(std::string_view word) {
+        if (text_.substr(pos_, word.size()) != word)
+            return false;
+        pos_ += word.size();
+        return true;
+    }
+
+    unsigned hex4() {
+        if (pos_ + 4 > text_.size())
+            fail("short \\u escape");
+        unsigned v = 0;
+        for (int i = 0; i < 4; ++i) {
+            const char c = text_[pos_++];
+            v <<= 4;
+            if (c >= '0' && c <= '9')
+                v |= static_cast<unsigned>(c - '0');
+            else if (c >= 'a' && c <= 'f')
+                v |= static_cast<unsigned>(c - 'a' + 10);
+            else if (c >= 'A' && c <= 'F')
+                v |= static_cast<unsigned>(c - 'A' + 10);
+            else
+                fail("bad \\u escape");
+        }
+        return v;
+    }
+
+    static void utf8(std::string& out, unsigned cp) {
+        if (cp < 0x80) {
+            out += static_cast<char>(cp);
+        } else if (cp < 0x800) {
+            out += static_cast<char>(0xC0 | (cp >> 6));
+            out += static_cast<char>(0x80 | (cp & 0x3F));
+        } else if (cp < 0x10000) {
+            out += static_cast<char>(0xE0 | (cp >> 12));
+            out += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
+            out += static_cast<char>(0x80 | (cp & 0x3F));
+        } else {
+            out += static_cast<char>(0xF0 | (cp >> 18));
+            out += static_cast<char>(0x80 | ((cp >> 12) & 0x3F));
+            out += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
+            out += static_cast<char>(0x80 | (cp & 0x3F));
+        }
+    }
+
+    /**
+     * @brief The string at the cursor. It points into the text unless the
+     * string holds an escape, when it is unescaped into @p buffer.
+     */
+    std::string_view string(std::string& buffer) {
+        expect('"');
+        const auto start = pos_;
+        while (pos_ < text_.size() && text_[pos_] != '"' &&
+            text_[pos_] != '\\')
+            ++pos_;
+        if (peek() == '"')
+            return text_.substr(start, pos_++ - start);
+        buffer.assign(text_.substr(start, pos_ - start));
+        while (true) {
+            if (pos_ >= text_.size())
+                fail("unterminated string");
+            const char c = text_[pos_++];
+            if (c == '"')
+                return buffer;
+            if (c != '\\') {
+                buffer += c;
+                continue;
+            }
+            if (pos_ >= text_.size())
+                fail("unterminated string");
+            switch (text_[pos_++]) {
+            case '"': buffer += '"'; break;
+            case '\\': buffer += '\\'; break;
+            case '/': buffer += '/'; break;
+            case 'b': buffer += '\b'; break;
+            case 'f': buffer += '\f'; break;
+            case 'n': buffer += '\n'; break;
+            case 'r': buffer += '\r'; break;
+            case 't': buffer += '\t'; break;
+            case 'u': {
+                unsigned cp = hex4();
+                if (cp >= 0xD800 && cp < 0xDC00 && literal("\\u")) {
+                    const unsigned low = hex4();
+                    cp = 0x10000 + ((cp - 0xD800) << 10) + (low - 0xDC00);
+                }
+                utf8(buffer, cp);
+                break;
+            }
+            default: fail("bad escape");
+            }
+        }
+    }
+
+    /**
+     * @brief Reads the value at the cursor into @p key of object @p parent,
+     * or at the end of list @p parent when @p key is null.
+     */
+    void value(value_id parent, const std::string* key) {
+        skip_space();
+        const char c = peek();
+        if (c == '{' || c == '[') {
+            const bool object = c == '{';
+            value_id child;
+            if (key != nullptr)
+                child = object ? b_.object(parent, *key) : b_.list(parent, *key);
+            else
+                child = object ? b_.append_object(parent)
+                               : b_.append_list(parent);
+            fill(child);
+        } else if (c == '"') {
+            std::string buffer;
+            const auto s = string(buffer);
+            if (key != nullptr)
+                b_.set(parent, *key, s);
+            else
+                b_.append(parent, s);
+        } else if (literal("true") || literal("false")) {
+            const bool v = text_[pos_ - 1] == 'e' && text_[pos_ - 2] == 'u';
+            if (key != nullptr)
+                b_.set(parent, *key, v);
+            else
+                b_.append(parent, v);
+        } else if (literal("null")) {
+            if (key != nullptr)
+                b_.set_null(parent, *key);
+            else
+                b_.append_null(parent);
+        } else {
+            number(parent, key);
+        }
+    }
+
+    void number(value_id parent, const std::string* key) {
+        const auto start = pos_;
+        bool integral = true;
+        if (peek() == '-')
+            ++pos_;
+        while (pos_ < text_.size()) {
+            const char c = text_[pos_];
+            if (c >= '0' && c <= '9') {
+                ++pos_;
+            } else if (c == '.' || c == 'e' || c == 'E' || c == '+' ||
+                c == '-') {
+                integral = false;
+                ++pos_;
+            } else {
+                break;
+            }
+        }
+        const auto text = text_.substr(start, pos_ - start);
+        if (text.empty() || text == "-")
+            fail("bad value");
+        if (!integral) {
+            if (key != nullptr)
+                b_.set(parent, *key, text);
+            else
+                b_.append(parent, text);
+            return;
+        }
+        const bool negative = text.front() == '-';
+        std::int64_t v = 0;
+        for (const char c : negative ? text.substr(1) : text)
+            v = v * 10 + (c - '0');
+        if (negative)
+            v = -v;
+        if (key != nullptr)
+            b_.set_integer(parent, *key, v);
+        else
+            b_.append_integer(parent, v);
+    }
+
+    void fill(value_id container) {
+        const bool object = peek() == '{';
+        const char close = object ? '}' : ']';
+        ++pos_;
+        skip_space();
+        if (peek() == close) {
+            ++pos_;
+            return;
+        }
+        std::string buffer;
+        std::string key;
+        while (true) {
+            if (object) {
+                skip_space();
+                key = string(buffer);
+                expect(':');
+                value(container, &key);
+            } else {
+                value(container, nullptr);
+            }
+            skip_space();
+            if (peek() == ',') {
+                ++pos_;
+                continue;
+            }
+            expect(close);
+            return;
+        }
+    }
+
+    ops::builder& b_;
+    std::string_view text_;
+    std::size_t pos_ = 0;
+};
+
+}
+
+value_id read_json(ops::builder& b, std::string_view text) {
+    return reader(b, text).top();
 }
 
 }

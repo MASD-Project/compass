@@ -63,3 +63,51 @@ TEST_CASE("a model is written as Python writes canonical JSON",
 }
 )json");
 }
+
+TEST_CASE("JSON read back is written as the same text", "[model][json]") {
+    const std::string text = R"json({
+  "a": [
+    null,
+    false,
+    -12,
+    "xé😀\/\"",
+    1.5e3,
+    [],
+    {}
+  ],
+  "b": {
+    "c": true
+  }
+}
+)json";
+    types::model_tables t;
+    ops::builder b(t);
+    const auto root = io::read_json(b, text);
+    std::string out;
+    io::write_json(out, t, root);
+    CHECK(out == R"json({
+  "a": [
+    null,
+    false,
+    -12,
+    "x)json" "\xC3\xA9\xF0\x9F\x98\x80" R"json(/\"",
+    "1.5e3",
+    [],
+    {}
+  ],
+  "b": {
+    "c": true
+  }
+}
+)json");
+}
+
+TEST_CASE("JSON that is not an object or array is refused",
+    "[model][json]") {
+    types::model_tables t;
+    ops::builder b(t);
+    CHECK_THROWS(io::read_json(b, "\"text\""));
+    CHECK_THROWS(io::read_json(b, "{\"a\": }"));
+    CHECK_THROWS(io::read_json(b, "{\"a\": \"open"));
+    CHECK_THROWS(io::read_json(b, "[1] 2"));
+}

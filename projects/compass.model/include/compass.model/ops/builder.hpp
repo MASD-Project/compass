@@ -97,6 +97,7 @@ public:
     void append(types::value_id list, std::string_view value);
     void append(types::value_id list, bool value);
     void append_integer(types::value_id list, std::int64_t value);
+    void append_null(types::value_id list);
     types::value_id append_copy(types::value_id list, types::value_id value);
 
     /**
