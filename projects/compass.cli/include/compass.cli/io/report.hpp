@@ -20,7 +20,9 @@
 #ifndef COMPASS_CLI_IO_REPORT_HPP
 #define COMPASS_CLI_IO_REPORT_HPP
 
+#include <filesystem>
 #include <ostream>
+#include "compass.cli/types/configuration.hpp"
 #include "compass.cli/types/results.hpp"
 
 namespace compass::cli::io {
@@ -52,6 +54,15 @@ void write_diff(std::ostream& out, std::ostream& err,
  */
 void write_check(std::ostream& out, std::ostream& err,
     const types::check_result& r);
+
+/**
+ * @brief Writes each path and each codec setting of @p c to @p out, one
+ * per line, as "<key> = <value> (<source>)". The source is default, the
+ * file and line, or command line. A path under @p checkout is written
+ * relative to it.
+ */
+void write_configuration(std::ostream& out, const types::configuration& c,
+    const std::filesystem::path& checkout);
 
 /**
  * @brief Writes what gc removed, or would remove, to @p out.

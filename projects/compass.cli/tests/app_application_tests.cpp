@@ -146,3 +146,87 @@ TEST_CASE("help and version exit 0 on standard output", "[app][application]") {
     CHECK(version.status == 0);
     CHECK_THAT(version.out, StartsWith("compass "));
 }
+
+TEST_CASE("config prints every value with where it came from",
+    "[app][application]") {
+    scoped_git_repo repo;
+    repo.write(".compass.org",
+        "#+title: Compass configuration\n#+output: out\n\n* Codecs\n\n"
+        "| name | enabled | options |\n|-\n"
+        "| document_index | yes | path=index.tsv |\n");
+
+    const auto r = run({"config", "-C", repo.checkout().string(), "--set",
+        "required_sections.enabled=false"});
+
+    CHECK(r.status == 0);
+    CHECK(r.err.empty());
+    CHECK(r.out ==
+        "output = out (.compass.org:2)\n"
+        "meta = doc/meta (default)\n"
+        "document_index.enabled = true (.compass.org:8)\n"
+        "document_index.path = index.tsv (.compass.org:8)\n"
+        "required_sections.enabled = false (command line)\n");
+}
+
+TEST_CASE("an error in the configuration file exits 2 naming the line and "
+    "the fix", "[app][application]") {
+    scoped_git_repo repo;
+    repo.write(".compass.org",
+        "* Codecs\n| document_index | yes | colour=red |\n");
+
+    for (const auto* command : {"check", "config"}) {
+        const auto r = run({command, "-C", repo.checkout().string()});
+        CHECK(r.status == 2);
+        CHECK(r.out.empty());
+        CHECK(r.err == "compass: .compass.org:2: codec 'document_index' has "
+            "no option 'colour'; fix: use one of path\n");
+    }
+
+    repo.write(".compass.org", "* Codecs\n| html | maybe | |\n");
+    const auto r = run({"gen", "-C", repo.checkout().string()});
+    CHECK(r.status == 2);
+    CHECK(r.err == "compass: .compass.org:2: enabled is 'maybe'; fix: write "
+        "yes or no\n");
+}
+
+TEST_CASE("the configuration file sets the output root and which codecs "
+    "run, and is not a document", "[app][application]") {
+    scoped_git_repo repo;
+    repo.write(".compass.org", "#+output: generated\n* Codecs\n"
+        "| required_sections | no | |\n");
+
+    const auto checked = run({"check", "-C", repo.checkout().string()});
+    CHECK(checked.status == 0);
+    CHECK_THAT(checked.out, StartsWith("0 diagnostics (4 documents, "));
+
+    const auto generated = run({"gen", "-C", repo.checkout().string()});
+    CHECK(generated.status == 0);
+    CHECK(std::filesystem::exists(
+        repo.checkout() / "generated" / "doc" / "document_index.tsv"));
+}
+
+TEST_CASE("editing one codec's option in the file runs only that codec's "
+    "units again", "[app][application]") {
+    scoped_git_repo repo;
+    const auto configure = [&](std::string_view path) {
+        repo.write(".compass.org", "* Codecs\n"
+            "| document_index | yes | path=" + std::string(path) + " |\n"
+            "| required_sections | yes | |\n");
+    };
+    configure("first.tsv");
+    REQUIRE(run_on(repo, "gen").status == 0);
+    const auto again = run_on(repo, "gen");
+    CHECK_THAT(again.out, ContainsSubstring(
+        "units run: document_index 0, required_sections 0;"));
+
+    configure("second.tsv");
+    const auto edited = run_on(repo, "gen");
+
+    CHECK(edited.status == 0);
+    CHECK_THAT(edited.out, StartsWith("1 written, 0 unchanged, 0 restored, "
+        "1 removed"));
+    CHECK_THAT(edited.out, ContainsSubstring(
+        "units run: document_index 1, required_sections 0;"));
+    CHECK(std::filesystem::exists(repo.output_root() / "second.tsv"));
+    CHECK_FALSE(std::filesystem::exists(repo.output_root() / "first.tsv"));
+}

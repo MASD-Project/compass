@@ -41,7 +41,11 @@ inline constexpr int exit_failure = 2;
  * name, from @p working_directory, writing to @p out and @p err, and
  * returns the exit status.
  *
- * Bad usage prints the reason and the help text to @p err. An exception
+ * Every command reads the configuration file of the checkout and applies
+ * the codec defaults, the file and the command line in that order. Bad
+ * usage prints the reason and the help text to @p err; an error in the
+ * configuration prints its file, line and fix, and is a failure. An
+ * exception
  * a command throws is printed to @p err as "compass: <what>" and is a
  * failure.
  */

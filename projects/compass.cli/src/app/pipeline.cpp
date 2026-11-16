@@ -29,6 +29,7 @@
 #include <system_error>
 #include <tuple>
 #include <vector>
+#include "compass.cli/config/repository_file.hpp"
 #include "compass.cli/io/listing.hpp"
 #include "compass.codec/codecs/catalogue.hpp"
 #include "compass.codec/io/action_cache.hpp"
@@ -183,6 +184,7 @@ void evaluate(pipeline& p, const types::options& o) {
     p.type_registry = build_type_registry(o.meta);
 
     p.paths = io::list_org_files(o.checkout);
+    std::erase(p.paths, config::repository_file_name);
     const auto count = p.paths.size();
     p.path_views.assign(p.paths.begin(), p.paths.end());
     p.resolved.resize(count);
@@ -232,6 +234,9 @@ void evaluate(pipeline& p, const types::options& o) {
     p.run = codec::ops::run(p.codecs, corpus, p.type_registry, o.threads,
         previous.record,
         codec::io::action_source_of(store::io::git_common_dir(o.checkout)));
+    for (std::size_t c = 0; c < p.codecs.size(); ++c)
+        s.codecs.emplace_back(p.codecs.codecs[c].name);
+    s.ran = p.run.ran;
     s.ms = since(start);
 }
 

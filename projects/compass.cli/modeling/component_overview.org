@@ -2,7 +2,7 @@
 :ID: 45FA67C9-60BC-420D-BB66-8A272CB1106C
 :END:
 #+title: compass.cli
-#+description: The compass executable and the library behind it: one function per command (generate, diff, check, gc) that runs the pipeline over a checkout and returns a result, the command-line parser, and the report that prints each result with its exit status.
+#+description: The compass executable and the library behind it: one function per command (generate, diff, check, gc, config) that runs the pipeline over a checkout and returns a result, the command-line parser, the reader of the repository's .compass.org, and the report that prints each result with its exit status.
 #+type: component
 #+level: cross
 #+filetags: :cli:application:pipeline:component:
@@ -28,10 +28,12 @@ with what the codecs produced:
 | =diff=            | Prints what =generate= would change as unified diffs.                    | Nothing.                                          |
 | =check=           | Prints every diagnostic as =path:line:column: rule: message (fix: ...)=. | Store and records, no output.                     |
 | =gc=              | Removes old unreferenced objects and action objects from the store.      | Removes files from the store, unless =--dry-run=. |
+| =config=          | Prints every path and codec setting in effect, and where it came from.   | Nothing.                                          |
 
 The library holds the pipeline and prints nothing: =app::generate=,
 =app::diff=, =app::check= and =app::gc= each take the options and return a
-result. =app::run= parses a command line, calls the command, has
+result. =app::run= parses a command line, reads the configuration file,
+resolves the options, calls the command, has
 =io::report= print the result to the streams it is given, and returns the
 exit status, so the tests drive the executable's behaviour without spawning
 it. =main= only hands =app::run= the arguments, the working directory and
@@ -42,19 +44,49 @@ the standard streams.
 - The command line. One argument is the command; options may come before
   or after it.
 
-| Option                          | Default                | Meaning                                        |
-|---------------------------------+------------------------+------------------------------------------------|
-| =-C <dir>=                      | the working directory  | The checkout, made absolute.                   |
-| =--meta <dir>=                  | =doc/meta=             | The contract pages, relative to the checkout.  |
-| =--out <dir>=                   | =build/output/compass= | The output root, relative to the checkout.     |
-| =-j <n>=                        | one per core           | Threads.                                       |
-| =--set <codec>.<key>=<value>=   | the codecs' own        | A codec option; repeatable, the last one wins. |
-| =--dry-run=, =--cap=, =--grace= | no, 0 bytes, 3600 s    | =gc= only.                                     |
-| =--help=, =-h=, =--version=     |                        | Print and exit 0, whatever else is there.      |
+| Option                          | Default                                  | Meaning                                         |
+|---------------------------------+------------------------------------------+-------------------------------------------------|
+| =-C <dir>=                      | the working directory                    | The checkout, made absolute.                    |
+| =--meta <dir>=                  | =#+meta:=, else =doc/meta=               | The contract pages, relative to the checkout.   |
+| =--out <dir>=                   | =#+output:=, else =build/output/compass= | The output root, relative to the checkout.      |
+| =-j <n>=                        | one per core                             | Threads.                                        |
+| =--set <codec>.<key>=<value>=   | the file, else the codecs' own           | A codec setting; repeatable, the last one wins. |
+| =--dry-run=, =--cap=, =--grace= | no, 0 bytes, 3600 s                      | =gc= only.                                      |
+| =--help=, =-h=, =--version=     |                                          | Print and exit 0, whatever else is there.       |
 
+- The configuration file, =.compass.org= at the root of the checkout. It
+  is optional: without it every value is the default. =#+output:= and
+  =#+meta:= set the paths, relative to the checkout. The first table under
+  the level-1 heading =* Codecs= has one row per codec: its name, =yes= or
+  =no= for enabled, and its options as space-separated =key=value= pairs.
+  A first row whose first cell is =name= is a header, and separator lines
+  are skipped. A codec with no row keeps its defaults.
+
+#+begin_example
+#+output: build/output/compass
+#+meta: doc/meta
+
+,* Codecs
+
+| name              | enabled | options                     |
+|-------------------+---------+-----------------------------|
+| document_index    | yes     | path=doc/document_index.tsv |
+| required_sections | yes     |                             |
+#+end_example
+
+- Precedence, key by key: the codec's and compass's defaults, then the
+  file, then =--out=, =--meta= and =--set=. =config::resolve= is the one
+  function that applies it. A row with other than three cells, an enabled
+  value other than =yes= or =no=, an option that is not =key=value=, a codec
+  named twice, a file with no =* Codecs= table, and a codec or option the
+  catalogue lacks are errors. Each names the file, the line and the fix,
+  and the command exits 2.
 - The checkout: every tracked org file and every untracked one no ignore
   rule covers, as =git ls-files --cached --others --exclude-standard= lists
-  them. A tracked file deleted from the worktree is not in the corpus.
+  them, except =.compass.org=. A tracked file deleted from the worktree is
+  not in the corpus. The configuration file is not a document, so an edit
+  to it re-runs exactly the codecs whose configuration changed, through
+  the configuration hash in the dependency and cache keys.
 - The store and the result cache under the git common directory, and the
   worktree index, dependency record and written-outputs record under the
   checkout's own git directory.
@@ -62,11 +94,15 @@ the standard streams.
 * Outputs
 
 - Standard output: =generate= prints one line of counts (written,
-  unchanged, restored, removed, kept), the output root, the corpus and the
-  wall time. =diff= prints the unified diffs. =check= prints one line per
+  unchanged, restored, removed, kept), the output root, the corpus, the
+  units each codec ran rather than reused, and the wall time. =diff= prints the unified diffs. =check= prints one line per
   diagnostic, sorted by path, line and column, then the count. =gc= prints
-  what it removed, or would remove, and the size of the store.
-- Standard error: the summary of =diff=, every file that did not load,
+  what it removed, or would remove, and the size of the store. =config=
+  prints one line per path and codec setting, as
+  =<key> = <value> (<source>)=, the source being =default=,
+  =.compass.org:<line>= or =command line=.
+- Standard error: the summary of =diff=, every error of the configuration
+  file, every file that did not load,
   every problem of the codec registry or the output root, and the message
   of a command that throws, as =compass: <what>=.
 - Exit status: 0 when nothing would change and no diagnostic fires, 1 when
@@ -79,17 +115,20 @@ range, 1-based, the column counted in bytes. The rule is written as
 
 * Entry points
 
-| Path                                       | Role                                               |
-|--------------------------------------------+----------------------------------------------------|
-| =include/compass.cli/types/options.hpp=    | The command and its options.                       |
-| =include/compass.cli/types/results.hpp=    | What each command returns.                         |
-| =include/compass.cli/config/arguments.hpp= | The command-line parser, the help and the version. |
-| =include/compass.cli/io/listing.hpp=       | The org files of a checkout, from =git ls-files=.  |
-| =include/compass.cli/app/pipeline.hpp=     | One function per command.                          |
-| =include/compass.cli/io/report.hpp=        | Printing each result.                              |
-| =include/compass.cli/app/application.hpp=  | =app::run= and the exit statuses.                  |
-| =src/main.cpp=                             | The executable.                                    |
-| =tests/end_to_end.sh=                      | The built executable over a fresh repository.      |
+| Path                                             | Role                                                                               |
+|--------------------------------------------------+------------------------------------------------------------------------------------|
+| =include/compass.cli/types/options.hpp=          | The command line and the options a command runs on.                                |
+| =include/compass.cli/types/configuration.hpp=    | Layers of settings and the configuration in effect, with sources.                  |
+| =include/compass.cli/config/repository_file.hpp= | Reading =.compass.org= into a layer.                                               |
+| =include/compass.cli/config/precedence.hpp=      | =resolve=: defaults, then the file, then the command line.                         |
+| =include/compass.cli/types/results.hpp=          | What each command returns.                                                         |
+| =include/compass.cli/config/arguments.hpp=       | The command-line parser, the help and the version.                                 |
+| =include/compass.cli/io/listing.hpp=             | The org files of a checkout, from =git ls-files=.                                  |
+| =include/compass.cli/app/pipeline.hpp=           | One function per command.                                                          |
+| =include/compass.cli/io/report.hpp=              | Printing each result.                                                              |
+| =include/compass.cli/app/application.hpp=        | =app::run= and the exit statuses.                                                  |
+| =src/main.cpp=                                   | The executable.                                                                    |
+| =tests/end_to_end.sh=                            | The built executable over a fresh repository, then configured by a =.compass.org=. |
 
 | Target                   | Kind                                                   |
 |--------------------------+--------------------------------------------------------|

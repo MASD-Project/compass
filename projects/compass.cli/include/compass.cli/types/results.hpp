@@ -37,8 +37,10 @@ namespace compass::cli::types {
  * loaded, loaded those whose object came from the store and parsed those
  * parsed instead. errors holds one line per file that could not be read
  * or parsed, and problems one line per defect of the codec registry, such
- * as a --set nobody declared; either makes the command fail. ms is the
- * wall time from listing the checkout to the end of the codec run.
+ * as a --set nobody declared; either makes the command fail. codecs
+ * names each codec of the run and ran counts the units of that codec that
+ * were called rather than reused. ms is the wall time from listing the
+ * checkout to the end of the codec run.
  */
 struct run_summary {
     std::uint64_t files = 0;
@@ -47,6 +49,8 @@ struct run_summary {
     std::uint64_t parsed = 0;
     std::vector<std::string> errors;
     std::vector<std::string> problems;
+    std::vector<std::string> codecs;
+    std::vector<std::uint64_t> ran;
     double ms = 0;
 
     [[nodiscard]] bool failed() const noexcept {

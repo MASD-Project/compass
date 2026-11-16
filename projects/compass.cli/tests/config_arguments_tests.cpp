@@ -35,42 +35,55 @@ config::parsed_arguments parse(std::vector<std::string_view> args) {
 
 }
 
-TEST_CASE("a bare command runs over the working directory with the "
-    "defaults", "[config][arguments]") {
+TEST_CASE("a bare command runs over the working directory and sets "
+    "nothing", "[config][arguments]") {
     const auto parsed = parse({"gen"});
-    REQUIRE(std::holds_alternative<types::options>(parsed));
-    const auto& o = std::get<types::options>(parsed);
+    REQUIRE(std::holds_alternative<types::invocation>(parsed));
+    const auto& o = std::get<types::invocation>(parsed);
     CHECK(o.which == types::command::generate);
     CHECK(o.checkout == "/work/repo");
-    CHECK(o.meta == "/work/repo/doc/meta");
-    CHECK(o.output_root == "/work/repo/build/output/compass");
+    CHECK_FALSE(o.command_line.meta);
+    CHECK_FALSE(o.command_line.output);
     CHECK(o.threads == 8);
-    CHECK(o.settings.size() == 0);
+    CHECK(o.command_line.settings.empty());
 }
 
-TEST_CASE("-C is relative to the working directory, --meta and --out to "
-    "the checkout", "[config][arguments]") {
+TEST_CASE("-C is relative to the working directory; --meta, --out and "
+    "--set are kept as written", "[config][arguments]") {
     const auto parsed = parse({"-C", "../other/", "diff", "--meta", "meta",
         "--out", "/tmp/out", "-j", "3", "--set", "document_index.path=x.tsv",
         "--set", "required_sections.enabled=false"});
-    REQUIRE(std::holds_alternative<types::options>(parsed));
-    const auto& o = std::get<types::options>(parsed);
+    REQUIRE(std::holds_alternative<types::invocation>(parsed));
+    const auto& o = std::get<types::invocation>(parsed);
     CHECK(o.which == types::command::diff);
     CHECK(o.checkout == "/work/other");
-    CHECK(o.meta == "/work/other/meta");
-    CHECK(o.output_root == "/tmp/out");
+    REQUIRE(o.command_line.meta);
+    CHECK(o.command_line.meta->value == "meta");
+    CHECK(o.command_line.meta->from.kind ==
+        types::origin_kind::command_line);
+    REQUIRE(o.command_line.output);
+    CHECK(o.command_line.output->value == "/tmp/out");
     CHECK(o.threads == 3);
-    REQUIRE(o.settings.size() == 2);
-    CHECK(o.settings.codecs[0] == "document_index");
-    CHECK(o.settings.keys[0] == "path");
-    CHECK(o.settings.values[0] == "x.tsv");
+    const auto& s = o.command_line.settings;
+    REQUIRE(s.size() == 2);
+    CHECK(s[0].codec == "document_index");
+    CHECK(s[0].key == "path");
+    CHECK(s[0].value == "x.tsv");
+    CHECK(s[0].from.kind == types::origin_kind::command_line);
+}
+
+TEST_CASE("config is a command", "[config][arguments]") {
+    const auto parsed = parse({"config"});
+    REQUIRE(std::holds_alternative<types::invocation>(parsed));
+    CHECK(std::get<types::invocation>(parsed).which ==
+        types::command::config);
 }
 
 TEST_CASE("gc takes its collection options", "[config][arguments]") {
     const auto parsed = parse({"gc", "--dry-run", "--cap", "1000",
         "--grace", "60"});
-    REQUIRE(std::holds_alternative<types::options>(parsed));
-    const auto& c = std::get<types::options>(parsed).collection;
+    REQUIRE(std::holds_alternative<types::invocation>(parsed));
+    const auto& c = std::get<types::invocation>(parsed).collection;
     CHECK(c.dry_run);
     CHECK(c.cap == 1000);
     CHECK(c.grace == std::chrono::seconds(60));

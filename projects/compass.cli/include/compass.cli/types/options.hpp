@@ -22,6 +22,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include "compass.cli/types/configuration.hpp"
 #include "compass.codec/types/configuration.hpp"
 #include "compass.store/types/collection.hpp"
 
@@ -30,14 +31,30 @@ namespace compass::cli::types {
 /**
  * @brief The commands of the compass executable.
  */
-enum class command : std::uint8_t { generate, diff, check, gc };
+enum class command : std::uint8_t { generate, diff, check, gc, config };
 
 /**
- * @brief What one command runs over and how.
+ * @brief What the command line asked for, before the configuration file
+ * is read.
  *
- * checkout, meta and output_root are absolute. settings holds every
- * --set, in order, and collection the options of gc, which no other
- * command reads.
+ * checkout is absolute. command_line holds --out, --meta and every
+ * --set, as written, and collection the options of gc.
+ */
+struct invocation {
+    command which = command::generate;
+    std::filesystem::path checkout;
+    unsigned threads = 1;
+    layer command_line;
+    store::types::collection_options collection;
+};
+
+/**
+ * @brief What one command runs over and how, once every layer of
+ * configuration is applied.
+ *
+ * checkout, meta and output_root are absolute. settings holds the value
+ * of every codec setting, enabled and options, and collection the
+ * options of gc, which no other command reads.
  */
 struct options {
     command which = command::generate;

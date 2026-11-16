@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :ship_the_compass_cli:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/configure-codecs-from-the-repository
+#+pr: https://github.com/MASD-Project/compass/pull/26
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -26,11 +26,11 @@ Read which codecs run, their options and the output root from a configuration fi
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                              |
 | Parent story | [[id:FEABA8E9-D541-45AA-9278-64DC1264C794][Ship the compass CLI]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -39,9 +39,21 @@ Read which codecs run, their options and the output root from a configuration fi
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- The configuration is an org file at the repository root, =.compass.org=,
+  read with compass's own parser. Keywords set the paths: =#+output:= (the
+  output root), =#+meta:= (the contract directory). A table under a
+  =* Codecs= heading lists one codec per row: name, enabled (=yes= or =no=),
+  and options as =key=value= pairs.
+- Precedence: the codec's defaults, then the file, then =--set= and the path
+  flags on the command line.
+- An unknown codec, an unknown option, a malformed row or a missing
+  =* Codecs= table is an error naming the file, line and fix, and exits 2.
+  A repository without the file runs on the defaults.
+- The file is an input of every run: changing it re-runs exactly the codecs
+  whose configuration changed, through the configuration hash already in the
+  dependency and cache keys.
+- This repository gets its own =.compass.org=, and =compass config= prints the
+  effective configuration and where each value came from.
 
 * Measurements
 
@@ -55,7 +67,13 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| First =generate= from the file | 1 written; units run 1 and 1; 61.7 ms | =compass generate= | compass-ng 207eaf0 |
+| Second =generate= | 0 written; no units run; 24.8 ms | same | same |
+| =check=, =diff= | exit 1 (58 diagnostics), exit 0 | =compass check=, =compass diff= | same |
+| One codec's option changed | only that codec's unit ran | test and scratch clone | same |
+| Test suites over 56 runs | one failure on the first run, none in 55 after | =ctest --preset linux-clang-release= and =--repeat until-fail:40= | same |
+
+The failing suite of the first run was not captured; it has not recurred.
 
 * Notes
 
@@ -74,7 +92,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/26][#26]] | [cli] Configure compass from .compass.org |
 
 * Review
 
@@ -83,3 +101,16 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- =.compass.org= at the repository root configures every command: =#+output:=
+  and =#+meta:= set the paths, and the =* Codecs= table enables codecs and sets
+  their options. Defaults, then the file, then the command line, in one tested
+  function. Errors name the file, line and fix and exit 2.
+- =compass config= prints every effective value and its source.
+- The file is not a document of the corpus, so editing it re-runs only the
+  codecs whose configuration changed.
+- This repository has its own =.compass.org=, typed =meta=. The legacy
+  =compass lint= skips dot files and so never checks it; the contract gate in
+  Run the gates as codecs should cover it.
+- One test-suite failure occurred on the first run after integration and did
+  not recur in 55 runs; which suite failed was not captured.
