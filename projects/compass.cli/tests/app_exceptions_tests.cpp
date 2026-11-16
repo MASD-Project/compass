@@ -134,6 +134,20 @@ TEST_CASE("a result reused from the record does not hide an exception "
     CHECK_THAT(later.out, ContainsSubstring("sql_hygiene 0;"));
 }
 
+TEST_CASE("an exception added to a file checked before is seen",
+    "[app][exceptions]") {
+    scoped_git_repo repo;
+    repo.write(".compass.org", configuration);
+    repo.write("sql/a.sql", std::string(violation) + "\n");
+    CHECK(check(repo, "2026-11-16").status == 1);
+
+    repo.write("sql/a.sql", std::string(violation) + exception());
+    CHECK(check(repo, "2026-11-16").status == 0);
+    repo.write("sql/a.sql", std::string(violation) + "\n");
+    CHECK(check(repo, "2026-11-16").findings() == std::vector<std::string>{
+        "sql/a.sql:1:sql_hygiene/not_re_runnable"});
+}
+
 TEST_CASE("an exception that covers no finding is stale",
     "[app][exceptions]") {
     scoped_git_repo repo;
