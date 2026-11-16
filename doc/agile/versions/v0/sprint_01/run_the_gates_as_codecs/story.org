@@ -48,7 +48,7 @@ One compass check command runs every ORE Studio gate that needs no build in seco
 | [[id:35F12CD3-E765-42D8-A6D6-641FB0EC7F1F][Add inline exceptions]] | BACKLOG | | | Parse exception comments with reason, expiry and approver, and report expired or incomplete ones. |
 | [[id:4D217E91-CB98-416D-9129-9AB01D9B62A4][Check a past commit]] | BACKLOG | | | Run checks against any commit by reading blobs from git's object store. |
 | [[id:9E8AA07D-B8CE-43FC-844E-2104C2EC7967][Add the edit hook]] | BACKLOG | | | A Claude Code hook that checks the changed files after each edit. |
-| [[id:88319C5E-B1B9-4E15-A59B-D3953448CCB0][Port the slowest gates]] | STARTED | 2026-11-16 | | Port the drift checks through diff mode and the slowest whole-tree scans: exported-types, sql-hygiene, enum-attributes, reachability. |
+| [[id:88319C5E-B1B9-4E15-A59B-D3953448CCB0][Port the slowest gates]] | DONE | 2026-11-16 | 2026-11-16 | Port the drift checks through diff mode and the slowest whole-tree scans: exported-types, sql-hygiene, enum-attributes, reachability. |
 | [[id:E1748BC4-CD84-400D-BCFB-B2F3420815ED][Generate the rule table]] | BACKLOG | | | Generate the table of rules and their enforcing checks from check metadata, and list memories with no check. |
 
 * Decisions

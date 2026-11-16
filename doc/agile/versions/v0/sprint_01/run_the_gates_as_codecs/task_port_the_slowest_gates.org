@@ -26,11 +26,11 @@ Port the drift checks through diff mode and the slowest whole-tree scans: export
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -62,7 +62,14 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Full =compass check=, codegen and the four ports | warm 2.82 s and 2.82 s, cold run 8.1 s; 24 diagnostics (the drift files), exit 1 | =compass check= on the archive copy, load 2.6 | 6efd1c2, ORE 545cafca45 |
+| Same, cold with an empty store (agent run) | 25.2 s, 17.5 s of it formatting | =compass check= | 6efd1c2, ORE 545cafca45 |
+| Drift gates replaced | same 24 files as component-drift (408 s), --all (410 s) and drift-sweep (338 s); planted model and template changes: same 602 files | =compass check= and =diff= against the originals | 6efd1c2, ORE 545cafca45 |
+| exported-types | same verdict; planted: same 103 and same 1 headers; 58 s original, 3.06 s cold, 0.38 s warm | =compass check= with one codec | 6efd1c2, ORE 545cafca45 |
+| sql-hygiene | same verdict over 3,468 files; planted: same 9 defects; 47.5 s original, 1.29 s cold, 0.52 s warm | =compass check= with one codec | 6efd1c2, ORE 545cafca45 |
+| enum-attributes | same verdict; planted: same 723 sites; 19.7 s original, 3.42 s cold, 0.41 s warm | =compass check= with one codec | 6efd1c2, ORE 545cafca45 |
+| reachability | same verdict over 3,408 test sources; planted: same 11,658 places; 12.8 s original, 1.30 s cold, 0.36 s warm | =compass check= with one codec | 6efd1c2, ORE 545cafca45 |
+| ctest | 12 of 12 suites pass | =ctest --preset linux-clang-release= | 6efd1c2 |
 
 * Notes
 
@@ -90,3 +97,28 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+One =compass check= now does the work of ORE Studio's three drift gates and
+its four slowest scans, about 1,457 s of gates, in under 3 s warm. Every port
+gives its original's verdict on ORE Studio at 545cafca45, both as it is and
+with planted violations.
+
+- =compass check= plans the codec outputs as =diff= does and reports each file
+  =generate= would change as a =codec/drift= finding, so it fails on drift.
+- A finding can name any checkout file, not only a document.
+- New domain components: =compass.cpp= (exported-types, enum-attributes,
+  test_case_reachability) and =compass.sql= (sql-hygiene). They read files
+  only through the codec runtime, so an unchanged tree hits the record.
+
+Decisions to revisit:
+
+- Check fails on drift for every codec that emits files. In this repository
+  =document_index= and =tangle= outputs are not committed, so =compass check=
+  here reports them as drift until =compass generate= runs.
+- Messages leave out counts (comment depth, "defined N times"), following the
+  codec rule; verdicts were compared on file, line and kind.
+- Scanning is over UTF-8 bytes, so Unicode whitespace and case folding could
+  differ from Python; nothing on ORE Studio does.
+- =exported_types= depends on the listing of every path, so adding any file
+  reruns it (about 2.5 s).
+- The warm run spends about 0.9 s reading the 185 MB dependency record.
