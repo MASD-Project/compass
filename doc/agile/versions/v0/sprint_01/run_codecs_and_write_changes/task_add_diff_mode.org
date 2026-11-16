@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :run_codecs_and_write_changes:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/add-diff-mode
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ Run the pipeline without writing and print a unified diff of each output that wo
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:8DC60B89-1605-4281-90FF-5AC8B33F629A][Run codecs and write only changes]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,19 @@ Run the pipeline without writing and print a unified diff of each output that wo
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- The sink splits into a plan and an apply. The plan is a pure function from
+  the run's outputs, the written-outputs record and the files on disk to a
+  list of actions: write, restore, remove, keep, unchanged. Writing applies the
+  plan; diff mode prints it. One decision path serves both, so they cannot
+  disagree.
+- Diff mode prints a unified diff per action against the file on disk (or
+  =/dev/null= for new and removed files) and a summary, and writes nothing: no
+  outputs, and none of the per-worktree records (worktree index, dependency
+  record, written-outputs record).
+- The unified diff is computed in process (Myers' algorithm, with git's default
+  of three context lines), so diff mode does not depend on an external =diff=.
+- =compass-bench codecs --diff <root>= runs it and exits non-zero when anything
+  would change, so it can serve as a drift check.
 
 * Measurements
 
