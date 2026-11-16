@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :measure_the_baseline:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/measure-include-scanning
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ Scan every #include in ORE Studio, resolve it through compile_commands.json, and
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:68ED0D5D-9A25-4886-B869-A30FF4A679A5][Measure the baseline]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,24 @@ Scan every #include in ORE Studio, resolve it through compile_commands.json, and
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Add an =includes= stage to =compass-bench=. It scans every C and C++ file in
+  the file table (=.hpp=, =.cpp=, =.h=, =.hh=, =.cc=, =.cxx=, =.ipp=, =.tpp=)
+  for =#include= lines with a hand-written scanner over the mapped bytes: no
+  regex, no preprocessor, skipping comments and string literals.
+- Resolution reads =compile_commands.json= once: the =-I=, =-iquote= and
+  =-isystem= directories per translation unit, rebased from the build's source
+  root onto the checkout being measured. Quoted includes try the includer's
+  directory first. A target inside the checkout is an edge; a target found
+  outside it (vcpkg, the system) is external; anything else is unresolved.
+- Data shape: an include table in struct-of-arrays form (includer file id,
+  target file id or external or unresolved, line), and the graph as compressed
+  sparse rows over file ids, built once after scanning.
+- Report: scan time and resolve time separately, includes found, edges,
+  external, unresolved (with the top unresolved names), and the top headers by
+  direct fan-in. Transitive fan-in is computed and timed too, so its cost is
+  known before Analyse C++ and SQL depends on it.
+- The measurement uses an archive of the ORE Studio commit that the
+  =compile_commands.json= was generated from, so paths agree.
 
 * Measurements
 
