@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :measure_the_baseline:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/build-the-parse-harness
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ A C++ harness that reads every tracked text file in an ORE Studio checkout and r
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:68ED0D5D-9A25-4886-B869-A30FF4A679A5][Measure the baseline]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,22 @@ A C++ harness that reads every tracked text file in an ORE Studio checkout and r
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- New tooling component =compass.bench= with one executable, installed as
+  =compass-bench=. It is the frozen harness every later measurement runs
+  through.
+- =compass-bench read <checkout>= lists the tracked files with one
+  =git ls-files -z= call, maps each file with
+  =compass::platform::filesystem::mapped_file= and touches every byte, on N
+  threads (=-j=, default all cores).
+- Data shape: a =file_table= in struct-of-arrays form (path, size, extension
+  id) built once from the listing; a =stage_result= per stage with files,
+  bytes, errors and one wall time per repetition. Work is split by handing
+  each thread contiguous ranges of the table, balanced by bytes.
+- Each stage runs =--repeat= times (default 5) and reports median, min and max
+  wall time and MB/s, plus the count of files and bytes it processed and the
+  errors it hit, so a fast number that skipped work is visible.
+- A per-extension table (files, bytes) shows what the tree holds.
+- Later tasks add stages (include scan, tree-sitter) to the same executable.
 
 * Measurements
 
