@@ -88,5 +88,9 @@ of work is a document with a lifecycle state, read through the same tables.
 |-----------------+----------------------------------------------------------------------------------------|
 | =compass.bench= | The frozen measurement harness: wall time, bytes and counts per stage of the pipeline. |
 
-=compass.bench= hosts the pipeline until =compass.cli= exists; after that it
-only measures.
+=compass.cli= exists and hosts the pipeline behind =compass generate=,
+=diff=, =check= and =gc= (see
+[[id:45FA67C9-60BC-420D-BB66-8A272CB1106C][compass.cli]]). =compass.bench=
+still keeps its own copy of the pipeline until the
+[[id:0C218273-FF56-4C96-8464-7C8311E3B97F][Hand the pipeline to the CLI]]
+task moves it onto =compass.cli=; after that it only measures.

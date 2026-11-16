@@ -1,0 +1,98 @@
+/* -*- mode: c++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+#include "compass.cli/io/report.hpp"
+
+#include <format>
+#include <string>
+#include <vector>
+
+namespace compass::cli::io {
+
+namespace {
+
+void write_lines(std::ostream& err, std::string_view prefix,
+    const std::vector<std::string>& lines) {
+    for (const auto& line : lines)
+        err << std::format("compass: {}{}\n", prefix, line);
+}
+
+std::string corpus_note(const types::run_summary& s, double ms) {
+    return std::format("{} documents, {} from the store, {} parsed; "
+                       "{:.1f} ms", s.documents, s.loaded, s.parsed, ms);
+}
+
+}
+
+void write_problems(std::ostream& err, const types::run_summary& s) {
+    write_lines(err, "", s.errors);
+    write_lines(err, "codec registry: ", s.problems);
+}
+
+void write_generate(std::ostream& out, std::ostream& err,
+    const types::generate_result& r) {
+    write_problems(err, r.run);
+    write_lines(err, "output: ", r.sink.problems);
+    const auto& s = r.sink;
+    out << std::format("{} written, {} unchanged, {} restored, {} removed, "
+                       "{} kept under {} ({})\n", s.written, s.unchanged,
+        s.restored, s.removed, s.kept, r.root.string(),
+        corpus_note(r.run, r.ms));
+}
+
+void write_diff(std::ostream& out, std::ostream& err,
+    const types::diff_result& r) {
+    out << r.diff;
+    write_problems(err, r.run);
+    write_lines(err, "output: ", r.planned.problems);
+    const auto& p = r.planned;
+    err << std::format("{} to write, {} unchanged, {} to restore, {} to "
+                       "remove, {} to keep under {} ({})\n", p.written,
+        p.unchanged, p.restored, p.removed, p.kept, r.root.string(),
+        corpus_note(r.run, r.ms));
+}
+
+void write_check(std::ostream& out, std::ostream& err,
+    const types::check_result& r) {
+    write_problems(err, r.run);
+    for (const auto& f : r.findings)
+        out << std::format("{}:{}:{}: {}: {} (fix: {})\n", f.path, f.line,
+            f.column, f.rule, f.message, f.fix);
+    out << std::format("{} diagnostic{} ({})\n", r.findings.size(),
+        r.findings.size() == 1 ? "" : "s", corpus_note(r.run, r.ms));
+}
+
+void write_gc(std::ostream& out, const types::gc_result& r) {
+    const auto& c = r.collection;
+    const auto& plan = c.plan;
+    const auto ms = c.worktrees_ms + c.live_ms + c.list_ms + c.plan_ms +
+        c.remove_ms;
+    if (r.options.dry_run) {
+        out << std::format("would remove {} files, {} bytes; store {} bytes "
+                           "in {} files ({:.1f} ms)\n", plan.victims.objects,
+            plan.victims.bytes, plan.stored.bytes, plan.stored.objects, ms);
+        return;
+    }
+    out << std::format("removed {} files, {} bytes; store {} bytes in {} "
+                       "files ({:.1f} ms)\n", c.removed.objects,
+        c.removed.bytes, plan.stored.bytes - c.removed.bytes,
+        plan.stored.objects - c.removed.objects, ms);
+}
+
+}

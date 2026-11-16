@@ -1,0 +1,115 @@
+:PROPERTIES:
+:ID: 45FA67C9-60BC-420D-BB66-8A272CB1106C
+:END:
+#+title: compass.cli
+#+description: The compass executable and the library behind it: one function per command (generate, diff, check, gc) that runs the pipeline over a checkout and returns a result, the command-line parser, and the report that prints each result with its exit status.
+#+type: component
+#+level: cross
+#+filetags: :cli:application:pipeline:component:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+
+This page is the component overview for =compass.cli=, a simple component
+in the application layer of the
+[[id:8A9A460F-8024-4890-B091-C0D02FD84218][System Model]].
+
+* Summary
+
+=compass.cli= is the one host of the pipeline. It lists the org files of a
+checkout, resolves their IDs from git's index or the worktree index, maps
+each parsed object from the store or parses the file, builds the type
+registry from the contract pages, and runs the enabled codecs from the
+dependency record and the result cache. Then each command does one thing
+with what the codecs produced:
+
+| Command           | Does                                                                     | Writes                                            |
+|-------------------+--------------------------------------------------------------------------+---------------------------------------------------|
+| =generate=, =gen= | Makes the files under the output root hold what the codecs emit.         | Store, records, outputs.                          |
+| =diff=            | Prints what =generate= would change as unified diffs.                    | Nothing.                                          |
+| =check=           | Prints every diagnostic as =path:line:column: rule: message (fix: ...)=. | Store and records, no output.                     |
+| =gc=              | Removes old unreferenced objects and action objects from the store.      | Removes files from the store, unless =--dry-run=. |
+
+The library holds the pipeline and prints nothing: =app::generate=,
+=app::diff=, =app::check= and =app::gc= each take the options and return a
+result. =app::run= parses a command line, calls the command, has
+=io::report= print the result to the streams it is given, and returns the
+exit status, so the tests drive the executable's behaviour without spawning
+it. =main= only hands =app::run= the arguments, the working directory and
+the standard streams.
+
+* Inputs
+
+- The command line. One argument is the command; options may come before
+  or after it.
+
+| Option                          | Default                | Meaning                                        |
+|---------------------------------+------------------------+------------------------------------------------|
+| =-C <dir>=                      | the working directory  | The checkout, made absolute.                   |
+| =--meta <dir>=                  | =doc/meta=             | The contract pages, relative to the checkout.  |
+| =--out <dir>=                   | =build/output/compass= | The output root, relative to the checkout.     |
+| =-j <n>=                        | one per core           | Threads.                                       |
+| =--set <codec>.<key>=<value>=   | the codecs' own        | A codec option; repeatable, the last one wins. |
+| =--dry-run=, =--cap=, =--grace= | no, 0 bytes, 3600 s    | =gc= only.                                     |
+| =--help=, =-h=, =--version=     |                        | Print and exit 0, whatever else is there.      |
+
+- The checkout: every tracked org file and every untracked one no ignore
+  rule covers, as =git ls-files --cached --others --exclude-standard= lists
+  them. A tracked file deleted from the worktree is not in the corpus.
+- The store and the result cache under the git common directory, and the
+  worktree index, dependency record and written-outputs record under the
+  checkout's own git directory.
+
+* Outputs
+
+- Standard output: =generate= prints one line of counts (written,
+  unchanged, restored, removed, kept), the output root, the corpus and the
+  wall time. =diff= prints the unified diffs. =check= prints one line per
+  diagnostic, sorted by path, line and column, then the count. =gc= prints
+  what it removed, or would remove, and the size of the store.
+- Standard error: the summary of =diff=, every file that did not load,
+  every problem of the codec registry or the output root, and the message
+  of a command that throws, as =compass: <what>=.
+- Exit status: 0 when nothing would change and no diagnostic fires, 1 when
+  =diff= finds a change or =check= a diagnostic, 2 on failure or bad usage.
+  =generate= and =gc= exit 0 when they succeed.
+
+The line and column of a diagnostic are those of the first byte of its
+range, 1-based, the column counted in bytes. The rule is written as
+=codec/rule=, so two codecs may have rules of one name.
+
+* Entry points
+
+| Path                                       | Role                                               |
+|--------------------------------------------+----------------------------------------------------|
+| =include/compass.cli/types/options.hpp=    | The command and its options.                       |
+| =include/compass.cli/types/results.hpp=    | What each command returns.                         |
+| =include/compass.cli/config/arguments.hpp= | The command-line parser, the help and the version. |
+| =include/compass.cli/io/listing.hpp=       | The org files of a checkout, from =git ls-files=.  |
+| =include/compass.cli/app/pipeline.hpp=     | One function per command.                          |
+| =include/compass.cli/io/report.hpp=        | Printing each result.                              |
+| =include/compass.cli/app/application.hpp=  | =app::run= and the exit statuses.                  |
+| =src/main.cpp=                             | The executable.                                    |
+| =tests/end_to_end.sh=                      | The built executable over a fresh repository.      |
+
+| Target                   | Kind                                                   |
+|--------------------------+--------------------------------------------------------|
+| =compass.cli.lib=        | Library.                                               |
+| =compass.cli.exe=        | The =compass= executable.                              |
+| =compass.cli.tests=      | Catch2 executable, registered with CTest.              |
+| =compass.cli.end_to_end= | CTest running =tests/end_to_end.sh= on the executable. |
+
+* Dependencies
+
+- =compass.codec= for the codecs, the runner, the records, the sink and the
+  diff.
+- =compass.ingest= for the parser and the type registry builder.
+- =compass.store= for IDs, the store and collection.
+- =compass.org= and =compass.platform= for the tables and mapped files.
+- Catch2, git and bash, for the tests only.
+
+* See also
+
+- [[id:995ECC12-860C-4009-B9A2-8CA1A6102BD6][compass.codec]] --- the codec
+  runtime the pipeline drives.
+- [[id:7E9CC2F3-4F53-4D2C-964B-61D22C95433B][Create the compass executable]]
+  --- the task that built the component.
