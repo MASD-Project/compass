@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :share_a_content_addressed_store:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/write-the-worktree-index
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ Keep a per-worktree index that maps each path to its stat data and content hash.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:10A99211-DCE0-4237-8D23-0599C2D00628][Share a content-addressed store]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,19 @@ Keep a per-worktree index that maps each path to its stat data and content hash.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- The worktree index records, for every file compass had to hash, its path,
+  stat data and ID, so the next run resolves it from stat data alone. Files
+  whose ID comes from git's index need no entry. It lives in the worktree's own
+  git directory (=<gitdir>/compass/index=), never in the shared store, and is
+  rewritten with a temporary file and a rename.
+- The same clean rule as git applies: every stat field must match, and an
+  entry written in the same second as the file's modification is not trusted.
+- =compass-bench warm <checkout> --store <dir>= runs the pipeline end to end:
+  resolve every org file's ID (git index, then the worktree index, then hash),
+  load its object from the store, parse and write any that are missing, and
+  update the worktree index. The first run is cold; the second, with nothing
+  changed, must finish in under one second on ORE Studio. This is the story's
+  warm-run acceptance.
 
 * Measurements
 
