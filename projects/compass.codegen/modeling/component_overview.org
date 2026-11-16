@@ -145,6 +145,9 @@ reading the contexts.
 | =compass.codegen.lib=   | Library.                                  |
 | =compass.codegen.tests= | Catch2 executable, registered with CTest. |
 
+=codecs= is a local facet, as in =compass.codec=: it holds the codec, one
+descriptor.
+
 =compass-bench render <checkout> --out <dir>= runs the codec's generation
 code on the checkout read from disk, with the options its =.compass.org=
 gives; with =--oracle <dump>= it renders the dump's outputs from the dump's
