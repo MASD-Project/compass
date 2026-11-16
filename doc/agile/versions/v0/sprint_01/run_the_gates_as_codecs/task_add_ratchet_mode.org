@@ -26,11 +26,11 @@ Compare diagnostics against the merge base and fail only on new ones.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -62,7 +62,11 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| One planted =create table= on an ORE branch | 1 new diagnostic (=setup_schema.sql:173=), 24 drift findings excused, exit 1 | =compass check --ratchet <base>= on the archive copy | e51465d |
+| Ratchet on ORE, warm | 5.15-6.43 s (working tree about 3.2 s, merge base about 1.8 s) | =compass check --ratchet= | e51465d |
+| Ratchet on ORE, cold (agent run) | 27.2 s, 17.5 s of it clang-format | =compass check --ratchet= with the store moved aside | e51465d |
+| Ratchet tests | 17 cases, 160 assertions, on temporary git repositories | =ctest= | e51465d |
+| ctest | 12 of 12 suites pass | =ctest --preset linux-clang-release= | e51465d |
 
 * Notes
 
@@ -90,3 +94,24 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+=compass check --ratchet [<base>]= fails only on diagnostics that are new
+relative to the merge base of HEAD and the base (default the upstream, else
+=origin/main=). Exit 1 means a new diagnostic, 2 a failed check or an
+unresolvable base.
+
+- A finding matches an old one by path, rule and message, counting
+  occurrences, so a moved violation is excused and a second copy is new.
+- Renames from the merge base to HEAD are followed, by identical blob first
+  and by git's similarity detection only when that leaves a file unexplained.
+- Drift at the merge base excuses drift now only when neither the file nor
+  what the codec generates for it changed, compared by blob ID. Otherwise
+  every ORE branch would fail on its 24 standing drift files, or a branch that
+  changes a template behind an already-drifting file would pass.
+
+Decisions to revisit:
+
+- The merge base is checked with the working tree's =.compass.org=, so a gate
+  a branch enables excuses violations that already existed.
+- Each warm ratchet reads the 185 MB dependency record twice, about 1.6 s.
+- Renames not yet committed are not followed.
