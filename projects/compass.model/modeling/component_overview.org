@@ -76,7 +76,10 @@ as inputs it records like any other file.
   ={"error": "NotPorted"}=.
 - *Dump.* =io::write_json= writes a value as Python's
   =json.dumps(sort_keys=True, indent=2, ensure_ascii=False)= does, so the
-  two dumps compare as text.
+  two dumps compare as text. =io::read_json= reads a JSON object or array
+  into values, a float as the text Python's =str()= writes, which is how
+  =compass.codegen= reads the oracle's render contexts and the Mustache
+  spec.
 
 | Model type              | Loader                       | ORE Studio models | Identical |
 |-------------------------+------------------------------+-------------------+-----------|
@@ -105,7 +108,7 @@ of every trade type. Neither is ported.
 | =include/compass.model/ops/builder.hpp=        | Writing values with dict and list semantics.  |
 | =include/compass.model/ops/outline.hpp=        | The =parse_org= view of a parsed document.    |
 | =include/compass.model/ops/load.hpp=           | =load_model=, the finder and the load cache.  |
-| =include/compass.model/io/json.hpp=            | The canonical JSON dump.                      |
+| =include/compass.model/io/json.hpp=            | The canonical JSON dump and the JSON reader.  |
 | =src/ops/*.cpp=                                | One loader per model type.                    |
 | =tests/ops_load_*_tests.cpp=                   | One model per type against the oracle's JSON. |
 

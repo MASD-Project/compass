@@ -2,7 +2,7 @@
 :ID: 1F522775-710C-4EFE-8317-8354D902816D
 :END:
 #+title: compass.bench
-#+description: The frozen benchmark harness. It times reading every tracked file of a git checkout, building its include graph, parsing its C++ and SQL with tree-sitter, parsing its org documents into the compass.org tables, resolving their types, storing them, finding the git blob ID of every file, running the codecs over the loaded corpus and loading the codegen models.
+#+description: The frozen benchmark harness. It times reading every tracked file of a git checkout, building its include graph, parsing its C++ and SQL with tree-sitter, parsing its org documents into the compass.org tables, resolving their types, storing them, finding the git blob ID of every file, running the codecs over the loaded corpus, loading the codegen models and rendering their templates.
 #+type: component
 #+level: cross
 #+filetags: :bench:performance:component:
@@ -98,6 +98,15 @@ and call it directly.
   parsed set, which parses a document outside it the first time it is
   asked for. =--dump= writes each model of the last repetition as
   canonical JSON, for =build/scripts/codegen_model_diff.py=.
+- =render= compiles every =.mustache= template of ORE Studio's
+  =projects/ores.codegen/library/templates/= once, then renders, =--repeat=
+  times, every output whose context =compass.codegen= builds: the models
+  =regenerate --all= visits, the units the physical-space graph gives each,
+  and the context built from its =compass.model= value. With =--oracle= it
+  renders instead every output of a =build/scripts/codegen_render_dump.py=
+  dump from the dump's own contexts, which checks the renderer apart from
+  the contexts. =--out= writes each output to =renders/<path>=, for
+  =build/scripts/codegen_render_diff.py=.
 
 =gc= is not a stage either. =ops::run_gc_stage= collects the store once with
 =compass.cli='s =app::collect=, keeping the action objects of the result
@@ -148,6 +157,8 @@ the line format of =compass::org::io::dump=, which
   =--verify= checks N IDs spread evenly over the files, or all of them; it
   defaults to none.
 - =compass-bench models <checkout> [--dump <dir>] [--repeat R]=.
+- =compass-bench render <checkout> [--oracle <dir>] [--out <dir>]
+  [--repeat R]=.
 - =compass-bench org-dump <file>= prints to standard output.
   =compass-bench org-dump --list <list>= reads one input path, a tab and an
   output path per line and writes each dump to its output.
@@ -232,6 +243,10 @@ the line format of =compass::org::io::dump=, which
   the models and the value rows of the last repetition, the count of each
   model type with how many ores.codegen refuses or are not ported, and the
   min, median and max milliseconds of loading every model.
+- For =render=: the templates and the time to compile them, the contexts
+  and the time to build or read them, the outputs and bytes of one
+  repetition, the min, median and max milliseconds of rendering every
+  output, and each output that could not render, which fails the run.
 - For =ids=: the index version, its entries and how many may lend their
   ID, and whether =core.autocrlf= converts; the thread count and setup
   times; the files whose ID came from the index and those hashed, with the
@@ -314,6 +329,8 @@ Linux.
 | =include/compass.bench/ops/store_stage.hpp=     | The =store= stage.                                     |
 | =include/compass.bench/ops/ids_stage.hpp=       | The =ids= stage.                                       |
 | =include/compass.bench/ops/models_stage.hpp=    | The =models= stage and its report.                     |
+| =include/compass.bench/ops/model_corpus.hpp=    | The lazily parsed model documents both stages read.    |
+| =include/compass.bench/ops/render_stage.hpp=    | The =render= stage and its report.                     |
 | =include/compass.bench/ops/types_stage.hpp=     | The registry from a meta directory; the =types= stage. |
 | =include/compass.bench/ops/warm_stage.hpp=      | The =warm= stage, on the steps of =compass.cli=.       |
 | =include/compass.bench/ops/codecs_stage.hpp=    | The =codecs= stage, on the steps of =compass.cli=.     |
@@ -338,6 +355,8 @@ Linux.
   =compass.org= for the tables, their dump, the object codec and the type
   lookup.
 - =compass.model= for the model tables, the loader and the JSON dump.
+- =compass.codegen= for the template compiler, the renderer, the contexts
+  and the physical-space graph.
 - =compass.codec= for the codec registry, the runner and the codecs.
 - =compass.store= for blob IDs, object paths, object writes, the ID
   resolver and collection.
