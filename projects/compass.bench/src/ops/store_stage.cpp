@@ -20,13 +20,11 @@
 #include "compass.bench/ops/store_stage.hpp"
 
 #include <algorithm>
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <sstream>
 #include <string>
 #include <system_error>
-#include <thread>
 #include <utility>
 #include <vector>
 #include "compass.bench/ops/partition.hpp"
@@ -90,11 +88,6 @@ struct tally {
             first_error = e.what();
     }
 };
-
-double since(std::chrono::steady_clock::time_point start) {
-    return std::chrono::duration<double, std::milli>(
-        std::chrono::steady_clock::now() - start).count();
-}
 
 tally store_range(corpus& c, types::file_range range) {
     tally t;
@@ -168,24 +161,6 @@ tally compare_range(const corpus& c, types::file_range range) {
             t.first_mismatch = c.table.paths[c.ids[row]];
     }
     return t;
-}
-
-/**
- * @brief Runs work over each range on its own thread and returns the wall
- * time and the tallies.
- */
-template <typename Work>
-std::pair<double, std::vector<tally>> run_ranges(
-    const std::vector<types::file_range>& ranges, Work work) {
-    std::vector<tally> tallies(ranges.size());
-    const auto start = std::chrono::steady_clock::now();
-    {
-        std::vector<std::jthread> workers;
-        workers.reserve(ranges.size());
-        for (std::size_t i = 0; i < ranges.size(); ++i)
-            workers.emplace_back([&, i] { tallies[i] = work(ranges[i]); });
-    }
-    return {since(start), std::move(tallies)};
 }
 
 void remove_objects(const corpus& c) {

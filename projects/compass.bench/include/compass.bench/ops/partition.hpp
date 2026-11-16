@@ -20,9 +20,13 @@
 #ifndef COMPASS_BENCH_OPS_PARTITION_HPP
 #define COMPASS_BENCH_OPS_PARTITION_HPP
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <thread>
+#include <type_traits>
+#include <utility>
 #include <vector>
 #include "compass.bench/types/file_table.hpp"
 
@@ -37,6 +41,26 @@ namespace compass::bench::ops {
  */
 [[nodiscard]] std::vector<types::file_range> balance_ranges(
     std::span<const std::uint64_t> sizes, std::size_t count);
+
+/**
+ * @brief Runs @p work over each range on its own thread and returns the
+ * wall time in milliseconds and what each call returned, in range order.
+ */
+template <typename Work>
+auto run_ranges(const std::vector<types::file_range>& ranges, Work work) {
+    std::vector<std::invoke_result_t<Work&, types::file_range>> results(
+        ranges.size());
+    const auto start = std::chrono::steady_clock::now();
+    {
+        std::vector<std::jthread> workers;
+        workers.reserve(ranges.size());
+        for (std::size_t i = 0; i < ranges.size(); ++i)
+            workers.emplace_back([&, i] { results[i] = work(ranges[i]); });
+    }
+    const std::chrono::duration<double, std::milli> wall =
+        std::chrono::steady_clock::now() - start;
+    return std::pair{wall.count(), std::move(results)};
+}
 
 }
 
