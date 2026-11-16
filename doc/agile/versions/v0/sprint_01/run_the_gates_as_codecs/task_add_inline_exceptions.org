@@ -26,11 +26,11 @@ Parse exception comments with reason, expiry and approver, and report expired or
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -61,7 +61,10 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Planted exceptions on ORE, =--today 2026-11-16= | 2 excused; expired reported on the covered line with its finding; stale and incomplete reported | =e2e_plant.sh= | 8539a0d |
+| Same tree, =--today 2027-07-01= | every planted exception expired | =e2e_plant.sh= | 8539a0d |
+| Exceptions step, warm ORE check | 23 ms; check 2.65-2.67 s against 2.63-2.64 s before (agent, 5 rounds) | =compass check --timings= | 8539a0d |
+| ctest | 12 of 12 suites pass | =ctest --preset linux-clang-release= | 8539a0d |
 
 * Notes
 
@@ -89,3 +92,35 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+A comment of the form
+
+#+begin_example
+compass:except(<codec>/<rule>) expires=<YYYY-MM-DD> approver=<name> reason=<text>
+#+end_example
+
+excuses one finding in any file type. After code it covers its own line; alone
+on a line it covers the next line, so exceptions stack. =compass:except-file=
+covers a rule across a file. Only a valid exception excuses; =exception/=
+=malformed=, =incomplete=, =expired= (on the covered line, the acceptance) and
+=stale= are diagnostics. Exceptions are applied after the run and never
+cached, so a reused result cannot hide an expiry, and =--today= fixes the date.
+
+Survey of how ORE Studio excuses violations today: a dozen baseline and ignore
+files (the largest =validation_ignore.txt=, 186 wildcard rules), registry
+exceptions with no expiry, two org registers, and 364 =noqa= plus a few
+linter markers. None of ORE's own gates reads an inline marker. Inline
+exceptions can replace the line- and file-shaped baselines (core-link edges,
+entity table writes, forward-declarable includes) as their gates are ported,
+but not the component-level registry exceptions, the database validator's
+wildcard ignores or other tools' markers.
+
+Decisions to revisit:
+
+- An exception in a file no enabled codec reads is never seen, so never
+  reported stale.
+- Ratchet uses one date for both sides, so an expiry is not new; only a plain
+  check fails on it. =--commit= uses today, not the commit's date.
+- Approver is free text, and there is no limit on how far the expiry is.
+- =compass/unmarked= records content IDs of files with no marker, so warm runs
+  skip reading them; it cut the step from 130 ms to 23 ms.
