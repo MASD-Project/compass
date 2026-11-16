@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :ship_the_compass_cli:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/write-the-cli-recipes
+#+pr: https://github.com/MASD-Project/compass/pull/28
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -26,11 +26,11 @@ Recipes for running compass generate, diff, check and gc on a checkout, includin
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                              |
 | Parent story | [[id:FEABA8E9-D541-45AA-9278-64DC1264C794][Ship the compass CLI]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -74,7 +74,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/28][#28]] | [doc] Add recipes for every compass command |
 
 * Review
 
@@ -83,3 +83,9 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- Six recipes in =doc/recipes/compass/=, listed under a new compass-ng section
+  of its index: build and run compass, generate outputs, see what compass
+  would change, check documents, configure compass, and collect the store.
+- Every command in them ran on this repository with the documented exit
+  status, and the recipes add no required-section diagnostic.

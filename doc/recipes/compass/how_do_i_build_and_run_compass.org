@@ -1,0 +1,55 @@
+:PROPERTIES:
+:ID: B99A4028-CA7F-495E-855B-D3A8DDBBEED4
+:END:
+#+title: How do I build and run compass?
+#+description: Build the compass executable from a fresh checkout and run it.
+#+type: recipe
+#+level: cross
+#+filetags: :compass:cli:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+
+(One- or two-sentence pointer to the component model and any knowledge
+doc this recipe relies on.)
+
+* Question
+
+How do I build the =compass= executable and run it on a checkout?
+
+* Answer
+
+1. /Fetch vcpkg/, the first time only:
+
+   #+begin_src sh :results verbatim
+git submodule update --init
+#+end_src
+
+2. /Configure and build/ with the release preset. The preset caps the build
+   at two jobs; the first configure builds the dependencies and takes about a
+   minute, later ones take seconds:
+
+   #+begin_src sh :results verbatim
+cmake --preset linux-clang-release && cmake --build --preset linux-clang-release
+#+end_src
+
+3. /Run it/. The executable is =compass=; =--help= lists the commands:
+
+   #+begin_src sh :results verbatim
+build/output/linux-clang-release/publish/bin/compass --help
+#+end_src
+
+Every command works on the current directory's checkout, or on another with
+=-C <dir>=. compass keeps parsed documents and cached results under the
+repository's git directory (=.git/compass/=), shared by all its worktrees.
+
+* Script
+
+=compass= (=projects/compass.cli=).
+
+* Tested by
+
+=compass.cli.end_to_end= in =ctest=.
+
+* See also
+
+-

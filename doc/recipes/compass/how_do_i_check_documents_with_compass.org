@@ -1,0 +1,44 @@
+:PROPERTIES:
+:ID: 5A6EBB88-638D-43A3-96E5-068340C7AEEA
+:END:
+#+title: How do I check documents with compass?
+#+description: Run compass check to report every diagnostic of the enabled codecs, one line each with the fix to apply.
+#+type: recipe
+#+level: cross
+#+filetags: :compass:cli:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+
+(One- or two-sentence pointer to the component model and any knowledge
+doc this recipe relies on.)
+
+* Question
+
+How do I check the documents of a checkout against their contracts?
+
+* Answer
+
+Run =compass check=. It prints one line per diagnostic, sorted by path and
+position, then a count:
+
+#+begin_src sh :results verbatim
+build/output/linux-clang-release/publish/bin/compass check
+#+end_src
+
+: doc/agile/agile.org:6:9: required_sections/missing_section: knowledge document has no "Detail" section (fix: Add the heading "* Detail"; the knowledge contract requires it.)
+
+Each line is =path:line:column: codec/rule: message (fix: ...)=, so editors
+that read compiler output can jump to it. The exit status is 0 when no
+diagnostic fires, 1 when one does, and 2 on failure.
+
+* Script
+
+=compass check= (=projects/compass.cli=).
+
+* Tested by
+
+=compass.cli.tests= and =compass.cli.end_to_end=.
+
+* See also
+
+-

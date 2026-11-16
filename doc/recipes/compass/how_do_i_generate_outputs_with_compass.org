@@ -1,0 +1,49 @@
+:PROPERTIES:
+:ID: 521D0D78-E4CF-487A-A5BB-EC698DC76B99
+:END:
+#+title: How do I generate outputs with compass?
+#+description: Run compass generate to write the outputs of the enabled codecs, touching only files whose content changed.
+#+type: recipe
+#+level: cross
+#+filetags: :compass:cli:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+
+(One- or two-sentence pointer to the component model and any knowledge
+doc this recipe relies on.)
+
+* Question
+
+How do I generate every codec output, such as the document index, for a checkout?
+
+* Answer
+
+Run =compass generate= (alias =gen=). It runs the enabled codecs and writes
+their outputs under the output root, by default =build/output/compass=. A
+file is written only when its content changed, so its modification time is
+kept otherwise; a hand-edited or deleted output is restored; a file a codec
+no longer produces is removed.
+
+#+begin_src sh :results verbatim
+build/output/linux-clang-release/publish/bin/compass generate
+#+end_src
+
+The summary line reads, for example:
+
+: 0 written, 1 unchanged, 0 restored, 0 removed, 0 kept under .../build/output/compass (410 documents, ...; units run: document_index 0, required_sections 0; 24.8 ms)
+
+=units run= counts the codec units that ran; on a second run with nothing
+changed it is zero. Use =--out <dir>= to write elsewhere and
+=--set codec.key=value= to override an option for one run.
+
+* Script
+
+=compass generate= (=projects/compass.cli=).
+
+* Tested by
+
+=compass.cli.tests= and =compass.cli.end_to_end=.
+
+* See also
+
+-
