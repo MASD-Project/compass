@@ -404,6 +404,47 @@ void derive_presentation_flags(compass::model::ops::builder& b,
     compass::model::types::value_id entity);
 
 /**
+ * @brief generator_facet_name, defaulted to generators, and its upper
+ * case form (core.py 6452-6453).
+ */
+void derive_generator_facet_names(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief has_uuid_columns and has_render_uuid_columns (core.py
+ * 6454-6483): a uuid column (by the repository flags, or by the render
+ * flags) or natural key, else the primary key's is_uuid as it is.
+ */
+void derive_uuid_column_flags(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief The history field mapper's datetime and string gates (core.py
+ * 6484-6516), has_render_datetime_columns and has_render_string_columns,
+ * from the wire columns' render kinds and the natural keys.
+ */
+void derive_render_kind_flags(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief _mapper_include_gates (core.py 2931, applied at 6517): the
+ * mapper's enum domain headers, sorted, and its optional, string, datetime
+ * and string_view gates.
+ */
+void derive_mapper_include_gates(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief repository_uses_uuid_io and has_uuid_include (core.py
+ * 6518-6534). has_uuid_include is Python's `or` chain: the first true
+ * operand of has_parent_id, service_find_by_uuid and
+ * service_find_by_code.parent_column as it is, else whether a foreign key
+ * lists by uuid.
+ */
+void derive_uuid_include_gates(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
  * @brief presentation.import_preview_columns, the columns with
  * import_preview set (org_loader.py's presentation parse). The Python's
  * list holds the very column objects, so the oracle shows them as the

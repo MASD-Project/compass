@@ -78,6 +78,11 @@ value_id entity_context(compass::model::ops::builder& b, value_id library,
     derive_presentation_detail_defaults(b, entity);
     derive_detail_fields(b, entity);
     derive_presentation_flags(b, entity);
+    derive_generator_facet_names(b, entity);
+    derive_uuid_column_flags(b, entity);
+    derive_render_kind_flags(b, entity);
+    derive_mapper_include_gates(b, entity);
+    derive_uuid_include_gates(b, entity);
     project_enforced_foreign_keys(b, entity);
     project_primary_key_extra_columns(b, entity);
     project_import_preview_columns(b, entity);

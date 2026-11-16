@@ -23,6 +23,7 @@ add_library(${lib_target_name}
     ops/context.cpp
     ops/entity_columns.cpp
     ops/entity_context.cpp
+    ops/entity_gates.cpp
     ops/entity_groups.cpp
     ops/entity_keys.cpp
     ops/entity_markers.cpp
