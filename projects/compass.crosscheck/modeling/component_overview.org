@@ -71,6 +71,46 @@ exception where it stands.
   purge. Rule =cpp_writer=: a hand-written C++ file that writes such a table
   and is not the repository of every table it writes. The 136 writers of
   the script's baseline are findings, one per function or file.
+- *=money_decimal_columns=.* =money-decimal-columns=
+  (=build/scripts/check_money_decimal_columns.py=). The columns of every
+  org file directly under a =modeling/= directory, at any depth: a =**=
+  heading, or a =:column:= key outside one, with its first =:type:= and
+  =:cpp_type:=. A name is continuous when one of its tokens is a continuous
+  word, money when its head noun is a money word. Rule =money_not_exact=:
+  money typed a binary float or text, or =numeric= over a C++ float. Rule
+  =continuous_exact=: a continuous quantity typed =numeric= or =decimal=.
+  Rule =too_few_columns=: fewer than =min_columns= read. The script's two
+  hand-written column lists are the options =excluded_columns= and
+  =continuous_columns=, and its two baselines (7 money columns, no
+  continuous one) are findings on the column's line.
+- *=model_sql_types=.* =model-sql-types= (=check_model_sql_types.py=). Rule
+  =type_mismatch=: a column of a model's =* Columns= section whose =:type:=
+  differs, in case and spacing aside, from the type the first =CREATE
+  TABLE= of its table's =_create.sql= gives it, constraints dropped. Rule
+  =too_few_compared=: fewer than =min_compared= columns compared.
+- *=entity_binary_types=.* =entity-binary-types=
+  (=check_entity_binary_types.py=). A generated =repository/*_entity.hpp=
+  binds each column with =bind= or =key= in the format its member's C++
+  type travels in; rule =wire_mismatch= reports one that differs from the
+  format of the column's SQL type, or a binding to a column or member that
+  does not exist, =unclassified= a type the check cannot place, =no_table=
+  a row whose table no create script creates, and =too_few_compared= a run
+  that compared fewer than =min_compared=.
+- *=generated_column_refs=.* =generated-column-refs=
+  (=check_generated_column_refs.py=). Rule =not_a_member=: a generated
+  =*_table.cpp= writer streams a name its entity's header does not hold.
+  Rule =not_a_column=: a generated create script indexes a column or a
+  table it does not create.
+- *=open_reads=.* =open-reads= (=check_open_reads.py=). Rule =open_read=: a
+  read of a generated handler, a =list_= or =get_= method or one that
+  decodes a protocol request, that checks no permission and whose subject
+  the =allow_list= page does not name. Rules =unguarded_history= (a
+  history registration with no literal read code), =stale_allow= (an
+  allowed subject no protocol header defines) and =no_allow_list=.
+
+Where a script reads a file with a strict UTF-8 decode and would stop on a
+file that is not UTF-8, these codecs read it with invalid bytes replaced,
+except =subject_conformance=, which reports such a model.
 
 * Entry points
 
@@ -78,6 +118,7 @@ exception where it stands.
 |--------------------------------------------------------+---------------------------------------------------------|
 | =include/compass.crosscheck/codecs/catalogue.hpp=      | The codecs this component ships.                        |
 | =include/compass.crosscheck/codecs/<gate>.hpp=         | One header for each codec, named after it.              |
+| =include/compass.crosscheck/ops/words.hpp=             | Python's lower, split and run of spaces over bytes.     |
 | =tests/test_checkout.hpp=                              | Runs one codec over a checkout of files held in memory. |
 
 | Target                     | Kind                                      |

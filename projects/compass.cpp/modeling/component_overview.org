@@ -178,7 +178,8 @@ keeps in its =.compass.org=.
 | =include/compass.cpp/ops/exported_types.hpp=            | Export macros, quoted includes and exported types.        |
 | =include/compass.cpp/ops/enum_attributes.hpp=           | Erasing, visibility macros and enum sites.                |
 | =include/compass.cpp/ops/test_case_reachability.hpp=    | Test sources and their cases; blanking comments and literals. |
-| =include/compass.cpp/ops/paths.hpp=                     | pathlib's suffixes and order, and which files exist.      |
+| =include/compass.cpp/ops/paths.hpp=                     | pathlib's suffixes, order and glob, and which files exist. |
+| =include/compass.cpp/ops/glob.hpp=                      | The files of a view a pathlib glob lists, in its order.   |
 | =include/compass.cpp/ops/text.hpp=                      | Python's spaces, word characters and lines over bytes.    |
 | =include/compass.cpp/ops/report.hpp=                    | Adds one finding on a byte of a checkout file.            |
 | =include/compass.cpp/codecs/registrars.hpp=             | The three registrar composition codecs.                   |

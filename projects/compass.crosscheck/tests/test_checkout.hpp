@@ -98,6 +98,16 @@ inline outcome run(const compass::codec::types::descriptor& codec,
 }
 
 /**
+ * @brief The message of each of @p findings.
+ */
+inline std::vector<std::string> messages_of(const outcome& r) {
+    std::vector<std::string> out;
+    for (const auto& [path, line, message] : r.findings)
+        out.push_back(message);
+    return out;
+}
+
+/**
  * @brief The path and line of each of @p findings.
  */
 inline std::vector<std::pair<std::string, std::uint32_t>> places(

@@ -20,9 +20,15 @@ set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
     codecs/catalogue.cpp
+    codecs/entity_binary_types.cpp
     codecs/entity_writes.cpp
+    codecs/generated_column_refs.cpp
+    codecs/model_sql_types.cpp
+    codecs/money_decimal_columns.cpp
+    codecs/open_reads.cpp
     codecs/paste_blocks.cpp
-    codecs/subject_conformance.cpp)
+    codecs/subject_conformance.cpp
+    ops/words.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
 

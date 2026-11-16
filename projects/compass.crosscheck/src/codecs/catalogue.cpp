@@ -20,15 +20,22 @@
 #include "compass.crosscheck/codecs/catalogue.hpp"
 
 #include <array>
+#include "compass.crosscheck/codecs/entity_binary_types.hpp"
 #include "compass.crosscheck/codecs/entity_writes.hpp"
+#include "compass.crosscheck/codecs/generated_column_refs.hpp"
+#include "compass.crosscheck/codecs/model_sql_types.hpp"
+#include "compass.crosscheck/codecs/money_decimal_columns.hpp"
+#include "compass.crosscheck/codecs/open_reads.hpp"
 #include "compass.crosscheck/codecs/paste_blocks.hpp"
 #include "compass.crosscheck/codecs/subject_conformance.hpp"
 
 namespace compass::crosscheck::codecs {
 
 std::span<const compass::codec::types::descriptor> catalogue() noexcept {
-    static const std::array<compass::codec::types::descriptor, 3> all{
-        entity_writes, paste_blocks, subject_conformance};
+    static const std::array<compass::codec::types::descriptor, 8> all{
+        entity_binary_types, entity_writes, generated_column_refs,
+        model_sql_types, money_decimal_columns, open_reads, paste_blocks,
+        subject_conformance};
     return all;
 }
 

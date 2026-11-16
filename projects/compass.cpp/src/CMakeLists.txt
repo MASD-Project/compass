@@ -37,6 +37,7 @@ add_library(${lib_target_name}
     codecs/xml_family_census.cpp
     ops/enum_attributes.cpp
     ops/exported_types.cpp
+    ops/glob.cpp
     ops/paths.cpp
     ops/report.cpp
     ops/test_case_reachability.cpp
