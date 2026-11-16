@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :run_codecs_and_write_changes:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/write-only-changed-outputs
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ Compare each output's hash with the recorded one and write only on a difference.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:8DC60B89-1605-4281-90FF-5AC8B33F629A][Run codecs and write only changes]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,20 @@ Compare each output's hash with the recorded one and write only on a difference.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- A sink takes the run's file outputs and writes them under an output root,
+  each through a temporary file and a rename.
+- An output is written only when its content hash differs from the hash
+  recorded for that path, or when the file on disk no longer matches the stat
+  data recorded after the last write: a hand-edited or deleted generated file
+  is restored. An output that is written neither way keeps its modification
+  time, so the build does not see it as changed.
+- compass owns the paths it wrote. A path recorded as written by a codec that
+  the codec no longer produces is removed, so a deleted model removes its
+  generated files; files compass never wrote are never touched.
+- The record of written outputs (path, hash, stat) is per-worktree state beside
+  the dependency record, rewritten only on change.
+- =compass-bench codecs --write <root>= runs the sink and reports outputs
+  written, unchanged, restored and removed, and their time.
 
 * Measurements
 
