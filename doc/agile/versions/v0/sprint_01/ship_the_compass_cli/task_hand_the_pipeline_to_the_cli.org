@@ -26,11 +26,11 @@ Move pipeline hosting from compass.bench into compass.cli, so the bench only mea
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:FEABA8E9-D541-45AA-9278-64DC1264C794][Ship the compass CLI]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -91,3 +91,18 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- The pipeline lives once, as steps in =compass.cli='s =app/steps.hpp=:
+  =list=, =build_type_registry=, =open_files=, =resolve=, =load=,
+  =corpus_of=, =read_dependency_record=, =run_codecs=, =store_objects=,
+  =write_worktree_index=, =store_results=, =write_dependency_record=,
+  =write_outputs=, =plan_outputs= and =collect=. The commands are built from
+  them.
+- The bench's =warm=, =codecs= and =gc= stages call those steps and add only
+  timing; =compass.bench= lost a net 245 lines. The stages that measure one
+  primitive (=read=, =includes=, =parse=, =org=, =types=, =store=, =ids=,
+  =models=) call it directly.
+- The refactor preserved behaviour: 22 baseline runs gave 43 output files
+  identical apart from timings. One deliberate change followed: the hosting
+  stages now skip =.compass.org= as the CLI does, so both read 410 files on
+  this repository.
