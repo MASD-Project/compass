@@ -22,12 +22,13 @@
 #include <array>
 #include "compass.sql/codecs/populate_refs.hpp"
 #include "compass.sql/codecs/sql_hygiene.hpp"
+#include "compass.sql/codecs/sql_reachability.hpp"
 
 namespace compass::sql::codecs {
 
 std::span<const compass::codec::types::descriptor> catalogue() noexcept {
-    static const std::array<compass::codec::types::descriptor, 2> all{
-        populate_refs, sql_hygiene};
+    static const std::array<compass::codec::types::descriptor, 3> all{
+        populate_refs, sql_hygiene, sql_reachability};
     return all;
 }
 

@@ -22,6 +22,7 @@ add_library(${lib_target_name}
     codecs/catalogue.cpp
     codecs/populate_refs.cpp
     codecs/sql_hygiene.cpp
+    codecs/sql_reachability.cpp
     ops/hygiene.cpp
     ops/scripts.cpp)
 
