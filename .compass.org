@@ -1,0 +1,34 @@
+:PROPERTIES:
+:ID: 8D892211-DC91-40C4-A49F-8DFD460BE6CD
+:END:
+#+title: Compass configuration
+#+description: The configuration compass reads at the root of this repository: the output root, the contract directory, and which codecs run with which options.
+#+type: meta
+#+level: cross
+#+filetags: :meta:configuration:compass:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+#+output: build/output/compass
+#+meta: doc/meta
+
+This page configures the =compass= executable for this repository. Every
+command reads it; =compass config= prints the effective configuration and
+where each value came from. The command line wins over this page: =--out=,
+=--meta= and =--set <codec>.<key>=<value>=.
+
+* Paths
+
+- =#+output:= :: The output root, relative to the checkout.
+- =#+meta:= :: The directory of the contract pages, relative to the
+  checkout.
+
+* Codecs
+
+One row per codec: its name, =yes= or =no= for enabled, and its options as
+space-separated =key=value= pairs. A codec with no row runs on its
+defaults.
+
+| name              | enabled | options                     |
+|-------------------+---------+-----------------------------|
+| document_index    | yes     | path=doc/document_index.tsv |
+| required_sections | yes     |                             |
