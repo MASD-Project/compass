@@ -8,7 +8,7 @@
 #+filetags: :ship_the_compass_cli:sprint_01:v0:
 #+owner: marco
 #+branch: feature/create-the-compass-executable
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/25
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -93,7 +93,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/25][#25]] | [cli] Add the compass executable: generate, diff, check, gc |
 
 * Review
 
