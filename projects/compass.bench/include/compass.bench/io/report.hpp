@@ -23,6 +23,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <ostream>
+#include "compass.bench/types/codecs_result.hpp"
 #include "compass.bench/types/file_table.hpp"
 #include "compass.bench/types/ids_result.hpp"
 #include "compass.bench/types/includes_result.hpp"
@@ -187,6 +188,23 @@ inline constexpr double warm_budget_ms = 1000;
  * A failed stage gets a FAILED banner naming the reason.
  */
 void write_warm_report(std::ostream& os, const types::warm_result& stage,
+    const setup_timing& setup, const std::filesystem::path& objects);
+
+/**
+ * @brief True when the codecs stage found no org file, could not load one,
+ * or the codec registry has a problem. Diagnostics are data, not failure.
+ */
+[[nodiscard]] bool failed(const types::codecs_result& stage);
+
+/**
+ * @brief Writes the report of the codecs stage: the corpus and how it
+ * loaded, one row per codec with the documents it was given, its outputs
+ * and their bytes, its diagnostics and its time summed over threads, then
+ * each output file with its size and, per codec with diagnostics, the
+ * documents with any, the counts by rule, the most frequent messages and
+ * the first findings.
+ */
+void write_codecs_report(std::ostream& os, const types::codecs_result& stage,
     const setup_timing& setup, const std::filesystem::path& objects);
 
 /**

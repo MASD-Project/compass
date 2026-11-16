@@ -156,6 +156,7 @@ model types:
 | =include/compass.org/io/dump.hpp=             | The text dump of one document.              |
 | =include/compass.org/types/type_registry.hpp= | =type_registry= and its tables.             |
 | =include/compass.org/ops/type_lookup.hpp=     | =find_type= and the entries of a type.      |
+| =include/compass.org/ops/document_fields.hpp= | A document's keywords and own properties.   |
 | =tests/types_tables_tests.cpp=                | A document built by hand and queried.       |
 | =tests/io_dump_tests.cpp=                     | The dump of tables built by hand.           |
 | =tests/ops_type_lookup_tests.cpp=             | A registry built by hand and queried.       |

@@ -21,6 +21,7 @@ set(lib_target_name ${name}.lib)
 add_library(${lib_target_name}
     io/dump.cpp
     io/object.cpp
+    ops/document_fields.cpp
     ops/type_lookup.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})

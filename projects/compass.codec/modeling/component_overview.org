@@ -1,0 +1,130 @@
+:PROPERTIES:
+:ID: 995ECC12-860C-4009-B9A2-8CA1A6102BD6
+:END:
+#+title: compass.codec
+#+description: The codec runtime: a codec as a descriptor and one function, the view of the corpus it reads through, the tables of files and diagnostics it fills, the registry the configuration enables codecs in, the runner, and the two codecs that need only the org tables.
+#+type: component
+#+level: cross
+#+filetags: :codec:pipeline:gates:component:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+
+This page is the component overview for =compass.codec=, a simple component in
+the domain layer of the
+[[id:8A9A460F-8024-4890-B091-C0D02FD84218][System Model]].
+
+* Summary
+
+Every output and every check of compass-ng is a /codec/: a function that reads
+the corpus in memory and emits either files or diagnostics. =compass.codec=
+defines what a codec is and runs codecs. It does not load the corpus and it
+does not write files. A host loads the documents, calls the runner and decides
+what happens to the result: write it, diff it, cache it or report it.
+
+A codec is a =descriptor=, which is constant data, and one function. Nothing
+in the runtime knows a codec by name. What a codec does differently from the
+others is in its descriptor, so adding a codec adds a row to a list.
+
+* Inputs
+
+- A =types::corpus=: one row per document with its path, the git blob ID of
+  its source, the source bytes, the =compass.org= tables of its parse and its
+  registered type. The corpus owns nothing; the host keeps the sources and
+  the objects mapped.
+- The type registry of =compass.org=, which the input types of a codec are
+  resolved against.
+- A span of descriptors. =codecs::catalogue()= lists the ones this component
+  ships; a host appends those of other components.
+- A =types::configuration=: rows of codec, key and value. The key =enabled=
+  takes =true= or =false=. Any other key must be an option the codec declares.
+
+* Outputs
+
+- *Descriptor.* =types::descriptor= holds the name, the version, a summary,
+  the documents the codec reads, its options with their defaults, the rules it
+  enforces, whether it runs by default, and its function. The version is
+  bumped by hand when some input would give a different output. The function
+  is one of four types, and its type is the only statement of two facts: a
+  =document_function= is called once per document and a =corpus_function=
+  once over all of them, and each emits a =file_table= or a
+  =diagnostic_table=. =unit_of= and =output_of= read both facts back.
+- *Inputs of a codec.* =types::inputs= is a list of =#+type:= values, every
+  registered type, or every document including those with no registered type.
+- *View.* =types::corpus_view= is all a codec can read. It numbers the
+  documents of the declared types from zero, so a codec cannot name a document
+  of another type. =operator[]= returns a =types::document=: corpus row, path,
+  content ID, type, source and tables. Every read goes through that one
+  function. The view also gives the type registry and =option(key)=, the
+  configured value or the default.
+- *Files.* =types::file_table= has a path and the bytes of each file. Paths
+  are relative to the checkout root.
+- *Diagnostics.* =types::diagnostic_table= has, per finding, the document
+  (its corpus row), a source range, the rule (an index into the descriptor's
+  rules), a severity, a message and a fix. A message holds no line number and
+  no count, so the same finding has the same message after an unrelated edit.
+- *Registry.* =ops::make_registry= resolves each descriptor against the type
+  registry and applies the configuration. =types::registry= holds, per codec,
+  whether it runs, its option values, and one flag per registered type saying
+  whether the codec reads it. =problems= lists what did not fit: a duplicate
+  name, an unregistered input type, a setting nobody declared.
+- *Run.* =ops::run= runs the enabled codecs on up to N threads. No codec reads
+  what another emits, so all run at once. A corpus codec is one piece of work.
+  A document codec is split into runs of documents, four per thread. Each
+  piece fills its own tables and the tables of a codec are joined in document
+  order, so the result is the same on any thread count. =types::run_result=
+  holds, per codec, the documents given, the files, the diagnostics and the
+  time summed over threads. An exception from a codec is rethrown after every
+  thread has stopped.
+- *Document type.* =ops::document_type= gives the registered type the first
+  =#+type:= keyword of a document names.
+- *=document_index=.* A corpus codec that emits one tab-separated file: a
+  header, then the ID, title, type and path of every document, in byte order
+  of the paths. The option =path= names the file and defaults to
+  =doc/document_index.tsv=.
+- *=required_sections=.* A document codec over every typed document. It
+  reports each section the type requires and no heading of the document
+  carries, under the rule =missing_section=. The fix names the heading to add.
+
+* Entry points
+
+| Path                                           | Role                                              |
+|------------------------------------------------+---------------------------------------------------|
+| =include/compass.codec/types/descriptor.hpp=   | =descriptor=, =inputs=, =option=, =rule= and the function types. |
+| =include/compass.codec/types/corpus.hpp=       | The corpus a host fills.                          |
+| =include/compass.codec/types/corpus_view.hpp=  | =document= and =corpus_view=.                     |
+| =include/compass.codec/types/file_table.hpp=   | The files a codec emits.                          |
+| =include/compass.codec/types/diagnostic_table.hpp= | The findings a codec emits.                   |
+| =include/compass.codec/types/text_column.hpp=  | A column of byte strings.                         |
+| =include/compass.codec/types/configuration.hpp= | The settings and the =enabled= key.              |
+| =include/compass.codec/types/registry.hpp=     | The resolved codecs.                              |
+| =include/compass.codec/ops/registry.hpp=       | =make_registry=, =reads= and =option_values=.     |
+| =include/compass.codec/ops/run.hpp=            | =run= and =document_type=.                        |
+| =include/compass.codec/codecs/catalogue.hpp=   | The codecs this component ships.                  |
+| =include/compass.codec/codecs/*.hpp=           | One header per codec.                             |
+| =tests/test_corpus.hpp=                        | A parsed corpus and a type registry for tests.    |
+
+| Target                | Kind                                      |
+|-----------------------+-------------------------------------------|
+| =compass.codec.lib=   | Library.                                  |
+| =compass.codec.tests= | Catch2 executable, registered with CTest. |
+
+=codecs= is a local facet: it holds the codecs, one descriptor each.
+
+* Dependencies
+
+- =compass.org= for the tables, the type registry and the document lookups.
+- =compass.store= for =blob_id=, the content ID of a document.
+- The C++23 standard library and threads.
+- =compass.ingest= and Catch2, for the tests only: the tests parse their
+  documents and build their registry from contract pages.
+
+* See also
+
+- [[id:8A0E6F32-C4BC-4667-88E8-7F80CA25437C][Component architecture]] --- layout,
+  naming, facets and the data-oriented conventions.
+- [[id:8A9A460F-8024-4890-B091-C0D02FD84218][System Model]] --- where the
+  component sits and what may depend on it.
+- [[id:44C128E0-BCF3-4574-B171-BF5E72325085][compass.org]] --- the tables and
+  the type registry a codec reads.
+- [[id:1F522775-710C-4EFE-8317-8354D902816D][compass.bench]] --- the =codecs=
+  stage, which is the first host of the runner.

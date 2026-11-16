@@ -1,0 +1,386 @@
+:PROPERTIES:
+:ID: 48CE7287-45FE-4E96-8FA0-8D109C9411C8
+:END:
+#+title: Design: the codec interface
+#+description: The argument for what a codec is: a descriptor that is data and one function whose type states its unit and its output, a view that shows only the declared document types, struct-of-arrays tables of files and diagnostics, a registry driven by configuration and a runner that knows no codec by name; with how dependency recording, changed-only writes, diff mode, caching and the gates fit, and the alternatives rejected.
+#+type: design
+#+level: s2
+#+filetags: :codecs:pipeline:design:run_codecs_and_write_changes:sprint_01:v0:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+#+todo: DRAFT STARTED | LANDED SUPERSEDED ABANDONED
+#+outcome: 995ECC12-860C-4009-B9A2-8CA1A6102BD6
+
+#+begin_note
+*This document describes a transition, not the current state.* It argues from
+"the corpus is in memory and nothing reads it" to a pipeline of codecs, and it
+expires when the
+[[id:8DC60B89-1605-4281-90FF-5AC8B33F629A][Run codecs and write only changes]]
+story lands.
+
+The durable description of the codec runtime is the
+[[id:995ECC12-860C-4009-B9A2-8CA1A6102BD6][compass.codec]] component overview,
+which =#+outcome:= names. Read that page for the runtime as it is. Do not link
+to this page from durable documentation; the link runs one way, from here to
+the overview.
+#+end_note
+
+* Status
+
+| Field        | Value                                                                          |
+|--------------+--------------------------------------------------------------------------------|
+| State        | STARTED                                                                        |
+| Parent story | [[id:8DC60B89-1605-4281-90FF-5AC8B33F629A][Run codecs and write only changes]] |
+| Last touched | 2026-11-16                                                                     |
+
+The interface, the registry, the runner and two codecs are implemented and
+run over this repository and over ORE Studio. Dependency recording,
+changed-only writes, diff mode and the result cache are the next tasks. This
+page says where each one attaches; none of them is built.
+
+* Summary
+
+A codec is a =descriptor= and one function. The descriptor is constant data:
+name, version, the document types read, options with defaults, rules, and
+whether the codec runs by default. The function has one of four types. Its
+type says whether one call works on a document or on the whole corpus, and
+whether it emits files or diagnostics.
+
+A codec reads through a =corpus_view= that numbers only the documents of the
+types it declared. It appends to a struct-of-arrays table: =file_table= (path,
+bytes) or =diagnostic_table= (document, source range, rule, severity, message,
+fix). It never opens a file and never writes one.
+
+=make_registry= resolves the descriptors against the type registry and applies
+the configuration. =run= runs the enabled codecs in parallel. Neither knows a
+codec by name.
+
+* What the interface must do
+
+Every later feature is a codec: code generation, HTML export, the gates,
+analysis reports. The next four tasks of this story and the gates story put
+these demands on the interface, and no codec may need to change to meet them.
+
+1. /Record dependencies./ The runner must know what each codec read, down to
+   the document, so a change re-runs only the codecs that read it.
+2. /Write only changed outputs./ The runner must hold every output before
+   anything reaches the disk.
+3. /Diff mode./ The same run must be able to end in a diff with no write.
+4. /Cache results./ A result must be a pure function of the codec's version,
+   its configuration and the content it read, so another worktree can reuse
+   it.
+5. /Gates./ A diagnostic must be comparable across two commits (ratchet), must
+   be matchable to an exception written in the document, and must name its
+   fix. The rules a codec enforces must be listable without running it.
+6. /Speed./ All ported gates over ORE Studio in under 10 seconds, and a verdict
+   on an edit in under one second.
+
+* The codec
+
+** The descriptor is data
+
+#+begin_src c++
+struct descriptor {
+    std::string_view name;
+    std::uint32_t version = 0;
+    std::string_view summary;
+    inputs reads;
+    std::span<const option> options;
+    std::span<const rule> rules;
+    bool enabled_by_default = true;
+    codec_function run;
+};
+#+end_src
+
+Everything the runner, the cache and the rule table need is readable without
+calling the codec. =version= is bumped by hand, as =parser_version= is, when
+some input would give a different output. =options= declares each key with its
+default, so the effective configuration of a codec is a fixed list of values
+in a fixed order, which is what a cache key needs. =rules= gives each rule a
+name and a summary; the gates story generates its rule table from it.
+
+=reads= is a list of =#+type:= values, every registered type, or every
+document. The names are resolved once, when the registry is built, into one
+flag per row of the type registry plus one for documents with no registered
+type. A name the registry does not hold is a problem the registry reports,
+and the codec still runs over the types that resolved.
+
+** The function type states the unit and the output
+
+#+begin_src c++
+template <typename Output>
+using document_function = void (*)(const document&, const corpus_view&, Output&);
+template <typename Output>
+using corpus_function = void (*)(const corpus_view&, Output&);
+
+using codec_function = std::variant<
+    document_function<file_table>, document_function<diagnostic_table>,
+    corpus_function<file_table>, corpus_function<diagnostic_table>>;
+#+end_src
+
+A /document codec/ is called once per visible document. A /corpus codec/ is
+called once. The unit and the output kind are not fields that could disagree
+with the function: they are read from its type. A files codec has no table to
+put a diagnostic in.
+
+A function reads only its arguments and writes only its output table. That is
+the whole contract, and it is what lets the runner call it on any thread, skip
+the call when a cached result exists, and throw the output away in diff mode.
+
+* The view
+
+=corpus_view= holds the corpus rows of the documents whose type the codec
+declared and numbers them from zero. =view[i]= returns a =document=: corpus
+row, path, content ID (the git blob ID), type, source bytes and tables. A
+document of another type has no number, so a codec cannot name it. The view
+also gives the type registry and =option(key)=.
+
+Every read of a document goes through =operator[]=. That one function is the
+hook for dependency recording. Each piece of work the runner starts gets its
+own view object in the recording design below, so a record is written by one
+thread and needs no lock.
+
+* The outputs
+
+=file_table= is two byte-string columns, paths and contents. =diagnostic_table=
+is four fixed-width columns and two byte-string columns. Both append in O(1)
+and concatenate with one offset shift, which is how the runner joins the
+tables of the pieces of one codec.
+
+A diagnostic names its document by corpus row, not by path: the row is four
+bytes, and whoever reports the finding has the corpus. Its =range= is a byte
+range in the source. Its =rule= is an index into the descriptor's rules, so a
+finding cannot carry a rule nobody declared. Its =message= must be stable: no
+line number, no count, nothing an unrelated edit changes. Its =fix= is a
+separate column, so a tool can show or apply it without parsing the message.
+
+* The registry and the runner
+
+=make_registry= takes a span of descriptors, the type registry and the
+configuration, which is rows of (codec, key, value). The key =enabled= turns a
+codec on or off; any other key must be a declared option. The set of codecs is
+the span the host passes: =codecs::catalogue()= plus the codecs of any other
+component. Nothing registers itself.
+
+=run= builds, per enabled codec, the visible rows and a view. A corpus codec
+is one piece of work. A document codec is cut into contiguous runs of
+documents, four per thread. Threads take pieces from a shared counter. Each
+piece fills its own tables, and the tables of a codec are joined in piece
+order, so the result is identical on one thread and on eight. A test pins
+that. No codec reads what another emits, so there is no order to respect
+between codecs.
+
+* How the later work attaches
+
+** Dependency recording, and a codec that needs other documents
+
+Two statements about what a codec reads exist, and both are needed.
+
+The /declaration/ in the descriptor is static. It bounds what can ever affect
+the codec: a change to a document of an undeclared type cannot, and the
+runner can know that without running anything. It is also the only statement
+available before the first run.
+
+The /record/ is dynamic, as a compiler's dependency file is. It narrows the
+declaration to what a call did read.
+
+- A document codec called for document A that reads nothing else records
+  {A}. Changing B does not re-run it for A.
+- A corpus codec that walks the view records the walk: the set of visible
+  (path, content ID) pairs. Any change in the declared types re-runs it.
+- A codec that needs another document, such as HTML export printing the title
+  of a link target, asks the view for it: =view.find(id)=, to be added with
+  the recording task. The view records the question and the answer,
+  including "no such document". A document that appears later with that ID
+  then re-runs the codec for A, which a list of documents read could not
+  express.
+
+So a codec that needs other documents declares their types in =reads=, and
+reaches them only through the view. Today every declared type is also a type
+a document codec is called for. HTML export will be called for every document
+and may look up any document, so one set serves it. A codec that is called
+for tasks and looks up stories needs two sets; that becomes a second =inputs=
+field, =references=, empty by default. A new field with a default and a new
+method on the view change no existing codec.
+
+** Write only changed outputs, and diff mode
+
+The runner holds every output as bytes before any reaches the disk. Writing
+only what changed is a comparison of each content hash with the recorded one.
+Diff mode is the same run with a different last step. Removing an output that
+a codec no longer emits needs a record of what each codec emitted last time;
+that record belongs to the runner.
+
+** The result cache
+
+The key of a result is the codec's name and version, its option values in
+declared order, and what the record says it read. For a document codec the
+unit of caching is one document, so an edit to one of ORE Studio's 10,917
+documents re-runs one call of each document codec.
+
+A cached result must not hold a corpus row, because rows differ between
+worktrees. The cache will store a diagnostic's document as the position of
+the read it refers to, and resolve it on load.
+
+** Ratchet, exceptions and the rule table
+
+- /Ratchet./ Two runs are compared as multisets of (document path, rule,
+  message). That is why the message holds no position.
+- /Inline exceptions./ An exception is written in the document and names
+  =codec/rule=. The runner parses exceptions and drops the findings they
+  cover, by document, rule and range. Codecs do not know exceptions exist. An
+  expired or unapproved exception is a finding of a codec the runtime owns.
+- /Rule table./ It is generated from =descriptor::rules=.
+
+* The two codecs
+
+=document_index= is a corpus codec that emits one file. The format is
+tab-separated text with a header line, one line per document, in byte order
+of the paths. An org table was the alternative. It needs its columns padded to
+the widest cell, so one long title rewrites every line and the diff shows
+nothing; a title with =|= needs escaping; and the file would be an org
+document, so the next run would index its own output. A TSV line changes only
+when its document does, and =cut= and =awk= read it.
+
+=required_sections= is a document codec over every typed document. It reports
+each section the type registry requires and no heading carries. The range is
+the value of the =#+type:= keyword, the text that makes the section required.
+The message is =task document has no "Plan" section= and the fix is =Add the
+heading "* Plan"; the task contract requires it.=
+
+* Measurements
+
+Numbers are indicative: one machine, 8 cores, =-j 8=, =--repeat 5=, a release
+build of commit =94dde7a=. The time of a codec is summed over threads.
+
+| What                                   | This repository | ORE Studio          |
+|----------------------------------------+-----------------+---------------------|
+| Org files, all loaded                  | 399             | 10,917              |
+| Registered types                       | 42              | 43                  |
+| Corpus load, store full                | 4.3 ms          | 315 ms              |
+| Corpus load, store empty               | 15.5 ms         | 766 ms              |
+| =document_index= documents             | 399             | 10,917              |
+| =document_index= output                | 1 file, 50,355 bytes | 1 file, 1,941,979 bytes |
+| =document_index= median time           | 0.16 ms         | 10.9 ms             |
+| =required_sections= documents          | 346             | 10,117              |
+| =required_sections= diagnostics        | 58 in 49 documents | 4,751 in 2,555 documents |
+| =required_sections= median time        | 0.13 ms         | 15.2 ms             |
+| One run of both codecs, median wall    | 0.39 ms         | 12.4 ms             |
+
+Commands, from the root of this repository, with =$S= a scratch directory:
+
+#+begin_src sh
+compass-bench codecs . --meta doc/meta --store $S/store_self -j 8 --repeat 5
+compass-bench codecs $S/ores --meta $S/ores/doc/meta --store $S/store_ores -j 8 --repeat 5
+#+end_src
+
+=$S/ores= is =git archive origin/main= of ORE Studio at commit =7aa4435e=,
+committed as one commit so that git's index names every file.
+
+The wall time of a run over ORE Studio is the time of =document_index=, which
+is one piece of work on one thread; =required_sections= is spread over the
+other threads. The 15 ms of =required_sections= over 10,117 calls is 1.5
+microseconds a document, so one call per document costs nothing that matters.
+
+Most frequent findings on ORE Studio:
+
+| Count | Finding                                         |
+|-------+-------------------------------------------------|
+| 1,311 | capture document has no "Note" section          |
+|   692 | recipe document has no "Script" section         |
+|   682 | recipe document has no "Tested by" section      |
+|   678 | recipe document has no "Answer" section         |
+|   678 | recipe document has no "Question" section       |
+|   282 | knowledge document has no "Detail" section      |
+|   130 | task document has no "Plan" section             |
+|    45 | task document has no "Notes" section            |
+|    40 | user_journey document has no "Prototype" section |
+
+On this repository: 36 knowledge documents with no "Detail" section, 7 recipes
+with no "Script" and 3 with no "Tested by", and 12 findings spread over the
+product identity, a skill, the sprint and the version.
+
+These counts say what the type registry requires, not what the contract
+means. The capture contract accepts =* What= and =* Why= in place of =* Note=,
+and =* Detail= in the knowledge contract stands for "the content". The
+registry holds neither nuance, so some of these findings are the registry's.
+That is a matter for the registry builder, not for the codec.
+
+* Alternatives rejected
+
+- *A virtual interface.* =class codec= with virtual =name()=, =version()=,
+  =inputs()= and =run()=. The getters would return constants, and the runner
+  needs those constants without an object: to list rules, to build a cache
+  key, to select codecs by type. An object also invites state kept between
+  calls, which breaks both parallel calls and caching. A descriptor is a
+  value: it can be listed, compared, printed and built in a test with a
+  lambda. The cost is the same, one indirect call per unit.
+- *Self-registration.* A static object in each codec's file that adds itself
+  to a global list. The set of codecs then depends on which object files the
+  linker kept, and a static library drops the ones nothing refers to. The
+  host passes the list instead.
+- *Corpus invocation only.* Simple, and enough for the two codecs here. But
+  the runner then sees one call that read everything: one edit re-runs HTML
+  export for 10,917 documents and no result smaller than the corpus can be
+  cached.
+- *Document invocation only.* An index, a duplicate-ID check or a link graph
+  needs all documents at once. Expressing them as a per-document step and a
+  merge step is possible and is more machinery than a second function type.
+  It can be added as a third type if a corpus codec proves too coarse.
+- *A batch of documents per call.* One call with a span of subjects avoids a
+  function call per document. A read can then not be attributed to one
+  subject, so the record is per batch, and the measured cost of the call is
+  nothing.
+- *One output type with both tables.* A files codec could then emit a
+  diagnostic, and whether that is legal would be a run-time check. Two table
+  types make it a compile error. A generator that must report a bad model is
+  a second codec, or a later decision to let files codecs emit both.
+- *A sink callback per output.* =emit(path, bytes)= through a function. The
+  table is the same data without the indirection, it concatenates, and it is
+  what the cache stores.
+- *Diagnostics that carry a path.* A string per finding, 4,751 times on ORE
+  Studio, for something the reporter can look up from four bytes.
+- *A typed options struct per codec.* Type-safe inside the codec. But the
+  configuration file is not designed, the cache key needs one canonical form
+  for every codec, and the runner would need a way to parse into a type it
+  does not know. Options are strings; a codec parses its own.
+- *Input types checked at each call.* Comparing type names per document per
+  codec. They are resolved once into a flag row.
+- *A content ID type of its own.* =compass.org= avoids =compass.store= by
+  using a raw array. The codec runtime will write results to the store, so
+  it uses =store::types::blob_id= and one type means one thing.
+- *An org table for the index.* See The two codecs.
+
+* Least certain
+
+- *The path of a document is not a recorded read.* =document= hands out the
+  path with the content. A document codec whose output depends on the path,
+  as HTML export's output path does, makes the path part of its cache key.
+  Either the key of a document unit always includes the path, which re-runs
+  on a rename, or the path moves behind an accessor. The cache task decides.
+- *Either files or diagnostics.* The story says so and the types enforce it.
+  Code generation will meet models it cannot generate from. Whether that is a
+  paired check codec or a third output kind is open.
+- *Severity.* It is a column each codec fills. Ratchet mode may make it
+  redundant, or configuration may want to set it per rule.
+- *Corpus codecs are single pieces.* =document_index= bounds the wall time of
+  a run at 11 ms on ORE Studio. A corpus codec that is expensive will need
+  its own threads or the map and merge form.
+- *Strings for options.* A mistyped value is found when the codec parses it,
+  not when the registry is built. A declared value kind per option would move
+  that check to the registry.
+- *The =codecs= stage loads the corpus with its own code.* It repeats about
+  sixty lines of the =warm= stage, which measures its phases apart and keeps
+  nothing mapped. The real host should own one loader.
+- *Unregistered input types run anyway.* A codec that lists a type the
+  registry lacks runs over the rest and the registry reports a problem. A
+  host may prefer to refuse to run.
+
+* See also
+
+- [[id:8DC60B89-1605-4281-90FF-5AC8B33F629A][Run codecs and write only changes]]
+  --- the story this design belongs to.
+- [[id:995ECC12-860C-4009-B9A2-8CA1A6102BD6][compass.codec]] --- the durable
+  description of the codec runtime.
+- [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] --- the
+  story whose ratchet mode, exceptions and rule table the diagnostics serve.

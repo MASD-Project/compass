@@ -32,6 +32,7 @@
 #include <vector>
 #include "compass.bench/io/compile_commands.hpp"
 #include "compass.bench/io/report.hpp"
+#include "compass.bench/ops/codecs_stage.hpp"
 #include "compass.bench/ops/ids_stage.hpp"
 #include "compass.bench/ops/includes_stage.hpp"
 #include "compass.bench/ops/listing.hpp"
@@ -63,6 +64,8 @@ constexpr std::string_view usage =
     "           [--repeat R]\n"
     "       compass-bench warm <checkout> [--store <dir>] [-j N]\n"
     "           [--repeat R]\n"
+    "       compass-bench codecs <checkout> --meta <dir> [--store <dir>]\n"
+    "           [--set <codec>.<key>=<value>]... [-j N] [--repeat R]\n"
     "       compass-bench gc <checkout> [--store <dir>] [--cap <bytes>]\n"
     "           [--grace <seconds>] [--dry-run]\n"
     "       compass-bench ids <checkout> [-j N] [--repeat R]\n"
@@ -71,7 +74,8 @@ constexpr std::string_view usage =
     "       compass-bench org-dump --list <list>\n";
 
 enum class stage {
-    read, includes, parse, org, types, store, warm, gc, ids, org_dump
+    read, includes, parse, org, types, store, warm, codecs, gc, ids,
+    org_dump
 };
 
 struct options {
@@ -84,6 +88,7 @@ struct options {
     std::vector<std::string> implicit_system;
     std::filesystem::path meta;
     std::filesystem::path store;
+    compass::codec::types::configuration settings;
     compass::store::types::collection_options collection;
     std::uint64_t verify = 0;
     std::filesystem::path dump_file;
@@ -111,6 +116,21 @@ std::optional<std::uint64_t> parse_count(std::string_view s) {
     if (ec != std::errc{} || end != s.data() + s.size())
         return std::nullopt;
     return v;
+}
+
+/**
+ * @brief Adds the setting written as <codec>.<key>=<value>; false when
+ * @p s is not of that form.
+ */
+bool add_setting(std::string_view s,
+    compass::codec::types::configuration& settings) {
+    const auto equals = s.find('=');
+    const auto dot = s.find('.');
+    if (equals == std::string_view::npos || dot == 0 || dot + 1 >= equals)
+        return false;
+    settings.set(s.substr(0, dot), s.substr(dot + 1, equals - dot - 1),
+        s.substr(equals + 1));
+    return true;
 }
 
 std::optional<options> parse_dump_options(int argc, char** argv) {
@@ -144,6 +164,8 @@ std::optional<options> parse_options(int argc, char** argv) {
         o.which = stage::store;
     else if (name == "warm")
         o.which = stage::warm;
+    else if (name == "codecs")
+        o.which = stage::codecs;
     else if (name == "gc")
         o.which = stage::gc;
     else if (name == "ids")
@@ -155,10 +177,11 @@ std::optional<options> parse_options(int argc, char** argv) {
     o.checkout = argv[2];
     o.threads = std::max(1u, std::thread::hardware_concurrency());
     const bool includes = o.which == stage::includes;
-    const bool typed = o.which == stage::types;
+    const bool codecs = o.which == stage::codecs;
+    const bool typed = o.which == stage::types || codecs;
     const bool collect = o.which == stage::gc;
     const bool stored = o.which == stage::store || o.which == stage::warm ||
-        collect;
+        collect || codecs;
     const bool ids = o.which == stage::ids;
     for (int i = 3; i < argc; ++i) {
         const std::string_view flag = argv[i];
@@ -184,6 +207,9 @@ std::optional<options> parse_options(int argc, char** argv) {
             o.meta = value;
         } else if (stored && flag == "--store") {
             o.store = absolute_path(value);
+        } else if (codecs && flag == "--set") {
+            if (!add_setting(value, o.settings))
+                return std::nullopt;
         } else if (collect && (flag == "--cap" || flag == "--grace")) {
             const auto n = parse_count(value);
             if (!n)
@@ -322,6 +348,16 @@ int run_warm(const options& o) {
     return io::failed(stage) ? 1 : 0;
 }
 
+int run_codecs(const options& o) {
+    io::setup_timing setup;
+    const auto table = list_checkout(o, setup);
+    const auto objects = objects_of(o);
+    const auto stage = ops::run_codecs_stage(o.checkout, table, o.meta,
+        objects, o.settings, o.threads, o.repetitions);
+    io::write_codecs_report(std::cout, stage, setup, objects);
+    return io::failed(stage) ? 1 : 0;
+}
+
 int run_gc(const options& o) {
     const auto objects = objects_of(o);
     const auto result =
@@ -356,6 +392,7 @@ int run(const options& o) {
     case stage::types: return run_types(o);
     case stage::store: return run_store(o);
     case stage::warm: return run_warm(o);
+    case stage::codecs: return run_codecs(o);
     case stage::gc: return run_gc(o);
     case stage::ids: return run_ids(o);
     case stage::org_dump: return run_org_dump(o);

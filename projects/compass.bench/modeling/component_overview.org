@@ -2,7 +2,7 @@
 :ID: 1F522775-710C-4EFE-8317-8354D902816D
 :END:
 #+title: compass.bench
-#+description: The frozen benchmark harness. It times reading every tracked file of a git checkout, building its include graph, parsing its C++ and SQL with tree-sitter, parsing its org documents into the compass.org tables, resolving their types, storing them and finding the git blob ID of every file.
+#+description: The frozen benchmark harness. It times reading every tracked file of a git checkout, building its include graph, parsing its C++ and SQL with tree-sitter, parsing its org documents into the compass.org tables, resolving their types, storing them, finding the git blob ID of every file and running the codecs over the loaded corpus.
 #+type: component
 #+level: cross
 #+filetags: :bench:performance:component:
@@ -16,7 +16,7 @@ in the tooling layer of the
 * Summary
 
 =compass.bench= is the harness every compass-ng measurement runs through. It
-installs as =compass-bench= and has six stages. All list the tracked files
+installs as =compass-bench= and runs in stages. All list the tracked files
 of a checkout with one =git ls-files -z= call and map files with
 =compass::platform::filesystem::mapped_file=.
 
@@ -58,6 +58,15 @@ of a checkout with one =git ls-files -z= call and map files with
   Last, outside any timing, a sample of the IDs is checked against
   =git hash-object --no-filters=. Nothing is written to the checkout or its
   git directory.
+- =codecs= loads every =.org= file as a corpus and runs the codecs of
+  =compass.codec= over it. The corpus is loaded once: the ID of each file
+  comes from an =id_resolver=, its object is mapped from the store and
+  checked, and a file with no usable object is parsed and its object
+  written. Every source and object stays mapped, and the type of each
+  document is resolved against the registry of a meta directory. The enabled
+  codecs then run =--repeat= times on N threads. The outputs stay in memory:
+  nothing is written to the checkout, and only the worktree index is written
+  to its git directory.
 
 =gc= is not a stage either. It collects the store once with
 =compass.store='s =io::collect= and reports what it found and removed.
@@ -86,6 +95,11 @@ the line format of =compass::org::io::dump=, which
 - =compass-bench store <checkout> [--store <dir>] [-j N] [--repeat R]=.
   =--store= is the objects directory; without it the stage uses
   =compass/objects= under the git common directory of the checkout.
+- =compass-bench codecs <checkout> --meta <dir> [--store <dir>] [--set
+  <codec>.<key>=<value>]... [-j N] [--repeat R]=. =--meta= and =--store= are
+  as for =types= and =store=. =--set= adds one row to the codec
+  configuration: =--set required_sections.enabled=false= disables a codec
+  and =--set document_index.path=build/index.tsv= sets an option.
 - =compass-bench gc <checkout> [--store <dir>] [--cap <bytes>] [--grace
   <seconds>] [--dry-run]=. =--store= is as for =store=. =--cap= defaults to
   0, which removes every unreferenced object past the grace period, and
@@ -141,6 +155,16 @@ the line format of =compass::org::io::dump=, which
   milliseconds of each phase. A store left over its cap because its live
   objects fill it is data, not failure. An index that cannot be read exits
   with status 1 and removes nothing.
+- For =codecs=: the org files and the documents loaded, the registered
+  types, the load time with the objects loaded and written, and every
+  problem of the codec registry. One row per codec: its unit and output
+  kind, the documents it was given, its output files and their bytes, its
+  diagnostics, and the median, min and max milliseconds spent inside it,
+  summed over threads; then the wall time of a run. Each output file with
+  its size. Per codec with diagnostics: the documents with any, the count by
+  rule, the 15 most frequent messages and the first 10 findings as
+  =path:line: severity: codec/rule: message. fix=. A file that does not
+  load or a registry problem fails the run; diagnostics are data.
 - For =ids=: the index version, its entries and how many may lend their
   ID, and whether =core.autocrlf= converts; the thread count and setup
   times; the files whose ID came from the index and those hashed, with the
@@ -200,6 +224,7 @@ Linux.
 | =org_result=      | A =stage_result=, columns of file id and parse ms, and the table row counts.   |
 | =meta_registry=   | The type registry and, per contract page, its path and =contract_report=.      |
 | =types_result=    | A =stage_result=, registry times, and per file its resolution, type and value. |
+| =codecs_result=   | Load counts and times, the codec registry, times per codec, the last run.      |
 
 * Entry points
 
@@ -221,6 +246,7 @@ Linux.
 | =include/compass.bench/ops/store_stage.hpp=     | The =store= stage.                                     |
 | =include/compass.bench/ops/ids_stage.hpp=       | The =ids= stage.                                       |
 | =include/compass.bench/ops/types_stage.hpp=     | The registry from a meta directory; the =types= stage. |
+| =include/compass.bench/ops/codecs_stage.hpp=    | Corpus loading and the =codecs= stage.                 |
 | =include/compass.bench/io/compile_commands.hpp= | The compile_commands.json reader and word splitting.   |
 | =include/compass.bench/io/report.hpp=           | Plain-text reports and the failure predicates.         |
 | =src/main.cpp=                                  | Argument parsing and wiring.                           |
@@ -238,6 +264,7 @@ Linux.
 - =compass.ingest= for the org parser and the type registry builder, and
   =compass.org= for the tables, their dump, the object codec and the type
   lookup.
+- =compass.codec= for the codec registry, the runner and the codecs.
 - =compass.store= for blob IDs, object paths, object writes, the ID
   resolver and collection.
 - tree-sitter from vcpkg, and the =tree-sitter-cpp= 0.23.4 and

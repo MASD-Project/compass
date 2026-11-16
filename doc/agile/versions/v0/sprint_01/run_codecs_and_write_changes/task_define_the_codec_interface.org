@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :run_codecs_and_write_changes:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/define-the-codec-interface
+#+pr: https://github.com/MASD-Project/compass/pull/18
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -26,11 +26,11 @@ Name the codec data shape: input types, version, configuration, outputs or diagn
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                              |
 | Parent story | [[id:8DC60B89-1605-4281-90FF-5AC8B33F629A][Run codecs and write only changes]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -39,9 +39,21 @@ Name the codec data shape: input types, version, configuration, outputs or diagn
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- A codec is data plus one function. The data: a name, a version, its
+  configuration, the document types it reads (resolved against the type
+  registry), and whether it emits files or diagnostics. The function reads the
+  corpus through a view and appends to an output table: files (path, bytes) or
+  diagnostics (document, source range, rule, message, the fix to apply).
+- The corpus view gives a codec the documents of its declared types only, so
+  the dependency recording of the next task has one place to hook in.
+- A registry of codecs, enabled or disabled by configuration, replaces any
+  branching on codec names.
+- Two real codecs prove the shape. An output codec writes a document index
+  (ID, title, type, path per document). A check codec reports each document
+  missing a section its type requires, naming the section to add.
+- =compass-bench codecs <checkout> --meta <dir>= runs the enabled codecs over
+  the corpus and reports per codec the documents read, outputs, diagnostics
+  and time. Outputs are reported, not written; writing is a later task.
 
 * Measurements
 
@@ -55,7 +67,13 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| ORE Studio documents loaded | 10,917 | =compass-bench codecs <archive> --meta <archive>/doc/meta --store <dir> --repeat 5= | ORE Studio 7aa4435e |
+| =document_index=: documents, output, time | 10,917, one 1.94 MB file, 10.9 ms | same run | ORE Studio 7aa4435e |
+| =required_sections=: documents, diagnostics, time | 10,117, 4,751 in 2,555 documents, 15.2 ms | same run | ORE Studio 7aa4435e |
+| Both codecs, wall time | 12.4 ms | same run | ORE Studio 7aa4435e |
+| This repository: =required_sections= | 58 diagnostics in 49 documents | =compass-bench codecs . --meta doc/meta= | compass-ng a0f3aef |
+
+8 threads, warm store, shared machine: timings are indicative.
 
 * Notes
 
@@ -74,7 +92,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/18][#18]] | [codec] Define the codec interface with two codecs |
 
 * Review
 
@@ -83,3 +101,24 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- =compass.codec= (domain layer, on =compass.org= and =compass.store=) holds the
+  runtime. A codec is a constant descriptor (name, version, input types,
+  options with defaults, rules, enabled by default) plus one function whose
+  type states its unit, document or corpus, and its output, files or
+  diagnostics. It reads through a =corpus_view= of its declared types only.
+  The registry resolves types and applies settings; the runner runs enabled
+  codecs in parallel with output identical on any thread count.
+- =document_index= writes one TSV of ID, title, type and path per document;
+  =required_sections= reports each document missing a section its type
+  requires, naming the section to add. Both run over ORE Studio in about
+  12 ms.
+- =required_sections= is not yet fit to gate. In this repository its 36
+  knowledge findings are true to the contract: index pages such as
+  =recipes.org= and =developer.org= are typed knowledge and have no
+  =* Detail=. In ORE Studio many capture findings are false, because the
+  capture contract accepts =* What= and =* Why= for =* Note= in prose the
+  registry builder does not read.
+- Open for the next tasks: =document.path= is not yet a recorded read, codecs
+  are either file or diagnostic producers with no channel for a generator to
+  report a bad model, and options are strings.

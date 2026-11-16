@@ -21,7 +21,7 @@ Any output or check is a codec over the in-memory tables; a run touches only out
 
 | Field         | Value                                  |
 |---------------+----------------------------------------|
-| State         | BACKLOG                              |
+| State         | STARTED                              |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
 | Now           | Not yet started.                       |
 | Waiting on    | Nothing.                               |
@@ -40,11 +40,17 @@ Any output or check is a codec over the in-memory tables; a run touches only out
 
 | Task | State | Start | End | Description |
 |------+-------+-------+-----+-------------|
-| [[id:A8E6523A-6433-438B-92C8-BCC0645087EA][Define the codec interface]] | BACKLOG | | | Name the codec data shape: input types, version, configuration, outputs or diagnostics, and fix text. |
+| [[id:A8E6523A-6433-438B-92C8-BCC0645087EA][Define the codec interface]] | DONE | 2026-11-16 | 2026-11-16 | Name the codec data shape: input types, version, configuration, outputs or diagnostics, and fix text. |
 | [[id:E5E19782-2B3C-487C-88F7-2682151E4474][Record dependencies]] | BACKLOG | | | Record the inputs each codec reads at run time, as compiler dependency files do, and use them to select codecs. |
 | [[id:2F227B43-C350-46EE-ADA8-FCDA80F4AC45][Write only changed outputs]] | BACKLOG | | | Compare each output's hash with the recorded one and write only on a difference. |
 | [[id:99083079-E8FC-4126-8056-91B9C4853452][Add diff mode]] | BACKLOG | | | Run the pipeline without writing and print a unified diff of each output that would change. |
 | [[id:479C0817-C14C-4D2C-876E-674D91A84E2C][Cache codec results]] | BACKLOG | | | Key codec results by codec version, configuration and input hashes in the shared store. |
+
+* Documents
+
+| Document | Kind | Description |
+|----------+------+-------------|
+| [[id:48CE7287-45FE-4E96-8FA0-8D109C9411C8][Design: the codec interface]] | design | The codec interface and the alternatives rejected. |
 
 * Decisions
 
