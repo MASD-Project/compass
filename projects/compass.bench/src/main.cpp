@@ -32,6 +32,7 @@
 #include "compass.bench/io/report.hpp"
 #include "compass.bench/ops/includes_stage.hpp"
 #include "compass.bench/ops/listing.hpp"
+#include "compass.bench/ops/parse_stage.hpp"
 #include "compass.bench/ops/partition.hpp"
 #include "compass.bench/ops/read_stage.hpp"
 #include "compass.bench/ops/search_paths.hpp"
@@ -44,9 +45,10 @@ using namespace compass::bench;
 constexpr std::string_view usage =
     "usage: compass-bench read <checkout> [-j N] [--repeat R]\n"
     "       compass-bench includes <checkout> --compile-commands <file>\n"
-    "           --source-root <dir> [--isystem <dir>]... [-j N] [--repeat R]\n";
+    "           --source-root <dir> [--isystem <dir>]... [-j N] [--repeat R]\n"
+    "       compass-bench parse <checkout> [-j N] [--repeat R]\n";
 
-enum class stage { read, includes };
+enum class stage { read, includes, parse };
 
 struct options {
     stage which = stage::read;
@@ -82,6 +84,8 @@ std::optional<options> parse_options(int argc, char** argv) {
         o.which = stage::read;
     else if (name == "includes")
         o.which = stage::includes;
+    else if (name == "parse")
+        o.which = stage::parse;
     else
         return std::nullopt;
     o.checkout = argv[2];
@@ -172,8 +176,22 @@ int run_includes(const options& o) {
     return io::failed(stage) ? 1 : 0;
 }
 
+int run_parse(const options& o) {
+    io::setup_timing setup;
+    const auto table = list_checkout(o, setup);
+    const auto stage =
+        ops::run_parse_stage(o.checkout, table, o.threads, o.repetitions);
+    io::write_parse_report(std::cout, stage, setup, table);
+    return io::failed(stage) ? 1 : 0;
+}
+
 int run(const options& o) {
-    return o.which == stage::read ? run_read(o) : run_includes(o);
+    switch (o.which) {
+    case stage::read: return run_read(o);
+    case stage::includes: return run_includes(o);
+    case stage::parse: return run_parse(o);
+    }
+    return 2;
 }
 
 }
