@@ -22,6 +22,7 @@ set(tests_target_name ${name}.tests)
 add_executable(${tests_target_name}
     codecs_document_index_tests.cpp
     codecs_required_sections_tests.cpp
+    ops_dependencies_tests.cpp
     ops_registry_tests.cpp
     ops_run_tests.cpp)
 
