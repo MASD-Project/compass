@@ -93,8 +93,19 @@ TEST_CASE("malformed command lines are usage errors", "[config][arguments]") {
     for (const auto& args : std::vector<std::vector<std::string_view>>{
              {}, {"write"}, {"check", "diff"}, {"check", "-j", "0"},
              {"check", "--set", "novalue"}, {"diff", "--grace", "5"},
-             {"check", "--frobnicate"}, {"gc", "--cap"}})
+             {"check", "--frobnicate"}, {"gc", "--cap"},
+             {"generate", "--commit", "HEAD"}, {"diff", "--commit", "HEAD"},
+             {"check", "--commit", ""}, {"check", "--commit", "--timings"},
+             {"check", "--commit"}})
         CHECK(std::holds_alternative<config::usage_error>(parse(args)));
+}
+
+TEST_CASE("check takes the revision of --commit as written",
+    "[config][arguments]") {
+    const auto parsed = parse({"check", "--commit", "main~2"});
+    REQUIRE(std::holds_alternative<types::invocation>(parsed));
+    CHECK(std::get<types::invocation>(parsed).revision == "main~2");
+    CHECK(std::get<types::invocation>(parse({"check"})).revision.empty());
 }
 
 TEST_CASE("--help and --version win over everything else",

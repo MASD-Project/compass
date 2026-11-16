@@ -22,6 +22,7 @@ set(tests_target_name ${name}.tests)
 add_executable(${tests_target_name}
     app_application_tests.cpp
     app_codegen_tests.cpp
+    app_commit_tests.cpp
     app_pipeline_tests.cpp
     config_arguments_tests.cpp
     config_precedence_tests.cpp

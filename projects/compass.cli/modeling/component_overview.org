@@ -33,6 +33,7 @@ thing with what the codecs produced:
 | =generate=, =gen= | Makes the files under the output root hold what the codecs emit.         | Store, records, outputs.                          |
 | =diff=            | Prints what =generate= would change as unified diffs.                    | Nothing.                                          |
 | =check=           | Prints every diagnostic as =path:line:column: rule: message (fix: ...)=, and a =codec/drift= diagnostic for each file =generate= would change. | Store and records, no output.                     |
+| =check --commit=  | The same diagnostics at a commit, read from git's objects with no checkout. | Store and result cache only.                   |
 | =gc=              | Removes old unreferenced objects and action objects from the store.      | Removes files from the store, unless =--dry-run=. |
 | =config=          | Prints every path and codec setting in effect, and where it came from.   | Nothing.                                          |
 
@@ -52,6 +53,33 @@ exposes it as one function per step, so a caller can time each:
 | =store_results=, =write_dependency_record= | The result cache and the dependency record written.                           |
 | =write_outputs=, =plan_outputs=            | The outputs written, or planned for a diff.                                   |
 | =collect=                                  | The store collected.                                                          |
+
+A check of a commit runs the same steps over an =app::commit_source=: the
+commit listed by =store::io::list_commit= and its object database. =list=
+takes the commit's paths and its regular =.org= files, =resolve= the IDs
+its trees record, =load= reads each document's blob, which the tables'
+ranges need, and parses it only when the store has no object for that ID,
+=build_type_registry= reads the contract pages of the commit, and
+=checkout_files_of= answers a content ID from the tree and reads a blob
+only when a codec that runs asks for its bytes. The drift of each output
+is decided against the commit's file at its path, by ID first, as a
+check of a fresh checkout of the commit would decide it, with no
+written-outputs record. The run stores the objects it parsed and the
+results it computed, which every worktree shares, and writes neither the
+worktree index nor the dependency record of the checkout. It starts from
+that dependency record, which is safe, since a unit of it stands in only
+when every input it recorded has the same answer in the commit. Setting
+=options::commit= is the whole interface, so ratchet mode can ask for the
+diagnostics at a merge base with the same call.
+
+On a copy of ORE Studio at =08a73b6767= (10,927 documents, codegen and the
+four ported gates enabled), =compass check --commit HEAD= gave the same 24
+=codegen/drift= findings as =compass check= in a =git worktree add= of the
+commit. With an empty store it took 23.3 s: 17.5 s formatting, 4.0 s
+running the codecs, 139 ms reading and parsing the documents and 32 ms
+listing the commit. A second run took 2.9 s, and 2.2 s once the
+checkout's dependency record matched, against 2.9 s for =compass check=
+of the checkout itself, which lists, stats and reads files on disk.
 
 =app::generate=, =app::diff=, =app::check= and =app::gc= compose the steps;
 each takes the options and returns a result. =compass.bench= calls the same
@@ -75,6 +103,7 @@ the standard streams.
 | =-j <n>=                        | one per core                             | Threads.                                        |
 | =--set <codec>.<key>=<value>=   | the file, else the codecs' own           | A codec setting; repeatable, the last one wins. |
 | =--timings=                     | no                                       | =generate=, =diff=, =check=: print each step's time and what each codec ran or reused. |
+| =--commit <rev>=                | the files on disk                        | =check= only: check the commit =<rev>= names, as =git rev-parse <rev>^{commit}= resolves it, with that commit's =.compass.org=. The output root and meta directory must be under the checkout. |
 | =--dry-run=, =--cap=, =--grace= | no, 0 bytes, 3600 s                      | =gc= only.                                      |
 | =--help=, =-h=, =--version=     |                                          | Print and exit 0, whatever else is there.       |
 
@@ -131,8 +160,9 @@ the standard streams.
   =<key> = <value> (<source>)=, the source being =default=,
   =.compass.org:<line>= or =command line=.
 - Standard error: the summary of =diff=; with =--timings=, one line per
-  step (=types=, =list=, =resolve=, =load=, =record=, =codecs=, =format=,
-  =persist=, =write= or =plan=) with its wall time, and one line per codec
+  step (=tree= for a commit, =types=, =list=, =resolve=, =load=, =record=,
+  =codecs=, =format=, =persist=, =write= or =plan=) with its wall time,
+  and one line per codec
   with the units it ran, took from the record and took from the cache,
   and what formatting its files did; every error of the configuration
   file, every file that did not load,
@@ -156,7 +186,7 @@ range, 1-based, the column counted in bytes. The rule is written as
 | =include/compass.cli/config/precedence.hpp=      | =resolve=: defaults, then the file, then the command line.                         |
 | =include/compass.cli/types/results.hpp=          | What each command returns.                                                         |
 | =include/compass.cli/config/arguments.hpp=       | The command-line parser, the help and the version.                                 |
-| =include/compass.cli/io/listing.hpp=             | The org files of a checkout, from =git ls-files=.                                  |
+| =include/compass.cli/io/listing.hpp=             | The org files of a checkout, from =git ls-files=; =resolve_commit=, from =git rev-parse=. |
 | =include/compass.cli/app/steps.hpp=              | One function per step of the pipeline.                                             |
 | =include/compass.cli/app/pipeline.hpp=           | One function per command, composed of the steps.                                   |
 | =include/compass.cli/io/report.hpp=              | Printing each result.                                                              |
@@ -179,7 +209,8 @@ range, 1-based, the column counted in bytes. The rule is written as
 - =compass.cpp= for the C++ gates.
 - =compass.sql= for the =sql_hygiene= codec.
 - =compass.ingest= for the parser and the type registry builder.
-- =compass.store= for IDs, the store and collection.
+- =compass.store= for IDs, the store, collection and the git object
+  reader.
 - =compass.org= and =compass.platform= for the tables and mapped files,
   which the steps' =corpus_files= exposes.
 - Catch2, git and bash, for the tests only.

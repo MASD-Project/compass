@@ -1,0 +1,67 @@
+:PROPERTIES:
+:ID: A604E719-D542-4C81-BB5B-AF0A70425BF6
+:END:
+#+title: How do I check a past commit?
+#+description: Run compass check --commit to check any commit from git's object database, with no checkout, reusing every parse and result the store holds.
+#+type: recipe
+#+level: cross
+#+filetags: :compass:cli:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+
+=compass check --commit= reads a commit through the git object reader of
+[[id:EB285F25-4AF8-482D-B679-C650DA718CF6][compass.store]] and runs the
+pipeline of [[id:45FA67C9-60BC-420D-BB66-8A272CB1106C][compass.cli]] over it.
+
+* Question
+
+How do I run the checks against a past commit without checking it out?
+
+* Answer
+
+Pass the commit to =compass check= with =--commit=. Any revision git
+understands works: a branch, a tag, an ID or =HEAD~3=.
+
+#+begin_src sh :results verbatim
+build/output/linux-clang-release/publish/bin/compass check --commit main~5
+#+end_src
+
+The output has the same lines and exit status as =compass check= in a fresh
+=git worktree add= of that commit:
+
+- =.compass.org=, the contract pages, the documents and every file a codec
+  reads come from the commit, not from disk. Uncommitted and untracked
+  files play no part.
+- Each file a codec generates is compared with the commit's file at the
+  same path. A difference is a =codec/drift= diagnostic. The output root
+  must be under the checkout.
+- The checkout supplies only the repository, the store and the formatter
+  programs and style files. These come from the disk, not from the commit.
+
+The command reads loose objects and pack files directly and starts one
+=git rev-parse= to resolve the revision. A document whose blob the store
+has already parsed, in any worktree, is not parsed again. A file that is
+not a document is read only when a codec that runs reads it. The parsed
+objects and results are stored for later runs, so a second check of the
+same commit is warm. The worktree index and dependency record of the
+checkout are not changed.
+
+On a copy of ORE Studio (60,552 files, 10,927 documents, one 613 MB pack),
+the first check of a commit took 23 s, 17.5 s of which was clang-format.
+A second check took 2.9 s.
+
+* Script
+
+=compass check --commit= (=projects/compass.cli=, =app::check= with
+=options::commit= set).
+
+* Tested by
+
+=compass.store.tests= (=[git_objects]=: loose, packed, offset and reference
+delta chains, alternates, missing and damaged objects, checked against
+=git cat-file=) and =compass.cli.tests= (=[commit]=).
+
+* See also
+
+- [[id:5A6EBB88-638D-43A3-96E5-068340C7AEEA][How do I check documents with compass?]] --- the same check over the files on disk.
+- [[id:EB285F25-4AF8-482D-B679-C650DA718CF6][compass.store]] --- the git object reader.

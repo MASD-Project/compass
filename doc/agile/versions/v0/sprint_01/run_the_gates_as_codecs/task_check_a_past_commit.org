@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/check-a-past-commit
+#+pr: https://github.com/MASD-Project/compass/pull/38
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -26,11 +26,11 @@ Run checks against any commit by reading blobs from git's object store.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -39,9 +39,15 @@ Run checks against any commit by reading blobs from git's object store.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Read a commit's tree and blobs from git's object store: loose objects and
+  pack files, with their index, delta chains and zlib. A blob's ID is its git
+  object ID, which is already the store's key, so a blob the store has parsed
+  is never read again.
+- Give the codec runtime a checkout source backed by a commit instead of the
+  working tree, and add =compass check --commit <rev>=.
+- Check that =compass check --commit= on a past ORE Studio commit gives the
+  same diagnostics as a check of a checkout of that commit, and measure it
+  cold and warm. Ratchet mode builds on this.
 
 * Measurements
 
@@ -55,7 +61,13 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| =check --commit= vs a worktree check, this repository | same findings and exit status at 6 past main commits | =compare_commits.sh= | 66c19f1 |
+| =check --commit= vs a worktree check, ORE copy | byte-identical output at HEAD and HEAD~1; 24 =codegen/drift= findings | =ores_check.sh= | 66c19f1 |
+| =check --commit HEAD= and =HEAD~1= on ORE, warm | 2.17 s and 2.11 s | =compass check --commit= | 66c19f1 |
+| =check --commit HEAD= on ORE, cold (agent run) | 23.3 s, 17.5 s of it formatting | =compass check --commit= with the store moved aside | 66c19f1 |
+| Read every blob of an ORE commit from one 613 MB pack | 60,552 paths, 1,619 MB: 3.7 s on 1 thread, 0.83 s on 8; =git cat-file --batch= 4.0 s | =packread/run.sh= | 66c19f1 |
+| Read the org blobs only | 10,928 blobs, 70 MB: 250 ms on 1 thread, 34 ms on 8 | =packread/run.sh= | 66c19f1 |
+| ctest | 12 of 12 suites pass | =ctest --preset linux-clang-release= | 66c19f1 |
 
 * Notes
 
@@ -74,7 +86,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/38][#38]] | [store] Check a past commit without a checkout |
 
 * Review
 
@@ -83,3 +95,27 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+=compass check --commit <rev>= runs the configured checks against any commit
+without a checkout, and gives the same diagnostics as a check of a worktree of
+that commit. On ORE Studio a warm run takes about 2.1 s.
+
+- =compass.store= reads git's object database itself: loose objects, version 2
+  pack indexes, offset and reference delta chains and alternates, with zlib
+  (a new vcpkg dependency). Only resolving =<rev>= starts git
+  (=git rev-parse=).
+- =.compass.org= and the contract pages come from the commit. A document whose
+  ID the store knows is never parsed again; other files are read only when a
+  codec asks for them.
+- Ratchet mode gets the diagnostics of any commit by setting =options::commit=
+  and calling =app::check=.
+
+Decisions to revisit:
+
+- Org blobs are always read, even when their parse is cached, because parsed
+  objects hold byte ranges into the source. That costs 34 ms on ORE.
+- Formatter programs and style files come from the checkout, not the commit,
+  so ratchet against an old merge base could format with a newer style.
+- Objects parsed for a past commit are named by no worktree index, so gc keeps
+  them only for its grace period.
+- Version 1 pack indexes and SHA-256 repositories are not supported.

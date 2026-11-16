@@ -57,6 +57,8 @@ constexpr std::string_view help =
     "repeatable\n"
     "  --timings                   generate, diff, check: print each step's "
     "time and what each codec ran or reused\n"
+    "  --commit <rev>              check: check this commit, read from git's "
+    "objects, not the files on disk\n"
     "  --dry-run                   gc: remove nothing, report what would go\n"
     "  --cap <bytes>               gc: the size the store comes down to "
     "(default: 0)\n"
@@ -113,7 +115,7 @@ bool add_setting(std::string_view s, std::vector<types::setting>& settings) {
 bool takes_value(std::string_view flag) {
     return flag == "-C" || flag == "--meta" || flag == "--out" ||
         flag == "-j" || flag == "--set" || flag == "--cap" ||
-        flag == "--grace";
+        flag == "--grace" || flag == "--commit";
 }
 
 }
@@ -179,6 +181,10 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
         } else if (arg == "--set") {
             if (!add_setting(value, o.command_line.settings))
                 return bad_value();
+        } else if (arg == "--commit") {
+            if (value.empty() || value.starts_with("-"))
+                return bad_value();
+            o.revision = value;
         } else {
             const auto n = parse_number<std::uint64_t>(value);
             if (!n)
@@ -194,6 +200,8 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
         return usage_error{"no command"};
     if (!gc_flag.empty() && *which != types::command::gc)
         return usage_error{std::string(gc_flag) + " applies to gc only"};
+    if (!o.revision.empty() && *which != types::command::check)
+        return usage_error{"--commit applies to check only"};
     o.which = *which;
     o.checkout = absolute_under(working_directory, checkout);
     return o;

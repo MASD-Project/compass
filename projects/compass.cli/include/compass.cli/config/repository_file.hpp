@@ -25,6 +25,8 @@
 #include <string>
 #include <string_view>
 #include "compass.cli/types/configuration.hpp"
+#include "compass.store/io/git_objects.hpp"
+#include "compass.store/types/git_object.hpp"
 
 namespace compass::cli::config {
 
@@ -57,6 +59,18 @@ inline constexpr std::string_view repository_file_name = ".compass.org";
  */
 [[nodiscard]] std::expected<types::layer, std::string> read_repository_file(
     const std::filesystem::path& checkout);
+
+/**
+ * @brief The layer the configuration file of the commit @p commit sets,
+ * read from @p objects: an empty layer when the commit has no such file,
+ * else as parse_repository_file reads it, labelled
+ * "<abbreviated ID>:.compass.org" as git names a file of a commit.
+ *
+ * @throws as store::io::read_commit_file does.
+ */
+[[nodiscard]] std::expected<types::layer, std::string> read_repository_file(
+    const store::io::git_objects& objects,
+    const store::types::object_id& commit);
 
 }
 
