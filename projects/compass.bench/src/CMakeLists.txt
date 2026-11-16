@@ -23,6 +23,7 @@ add_library(${lib_target_name}
     io/compile_commands.cpp
     io/report.cpp
     ops/codecs_stage.cpp
+    ops/gc_stage.cpp
     ops/ids_stage.cpp
     ops/include_graph.cpp
     ops/include_resolve.cpp

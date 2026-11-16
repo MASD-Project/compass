@@ -698,6 +698,11 @@ void write_codecs_report(std::ostream& os, const types::codecs_result& stage,
     if (!stage.record_problem.empty())
         os << std::format("dependency record not used: {}\n",
             stage.record_problem);
+    const auto& a = stage.actions;
+    os << std::format("result cache: lookups {:.2f} ms; stored {} results, "
+                      "{} manifests ({} unchanged), {} bytes, {:.2f} ms\n",
+        stage.last.lookup_ms, a.results, a.manifests, a.unchanged_manifests,
+        a.bytes, stage.actions_ms);
     if (stage.wrote_outputs) {
         const auto& s = stage.sink;
         os << std::format("outputs: {} written, {} unchanged, {} restored, "
@@ -710,10 +715,10 @@ void write_codecs_report(std::ostream& os, const types::codecs_result& stage,
         os << std::format("written-outputs record not used: {}\n",
             stage.outputs_problem);
 
-    os << std::format("\n{:<20}{:<10}{:<13}{:>10}{:>8}{:>9}{:>9}{:>12}"
-                      "{:>13}{:>11}{:>9}{:>9}\n", "codec", "unit", "output",
-        "documents", "ran", "skipped", "outputs", "bytes", "diagnostics",
-        "median_ms", "min_ms", "max_ms");
+    os << std::format("\n{:<20}{:<10}{:<13}{:>10}{:>8}{:>9}{:>8}{:>9}"
+                      "{:>12}{:>13}{:>11}{:>9}{:>9}\n", "codec", "unit",
+        "output", "documents", "ran", "skipped", "cached", "outputs", "bytes",
+        "diagnostics", "median_ms", "min_ms", "max_ms");
     const auto& codecs = stage.registry.codecs;
     for (std::size_t c = 0; c < codecs.size(); ++c) {
         const auto& d = codecs[c];
@@ -727,10 +732,11 @@ void write_codecs_report(std::ostream& os, const types::codecs_result& stage,
             continue;
         }
         const auto [min, max] = std::ranges::minmax(stage.ms[c]);
-        os << std::format("{:<20}{:<10}{:<13}{:>10}{:>8}{:>9}{:>9}{:>12}"
-                          "{:>13}{:>11.2f}{:>9.2f}{:>9.2f}\n", d.name, unit,
-            output, stage.last.documents[c], stage.last.ran[c],
-            stage.last.skipped[c], stage.last.files[c].size(),
+        os << std::format("{:<20}{:<10}{:<13}{:>10}{:>8}{:>9}{:>8}{:>9}"
+                          "{:>12}{:>13}{:>11.2f}{:>9.2f}{:>9.2f}\n", d.name,
+            unit, output, stage.last.documents[c], stage.last.ran[c],
+            stage.last.skipped[c], stage.last.cached[c],
+            stage.last.files[c].size(),
             stage.last.files[c].contents.bytes.size(),
             stage.last.diagnostics[c].size(), median(stage.ms[c]), min, max);
     }
@@ -836,7 +842,8 @@ void write_gc_report(std::ostream& os,
     os << std::format("worktrees: {}\n", result.worktrees.size());
     for (const auto& dir : result.worktrees)
         os << std::format("  {}\n", dir.string());
-    os << std::format("live IDs: {}\n", result.live_ids);
+    os << std::format("live IDs: {}  live action keys: {}\n",
+        result.live_ids, result.live_keys);
 
     const auto& plan = result.plan;
     os << std::format("\n{:<18}{:>10}{:>16}\n", "files", "count", "bytes");
@@ -851,6 +858,8 @@ void write_gc_report(std::ostream& os,
     row("temporary", plan.temporaries);
     row("victims", plan.victims);
     row("removed", result.removed);
+    row("action objects", result.actions);
+    row("  named", result.live_actions);
 
     const auto gone = options.dry_run ? plan.victims.bytes
                                       : result.removed.bytes;

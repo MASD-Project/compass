@@ -34,6 +34,7 @@
 #include "compass.bench/ops/partition.hpp"
 #include "compass.bench/ops/types_stage.hpp"
 #include "compass.codec/codecs/catalogue.hpp"
+#include "compass.codec/io/action_cache.hpp"
 #include "compass.codec/io/dependency_file.hpp"
 #include "compass.codec/io/output_sink.hpp"
 #include "compass.codec/ops/outputs.hpp"
@@ -216,8 +217,8 @@ struct evaluation {
 
 /**
  * @brief Loads the corpus and runs the codecs into @p e. Reads the
- * checkout, the store and the dependency record, and writes nothing:
- * what a run stores stays in @p e for persist.
+ * checkout, the store, the dependency record and the result cache, and
+ * writes nothing: what a run stores stays in @p e for persist.
  */
 void evaluate(evaluation& e, const std::filesystem::path& checkout,
     const types::file_table& table, const std::filesystem::path& meta,
@@ -287,9 +288,11 @@ void evaluate(evaluation& e, const std::filesystem::path& checkout,
     r.record_units = previous.record.size();
 
     r.ms.resize(r.registry.size());
+    const auto cache = codec::io::action_source_of(
+        store::io::git_common_dir(checkout));
     for (unsigned rep = 0; rep < repetitions; ++rep) {
         r.last = codec::ops::run(r.registry, corpus, registry, threads,
-            previous.record);
+            previous.record, cache);
         r.wall_ms.push_back(r.last.wall_ms);
         for (std::size_t c = 0; c < r.registry.size(); ++c)
             r.ms[c].push_back(r.last.ms[c]);
@@ -301,12 +304,13 @@ void evaluate(evaluation& e, const std::filesystem::path& checkout,
 
 /**
  * @brief Writes what @p e computed: the objects it parsed, the worktree
- * index and the dependency record, then, with an @p output_root, the
- * outputs and the written-outputs record. The only writer of the stage.
+ * index, the results of the units that ran to the result cache and the
+ * dependency record, then, with an @p output_root, the outputs and the
+ * written-outputs record. The only writer of the stage.
  */
 void persist(evaluation& e, const std::filesystem::path& checkout,
-    const std::filesystem::path& objects, unsigned repetitions,
-    const std::filesystem::path& output_root) {
+    const std::filesystem::path& objects, unsigned threads,
+    unsigned repetitions, const std::filesystem::path& output_root) {
     auto& r = e.result;
     const auto& f = e.files;
     auto start = std::chrono::steady_clock::now();
@@ -322,6 +326,11 @@ void persist(evaluation& e, const std::filesystem::path& checkout,
     r.load_ms += since(start);
 
     if (repetitions != 0) {
+        start = std::chrono::steady_clock::now();
+        r.actions = codec::io::store_actions(
+            store::io::git_common_dir(checkout), r.last.record,
+            r.last.fresh, threads);
+        r.actions_ms = since(start);
         start = std::chrono::steady_clock::now();
         r.record_written = codec::io::write_dependency_file(
             codec::io::dependency_file_path(store::io::git_dir(checkout)),
@@ -356,7 +365,7 @@ types::codecs_result run_codecs_stage(const std::filesystem::path& checkout,
     evaluation e;
     evaluate(e, checkout, table, meta, objects, settings, threads,
         repetitions);
-    persist(e, checkout, objects, repetitions, output_root);
+    persist(e, checkout, objects, threads, repetitions, output_root);
     return std::move(e.result);
 }
 
