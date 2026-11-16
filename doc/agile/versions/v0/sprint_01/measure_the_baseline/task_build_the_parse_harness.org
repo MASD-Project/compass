@@ -26,11 +26,11 @@ A C++ harness that reads every tracked text file in an ORE Studio checkout and r
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:68ED0D5D-9A25-4886-B869-A30FF4A679A5][Measure the baseline]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -68,7 +68,16 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Tracked files in ORE Studio | 60,205 | =compass-bench read <archive> --repeat 5= | ORE Studio f02fea1 |
+| Tracked bytes in ORE Studio | 1,615,215,097 | same run | ORE Studio f02fea1 |
+| Read and touch every byte, 8 threads, warm cache (median of 5) | 359 ms (4.5 GB/s) | same run | ORE Studio f02fea1 |
+| Same, 1 thread | 835 ms | =compass-bench read <archive> -j 1= | ORE Studio f02fea1 |
+| =git ls-files= | 36 ms | same run | ORE Studio f02fea1 |
+| File table (lstat of every entry) | 121 ms | same run | ORE Studio f02fea1 |
+
+These were taken on a shared machine (load average about 7 on 8 cores) with a
+warm page cache, so they are indicative. File and byte totals match
+=git ls-files | wc -l= and a =stat= sum over the same listing.
 
 * Notes
 
@@ -96,3 +105,17 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- =compass.bench= is the frozen harness: =compass-bench read <checkout>= lists
+  tracked files with one =git ls-files -z=, builds a struct-of-arrays file
+  table, balances contiguous ranges by bytes across threads, maps and touches
+  every byte, and reports median, min and max over the repetitions with file,
+  byte and error counts.
+- A run that reads no files or hits an error prints FAILED and exits 1; a
+  tracked file missing from disk counts as an error. Directories and symlinks
+  are skipped.
+- Reading all of ORE Studio's tracked bytes takes about a third of a second on
+  8 threads with a warm cache, so I/O is not where the parse budget goes.
+- =compass.bench.tests= has 13 cases; five of seven injected defects failed
+  them, and the two survivors were a harmless balance variant and a guard that
+  was deleted as unreachable.

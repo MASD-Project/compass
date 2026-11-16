@@ -40,7 +40,7 @@ A frozen benchmark harness and two baselines: what ORE Studio's codegen and gate
 | Task | State | Start | End | Description |
 |------+-------+-------+-----+-------------|
 | [[id:F4AB437B-606E-49A2-AD1B-58D75B526263][Measure the current gates]] | BACKLOG | | | Re-measure ORE Studio's full codegen render and its 91 local checks on an idle machine, median of five, as the baseline. |
-| [[id:056BBB85-8692-4674-87A4-075AB570E965][Build the parse harness]] | STARTED | 2026-11-16 | | A C++ harness that reads every tracked text file in an ORE Studio checkout and reports wall time and bytes per stage. |
+| [[id:056BBB85-8692-4674-87A4-075AB570E965][Build the parse harness]] | DONE | 2026-11-16 | 2026-11-16 | A C++ harness that reads every tracked text file in an ORE Studio checkout and reports wall time and bytes per stage. |
 | [[id:4004F5A3-C7C8-478B-84EB-89A6679637B5][Measure include scanning]] | BACKLOG | | | Scan every #include in ORE Studio, resolve it through compile_commands.json, and time building the include graph. |
 | [[id:E2DCD7CE-4CFC-47D8-A65D-E05A4CA48EB6][Measure tree-sitter parsing]] | BACKLOG | | | Parse every ORE Studio C++ and SQL file with tree-sitter on all cores, recording time and ERROR nodes per file. |
 
