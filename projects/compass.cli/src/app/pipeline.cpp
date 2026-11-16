@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -213,11 +214,23 @@ types::check_result check(const types::options& o) {
         const auto& t = p.run.diagnostics[c];
         for (std::uint32_t i = 0; i < t.size(); ++i) {
             const ct::diagnostic_id id{i};
-            const auto document = t.documents[id].value;
+            const auto document = t.documents[id];
+            std::string_view path;
+            std::string_view source;
+            std::optional<std::string> file;
+            if (document.is_none()) {
+                path = t.files[id];
+                file = p.checkout.read(path);
+                if (file)
+                    source = *file;
+            } else {
+                path = p.corpus.paths[document.value];
+                source = p.corpus.sources[document.value];
+            }
             const auto [line, column] =
-                position_of(p.corpus.sources[document], t.ranges[id].begin);
+                position_of(source, t.ranges[id].begin);
             r.findings.push_back({
-                .path = std::string(p.corpus.paths[document]),
+                .path = std::string(path),
                 .line = line,
                 .column = column,
                 .rule = std::string(d.name) + "/" +

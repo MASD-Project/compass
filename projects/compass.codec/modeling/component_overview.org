@@ -98,7 +98,8 @@ others is in its descriptor, so adding a codec adds a row to a list.
   blob ID and bytes, or the count, SHA-1 and encoded bytes of its findings)
   and the keys of its manifest and result in the result cache.
   An encoded finding names its document by path, not by corpus row, so a
-  record outlives the corpus it was made from.
+  record outlives the corpus it was made from; a byte before the path says
+  whether it names a document or a file.
 - *Record file.* =io::dependency_file_path= is =compass/deps= under the
   checkout's own git directory, beside the worktree index, so each worktree
   keeps its own. =ops::encode_dependency_record= lays it out little-endian:
@@ -113,7 +114,10 @@ others is in its descriptor, so adding a codec adds a row to a list.
   are relative to the checkout root.
 - *Diagnostics.* =types::diagnostic_table= has, per finding, the document
   (its corpus row), a source range, the rule (an index into the descriptor's
-  rules), a severity, a message and a fix. A message holds no line number and
+  rules), a severity, a message, a fix and a file. A finding about a file of
+  the checkout that is not a document, such as a C++ or SQL source, has no
+  row: its document is none and its file is the path, relative to the
+  checkout, that its range points into. A message holds no line number and
   no count, so the same finding has the same message after an unrelated edit.
 - *Registry.* =ops::make_registry= resolves each descriptor against the type
   registry and applies the configuration. =types::registry= holds, per codec,

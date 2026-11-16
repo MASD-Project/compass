@@ -179,7 +179,10 @@ std::string encode_diagnostics(const types::corpus& c,
     std::string out;
     for (auto i = begin; i < end; ++i) {
         const types::diagnostic_id d{i};
-        put_text(out, c.paths[t.documents[d].value]);
+        const auto document = t.documents[d];
+        put(out, static_cast<std::uint8_t>(document.is_none() ? 1 : 0));
+        put_text(out, document.is_none() ? t.files[d]
+                                         : c.paths[document.value]);
         put(out, t.ranges[d].begin);
         put(out, t.ranges[d].end);
         put(out, t.rules[d].value);
@@ -195,12 +198,18 @@ bool decode_diagnostics(std::string_view bytes,
     try {
         reader r(bytes);
         while (!r.done()) {
+            const auto is_file = r.u8() != 0;
             const auto path = r.text();
-            const auto it = index.paths.find(path);
-            if (it == index.paths.end())
-                return false;
             types::diagnostic d;
-            d.document = it->second;
+            if (is_file) {
+                d.document = ot::document_id::none();
+                d.file = path;
+            } else {
+                const auto it = index.paths.find(path);
+                if (it == index.paths.end())
+                    return false;
+                d.document = it->second;
+            }
             d.range.begin = r.u32();
             d.range.end = r.u32();
             d.rule = types::rule_id{r.u32()};
