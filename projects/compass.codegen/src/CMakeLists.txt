@@ -51,7 +51,8 @@ add_library(${lib_target_name}
     ops/manifest.cpp
     ops/output.cpp
     ops/physical_space.cpp
-    ops/render.cpp)
+    ops/render.cpp
+    ops/template_context.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
 
@@ -60,4 +61,6 @@ target_include_directories(${lib_target_name} PUBLIC
 
 target_link_libraries(${lib_target_name}
     PUBLIC
-        compass.model.lib)
+        compass.model.lib
+    PRIVATE
+        compass.store.lib)

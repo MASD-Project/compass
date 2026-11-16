@@ -113,6 +113,22 @@ struct entity_site {
 };
 
 /**
+ * @brief One convention family, as convention_family_registry's
+ * FamilyEntry states it: an entity model of ores.refdata that declares
+ * #+convention_family:.
+ */
+struct convention_family {
+    std::string key;
+    std::string entity;
+    std::string domain_type;
+    std::string subject_stem;
+    bool party_scoped = false;
+    std::string write_mode;
+    std::string component;
+    bool has_wire_codec = false;
+};
+
+/**
  * @brief The models a domain entity's enrichment reads besides its own,
  * read once for every model.
  *
@@ -126,7 +142,8 @@ struct entity_site {
  * directories maps the directory of every .org model under a modeling/
  * directory of projects/ to what its models declare. domain_headers holds
  * the path of every header under a domain/ directory of projects/, which
- * _foreign_root asks about.
+ * _foreign_root asks about. convention_families holds the convention
+ * families (discover_entries), by key.
  */
 struct entity_registry {
     std::map<std::string, table_owner, std::less<>> tables;
@@ -136,6 +153,7 @@ struct entity_registry {
     std::set<std::string, std::less<>> economic_field_groups;
     std::map<std::string, model_directory, std::less<>> directories;
     std::set<std::string, std::less<>> domain_headers;
+    std::vector<convention_family> convention_families;
 };
 
 }

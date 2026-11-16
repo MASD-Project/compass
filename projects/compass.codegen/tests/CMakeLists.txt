@@ -49,7 +49,8 @@ add_executable(${tests_target_name}
     ops_output_tests.cpp
     ops_physical_space_tests.cpp
     ops_render_tests.cpp
-    ops_spec_tests.cpp)
+    ops_spec_tests.cpp
+    ops_template_context_tests.cpp)
 
 target_compile_definitions(${tests_target_name} PRIVATE
     COMPASS_CODEGEN_SPEC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/mustache_spec"

@@ -29,6 +29,7 @@
 #include "compass.codegen/ops/context.hpp"
 #include "compass.codegen/ops/entity_context.hpp"
 #include "compass.codegen/ops/entity_registry.hpp"
+#include "compass.codegen/ops/template_context.hpp"
 #include "compass.codegen/ops/manifest.hpp"
 #include "compass.codegen/ops/output.hpp"
 #include "compass.codegen/ops/physical_space.hpp"
@@ -303,6 +304,21 @@ compass::codegen::types::entity_registry load_entity_registry(
             p->file.text());
     }
 
+    constexpr std::string_view refdata = "projects/ores.refdata/modeling/";
+    for (const auto& path : table.paths) {
+        if (!path.starts_with(refdata) || !path.ends_with(".org") ||
+            path.find('/', refdata.size()) != std::string::npos)
+            continue;
+        auto* p = documents.get(path);
+        if (p == nullptr)
+            continue;
+        if (auto f = compass::codegen::ops::convention_family_of(path,
+                p->file.text()))
+            registry.convention_families.push_back(std::move(*f));
+    }
+    std::ranges::sort(registry.convention_families, {},
+        &compass::codegen::types::convention_family::key);
+
     for (const auto& path : table.paths) {
         if (path.starts_with(projects) && path.ends_with(".hpp") &&
             path.find("/domain/") != std::string::npos)
@@ -446,8 +462,12 @@ std::vector<planned> plan_models(const std::filesystem::path& checkout,
             : compass::codegen::ops::model_context(b, library, root, stem,
                 type_name);
         ++r.contexts;
-        for (const auto& u : units)
-            plan.push_back({u, context, type_name});
+        for (const auto& u : units) {
+            const auto variant = compass::codegen::ops::template_context(b,
+                context, stem, type_name, u.template_name, entities);
+            plan.push_back({u, variant.is_none() ? context : variant,
+                type_name});
+        }
     }
     return plan;
 }
