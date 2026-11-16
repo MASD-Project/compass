@@ -222,7 +222,7 @@ TEST_CASE("parse stage counts errors per file of a small checkout",
         !Catch::Matchers::ContainsSubstring("FAILED"));
 }
 
-TEST_CASE("parse stage fails loudly when a language has no files",
+TEST_CASE("parse stage notes a language with no files without failing",
     "[ops][parse_stage]") {
     scoped_git_repo repo;
     repo.write("src/a.cpp", valid_cpp);
@@ -232,11 +232,29 @@ TEST_CASE("parse stage fails loudly when a language has no files",
     const auto r = ops::run_parse_stage(repo.root(), table, 2, 1);
 
     CHECK(r[language::sql].stage.files == 0);
+    CHECK_FALSE(io::failed(r));
+    std::ostringstream report;
+    io::write_parse_report(report, r, {}, table);
+    CHECK_THAT(report.str(), Catch::Matchers::ContainsSubstring(
+        "note: no sql files in the checkout."));
+    CHECK_THAT(report.str(),
+        !Catch::Matchers::ContainsSubstring("FAILED"));
+}
+
+TEST_CASE("parse stage fails loudly when no language has files",
+    "[ops][parse_stage]") {
+    scoped_git_repo repo;
+    repo.write("readme.org", "* Title\n");
+    repo.track_all();
+
+    const auto table = list(repo.root());
+    const auto r = ops::run_parse_stage(repo.root(), table, 2, 1);
+
     CHECK(io::failed(r));
     std::ostringstream report;
     io::write_parse_report(report, r, {}, table);
     CHECK_THAT(report.str(), Catch::Matchers::ContainsSubstring(
-        "FAILED: stage 'sql' parsed zero files."));
+        "FAILED: stage 'parse' parsed zero files."));
 }
 
 TEST_CASE("parse stage fails loudly on a file it cannot read",

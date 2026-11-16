@@ -271,8 +271,11 @@ void write_includes_report(std::ostream& os,
 }
 
 bool failed(const types::parse_result& stage) {
-    return std::ranges::any_of(stage.languages,
-        [](const auto& r) { return failed(r.stage); });
+    const bool none_parsed = std::ranges::all_of(stage.languages,
+        [](const auto& r) { return r.stage.files == 0; });
+    const bool io_errors = std::ranges::any_of(stage.languages,
+        [](const auto& r) { return r.stage.errors != 0; });
+    return none_parsed || io_errors;
 }
 
 void write_parse_report(std::ostream& os, const types::parse_result& stage,
@@ -290,9 +293,12 @@ void write_parse_report(std::ostream& os, const types::parse_result& stage,
         write_language(os, r, table);
     }
 
+    if (std::ranges::all_of(stage.languages,
+            [](const auto& r) { return r.stage.files == 0; }))
+        os << "\nFAILED: stage 'parse' parsed zero files.\n";
     for (const auto& r : stage.languages) {
         if (r.stage.files == 0)
-            os << std::format("\nFAILED: stage '{}' parsed zero files.\n",
+            os << std::format("\nnote: no {} files in the checkout.\n",
                 r.stage.name);
         if (r.stage.errors != 0)
             os << std::format(
