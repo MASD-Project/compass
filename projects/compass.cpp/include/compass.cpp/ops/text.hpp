@@ -123,6 +123,14 @@ namespace compass::cpp::ops {
 [[nodiscard]] std::size_t characters(std::string_view text) noexcept;
 
 /**
+ * @brief The offset of the byte that starts character @p n of the UTF-8
+ * @p text, so that text[:n] in Python is the bytes before it; the size of
+ * @p text when it has fewer characters.
+ */
+[[nodiscard]] std::size_t byte_of_character(std::string_view text,
+    std::size_t n) noexcept;
+
+/**
  * @brief How many times @p what occurs in @p text without overlap, as
  * str.count counts.
  */

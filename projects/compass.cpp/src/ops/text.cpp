@@ -130,4 +130,15 @@ std::size_t count(std::string_view text, std::string_view what) noexcept {
     return n;
 }
 
+std::size_t byte_of_character(std::string_view text,
+    std::size_t n) noexcept {
+    for (std::size_t i = 0; i < text.size(); ++i) {
+        if ((static_cast<unsigned char>(text[i]) & 0xC0) == 0x80)
+            continue;
+        if (n-- == 0)
+            return i;
+    }
+    return text.size();
+}
+
 }
