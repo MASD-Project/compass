@@ -26,11 +26,11 @@ Take blob IDs for clean tracked files from git's index, and hash changed or untr
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:10A99211-DCE0-4237-8D23-0599C2D00628][Share a content-addressed store]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -68,7 +68,14 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Index entries, trusted | 60,048, 57,302 | =compass-bench ids <ORE Studio worktree> --repeat 5 --verify 500= | ORE Studio worktree prime_origin |
+| IDs from the index, hashed | 57,283 (95.4%), 2,764 (74.7 MB) | same run | same |
+| Read index, stat, hash, total (median of 5) | 65 ms, 31 ms, 75 ms, 175 ms | same run | same |
+| IDs checked against =git hash-object=, mismatches | 60,047, 0 | same with =--verify all= | same |
+| This repository: from the index, hashed | 599, 35 | =compass-bench ids . --verify all= | compass-ng 077562b |
+
+Run read-only against the live worktree's index, on a shared machine; timings
+are indicative. The index file's size and modification time were unchanged.
 
 * Notes
 
@@ -96,3 +103,20 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- =compass.store= reads git's index (versions 2, 3 and 4) without a git
+  process and resolves each file's ID from it when git would call the file
+  clean; otherwise it hashes the bytes. On ORE Studio 95% of IDs come from
+  the index and resolving all 60,047 takes about 175 ms.
+- An index ID is not used when its bytes might differ from the working tree:
+  stat data that does not match (nanoseconds included), racily clean
+  entries, size zero, intent-to-add, conflicts, non-regular files, any
+  =core.autocrlf= setting, a non-SHA-1 object format, or a =.gitattributes=
+  rule that sets =text=, =eol=, =crlf=, =ident=, =filter= or
+  =working-tree-encoding=.
+- On ORE Studio every hashed file comes from a =text= or =eol= rule, chiefly
+  =ores.web='s =* text=auto eol=lf=. An =eol=lf= file with no CR bytes could
+  use its index ID; recognising that would save about 2,700 hashes.
+- An index the reader cannot use, split or corrupt, is treated as no index:
+  every file is hashed and the reason is reported. This was changed in review;
+  the resolver first threw, which made compass unusable in such a repository.
