@@ -20,9 +20,14 @@ set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
     filesystem/mapped_file.cpp
-    process/run_program.cpp)
+    process/run_program.cpp
+    text/regex.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
 
 target_include_directories(${lib_target_name} PUBLIC
     ${CMAKE_SOURCE_DIR}/projects/compass.platform/include)
+
+target_link_libraries(${lib_target_name}
+    PRIVATE
+        PCRE2::8BIT)

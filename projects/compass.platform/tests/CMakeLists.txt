@@ -21,7 +21,8 @@ set(tests_target_name ${name}.tests)
 
 add_executable(${tests_target_name}
     filesystem_mapped_file_tests.cpp
-    process_run_program_tests.cpp)
+    process_run_program_tests.cpp
+    text_regex_tests.cpp)
 
 target_link_libraries(${tests_target_name}
     PRIVATE
