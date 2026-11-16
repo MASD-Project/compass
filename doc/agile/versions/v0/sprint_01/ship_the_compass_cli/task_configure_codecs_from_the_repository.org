@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :ship_the_compass_cli:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/configure-codecs-from-the-repository
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ Read which codecs run, their options and the output root from a configuration fi
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:FEABA8E9-D541-45AA-9278-64DC1264C794][Ship the compass CLI]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,21 @@ Read which codecs run, their options and the output root from a configuration fi
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- The configuration is an org file at the repository root, =.compass.org=,
+  read with compass's own parser. Keywords set the paths: =#+output:= (the
+  output root), =#+meta:= (the contract directory). A table under a
+  =* Codecs= heading lists one codec per row: name, enabled (=yes= or =no=),
+  and options as =key=value= pairs.
+- Precedence: the codec's defaults, then the file, then =--set= and the path
+  flags on the command line.
+- An unknown codec, an unknown option, a malformed row or a missing
+  =* Codecs= table is an error naming the file, line and fix, and exits 2.
+  A repository without the file runs on the defaults.
+- The file is an input of every run: changing it re-runs exactly the codecs
+  whose configuration changed, through the configuration hash already in the
+  dependency and cache keys.
+- This repository gets its own =.compass.org=, and =compass config= prints the
+  effective configuration and where each value came from.
 
 * Measurements
 
