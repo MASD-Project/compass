@@ -20,6 +20,7 @@ set(lib_target_name ${name}.lib)
 set(tests_target_name ${name}.tests)
 
 add_executable(${tests_target_name}
+    codecs_populate_refs_tests.cpp
     codecs_sql_hygiene_tests.cpp)
 
 target_link_libraries(${tests_target_name}
