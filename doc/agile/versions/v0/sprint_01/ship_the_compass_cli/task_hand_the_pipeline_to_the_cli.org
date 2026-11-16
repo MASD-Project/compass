@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :ship_the_compass_cli:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/hand-the-pipeline-to-the-cli
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ Move pipeline hosting from compass.bench into compass.cli, so the bench only mea
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:FEABA8E9-D541-45AA-9278-64DC1264C794][Ship the compass CLI]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,17 @@ Move pipeline hosting from compass.bench into compass.cli, so the bench only mea
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- A behaviour-preserving refactor. The pipeline steps (list, resolve, load or
+  parse, registry, run codecs, sink or diff, collect) live once, in
+  =compass.cli='s library, as functions the commands call.
+- =compass.bench='s stages that host the pipeline (warm, codecs, gc, models)
+  call those functions and add only timing and repetition; their copies of the
+  loading code are deleted. Stages that measure one primitive in isolation
+  (read, includes, parse, org, ids, store) keep calling the primitive.
+- The bench may time a step only if the library exposes it as a step, so the
+  library exposes the steps the bench times, not one opaque run function.
+- Every existing test passes unchanged, and each moved stage's output on this
+  repository is the same before and after, apart from its timings.
 
 * Measurements
 
