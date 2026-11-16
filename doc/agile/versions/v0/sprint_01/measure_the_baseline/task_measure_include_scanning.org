@@ -26,11 +26,11 @@ Scan every #include in ORE Studio, resolve it through compile_commands.json, and
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:68ED0D5D-9A25-4886-B869-A30FF4A679A5][Measure the baseline]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -70,7 +70,18 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| C and C++ files scanned | 24,518 (193 MB) | =compass-bench includes <archive> --compile-commands <cc> --source-root <root> --isystem <clang dirs> --repeat 5= | ORE Studio 4e41d25 |
+| Scan, 8 threads (median of 5) | 132 ms | same run | ORE Studio 4e41d25 |
+| Scan, 1 thread | 509 ms | same with =-j 1= | ORE Studio 4e41d25 |
+| Resolve, 1 thread | 120 ms | same run | ORE Studio 4e41d25 |
+| Build the CSR graph | 1.1 ms | same run | ORE Studio 4e41d25 |
+| Transitive fan-in for every header | 1.8 ms | same run | ORE Studio 4e41d25 |
+| Includes found | 206,485 | same run | ORE Studio 4e41d25 |
+| Resolved in checkout, external, unresolved | 120,340, 86,093, 52 | same run | ORE Studio 4e41d25 |
+| Highest transitive fan-in | =ores.utility/export.hpp=, 11,304 files | same run | ORE Studio 4e41d25 |
+
+Taken on a shared machine (load average 5 to 10 on 8 cores) with a warm page
+cache, so the timings are indicative. The counts were identical across runs.
 
 * Notes
 
@@ -98,3 +109,25 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- =compass-bench includes= scans every C and C++ file with a hand-written
+  scanner, resolves each include through =compile_commands.json= rebased onto
+  the checkout, builds the include graph as CSR and computes transitive fan-in.
+- The whole ORE Studio include graph costs about a quarter of a second: 132 ms
+  to scan on 8 threads, 120 ms to resolve on one, and under 3 ms for the graph
+  and every header's transitive fan-in. Resolving is single-threaded and is the
+  obvious next speed-up.
+- 52 of 206,485 includes stay unresolved, each with a known cause: Windows-only
+  headers under =#ifdef=, files no compile command builds (prototypes, scripts,
+  vendored ORE tools), one cross-component test fixture, and one stale
+  generated include.
+- ORE Studio builds in unity mode, so its compile commands name generated
+  =unity_N_cxx.cxx= files; =--source-root= is required, and each command is
+  anchored at the build directory above =CMakeFiles=.
+- A header takes its component's include directories. The compiler uses the
+  directories of whichever translation unit includes it, so a header shared
+  across components can resolve differently; this caused one of the 52.
+- Review found that a relative =--source-root= resolved nothing inside the
+  checkout while still exiting 0. Paths are now made absolute at the CLI
+  boundary, and every path form gives the same counts.
+- 15 defects injected into the scanner and resolver were all caught.
