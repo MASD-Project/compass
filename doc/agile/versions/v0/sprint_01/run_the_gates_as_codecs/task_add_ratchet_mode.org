@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/add-ratchet-mode
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ Compare diagnostics against the merge base and fail only on new ones.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,16 @@ Compare diagnostics against the merge base and fail only on new ones.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Add =compass check --ratchet [<base>]=: compute the merge base with the
+  base (default the upstream, else =origin/main=), get its diagnostics with
+  =app::check= at that commit, and fail only on diagnostics that are new.
+- Match a diagnostic to its old self by file, rule and message, not by line,
+  counting occurrences, so a violation that moves because lines were added
+  above it is not new, and a second copy of an existing one is.
+- Follow renames the merge base to HEAD diff reports, so a moved file keeps
+  its old diagnostics.
+- Prove the acceptance on a test repository and on the ORE copy: add one
+  violation to a file that already has some, and only that one fails.
 
 * Measurements
 
