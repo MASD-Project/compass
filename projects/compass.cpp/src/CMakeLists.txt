@@ -23,9 +23,11 @@ add_library(${lib_target_name}
     codecs/enum_attributes.cpp
     codecs/exported_types.cpp
     codecs/test_case_reachability.cpp
+    codecs/unity_collisions.cpp
     ops/enum_attributes.cpp
     ops/exported_types.cpp
     ops/paths.cpp
+    ops/report.cpp
     ops/test_case_reachability.cpp
     ops/text.cpp)
 
@@ -36,4 +38,5 @@ target_include_directories(${lib_target_name} PUBLIC
 
 target_link_libraries(${lib_target_name}
     PUBLIC
-        compass.codec.lib)
+        compass.codec.lib
+        compass.platform.lib)

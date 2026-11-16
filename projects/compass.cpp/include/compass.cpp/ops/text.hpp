@@ -22,6 +22,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -120,6 +121,27 @@ namespace compass::cpp::ops {
  * are not continuation bytes.
  */
 [[nodiscard]] std::size_t characters(std::string_view text) noexcept;
+
+/**
+ * @brief True when @p text is UTF-8 that Python's strict decoder accepts:
+ * no stray continuation byte, no overlong form, no surrogate and nothing
+ * past U+10FFFF. A script that reads a file with read_text() skips or fails
+ * on any other.
+ */
+[[nodiscard]] bool is_utf8(std::string_view text) noexcept;
+
+/**
+ * @brief @p text as Python's read_text() gives it: every \r\n and lone
+ * \r turned into \n.
+ */
+[[nodiscard]] std::string universal_newlines(std::string_view text);
+
+/**
+ * @brief How many times @p what occurs in @p text without overlap, as
+ * str.count counts.
+ */
+[[nodiscard]] std::size_t count(std::string_view text,
+    std::string_view what) noexcept;
 
 }
 

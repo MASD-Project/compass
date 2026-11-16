@@ -117,4 +117,72 @@ std::size_t characters(std::string_view text) noexcept {
     }));
 }
 
+bool is_utf8(std::string_view text) noexcept {
+    const auto byte = [&](std::size_t i) {
+        return static_cast<unsigned char>(text[i]);
+    };
+    for (std::size_t i = 0; i < text.size();) {
+        const auto lead = byte(i);
+        if (lead < 0x80) {
+            ++i;
+            continue;
+        }
+        std::size_t length = 0;
+        unsigned char low = 0x80;
+        unsigned char high = 0xBF;
+        if (lead >= 0xC2 && lead <= 0xDF) {
+            length = 2;
+        } else if (lead >= 0xE0 && lead <= 0xEF) {
+            length = 3;
+            if (lead == 0xE0)
+                low = 0xA0;
+            else if (lead == 0xED)
+                high = 0x9F;
+        } else if (lead >= 0xF0 && lead <= 0xF4) {
+            length = 4;
+            if (lead == 0xF0)
+                low = 0x90;
+            else if (lead == 0xF4)
+                high = 0x8F;
+        } else {
+            return false;
+        }
+        if (i + length > text.size())
+            return false;
+        if (byte(i + 1) < low || byte(i + 1) > high)
+            return false;
+        for (std::size_t k = 2; k < length; ++k) {
+            if ((byte(i + k) & 0xC0) != 0x80)
+                return false;
+        }
+        i += length;
+    }
+    return true;
+}
+
+std::string universal_newlines(std::string_view text) {
+    std::string out;
+    out.reserve(text.size());
+    for (std::size_t i = 0; i < text.size(); ++i) {
+        if (text[i] != '\r') {
+            out.push_back(text[i]);
+            continue;
+        }
+        out.push_back('\n');
+        if (i + 1 < text.size() && text[i + 1] == '\n')
+            ++i;
+    }
+    return out;
+}
+
+std::size_t count(std::string_view text, std::string_view what) noexcept {
+    if (what.empty())
+        return characters(text) + 1;
+    std::size_t n = 0;
+    for (auto at = text.find(what); at != std::string_view::npos;
+         at = text.find(what, at + what.size()))
+        ++n;
+    return n;
+}
+
 }
