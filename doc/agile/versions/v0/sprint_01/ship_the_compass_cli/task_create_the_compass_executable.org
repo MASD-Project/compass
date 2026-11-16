@@ -2,7 +2,7 @@
 :ID: 7E9CC2F3-4F53-4D2C-964B-61D22C95433B
 :END:
 #+title: Task: Create the compass executable
-#+description: The compass.cli component and the compass executable with write, diff, check and gc, hosting the pipeline that compass.bench hosts today.
+#+description: The compass.cli component and the compass executable with generate, diff, check and gc, hosting the pipeline that compass.bench hosts today.
 #+type: task
 #+level: s1
 #+filetags: :ship_the_compass_cli:sprint_01:v0:
@@ -20,22 +20,22 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Goal
 
-The compass.cli component and the compass executable with write, diff, check and gc, hosting the pipeline that compass.bench hosts today.
+The compass.cli component and the compass executable with generate, diff, check and gc, hosting the pipeline that compass.bench hosts today.
 
 * Status
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:FEABA8E9-D541-45AA-9278-64DC1264C794][Ship the compass CLI]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
 
-- compass write, diff, check and gc run on this repository with the exit statuses of the story.
+- compass generate, diff, check and gc run on this repository with the exit statuses of the story.
 
 * Plan
 
@@ -46,7 +46,7 @@ The compass.cli component and the compass executable with write, diff, check and
   the diff or the diagnostics report. =compass.bench= keeps its own copy until
   Hand the pipeline to the CLI.
 - Commands, each over the current directory's checkout unless =-C <dir>=:
-  - =compass write= writes changed outputs and prints a summary.
+  - =compass generate= (alias =gen=) writes changed outputs and prints a summary.
   - =compass diff= prints the plan as unified diffs and writes nothing.
   - =compass check= prints diagnostics, one per line as
     =path:line:column: rule: message (fix: ...)=.
@@ -69,7 +69,12 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| =generate= with no dependency record, then twice warm | 184 ms, 91 ms, 37 ms | =compass generate --out <dir>= | compass-ng 0e2dbae |
+| =diff= with nothing changed | exit 0, no output, 0.05 s | =compass diff --out <dir>= | same |
+| =check= | exit 1, 58 diagnostics, 0.04 s | =compass check= | same |
+
+Load average 38 on 8 cores during these runs; timings are indicative. A first
+run in a brand-new worktree took 1.01 s.
 
 * Notes
 
@@ -97,3 +102,19 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- =compass.cli= holds the pipeline host as a library, one function per
+  command returning a result, and the =compass= executable:
+  =compass generate= (alias =gen=), =compass diff=, =compass check= and
+  =compass gc=, with =-C=, =--meta=, =--out=, =-j= and =--set=.
+- The command was named =write= in the plan; the product owner renamed it
+  =generate=, since it produces every output, not only code.
+- =diff= and =check= exit 1 when something would change or a diagnostic
+  fires; =generate= and =gc= exit 0 on success; every command exits 2 on
+  failure or bad usage. Diagnostics print as
+  =path:line:column: codec/rule: message (fix: ...)=.
+- Relative =--meta= and =--out= resolve against the checkout. Untracked org
+  files that no ignore rule covers are part of the corpus, so a new document
+  is checked before =git add=.
+- =diff= writes nothing at all; =check= writes no outputs but keeps the store
+  and records warm.

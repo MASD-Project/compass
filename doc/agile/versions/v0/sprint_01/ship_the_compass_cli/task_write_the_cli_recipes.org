@@ -2,7 +2,7 @@
 :ID: 1E08D45F-984E-49C0-AF9A-6DBFF5A96BCA
 :END:
 #+title: Task: Write the CLI recipes
-#+description: Recipes for running compass write, diff, check and gc on a checkout, including ORE Studio.
+#+description: Recipes for running compass generate, diff, check and gc on a checkout, including ORE Studio.
 #+type: task
 #+level: s1
 #+filetags: :ship_the_compass_cli:sprint_01:v0:
@@ -20,7 +20,7 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Goal
 
-Recipes for running compass write, diff, check and gc on a checkout, including ORE Studio.
+Recipes for running compass generate, diff, check and gc on a checkout, including ORE Studio.
 
 * Status
 
