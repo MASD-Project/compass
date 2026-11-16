@@ -26,7 +26,8 @@ add_executable(${tests_target_name}
     app_pipeline_tests.cpp
     config_arguments_tests.cpp
     config_precedence_tests.cpp
-    config_repository_file_tests.cpp)
+    config_repository_file_tests.cpp
+    ops_ratchet_tests.cpp)
 
 target_link_libraries(${tests_target_name}
     PRIVATE

@@ -37,6 +37,7 @@
 #include "compass.codec/ops/outputs.hpp"
 #include "compass.codec/ops/registry.hpp"
 #include "compass.store/io/location.hpp"
+#include "compass.store/ops/blob_hash.hpp"
 
 namespace compass::cli::app {
 
@@ -214,10 +215,11 @@ std::optional<std::string> read_bytes(const std::filesystem::path& path) {
 
 /**
  * @brief The drift finding of @p codec for the file at @p path, whose
- * bytes are @p source, located at byte @p at of them.
+ * bytes are @p source, located at byte @p at of them, with its @p sides.
  */
 types::finding drift_finding(std::string path, std::string_view source,
-    std::uint32_t at, const std::string& codec, std::string message) {
+    std::uint32_t at, const std::string& codec, std::string message,
+    types::drift_sides sides) {
     const auto [line, column] = position_of(source, at);
     return {
         .path = std::move(path),
@@ -227,7 +229,8 @@ types::finding drift_finding(std::string path, std::string_view source,
         .level = codec::types::severity::error,
         .message = std::move(message),
         .fix = "run compass generate, or change the model or template "
-               "that generates it"};
+               "that generates it",
+        .drift = std::move(sides)};
 }
 
 /**
@@ -250,6 +253,11 @@ std::vector<types::finding> drift_of(const codec::io::output_plan& plan,
         const std::string codec(plan.codecs[i]);
         std::string message;
         std::uint32_t at = 0;
+        types::drift_sides sides;
+        if (disk)
+            sides.file = store::ops::blob_id_of(*disk);
+        if (action != output_action::remove)
+            sides.generated = store::ops::blob_id_of(plan.contents[i]);
         if (action == output_action::remove) {
             message = "compass wrote this file and " + codec +
                 " no longer generates it";
@@ -266,7 +274,8 @@ std::vector<types::finding> drift_of(const codec::io::output_plan& plan,
         const auto relative = file.lexically_relative(checkout);
         out.push_back(drift_finding(relative.empty() ||
                 *relative.begin() == ".." ? file.string() : relative.string(),
-            disk.value_or(""), at, codec, std::move(message)));
+            disk.value_or(""), at, codec, std::move(message),
+            std::move(sides)));
     }
     return out;
 }
@@ -292,16 +301,18 @@ std::vector<types::finding> commit_drift_of(const commit_source& c,
         std::optional<store::types::git_object> blob;
         if (row && c.files.modes[*row] != store::types::gitlink_mode)
             blob = c.objects.read(c.files.ids[*row]);
+        types::drift_sides sides{.file = {}, .generated = outputs.hashes[id]};
         if (!blob) {
             out.push_back(drift_finding(path, "", 0, codec,
-                codec + " generates this file and it is missing"));
+                codec + " generates this file and it is missing", sides));
             continue;
         }
+        sides.file = c.files.ids[*row];
         const auto wanted = outputs.files.contents[id];
         const auto at = static_cast<std::uint32_t>(std::ranges::mismatch(
             blob->bytes, wanted).in1 - blob->bytes.begin());
         out.push_back(drift_finding(path, blob->bytes, at, codec,
-            "the file differs from what " + codec + " generates"));
+            "the file differs from what " + codec + " generates", sides));
     }
     return out;
 }
@@ -403,7 +414,8 @@ types::check_result check(const types::options& o) {
                     std::string(d.rules[t.rules[id].value].name),
                 .level = t.levels[id],
                 .message = std::string(t.messages[id]),
-                .fix = std::string(t.fixes[id])});
+                .fix = std::string(t.fixes[id]),
+                .drift = {}});
         }
     }
     std::ranges::stable_sort(r.findings, {}, [](const types::finding& f) {
