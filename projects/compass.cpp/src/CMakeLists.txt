@@ -24,6 +24,8 @@ add_library(${lib_target_name}
     codecs/exported_types.cpp
     codecs/forward_declarable_includes.cpp
     codecs/portable_stop.cpp
+    codecs/registrars.cpp
+    codecs/shell.cpp
     codecs/test_case_reachability.cpp
     codecs/unique_type_names.cpp
     codecs/unity_collisions.cpp
