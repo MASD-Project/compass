@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/check-a-past-commit
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ Run checks against any commit by reading blobs from git's object store.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,15 @@ Run checks against any commit by reading blobs from git's object store.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Read a commit's tree and blobs from git's object store: loose objects and
+  pack files, with their index, delta chains and zlib. A blob's ID is its git
+  object ID, which is already the store's key, so a blob the store has parsed
+  is never read again.
+- Give the codec runtime a checkout source backed by a commit instead of the
+  working tree, and add =compass check --commit <rev>=.
+- Check that =compass check --commit= on a past ORE Studio commit gives the
+  same diagnostics as a check of a checkout of that commit, and measure it
+  cold and warm. Ratchet mode builds on this.
 
 * Measurements
 
