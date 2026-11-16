@@ -35,6 +35,9 @@ constexpr char fold(char c) noexcept {
  */
 std::size_t separator_at(std::string_view text, std::size_t i) noexcept {
     const auto c = text[i];
+    const auto byte = static_cast<unsigned char>(c);
+    if (byte >= 0x20 && byte != 0xc2 && byte != 0xe2)
+        return 0;
     if (c == '\r')
         return i + 1 < text.size() && text[i + 1] == '\n' ? 2 : 1;
     if (c == '\n' || c == '\v' || c == '\f' || c == '\x1c' || c == '\x1d' ||
@@ -115,6 +118,27 @@ std::size_t characters(std::string_view text) noexcept {
     return static_cast<std::size_t>(std::ranges::count_if(text, [](char c) {
         return (static_cast<unsigned char>(c) & 0xC0) != 0x80;
     }));
+}
+
+std::size_t count(std::string_view text, std::string_view what) noexcept {
+    if (what.empty())
+        return characters(text) + 1;
+    std::size_t n = 0;
+    for (auto at = text.find(what); at != std::string_view::npos;
+         at = text.find(what, at + what.size()))
+        ++n;
+    return n;
+}
+
+std::size_t byte_of_character(std::string_view text,
+    std::size_t n) noexcept {
+    for (std::size_t i = 0; i < text.size(); ++i) {
+        if ((static_cast<unsigned char>(text[i]) & 0xC0) == 0x80)
+            continue;
+        if (n-- == 0)
+            return i;
+    }
+    return text.size();
 }
 
 }

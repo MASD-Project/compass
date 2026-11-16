@@ -20,7 +20,12 @@ set(lib_target_name ${name}.lib)
 set(tests_target_name ${name}.tests)
 
 add_executable(${tests_target_name}
-    codecs_sql_hygiene_tests.cpp)
+    codecs_curve_parameter_paths_tests.cpp
+    codecs_handler_permissions_tests.cpp
+    codecs_populate_refs_tests.cpp
+    codecs_rls_widenings_tests.cpp
+    codecs_sql_hygiene_tests.cpp
+    codecs_sql_reachability_tests.cpp)
 
 target_link_libraries(${tests_target_name}
     PRIVATE

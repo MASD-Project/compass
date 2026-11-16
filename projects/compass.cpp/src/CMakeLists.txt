@@ -19,13 +19,26 @@ set(name "compass.cpp")
 set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
+    codecs/bff_list_requests.cpp
     codecs/catalogue.cpp
+    codecs/core_link_edges.cpp
     codecs/enum_attributes.cpp
     codecs/exported_types.cpp
+    codecs/forward_declarable_includes.cpp
+    codecs/portable_stop.cpp
+    codecs/registrars.cpp
+    codecs/route_auth.cpp
+    codecs/shell.cpp
+    codecs/stream_coverage.cpp
     codecs/test_case_reachability.cpp
+    codecs/translation_unit_budget.cpp
+    codecs/unique_type_names.cpp
+    codecs/unity_collisions.cpp
+    codecs/xml_family_census.cpp
     ops/enum_attributes.cpp
     ops/exported_types.cpp
     ops/paths.cpp
+    ops/report.cpp
     ops/test_case_reachability.cpp
     ops/text.cpp)
 
@@ -36,4 +49,5 @@ target_include_directories(${lib_target_name} PUBLIC
 
 target_link_libraries(${lib_target_name}
     PUBLIC
-        compass.codec.lib)
+        compass.codec.lib
+        compass.platform.lib)

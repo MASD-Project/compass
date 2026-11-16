@@ -23,7 +23,7 @@
 #include "compass.codec/codecs/catalogue.hpp"
 #include "compass.codegen/codecs/codegen.hpp"
 #include "compass.cpp/codecs/catalogue.hpp"
-#include "compass.sql/codecs/sql_hygiene.hpp"
+#include "compass.sql/codecs/catalogue.hpp"
 
 namespace compass::cli::app {
 
@@ -35,7 +35,8 @@ std::span<const codec::types::descriptor> codecs() noexcept {
         out.push_back(codegen::codecs::codegen);
         for (const auto& d : cpp::codecs::catalogue())
             out.push_back(d);
-        out.push_back(sql::codecs::sql_hygiene);
+        for (const auto& d : sql::codecs::catalogue())
+            out.push_back(d);
         return out;
     }();
     return all;

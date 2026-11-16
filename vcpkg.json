@@ -5,6 +5,7 @@
     "version-string": "0.0.1",
     "dependencies": [
         "catch2",
+        "pcre2",
         "tree-sitter",
         "tree-sitter-cpp",
         "tree-sitter-sql",

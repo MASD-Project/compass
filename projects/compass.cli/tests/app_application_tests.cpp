@@ -25,6 +25,9 @@
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
+#include "compass.cli/app/codecs.hpp"
+#include "compass.cpp/codecs/catalogue.hpp"
+#include "compass.sql/codecs/catalogue.hpp"
 #include "scoped_git_repo.hpp"
 
 namespace {
@@ -32,6 +35,40 @@ namespace {
 using compass::cli::tests::scoped_git_repo;
 using Catch::Matchers::ContainsSubstring;
 using Catch::Matchers::StartsWith;
+
+/**
+ * @brief The units-run part of a summary: @p ran for the codec @p name and
+ * 0 for every other codec the CLI runs.
+ */
+std::string units_run(std::string_view name, int ran) {
+    std::string out = "units run: ";
+    for (const auto& d : compass::cli::app::codecs()) {
+        if (out.size() > 11)
+            out += ", ";
+        out += std::string(d.name) + " " +
+            std::to_string(d.name == name ? ran : 0);
+    }
+    return out + ";";
+}
+
+/**
+ * @brief The config lines of the C++ and SQL gate codecs, all off and
+ * every option at its default.
+ */
+std::string gate_defaults() {
+    std::string out;
+    const auto add = [&](const auto& catalogue) {
+        for (const auto& d : catalogue) {
+            out += std::string(d.name) + ".enabled = false (default)\n";
+            for (const auto& o : d.options)
+                out += std::string(d.name) + "." + std::string(o.key) +
+                    " = " + std::string(o.default_value) + " (default)\n";
+        }
+    };
+    add(compass::cpp::codecs::catalogue());
+    add(compass::sql::codecs::catalogue());
+    return out;
+}
 
 struct outcome {
     int status = -1;
@@ -176,12 +213,7 @@ TEST_CASE("config prints every value with where it came from",
         "codegen.clang_format =  (default)\n"
         "codegen.clang_format_style =  (default)\n"
         "codegen.prettier =  (default)\n"
-        "codegen.prettier_style =  (default)\n"
-        "enum_attributes.enabled = false (default)\n"
-        "exported_types.enabled = false (default)\n"
-        "test_case_reachability.enabled = false (default)\n"
-        "sql_hygiene.enabled = false (default)\n"
-        "sql_hygiene.roots = projects/ores.sql (default)\n");
+        "codegen.prettier_style =  (default)\n" + gate_defaults());
 }
 
 TEST_CASE("an error in the configuration file exits 2 naming the line and "
@@ -272,10 +304,7 @@ TEST_CASE("editing one codec's option in the file runs only that codec's "
     configure("first.tsv");
     REQUIRE(run_on(repo, "gen").status == 0);
     const auto again = run_on(repo, "gen");
-    CHECK_THAT(again.out, ContainsSubstring(
-        "units run: document_index 0, required_sections 0, tangle 0, "
-        "tangle_check 0, codegen 0, enum_attributes 0, exported_types 0, "
-        "test_case_reachability 0, sql_hygiene 0;"));
+    CHECK_THAT(again.out, ContainsSubstring(units_run("document_index", 0)));
 
     configure("second.tsv");
     const auto edited = run_on(repo, "gen");
@@ -283,10 +312,7 @@ TEST_CASE("editing one codec's option in the file runs only that codec's "
     CHECK(edited.status == 0);
     CHECK_THAT(edited.out, StartsWith("1 written, 0 unchanged, 0 restored, "
         "1 removed"));
-    CHECK_THAT(edited.out, ContainsSubstring(
-        "units run: document_index 1, required_sections 0, tangle 0, "
-        "tangle_check 0, codegen 0, enum_attributes 0, exported_types 0, "
-        "test_case_reachability 0, sql_hygiene 0;"));
+    CHECK_THAT(edited.out, ContainsSubstring(units_run("document_index", 1)));
     CHECK(std::filesystem::exists(repo.output_root() / "second.tsv"));
     CHECK_FALSE(std::filesystem::exists(repo.output_root() / "first.tsv"));
 }

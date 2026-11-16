@@ -131,7 +131,7 @@ TEST_CASE("a result reused from the record does not hide an exception "
     CHECK(later.findings() == std::vector<std::string>{
         "sql/a.sql:1:sql_hygiene/not_re_runnable",
         "sql/a.sql:1:exception/expired"});
-    CHECK_THAT(later.out, ContainsSubstring("sql_hygiene 0;"));
+    CHECK_THAT(later.out, ContainsSubstring(" sql_hygiene 0"));
 }
 
 TEST_CASE("an exception added to a file checked before is seen",

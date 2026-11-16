@@ -19,8 +19,15 @@ set(name "compass.sql")
 set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
+    codecs/catalogue.cpp
+    codecs/curve_parameter_paths.cpp
+    codecs/handler_permissions.cpp
+    codecs/populate_refs.cpp
+    codecs/rls_widenings.cpp
     codecs/sql_hygiene.cpp
-    ops/hygiene.cpp)
+    codecs/sql_reachability.cpp
+    ops/hygiene.cpp
+    ops/scripts.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
 
@@ -29,4 +36,5 @@ target_include_directories(${lib_target_name} PUBLIC
 
 target_link_libraries(${lib_target_name}
     PUBLIC
-        compass.codec.lib)
+        compass.codec.lib
+        compass.platform.lib)
