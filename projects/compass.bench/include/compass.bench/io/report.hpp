@@ -192,13 +192,15 @@ void write_warm_report(std::ostream& os, const types::warm_result& stage,
 
 /**
  * @brief True when the codecs stage found no org file, could not load one,
- * or the codec registry has a problem. Diagnostics are data, not failure.
+ * the codec registry has a problem, or the outputs could not be written.
+ * Diagnostics are data, not failure.
  */
 [[nodiscard]] bool failed(const types::codecs_result& stage);
 
 /**
  * @brief Writes the report of the codecs stage: the corpus and how it
- * loaded, the dependency record and whether it was rewritten, one row per
+ * loaded, the dependency record and whether it was rewritten, what writing
+ * the outputs did when they were written, one row per
  * codec with the documents it was given, the units it called and skipped,
  * its outputs and their bytes, its diagnostics and its time summed over
  * threads, then

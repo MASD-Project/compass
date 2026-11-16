@@ -43,9 +43,13 @@ namespace compass::bench::ops {
  * unit whose recorded inputs are unchanged is not called, and the record
  * the last repetition made replaces the file when it differs.
  *
- * What the codecs emit is kept in the result. No output file is written
- * to the checkout; the worktree index and the dependency record under its
- * git directory are the only files written there.
+ * What the codecs emit is kept in the result. With an @p output_root, the
+ * files of the last repetition are then put under it by
+ * codec::io::write_outputs, starting from the written-outputs record of
+ * the checkout, and the record it returns replaces the file when it
+ * differs. Without one, no output file is written; the worktree index,
+ * the dependency record and the written-outputs record under the
+ * checkout's git directory are the only files written there.
  *
  * @throws std::system_error or std::filesystem::filesystem_error when the
  * meta directory or a contract page cannot be read.
@@ -54,7 +58,7 @@ namespace compass::bench::ops {
     const std::filesystem::path& checkout, const types::file_table& table,
     const std::filesystem::path& meta, const std::filesystem::path& objects,
     const codec::types::configuration& settings, unsigned threads,
-    unsigned repetitions);
+    unsigned repetitions, const std::filesystem::path& output_root = {});
 
 }
 

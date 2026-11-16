@@ -670,7 +670,7 @@ void write_warm_report(std::ostream& os, const types::warm_result& stage,
 
 bool failed(const types::codecs_result& stage) {
     return stage.files == 0 || stage.errors != 0 ||
-        !stage.registry.problems.empty();
+        !stage.registry.problems.empty() || !stage.sink.problems.empty();
 }
 
 void write_codecs_report(std::ostream& os, const types::codecs_result& stage,
@@ -698,6 +698,17 @@ void write_codecs_report(std::ostream& os, const types::codecs_result& stage,
     if (!stage.record_problem.empty())
         os << std::format("dependency record not used: {}\n",
             stage.record_problem);
+    if (stage.wrote_outputs) {
+        const auto& s = stage.sink;
+        os << std::format("outputs: {} written, {} unchanged, {} restored, "
+                          "{} removed, {} kept; {:.2f} ms; record {}\n",
+            s.written, s.unchanged, s.restored, s.removed, s.kept,
+            stage.sink_ms, stage.outputs_written ? "rewritten" : "unchanged");
+        os << std::format("output root: {}\n", s.record.root);
+    }
+    if (!stage.outputs_problem.empty())
+        os << std::format("written-outputs record not used: {}\n",
+            stage.outputs_problem);
 
     os << std::format("\n{:<20}{:<10}{:<13}{:>10}{:>8}{:>9}{:>9}{:>12}"
                       "{:>13}{:>11}{:>9}{:>9}\n", "codec", "unit", "output",
@@ -732,8 +743,8 @@ void write_codecs_report(std::ostream& os, const types::codecs_result& stage,
     for (std::size_t c = 0; c < codecs.size(); ++c) {
         const auto& files = stage.last.files[c];
         if (files.size() != 0)
-            os << std::format("\noutputs of {} (not written):\n",
-                codecs[c].name);
+            os << std::format("\noutputs of {}{}:\n", codecs[c].name,
+                stage.wrote_outputs ? "" : " (not written)");
         for (std::uint32_t i = 0; i < files.size(); ++i) {
             const ct::file_id id{i};
             os << std::format("  {}  {} bytes\n", files.paths[id],
@@ -764,6 +775,8 @@ void write_codecs_report(std::ostream& os, const types::codecs_result& stage,
     if (!stage.registry.problems.empty())
         os << std::format("\nFAILED: the codec registry has {} "
                           "problem(s).\n", stage.registry.problems.size());
+    for (const auto& problem : stage.sink.problems)
+        os << std::format("\nFAILED: outputs not written: {}\n", problem);
 }
 
 void write_gc_report(std::ostream& os,

@@ -35,6 +35,8 @@
 #include "compass.bench/ops/types_stage.hpp"
 #include "compass.codec/codecs/catalogue.hpp"
 #include "compass.codec/io/dependency_file.hpp"
+#include "compass.codec/io/output_sink.hpp"
+#include "compass.codec/ops/outputs.hpp"
 #include "compass.codec/ops/registry.hpp"
 #include "compass.codec/ops/run.hpp"
 #include "compass.codec/types/corpus.hpp"
@@ -197,7 +199,7 @@ types::codecs_result run_codecs_stage(const std::filesystem::path& checkout,
     const types::file_table& table, const std::filesystem::path& meta,
     const std::filesystem::path& objects,
     const codec::types::configuration& settings, unsigned threads,
-    unsigned repetitions) {
+    unsigned repetitions, const std::filesystem::path& output_root) {
     types::codecs_result r;
 
     auto start = std::chrono::steady_clock::now();
@@ -274,6 +276,22 @@ types::codecs_result run_codecs_stage(const std::filesystem::path& checkout,
         r.record_written = codec::io::write_dependency_file(record_path,
             r.last.record);
         r.record_write_ms = since(start);
+    }
+    if (repetitions != 0 && !output_root.empty()) {
+        start = std::chrono::steady_clock::now();
+        const auto record_path = codec::io::written_outputs_path(
+            store::io::git_dir(checkout));
+        const auto previous_outputs =
+            codec::io::read_written_outputs(record_path);
+        r.outputs_problem = previous_outputs.problem;
+        r.sink = codec::io::write_outputs(output_root,
+            codec::ops::outputs_of(r.registry, r.last),
+            previous_outputs.record);
+        r.wrote_outputs = r.sink.problems.empty();
+        if (r.wrote_outputs)
+            r.outputs_written = codec::io::write_written_outputs(record_path,
+                r.sink.record);
+        r.sink_ms = since(start);
     }
     for (std::size_t c = 0; c < r.registry.size(); ++c)
         r.findings.push_back(summarise(corpus, r.registry.codecs[c],
