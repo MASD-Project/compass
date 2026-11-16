@@ -2,7 +2,7 @@
 :ID: B1A01CD5-C912-4396-BEA8-87378BE6019E
 :END:
 #+title: Task: Read the document contract
-#+description: Extract the conceptual model from compass-ng doc/meta: glossary, cybernetic levels, document types, lifecycle and execution model.
+#+description: Extract the conceptual model from ORE Studio doc/meta: glossary, cybernetic levels, document types, lifecycle and execution model.
 #+type: task
 #+level: s1
 #+filetags: :extract_data_model:sprint_01:v0:
@@ -19,7 +19,7 @@ This page documents a task in the [[id:E20F0268-BB77-4E40-9FC3-CB2928C64C23][Ext
 
 * Goal
 
-Extract the conceptual model from compass-ng doc/meta: glossary, cybernetic levels, document types, lifecycle and execution model.
+Extract the conceptual model from ORE Studio doc/meta: glossary, cybernetic levels, document types, lifecycle and execution model.
 
 * Status
 
