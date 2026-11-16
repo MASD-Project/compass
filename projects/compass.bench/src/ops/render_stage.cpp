@@ -28,6 +28,7 @@
 #include "compass.codegen/ops/compile.hpp"
 #include "compass.codegen/ops/context.hpp"
 #include "compass.codegen/ops/entity_context.hpp"
+#include "compass.codegen/ops/entity_registry.hpp"
 #include "compass.codegen/ops/manifest.hpp"
 #include "compass.codegen/ops/output.hpp"
 #include "compass.codegen/ops/physical_space.hpp"
@@ -226,6 +227,62 @@ compass::codegen::types::checkout_registry load_registry(
     return compass::codegen::ops::read_checkout_registry(documents);
 }
 
+/**
+ * @brief The registry of the entity models a domain entity's enrichment
+ * reads beside its own: those of projects/<component>/modeling/, scanned
+ * in path order as _entity_org_by_table scans them, a later claim of a
+ * table winning, each loaded into tables of its own.
+ */
+compass::codegen::types::entity_registry load_entity_registry(
+    const types::file_table& table, model_corpus& documents,
+    const compass::model::ops::document_finder& find,
+    compass::model::ops::load_cache& cache) {
+    namespace mops = compass::model::ops;
+    using parts = std::pair<std::string_view, std::string_view>;
+    std::vector<std::pair<parts, std::string_view>> paths;
+    constexpr std::string_view projects = "projects/";
+    constexpr std::string_view modeling = "/modeling/";
+    for (const auto& path : table.paths) {
+        if (!path.starts_with(projects) || !path.ends_with(".org"))
+            continue;
+        const std::string_view rest(path.data() + projects.size(),
+            path.size() - projects.size());
+        const auto at = rest.find(modeling);
+        if (at == std::string_view::npos || at == 0 ||
+            rest.find('/', at + modeling.size()) != std::string_view::npos ||
+            rest.substr(0, at).find('/') != std::string_view::npos)
+            continue;
+        paths.push_back({{rest.substr(0, at), rest.substr(at + modeling.size())},
+            path});
+    }
+    std::ranges::sort(paths);
+
+    compass::codegen::types::entity_registry registry;
+    model_tables scratch;
+    mops::builder b(scratch);
+    for (const auto& [key, path] : paths) {
+        auto* p = documents.get(path);
+        if (p == nullptr)
+            continue;
+        const auto claim =
+            compass::codegen::ops::entity_table_claim_of(p->file.text());
+        if (!claim)
+            continue;
+        auto& owner = registry.tables[claim->table];
+        owner = {claim->entity_singular, std::nullopt};
+        const auto doc = document_of(*p);
+        const auto type = mops::model_type_of(mops::declared_type(doc));
+        if (!type)
+            continue;
+        std::string error;
+        const auto id = mops::load_model(b, doc, *type, find, cache, &error);
+        if (error.empty())
+            owner.parent = compass::codegen::ops::parent_entity_of(scratch,
+                scratch.models.roots[id]);
+    }
+    return registry;
+}
+
 struct planned {
     compass::codegen::ops::unit unit;
     value_id context;
@@ -281,6 +338,7 @@ std::vector<planned> plan_models(const std::filesystem::path& checkout,
 
     const auto find = documents.finder();
     mops::load_cache cache;
+    const auto entities = load_entity_registry(table, documents, find, cache);
     mops::outline outline;
     std::vector<planned> plan;
     for (const auto& path : table.paths) {
@@ -319,7 +377,8 @@ std::vector<planned> plan_models(const std::filesystem::path& checkout,
             continue;
         const auto stem = std::filesystem::path(path).stem().string();
         const auto context = *type == compass::model::types::model_type::entity
-            ? compass::codegen::ops::entity_context(b, library, root, stem)
+            ? compass::codegen::ops::entity_context(b, library, root, stem,
+                entities)
             : compass::codegen::ops::model_context(b, library, root, stem,
                 type_name);
         ++r.contexts;

@@ -21,6 +21,7 @@
 #define COMPASS_CODEGEN_OPS_ENTITY_CONTEXT_HPP
 
 #include <string_view>
+#include "compass.codegen/types/entity_registry.hpp"
 #include "compass.model/ops/builder.hpp"
 #include "compass.model/types/model_tables.hpp"
 
@@ -34,11 +35,14 @@ namespace compass::codegen::ops {
  * step by step in the order generate_from_model applies the steps, under
  * domain_entity, with its SQL projection under table.
  *
+ * @p registry holds what the steps read from the checkout's other models.
+ *
  * Returns an object no value holds.
  */
 compass::model::types::value_id entity_context(
     compass::model::ops::builder& b, compass::model::types::value_id library,
-    compass::model::types::value_id model, std::string_view model_key);
+    compass::model::types::value_id model, std::string_view model_key,
+    const types::entity_registry& registry);
 
 }
 

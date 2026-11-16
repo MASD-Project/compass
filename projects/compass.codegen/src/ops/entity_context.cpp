@@ -29,7 +29,8 @@ using compass::model::types::value_id;
 using compass::model::types::value_kind;
 
 value_id entity_context(compass::model::ops::builder& b, value_id library,
-    value_id model, std::string_view model_key) {
+    value_id model, std::string_view model_key,
+    const types::entity_registry& registry) {
     const auto context = b.detached_object();
     for (const auto c : values::items(b.tables(), library))
         b.set_copy(context, std::string(values::key_of(b.tables(), c)), c);
@@ -65,6 +66,8 @@ value_id entity_context(compass::model::ops::builder& b, value_id library,
     derive_messaging_defaults(b, entity);
     derive_list_requests(b, entity);
     apply_stated_order(b, entity);
+    derive_foreign_key_seeds(b, entity, registry);
+    project_enforced_foreign_keys(b, entity);
     project_sql_table(b, context, loaded, entity);
     b.set_copy(context, "domain_entity", entity);
     return context;

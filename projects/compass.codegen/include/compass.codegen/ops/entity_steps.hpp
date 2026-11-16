@@ -22,6 +22,7 @@
 
 #include <string_view>
 #include "compass.model/ops/builder.hpp"
+#include "compass.codegen/types/entity_registry.hpp"
 #include "compass.model/types/model_tables.hpp"
 
 /**
@@ -271,6 +272,29 @@ void derive_list_requests(compass::model::ops::builder& b,
  * list_by foreign key's default order.
  */
 void apply_stated_order(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief The foreign keys' targets and the eventing test's parent seeding
+ * (core.py 5245-5422): target_immutable, target_no_validity, and for an
+ * enforced key matches_tenant and skip_check; each key's group_prefix;
+ * for a mandatory key whose parent @p registry resolves, the parent_*
+ * fields and parent_required_fks, the ancestors to seed first, closed
+ * over the foreign-key chain (_plan_required_seeds); then
+ * has_system_tenant_fks, seed_party, seed_parent_country_sentinel and
+ * seed_parent_currency. Nothing without foreign keys.
+ */
+void derive_foreign_key_seeds(compass::model::ops::builder& b,
+    compass::model::types::value_id entity,
+    const types::entity_registry& registry);
+
+/**
+ * @brief enforced_foreign_keys (core.py 5306), the foreign keys with
+ * enforce set. The Python's list holds the very key objects, so the
+ * oracle shows them as later steps leave them: run after the last change
+ * to a foreign key.
+ */
+void project_enforced_foreign_keys(compass::model::ops::builder& b,
     compass::model::types::value_id entity);
 
 /**
