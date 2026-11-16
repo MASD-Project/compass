@@ -1,0 +1,131 @@
+:PROPERTIES:
+:ID: 5B528519-8BCE-4CB8-A48E-B525FD71F873
+:END:
+#+title: How do I excuse a finding?
+#+description: Write an inline exception comment that names the rule, a reason, an expiry and an approver, so compass check excuses one finding until a date.
+#+type: recipe
+#+level: cross
+#+filetags: :compass:cli:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+
+An exception is a comment beside the code it excuses. The check of
+[[id:45FA67C9-60BC-420D-BB66-8A272CB1106C][compass.cli]] reads it and the
+codec runtime of [[id:995ECC12-860C-4009-B9A2-8CA1A6102BD6][compass.codec]]
+decides what it excuses, so no codec has code of its own for it.
+
+* Question
+
+How do I let one finding of =compass check= stand for a while, with a
+reason and the name of whoever accepted it?
+
+* Answer
+
+Write the exception in a comment, in the comment syntax of the file:
+
+#+begin_src sql
+create table zz_valid (x int); -- compass:except(sql_hygiene/not_re_runnable) expires=2027-06-30 approver=marco reason=bootstrap table, dropped by the next migration
+#+end_src
+
+#+begin_src cpp
+// compass:except(enum_attributes/visibility_macro_on_enum) expires=2027-06-30 approver=marco reason=the macro is removed with the old ABI
+enum class BOOST_SYMBOL_EXPORT colour { red };
+#+end_src
+
+The parts are:
+
+- =compass:except(<codec>/<rule>)= names the rule as a finding prints it,
+  for example =sql_hygiene/not_re_runnable=. A codec that emits files
+  also has =<codec>/drift=.
+- =expires=<YYYY-MM-DD>= is the last day the exception is valid.
+- =approver=<name>= names who accepted it, as one word.
+- =reason=<text>= says why. It runs to the end of the line, less the
+  closer of a block or HTML comment, so it comes last.
+
+Where the exception applies:
+
+- After code on the same line, it covers that line.
+- Alone on its line, it covers the next line. Several exceptions on
+  consecutive lines all cover the first line after them, so one line can
+  excuse two rules.
+- =compass:except-file(<codec>/<rule>)= covers every finding of the rule
+  in its file. Use it for a finding that has no line to stand beside,
+  such as one on the first line of an org document.
+
+The marker counts only right after a comment opener: =//=, =/*=, =--=,
+=#=, =;= or =<!--=. In an org file it counts only on an org comment line,
+a line that starts with =#= and a space, so an example in a source block,
+like those above, is not an exception. Text that names the marker
+anywhere else, such as a string literal or prose, is ignored.
+
+=compass check= then prints the finding no longer and counts it:
+
+: 0 diagnostics, 1 excused by exception (...)
+
+Each exception that does not hold is itself a finding, with its rule
+under =exception/=:
+
+- =exception/malformed= on the comment's line, for a comment that does
+  not parse, names a rule no codec declares or names an =exception/=
+  rule.
+- =exception/incomplete= on the comment's line, for one without a
+  reason, an expiry or an approver.
+- =exception/expired= on the line the exception covers, for one whose
+  expiry date has passed. The finding it covered is reported again too.
+- =exception/stale= on the comment's line, for a valid exception that
+  covers no finding. A codec that is not enabled never makes its
+  exceptions stale.
+
+An exception that is not valid excuses nothing.
+
+On a copy of ORE Studio with a valid, an expired and a stale exception
+planted in SQL files, and one without an expiry in a header, it prints:
+
+: projects/ores.sql/zz_expired.sql:2:1: sql_hygiene/not_re_runnable: create table without `if not exists`; a second run would fail (fix: make the statement idempotent)
+: projects/ores.sql/zz_expired.sql:2:1: exception/expired: the exception for sql_hygiene/not_re_runnable approved by marco expired on 2026-10-31 (fix: fix the finding, or renew the exception on line 1 with a new expiry and approver)
+: projects/ores.sql/zz_stale.sql:1:1: exception/stale: the exception for sql_hygiene/not_re_runnable covers no finding (fix: remove the exception)
+
+The expiry is judged against today's date in UTC. =--today <YYYY-MM-DD>=
+sets another date, to see what will expire:
+
+#+begin_src sh :results verbatim
+build/output/linux-clang-release/publish/bin/compass check --today 2027-07-01
+#+end_src
+
+How exceptions meet the rest of the check:
+
+- =check --commit= reads the exceptions of that commit, and judges them
+  against today, not the date of the commit.
+- =check --ratchet= checks the merge base with its own exceptions and the
+  same today. An exception that expires is then expired on both sides and
+  is not new; the plain check still fails on it.
+- Exceptions are read after the codecs run, never from the record or the
+  result cache, so a reused result never hides an exception that has
+  since expired.
+- The check reads exceptions in every document and every file a codec
+  read, and in the file of each finding. An exception in a file no
+  enabled codec reads is never seen, so it is never reported stale.
+- =compass/unmarked=, beside the dependency record, lists the content IDs
+  of files with no marker, so a warm check reads only files that changed.
+  On ORE Studio that takes about 22 ms.
+
+* Script
+
+=compass check= (=projects/compass.cli=, =app::check=), with parsing and
+the decision in =ops::parse_exceptions= and =ops::excuse= of
+=projects/compass.codec=.
+
+* Tested by
+
+=compass.codec.tests= (=[ops_exceptions]=, =[io_unmarked_file]=): each
+comment syntax, the org rule, stacking, file scope, each malformed form,
+the expiry day, stale and disabled codecs, and a damaged record.
+=compass.cli.tests= (=[exceptions]=): a valid, an expired, a stale and an
+added exception, a reused result after expiry, =--commit=, =--ratchet=
+and =--today=, each on a temporary git repository.
+
+* See also
+
+- [[id:5A6EBB88-638D-43A3-96E5-068340C7AEEA][How do I check documents with compass?]] --- the plain check.
+- [[id:BDD4B58A-38F3-4EE3-9D0D-15EB56086D83][How do I fail only on new diagnostics?]] --- ratchet mode.
+- [[id:A604E719-D542-4C81-BB5B-AF0A70425BF6][How do I check a past commit?]] --- =--commit=.
