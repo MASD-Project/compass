@@ -31,6 +31,7 @@
 #include <system_error>
 #include <unordered_set>
 #include "compass.codec/ops/outputs.hpp"
+#include "compass.codec/ops/unified_diff.hpp"
 #include "compass.store/io/git_files.hpp"
 #include "compass.store/io/object_file.hpp"
 #include "compass.store/ops/git_index.hpp"
@@ -145,15 +146,15 @@ bool write_written_outputs(const std::filesystem::path& path,
     return true;
 }
 
-sink_result write_outputs(const std::filesystem::path& root,
+output_plan plan_outputs(const std::filesystem::path& root,
     const types::output_set& outputs,
     const types::written_outputs& previous) {
     const auto started = now();
-    sink_result r;
-    r.problems = ops::check_outputs(outputs);
-    if (!r.problems.empty()) {
-        r.record = previous;
-        return r;
+    output_plan p;
+    p.problems = ops::check_outputs(outputs);
+    if (!p.problems.empty()) {
+        p.record = previous;
+        return p;
     }
 
     // Joining a name and taking the parent drops a trailing separator, so
@@ -162,12 +163,12 @@ sink_result write_outputs(const std::filesystem::path& root,
     for (std::uint32_t i = 0; i < outputs.size(); ++i) {
         const auto path = outputs.files.paths[types::file_id{i}];
         if (passes_symlink(base, path))
-            r.problems.push_back("output path passes through a symbolic "
+            p.problems.push_back("output path passes through a symbolic "
                                  "link: " + std::string(path));
     }
-    if (!r.problems.empty()) {
-        r.record = previous;
-        return r;
+    if (!p.problems.empty()) {
+        p.record = previous;
+        return p;
     }
     const types::written_outputs none;
     const auto& prev = previous.root == base.string() ? previous : none;
@@ -183,33 +184,33 @@ sink_result write_outputs(const std::filesystem::path& root,
         return file && store::ops::is_unchanged(prev.stats[at], *file,
             prev.written);
     };
+    const auto add = [&](std::string_view path, std::string_view codec,
+        output_action action, std::string_view content) {
+        p.paths.push_back(path);
+        p.codecs.push_back(codec);
+        p.actions.push_back(action);
+        p.contents.push_back(content);
+    };
 
     std::vector<entry> next;
     std::unordered_set<std::string_view> produced;
     for (std::uint32_t i = 0; i < outputs.size(); ++i) {
         const types::file_id f{i};
         const auto path = outputs.files.paths[f];
-        const auto content = outputs.files.contents[f];
         const auto& hash = outputs.hashes[f];
         produced.insert(path);
         const auto target = base / path;
         const auto at = recorded(path);
-        auto file = store::io::stat_of(target);
+        const auto file = store::io::stat_of(target);
         const bool holds = at && trusted(*at, file)
             ? prev.hashes[*at] == hash
             : file && store::io::hash_file(target) == hash;
-        if (holds) {
-            ++r.unchanged;
-        } else {
-            store::io::write_object(target, std::as_bytes(std::span(content)));
-            file = store::io::stat_of(target);
-            if (!file)
-                throw std::filesystem::filesystem_error(
-                    "output is not a regular file after writing it", target,
-                    std::make_error_code(std::errc::io_error));
-            ++(at && prev.hashes[*at] == hash ? r.restored : r.written);
-        }
-        next.push_back({path, outputs.codecs[f], hash, *file});
+        const auto action = holds ? output_action::unchanged
+            : at && prev.hashes[*at] == hash ? output_action::restore
+            : output_action::write;
+        add(path, outputs.codecs[f], action, outputs.files.contents[f]);
+        next.push_back({path, outputs.codecs[f], hash,
+            file.value_or(st::stat_data{})});
     }
 
     const std::unordered_set<std::string_view> complete(
@@ -218,44 +219,120 @@ sink_result write_outputs(const std::filesystem::path& root,
         const auto& path = prev.paths[k];
         if (produced.contains(path))
             continue;
+        const entry carried{path, prev.codecs[k], prev.hashes[k],
+            prev.stats[k]};
         if (!complete.contains(prev.codecs[k])) {
-            next.push_back({path, prev.codecs[k], prev.hashes[k],
-                prev.stats[k]});
+            next.push_back(carried);
             continue;
         }
         const auto target = base / path;
         if (passes_symlink(base, path)) {
-            next.push_back({path, prev.codecs[k], prev.hashes[k],
-                prev.stats[k]});
-            ++r.kept;
+            next.push_back(carried);
+            add(path, prev.codecs[k], output_action::keep, {});
             continue;
         }
         const auto file = store::io::stat_of(target);
         if (!file)
             continue;
-        if (!trusted(k, file) &&
-            store::io::hash_file(target) != prev.hashes[k]) {
-            ++r.kept;
-            continue;
-        }
-        std::filesystem::remove(target);
-        ++r.removed;
-        remove_empty_directories(target.parent_path(), base);
+        const bool edited = !trusted(k, file) &&
+            store::io::hash_file(target) != prev.hashes[k];
+        add(path, prev.codecs[k],
+            edited ? output_action::keep : output_action::remove, {});
     }
 
     std::ranges::sort(next, {}, &entry::path);
     const bool racy = std::ranges::any_of(prev.stats,
         [&](const st::stat_data& s) { return s.mtime.sec >= prev.written.sec; });
-    r.record.root = base.string();
-    r.record.written = same_entries(next, prev) && !racy
+    // A file written through a rename gets a new inode, so its entry
+    // differs from the recorded one whatever the stat data was before.
+    const bool writes = std::ranges::any_of(p.actions, [](output_action a) {
+        return a == output_action::write || a == output_action::restore;
+    });
+    p.record.root = base.string();
+    p.record.written = !writes && same_entries(next, prev) && !racy
         ? prev.written : started;
     for (const auto& e : next) {
-        r.record.paths.emplace_back(e.path);
-        r.record.codecs.emplace_back(e.codec);
-        r.record.hashes.push_back(e.hash);
-        r.record.stats.push_back(e.stat);
+        p.record.paths.emplace_back(e.path);
+        p.record.codecs.emplace_back(e.codec);
+        p.record.hashes.push_back(e.hash);
+        p.record.stats.push_back(e.stat);
+    }
+    return p;
+}
+
+sink_result summarise(const output_plan& plan) {
+    sink_result r;
+    r.problems = plan.problems;
+    for (const auto a : plan.actions) {
+        switch (a) {
+        case output_action::write: ++r.written; break;
+        case output_action::restore: ++r.restored; break;
+        case output_action::unchanged: ++r.unchanged; break;
+        case output_action::remove: ++r.removed; break;
+        case output_action::keep: ++r.kept; break;
+        }
+    }
+    r.record = plan.record;
+    return r;
+}
+
+sink_result apply_outputs(const output_plan& plan) {
+    auto r = summarise(plan);
+    const std::filesystem::path base = r.record.root;
+    for (std::size_t i = 0; i < plan.size(); ++i) {
+        const auto action = plan.actions[i];
+        const auto target = base / plan.paths[i];
+        if (action == output_action::remove) {
+            std::filesystem::remove(target);
+            remove_empty_directories(target.parent_path(), base);
+            continue;
+        }
+        if (action != output_action::write &&
+            action != output_action::restore)
+            continue;
+        store::io::write_object(target,
+            std::as_bytes(std::span(plan.contents[i])));
+        const auto file = store::io::stat_of(target);
+        if (!file)
+            throw std::filesystem::filesystem_error(
+                "output is not a regular file after writing it", target,
+                std::make_error_code(std::errc::io_error));
+        const auto at = std::ranges::lower_bound(r.record.paths,
+            plan.paths[i]);
+        r.record.stats[static_cast<std::size_t>(
+            at - r.record.paths.begin())] = *file;
     }
     return r;
+}
+
+sink_result write_outputs(const std::filesystem::path& root,
+    const types::output_set& outputs,
+    const types::written_outputs& previous) {
+    return apply_outputs(plan_outputs(root, outputs, previous));
+}
+
+std::string diff_outputs(const output_plan& plan) {
+    const std::filesystem::path base = plan.record.root;
+    std::string out;
+    for (std::size_t i = 0; i < plan.size(); ++i) {
+        const auto action = plan.actions[i];
+        if (!changes_file(action))
+            continue;
+        const auto target = base / plan.paths[i];
+        std::optional<std::string> before;
+        if (store::io::stat_of(target)) {
+            before = read_file(target);
+            if (!before)
+                throw std::filesystem::filesystem_error(
+                    "cannot read output to compare it", target,
+                    std::make_error_code(std::errc::io_error));
+        }
+        std::optional<std::string_view> after;
+        if (action != output_action::remove)
+            after = plan.contents[i];
+        out += ops::unified_diff(plan.paths[i], before, after);
+    }
+    return out;
 }
 
 }

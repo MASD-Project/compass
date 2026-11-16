@@ -24,14 +24,17 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <map>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 #include "compass.codec/ops/outputs.hpp"
+#include "compass.store/io/git_files.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 
 namespace {
@@ -128,6 +131,19 @@ public:
 private:
     std::filesystem::path dir_;
 };
+
+/**
+ * @brief Every regular file under @p dir with its bytes and its stamp.
+ */
+std::map<std::string, std::pair<std::string, stamp>> snapshot(
+    const std::filesystem::path& dir) {
+    std::map<std::string, std::pair<std::string, stamp>> out;
+    for (const auto& e : std::filesystem::recursive_directory_iterator(dir)) {
+        if (e.is_regular_file())
+            out[e.path().string()] = {read(e.path()), stamp_of(e.path())};
+    }
+    return out;
+}
 
 const std::vector<row> two = {
     {"gen", "index.tsv", "path\ttitle\n"},
@@ -348,4 +364,67 @@ TEST_CASE("the written-outputs file is rewritten only when it changes",
     const auto aged = s.record;
     s.run(outputs(two));
     CHECK(s.record.written == aged.written);
+}
+
+TEST_CASE("a plan touches nothing, and applying it does what it says",
+    "[io][output_sink]") {
+    sink s;
+    s.run(outputs({two[0], two[1], {"gen", "gone.txt", "g\n"},
+        {"edited", "edited.txt", "e\n"}}));
+    write(s.root() / "edited.txt", "hand made\n");
+    std::filesystem::remove(s.root() / "deep/dir/model.hpp");
+    const auto next = outputs({{"gen", "index.tsv", "path\ttitle\nA\n"},
+        two[1], {"gen", "new.txt", "n\n"}}, {"edited"});
+    const auto before = snapshot(s.dir());
+
+    const auto plan = io::plan_outputs(s.root(), next, s.record);
+    const auto diff = io::diff_outputs(plan);
+
+    CHECK(snapshot(s.dir()) == before);
+    REQUIRE(plan.problems.empty());
+    CHECK(plan.paths == std::vector<std::string_view>{"index.tsv",
+        "deep/dir/model.hpp", "new.txt", "edited.txt", "gone.txt"});
+    using enum io::output_action;
+    CHECK(plan.actions == std::vector<io::output_action>{write, restore,
+        write, keep, remove});
+    CHECK(diff ==
+        "--- a/index.tsv\n+++ b/index.tsv\n@@ -1 +1,2 @@\n path\ttitle\n+A\n"
+        "--- /dev/null\n+++ b/deep/dir/model.hpp\n@@ -0,0 +1 @@\n"
+        "+struct model {};\n"
+        "--- /dev/null\n+++ b/new.txt\n@@ -0,0 +1 @@\n+n\n"
+        "--- a/gone.txt\n+++ /dev/null\n@@ -1 +0,0 @@\n-g\n");
+
+    const auto planned = io::summarise(plan);
+    const auto r = io::apply_outputs(plan);
+    CHECK(std::tie(r.written, r.restored, r.unchanged, r.removed, r.kept) ==
+        std::tie(planned.written, planned.restored, planned.unchanged,
+            planned.removed, planned.kept));
+    CHECK(std::tie(r.written, r.restored, r.removed, r.kept) ==
+        std::tuple{2u, 1u, 1u, 1u});
+    CHECK(r.record.paths == plan.record.paths);
+    CHECK(r.record.hashes == plan.record.hashes);
+    CHECK(r.record.written == plan.record.written);
+    CHECK(read(s.root() / "index.tsv") == "path\ttitle\nA\n");
+    CHECK(read(s.root() / "deep/dir/model.hpp") == "struct model {};\n");
+    CHECK(read(s.root() / "new.txt") == "n\n");
+    CHECK(read(s.root() / "edited.txt") == "hand made\n");
+    CHECK_FALSE(std::filesystem::exists(s.root() / "gone.txt"));
+    for (std::size_t i = 0; i < r.record.size(); ++i)
+        CHECK(r.record.stats[i] ==
+            *compass::store::io::stat_of(s.root() / r.record.paths[i]));
+}
+
+TEST_CASE("a plan with nothing changed has no diff and keeps the record",
+    "[io][output_sink]") {
+    sink s;
+    s.run(outputs(two));
+    s.age();
+
+    const auto plan = io::plan_outputs(s.root(), outputs(two), s.record);
+
+    CHECK(plan.actions == std::vector<io::output_action>(2,
+        io::output_action::unchanged));
+    CHECK(io::diff_outputs(plan).empty());
+    CHECK(ops::encode_written_outputs(plan.record) ==
+        ops::encode_written_outputs(s.record));
 }
