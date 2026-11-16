@@ -54,6 +54,9 @@ and hands the bytes to =write_object=; later it maps the file with
   file, and so does a trailing SHA-1 that does not match, unless it is all
   zeros as =index.skipHash= writes it. =io::read_git_index= opens the file
   read-only and records its modification time.
+  =io::id_resolver= treats a rejected index as no index: every file is
+  hashed, and =index_problem= says why, so an unusable index costs speed and
+  never correctness.
 - *Clean.* =ops::is_clean= says whether git would call a file clean from
   stat data alone. Every field must match, nanoseconds included, which is
   stricter than git on Linux. A size of zero is never trusted, since git

@@ -535,6 +535,9 @@ void write_ids_report(std::ostream& os, const types::ids_result& stage,
                       "autocrlf: {}\n", stage.index_version,
         stage.index_entries, stage.trusted_entries,
         stage.autocrlf ? "converts" : "no");
+    if (!stage.index_problem.empty())
+        os << std::format("index unusable, every file hashed: {}\n",
+            stage.index_problem);
     os << std::format("repetitions: {}  threads: {}\n", stage.read_ms.size(),
         setup.threads);
     os << std::format(

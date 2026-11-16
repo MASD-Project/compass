@@ -95,6 +95,14 @@ public:
     }
 
     /**
+     * @brief Why the index could not be used, or empty when it was read.
+     * When set, every file is hashed.
+     */
+    [[nodiscard]] const std::string& index_problem() const noexcept {
+        return index_problem_;
+    }
+
+    /**
      * @brief How many index entries may lend their ID: those that pass
      * every rule that does not depend on the file's stat data.
      */
@@ -106,6 +114,7 @@ private:
     std::filesystem::path checkout_;
     types::git_config config_;
     types::git_index index_;
+    std::string index_problem_;
     types::attribute_rules attributes_;
     std::vector<std::uint32_t> trusted_;
 };

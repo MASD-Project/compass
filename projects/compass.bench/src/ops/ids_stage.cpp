@@ -124,6 +124,7 @@ types::ids_result run_ids_stage(const std::filesystem::path& checkout,
         result.index_entries = resolver.index().size();
         result.trusted_entries = resolver.trusted_entries();
         result.autocrlf = resolver.config().autocrlf;
+        result.index_problem = resolver.index_problem();
 
         const auto [stat_ms, stat_tallies] = run_ranges(stat_ranges,
             [&](types::file_range range) {

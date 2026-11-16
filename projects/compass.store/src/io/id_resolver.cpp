@@ -152,8 +152,15 @@ id_resolver::id_resolver(const std::filesystem::path& checkout)
     const auto dir = git_dir(checkout);
     const auto common_dir = git_common_dir(checkout);
     config_ = read_config(dir, common_dir);
-    if (const auto file = dir / "index"; std::filesystem::exists(file))
-        index_ = read_git_index(file);
+    // An index this reader cannot use, such as a split index, costs speed but
+    // not correctness: every file is hashed and the reason is kept.
+    if (const auto file = dir / "index"; std::filesystem::exists(file)) {
+        try {
+            index_ = read_git_index(file);
+        } catch (const std::runtime_error& e) {
+            index_problem_ = e.what();
+        }
+    }
     if (config_.autocrlf || !config_.sha1)
         return;
 

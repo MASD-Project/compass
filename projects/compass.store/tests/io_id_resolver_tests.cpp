@@ -267,7 +267,8 @@ TEST_CASE("a linked worktree reads the index of its own git directory",
     CHECK_FALSE(io::id_resolver(repo.root()).index_id("only_here.txt"));
 }
 
-TEST_CASE("a corrupt index is rejected", "[io][id_resolver]") {
+TEST_CASE("a corrupt index is not trusted and every file is hashed",
+    "[io][id_resolver]") {
     git_repository repo;
     add_clean(repo, {{"a.txt", "a\n"}, {"b.txt", "b\n"}});
     auto bytes = tests::read(repo.index_file());
@@ -283,7 +284,11 @@ TEST_CASE("a corrupt index is rejected", "[io][id_resolver]") {
         std::ofstream os(repo.index_file(), std::ios::binary);
         os << bytes;
     }
-    CHECK_THROWS_AS(io::id_resolver(repo.root()), std::runtime_error);
+    const io::id_resolver r(repo.root());
+    CHECK_FALSE(r.index_problem().empty());
+    CHECK(r.index().size() == 0);
+    CHECK(checked(repo, r, "a.txt") == io::id_source::hashed);
+    CHECK(checked(repo, r, "b.txt") == io::id_source::hashed);
 }
 
 TEST_CASE("an index written under index.skipHash has no checksum to verify",
@@ -297,12 +302,16 @@ TEST_CASE("an index written under index.skipHash has no checksum to verify",
     CHECK(checked(repo, r, "a.txt") == io::id_source::index);
 }
 
-TEST_CASE("a split index is rejected", "[io][id_resolver]") {
+TEST_CASE("a split index falls back to hashing every file",
+    "[io][id_resolver]") {
     git_repository repo;
     add_clean(repo, {{"a.txt", "a\n"}});
     repo.git("update-index --split-index");
 
-    CHECK_THROWS_AS(io::id_resolver(repo.root()), std::runtime_error);
+    const io::id_resolver r(repo.root());
+    CHECK_FALSE(r.index_problem().empty());
+    CHECK(r.index().size() == 0);
+    CHECK(checked(repo, r, "a.txt") == io::id_source::hashed);
 }
 
 TEST_CASE("a repository with no index hashes every file",

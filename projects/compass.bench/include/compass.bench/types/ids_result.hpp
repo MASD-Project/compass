@@ -45,6 +45,7 @@ struct ids_result {
     std::uint64_t index_entries = 0;
     std::uint64_t trusted_entries = 0;
     bool autocrlf = false;
+    std::string index_problem;
     std::uint64_t files = 0;
     std::uint64_t from_index = 0;
     std::uint64_t hashed = 0;
