@@ -1,0 +1,166 @@
+:PROPERTIES:
+:ID: 2E063662-CB56-4AA6-9447-811838A3DEF5
+:END:
+#+title: Document store model
+#+description: Proposed data-oriented representation of the compass document model in compass-ng: handles, interned strings, struct-of-arrays tables, typed links in CSR form, a single source for work state, and snapshot reads with one writer.
+#+type: knowledge
+#+level: cross
+#+filetags: :modeling:data_model:data_oriented:storage:
+#+created: 2026-10-27
+#+updated: 2026-10-27
+
+* Summary
+
+*Status: proposal, awaiting review.* compass-ng keeps the whole corpus in
+memory as struct-of-arrays tables indexed by dense 32-bit handles. UUIDs,
+paths and tags are converted to handles and interned string ids once, at
+the boundary. Documents and headings are both /nodes/; links are typed edges
+held twice in compressed sparse row (CSR) form, so backlinks cost nothing.
+Work state has one home — the work table — and every parent table the org
+files show is rendered from it, which removes the drift =compass sprint
+audit= exists to catch. Readers work on immutable snapshots; one writer
+applies batches of mutations and publishes the next snapshot.
+
+* Detail
+
+** Design goals
+
+- Every hot query touches a few contiguous arrays: no pointer chasing, no
+  per-document objects.
+- Size scales with the corpus, not with the number of clients: snapshots
+  share unchanged columns.
+- The org files of [[id:379EC6BB-620D-4A5D-8A17-33B1D7353586][Compass document model]] import losslessly
+  and can be exported back.
+
+** Identity and handles
+
+| Handle      | Width | Indexes                          |
+|-------------+-------+----------------------------------|
+| =node_id=   | u32   | the node table (documents and headings) |
+| =doc_id=    | u32   | the document table               |
+| =section_id= | u32  | the section table                |
+| =str_id=    | u32   | the string pool                  |
+| =blob_ref=  | u64   | offset and length in the text arena |
+
+UUIDs are 128-bit values (two u64), stored once in the node table. A single
+open-addressing hash map resolves UUID → =node_id= at the boundary; nothing
+inside the store holds a UUID. Handles are stable within a snapshot; a
+deleted node leaves a tombstone until the next compaction.
+
+** Strings and text
+
+- *String pool:* titles, descriptions, tags, type names, keyword names and
+  values, paths. Interned once; tables store =str_id=. Equality is integer
+  comparison.
+- *Text arena:* section bodies, which are 90% of the bytes. Append-only and
+  memory-mapped; sections store a =blob_ref=. Bodies are never interned.
+
+** Tables
+
+All tables are struct-of-arrays: one array per column, indexed by handle.
+
+*node* — every link target.
+| Column  | Type      | Notes |
+|---------+-----------+-------|
+| uuid    | u128      | |
+| kind    | u8        | document or section |
+| owner   | doc_id    | the document the node lives in |
+| target  | u32       | =doc_id= or =section_id= by kind |
+
+*document*
+| Column      | Type      | Notes |
+|-------------+-----------+-------|
+| node        | node_id   | |
+| type        | str_id    | |
+| level       | u8        | s1–s5, cross |
+| title       | str_id    | |
+| description | str_id    | |
+| path        | str_id    | relative path, for export |
+| created, updated | u32  | days since epoch |
+| first_section, section_count | u32 | sections of a document are contiguous |
+| tags        | CSR       | =tag_offset[doc]..tag_offset[doc+1]= into =tag_ids= |
+
+*section* — one row per heading, in document order.
+| Column  | Type       | Notes |
+|---------+------------+-------|
+| doc     | doc_id     | |
+| parent  | section_id | or none, for level 1 |
+| level   | u8         | |
+| title   | str_id     | |
+| body    | blob_ref   | text up to the first child heading |
+| node    | node_id    | or none: only headings with an =:ID:= are nodes |
+
+*keyword* — the long tail of =#+key:= and heading-drawer properties, as
+rows =(owner node, key str_id, value str_id)= sorted by owner.
+
+*work* — one row per version, sprint, story, task or test scenario. The
+single source of lifecycle state.
+| Column            | Type     | Notes |
+|-------------------+----------+-------|
+| doc               | doc_id   | |
+| parent            | doc_id   | the hierarchy; folder placement is derived |
+| state             | u8       | index into the type's lifecycle vocabulary |
+| start, end        | u32      | days |
+| now, waiting_on, next | str_id | the agent's working memory |
+| owner, branch, pr, environment | str_id | tasks |
+| blocked_on        | node_id  | |
+| blocked_since     | u32      | |
+Children of a work item are a CSR over =parent=; the =* Tasks=,
+=* Stories= and =* Sprints= tables are rendered from it on export.
+
+** Links
+
+An edge is =(source node, target node, kind, section)=.
+| Kind       | Meaning |
+|------------+---------|
+| =contains= | parent work item → child (derived from =work.parent=) |
+| =mentions= | an id link in body text |
+| =see_also= | an item in a =* See also= section |
+| =defines=  | a link to a glossary term |
+| =external= | =https:= and =proj:= targets, kept as strings |
+On import the kind is inferred from where the link sits; compass-ng writes
+it explicitly. Edges are stored sorted by source (forward CSR) and again by
+target (reverse CSR): out-links and backlinks are both one slice.
+
+** Indexes
+
+- *Tags → documents*: inverted CSR.
+- *Type → documents*, *state → work items*: small CSRs rebuilt per snapshot.
+- *Full text*: an inverted index of =term str_id → postings (section_id,
+  term frequency)=, with separate fields for title, description and body
+  so the compass legacy scorer (title core words, title full words, body
+  BM25, inbound links, recipe bonus) ports unchanged.
+
+** Snapshots and writes
+
+- A snapshot is an immutable set of column chunks. Readers take a reference
+  to the current snapshot and never block.
+- One writer thread applies a batch of mutations (create, update keyword,
+  move state, add link, ...) to copy-on-write chunks and publishes the new
+  snapshot atomically. Unchanged chunks are shared.
+- Every batch is first appended to a write-ahead log. Recovery is the last
+  checkpoint plus a log replay. Where the log and checkpoints live is the
+  storage-engine decision.
+
+** Sizing
+
+| Corpus                  | Nodes | Sections | Edges | Columns (excl. text) | Text |
+|-------------------------+-------+----------+-------+----------------------+------|
+| ORE Studio today        | ~11k  | 68k      | 37k   | ~5 MB                | ~40 MB |
+| Ten times larger        | ~110k | 680k     | 370k  | ~50 MB               | ~400 MB, memory-mapped |
+The column estimate assumes about 40 bytes per section and 16 bytes per
+edge in each direction. Text dominates, which is why it lives in a
+memory-mapped arena rather than on the heap.
+
+** Open questions
+
+- Is a section body one blob, or a sequence of blocks (paragraph, table,
+  src, example), so tables such as =* Status= become data?
+- Which keywords graduate from the =keyword= rows to typed columns?
+- Are deleted documents kept as history, or only in the log?
+
+* See also
+
+- [[id:379EC6BB-620D-4A5D-8A17-33B1D7353586][Compass document model]] — the as-is model this page maps.
+- [[id:8A9A460F-8024-4890-B091-C0D02FD84218][System Model]] — the components that own these tables.
+- [[id:8A0E6F32-C4BC-4667-88E8-7F80CA25437C][Component architecture]] — the data-oriented conventions.

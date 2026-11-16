@@ -25,11 +25,11 @@ Extract the model compass.legacy uses at runtime: its index, database, search an
 
 | Field        | Value                                                               |
 |--------------+---------------------------------------------------------------------|
-| State        | BACKLOG                                                             |
+| State        | DONE                                                             |
 | Parent story | [[id:E20F0268-BB77-4E40-9FC3-CB2928C64C23][Extract the data model]] |
-| Now          | Not started.                                                        |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                                                            |
-| Next         | Start the task.                                                     |
+| Next         | Nothing. |
 | Last touched | 2026-10-27                                                          |
 
 * Acceptance
@@ -49,3 +49,5 @@ Extract the model compass.legacy uses at runtime: its index, database, search an
 * Review
 
 * Result
+
+Recorded in [[id:379EC6BB-620D-4A5D-8A17-33B1D7353586][Compass document model]], section /Runtime model in compass legacy/: the =Doc= and =Anchor= index, the FTS5 table, the weighted scorer, and the per-command re-parse.
