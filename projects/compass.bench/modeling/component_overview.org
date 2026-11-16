@@ -2,7 +2,7 @@
 :ID: 1F522775-710C-4EFE-8317-8354D902816D
 :END:
 #+title: compass.bench
-#+description: The frozen benchmark harness. It times reading every tracked file of a git checkout, building its include graph, parsing its C++ and SQL with tree-sitter, parsing its org documents into the compass.org tables, resolving their types, storing them, finding the git blob ID of every file and running the codecs over the loaded corpus.
+#+description: The frozen benchmark harness. It times reading every tracked file of a git checkout, building its include graph, parsing its C++ and SQL with tree-sitter, parsing its org documents into the compass.org tables, resolving their types, storing them, finding the git blob ID of every file, running the codecs over the loaded corpus and loading the codegen models.
 #+type: component
 #+level: cross
 #+filetags: :bench:performance:component:
@@ -77,6 +77,13 @@ of a checkout with one =git ls-files -z= call and map files with
   changed. With =--diff= the outputs are planned against the root by the
   same sink and printed as a unified diff, and nothing is written: no
   object, no record and no output.
+- =models= parses the =.org= files of every =modeling= directory under
+  =projects/= once, then loads every codegen model among them into the
+  =compass.model= tables, on one thread, =--repeat= times. A model reads
+  other documents, such as its profile, through a finder over the same
+  parsed set, which parses a document outside it the first time it is
+  asked for. =--dump= writes each model of the last repetition as
+  canonical JSON, for =build/scripts/codegen_model_diff.py=.
 
 =gc= is not a stage either. =ops::run_gc_stage= collects the store once with
 =compass.store='s =io::collect=, keeping the action objects of the result
@@ -124,6 +131,7 @@ the line format of =compass::org::io::dump=, which
 - =compass-bench ids <checkout> [-j N] [--repeat R] [--verify N|all]=.
   =--verify= checks N IDs spread evenly over the files, or all of them; it
   defaults to none.
+- =compass-bench models <checkout> [--dump <dir>] [--repeat R]=.
 - =compass-bench org-dump <file>= prints to standard output.
   =compass-bench org-dump --list <list>= reads one input path, a tab and an
   output path per line and writes each dump to its output.
@@ -197,6 +205,10 @@ the line format of =compass::org::io::dump=, which
   counts, and unchanged), the output root, the corpus with the objects
   loaded and parsed, the run's wall time, the plan and diff times, and
   every failure.
+- For =models=: the documents parsed and the time to map and parse them,
+  the models and the value rows of the last repetition, the count of each
+  model type with how many ores.codegen refuses or are not ported, and the
+  min, median and max milliseconds of loading every model.
 - For =ids=: the index version, its entries and how many may lend their
   ID, and whether =core.autocrlf= converts; the thread count and setup
   times; the files whose ID came from the index and those hashed, with the
@@ -278,6 +290,7 @@ Linux.
 | =include/compass.bench/ops/org_dump.hpp=        | The =org-dump= command.                                |
 | =include/compass.bench/ops/store_stage.hpp=     | The =store= stage.                                     |
 | =include/compass.bench/ops/ids_stage.hpp=       | The =ids= stage.                                       |
+| =include/compass.bench/ops/models_stage.hpp=    | The =models= stage and its report.                     |
 | =include/compass.bench/ops/types_stage.hpp=     | The registry from a meta directory; the =types= stage. |
 | =include/compass.bench/ops/codecs_stage.hpp=    | Corpus loading and the =codecs= stage.                 |
 | =include/compass.bench/ops/gc_stage.hpp=        | The =gc= command with the result cache's roots.        |
@@ -298,6 +311,7 @@ Linux.
 - =compass.ingest= for the org parser and the type registry builder, and
   =compass.org= for the tables, their dump, the object codec and the type
   lookup.
+- =compass.model= for the model tables, the loader and the JSON dump.
 - =compass.codec= for the codec registry, the runner and the codecs.
 - =compass.store= for blob IDs, object paths, object writes, the ID
   resolver and collection.

@@ -1,0 +1,132 @@
+:PROPERTIES:
+:ID: D28A3247-4CEE-4D3E-B630-0BC69E020533
+:END:
+#+title: compass.model
+#+description: The codegen models of ORE Studio as data-oriented tables: one value row per object, list or scalar, linked by handles, loaded from the compass.org tables with the values ores.codegen's loader builds, and a canonical JSON dump to compare the two.
+#+type: component
+#+level: cross
+#+filetags: :model:codegen:data_oriented:component:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+
+This page is the component overview for =compass.model=, a simple component
+in the domain layer of the
+[[id:8A9A460F-8024-4890-B091-C0D02FD84218][System Model]].
+
+* Summary
+
+=compass.model= loads the codegen models of ORE Studio: the org documents
+under =projects/*/modeling/= whose =#+type:= is an =ores.codegen.= type. A
+model loads to the value =ores.codegen.core.load_model= returns for it, and
+=build/scripts/codegen_model_dump.py= is the oracle that checks it.
+
+The value is what a Mustache template renders, a tree of objects, lists and
+scalars, so the component stores it as such a tree, in tables. Every value of
+every model is one row of the value table, and children are linked by
+handles, so a corpus of models is a handful of columns and no model is a
+graph of heap objects.
+
+The loader reads the parsed =compass.org= tables of a document. Its =outline=
+gives the view of a document ores.codegen's =parse_org= builds: nodes with
+their properties, prose lines, named source blocks, tables and bullet lists.
+The tables say where each heading, property drawer, source block and comment
+block is; the text of each is read from the source by the line rules
+=parse_org= applies, so a value comes out exactly as ores.codegen reads it.
+One loader per model type then follows its =org_loader= function, refusals
+included.
+
+* Inputs
+
+- One parsed document: its path relative to the root of the checkout, its
+  bytes and its =compass.org= tables.
+- A =document_finder= that finds another parsed document by path. A model
+  reads other documents through it: the profiles and the custom type registry
+  of =projects/modeling/=, and the field groups an entity's domain groups
+  name. A host that records reads, such as a codec's corpus view, sees every
+  one, because the finder is asked for each read even when the
+  =load_cache= spares parsing the document again.
+
+No model at this commit reads a =#+data_source:= JSON file: in ORE Studio
+only the populate archetypes of the template library name one, and an
+archetype is not a model. The task that renders the archetypes reads them,
+as inputs it records like any other file.
+
+* Outputs
+
+=model_tables= holds the loaded models of a run:
+
+| Table    | Handle     | One row per                                             |
+|----------+------------+---------------------------------------------------------|
+| =models= | =model_id= | Model: its path, its =model_type= and its root value.   |
+| =values= | =value_id= | Object, list, string, integer, boolean or null.         |
+| =texts=  | =text_id=  | Distinct string, key or value, end to end in its bytes. |
+
+- *Values.* =kinds= says what a value is. A scalar keeps its payload in
+  =scalars=: 0 or 1, the integer, or the =text_id= of the string. An object
+  or list links its children: =firsts= and =lasts= give the first and last
+  child, =nexts= the following sibling, and a child of an object has a key in
+  =keys=. A value that is replaced or removed stays as a row nothing points
+  to.
+- *Builder.* =ops::builder= writes values with the semantics of a Python dict
+  and list: setting a key an object holds replaces its value, and texts are
+  interned, so the loaders read like the code they follow.
+- *Refusals.* Where ores.codegen raises =ValueError= the model's value is
+  ={"error": "ValueError"}=, which is what the oracle records, and the loader
+  hands back the message. A type that is not ported loads as
+  ={"error": "NotPorted"}=.
+- *Dump.* =io::write_json= writes a value as Python's
+  =json.dumps(sort_keys=True, indent=2, ensure_ascii=False)= does, so the
+  two dumps compare as text.
+
+| Model type              | Loader                       | ORE Studio models | Identical |
+|-------------------------+------------------------------+-------------------+-----------|
+| =entity=                | =load_entity=                |               556 |       556 |
+| =component=             | =load_component_overview=    |               128 |       128 |
+| =operation=             | =load_operation=             |                80 |        80 |
+| =field_group=           | =load_field_group=           |                45 |        45 |
+| =junction=              | =load_junction=              |                27 |        27 |
+| =family=                | none                         |                 4 |         0 |
+| =service_registry=      | =load_service_registry=      |                 1 |         1 |
+| =asset_class_catalogue= | =load_asset_class_catalogue= |                 1 |         1 |
+| =outcome_catalogue=     | =load_outcome_catalogue=     |                 1 |         1 |
+| =trade_type_catalogue=  | none                         |                 1 |         0 |
+
+The counts are of ORE Studio =origin/main= at =4ca9411b70=, from
+=build/scripts/codegen_model_diff.py=. A =family= needs the derived key
+records of its central entity and a directory index of the entity models
+beside it; the =trade_type_catalogue= reads the entity models and headers
+of every trade type. Neither is ported.
+
+* Entry points
+
+| Path                                           | Role                                          |
+|------------------------------------------------+-----------------------------------------------|
+| =include/compass.model/types/model_tables.hpp= | The tables, handles and model types.          |
+| =include/compass.model/ops/builder.hpp=        | Writing values with dict and list semantics.  |
+| =include/compass.model/ops/outline.hpp=        | The =parse_org= view of a parsed document.    |
+| =include/compass.model/ops/load.hpp=           | =load_model=, the finder and the load cache.  |
+| =include/compass.model/io/json.hpp=            | The canonical JSON dump.                      |
+| =src/ops/*.cpp=                                | One loader per model type.                    |
+| =tests/ops_load_*_tests.cpp=                   | One model per type against the oracle's JSON. |
+
+| Target                | Kind                                      |
+|-----------------------+-------------------------------------------|
+| =compass.model.lib=   | Library.                                  |
+| =compass.model.tests= | Catch2 executable, registered with CTest. |
+
+=compass-bench models <checkout> --dump <dir>= loads every model of a
+checkout and dumps it; =build/scripts/codegen_model_diff.py= compares that
+dump with the oracle's, model by model.
+
+* Dependencies
+
+- =compass.org= for the tables a document is parsed into.
+- The C++23 standard library.
+- Catch2 and =compass.ingest=, for the tests only.
+
+* See also
+
+- [[id:44C128E0-BCF3-4574-B171-BF5E72325085][compass.org]] --- the tables the
+  loader reads.
+- [[id:8DE0BA3A-1014-4C03-9DF8-0577B8423A83][Load codegen models]] --- the
+  task that built the component.

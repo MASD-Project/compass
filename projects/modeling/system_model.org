@@ -53,6 +53,7 @@ document, so the store stays below the domain layer.
 |------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | =compass.org=    | The tables an org-mode document becomes: element tree, objects, headings, keywords, properties, blocks, lists, links and interned names, with byte ranges into the source; and the document type registry. |
 | =compass.ingest= | Readers that fill the =compass.org= tables: the org-mode parser and the type registry builder first, then the C++ and SQL fact extractors.                                   |
+| =compass.model=  | The codegen models of ORE Studio as tables: one value row per object, list or scalar, linked by handles, loaded from the =compass.org= tables of a model document with the values ores.codegen's loader builds. |
 | =compass.codec=  | The codec runtime: descriptors, the recorded view of the corpus, file and diagnostic tables, the registry and runner, dependency records, the output sink, diff mode and the result cache; and the codecs that need only the org tables. |
 
 =compass.codec= is in the domain layer because a codec is defined in terms of
@@ -63,6 +64,16 @@ on =compass.ingest=, so it runs the same over a fresh parse, a mapped store and
 the blobs of a past commit. A component that adds codecs, such as code
 generation or the HTML export, depends on =compass.codec= and nothing depends
 on it in return; each is added by the story that needs it.
+
+=compass.model= is a component of its own, not a facet of =compass.codec=,
+because a model is document data, not codec machinery. Its loader reads the
+=compass.org= tables of a document and the documents it names, through a
+finder the host supplies, and depends on nothing else, so the code
+generation codecs and the model checks that replace ORE Studio's gates can
+both read models without the codec runtime. A code generation component
+depends on both =compass.model= and =compass.codec=; its codec hands the
+loader a finder over the corpus view, which records every document a model
+reads.
 
 Work management (stories, tasks, sprints) is not a separate component: a unit
 of work is a document with a lifecycle state, read through the same tables.
