@@ -26,11 +26,11 @@ Build the render contexts of junction, operation and field group outputs, and of
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:4F499B47-4AB8-4049-A72F-495351A6E2C7][Port ORE Studio codegen]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -64,7 +64,11 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Contexts identical | 26,204 of 26,204 (junction 1,124, operation 444, field group 115, family 36) | =compass-bench render= then =codegen_render_diff.py --every-path= | f7af1b8 |
+| Renders identical | 26,204 of 26,212 (from 24,483); 8 missing, 0 different | =compass-bench render= then =codegen_render_diff.py --every-path= | f7af1b8 |
+| Context build | 1.90 s for 824 contexts (1.28 s for 668 before), load average 16-19 | =compass-bench render= | f7af1b8 |
+| Render | 0.43 s median of 5 for 26,358 outputs | =compass-bench render= | f7af1b8 |
+| ctest | 10 of 10 suites pass | =ctest --preset linux-clang-release= | f7af1b8 |
 
 * Notes
 
@@ -92,3 +96,33 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+Every junction, operation and field group output renders byte-identical to
+ores.codegen, as do the 2 shell aggregators and the 36 family outputs. The
+contexts reuse the entity steps; the new ones live in
+=compass.codegen/src/ops/{junction,operation,field_group,family}_context.cpp=
+and =model_steps.cpp=. =compass.model= now loads family models, which was part
+of [[id:BE459C5A-3AE2-44AA-AE65-6ED63A0CAC39][Load family and trade type models]].
+
+The acceptance named 4 registry outputs; those were already identical. The
+real missing set was junction 1,124, operation 444, field group 115, family 36
+and trade type catalogue 8.
+
+Left open: the 8 trade type catalogue outputs (batch, digest, routing, writer,
+TS batch, populate SQL, common dates create and drop). Their model loader
+(org_loader.py 7221-7775) is not ported; it belongs to Load family and trade
+type models.
+
+Decisions to revisit:
+
+- =junction_context= returns the context and the shape its shell and HTTP
+  templates read, because that shape must be built before the repository
+  section is copied onto the junction. =template_context= takes it as a
+  =prepared= argument.
+- The family loader only parses the document. The messages and imports Python
+  derives from the central entity's key record are derived in
+  =compass.codegen=, so the loaded family model differs from Python's.
+- =filter_members= is written onto the junction shape, read by the plans and
+  removed, because Python computes it on the fly.
+- Context build rose to 1.90 s on a loaded machine. Not profiled; the overlay
+  noted in the entity task is the expected fix.
