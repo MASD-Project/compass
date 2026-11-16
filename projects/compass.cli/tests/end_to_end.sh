@@ -95,13 +95,18 @@ grep -qx 'output = configured (.compass.org:2)' "$root/out" ||
 grep -qx 'required_sections.enabled = false (.compass.org:9)' "$root/out" ||
     fail "config did not report the disabled codec"
 
-expect 0 "check with required_sections disabled" "$compass" check
-expect 1 "check with required_sections enabled on the command line" \
-    "$compass" check --set required_sections.enabled=true
+expect 1 "check before the configured outputs are generated" \
+    "$compass" check
+grep -q '^configured/index.tsv:1:1: document_index/drift: ' "$root/out" ||
+    fail "check did not report the output generate would write"
 
 expect 0 "configured generate" "$compass" generate
 [ -f configured/index.tsv ] ||
     fail "the index is not where the configuration puts it"
+
+expect 0 "check with required_sections disabled" "$compass" check
+expect 1 "check with required_sections enabled on the command line" \
+    "$compass" check --set required_sections.enabled=true
 
 printf '* Codecs\n| document_index | perhaps | |\n' >"$repo/.compass.org"
 expect 2 "a malformed configuration" "$compass" check

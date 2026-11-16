@@ -96,6 +96,7 @@ TEST_CASE("a hand edit makes diff exit 1 with its diff and gen restore it",
 TEST_CASE("check reports a missing section with path, position and fix and "
     "exits 1, then 0 once the section is there", "[app][application]") {
     scoped_git_repo repo;
+    REQUIRE(run_on(repo, "gen").status == 0);
 
     const auto missing = run_on(repo, "check");
     CHECK(missing.status == 1);
@@ -205,14 +206,54 @@ TEST_CASE("the configuration file sets the output root and which codecs "
     repo.write(".compass.org", "#+output: generated\n* Codecs\n"
         "| required_sections | no | |\n");
 
-    const auto checked = run({"check", "-C", repo.checkout().string()});
-    CHECK(checked.status == 0);
-    CHECK_THAT(checked.out, StartsWith("0 diagnostics (4 documents, "));
-
     const auto generated = run({"gen", "-C", repo.checkout().string()});
     CHECK(generated.status == 0);
     CHECK(std::filesystem::exists(
         repo.checkout() / "generated" / "doc" / "document_index.tsv"));
+
+    const auto checked = run({"check", "-C", repo.checkout().string()});
+    CHECK(checked.status == 0);
+    CHECK_THAT(checked.out, StartsWith("0 diagnostics (4 documents, "));
+}
+
+TEST_CASE("check reports each file generate would change and exits 1 "
+    "until it is generated", "[app][application]") {
+    scoped_git_repo repo;
+    repo.write(".compass.org", "#+output: generated\n* Codecs\n"
+        "| required_sections | no | |\n");
+    const auto check = [&] {
+        return run({"check", "-C", repo.checkout().string()});
+    };
+
+    const auto missing = check();
+    CHECK(missing.status == 1);
+    CHECK_THAT(missing.out, StartsWith(
+        "generated/doc/document_index.tsv:1:1: document_index/drift: "
+        "document_index generates this file and it is missing (fix: run "
+        "compass generate, or change the model or template that generates "
+        "it)\n1 diagnostic ("));
+
+    REQUIRE(run({"gen", "-C", repo.checkout().string()}).status == 0);
+    CHECK(check().status == 0);
+
+    const auto index = repo.checkout() / "generated" / "doc" /
+        "document_index.tsv";
+    auto text = scoped_git_repo::read_file(index);
+    text.insert(text.find('\n') + 1, "X");
+    scoped_git_repo::write_file(index, text);
+    const auto edited = check();
+    CHECK(edited.status == 1);
+    CHECK_THAT(edited.out, StartsWith(
+        "generated/doc/document_index.tsv:2:1: document_index/drift: the "
+        "file was edited after compass wrote it ("));
+
+    repo.write("doc/task_c.org", "#+title: Task: c\n#+type: task\n");
+    const auto added = check();
+    CHECK(added.status == 1);
+    CHECK_THAT(added.out, ContainsSubstring(
+        "document_index/drift: the file differs from what document_index "
+        "generates"));
+    CHECK(scoped_git_repo::read_file(index) == text);
 }
 
 TEST_CASE("editing one codec's option in the file runs only that codec's "

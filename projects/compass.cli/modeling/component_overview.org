@@ -31,7 +31,7 @@ thing with what the codecs produced:
 |-------------------+--------------------------------------------------------------------------+---------------------------------------------------|
 | =generate=, =gen= | Makes the files under the output root hold what the codecs emit.         | Store, records, outputs.                          |
 | =diff=            | Prints what =generate= would change as unified diffs.                    | Nothing.                                          |
-| =check=           | Prints every diagnostic as =path:line:column: rule: message (fix: ...)=. | Store and records, no output.                     |
+| =check=           | Prints every diagnostic as =path:line:column: rule: message (fix: ...)=, and a =codec/drift= diagnostic for each file =generate= would change. | Store and records, no output.                     |
 | =gc=              | Removes old unreferenced objects and action objects from the store.      | Removes files from the store, unless =--dry-run=. |
 | =config=          | Prints every path and codec setting in effect, and where it came from.   | Nothing.                                          |
 
@@ -120,7 +120,11 @@ the standard streams.
 - Standard output: =generate= prints one line of counts (written,
   unchanged, restored, removed, kept), the output root, the corpus, the
   units each codec ran rather than reused, and the wall time. =diff= prints the unified diffs. =check= prints one line per
-  diagnostic, sorted by path, line and column, then the count. =gc= prints
+  diagnostic, sorted by path, line and column, then the count. Its
+  diagnostics include one per file =generate= would write, restore or
+  remove, under the rule =drift= of the codec that emits it, at the first
+  byte that differs; a file outside the checkout is named by its absolute
+  path. =gc= prints
   what it removed, or would remove, and the size of the store. =config=
   prints one line per path and codec setting, as
   =<key> = <value> (<source>)=, the source being =default=,

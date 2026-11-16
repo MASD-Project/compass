@@ -22,6 +22,9 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -160,6 +163,66 @@ std::pair<std::uint32_t, std::uint32_t> position_of(std::string_view source,
         static_cast<std::uint32_t>(column)};
 }
 
+/**
+ * @brief The bytes of the file at @p path, or nothing when it cannot be
+ * read.
+ */
+std::optional<std::string> read_bytes(const std::filesystem::path& path) {
+    std::ifstream in(path, std::ios::binary);
+    if (!in)
+        return std::nullopt;
+    return std::string(std::istreambuf_iterator<char>(in), {});
+}
+
+/**
+ * @brief One finding for each file that writing the outputs of @p plan
+ * under @p root would change, located at the first byte that differs in
+ * the file on disk. Its path is relative to @p checkout when the file is
+ * under it.
+ */
+std::vector<types::finding> drift_of(const codec::io::output_plan& plan,
+    const std::filesystem::path& root,
+    const std::filesystem::path& checkout) {
+    using codec::io::output_action;
+    std::vector<types::finding> out;
+    for (std::size_t i = 0; i < plan.size(); ++i) {
+        const auto action = plan.actions[i];
+        if (!codec::io::changes_file(action))
+            continue;
+        const auto file = root / plan.paths[i];
+        const auto disk = read_bytes(file);
+        const std::string codec(plan.codecs[i]);
+        std::string message;
+        std::uint32_t at = 0;
+        if (action == output_action::remove) {
+            message = "compass wrote this file and " + codec +
+                " no longer generates it";
+        } else if (!disk) {
+            message = codec + " generates this file and it is missing";
+        } else {
+            const auto wanted = plan.contents[i];
+            at = static_cast<std::uint32_t>(std::ranges::mismatch(*disk,
+                wanted).in1 - disk->begin());
+            message = action == output_action::restore
+                ? "the file was edited after compass wrote it"
+                : "the file differs from what " + codec + " generates";
+        }
+        const auto [line, column] = position_of(disk.value_or(""), at);
+        const auto relative = file.lexically_relative(checkout);
+        out.push_back({
+            .path = relative.empty() || *relative.begin() == ".."
+                ? file.string() : relative.string(),
+            .line = line,
+            .column = column,
+            .rule = codec + "/drift",
+            .level = codec::types::severity::error,
+            .message = std::move(message),
+            .fix = "run compass generate, or change the model or template "
+                   "that generates it"});
+    }
+    return out;
+}
+
 }
 
 types::generate_result generate(const types::options& o) {
@@ -206,7 +269,17 @@ types::check_result check(const types::options& o) {
     types::check_result r;
     pipeline p;
     evaluate(p, o);
+    format(p, o);
     persist(p, o.threads);
+    if (!p.summary.failed()) {
+        p.timed("plan", [&] {
+            planned_outputs planned;
+            plan_outputs(planned, o.checkout, o.output_root, p.codecs, p.run);
+            for (const auto& problem : planned.plan.problems)
+                p.summary.errors.push_back("output: " + problem);
+            r.findings = drift_of(planned.plan, o.output_root, o.checkout);
+        });
+    }
     r.run = p.summary;
 
     for (std::size_t c = 0; c < p.codecs.size(); ++c) {
