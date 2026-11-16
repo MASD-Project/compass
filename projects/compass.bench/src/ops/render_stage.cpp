@@ -231,7 +231,8 @@ compass::codegen::types::checkout_registry load_registry(
  * @brief The registry of the entity models a domain entity's enrichment
  * reads beside its own: those of projects/<component>/modeling/, scanned
  * in path order as _entity_org_by_table scans them, a later claim of a
- * table winning, each loaded into tables of its own.
+ * table winning, each loaded into tables of its own; and the routes of
+ * the trade type catalogues there.
  */
 compass::codegen::types::entity_registry load_entity_registry(
     const types::file_table& table, model_corpus& documents,
@@ -260,18 +261,25 @@ compass::codegen::types::entity_registry load_entity_registry(
     compass::codegen::types::entity_registry registry;
     model_tables scratch;
     mops::builder b(scratch);
+    mops::outline outline;
     for (const auto& [key, path] : paths) {
         auto* p = documents.get(path);
         if (p == nullptr)
             continue;
+        const auto doc = document_of(*p);
+        const auto type = mops::model_type_of(mops::declared_type(doc));
+        if (type == compass::model::types::model_type::trade_type_catalogue) {
+            mops::build_outline(p->file.text(), p->view, outline);
+            registry.trade_type_routes[
+                std::filesystem::path(key.second).stem().string()] =
+                compass::codegen::ops::trade_type_routes_of(outline);
+        }
         const auto claim =
             compass::codegen::ops::entity_table_claim_of(p->file.text());
         if (!claim)
             continue;
         auto& owner = registry.tables[claim->table];
         owner = {claim->entity_singular, std::nullopt};
-        const auto doc = document_of(*p);
-        const auto type = mops::model_type_of(mops::declared_type(doc));
         if (!type)
             continue;
         std::string error;

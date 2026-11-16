@@ -69,6 +69,9 @@ value_id entity_context(compass::model::ops::builder& b, value_id library,
     derive_foreign_key_seeds(b, entity, registry);
     derive_party_scope(b, entity);
     derive_storage_shape(b, entity);
+    derive_sql_names(b, entity);
+    resolve_pinned_keys(b, entity, registry);
+    resolve_routed_check(b, entity, registry);
     project_enforced_foreign_keys(b, entity);
     project_sql_table(b, context, loaded, entity);
     b.set_copy(context, "domain_entity", entity);

@@ -182,6 +182,47 @@ std::optional<entity_table_claim> entity_table_claim_of(
     return entity_table_claim{std::move(table), std::move(singular)};
 }
 
+std::vector<types::trade_type_route> trade_type_routes_of(
+    const compass::model::ops::outline& o) {
+    namespace mops = compass::model::ops;
+    std::vector<types::trade_type_route> out;
+    std::vector<mops::node_id> pending{
+        mops::section(o, mops::node_id{0}, "Trade types")};
+    std::optional<std::uint32_t> table;
+    while (!table && !pending.empty() && !pending.front().is_none()) {
+        const auto n = pending.front();
+        pending.erase(pending.begin());
+        const auto tables = mops::tables_of(o, n);
+        if (!tables.empty())
+            table = tables.front();
+        const auto kids = mops::children(o, n);
+        pending.insert(pending.begin(), kids.begin(), kids.end());
+    }
+    if (!table || mops::row_count(o, *table) == 0)
+        return out;
+    const auto header = mops::first_row(o, *table);
+    std::optional<std::uint32_t> code;
+    std::optional<std::uint32_t> instrument;
+    for (std::uint32_t i = 0; i < mops::cell_count(o, header); ++i) {
+        const auto name = mops::cell(o, header, i);
+        if (name == "code")
+            code = i;
+        else if (name == "instrument")
+            instrument = i;
+    }
+    const auto at = [&](std::uint32_t row, std::optional<std::uint32_t> i) {
+        return i && *i < mops::cell_count(o, row)
+            ? std::string(values::strip(mops::cell(o, row, *i)))
+            : std::string();
+    };
+    for (auto r = header + 1; r < header + mops::row_count(o, *table); ++r) {
+        auto c = at(r, code);
+        if (!c.empty())
+            out.push_back({std::move(c), at(r, instrument)});
+    }
+    return out;
+}
+
 std::set<std::string, std::less<>> column_names_of(const model_tables& t,
     value_id entity) {
     std::set<std::string, std::less<>> names;

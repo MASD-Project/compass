@@ -24,7 +24,9 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <vector>
 #include "compass.codegen/types/entity_registry.hpp"
+#include "compass.model/ops/outline.hpp"
 #include "compass.model/types/model_tables.hpp"
 
 namespace compass::codegen::ops {
@@ -54,6 +56,15 @@ struct entity_table_claim {
 [[nodiscard]] types::parent_entity parent_entity_of(
     const compass::model::types::model_tables& t,
     compass::model::types::value_id model);
+
+/**
+ * @brief The code and instrument of each row of the first table under the
+ * * Trade types section of the trade type catalogue outlined by @p o, in
+ * order, a row with no code left out: the rows trade_type_catalogue_codes
+ * filters by instrument.
+ */
+[[nodiscard]] std::vector<types::trade_type_route> trade_type_routes_of(
+    const compass::model::ops::outline& o);
 
 /**
  * @brief _column_names: every column @p entity declares, the key columns

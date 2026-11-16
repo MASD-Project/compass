@@ -307,6 +307,37 @@ void derive_storage_shape(compass::model::ops::builder& b,
     compass::model::types::value_id entity);
 
 /**
+ * @brief sql_name_base, the base every SQL identifier is composed from,
+ * cut so its longest suffix fits PostgreSQL's 63 bytes; each enforced
+ * foreign key's constraint_name unless the model states one; and
+ * rls_table_base, the base without its <product>_<component>_ prefix
+ * (core.py 5560-5606 and 5609-5631).
+ */
+void derive_sql_names(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief _resolve_pinned_keys (core.py 5607, 2684-2768): each pinned key's
+ * matches_tenant, enforced (its target is immutable, as @p registry says),
+ * column_pairs, first_column, column_list, target_column_list and
+ * constraint_name, then enforced_pinned_keys and checked_pinned_keys.
+ * Reads sql_name_base.
+ */
+void resolve_pinned_keys(compass::model::ops::builder& b,
+    compass::model::types::value_id entity,
+    const types::entity_registry& registry);
+
+/**
+ * @brief _resolve_routed_check (core.py 5608, 2648-2683): for a model
+ * routed by a trade type catalogue, a check that the routed column holds
+ * one of the codes the catalogue routes to this entity, put first in
+ * sql.extra_checks.
+ */
+void resolve_routed_check(compass::model::ops::builder& b,
+    compass::model::types::value_id entity,
+    const types::entity_registry& registry);
+
+/**
  * @brief enforced_foreign_keys (core.py 5306), the foreign keys with
  * enforce set. The Python's list holds the very key objects, so the
  * oracle shows them as later steps leave them: run after the last change
