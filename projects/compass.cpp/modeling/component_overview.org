@@ -177,7 +177,7 @@ keeps in its =.compass.org=.
 | =include/compass.cpp/codecs/test_case_reachability.hpp= | The =test_case_reachability= codec.                       |
 | =include/compass.cpp/ops/exported_types.hpp=            | Export macros, quoted includes and exported types.        |
 | =include/compass.cpp/ops/enum_attributes.hpp=           | Erasing, visibility macros and enum sites.                |
-| =include/compass.cpp/ops/test_case_reachability.hpp=    | Test sources, and the cases and conditionals of one.      |
+| =include/compass.cpp/ops/test_case_reachability.hpp=    | Test sources and their cases; blanking comments and literals. |
 | =include/compass.cpp/ops/paths.hpp=                     | pathlib's suffixes and order, and which files exist.      |
 | =include/compass.cpp/ops/text.hpp=                      | Python's spaces, word characters and lines over bytes.    |
 | =include/compass.cpp/ops/report.hpp=                    | Adds one finding on a byte of a checkout file.            |

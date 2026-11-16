@@ -137,6 +137,8 @@ std::size_t string_end(std::string_view text, std::size_t i) noexcept {
     return j;
 }
 
+}
+
 std::string blank_comments_and_literals(std::string_view text) {
     std::string out(text);
     const auto n = text.size();
@@ -182,6 +184,8 @@ std::string blank_comments_and_literals(std::string_view text) {
     }
     return out;
 }
+
+namespace {
 
 std::vector<std::pair<std::size_t, std::size_t>> raw_string_spans(
     std::string_view text) {

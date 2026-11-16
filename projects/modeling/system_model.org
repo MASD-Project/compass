@@ -70,6 +70,7 @@ beside it, it reads one of git's formats and keeps nothing.
 | =compass.codegen= | Code generation from the models: a Mustache engine with pystache's semantics, templates compiled once, the render contexts and output units ores.codegen builds, the physical-space graph of the template library, and the =codegen= codec. |
 | =compass.cpp=     | Checks over C++ sources as text: byte scanners that read includes, export macros, enum declarations and test cases as ORE Studio's gate scripts do, and the codecs that run those gates.                                                 |
 | =compass.sql=     | Checks over SQL sources as text: a byte scanner that follows PostgreSQL's lexer as ORE Studio's sql-hygiene script does, and the codec that runs that gate.                                                                              |
+| =compass.crosscheck= | Checks that hold the models against the C++, SQL, templates and generated output beside them: ports of ORE Studio's cross-artefact gates, run as codecs. |
 
 =compass.codec= is in the domain layer because a codec is defined in terms of
 the document model: its inputs are document types and its diagnostics name
@@ -116,6 +117,15 @@ PostgreSQL's lexer as ORE Studio's script does, and the other SQL gates. It
 is a component of its own, not part of =compass.cpp=, because the two
 languages share no scanner, and it depends on =compass.codec= and
 =compass.platform=.
+
+=compass.crosscheck= runs the ORE Studio gates that read more than one kind
+of artefact, such as a model's pasted C++ against the headers that declare
+its names, or the SQL functions that write an entity table. It is a
+component of its own, not part of =compass.cpp= or =compass.sql=, because
+no one language owns these checks, and not part of =compass.model=, which
+loads models and checks nothing. It depends on =compass.codec=,
+=compass.platform= and =compass.cpp=, whose text helpers and C++ blanking
+it shares; =compass.cli= adds its codecs to the ones it runs.
 
 Work management (stories, tasks, sprints) is not a separate component: a unit
 of work is a document with a lifecycle state, read through the same tables.

@@ -45,6 +45,7 @@ target_link_libraries(${lib_target_name}
         compass.codegen.lib
         compass.cpp.lib
         compass.sql.lib
+        compass.crosscheck.lib
         compass.org.lib
         compass.platform.lib
         compass.store.lib
