@@ -21,6 +21,7 @@
 #define COMPASS_CODEGEN_OPS_VALUES_HPP
 
 #include <cstdint>
+#include <string>
 #include <string_view>
 #include <vector>
 #include "compass.model/types/model_tables.hpp"
@@ -78,6 +79,38 @@ using compass::model::types::value_kind;
 [[nodiscard]] inline std::string_view str(const model_tables& t,
     value_id object, std::string_view key) noexcept {
     return str(t, member(t, object, key));
+}
+
+/**
+ * @brief Python's str() of the value, or @p missing when it is none, as
+ * str(d.get(key, missing)) reads it. A list or object gives an empty
+ * text: no enrichment step stringifies one.
+ */
+[[nodiscard]] inline std::string py_str(const model_tables& t, value_id v,
+    std::string_view missing = {}) {
+    if (v.is_none())
+        return std::string(missing);
+    switch (t.values.kinds[v]) {
+    case value_kind::null: return "None";
+    case value_kind::boolean: return t.values.scalars[v] != 0 ? "True" : "False";
+    case value_kind::integer: return std::to_string(t.values.scalars[v]);
+    case value_kind::string: return std::string(str(t, v));
+    case value_kind::list:
+    case value_kind::object: return {};
+    }
+    return {};
+}
+
+/**
+ * @brief @p s without its leading and trailing whitespace, as str.strip()
+ * gives it for ASCII text.
+ */
+[[nodiscard]] inline std::string_view strip(std::string_view s) noexcept {
+    constexpr std::string_view space = " \t\n\r\f\v";
+    const auto first = s.find_first_not_of(space);
+    if (first == std::string_view::npos)
+        return {};
+    return s.substr(first, s.find_last_not_of(space) - first + 1);
 }
 
 /**

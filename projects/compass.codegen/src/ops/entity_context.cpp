@@ -20,6 +20,7 @@
 #include "compass.codegen/ops/entity_context.hpp"
 
 #include <string>
+#include "compass.codegen/ops/entity_steps.hpp"
 #include "compass.codegen/ops/values.hpp"
 
 namespace compass::codegen::ops {
@@ -37,6 +38,9 @@ value_id entity_context(compass::model::ops::builder& b, value_id library,
         b.find(context, model_key), "domain_entity");
     if (!values::is(b.tables(), entity, value_kind::object))
         return context;
+    const auto loaded = values::member(b.tables(), model, "domain_entity");
+    derive_sql_table_flags(b, entity);
+    project_sql_table(b, context, loaded, entity);
     b.set_copy(context, "domain_entity", entity);
     return context;
 }
