@@ -99,6 +99,9 @@ types::model_id load_model(builder& b, const document& d, model_type t,
         case model_type::operation:
             load_operation(c, root);
             break;
+        case model_type::junction:
+            load_junction(c, root);
+            break;
         case model_type::field_group:
             load_field_group(c, root);
             break;

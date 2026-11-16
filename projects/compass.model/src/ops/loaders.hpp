@@ -251,6 +251,7 @@ void load_component_overview(load_context& c, types::value_id root);
 void load_field_group(load_context& c, types::value_id root);
 void load_entity(load_context& c, types::value_id root);
 void load_operation(load_context& c, types::value_id root);
+void load_junction(load_context& c, types::value_id root);
 
 }
 

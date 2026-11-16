@@ -169,6 +169,8 @@ std::vector<std::string_view> paragraphs(std::string_view text) {
     return out;
 }
 
+}
+
 /**
  * @brief _column_node_to_dict.
  */
@@ -238,6 +240,8 @@ void soft_fk_node(load_context& c, value_id out, node_id n) {
     if (const auto r = named_block(o, n, "parent_seed_includes"); r.found)
         b.set(out, "parent_seed_includes", r.value);
 }
+
+namespace {
 
 void typed_row(builder& b, value_id out, const org_row& row,
     bool skip_empty = false) {
@@ -349,13 +353,11 @@ std::vector<std::string> profile_list(const builder& b, value_id profile) {
     return out;
 }
 
-namespace {
-
-bool same(const profile_assignment& a, const profile_assignment& b) {
+static bool same(const profile_assignment& a, const profile_assignment& b) {
     return a.is_bool == b.is_bool && a.flag == b.flag && a.text == b.text;
 }
 
-void set_assignment(builder& b, value_id parent, std::string_view key,
+static void set_assignment(builder& b, value_id parent, std::string_view key,
     const profile_assignment& a) {
     if (a.is_bool)
         b.set(parent, key, a.flag);
@@ -367,7 +369,7 @@ void set_assignment(builder& b, value_id parent, std::string_view key,
  * @brief _profile_namespace_defaults, written into @p out where @p out does
  * not already hold the key.
  */
-void seed_namespace_defaults(load_context& c, value_id profile,
+static void seed_namespace_defaults(load_context& c, value_id profile,
     std::string_view ns, value_id out) {
     auto& b = c.b;
     std::vector<profile_assignment> seen;
@@ -424,7 +426,7 @@ void apply_profile(load_context& c, value_id de) {
     }
 }
 
-void service_find_by_code(builder& b, value_id de) {
+static void service_find_by_code(builder& b, value_id de) {
     const auto v = b.find(de, "service_find_by_code_column");
     if (v.is_none())
         return;
@@ -459,7 +461,7 @@ void service_find_by_code(builder& b, value_id de) {
  * @brief _headers_for_types: registered headers whose type occurs as a
  * whole name in one of @p types, in registry order.
  */
-std::vector<std::string> headers_for_types(load_context& c,
+static std::vector<std::string> headers_for_types(load_context& c,
     const std::vector<std::string>& types) {
     const auto ident = [](char ch) {
         return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
@@ -512,6 +514,52 @@ void with_registered_headers(load_context& c, value_id includes,
     }
 }
 
+void cpp_includes(load_context& c, value_id cpp_out, node_id dom, node_id ent,
+    value_id columns) {
+    auto& b = c.b;
+    const auto& o = c.o;
+    if (dom.is_none() && ent.is_none())
+        return;
+    const auto includes = b.object(cpp_out, "includes");
+    const auto domain = b.list(includes, "domain");
+    if (!dom.is_none())
+        includes_from_named_block(c, dom, domain);
+    const auto entity = b.list(includes, "entity");
+    if (!ent.is_none()) {
+        const auto code = named_block(o, ent, "includes");
+        for (const auto raw : lines_of(code.value)) {
+            const auto line = trim(raw);
+            if (!line.starts_with("#include"))
+                continue;
+            const auto token = trim(line.substr(8));
+            if (!one_of(token, entity_header_standard_includes))
+                b.append(entity, token);
+        }
+    }
+    with_registered_headers(c, includes, columns);
+}
+
+artefact_section artefact_columns(load_context& c) {
+    const auto& o = c.o;
+    artefact_section a;
+    a.node = section(o, node_id{0}, "Artefact columns");
+    if (a.node.is_none())
+        return a;
+    a.columns = children(o, a.node);
+    if (a.columns.empty())
+        throw model_error("'* Artefact columns' declares no column");
+    if (!tables_of(o, a.node).empty()) {
+        const auto rows = first_table_rows(o, a.node);
+        if (!rows.empty() && !rows.front().get("expression").found)
+            throw model_error("artefact check table has no expression");
+        for (const auto& r : rows) {
+            if (!r.value_or("expression").empty())
+                a.checks.push_back(r.value_or("expression"));
+        }
+    }
+    const auto key = property(o, a.node, "key");
+    a.key = key.value.empty() ? o.titles[a.columns.front().value] : key.value;
+    return a;
 }
 
 void presentation_drawer(load_context& c, value_id out, node_id drawer,
@@ -898,35 +946,17 @@ void load_entity(load_context& c, value_id root) {
         }
     }
 
-    if (const auto ac = section(o, document, "Artefact columns");
-        !ac.is_none()) {
-        const auto columns = children(o, ac);
-        if (columns.empty())
-            throw model_error("'* Artefact columns' declares no column");
+    if (const auto ac = artefact_columns(c); !ac.node.is_none()) {
         if (truthy(b, b.find(de, "has_artefact_insert_fn")))
             throw model_error("both '* Artefact columns' and "
                 ":has_artefact_insert_fn:");
         const auto list = b.list(de, "artefact_columns");
-        for (const auto n : columns)
+        for (const auto n : ac.columns)
             column_node(c, b.append_object(list), n);
-        std::vector<std::string_view> checks;
-        if (!tables_of(o, ac).empty()) {
-            const auto rows = first_table_rows(o, ac);
-            if (!rows.empty() && !rows.front().get("expression").found)
-                throw model_error("artefact check table has no expression");
-            for (const auto& r : rows) {
-                if (!r.value_or("expression").empty())
-                    checks.push_back(r.value_or("expression"));
-            }
-        }
-        const auto key = property(o, ac, "key");
-        if (!key.value.empty())
-            b.set(de, "artefact_key_column", key.value);
-        else
-            b.set(de, "artefact_key_column", o.titles[columns.front().value]);
-        if (!checks.empty()) {
+        b.set(de, "artefact_key_column", ac.key);
+        if (!ac.checks.empty()) {
             const auto out = b.list(de, "artefact_checks");
-            for (const auto ch : checks)
+            for (const auto ch : ac.checks)
                 b.append(out, ch);
         }
     }
@@ -1011,27 +1041,8 @@ void load_entity(load_context& c, value_id root) {
             set_properties(b, b.object(de, "repository"), o, repo);
 
         const auto cpp_out = b.object(de, "cpp");
-        const auto dom = section(o, cpp, "Domain includes");
-        const auto ent = section(o, cpp, "Entity includes");
-        if (!dom.is_none() || !ent.is_none()) {
-            const auto includes = b.object(cpp_out, "includes");
-            const auto domain = b.list(includes, "domain");
-            if (!dom.is_none())
-                includes_from_named_block(c, dom, domain);
-            const auto entity = b.list(includes, "entity");
-            if (!ent.is_none()) {
-                const auto code = named_block(o, ent, "includes");
-                for (const auto raw : lines_of(code.value)) {
-                    const auto line = trim(raw);
-                    if (!line.starts_with("#include"))
-                        continue;
-                    const auto token = trim(line.substr(8));
-                    if (!one_of(token, entity_header_standard_includes))
-                        b.append(entity, token);
-                }
-            }
-            with_registered_headers(c, includes, b.find(de, "columns"));
-        }
+        cpp_includes(c, cpp_out, section(o, cpp, "Domain includes"),
+            section(o, cpp, "Entity includes"), b.find(de, "columns"));
         if (const auto conv = section(o, cpp, "Conventions"); !conv.is_none())
             set_properties(b, cpp_out, o, conv);
         const auto dg = section(o, cpp, "Domain groups");

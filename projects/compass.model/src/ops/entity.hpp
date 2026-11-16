@@ -52,6 +52,43 @@ void presentation_drawer(load_context& c, types::value_id out, node_id drawer,
     types::value_id profile);
 
 /**
+ * @brief _column_node_to_dict into @p out.
+ */
+void column_node(load_context& c, types::value_id out, node_id n);
+
+/**
+ * @brief _soft_fk_validation_node_to_dict into @p out.
+ */
+void soft_fk_node(load_context& c, types::value_id out, node_id n);
+
+/**
+ * @brief _apply_profile: the defaults of the profiles @p de names, where
+ * @p de and its sql and presentation objects do not state them.
+ */
+void apply_profile(load_context& c, types::value_id de);
+
+/**
+ * @brief The includes object of a C++ section's Domain and Entity includes
+ * blocks, with the registered headers @p columns need; nothing when it has
+ * neither block.
+ */
+void cpp_includes(load_context& c, types::value_id cpp_out, node_id dom,
+    node_id ent, types::value_id columns);
+
+/**
+ * @brief What _artefact_columns reads of * Artefact columns: its column
+ * nodes, the staging key and the check expressions. node is none when the
+ * section is absent.
+ */
+struct artefact_section {
+    node_id node = node_id::none();
+    std::vector<node_id> columns;
+    std::string_view key;
+    std::vector<std::string_view> checks;
+};
+[[nodiscard]] artefact_section artefact_columns(load_context& c);
+
+/**
  * @brief _resolve_domain_group_fields: the fields each domain group's field
  * group model declares, and the refusals that keep a grouped struct whole.
  */
