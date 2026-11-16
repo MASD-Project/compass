@@ -58,6 +58,13 @@ struct options {
     std::vector<std::string> implicit_system;
 };
 
+std::filesystem::path absolute_path(const std::filesystem::path& p) {
+    auto r = std::filesystem::absolute(p).lexically_normal();
+    if (!r.has_filename() && r.has_relative_path())
+        r = r.parent_path();
+    return r;
+}
+
 std::optional<unsigned> parse_positive(std::string_view s) {
     unsigned v = 0;
     const auto [end, ec] = std::from_chars(s.data(), s.data() + s.size(), v);
@@ -102,6 +109,15 @@ std::optional<options> parse_options(int argc, char** argv) {
     }
     if (includes && (o.compile_commands.empty() || o.source_root.empty()))
         return std::nullopt;
+    // Compile commands hold absolute paths, so every path that is compared
+    // against them must be absolute too, or rebasing silently matches nothing.
+    o.checkout = absolute_path(o.checkout);
+    if (includes) {
+        o.compile_commands = absolute_path(o.compile_commands);
+        o.source_root = absolute_path(o.source_root);
+        for (auto& dir : o.implicit_system)
+            dir = absolute_path(dir).string();
+    }
     return o;
 }
 
