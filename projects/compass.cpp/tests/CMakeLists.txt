@@ -20,6 +20,7 @@ set(lib_target_name ${name}.lib)
 set(tests_target_name ${name}.tests)
 
 add_executable(${tests_target_name}
+    codecs_bff_list_requests_tests.cpp
     codecs_enum_attributes_tests.cpp
     codecs_exported_types_tests.cpp
     codecs_forward_declarable_includes_tests.cpp

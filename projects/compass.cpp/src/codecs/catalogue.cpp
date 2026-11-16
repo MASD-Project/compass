@@ -20,6 +20,7 @@
 #include "compass.cpp/codecs/catalogue.hpp"
 
 #include <array>
+#include "compass.cpp/codecs/bff_list_requests.hpp"
 #include "compass.cpp/codecs/enum_attributes.hpp"
 #include "compass.cpp/codecs/exported_types.hpp"
 #include "compass.cpp/codecs/forward_declarable_includes.hpp"
@@ -34,12 +35,12 @@
 namespace compass::cpp::codecs {
 
 std::span<const compass::codec::types::descriptor> catalogue() noexcept {
-    static const std::array<compass::codec::types::descriptor, 14> all{
-        enum_attributes, event_registrars, exported_types,
-        forward_declarable_includes, handler_registrars, history_registrars,
-        portable_stop, route_auth, shell_command_composition,
-        shell_command_units, shell_menus, test_case_reachability,
-        unique_type_names, unity_collisions};
+    static const std::array<compass::codec::types::descriptor, 15> all{
+        bff_list_requests, enum_attributes, event_registrars,
+        exported_types, forward_declarable_includes, handler_registrars,
+        history_registrars, portable_stop, route_auth,
+        shell_command_composition, shell_command_units, shell_menus,
+        test_case_reachability, unique_type_names, unity_collisions};
     return all;
 }
 

@@ -19,6 +19,7 @@ set(name "compass.cpp")
 set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
+    codecs/bff_list_requests.cpp
     codecs/catalogue.cpp
     codecs/enum_attributes.cpp
     codecs/exported_types.cpp
