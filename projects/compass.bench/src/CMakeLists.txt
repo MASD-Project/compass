@@ -33,7 +33,8 @@ add_library(${lib_target_name}
     ops/parse_stage.cpp
     ops/partition.cpp
     ops/read_stage.cpp
-    ops/search_paths.cpp)
+    ops/search_paths.cpp
+    ops/types_stage.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
 

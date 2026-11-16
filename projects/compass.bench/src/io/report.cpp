@@ -20,9 +20,12 @@
 #include "compass.bench/io/report.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <format>
+#include <functional>
+#include <map>
 #include <numeric>
 #include <span>
 #include <string>
@@ -30,6 +33,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include "compass.org/ops/type_lookup.hpp"
 
 namespace compass::bench::io {
 
@@ -39,6 +43,8 @@ constexpr std::size_t top_extensions = 15;
 constexpr std::size_t top_unresolved = 10;
 constexpr std::size_t top_fan_in = 15;
 constexpr std::size_t top_parse = 10;
+constexpr std::size_t top_untyped = 20;
+constexpr std::size_t files_per_type = 5;
 
 double median(std::vector<double> v) {
     std::ranges::sort(v);
@@ -335,6 +341,133 @@ void write_org_report(std::ostream& os, const types::org_result& stage,
         os << "\nFAILED: stage 'org' parsed zero files.\n";
     if (stage.stage.errors != 0)
         os << std::format("\nFAILED: stage 'org' hit {} error(s). First: {}\n",
+            stage.stage.errors, stage.stage.first_error);
+}
+
+bool failed(const types::types_result& stage) {
+    return stage.meta.paths.empty() || failed(stage.stage);
+}
+
+void write_types_report(std::ostream& os, const types::types_result& stage,
+    const setup_timing& setup, const types::file_table& table) {
+    namespace meta = ingest::meta;
+    const auto& registry = stage.meta.registry;
+    const auto type_count = registry.types.size();
+
+    write_stage_header(os);
+    write_stage_row(os, stage.stage);
+    os << std::format("repetitions: {}  threads: {}\n",
+        stage.stage.wall_ms.size(), setup.threads);
+    os << std::format(
+        "git ls-files: {:.2f} ms  file table (lstat): {:.2f} ms\n",
+        setup.listing_ms, setup.table_ms);
+    if (!stage.registry_ms.empty())
+        os << std::format("registry build (median): {:.3f} ms\n",
+            median(stage.registry_ms));
+    os << std::format("resolve (summed over threads, last repetition): "
+                      "{:.3f} ms\n", stage.resolve_ms);
+
+    const auto models = std::ranges::count(registry.types.kinds.values,
+        compass::org::types::type_kind::model);
+    os << std::format("\nregistry: {} types ({} document, {} model) from {} "
+                      "contract pages\n",
+        type_count, type_count - models, models, stage.meta.paths.size());
+
+    constexpr std::array<std::string_view, 3> level_names{
+        "missing", "item", "unknown"};
+    constexpr std::array<std::string_view, 3> folder_names{
+        "missing", "folder", "path"};
+    constexpr std::array<std::string_view, 5> state_names{
+        "missing", "todo_item", "state_item", "todo_block", "not_stateful"};
+    constexpr std::array<std::string_view, 3> sections_names{
+        "missing", "item", "heading"};
+    os << std::format("{:<6}{:>6}{:>9}{:>8}{:>14}{:>10}{:>6}  {}\n", "fits",
+        "types", "level", "folder", "state", "sections", "n", "page");
+    for (std::size_t i = 0; i < stage.meta.paths.size(); ++i) {
+        const auto& r = stage.meta.reports[i];
+        os << std::format("{:<6}{:>6}{:>9}{:>8}{:>14}{:>10}{:>6}  {}{}{}\n",
+            meta::fits(r) ? "yes" : "NO", r.types,
+            level_names[static_cast<std::size_t>(r.level)],
+            folder_names[static_cast<std::size_t>(r.folder)],
+            state_names[static_cast<std::size_t>(r.state)],
+            sections_names[static_cast<std::size_t>(r.sections_from)],
+            r.sections, stage.meta.paths[i],
+            r.contract ? "" : " (no Contract heading)",
+            r.duplicate ? " (duplicate type)" : "");
+    }
+
+    std::vector<std::uint64_t> counts(type_count);
+    std::uint64_t untyped = 0;
+    std::map<std::string, std::vector<std::uint32_t>> unresolved;
+    for (std::size_t row = 0; row < stage.ids.size(); ++row) {
+        switch (stage.outcomes[row]) {
+        case types::resolution::resolved:
+            ++counts[stage.types[row].value];
+            break;
+        case types::resolution::unresolved:
+            unresolved[stage.values[row]].push_back(stage.ids[row]);
+            break;
+        case types::resolution::untyped:
+            ++untyped;
+            break;
+        }
+    }
+
+    os << "\ndocuments per type\n";
+    os << std::format("{:>10}{:>10}  {}\n", "documents", "kind", "type");
+    std::vector<std::uint32_t> order(type_count);
+    std::iota(order.begin(), order.end(), 0);
+    std::ranges::stable_sort(order, std::greater{},
+        [&](std::uint32_t t) { return counts[t]; });
+    std::string unused;
+    for (const auto t : order) {
+        const compass::org::types::type_id id{t};
+        const auto name = compass::org::ops::name_text(registry,
+            registry.types.names[id]);
+        if (counts[t] == 0) {
+            unused += unused.empty() ? "" : " ";
+            unused += name;
+            continue;
+        }
+        os << std::format("{:>10}{:>10}  {}\n", counts[t],
+            registry.types.kinds[id] == compass::org::types::type_kind::model
+                ? "model" : "document",
+            name);
+    }
+    os << std::format("registered with no document: {}\n",
+        unused.empty() ? "none" : unused);
+
+    os << std::format("\ndocuments with no #+type: {}\n", untyped);
+    std::size_t shown = 0;
+    for (std::size_t row = 0;
+         row < stage.ids.size() && shown < top_untyped; ++row) {
+        if (stage.outcomes[row] != types::resolution::untyped)
+            continue;
+        os << "  " << table.paths[stage.ids[row]] << "\n";
+        ++shown;
+    }
+    if (untyped > shown)
+        os << std::format("  ... and {} more\n", untyped - shown);
+
+    os << std::format("\nunresolved types: {}\n", unresolved.size());
+    std::vector<std::pair<std::string, std::vector<std::uint32_t>>> rows(
+        unresolved.begin(), unresolved.end());
+    std::ranges::stable_sort(rows, std::greater{},
+        [](const auto& r) { return r.second.size(); });
+    for (const auto& [value, files] : rows) {
+        os << std::format("{:>10}  {}\n", files.size(), value);
+        for (std::size_t i = 0; i < std::min(files.size(), files_per_type);
+             ++i)
+            os << "            " << table.paths[files[i]] << "\n";
+    }
+
+    if (stage.meta.paths.empty())
+        os << "\nFAILED: stage 'types' found no document_type_*.org page.\n";
+    if (stage.stage.files == 0)
+        os << "\nFAILED: stage 'types' parsed zero files.\n";
+    if (stage.stage.errors != 0)
+        os << std::format(
+            "\nFAILED: stage 'types' hit {} error(s). First: {}\n",
             stage.stage.errors, stage.stage.first_error);
 }
 

@@ -38,6 +38,7 @@
 #include "compass.bench/ops/partition.hpp"
 #include "compass.bench/ops/read_stage.hpp"
 #include "compass.bench/ops/search_paths.hpp"
+#include "compass.bench/ops/types_stage.hpp"
 #include "compass.platform/filesystem/mapped_file.hpp"
 
 namespace {
@@ -50,10 +51,11 @@ constexpr std::string_view usage =
     "           --source-root <dir> [--isystem <dir>]... [-j N] [--repeat R]\n"
     "       compass-bench parse <checkout> [-j N] [--repeat R]\n"
     "       compass-bench org <checkout> [-j N] [--repeat R]\n"
+    "       compass-bench types <checkout> --meta <dir> [-j N] [--repeat R]\n"
     "       compass-bench org-dump <file>\n"
     "       compass-bench org-dump --list <list>\n";
 
-enum class stage { read, includes, parse, org, org_dump };
+enum class stage { read, includes, parse, org, types, org_dump };
 
 struct options {
     stage which = stage::read;
@@ -63,6 +65,7 @@ struct options {
     std::filesystem::path compile_commands;
     std::filesystem::path source_root;
     std::vector<std::string> implicit_system;
+    std::filesystem::path meta;
     std::filesystem::path dump_file;
     std::filesystem::path dump_list;
 };
@@ -107,6 +110,8 @@ std::optional<options> parse_options(int argc, char** argv) {
         o.which = stage::parse;
     else if (name == "org")
         o.which = stage::org;
+    else if (name == "types")
+        o.which = stage::types;
     else if (name == "org-dump")
         return parse_dump_options(argc, argv);
     else
@@ -114,6 +119,7 @@ std::optional<options> parse_options(int argc, char** argv) {
     o.checkout = argv[2];
     o.threads = std::max(1u, std::thread::hardware_concurrency());
     const bool includes = o.which == stage::includes;
+    const bool typed = o.which == stage::types;
     for (int i = 3; i < argc; ++i) {
         const std::string_view flag = argv[i];
         if (i + 1 >= argc)
@@ -130,11 +136,15 @@ std::optional<options> parse_options(int argc, char** argv) {
             o.source_root = value;
         } else if (includes && flag == "--isystem") {
             o.implicit_system.emplace_back(value);
+        } else if (typed && flag == "--meta") {
+            o.meta = value;
         } else {
             return std::nullopt;
         }
     }
     if (includes && (o.compile_commands.empty() || o.source_root.empty()))
+        return std::nullopt;
+    if (typed && o.meta.empty())
         return std::nullopt;
     // Compile commands hold absolute paths, so every path that is compared
     // against them must be absolute too, or rebasing silently matches nothing.
@@ -217,6 +227,15 @@ int run_org(const options& o) {
     return io::failed(stage) ? 1 : 0;
 }
 
+int run_types(const options& o) {
+    io::setup_timing setup;
+    const auto table = list_checkout(o, setup);
+    const auto stage = ops::run_types_stage(o.checkout, table, o.meta,
+        o.threads, o.repetitions);
+    io::write_types_report(std::cout, stage, setup, table);
+    return io::failed(stage) ? 1 : 0;
+}
+
 int run_org_dump(const options& o) {
     if (o.dump_list.empty())
         ops::dump_org_file(o.dump_file, std::cout);
@@ -231,6 +250,7 @@ int run(const options& o) {
     case stage::includes: return run_includes(o);
     case stage::parse: return run_parse(o);
     case stage::org: return run_org(o);
+    case stage::types: return run_types(o);
     case stage::org_dump: return run_org_dump(o);
     }
     return 2;

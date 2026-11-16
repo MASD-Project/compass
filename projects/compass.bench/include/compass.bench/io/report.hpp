@@ -27,6 +27,7 @@
 #include "compass.bench/types/org_result.hpp"
 #include "compass.bench/types/parse_result.hpp"
 #include "compass.bench/types/stage_result.hpp"
+#include "compass.bench/types/types_result.hpp"
 
 namespace compass::bench::io {
 
@@ -109,6 +110,24 @@ void write_parse_report(std::ostream& os, const types::parse_result& stage,
  * A failed stage gets a FAILED banner naming the reason.
  */
 void write_org_report(std::ostream& os, const types::org_result& stage,
+    const setup_timing& setup, const types::file_table& table);
+
+/**
+ * @brief True when the types stage found no contract page, parsed no file
+ * or hit any read error.
+ *
+ * Unresolved types are data, not failure.
+ */
+[[nodiscard]] bool failed(const types::types_result& stage);
+
+/**
+ * @brief Writes the stage table, the timings, how each contract page fitted
+ * the extraction rule, the documents per type, the documents with no
+ * #+type: and every unresolved type with up to five of its files.
+ *
+ * A failed stage gets a FAILED banner naming the reason.
+ */
+void write_types_report(std::ostream& os, const types::types_result& stage,
     const setup_timing& setup, const types::file_table& table);
 
 }
