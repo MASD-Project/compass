@@ -112,6 +112,30 @@ TEST_CASE("a hashed file is resolved from the worktree index without being "
     CHECK(r.resolve("a.org").id == index.ids.at(0));
 }
 
+TEST_CASE("a run that changes no entry leaves the worktree index untouched",
+    "[io][worktree_index]") {
+    git_repository repo;
+    add_untracked(repo, "a.org", "* A\n");
+    run(repo.root(), {"a.org"});
+    const auto inode_before = [&] {
+        struct stat s {};
+        ::stat(index_of(repo.root()).c_str(), &s);
+        return s.st_ino;
+    }();
+
+    run(repo.root(), {"a.org"});
+
+    struct stat after {};
+    REQUIRE(::stat(index_of(repo.root()).c_str(), &after) == 0);
+    CHECK(after.st_ino == inode_before);
+
+    overwrite(repo.root() / "a.org", "* B, changed\n");
+    run(repo.root(), {"a.org"});
+    struct stat changed {};
+    REQUIRE(::stat(index_of(repo.root()).c_str(), &changed) == 0);
+    CHECK(changed.st_ino != inode_before);
+}
+
 TEST_CASE("a file modified since it was hashed is hashed again, even with "
     "its size and mtime unchanged", "[io][worktree_index]") {
     git_repository repo;

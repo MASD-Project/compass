@@ -272,6 +272,11 @@ std::size_t id_resolver::write_worktree_index(
         next.stats.push_back(e.stat);
         next.ids.push_back(e.id);
     }
+    // A run that changed nothing writes nothing. The file on disk keeps its
+    // earlier write time, which is still the right bound for these entries.
+    if (next.paths == worktree_.paths && next.stats == worktree_.stats &&
+        next.ids == worktree_.ids)
+        return next.size();
     const auto bytes = ops::encode_worktree_index(next);
     write_object(worktree_file_, std::as_bytes(std::span(bytes)));
     return next.size();
