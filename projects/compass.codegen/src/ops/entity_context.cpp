@@ -83,6 +83,9 @@ value_id entity_context(compass::model::ops::builder& b, value_id library,
     derive_render_kind_flags(b, entity);
     derive_mapper_include_gates(b, entity);
     derive_uuid_include_gates(b, entity);
+    derive_ts_types(b, entity, registry);
+    derive_ts_group_imports(b, entity);
+    derive_ts_column_imports(b, entity, registry);
     project_enforced_foreign_keys(b, entity);
     project_primary_key_extra_columns(b, entity);
     project_import_preview_columns(b, entity);

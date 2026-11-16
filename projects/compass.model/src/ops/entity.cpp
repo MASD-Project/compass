@@ -600,7 +600,7 @@ static std::vector<std::string> headers_for_types(load_context& c,
             (ch >= '0' && ch <= '9') || ch == '_';
     };
     std::vector<std::string> out;
-    for (const auto& [name, header] : custom_type_headers(c)) {
+    for (const auto& [name, header] : custom_type_headers(c.find, c.cache)) {
         if (std::ranges::find(out, header) != out.end())
             continue;
         const bool used = std::ranges::any_of(types, [&](const std::string& t) {

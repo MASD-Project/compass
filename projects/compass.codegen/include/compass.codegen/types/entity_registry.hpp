@@ -25,6 +25,7 @@
 #include <set>
 #include <string>
 #include <vector>
+#include "compass.model/ops/typescript.hpp"
 
 namespace compass::codegen::types {
 
@@ -93,12 +94,14 @@ struct trade_type_route {
  * tables maps each :tablename: of a projects/<component>/modeling/ entity
  * model to its owner, as _entity_org_by_table and _parent_entity_info
  * resolve it. trade_type_routes maps the file stem of each trade type
- * catalogue there to its rows, in catalogue order.
+ * catalogue there to its rows, in catalogue order. custom_types holds
+ * the rows of the custom-type registry the TypeScript projections read.
  */
 struct entity_registry {
     std::map<std::string, table_owner, std::less<>> tables;
     std::map<std::string, std::vector<trade_type_route>, std::less<>>
         trade_type_routes;
+    compass::model::ops::custom_types custom_types;
 };
 
 }

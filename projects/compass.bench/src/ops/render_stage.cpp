@@ -231,8 +231,8 @@ compass::codegen::types::checkout_registry load_registry(
  * @brief The registry of the entity models a domain entity's enrichment
  * reads beside its own: those of projects/<component>/modeling/, scanned
  * in path order as _entity_org_by_table scans them, a later claim of a
- * table winning, each loaded into tables of its own; and the routes of
- * the trade type catalogues there.
+ * table winning, each loaded into tables of its own; the routes of
+ * the trade type catalogues there; and the custom-type registry.
  */
 compass::codegen::types::entity_registry load_entity_registry(
     const types::file_table& table, model_corpus& documents,
@@ -259,6 +259,7 @@ compass::codegen::types::entity_registry load_entity_registry(
     std::ranges::sort(paths);
 
     compass::codegen::types::entity_registry registry;
+    registry.custom_types = mops::custom_type_headers(find, cache);
     model_tables scratch;
     mops::builder b(scratch);
     mops::outline outline;

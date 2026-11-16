@@ -182,7 +182,7 @@ void derived_subject(load_context& c, value_id op,
 void domain_imports(load_context& c, value_id op,
     const std::vector<value_id>& messages, value_id component) {
     auto& b = c.b;
-    const auto custom = custom_type_headers(c);
+    const auto custom = custom_type_headers(c.find, c.cache);
     std::map<std::string, std::string> entities;
     for (const auto m : messages) {
         for (const auto f : items(b, b.find(m, "fields"))) {

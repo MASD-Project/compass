@@ -38,6 +38,7 @@ add_executable(${tests_target_name}
     ops_entity_sql_table_tests.cpp
     ops_entity_storage_tests.cpp
     ops_entity_supply_tests.cpp
+    ops_entity_typescript_tests.cpp
     ops_output_tests.cpp
     ops_physical_space_tests.cpp
     ops_render_tests.cpp

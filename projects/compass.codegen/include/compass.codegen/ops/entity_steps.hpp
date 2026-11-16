@@ -445,6 +445,32 @@ void derive_uuid_include_gates(compass::model::ops::builder& b,
     compass::model::types::value_id entity);
 
 /**
+ * @brief The TypeScript member types (core.py 6571-6579): ts_type, as
+ * _ts_domain_type projects its cpp_type, on each column, natural key,
+ * primary key column and the primary key itself, when one projects.
+ */
+void derive_ts_types(compass::model::ops::builder& b,
+    compass::model::types::value_id entity,
+    const types::entity_registry& registry);
+
+/**
+ * @brief The TypeScript interfaces and modules of the entity's groups
+ * (core.py 6580-6608): ts_type and ts_import on each domain group, and
+ * the identity and audit groups' pascal names and imports when the
+ * entity has them.
+ */
+void derive_ts_group_imports(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief ts_column_imports (core.py 6609-6624): field_group_ts_imports
+ * over the columns, less the interfaces the groups already import.
+ */
+void derive_ts_column_imports(compass::model::ops::builder& b,
+    compass::model::types::value_id entity,
+    const types::entity_registry& registry);
+
+/**
  * @brief presentation.import_preview_columns, the columns with
  * import_preview set (org_loader.py's presentation parse). The Python's
  * list holds the very column objects, so the oracle shows them as the

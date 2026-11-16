@@ -39,6 +39,7 @@ add_library(${lib_target_name}
     ops/entity_sql_table.cpp
     ops/entity_storage.cpp
     ops/entity_supply.cpp
+    ops/entity_typescript.cpp
     ops/manifest.cpp
     ops/output.cpp
     ops/physical_space.cpp

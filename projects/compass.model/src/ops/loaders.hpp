@@ -32,6 +32,7 @@
 #include "compass.model/ops/builder.hpp"
 #include "compass.model/ops/load.hpp"
 #include "compass.model/ops/outline.hpp"
+#include "compass.model/ops/typescript.hpp"
 
 /*
  * One loader per org_loader function of ores.codegen. Each fills the root
@@ -49,8 +50,6 @@ struct profile_assignment {
     bool flag = false;
     std::string text;
 };
-
-using custom_types = std::vector<std::pair<std::string, std::string>>;
 
 struct load_cache::impl {
     template <typename T>
@@ -216,11 +215,6 @@ void set_properties(builder& b, types::value_id object, const outline& o,
 [[nodiscard]] lookup org_id(const outline& o, node_id n);
 
 /**
- * @brief The TypeScript type _ts_type projects @p cpp_type onto, or empty.
- */
-[[nodiscard]] std::string ts_type(load_context& c, std::string_view cpp_type);
-
-/**
  * @brief One row of _TS_UTILITY_DOMAIN_TYPES: a C++ type with a
  * hand-written TypeScript interface, and the module that exports it.
  */
@@ -230,17 +224,6 @@ struct ts_utility_type {
     std::string_view module;
 };
 [[nodiscard]] std::span<const ts_utility_type> ts_utility_types() noexcept;
-
-/**
- * @brief _to_pascal_case.
- */
-[[nodiscard]] std::string pascal_case(std::string_view name);
-
-/**
- * @brief The (type, header) rows of projects/modeling/cpp_custom_types.org,
- * sorted by type.
- */
-[[nodiscard]] const custom_types& custom_type_headers(load_context& c);
 
 /**
  * @brief parse_declared_messages: the * Messages section as the list both
