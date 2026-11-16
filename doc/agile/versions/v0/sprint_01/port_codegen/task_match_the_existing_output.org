@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :port_codegen:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/match-the-existing-output
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ Compare the full regeneration with ores.codegen output at the same ORE Studio co
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:4F499B47-4AB8-4049-A72F-495351A6E2C7][Port ORE Studio codegen]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,16 @@ Compare the full regeneration with ores.codegen output at the same ORE Studio co
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Make codegen a codec in =compass.codec='s runtime. It loads the models,
+  builds contexts, renders, and formats through the result cache, with the
+  formatter table moved from =compass.bench= into =compass.codegen=. Then
+  =compass generate=, =diff= and =check= run it on a checkout configured by
+  =.compass.org=.
+- Run =compass diff= on the ORE Studio archive and list every difference from
+  the checked-in tree with its cause. The format task found 24: 22 from the
+  system-tenant shared-read change that was never regenerated, and 2 hand
+  edits.
+- Measure a cold and a warm =compass generate= on ORE Studio.
 
 * Measurements
 
