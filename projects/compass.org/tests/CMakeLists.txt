@@ -21,6 +21,7 @@ set(tests_target_name ${name}.tests)
 
 add_executable(${tests_target_name}
     io_dump_tests.cpp
+    io_object_tests.cpp
     ops_type_lookup_tests.cpp
     types_column_tests.cpp
     types_handle_tests.cpp
