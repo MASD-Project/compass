@@ -23,7 +23,10 @@ add_library(${lib_target_name}
     codecs/component_docs.cpp
     codecs/heading_numbers.cpp
     codecs/org_links.cpp
-    codecs/pattern_uses.cpp)
+    codecs/pattern_uses.cpp
+    codecs/prototypes.cpp
+    codecs/rule_identifiers.cpp
+    codecs/tree_gates.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
 
