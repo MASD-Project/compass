@@ -41,6 +41,7 @@ using store::io::id_source;
 
 struct tally {
     std::uint64_t files = 0;
+    std::uint64_t worktree = 0;
     std::uint64_t bytes = 0;
     std::uint64_t errors = 0;
     std::string first_error;
@@ -55,6 +56,15 @@ struct resolution {
     std::vector<id_source> sources;
     std::vector<std::uint8_t> resolved;
 };
+
+std::string_view source_name(id_source s) {
+    switch (s) {
+    case id_source::git_index: return "git index";
+    case id_source::worktree_index: return "worktree index";
+    case id_source::hashed: return "hashed";
+    }
+    return "unknown";
+}
 
 /**
  * @brief Up to @p count file ids spread evenly over the table, leaving out
@@ -94,7 +104,7 @@ void verify_ids(const std::filesystem::path& checkout,
             continue;
         if (result.mismatches++ == 0)
             result.first_mismatch = table.paths[id] + " (" +
-                (r.sources[id] == id_source::index ? "index" : "hashed") +
+                std::string(source_name(r.sources[id])) +
                 "): compass " + actual + ", git " + expected[i];
     }
 }
@@ -130,11 +140,12 @@ types::ids_result run_ids_stage(const std::filesystem::path& checkout,
             [&](types::file_range range) {
                 tally t;
                 for (auto id = range.begin; id < range.end; ++id) {
-                    if (const auto found = resolver.index_id(table.paths[id])) {
-                        r.ids[id] = *found;
-                        r.sources[id] = id_source::index;
+                    if (const auto found = resolver.known_id(table.paths[id])) {
+                        r.ids[id] = found->id;
+                        r.sources[id] = found->source;
                         r.resolved[id] = 1;
-                        ++t.files;
+                        ++(found->source == id_source::git_index ? t.files
+                                                                 : t.worktree);
                     }
                 }
                 return t;
@@ -170,11 +181,14 @@ types::ids_result run_ids_stage(const std::filesystem::path& checkout,
             });
         result.hash_ms.push_back(hash_ms);
 
-        result.from_index = result.hashed = result.hashed_bytes = 0;
+        result.from_index = result.from_worktree = 0;
+        result.hashed = result.hashed_bytes = 0;
         result.errors = 0;
         result.first_error.clear();
-        for (const auto& t : stat_tallies)
+        for (const auto& t : stat_tallies) {
             result.from_index += t.files;
+            result.from_worktree += t.worktree;
+        }
         for (const auto& t : hash_tallies) {
             result.hashed += t.files;
             result.hashed_bytes += t.bytes;

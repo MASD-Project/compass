@@ -23,6 +23,7 @@ add_executable(${tests_target_name}
     io_id_resolver_tests.cpp
     io_location_tests.cpp
     io_object_file_tests.cpp
+    io_worktree_index_tests.cpp
     ops_blob_hash_tests.cpp
     ops_git_index_tests.cpp
     ops_git_settings_tests.cpp)

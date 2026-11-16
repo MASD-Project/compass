@@ -32,7 +32,8 @@ namespace compass::bench::types {
  * The index fields describe the index the resolver read: its version, its
  * entries, and how many of them passed the rules that do not need the
  * file's stat data. The counts come from the last repetition: files is
- * every listed file, from_index those whose ID came from the index, hashed
+ * every listed file, from_index those whose ID came from git's index, from_worktree
+ * those whose ID came from the worktree index, hashed
  * those whose bytes were hashed, hashed_bytes their size. read_ms,
  * stat_ms and hash_ms hold one wall time per repetition of the three steps:
  * building the resolver (index, configuration, attributes), stat-ing every
@@ -48,6 +49,7 @@ struct ids_result {
     std::string index_problem;
     std::uint64_t files = 0;
     std::uint64_t from_index = 0;
+    std::uint64_t from_worktree = 0;
     std::uint64_t hashed = 0;
     std::uint64_t hashed_bytes = 0;
     std::uint64_t errors = 0;

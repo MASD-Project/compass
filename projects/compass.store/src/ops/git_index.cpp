@@ -215,9 +215,14 @@ bool is_regular_file(std::uint32_t mode) noexcept {
     return (mode & 0170000) == 0100000;
 }
 
+bool is_unchanged(const types::stat_data& entry,
+    const types::stat_data& file, types::index_time written) noexcept {
+    return entry == file && written.sec > entry.mtime.sec;
+}
+
 bool is_clean(const types::stat_data& entry, const types::stat_data& file,
     types::index_time written) noexcept {
-    return entry == file && entry.size != 0 && written.sec > entry.mtime.sec;
+    return entry.size != 0 && is_unchanged(entry, file, written);
 }
 
 }

@@ -547,15 +547,17 @@ void write_ids_report(std::ostream& os, const types::ids_result& stage,
     const auto share = [&](std::uint64_t n) {
         return stage.files > 0 ? 100.0 * n / stage.files : 0;
     };
-    os << std::format("\n{:<8}{:>10}{:>9}{:>16}\n", "source", "files", "%",
+    os << std::format("\n{:<10}{:>10}{:>9}{:>16}\n", "source", "files", "%",
         "bytes");
-    os << std::format("{:<8}{:>10}{:>9.2f}{:>16}\n", "index",
+    os << std::format("{:<10}{:>10}{:>9.2f}{:>16}\n", "index",
         stage.from_index, share(stage.from_index), "");
-    os << std::format("{:<8}{:>10}{:>9.2f}{:>16}\n", "hashed", stage.hashed,
+    os << std::format("{:<10}{:>10}{:>9.2f}{:>16}\n", "worktree",
+        stage.from_worktree, share(stage.from_worktree), "");
+    os << std::format("{:<10}{:>10}{:>9.2f}{:>16}\n", "hashed", stage.hashed,
         share(stage.hashed), stage.hashed_bytes);
-    os << std::format("{:<8}{:>10}{:>9}{:>16}\n", "errors", stage.errors, "",
+    os << std::format("{:<10}{:>10}{:>9}{:>16}\n", "errors", stage.errors, "",
         "");
-    os << std::format("{:<8}{:>10}\n", "total", stage.files);
+    os << std::format("{:<10}{:>10}\n", "total", stage.files);
 
     os << std::format("\n{:<14}{:>12}{:>10}{:>10}\n", "step", "median_ms",
         "min_ms", "max_ms");
