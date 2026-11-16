@@ -26,6 +26,7 @@ add_library(${lib_target_name}
     ops/component.cpp
     ops/entity.cpp
     ops/entity_checks.cpp
+    ops/family.cpp
     ops/field_group.cpp
     ops/junction.cpp
     ops/load.cpp
