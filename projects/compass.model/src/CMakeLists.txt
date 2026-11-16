@@ -33,6 +33,7 @@ add_library(${lib_target_name}
     ops/operation.cpp
     ops/outcome_catalogue.cpp
     ops/outline.cpp
+    ops/physical_space.cpp
     ops/service_registry.cpp
     ops/text.cpp)
 

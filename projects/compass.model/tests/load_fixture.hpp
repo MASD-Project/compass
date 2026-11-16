@@ -80,13 +80,7 @@ public:
      */
     [[nodiscard]] std::string load_json(std::string_view path) const {
         const auto& d = *index_.at(std::string(path));
-        const ops::document_finder find = [this](std::string_view p)
-            -> std::optional<ops::document> {
-            const auto it = index_.find(std::string(p));
-            if (it == index_.end())
-                return std::nullopt;
-            return document_of(*it->second);
-        };
+        const auto find = finder();
         const auto doc = document_of(d);
         const auto type = ops::model_type_of(ops::declared_type(doc));
         types::model_tables tables;
@@ -98,7 +92,33 @@ public:
         return out;
     }
 
+    /**
+     * @brief The physical-space overrides of the model at @p path, a later
+     * pair winning as it does in a dict.
+     */
+    [[nodiscard]] std::map<std::string, bool> overrides(
+        std::string_view path) const {
+        const auto& d = *index_.at(std::string(path));
+        ops::outline o;
+        ops::build_outline(d.source, d.view, o);
+        ops::load_cache cache;
+        std::map<std::string, bool> out;
+        for (auto& [key, enabled] : ops::physical_space_overrides(o,
+                finder(), cache))
+            out[key] = enabled;
+        return out;
+    }
+
 private:
+    [[nodiscard]] ops::document_finder finder() const {
+        return [this](std::string_view p) -> std::optional<ops::document> {
+            const auto it = index_.find(std::string(p));
+            if (it == index_.end())
+                return std::nullopt;
+            return document_of(*it->second);
+        };
+    }
+
     struct parsed {
         std::string path;
         std::string source;

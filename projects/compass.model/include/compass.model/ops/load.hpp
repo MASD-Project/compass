@@ -26,7 +26,10 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 #include "compass.model/ops/builder.hpp"
+#include "compass.model/ops/outline.hpp"
 #include "compass.model/types/model_tables.hpp"
 #include "compass.org/types/tables.hpp"
 
@@ -107,6 +110,19 @@ private:
 types::model_id load_model(builder& b, const document& d, types::model_type t,
     const document_finder& find, load_cache& cache,
     std::string* error = nullptr);
+
+/**
+ * @brief read_physical_space_overrides for the model whose outline is
+ * @p o: the | Address | Enabled | rows of the * Physical space tables of
+ * the profiles its * Flags drawer binds, then of its own, each as
+ * (<address>.enabled, enabled). A later pair overrides an earlier one, so
+ * the model's own table wins.
+ *
+ * Throws model_error when a bound profile's document does not exist.
+ */
+[[nodiscard]] std::vector<std::pair<std::string, bool>>
+physical_space_overrides(const outline& o, const document_finder& find,
+    load_cache& cache);
 
 }
 

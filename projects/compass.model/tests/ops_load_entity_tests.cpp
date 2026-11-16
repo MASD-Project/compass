@@ -17,9 +17,45 @@
  * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  */
+#include <map>
 #include <string>
 #include <catch2/catch_test_macros.hpp>
 #include "load_fixture.hpp"
+
+/*
+ * The expected value is what ores.codegen's read_physical_space_overrides
+ * returned for the same document, bound to ORE Studio's read-model profile.
+ */
+TEST_CASE("a model's own physical space table wins over its profile's",
+    "[model][physical_space]") {
+    compass::model::tests::checkout c;
+    c.add("projects/modeling/variability_read_model.org",
+        "#+title: variability_read_model\n\n* Physical space\n\n"
+        "| Address | Enabled |\n|---------+---------|\n"
+        "| ores.sql.schema.domain_entity_create | false |\n"
+        "| ores.sql.schema.domain_entity_drop | false |\n"
+        "| ores.sql.schema.domain_entity_view_create | true |\n"
+        "| ores.sql.schema.domain_entity_view_drop | true |\n"
+        "| ores.sql.schema.notify_trigger | false |\n"
+        "| ores.sql.schema.notify_trigger_drop | false |\n");
+    c.add("projects/ores.demo/modeling/ores.demo.view.org",
+        "#+title: x\n#+type: ores.codegen.entity\n\n"
+        "* Flags\n:PROPERTIES:\n:profile: read-model\n:END:\n\n"
+        "* Physical space\n\n| Address | Enabled |\n|---------+---------|\n"
+        "| =ores.sql.schema.notify_trigger= | TRUE |\n"
+        "| ores.cpp.service | false |\n"
+        "| ores.cpp.protocol | maybe |\n");
+
+    CHECK(c.overrides("projects/ores.demo/modeling/ores.demo.view.org") ==
+        std::map<std::string, bool>{
+            {"ores.sql.schema.domain_entity_create.enabled", false},
+            {"ores.sql.schema.domain_entity_drop.enabled", false},
+            {"ores.sql.schema.domain_entity_view_create.enabled", true},
+            {"ores.sql.schema.domain_entity_view_drop.enabled", true},
+            {"ores.sql.schema.notify_trigger.enabled", true},
+            {"ores.sql.schema.notify_trigger_drop.enabled", false},
+            {"ores.cpp.service.enabled", false}});
+}
 
 /*
  * The expected value is what ores.codegen.core.load_model returned for the

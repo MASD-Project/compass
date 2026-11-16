@@ -62,6 +62,8 @@ struct load_cache::impl {
     std::map<std::string, entry<custom_types>, std::less<>> registries;
     std::map<std::string, entry<std::vector<profile_assignment>>, std::less<>>
         profiles;
+    std::map<std::string, entry<std::vector<std::pair<std::string, bool>>>,
+        std::less<>> physical_spaces;
 };
 
 struct load_context {
