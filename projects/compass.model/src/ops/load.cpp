@@ -102,12 +102,24 @@ types::model_id load_model(builder& b, const document& d, model_type t,
         case model_type::junction:
             load_junction(c, root);
             break;
+        case model_type::service_registry:
+            load_service_registry(c, root);
+            break;
+        case model_type::asset_class_catalogue:
+            load_asset_class_catalogue(c, root);
+            break;
+        case model_type::outcome_catalogue:
+            load_outcome_catalogue(c, root);
+            break;
         case model_type::field_group:
             load_field_group(c, root);
             break;
-        default:
-            throw model_error("model type not loaded yet: " +
-                std::string(types::name_of(t)));
+        case model_type::family:
+        case model_type::trade_type_catalogue:
+            b.set(root, "error", "NotPorted");
+            if (error != nullptr)
+                *error = "not ported: " + std::string(types::name_of(t));
+            break;
         }
     } catch (const model_error& e) {
         auto& v = b.tables().values;

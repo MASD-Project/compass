@@ -426,6 +426,138 @@ void apply_profile(load_context& c, value_id de) {
     }
 }
 
+static std::vector<value_id> items_of(const builder& b, value_id list) {
+    std::vector<value_id> out;
+    if (list.is_none())
+        return out;
+    const auto& v = b.tables().values;
+    for (auto i = v.firsts[list]; !i.is_none(); i = v.nexts[i])
+        out.push_back(i);
+    return out;
+}
+
+/**
+ * @brief _column_name: column, field or name, the first that is set.
+ */
+static std::string column_name(const builder& b, value_id column) {
+    for (const auto key : {"column", "field", "name"}) {
+        if (const auto v = b.find(column, key); truthy(b, v))
+            return text_value(b, v);
+    }
+    return {};
+}
+
+/**
+ * @brief The columns filter_members gives a member, which are those a
+ * list_default_filter may name, after its check of reserved names.
+ */
+static std::vector<std::string> filter_columns(const builder& b,
+    value_id de) {
+    std::vector<std::string> declared_names;
+    std::vector<value_id> write_columns;
+    const auto pk = b.find(de, "primary_key");
+    std::vector<value_id> declared;
+    if (!pk.is_none())
+        declared = items_of(b, b.find(pk, "columns"));
+    for (const auto key : {"natural_keys", "columns"}) {
+        for (const auto col : items_of(b, b.find(de, key)))
+            declared.push_back(col);
+    }
+    for (const auto col : declared) {
+        const auto name = column_name(b, col);
+        if (std::ranges::find(declared_names, name) != declared_names.end())
+            continue;
+        declared_names.push_back(name);
+        write_columns.push_back(col);
+    }
+    std::vector<std::string> relations;
+    for (const auto extra : items_of(b, b.find(de, "extra_list_requests"))) {
+        if (const auto f = b.find(extra, "filter_column"); truthy(b, f))
+            relations.push_back(text_value(b, f));
+    }
+    if (truthy(b, b.find(de, "has_parent_id"))) {
+        const auto presentation = b.find(de, "presentation");
+        std::string parent;
+        if (const auto v = b.find(de, "parent_id_field"); truthy(b, v))
+            parent = text_value(b, v);
+        else if (!presentation.is_none()) {
+            for (const auto key : {"parent_id_field", "parent_key_field"}) {
+                if (const auto v = b.find(presentation, key); truthy(b, v)) {
+                    parent = text_value(b, v);
+                    break;
+                }
+            }
+        }
+        if (!parent.empty() &&
+            std::ranges::find(relations, parent) == relations.end())
+            relations.push_back(parent);
+    }
+    std::vector<std::string> filterable;
+    for (const auto col : write_columns) {
+        const auto f = b.find(col, "filterable");
+        if (!f.is_none() &&
+            b.tables().values.kinds[f] == value_kind::boolean &&
+            b.tables().values.scalars[f] != 0)
+            filterable.push_back(column_name(b, col));
+    }
+    std::vector<std::string> known;
+    const auto add = [&](const std::string& name) {
+        if (std::ranges::find(known, name) == known.end())
+            known.push_back(name);
+    };
+    std::vector<std::string> members;
+    if (const auto v = b.find(de, "list_filter_column"); truthy(b, v)) {
+        add(text_value(b, v));
+        members.push_back(text_value(b, v));
+    }
+    for (const auto& r : relations) {
+        add(r);
+        members.push_back(r);
+        members.push_back(r + "_one_of");
+    }
+    for (const auto& f : filterable) {
+        add(f);
+        members.push_back(f);
+        members.push_back(f + "_one_of");
+    }
+    const auto keys = pk.is_none() ? std::vector<value_id>{}
+        : items_of(b, b.find(pk, "columns"));
+    if (keys.size() == 1) {
+        const auto key = column_name(b, keys.front());
+        add(key);
+        members.push_back(key + "_one_of");
+    }
+    constexpr std::string_view reserved[] = {"offset", "limit", "order",
+        "descending", "search", "scope", "as_of", "keys"};
+    for (const auto& m : members) {
+        if (std::ranges::find(reserved, m) != std::end(reserved))
+            throw model_error("filter member '" + m + "' is reserved");
+    }
+    return known;
+}
+
+/**
+ * @brief _parse_list_default_filter: <column> = <expression>, where the
+ * column is a filter member.
+ */
+static void list_default_filter(builder& b, value_id de) {
+    const auto raw = text_value(b, b.find(de, "list_default_filter"));
+    const auto eq = raw.find('=');
+    const auto column = std::string(trim(std::string_view(raw).substr(0, eq)));
+    const auto expression = eq == std::string::npos ? std::string()
+        : std::string(trim(std::string_view(raw).substr(eq + 1)));
+    if (eq == std::string::npos || column.empty() || expression.empty())
+        throw model_error("list_default_filter must read <column> = "
+            "<expression>");
+    const auto known = filter_columns(b, de);
+    if (std::ranges::find(known, column) == known.end())
+        throw model_error("list_default_filter names a column that is not a "
+            "filter member");
+    const auto out = b.object(de, "list_default_filter");
+    b.set(out, "column", column);
+    b.set(out, "expression", expression);
+}
+
 static void service_find_by_code(builder& b, value_id de) {
     const auto v = b.find(de, "service_find_by_code_column");
     if (v.is_none())
@@ -1036,6 +1168,8 @@ void load_entity(load_context& c, value_id root) {
                     b.remove(de, "service_find_by_code_parent_column");
                 }
             }
+            if (!b.find(de, "list_default_filter").is_none())
+                list_default_filter(b, de);
         }
         if (const auto repo = section(o, cpp, "Repository"); !repo.is_none())
             set_properties(b, b.object(de, "repository"), o, repo);

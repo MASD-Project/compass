@@ -20,6 +20,7 @@ set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
     io/json.cpp
+    ops/asset_class_catalogue.cpp
     ops/builder.cpp
     ops/common.cpp
     ops/component.cpp
@@ -30,7 +31,9 @@ add_library(${lib_target_name}
     ops/load.cpp
     ops/messages.cpp
     ops/operation.cpp
+    ops/outcome_catalogue.cpp
     ops/outline.cpp
+    ops/service_registry.cpp
     ops/text.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
