@@ -26,11 +26,11 @@ Compare the full regeneration with ores.codegen output at the same ORE Studio co
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:4F499B47-4AB8-4049-A72F-495351A6E2C7][Port ORE Studio codegen]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -62,7 +62,13 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Outputs compass generates | 26,212; same path set as ores.codegen, none missing or extra | =compass generate --out <empty dir>= | 6636d9e |
+| Identical to ores.codegen's formatted output | 26,212 of 26,212 | =compare.py= against ORE's own format step | 6636d9e |
+| Differences from the checked-in tree | 24, listed in =evidence/match_the_existing_output_differences.txt= | =compass generate= then =git status= on the archive copy | 6636d9e |
+| Warm =compass generate= | 2.72 s and 2.83 s; codegen from the record, 22,955 formats stored, 0 processes | =compass generate --timings= | 6636d9e |
+| Cold =compass generate= | 23.4-30.5 s, formatting 18.2-23.0 s, load average 7-15 (agent run) | =compass generate --timings= with the store deleted | 6636d9e |
+| =compass check= | 1.49 s, 0 diagnostics (agent run) | =compass check= | 6636d9e |
+| ctest | 10 of 10 suites pass | =ctest --preset linux-clang-release= | 6636d9e |
 
 * Notes
 
@@ -90,3 +96,49 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+compass generates all of ORE Studio's generated code as a codec.
+=compass generate= on a git-initialised copy of the archive writes 26,212
+outputs, byte-identical to ores.codegen's own formatted output. A warm run
+takes under 3 s and runs no formatter; a cold run takes 23 to 31 s, most of it
+clang-format and prettier.
+
+The 24 files that differ from the checked-in tree are all drift in ORE
+Studio:
+
+- 22 from the system-tenant shared-read change, never regenerated:
+  =tenor_convention_resolution_repository.cpp=, and for each of the 7 script
+  entities the =*_create.sql=, =eventing/*_event.hpp= and
+  =repository/*_repository.cpp=.
+- 2 hand edits: =ores.marketdata.service/config/options.hpp= (== 0=
+  initialisers) and =ores.ore/core/tests/CMakeLists.txt= (=pugixml=).
+
+Of the 26,547 tracked files that carry ORE's "regenerate" marker, 341 are not
+codegen outputs: 202 =component_files.cmake= from a separate script, 49
+template sources, 42 fpml populate files from a removed parser, 34 PlantUML
+schema files, 12 documents that quote the marker, and 2 orphans
+(=curve_volatility_parametric_smile{,_parameter}_generator.hpp=) that ORE
+should delete.
+
+The configuration used, for ORE Studio's =.compass.org=:
+
+#+begin_example
+| name              | enabled | options |
+| document_index    | no      |         |
+| required_sections | no      |         |
+| codegen           | yes     | library=projects/ores.codegen/library convention_component=refdata clang_format=clang-format clang_format_style=.clang-format prettier=projects/ores.web/node_modules/.bin/prettier,prettier prettier_style=.prettierrc.yaml |
+#+end_example
+
+Decisions to revisit:
+
+- ORE Studio has no =.compass.org= yet, so neither =compass= nor
+  =compass-bench render= runs on the real checkout until one is added there.
+- The warm run is limited by SHA-1 over the 185 MB dependency record (533
+  ms). The record and the result object each hold every output's bytes.
+- An empty =year= means the current year, as in ores.codegen, but a change of
+  year does not invalidate the cached unit.
+- A model that fails to load, or a missing formatter, throws and exits 2,
+  because a codec that emits files cannot report diagnostics.
+- Formatted results are named by no record, so gc keeps them only for its
+  grace period.
+- Corpus units share one manifest of at most 8 input sets.
