@@ -26,6 +26,7 @@ add_executable(${tests_target_name}
     ops_include_scan_tests.cpp
     ops_includes_stage_tests.cpp
     ops_listing_tests.cpp
+    ops_org_stage_tests.cpp
     ops_parse_tests.cpp
     ops_partition_tests.cpp
     ops_read_stage_tests.cpp)

@@ -24,6 +24,7 @@
 #include <ostream>
 #include "compass.bench/types/file_table.hpp"
 #include "compass.bench/types/includes_result.hpp"
+#include "compass.bench/types/org_result.hpp"
 #include "compass.bench/types/parse_result.hpp"
 #include "compass.bench/types/stage_result.hpp"
 
@@ -94,6 +95,20 @@ void write_includes_report(std::ostream& os,
  * to parse. A failed language gets a FAILED banner naming the reason.
  */
 void write_parse_report(std::ostream& os, const types::parse_result& stage,
+    const setup_timing& setup, const types::file_table& table);
+
+/**
+ * @brief True when the org stage parsed no file or hit any read error.
+ */
+[[nodiscard]] bool failed(const types::org_result& stage);
+
+/**
+ * @brief Writes the stage table, the rows the tables took and the ten
+ * files that were slowest to parse.
+ *
+ * A failed stage gets a FAILED banner naming the reason.
+ */
+void write_org_report(std::ostream& os, const types::org_result& stage,
     const setup_timing& setup, const types::file_table& table);
 
 }

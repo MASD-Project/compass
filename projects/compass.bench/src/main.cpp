@@ -32,6 +32,8 @@
 #include "compass.bench/io/report.hpp"
 #include "compass.bench/ops/includes_stage.hpp"
 #include "compass.bench/ops/listing.hpp"
+#include "compass.bench/ops/org_dump.hpp"
+#include "compass.bench/ops/org_stage.hpp"
 #include "compass.bench/ops/parse_stage.hpp"
 #include "compass.bench/ops/partition.hpp"
 #include "compass.bench/ops/read_stage.hpp"
@@ -46,9 +48,12 @@ constexpr std::string_view usage =
     "usage: compass-bench read <checkout> [-j N] [--repeat R]\n"
     "       compass-bench includes <checkout> --compile-commands <file>\n"
     "           --source-root <dir> [--isystem <dir>]... [-j N] [--repeat R]\n"
-    "       compass-bench parse <checkout> [-j N] [--repeat R]\n";
+    "       compass-bench parse <checkout> [-j N] [--repeat R]\n"
+    "       compass-bench org <checkout> [-j N] [--repeat R]\n"
+    "       compass-bench org-dump <file>\n"
+    "       compass-bench org-dump --list <list>\n";
 
-enum class stage { read, includes, parse };
+enum class stage { read, includes, parse, org, org_dump };
 
 struct options {
     stage which = stage::read;
@@ -58,6 +63,8 @@ struct options {
     std::filesystem::path compile_commands;
     std::filesystem::path source_root;
     std::vector<std::string> implicit_system;
+    std::filesystem::path dump_file;
+    std::filesystem::path dump_list;
 };
 
 std::filesystem::path absolute_path(const std::filesystem::path& p) {
@@ -75,6 +82,18 @@ std::optional<unsigned> parse_positive(std::string_view s) {
     return v;
 }
 
+std::optional<options> parse_dump_options(int argc, char** argv) {
+    options o;
+    o.which = stage::org_dump;
+    if (argc == 3 && std::string_view(argv[2]) != "--list")
+        o.dump_file = argv[2];
+    else if (argc == 4 && std::string_view(argv[2]) == "--list")
+        o.dump_list = argv[3];
+    else
+        return std::nullopt;
+    return o;
+}
+
 std::optional<options> parse_options(int argc, char** argv) {
     if (argc < 3)
         return std::nullopt;
@@ -86,6 +105,10 @@ std::optional<options> parse_options(int argc, char** argv) {
         o.which = stage::includes;
     else if (name == "parse")
         o.which = stage::parse;
+    else if (name == "org")
+        o.which = stage::org;
+    else if (name == "org-dump")
+        return parse_dump_options(argc, argv);
     else
         return std::nullopt;
     o.checkout = argv[2];
@@ -185,11 +208,30 @@ int run_parse(const options& o) {
     return io::failed(stage) ? 1 : 0;
 }
 
+int run_org(const options& o) {
+    io::setup_timing setup;
+    const auto table = list_checkout(o, setup);
+    const auto stage =
+        ops::run_org_stage(o.checkout, table, o.threads, o.repetitions);
+    io::write_org_report(std::cout, stage, setup, table);
+    return io::failed(stage) ? 1 : 0;
+}
+
+int run_org_dump(const options& o) {
+    if (o.dump_list.empty())
+        ops::dump_org_file(o.dump_file, std::cout);
+    else
+        ops::dump_org_list(o.dump_list);
+    return 0;
+}
+
 int run(const options& o) {
     switch (o.which) {
     case stage::read: return run_read(o);
     case stage::includes: return run_includes(o);
     case stage::parse: return run_parse(o);
+    case stage::org: return run_org(o);
+    case stage::org_dump: return run_org_dump(o);
     }
     return 2;
 }

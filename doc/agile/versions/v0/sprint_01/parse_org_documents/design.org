@@ -164,7 +164,10 @@ children of =e= end at =subtree_ends[e]=. An export is one forward scan of the
 table with a stack, and skipping a subtree is one assignment.
 
 The positions have the meaning org-element gives them. A parser test is then
-a diff of these columns against what Emacs prints for the same file.
+a diff of these columns against what Emacs prints for the same file. The
+=io= facet of the component writes the tables in the line format
+=build/scripts/org_element_dump.el= prints for org-element, and the parser
+matches it on all 10,909 documents of the corpus.
 
 The kinds are those of org-element, with two splits. Where org-element tells
 variants apart by a property and the variant decides what children the row
@@ -243,7 +246,9 @@ before the first heading's belong to the document; they hold the document
 ** affiliated: 28 bytes, =affiliated_id=
 
 7,482 rows, sorted by owner: =owners= (=element_id=), =names=, =options= (the
-bracketed part of =#+caption[short]:=), =values= and =object_firsts=. A
+bracketed part of =#+caption[short]:=), =values= and =object_firsts=. The
+name is the one org-element files the keyword under, so =#+tblname:= and
+=#+label:= are =name=; the spelling is in the source. A
 caption is parsed into objects. Those objects sit at the start of the object
 table, before the run of the document element, so the run of an element never
 contains the objects of its caption.
@@ -272,6 +277,15 @@ The type is the scheme as written, or =file=, =custom-id=, =coderef=, =fuzzy=
 or =radio= when there is none. Org treats an unregistered scheme such as
 =proj:= as a fuzzy link. That depends on configuration, so the parser records
 the scheme and the codec decides.
+
+Writing the parser settled three details. =file= in any case, =file+sys= and
+=file+emacs= are all =file=, as in org-element. A scheme is taken from a
+bracket link only when neither a second colon nor a space follows its colon,
+so =[[std::vector]]= and =[[Note: x]]= stay fuzzy. A link abbreviation set by
+=#+link:= is not expanded: the expanded path is not in the source, so it
+cannot be a range, and the abbreviation is kept as the type. The path is the
+text as written, with brackets still escaped and a wrapped path still
+wrapped; the codec reads it as org-element does.
 
 ** names: 4 bytes, =name_id=
 

@@ -22,7 +22,10 @@ plain text is the source between objects. Every row holds handles and byte
 offsets and no pointer, so a column can be written to a pack and mapped back
 unchanged. A codec finds every heading, keyword, property, block or link with
 one scan of one table, and walks a document in order with one scan of the
-element table. The component holds types only; it has no parser.
+element table. The component holds the types and, in its =io= facet, a text
+dump of them. It has no parser: the
+[[id:D2B611DE-6D20-4408-B322-DF83B151AD94][compass.ingest]] component fills
+the tables.
 
 * Inputs
 
@@ -64,7 +67,15 @@ One =tables= value holds one document, or a corpus of documents end to end.
   binary search, or by advancing a cursor during a walk.
 - *Names.* Keyword and property keys, tags, TODO keywords, block languages and
   link types are interned once per document, in canonical case. Values, titles
-  and bodies are byte ranges.
+  and bodies are byte ranges. An affiliated keyword is filed under the name
+  org-element gives it, so =#+tblname:= is =name=.
+- *Links.* The type is a type org registers, or the scheme as written. The
+  path is the text as written: a codec removes the backslashes that escape
+  brackets and joins a path that wraps.
+- *Dump.* =io::dump= writes a document as one line per element and object:
+  the org-element type, the positions and the fields of the detail tables.
+  =build/scripts/org_element_dump.el= prints org-element's parse tree in the
+  same format, so a parser is checked by comparing two text files.
 - *Raw text.* A construct with no detail table is its kind and its range, and
   the codec that exports it reads its fields from the source: timestamps,
   macros, export snippets, entities, LaTeX, footnote labels, drawer names,
@@ -84,11 +95,13 @@ One =tables= value holds one document, or a corpus of documents end to end.
 | =include/compass.org/types/element_table.hpp= | =element_kind= and the element tree.              |
 | =include/compass.org/types/object_table.hpp=  | =object_kind= and the object rows.                |
 | =include/compass.org/types/*_table.hpp=       | One header per remaining table.                   |
+| =include/compass.org/io/dump.hpp=             | The text dump of one document.                    |
 | =tests/types_tables_tests.cpp=                | A document built by hand and queried.             |
+| =tests/io_dump_tests.cpp=                     | The dump of tables built by hand.                 |
 
 | Target              | Kind                                      |
 |---------------------+-------------------------------------------|
-| =compass.org.lib=   | Header-only library.                      |
+| =compass.org.lib=   | Library.                                  |
 | =compass.org.tests= | Catch2 executable, registered with CTest. |
 
 The counts that size the tables come from =build/scripts/org_census.py=, which

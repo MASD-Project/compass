@@ -15,13 +15,5 @@
 # this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
 # Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
-set(name "compass.org")
-set(lib_target_name ${name}.lib)
-
-# The component holds types only, so the library has headers and no sources.
-add_library(${lib_target_name} INTERFACE)
-
-target_include_directories(${lib_target_name} INTERFACE
-    ${CMAKE_SOURCE_DIR}/projects/compass.org/include)
-
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/tests)
