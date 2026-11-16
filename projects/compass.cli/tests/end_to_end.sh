@@ -16,7 +16,8 @@
 # Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
 # Runs the compass executable named by $1 over a fresh git repository:
-# generate, diff, check, then check again after fixing the one finding.
+# generate, diff, check, then check again after fixing the one finding;
+# then the same commands configured by a .compass.org.
 set -u
 
 compass="$1"
@@ -74,6 +75,38 @@ grep -q '^doc/task_a.org:2:9: required_sections/missing_section: ' \
 printf '#+title: Task: a\n#+type: task\n* Goal\n* Result\n' \
     >"$repo/doc/task_a.org"
 expect 0 "check after the fix" "$compass" check
+
+cat >"$repo/.compass.org" <<'EOF'
+#+title: Compass configuration
+#+output: configured
+
+* Codecs
+
+| name              | enabled | options        |
+|-------------------+---------+----------------|
+| document_index    | yes     | path=index.tsv |
+| required_sections | no      |                |
+EOF
+printf '#+title: Task: a\n#+type: task\n* Goal\n' >"$repo/doc/task_a.org"
+
+expect 0 "config" "$compass" config
+grep -qx 'output = configured (.compass.org:2)' "$root/out" ||
+    fail "config did not report the output root from the file"
+grep -qx 'required_sections.enabled = false (.compass.org:9)' "$root/out" ||
+    fail "config did not report the disabled codec"
+
+expect 0 "check with required_sections disabled" "$compass" check
+expect 1 "check with required_sections enabled on the command line" \
+    "$compass" check --set required_sections.enabled=true
+
+expect 0 "configured generate" "$compass" generate
+[ -f configured/index.tsv ] ||
+    fail "the index is not where the configuration puts it"
+
+printf '* Codecs\n| document_index | perhaps | |\n' >"$repo/.compass.org"
+expect 2 "a malformed configuration" "$compass" check
+grep -q '^compass: .compass.org:2: enabled is .perhaps.; fix: ' \
+    "$root/err" || fail "the configuration error names no line"
 
 expect 2 "an unknown command" "$compass" write
 exit 0

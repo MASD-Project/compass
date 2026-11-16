@@ -34,8 +34,31 @@ void write_lines(std::ostream& err, std::string_view prefix,
 }
 
 std::string corpus_note(const types::run_summary& s, double ms) {
+    std::string units;
+    for (std::size_t c = 0; c < s.codecs.size(); ++c)
+        units += std::format("{}{} {}", c == 0 ? "" : ", ", s.codecs[c],
+            s.ran[c]);
     return std::format("{} documents, {} from the store, {} parsed; "
-                       "{:.1f} ms", s.documents, s.loaded, s.parsed, ms);
+                       "units run: {}; {:.1f} ms", s.documents, s.loaded,
+        s.parsed, units.empty() ? "none" : units, ms);
+}
+
+std::string source_of(const types::origin& o,
+    const std::filesystem::path& file) {
+    switch (o.kind) {
+    case types::origin_kind::defaults: return "default";
+    case types::origin_kind::file:
+        return std::format("{}:{}", file.filename().string(), o.line);
+    case types::origin_kind::command_line: return "command line";
+    }
+    return "";
+}
+
+std::string shown(const std::filesystem::path& p,
+    const std::filesystem::path& checkout) {
+    const auto relative = p.lexically_relative(checkout);
+    return relative.empty() || *relative.begin() == ".."
+        ? p.string() : relative.string();
 }
 
 }
@@ -76,6 +99,24 @@ void write_check(std::ostream& out, std::ostream& err,
             f.column, f.rule, f.message, f.fix);
     out << std::format("{} diagnostic{} ({})\n", r.findings.size(),
         r.findings.size() == 1 ? "" : "s", corpus_note(r.run, r.ms));
+}
+
+void write_configuration(std::ostream& out, const types::configuration& c,
+    const std::filesystem::path& checkout) {
+    const auto line = [&](std::string_view key, std::string_view value,
+                          const types::origin& from) {
+        out << std::format("{} = {} ({})\n", key, value,
+            source_of(from, c.file));
+    };
+    line("output", shown(c.output.value, checkout), c.output.from);
+    line("meta", shown(c.meta.value, checkout), c.meta.from);
+    for (const auto& codec : c.codecs) {
+        line(codec.name + ".enabled", codec.enabled.value,
+            codec.enabled.from);
+        for (std::size_t i = 0; i < codec.keys.size(); ++i)
+            line(codec.name + "." + codec.keys[i], codec.options[i].value,
+                codec.options[i].from);
+    }
 }
 
 void write_gc(std::ostream& out, const types::gc_result& r) {

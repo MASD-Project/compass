@@ -24,6 +24,8 @@
 #include <chrono>
 #include <cstdint>
 #include <optional>
+#include <vector>
+#include "compass.cli/config/precedence.hpp"
 
 namespace compass::cli::config {
 
@@ -39,16 +41,19 @@ constexpr std::string_view help =
     "write nothing\n"
     "  check           print the diagnostics of every codec\n"
     "  gc              remove old unreferenced objects from the store\n"
+    "  config          print each codec setting and path, and where it came "
+    "from\n"
     "\n"
     "options:\n"
     "  -C <dir>                    the checkout (default: the current "
     "directory)\n"
     "  --meta <dir>                the contract pages, under the checkout "
-    "(default: doc/meta)\n"
+    "(default: #+meta: of .compass.org, else doc/meta)\n"
     "  --out <dir>                 the output root, under the checkout "
-    "(default: build/output/compass)\n"
+    "(default: #+output: of .compass.org, else build/output/compass)\n"
     "  -j <n>                      threads (default: one per core)\n"
-    "  --set <codec>.<key>=<value> set a codec option; repeatable\n"
+    "  --set <codec>.<key>=<value> set a codec option over .compass.org; "
+    "repeatable\n"
     "  --dry-run                   gc: remove nothing, report what would go\n"
     "  --cap <bytes>               gc: the size the store comes down to "
     "(default: 0)\n"
@@ -72,6 +77,8 @@ std::optional<types::command> command_named(std::string_view name) {
         return types::command::check;
     if (name == "gc")
         return types::command::gc;
+    if (name == "config")
+        return types::command::config;
     return std::nullopt;
 }
 
@@ -88,22 +95,16 @@ std::optional<Number> parse_number(std::string_view s) {
  * @brief Adds the setting written as <codec>.<key>=<value>; false when
  * @p s is not of that form.
  */
-bool add_setting(std::string_view s, codec::types::configuration& settings) {
+bool add_setting(std::string_view s, std::vector<types::setting>& settings) {
     const auto equals = s.find('=');
     const auto dot = s.find('.');
     if (equals == std::string_view::npos || dot == 0 || dot + 1 >= equals)
         return false;
-    settings.set(s.substr(0, dot), s.substr(dot + 1, equals - dot - 1),
-        s.substr(equals + 1));
+    settings.push_back({.codec = std::string(s.substr(0, dot)),
+        .key = std::string(s.substr(dot + 1, equals - dot - 1)),
+        .value = std::string(s.substr(equals + 1)),
+        .from = {types::origin_kind::command_line}});
     return true;
-}
-
-std::filesystem::path absolute_under(const std::filesystem::path& base,
-    const std::filesystem::path& p) {
-    auto r = (base / p).lexically_normal();
-    if (!r.has_filename() && r.has_relative_path())
-        r = r.parent_path();
-    return r;
 }
 
 bool takes_value(std::string_view flag) {
@@ -127,12 +128,11 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
     if (std::ranges::contains(args, "--version"))
         return show_version{};
 
-    types::options o;
+    types::invocation o;
     o.threads = std::max(1u, default_threads);
     std::optional<types::command> which;
     std::filesystem::path checkout;
-    std::filesystem::path meta = "doc/meta";
-    std::filesystem::path out = "build/output/compass";
+    const types::origin command_line{types::origin_kind::command_line};
     std::string_view gc_flag;
     for (std::size_t i = 0; i < args.size(); ++i) {
         const auto arg = args[i];
@@ -161,16 +161,16 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
         if (arg == "-C") {
             checkout = value;
         } else if (arg == "--meta") {
-            meta = value;
+            o.command_line.meta = {value, command_line};
         } else if (arg == "--out") {
-            out = value;
+            o.command_line.output = {value, command_line};
         } else if (arg == "-j") {
             const auto n = parse_number<unsigned>(value);
             if (!n || *n == 0)
                 return bad_value();
             o.threads = *n;
         } else if (arg == "--set") {
-            if (!add_setting(value, o.settings))
+            if (!add_setting(value, o.command_line.settings))
                 return bad_value();
         } else {
             const auto n = parse_number<std::uint64_t>(value);
@@ -189,8 +189,6 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
         return usage_error{std::string(gc_flag) + " applies to gc only"};
     o.which = *which;
     o.checkout = absolute_under(working_directory, checkout);
-    o.meta = absolute_under(o.checkout, meta);
-    o.output_root = absolute_under(o.checkout, out);
     return o;
 }
 

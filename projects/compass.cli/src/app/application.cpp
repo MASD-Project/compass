@@ -24,7 +24,10 @@
 #include <variant>
 #include "compass.cli/app/pipeline.hpp"
 #include "compass.cli/config/arguments.hpp"
+#include "compass.cli/config/precedence.hpp"
+#include "compass.cli/config/repository_file.hpp"
 #include "compass.cli/io/report.hpp"
+#include "compass.codec/codecs/catalogue.hpp"
 
 namespace compass::cli::app {
 
@@ -57,14 +60,36 @@ int run_check(const types::options& o, std::ostream& out,
     return r.findings.empty() ? exit_success : exit_findings;
 }
 
-int run_command(const types::options& o, std::ostream& out,
+int run_command(const types::invocation& i, std::ostream& out,
     std::ostream& err) {
+    const auto file = config::read_repository_file(i.checkout);
+    if (!file) {
+        err << "compass: " << file.error() << "\n";
+        return exit_failure;
+    }
+    const auto c = config::resolve(codec::codecs::catalogue(), i.checkout,
+        i.checkout / config::repository_file_name, *file, i.command_line);
+    if (!c.problems.empty()) {
+        for (const auto& p : c.problems)
+            err << "compass: " << p << "\n";
+        return exit_failure;
+    }
+    const types::options o{.which = i.which,
+        .checkout = i.checkout,
+        .meta = c.meta.value,
+        .output_root = c.output.value,
+        .threads = i.threads,
+        .settings = config::settings_of(c),
+        .collection = i.collection};
     switch (o.which) {
     case types::command::generate: return run_generate(o, out, err);
     case types::command::diff: return run_diff(o, out, err);
     case types::command::check: return run_check(o, out, err);
     case types::command::gc:
         io::write_gc(out, gc(o));
+        return exit_success;
+    case types::command::config:
+        io::write_configuration(out, c, o.checkout);
         return exit_success;
     }
     return exit_failure;
@@ -90,7 +115,7 @@ int run(std::span<const std::string_view> args,
         return exit_failure;
     }
     try {
-        return run_command(std::get<types::options>(parsed), out, err);
+        return run_command(std::get<types::invocation>(parsed), out, err);
     } catch (const std::exception& e) {
         err << "compass: " << e.what() << "\n";
         return exit_failure;

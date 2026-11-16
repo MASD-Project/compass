@@ -47,7 +47,7 @@ struct usage_error {
 };
 
 using parsed_arguments =
-    std::variant<types::options, show_help, show_version, usage_error>;
+    std::variant<types::invocation, show_help, show_version, usage_error>;
 
 /**
  * @brief The help text: the commands, their options and the exit
@@ -63,12 +63,13 @@ using parsed_arguments =
 /**
  * @brief Parses the arguments after the program name.
  *
- * One argument is the command: generate, or its alias gen, diff, check or
- * gc. Options may come before or after it, each value as the next
- * argument. -C names the checkout, relative to @p working_directory and
- * the working directory itself by default, as git -C does; --meta and
- * --out are then relative to the checkout, and default to doc/meta and
- * build/output/compass under it. -j defaults to @p default_threads.
+ * One argument is the command: generate, or its alias gen, diff, check,
+ * gc or config. Options may come before or after it, each value as the
+ * next argument. -C names the checkout, relative to @p working_directory
+ * and the working directory itself by default, as git -C does. --meta,
+ * --out and --set go into the command-line layer as written, with no
+ * default; resolving the configuration makes the paths absolute. -j
+ * defaults to @p default_threads.
  * --dry-run, --cap and --grace belong to gc alone. --help or -h anywhere
  * asks for help and --version for the version, whatever else is there.
  */
