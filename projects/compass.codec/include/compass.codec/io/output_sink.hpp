@@ -20,9 +20,11 @@
 #ifndef COMPASS_CODEC_IO_OUTPUT_SINK_HPP
 #define COMPASS_CODEC_IO_OUTPUT_SINK_HPP
 
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <string_view>
 #include <vector>
 #include "compass.codec/types/output_set.hpp"
 #include "compass.codec/types/written_outputs.hpp"
@@ -67,7 +69,58 @@ bool write_written_outputs(const std::filesystem::path& path,
     const types::written_outputs& record);
 
 /**
- * @brief What putting a run's outputs on disk did.
+ * @brief What putting a run's outputs on disk does to one file.
+ *
+ * write puts bytes that are new for the path; restore puts back bytes
+ * compass wrote before, after the file was edited or deleted; unchanged
+ * leaves a file that already holds its bytes. remove deletes a file
+ * compass wrote that no complete codec produces any more; keep leaves such
+ * a file because it was edited after compass wrote it, or because its path
+ * passes through a symbolic link.
+ */
+enum class output_action : std::uint8_t {
+    write, restore, unchanged, remove, keep
+};
+
+/**
+ * @brief Whether @p a changes the file it names.
+ */
+[[nodiscard]] constexpr bool changes_file(output_action a) noexcept {
+    return a == output_action::write || a == output_action::restore ||
+        a == output_action::remove;
+}
+
+/**
+ * @brief What putting a run's outputs on disk would do, decided without
+ * changing anything.
+ *
+ * problems is not empty when the outputs cannot be written at all; then
+ * there are no actions and record is the previous one. Otherwise there is
+ * one action per output, in the order of the outputs, then one per file
+ * compass wrote that no complete codec produces any more and that still
+ * exists, in path order. contents holds the bytes of write, restore and
+ * unchanged, and is empty for remove and keep.
+ *
+ * record is the record for the next run, except that the stat data of a
+ * file still to be written or restored is the old one until apply_outputs
+ * writes it.
+ *
+ * The views point into the outputs and the previous record the plan was
+ * made from, which must outlive it.
+ */
+struct output_plan {
+    std::vector<std::string> problems;
+    std::vector<std::string_view> paths;
+    std::vector<std::string_view> codecs;
+    std::vector<output_action> actions;
+    std::vector<std::string_view> contents;
+    types::written_outputs record;
+
+    [[nodiscard]] std::size_t size() const noexcept { return paths.size(); }
+};
+
+/**
+ * @brief What putting a run's outputs on disk did, or would do.
  *
  * problems is not empty when the outputs could not be written at all; then
  * no file was touched and record is the previous one. Otherwise each
@@ -90,35 +143,65 @@ struct sink_result {
 };
 
 /**
- * @brief Makes the files under @p root hold @p outputs, touching only the
- * files that differ.
+ * @brief Decides what makes the files under @p root hold @p outputs,
+ * reading the files but changing none.
  *
- * Nothing is written when ops::check_outputs finds a problem. Each output
+ * Nothing is planned when ops::check_outputs finds a problem. Each output
  * whose recorded entry has the same blob ID and whose file has the recorded
- * stat data, and is not racily clean, is left alone without being read.
- * Any other output whose file exists is hashed, and left alone when it
- * already holds the bytes. Only then is it written, through a temporary
- * file in its directory and a rename, so its modification time changes
- * only when its content does.
+ * stat data, and is not racily clean, is unchanged without being read.
+ * Any other output whose file exists is hashed, and is unchanged when it
+ * already holds the bytes.
  *
  * An entry of @p previous whose codec is complete in @p outputs and whose
  * path no output names is removed when its file still holds what compass
- * wrote, and its emptied directories with it, up to @p root. Entries of
- * other codecs are carried over. @p previous is ignored when it was
- * recorded for another root, and then no file is removed.
+ * wrote, kept otherwise, and dropped from the record when its file is
+ * gone. Entries of other codecs are carried over. @p previous is ignored
+ * when it was recorded for another root, and then nothing is removed.
  *
  * The record's written time is the start of this call when an entry
- * changed or an entry was racily clean, and the previous one otherwise,
+ * changes or an entry was racily clean, and the previous one otherwise,
  * so a run that changes nothing yields the same record.
  *
- * @p root must be absolute. A final path component that is a symbolic
+ * @p root must be absolute.
+ * @throws std::filesystem::filesystem_error or std::system_error when a
+ * file cannot be read.
+ */
+[[nodiscard]] output_plan plan_outputs(const std::filesystem::path& root,
+    const types::output_set& outputs,
+    const types::written_outputs& previous);
+
+/**
+ * @brief The counts and the record of @p plan, as applying it reports
+ * them, except for the stat data of the files it would write.
+ */
+[[nodiscard]] sink_result summarise(const output_plan& plan);
+
+/**
+ * @brief Performs @p plan: writes and restores through a temporary file
+ * in the file's directory and a rename, so a modification time changes
+ * only when content does, and removes files with their emptied
+ * directories, up to the root. A final path component that is a symbolic
  * link is replaced by the rename, never written through.
  * @throws std::filesystem::filesystem_error or std::system_error when a
- * file cannot be read, written or removed.
+ * file cannot be written or removed.
+ */
+[[nodiscard]] sink_result apply_outputs(const output_plan& plan);
+
+/**
+ * @brief Makes the files under @p root hold @p outputs, touching only the
+ * files that differ: apply_outputs of plan_outputs.
  */
 [[nodiscard]] sink_result write_outputs(const std::filesystem::path& root,
     const types::output_set& outputs,
     const types::written_outputs& previous);
+
+/**
+ * @brief The unified diff, in git's format, of every action of @p plan
+ * that changes a file, against the file on disk, in the order of the plan.
+ * @throws std::filesystem::filesystem_error when a file exists but cannot
+ * be read.
+ */
+[[nodiscard]] std::string diff_outputs(const output_plan& plan);
 
 }
 

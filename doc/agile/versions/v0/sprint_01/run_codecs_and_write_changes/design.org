@@ -38,8 +38,9 @@ run over this repository and over ORE Studio. Dependency recording is built:
 the view records what each unit reads and a run calls only the units whose
 inputs changed. Changed-only writes are built: an output sink writes a file
 only when its content changed and restores generated files edited by hand.
-Diff mode and the result cache are the next tasks. This page says where each
-one attaches.
+Diff mode is built: the sink plans before it writes, and a diff run prints
+the plan and writes nothing. The result cache is the next task. This page
+says where it attaches.
 
 * Summary
 
@@ -306,6 +307,39 @@ The writing task built it this way.
   record of another root is ignored too, so pointing =--write= somewhere new
   writes there and removes nothing.
 
+** Diff mode as built
+
+The diff task built it this way.
+
+- /One decision./ The sink splits into =io::plan_outputs=, which reads the
+  root and returns an action table (path, codec, action, new bytes) with the
+  record for the next run, and =io::apply_outputs=, which performs it.
+  =write_outputs= is the two in turn and its tests pass unchanged. A diff
+  prints the plan a write would apply, so the two cannot disagree. The
+  record's written time is decided in the plan: a write or restore always
+  changes an entry, since the rename gives the file a new inode.
+- /The diff./ =ops::unified_diff= in process: Myers' O(ND) algorithm in
+  linear space (middle snake, then the two halves), in git's format with
+  three lines of context. Its tests run =git diff --no-index= on each case
+  and require the same bytes from the =---= line on. The headers carry no
+  =diff --git= or =index= line, since those need modes and hashes a review
+  does not. git's slider heuristics are not reproduced, so a change among
+  repeated lines can be placed differently, though no longer.
+- /Nothing written, by construction./ The =codecs= stage splits into
+  =evaluate=, which loads the corpus and runs the codecs and only reads, and
+  =persist=, its one writer: parsed objects, the worktree index, the
+  dependency record, the outputs and their record. A file whose object is
+  missing is parsed into memory and its object is stored by =persist=, so
+  the store is untouched too. =diff_codecs_stage= calls =evaluate= and the
+  plan and never =persist=. The tests snapshot every file under the
+  checkout, its git directory and the store, bytes and times, around a diff.
+- /The command./ =compass-bench codecs --diff <root>= prints the diff on
+  standard output, so it can be piped, and the summary (would write,
+  restore, remove, keep) on standard error. It exits 0 when nothing would
+  change, 1 when a file would be written, restored or removed, and 2 when
+  the run fails, as =diff(1)= does. A keep changes no file and so does not
+  count. =--write= and =--diff= together are a usage error.
+
 ** The result cache
 
 The key of a result is the codec's name and version, its option values in
@@ -467,6 +501,29 @@ only when an output's content changes. The racy and lost-record runs cost
 covered by the tests, not measured here: both codecs always produce their
 outputs.
 
+** Diff mode
+
+One run each on this repository at commit =543701b=, 401 documents, release
+build, default threads (8), =--repeat 1=. The root was written once with
+=--write=; each diff then ran with a snapshot of the root, the checkout's
+=compass= records and the store (paths, sizes, times, inodes and the hashes
+of the root and records) taken before and after.
+
+| Run                         | Exit | Diff                       | Plan    | Diff time | Wall    | Snapshot  |
+|-----------------------------+------+----------------------------+---------+-----------+---------+-----------|
+| Write                       | 0    | (1 output written)         |         |           | 0.152 s | n/a       |
+| Diff, nothing changed       | 0    | empty                      | 0.24 ms | 0.00 ms   | 0.015 s | identical |
+| Diff, one title edited      | 1    | one hunk in the index      | 0.24 ms | 0.13 ms   | 0.015 s | identical |
+
+The title edit was to =doc/compass.org=; the diff was one =@@ -89,7 +89,7 @@=
+hunk replacing its index row. The diff run with the edit parsed the edited
+file into memory and wrote no object.
+
+#+begin_src sh
+compass-bench codecs . --meta doc/meta --write $S/out --repeat 1
+compass-bench codecs . --meta doc/meta --diff $S/out --repeat 1
+#+end_src
+
 * Alternatives rejected
 
 - *A virtual interface.* =class codec= with virtual =name()=, =version()=,
@@ -552,6 +609,9 @@ outputs.
 - *Stat data stands for content.* A tool that rewrites a generated file
   with the same size and restores its times and inode would go unnoticed,
   as it would by git. The racy rule covers the same-second case only.
+- *Diff placement among repeated lines.* The diff is minimal but does not
+  reproduce git's slider and indent heuristics, so a change among repeated
+  lines may be shown in another, equally short place than git shows it.
 - *Unregistered input types run anyway.* A codec that lists a type the
   registry lacks runs over the rest and the registry reports a problem. A
   host may prefer to refuse to run.

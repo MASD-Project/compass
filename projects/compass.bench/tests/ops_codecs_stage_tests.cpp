@@ -21,9 +21,13 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <map>
 #include <set>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
@@ -246,4 +250,109 @@ TEST_CASE("editing one task calls its unit and the corpus unit only",
     CHECK(r.last.skipped == std::vector<std::uint64_t>{0, 1});
     CHECK(r.last.diagnostics[1].size() == 0);
     CHECK(r.record_written);
+}
+
+namespace {
+
+/**
+ * @brief Every entry under @p dir: the bytes and modification time of
+ * each file, and each directory, so a write, a touch or a new directory
+ * all show.
+ */
+std::map<std::string, std::pair<std::string, std::int64_t>> snapshot(
+    const std::filesystem::path& dir) {
+    std::map<std::string, std::pair<std::string, std::int64_t>> out;
+    for (const auto& e : std::filesystem::recursive_directory_iterator(dir)) {
+        const auto name = e.path().string();
+        if (!e.is_regular_file()) {
+            out[name] = {"directory", 0};
+            continue;
+        }
+        std::ifstream is(e.path(), std::ios::binary);
+        out[name] = {std::string(std::istreambuf_iterator<char>(is), {}),
+            e.last_write_time().time_since_epoch().count()};
+    }
+    return out;
+}
+
+types::codecs_diff diff(const scoped_git_repo& repo,
+    const std::filesystem::path& root) {
+    return ops::diff_codecs_stage(repo.checkout(), repo.list(),
+        repo.checkout() / "doc" / "meta", repo.objects(), {}, 2, 1, root);
+}
+
+types::codecs_result write(const scoped_git_repo& repo,
+    const std::filesystem::path& root) {
+    return ops::run_codecs_stage(repo.checkout(), repo.list(),
+        repo.checkout() / "doc" / "meta", repo.objects(), {}, 2, 1, root);
+}
+
+}
+
+TEST_CASE("diffing a checkout never run before writes nothing and shows "
+    "every output as new", "[ops][codecs_stage]") {
+    scoped_git_repo repo;
+    fill(repo);
+    const auto all = repo.checkout().parent_path();
+    const auto root = repo.checkout() / "generated";
+    const auto before = snapshot(all);
+
+    const auto d = diff(repo, root);
+
+    CHECK(snapshot(all) == before);
+    CHECK_FALSE(std::filesystem::exists(repo.objects()));
+    CHECK(d.run.parsed == 4);
+    CHECK(d.run.written == 0);
+    CHECK(d.planned.written == 1);
+    CHECK(d.diff.starts_with("--- /dev/null\n"
+                             "+++ b/doc/document_index.tsv\n"
+                             "@@ -0,0 +1,5 @@\n"));
+    CHECK(io::diff_status(d) == 1);
+}
+
+TEST_CASE("diffing after a write finds nothing, then the edit, and leaves "
+    "the outputs and every record alone", "[ops][codecs_stage]") {
+    scoped_git_repo repo;
+    fill(repo);
+    const auto all = repo.checkout().parent_path();
+    const auto root = repo.checkout() / "generated";
+    // An edit git has not staged gives the worktree index an entry.
+    repo.write("readme.org", "Plain text, edited.\n");
+    REQUIRE(write(repo, root).wrote_outputs);
+    const auto records = repo.checkout() / ".git" / "compass";
+    REQUIRE(std::filesystem::exists(records / "index"));
+    REQUIRE(std::filesystem::exists(records / "outputs"));
+    REQUIRE(std::filesystem::exists(records / "deps"));
+
+    auto before = snapshot(all);
+    const auto clean = diff(repo, root);
+    CHECK(snapshot(all) == before);
+    CHECK(clean.diff.empty());
+    CHECK(clean.planned.unchanged == 1);
+    CHECK(io::diff_status(clean) == 0);
+
+    repo.write("doc/task_b.org", "#+title: Task: b2\n#+type: task\n* Goal\n");
+    before = snapshot(all);
+    const auto edited = diff(repo, root);
+    CHECK(snapshot(all) == before);
+    CHECK(edited.diff ==
+        "--- a/doc/document_index.tsv\n"
+        "+++ b/doc/document_index.tsv\n"
+        "@@ -1,5 +1,5 @@\n"
+        " id\ttitle\ttype\tpath\n"
+        " \tDocument type: task\tmeta\tdoc/meta/document_type_task.org\n"
+        " A-1\tTask: a\ttask\tdoc/task_a.org\n"
+        "-\tTask: b\ttask\tdoc/task_b.org\n"
+        "+\tTask: b2\ttask\tdoc/task_b.org\n"
+        " \t\t\treadme.org\n");
+    CHECK(io::diff_status(edited) == 1);
+    std::ostringstream os;
+    io::write_codecs_diff_summary(os, edited, {});
+    CHECK_THAT(os.str(), ContainsSubstring(
+        "would write 1, restore 0, remove 0, keep 0; 0 unchanged"));
+
+    const auto written = write(repo, root);
+    CHECK(written.sink.written == edited.planned.written);
+    CHECK(written.sink.unchanged == edited.planned.unchanged);
+    CHECK(io::diff_status(diff(repo, root)) == 0);
 }

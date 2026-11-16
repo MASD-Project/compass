@@ -35,9 +35,10 @@ namespace compass::bench::ops {
  * The type registry comes from the contract pages of @p meta. The corpus
  * is loaded once, as the warm stage loads it: the ID of each file comes
  * from a store::io::id_resolver, its object is mapped from @p objects and
- * checked, and a file whose object is missing or rejected is parsed and
- * its object written. Sources and objects stay mapped while the codecs
- * run. The worktree index of the checkout is rewritten.
+ * checked, and a file whose object is missing or rejected is parsed into
+ * memory. Sources and objects stay mapped while the codecs run. The run
+ * is persisted after it ends: the parsed objects are written to the
+ * store and the worktree index of the checkout is rewritten.
  *
  * Each repetition starts from the dependency record of the checkout, so a
  * unit whose recorded inputs are unchanged is not called, and the record
@@ -59,6 +60,25 @@ namespace compass::bench::ops {
     const std::filesystem::path& meta, const std::filesystem::path& objects,
     const codec::types::configuration& settings, unsigned threads,
     unsigned repetitions, const std::filesystem::path& output_root = {});
+
+/**
+ * @brief Runs the codecs as run_codecs_stage does and diffs their outputs
+ * against the files under @p root, writing nothing.
+ *
+ * The run is never persisted: parsed objects stay in memory, and the
+ * worktree index, the dependency record, the written-outputs record and
+ * every file under @p root are only read. What writing would do comes
+ * from codec::io::plan_outputs, the decision writing takes, and the diff
+ * from codec::io::diff_outputs.
+ *
+ * @throws std::system_error or std::filesystem::filesystem_error when the
+ * meta directory, a contract page or a file under @p root cannot be read.
+ */
+[[nodiscard]] types::codecs_diff diff_codecs_stage(
+    const std::filesystem::path& checkout, const types::file_table& table,
+    const std::filesystem::path& meta, const std::filesystem::path& objects,
+    const codec::types::configuration& settings, unsigned threads,
+    unsigned repetitions, const std::filesystem::path& root);
 
 }
 

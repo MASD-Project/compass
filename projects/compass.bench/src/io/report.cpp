@@ -686,8 +686,8 @@ void write_codecs_report(std::ostream& os, const types::codecs_result& stage,
     os << std::format("type registry: {} types, {:.2f} ms\n",
         stage.registered_types, stage.registry_ms);
     os << std::format("corpus load: {:.2f} ms  objects loaded: {}  "
-                      "written: {}  errors: {}\n", stage.load_ms,
-        stage.loaded, stage.written, stage.errors);
+                      "parsed: {}  written: {}  errors: {}\n", stage.load_ms,
+        stage.loaded, stage.parsed, stage.written, stage.errors);
     for (const auto& problem : stage.registry.problems)
         os << std::format("registry problem: {}\n", problem);
     os << std::format("dependency record: {} units, {} bytes, read "
@@ -777,6 +777,53 @@ void write_codecs_report(std::ostream& os, const types::codecs_result& stage,
                           "problem(s).\n", stage.registry.problems.size());
     for (const auto& problem : stage.sink.problems)
         os << std::format("\nFAILED: outputs not written: {}\n", problem);
+}
+
+int diff_status(const types::codecs_diff& d) {
+    if (failed(d.run) || !d.planned.problems.empty())
+        return 2;
+    const auto& p = d.planned;
+    return p.written + p.restored + p.removed != 0 ? 1 : 0;
+}
+
+void write_codecs_diff_summary(std::ostream& os, const types::codecs_diff& d,
+    const setup_timing& setup) {
+    const auto& r = d.run;
+    const auto& p = d.planned;
+    os << std::format("would write {}, restore {}, remove {}, keep {}; "
+                      "{} unchanged\n", p.written, p.restored, p.removed,
+        p.kept, p.unchanged);
+    os << std::format("output root: {}\n", p.record.root);
+    os << std::format("org files: {}  documents: {}  threads: {}\n",
+        r.files, r.documents, setup.threads);
+    os << std::format("git ls-files: {:.2f} ms  file table (lstat): "
+                      "{:.2f} ms\n", setup.listing_ms, setup.table_ms);
+    os << std::format("corpus load: {:.2f} ms  objects loaded: {}  "
+                      "parsed: {}  errors: {}\n", r.load_ms, r.loaded,
+        r.parsed, r.errors);
+    if (!r.wall_ms.empty())
+        os << std::format("run wall ms: median {:.2f}\n", median(r.wall_ms));
+    os << std::format("plan: {:.2f} ms  diff: {:.2f} ms\n", d.plan_ms,
+        d.diff_ms);
+    for (const auto& problem : r.registry.problems)
+        os << std::format("registry problem: {}\n", problem);
+    if (!r.record_problem.empty())
+        os << std::format("dependency record not used: {}\n",
+            r.record_problem);
+    if (!r.outputs_problem.empty())
+        os << std::format("written-outputs record not used: {}\n",
+            r.outputs_problem);
+    if (r.files == 0)
+        os << "FAILED: stage 'codecs' found zero org files.\n";
+    if (r.errors != 0)
+        os << std::format("FAILED: {} file(s) did not load. First: {}\n",
+            r.errors, r.first_error);
+    if (!r.registry.problems.empty())
+        os << std::format("FAILED: the codec registry has {} problem(s).\n",
+            r.registry.problems.size());
+    for (const auto& problem : p.problems)
+        os << std::format("FAILED: outputs cannot be written: {}\n",
+            problem);
 }
 
 void write_gc_report(std::ostream& os,

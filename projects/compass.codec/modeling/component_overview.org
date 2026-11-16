@@ -2,7 +2,7 @@
 :ID: 995ECC12-860C-4009-B9A2-8CA1A6102BD6
 :END:
 #+title: compass.codec
-#+description: The codec runtime: a codec as a descriptor and one function, the view of the corpus it reads through, the tables of files and diagnostics it fills, the registry the configuration enables codecs in, the runner, the dependency record that lets a run call only the units whose inputs changed, the output sink that writes only the files that changed, and the two codecs that need only the org tables.
+#+description: The codec runtime: a codec as a descriptor and one function, the view of the corpus it reads through, the tables of files and diagnostics it fills, the registry the configuration enables codecs in, the runner, the dependency record that lets a run call only the units whose inputs changed, the output sink that plans and then writes only the files that changed, the unified diff that shows such a plan without writing, and the two codecs that need only the org tables.
 #+type: component
 #+level: cross
 #+filetags: :codec:pipeline:gates:component:
@@ -21,7 +21,9 @@ defines what a codec is and runs codecs. It does not load the corpus. A host
 loads the documents, calls the runner and decides what happens to the result:
 write it, diff it, cache it or report it. A codec never writes a file; when the
 host chooses to write, the output sink puts the files under an output root and
-touches only those whose content changed.
+touches only those whose content changed. The sink decides first and acts
+second, so a host that only wants to see what would change prints the same
+decision as a diff and writes nothing.
 
 A codec is a =descriptor=, which is constant data, and one function. Nothing
 in the runtime knows a codec by name. What a codec does differently from the
@@ -128,20 +130,36 @@ others is in its descriptor, so adding a codec adds a row to a list.
   codec is complete. =ops::check_outputs= lists a path that is not plain
   relative (absolute, empty, or with an empty, =.= or =..= component) and a
   path two rows produce, naming both codecs.
-- *Output sink.* =io::write_outputs= makes the files under the root hold the
-  output set and writes nothing when =check_outputs= finds a problem. An
-  output whose recorded entry has the same blob ID and whose file has the
-  recorded stat data is left alone without being read. Any other output whose
-  file exists is hashed and left alone when it already holds the bytes; a
-  lost or damaged record therefore costs a read of each file, not a write.
-  Only then is the file written, through a temporary file and a rename, and
-  its stat data recorded. =io::sink_result= counts each output once:
+- *Output sink.* The sink is a plan and an apply. =io::plan_outputs= reads
+  the root and decides, changing nothing; =io::apply_outputs= performs the
+  plan; =io::write_outputs= is the two in turn. Nothing is planned when
+  =check_outputs= finds a problem. An output whose recorded entry has the
+  same blob ID and whose file has the recorded stat data is unchanged without
+  being read. Any other output whose file exists is hashed and unchanged when
+  it already holds the bytes; a lost or damaged record therefore costs a read
+  of each file, not a write. Only then is the file written, through a
+  temporary file and a rename, and its stat data recorded.
+- *Plan.* =io::output_plan= is an action table, one row per file: its path,
+  its codec, its =io::output_action= (write, restore, unchanged, remove or
+  keep) and its new bytes, which are views into the output set. It carries
+  the record for the next run, complete but for the stat data of files still
+  to be written. =io::summarise= counts a plan as applying it would.
+  =io::sink_result= counts each output once:
   written (new bytes for the path), restored (bytes compass wrote before, put
   back after a hand edit or a deletion) or unchanged. A recorded file of a
   complete codec that no output names is removed when it still holds what
   compass wrote, with the directories that removal empties, up to the root;
   one edited since is kept in place and forgotten. Files of other codecs are
   carried over, and a file compass never recorded is never touched.
+- *Diff.* =io::diff_outputs= prints the unified diff of each action of a
+  plan that changes a file (write, restore, remove) against the file on
+  disk, and =/dev/null= for a file that is absent or removed. It only reads.
+  =ops::unified_diff= is the diff of two texts in git's format: a ---/+++
+  header naming =a/= and =b/= paths, hunks with three lines of context
+  merged when six or fewer lines apart, and the no-newline marker. It
+  finds a shortest edit script with Myers' O(ND) algorithm in linear space,
+  in process. A text with a NUL byte in its first 8000 bytes is binary, as
+  git decides it, and gets git's one-line notice.
 - *Written-outputs record.* =types::written_outputs= holds the absolute root
   and, sorted by path, each file's codec, blob ID and stat data after the
   write. A record of another root is ignored. Its =written= time is the start
@@ -185,7 +203,8 @@ others is in its descriptor, so adding a codec adds a row to a list.
 | =include/compass.codec/types/output_set.hpp=   | The files a run asks to have on disk.             |
 | =include/compass.codec/types/written_outputs.hpp= | What the sink wrote under a root.              |
 | =include/compass.codec/ops/outputs.hpp=        | =outputs_of=, =check_outputs= and the record encoding. |
-| =include/compass.codec/io/output_sink.hpp=     | =write_outputs= and the written-outputs file.     |
+| =include/compass.codec/io/output_sink.hpp=     | The plan, its apply and diff, =write_outputs= and the written-outputs file. |
+| =include/compass.codec/ops/unified_diff.hpp=   | =unified_diff= of two texts.                      |
 | =include/compass.codec/codecs/catalogue.hpp=   | The codecs this component ships.                  |
 | =include/compass.codec/codecs/*.hpp=           | One header per codec.                             |
 | =tests/test_corpus.hpp=                        | A parsed corpus and a type registry for tests.    |

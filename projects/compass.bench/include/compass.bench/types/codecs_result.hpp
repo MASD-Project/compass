@@ -55,11 +55,12 @@ struct findings_summary {
  * @brief What loading the corpus and running the codecs over it did.
  *
  * files counts the org files of the checkout and documents those that
- * loaded. loaded counts the objects found in the store and written those
- * parsed and written instead; errors counts files that could not be
- * hashed, read, parsed or stored, which are left out of the corpus.
- * load_ms covers resolving every ID, mapping every source and object and
- * writing the worktree index.
+ * loaded. loaded counts the objects found in the store, parsed those
+ * parsed instead, and written those of them put in the store; errors
+ * counts files that could not be hashed, read or parsed, which are left
+ * out of the corpus. load_ms covers resolving every ID, mapping every
+ * source and object and, when the run is persisted, storing the parsed
+ * objects and writing the worktree index.
  *
  * The dependency record of the checkout is read once, before the first
  * repetition, and each repetition starts from it, so every repetition
@@ -82,6 +83,7 @@ struct codecs_result {
     std::uint64_t files = 0;
     std::uint64_t documents = 0;
     std::uint64_t loaded = 0;
+    std::uint64_t parsed = 0;
     std::uint64_t written = 0;
     std::uint64_t errors = 0;
     std::string first_error;
@@ -104,6 +106,23 @@ struct codecs_result {
     std::vector<double> wall_ms;
     codec::types::run_result last;
     std::vector<findings_summary> findings;
+};
+
+/**
+ * @brief What diffing the outputs of a run against an output root found.
+ *
+ * run is the run, of which nothing was persisted. planned holds the
+ * counts of what writing the outputs would do, and its problems why they
+ * could not be written; diff is the unified diff of every file that would
+ * change. plan_ms covers reading the written-outputs record and planning,
+ * diff_ms reading the files and diffing them.
+ */
+struct codecs_diff {
+    codecs_result run;
+    codec::io::sink_result planned;
+    std::string diff;
+    double plan_ms = 0;
+    double diff_ms = 0;
 };
 
 }

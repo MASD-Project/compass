@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :run_codecs_and_write_changes:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/add-diff-mode
+#+pr: https://github.com/MASD-Project/compass/pull/21
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -26,11 +26,11 @@ Run the pipeline without writing and print a unified diff of each output that wo
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                              |
 | Parent story | [[id:8DC60B89-1605-4281-90FF-5AC8B33F629A][Run codecs and write only changes]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -39,9 +39,19 @@ Run the pipeline without writing and print a unified diff of each output that wo
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- The sink splits into a plan and an apply. The plan is a pure function from
+  the run's outputs, the written-outputs record and the files on disk to a
+  list of actions: write, restore, remove, keep, unchanged. Writing applies the
+  plan; diff mode prints it. One decision path serves both, so they cannot
+  disagree.
+- Diff mode prints a unified diff per action against the file on disk (or
+  =/dev/null= for new and removed files) and a summary, and writes nothing: no
+  outputs, and none of the per-worktree records (worktree index, dependency
+  record, written-outputs record).
+- The unified diff is computed in process (Myers' algorithm, with git's default
+  of three context lines), so diff mode does not depend on an external =diff=.
+- =compass-bench codecs --diff <root>= runs it and exits non-zero when anything
+  would change, so it can serve as a drift check.
 
 * Measurements
 
@@ -55,7 +65,13 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Write the outputs | 0.152 s | =compass-bench codecs . --meta doc/meta --write <root>= | compass-ng e932f4a |
+| Diff, nothing changed | exit 0, empty diff, 0.015 s | =compass-bench codecs . --meta doc/meta --diff <root>= | compass-ng e932f4a |
+| Diff after editing a title | exit 1, one hunk, 0.015 s (plan 0.24 ms, diff 0.13 ms) | same | compass-ng e932f4a |
+| Diff after hand-editing the generated index | exit 1, the restoring hunk | same | compass-ng e932f4a |
+
+After every diff the root, the =<gitdir>/compass= records and the object store
+were unchanged in bytes and modification times.
 
 * Notes
 
@@ -74,7 +90,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/21][#21]] | [codec] Add diff mode: show what a run would change |
 
 * Review
 
@@ -83,3 +99,15 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- The sink is a pure plan (write, restore, remove, keep, unchanged per output)
+  and an apply; writing is plan then apply, and diff mode prints the plan, so
+  the two cannot disagree.
+- Diffs are computed in process with Myers' algorithm in git's unified format
+  with three context lines, and match =git diff --no-index= byte for byte on
+  every test case; binary content prints git's =Binary files ... differ=.
+  git's slider heuristics are not copied, so a change among repeated lines can
+  be placed differently, though never longer.
+- Diff mode writes nothing: no outputs, no records, no objects. The diff path
+  never receives a writer. It exits 0 when nothing would change, 1 when
+  something would, and 2 on failure, so it can serve as a drift check.

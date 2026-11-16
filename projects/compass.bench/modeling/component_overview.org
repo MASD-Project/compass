@@ -61,17 +61,20 @@ of a checkout with one =git ls-files -z= call and map files with
 - =codecs= loads every =.org= file as a corpus and runs the codecs of
   =compass.codec= over it. The corpus is loaded once: the ID of each file
   comes from an =id_resolver=, its object is mapped from the store and
-  checked, and a file with no usable object is parsed and its object
-  written. Every source and object stays mapped, and the type of each
+  checked, and a file with no usable object is parsed into memory. Every
+  source and object stays mapped, and the type of each
   document is resolved against the registry of a meta directory. The enabled
   codecs then run =--repeat= times on N threads, each repetition from the
   dependency record the checkout had, so a unit whose inputs are unchanged
   is skipped. Without =--write= the outputs stay in memory. With it, the
   files of the last repetition go to the output root through
   =compass.codec='s output sink, which writes only those whose content
-  changed. The worktree index, the dependency record and, with =--write=,
-  the written-outputs record are written to the git directory, each only
-  when it changed.
+  changed. After the run the parsed objects go to the store, and the
+  worktree index, the dependency record and, with =--write=, the
+  written-outputs record are written to the git directory, each only when it
+  changed. With =--diff= the outputs are planned against the root by the
+  same sink and printed as a unified diff, and nothing is written: no
+  object, no record and no output.
 
 =gc= is not a stage either. It collects the store once with
 =compass.store='s =io::collect= and reports what it found and removed.
@@ -101,11 +104,15 @@ the line format of =compass::org::io::dump=, which
   =--store= is the objects directory; without it the stage uses
   =compass/objects= under the git common directory of the checkout.
 - =compass-bench codecs <checkout> --meta <dir> [--store <dir>] [--set
-  <codec>.<key>=<value>]... [--write <root>] [-j N] [--repeat R]=. =--meta=
+  <codec>.<key>=<value>]... [--write <root> | --diff <root>] [-j N]
+  [--repeat R]=. =--meta=
   and =--store= are as for =types= and =store=. =--set= adds one row to the
   codec configuration: =--set required_sections.enabled=false= disables a
   codec and =--set document_index.path=build/index.tsv= sets an option.
   =--write= names the output root; output paths are relative to it.
+  =--diff= names the root to compare against and exits 0 when nothing
+  would change, 1 when a file would be written, restored or removed, and 2
+  when the run fails. The two are exclusive.
 - =compass-bench gc <checkout> [--store <dir>] [--cap <bytes>] [--grace
   <seconds>] [--dry-run]=. =--store= is as for =store=. =--cap= defaults to
   0, which removes every unreferenced object past the grace period, and
@@ -162,7 +169,7 @@ the line format of =compass::org::io::dump=, which
   objects fill it is data, not failure. An index that cannot be read exits
   with status 1 and removes nothing.
 - For =codecs=: the org files and the documents loaded, the registered
-  types, the load time with the objects loaded and written, every
+  types, the load time with the objects loaded, parsed and written, every
   problem of the codec registry, and the units and bytes of the dependency
   record read, with whether the new one was rewritten and why an old one
   was not used. With =--write=, the outputs written, unchanged, restored,
@@ -177,6 +184,11 @@ the line format of =compass::org::io::dump=, which
   =path:line: severity: codec/rule: message. fix=. A file that does not
   load, a registry problem or outputs the sink refuses (an escaping path,
   a path two codecs produce) fail the run; diagnostics are data.
+- For =codecs --diff=: the unified diff on standard output, then on
+  standard error what writing would do (write, restore, remove and keep
+  counts, and unchanged), the output root, the corpus with the objects
+  loaded and parsed, the run's wall time, the plan and diff times, and
+  every failure.
 - For =ids=: the index version, its entries and how many may lend their
   ID, and whether =core.autocrlf= converts; the thread count and setup
   times; the files whose ID came from the index and those hashed, with the
@@ -237,6 +249,7 @@ Linux.
 | =meta_registry=   | The type registry and, per contract page, its path and =contract_report=.      |
 | =types_result=    | A =stage_result=, registry times, and per file its resolution, type and value. |
 | =codecs_result=   | Load counts and times, the codec registry, times per codec, the last run.      |
+| =codecs_diff=     | A =codecs_result= never persisted, the counts of the plan, the diff and times. |
 
 * Entry points
 

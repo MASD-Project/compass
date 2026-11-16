@@ -65,8 +65,8 @@ constexpr std::string_view usage =
     "       compass-bench warm <checkout> [--store <dir>] [-j N]\n"
     "           [--repeat R]\n"
     "       compass-bench codecs <checkout> --meta <dir> [--store <dir>]\n"
-    "           [--set <codec>.<key>=<value>]... [--write <root>]\n"
-    "           [-j N] [--repeat R]\n"
+    "           [--set <codec>.<key>=<value>]...\n"
+    "           [--write <root> | --diff <root>] [-j N] [--repeat R]\n"
     "       compass-bench gc <checkout> [--store <dir>] [--cap <bytes>]\n"
     "           [--grace <seconds>] [--dry-run]\n"
     "       compass-bench ids <checkout> [-j N] [--repeat R]\n"
@@ -90,6 +90,7 @@ struct options {
     std::filesystem::path meta;
     std::filesystem::path store;
     std::filesystem::path output_root;
+    std::filesystem::path diff_root;
     compass::codec::types::configuration settings;
     compass::store::types::collection_options collection;
     std::uint64_t verify = 0;
@@ -211,6 +212,8 @@ std::optional<options> parse_options(int argc, char** argv) {
             o.store = absolute_path(value);
         } else if (codecs && flag == "--write") {
             o.output_root = absolute_path(value);
+        } else if (codecs && flag == "--diff") {
+            o.diff_root = absolute_path(value);
         } else if (codecs && flag == "--set") {
             if (!add_setting(value, o.settings))
                 return std::nullopt;
@@ -234,6 +237,8 @@ std::optional<options> parse_options(int argc, char** argv) {
     if (includes && (o.compile_commands.empty() || o.source_root.empty()))
         return std::nullopt;
     if (typed && o.meta.empty())
+        return std::nullopt;
+    if (!o.output_root.empty() && !o.diff_root.empty())
         return std::nullopt;
     // Compile commands hold absolute paths, so every path that is compared
     // against them must be absolute too, or rebasing silently matches nothing.
@@ -362,6 +367,20 @@ int run_codecs(const options& o) {
     return io::failed(stage) ? 1 : 0;
 }
 
+/**
+ * @brief Prints the diff of the outputs against the diff root on standard
+ * output, so it can be piped, and the summary on standard error.
+ */
+int run_codecs_diff(const options& o) {
+    io::setup_timing setup;
+    const auto table = list_checkout(o, setup);
+    const auto stage = ops::diff_codecs_stage(o.checkout, table, o.meta,
+        objects_of(o), o.settings, o.threads, o.repetitions, o.diff_root);
+    std::cout << stage.diff;
+    io::write_codecs_diff_summary(std::cerr, stage, setup);
+    return io::diff_status(stage);
+}
+
 int run_gc(const options& o) {
     const auto objects = objects_of(o);
     const auto result =
@@ -396,7 +415,8 @@ int run(const options& o) {
     case stage::types: return run_types(o);
     case stage::store: return run_store(o);
     case stage::warm: return run_warm(o);
-    case stage::codecs: return run_codecs(o);
+    case stage::codecs:
+        return o.diff_root.empty() ? run_codecs(o) : run_codecs_diff(o);
     case stage::gc: return run_gc(o);
     case stage::ids: return run_ids(o);
     case stage::org_dump: return run_org_dump(o);
@@ -416,6 +436,7 @@ int main(int argc, char** argv) {
         return run(*o);
     } catch (const std::exception& e) {
         std::cerr << "compass-bench: " << e.what() << "\n";
-        return 1;
+        // Diff mode keeps 1 for "would change", so trouble is 2 there.
+        return o->diff_root.empty() ? 1 : 2;
     }
 }
