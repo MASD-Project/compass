@@ -27,6 +27,8 @@ add_library(${lib_target_name}
     ops/include_scan.cpp
     ops/includes_stage.cpp
     ops/listing.cpp
+    ops/parse.cpp
+    ops/parse_stage.cpp
     ops/partition.cpp
     ops/read_stage.cpp
     ops/search_paths.cpp)
@@ -39,7 +41,11 @@ target_include_directories(${lib_target_name} PUBLIC
 target_link_libraries(${lib_target_name}
     PUBLIC
         compass.platform.lib
-        Threads::Threads)
+        Threads::Threads
+        unofficial::tree-sitter::tree-sitter
+    PRIVATE
+        unofficial::tree-sitter-cpp::tree-sitter-cpp
+        unofficial::tree-sitter-sql::tree-sitter-sql)
 
 add_executable(${exe_target_name}
     main.cpp)

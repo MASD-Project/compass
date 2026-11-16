@@ -38,6 +38,7 @@ namespace {
 constexpr std::size_t top_extensions = 15;
 constexpr std::size_t top_unresolved = 10;
 constexpr std::size_t top_fan_in = 15;
+constexpr std::size_t top_parse = 10;
 
 double median(std::vector<double> v) {
     std::ranges::sort(v);
@@ -45,10 +46,13 @@ double median(std::vector<double> v) {
     return n % 2 == 1 ? v[n / 2] : (v[n / 2 - 1] + v[n / 2]) / 2;
 }
 
-void write_stage(std::ostream& os, const types::stage_result& stage) {
+void write_stage_header(std::ostream& os) {
     os << std::format("{:<8}{:>10}{:>16}{:>8}{:>12}{:>10}{:>10}{:>10}\n",
         "stage", "files", "bytes", "errors", "median_ms", "min_ms", "max_ms",
         "MB/s");
+}
+
+void write_stage_row(std::ostream& os, const types::stage_result& stage) {
     const auto [min, max] = std::ranges::minmax(stage.wall_ms);
     const double med = median(stage.wall_ms);
     const double mb_per_s = med > 0 ? (stage.bytes / 1e6) / (med / 1e3) : 0;
@@ -56,6 +60,11 @@ void write_stage(std::ostream& os, const types::stage_result& stage) {
         "{:<8}{:>10}{:>16}{:>8}{:>12.2f}{:>10.2f}{:>10.2f}{:>10.1f}\n",
         stage.name, stage.files, stage.bytes, stage.errors, med, min, max,
         mb_per_s);
+}
+
+void write_stage(std::ostream& os, const types::stage_result& stage) {
+    write_stage_header(os);
+    write_stage_row(os, stage);
     os << std::format("repetitions: {}  checksum: {:#018x}\n",
         stage.wall_ms.size(), stage.checksum);
 }
@@ -129,6 +138,47 @@ void write_fan_in(std::ostream& os, std::string_view title,
     for (std::size_t i = 0; i < n && fan_in[order[i]] > 0; ++i)
         os << std::format("{:>10}  {}\n", fan_in[order[i]],
             table.paths[order[i]]);
+}
+
+template <typename Key>
+std::vector<std::size_t> top_rows(std::span<const Key> key) {
+    std::vector<std::size_t> order(key.size());
+    std::iota(order.begin(), order.end(), 0);
+    const auto n = std::min(order.size(), top_parse);
+    std::ranges::partial_sort(order, order.begin() + n,
+        [&](auto a, auto b) {
+            return key[a] != key[b] ? key[a] > key[b] : a < b;
+        });
+    order.resize(n);
+    return order;
+}
+
+void write_language(std::ostream& os, const types::language_result& r,
+    const types::file_table& table) {
+    const auto& name = r.stage.name;
+    std::uint64_t files_with_errors = 0, error_nodes = 0;
+    for (const auto n : r.error_nodes) {
+        files_with_errors += n != 0;
+        error_nodes += n;
+    }
+    os << std::format("{}: files with parse errors: {} of {}  "
+                      "error nodes: {}\n",
+        name, files_with_errors, r.ids.size(), error_nodes);
+
+    os << std::format("top {} {} files by error nodes\n", top_parse, name);
+    os << std::format("{:>10}{:>12}  {}\n", "nodes", "parse_ms", "file");
+    for (const auto row : top_rows<std::uint32_t>(r.error_nodes)) {
+        if (r.error_nodes[row] == 0)
+            break;
+        os << std::format("{:>10}{:>12.2f}  {}\n", r.error_nodes[row],
+            r.parse_ms[row], table.paths[r.ids[row]]);
+    }
+
+    os << std::format("top {} {} files by parse time\n", top_parse, name);
+    os << std::format("{:>10}{:>12}  {}\n", "parse_ms", "nodes", "file");
+    for (const auto row : top_rows<double>(r.parse_ms))
+        os << std::format("{:>10.2f}{:>12}  {}\n", r.parse_ms[row],
+            r.error_nodes[row], table.paths[r.ids[row]]);
 }
 
 }
@@ -218,6 +268,43 @@ void write_includes_report(std::ostream& os,
         os << std::format(
             "\nFAILED: stage 'includes' hit {} error(s). First: {}\n",
             stage.errors, stage.first_error);
+}
+
+bool failed(const types::parse_result& stage) {
+    const bool none_parsed = std::ranges::all_of(stage.languages,
+        [](const auto& r) { return r.stage.files == 0; });
+    const bool io_errors = std::ranges::any_of(stage.languages,
+        [](const auto& r) { return r.stage.errors != 0; });
+    return none_parsed || io_errors;
+}
+
+void write_parse_report(std::ostream& os, const types::parse_result& stage,
+    const setup_timing& setup, const types::file_table& table) {
+    write_stage_header(os);
+    for (const auto& r : stage.languages)
+        write_stage_row(os, r.stage);
+    os << std::format("repetitions: {}  threads: {}\n",
+        stage.languages.front().stage.wall_ms.size(), setup.threads);
+    os << std::format(
+        "git ls-files: {:.2f} ms  file table (lstat): {:.2f} ms\n",
+        setup.listing_ms, setup.table_ms);
+    for (const auto& r : stage.languages) {
+        os << "\n";
+        write_language(os, r, table);
+    }
+
+    if (std::ranges::all_of(stage.languages,
+            [](const auto& r) { return r.stage.files == 0; }))
+        os << "\nFAILED: stage 'parse' parsed zero files.\n";
+    for (const auto& r : stage.languages) {
+        if (r.stage.files == 0)
+            os << std::format("\nnote: no {} files in the checkout.\n",
+                r.stage.name);
+        if (r.stage.errors != 0)
+            os << std::format(
+                "\nFAILED: stage '{}' hit {} error(s). First: {}\n",
+                r.stage.name, r.stage.errors, r.stage.first_error);
+    }
 }
 
 }

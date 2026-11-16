@@ -2,7 +2,7 @@
 :ID: 1F522775-710C-4EFE-8317-8354D902816D
 :END:
 #+title: compass.bench
-#+description: The frozen benchmark harness. It times reading every tracked file of a git checkout and building its include graph.
+#+description: The frozen benchmark harness. It times reading every tracked file of a git checkout, building its include graph and parsing its C++ and SQL with tree-sitter.
 #+type: component
 #+level: cross
 #+filetags: :bench:performance:component:
@@ -16,7 +16,7 @@ in the tooling layer of the
 * Summary
 
 =compass.bench= is the harness every compass-ng measurement runs through. It
-installs as =compass-bench= and has two stages. Both list the tracked files
+installs as =compass-bench= and has three stages. All list the tracked files
 of a checkout with one =git ls-files -z= call and map files with
 =compass::platform::filesystem::mapped_file=.
 
@@ -29,9 +29,12 @@ of a checkout with one =git ls-files -z= call and map files with
   =compile_commands.json=, builds the include graph and computes the
   transitive fan-in of each file, on one thread. Each step is timed
   separately.
-
-Later stages (tree-sitter) join the same executable and reuse the file table
-and the range split.
+- =parse= parses every C and C++ file (the =includes= extensions) and every
+  =.sql= file with tree-sitter. Each language runs on its own, on N threads
+  over ranges balanced by bytes, with one parser per thread over the mapped
+  bytes. Per file it records the fastest parse time over the repetitions and
+  the count of =ERROR= and =MISSING= nodes, found with a tree cursor that
+  skips subtrees without errors. Each tree is deleted after counting.
 
 * Inputs
 
@@ -45,6 +48,7 @@ and the range split.
   - =--isystem= adds an implicit system directory of the compiler, which
     compile commands do not list. Print them with
     =clang++ -E -x c++ -v /dev/null=.
+- =compass-bench parse <checkout> [-j N] [--repeat R]=.
 - A git checkout. Tracked entries that are not regular files (submodules,
   symlinks) are skipped. A tracked file that is missing on disk is kept and
   counted as an error.
@@ -62,8 +66,14 @@ and the range split.
   and nowhere (unresolved). Distinct edges, the setup times, and the counts
   of compile commands, directories and search contexts. Then the top 10
   unresolved names, and the top 15 files by direct and by transitive fan-in.
+- For =parse=: a stage row per language (=cpp=, =sql=) with the columns of
+  =read=, then the thread count and setup times. Per language, the files
+  with parse errors, the total error nodes, and the top 10 files by error
+  nodes and by parse time.
 - A =FAILED= line and exit status 1 when the stage read or scanned no files
-  or hit any error. A usage error exits with status 2.
+  or hit any error. For =parse= this holds per language: a language with no
+  files, or a file that cannot be read, fails the run. Parse errors inside a
+  tree are data, not failure. A usage error exits with status 2.
 
 * Resolution
 
@@ -106,6 +116,8 @@ Linux.
 | =include_table=   | Columns of includer, line, kind, header name and target per =#include=.        |
 | =include_graph=   | Compressed sparse rows of distinct include edges over file ids.                |
 | =includes_result= | The include table, the graph, the fan-in columns and wall times per step.      |
+| =language_result= | A =stage_result= and columns of file id, parse ms and error nodes per file.    |
+| =parse_result=    | One =language_result= per =language= (=cpp=, =sql=).                           |
 
 * Entry points
 
@@ -120,6 +132,8 @@ Linux.
 | =include/compass.bench/ops/include_resolve.hpp= | Include resolution.                                    |
 | =include/compass.bench/ops/include_graph.hpp=   | Graph building, direct and transitive fan-in.          |
 | =include/compass.bench/ops/includes_stage.hpp=  | The =includes= stage.                                  |
+| =include/compass.bench/ops/parse.hpp=           | Language routing, grammars and error node counting.    |
+| =include/compass.bench/ops/parse_stage.hpp=     | The =parse= stage.                                     |
 | =include/compass.bench/io/compile_commands.hpp= | The compile_commands.json reader and word splitting.   |
 | =include/compass.bench/io/report.hpp=           | Plain-text reports and the failure predicates.         |
 | =src/main.cpp=                                  | Argument parsing and wiring.                           |
@@ -134,6 +148,10 @@ Linux.
 * Dependencies
 
 - =compass.platform= for =mapped_file=.
+- tree-sitter from vcpkg, and the =tree-sitter-cpp= 0.23.4 and
+  =tree-sitter-sql= 0.3.13 grammars from the overlay ports in
+  =build/cmake/overlays/common=. The ports compile the generated parsers
+  their releases ship.
 - The C++23 standard library, POSIX (=posix_spawnp=, =lstat=, =stat=) and
   =git= on the =PATH=.
 - Catch2, for the tests only.

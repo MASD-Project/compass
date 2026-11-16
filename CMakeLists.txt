@@ -17,6 +17,10 @@
 #
 cmake_minimum_required(VERSION 3.28 FATAL_ERROR)
 
+# vcpkg reads the overlays when project() runs the manifest install, so this
+# must come first.
+set(VCPKG_OVERLAY_PORTS "${CMAKE_CURRENT_SOURCE_DIR}/build/cmake/overlays/common")
+
 project(compass VERSION 0.0.1 LANGUAGES CXX
     DESCRIPTION "Data-oriented codegen, gates and analysis for MASD.")
 
@@ -29,5 +33,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${COMPASS_PUBLISH_DIRECTORY}/bin)
 
 find_package(Catch2 3 CONFIG REQUIRED)
 find_package(Threads REQUIRED)
+find_package(unofficial-tree-sitter CONFIG REQUIRED)
+find_package(unofficial-tree-sitter-cpp CONFIG REQUIRED)
+find_package(unofficial-tree-sitter-sql CONFIG REQUIRED)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/projects)

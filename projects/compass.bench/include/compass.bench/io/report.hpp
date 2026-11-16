@@ -24,6 +24,7 @@
 #include <ostream>
 #include "compass.bench/types/file_table.hpp"
 #include "compass.bench/types/includes_result.hpp"
+#include "compass.bench/types/parse_result.hpp"
 #include "compass.bench/types/stage_result.hpp"
 
 namespace compass::bench::io {
@@ -77,6 +78,23 @@ struct includes_setup {
 void write_includes_report(std::ostream& os,
     const types::includes_result& stage, const includes_setup& setup,
     const types::file_table& table);
+
+/**
+ * @brief True when any language parsed no files or hit any read error.
+ *
+ * Parse errors inside a tree are data, not failure.
+ */
+[[nodiscard]] bool failed(const types::parse_result& stage);
+
+/**
+ * @brief Writes the per-language stage table and the parse error tables.
+ *
+ * For each language: the files with parse errors and the total error
+ * nodes, then the ten files with the most error nodes and the ten slowest
+ * to parse. A failed language gets a FAILED banner naming the reason.
+ */
+void write_parse_report(std::ostream& os, const types::parse_result& stage,
+    const setup_timing& setup, const types::file_table& table);
 
 }
 
