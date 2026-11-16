@@ -26,11 +26,11 @@ Load the document types and their schemas from doc/meta, and mark which types ar
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:F1C69FBB-C16B-4F10-ACDB-F059C6355730][Parse org documents]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -95,3 +95,22 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- The registry is data: =compass.ingest='s =meta= facet parses the
+  =doc/meta= contract pages with the org parser and fills a sorted
+  =type_table= in =compass.org=; lookup is a binary search on the name.
+  Codegen model types come from a declared list of the 16 =ores.codegen.*=
+  values ORE Studio's loader handles.
+- 17 of the 24 contract pages state their level, folder, TODO keywords and
+  required sections in a shape the builder reads. =decision=, =plan=,
+  =design=, =meta=, =memory= and =retrospective, release_note, audit_report=
+  leave one or more fields out or state them in prose.
+- Sections the contract marks optional are not required.
+- =compass-bench types= resolves every document's =#+type:=. This repository:
+  397 files, none unresolved, 53 with no type (mostly =SKILL.org=). ORE
+  Studio: 10,910 files, 204 with no type, and 11 types its own =doc/meta= does
+  not define: test_scenario (165), archetype (161), timeline (134), facet
+  (46), feature (34), release_notes (29), profile (14), technical_space (8),
+  dataset_overview (2), entity_view (2), analysis (1). =release_notes= also
+  differs from the contract's =release_note=. These are gaps in ORE Studio's
+  contract, reported here for its owners.
