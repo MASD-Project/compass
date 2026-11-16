@@ -22,6 +22,7 @@ add_library(${lib_target_name}
     io/action_file.cpp
     io/collection.cpp
     io/git_files.cpp
+    io/git_objects.cpp
     io/id_resolver.cpp
     io/location.cpp
     io/object_file.cpp
@@ -29,6 +30,7 @@ add_library(${lib_target_name}
     ops/blob_hash.cpp
     ops/collection.cpp
     ops/git_index.cpp
+    ops/git_object.cpp
     ops/git_settings.cpp
     ops/worktree_index.cpp)
 
@@ -36,3 +38,9 @@ set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
 
 target_include_directories(${lib_target_name} PUBLIC
     ${CMAKE_SOURCE_DIR}/projects/compass.store/include)
+
+target_link_libraries(${lib_target_name}
+    PUBLIC
+        compass.platform.lib
+    PRIVATE
+        ZLIB::ZLIB)
