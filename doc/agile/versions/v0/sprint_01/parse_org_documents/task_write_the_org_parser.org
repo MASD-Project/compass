@@ -26,11 +26,11 @@ A hand-written org parser that follows org-element.el and the Org Syntax specifi
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:F1C69FBB-C16B-4F10-ACDB-F059C6355730][Parse org documents]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -65,7 +65,14 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| ORE Studio org files identical to org-element | 10,909 of 10,909 (1,811,650 dump lines) | =build/scripts/org_diff.py --bench compass-bench <archive>= | ORE Studio origin/main, compass-ng c64cf41 |
+| This repository's =doc/= files identical | 387 of 387 | =build/scripts/org_diff.py --bench compass-bench doc= | compass-ng c64cf41 |
+| Parse all ORE Studio org, 8 threads (median of 5) | 130 ms (536 MB/s) | =compass-bench org <archive> --repeat 5= | ORE Studio origin/main |
+| Same, 1 thread | 643 ms (108 MB/s) | =compass-bench org <archive> -j 1= | ORE Studio origin/main |
+| Sanitizer fuzz inputs parsed without a finding | 1.55 M | ASan and UBSan build | compass-ng c64cf41 |
+
+The ORE Studio runs were on a machine at load 3 to 5, so the timings are
+indicative. The row counts the org stage reports sum to the oracle's line count.
 
 * Notes
 
@@ -93,3 +100,22 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- =compass.ingest= parses a document's bytes into one document's =compass.org=
+  tables with per-table allocation and no regex, honouring each document's
+  =#+todo:= keywords.
+- org-element is the oracle: =build/scripts/org_element_dump.el= and
+  =compass-bench org-dump= print the same line format, and
+  =build/scripts/org_diff.py= compares them over a tree. Every ORE Studio org
+  file and every org file in this repository matches exactly.
+- Parsing all of ORE Studio's org takes about 130 ms on 8 threads, far inside
+  the 5 s cold budget, so the org side of the pipeline is cheap.
+- Not recognised, by design: citations, radio links, inlinetasks,
+  =#+setupfile:=, and =#+link:= abbreviations, which need the expansion that is
+  not in the source. None occurs in ORE Studio.
+- Constructs absent from the corpus (planning lines, dynamic blocks, macros,
+  inline source, line breaks, =table.el=) rest on unit tests and the fuzz run.
+- No table column changed. =compass.org= gained an =io= facet with the dump,
+  and the headers now state three semantics: affiliated names are
+  org-element's translated names, the =file= link variants are all =file=, and
+  link paths are the text as written.
