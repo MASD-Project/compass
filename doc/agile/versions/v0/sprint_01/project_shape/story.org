@@ -40,7 +40,7 @@ The repository has the ORE Studio shape — =doc/=, =projects/=, components with
 |-------------------------------------------------------------------------------+---------+------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | [[id:73ED7A65-CA63-48B7-AC00-1BCA8C78F8C4][Write the documentation skeleton]] | DONE    | 2026-10-27 | 2026-10-27 | Entry point, meta, product identity, the agile tree, the system model and the component architecture, in ORE Studio's org-mode conventions.                          |
 | [[id:51D5ADE5-EB49-419C-A3C9-88201BCCCB80][Review the component plan]]        | BACKLOG |            |            | Agree the layers, the components and their naming with the product owner.                                                                                            |
-| [[id:8F8896D1-B930-4614-9D7C-548BF1097BE1][Create the build skeleton]]        | BACKLOG |            |            | Root CMakeLists.txt, CMakePresets.json, vcpkg.json and projects/CMakeLists.txt in the ORE Studio shape, with one foundation component that builds and runs one test. |
+| [[id:8F8896D1-B930-4614-9D7C-548BF1097BE1][Create the build skeleton]]        | DONE | 2026-11-16 | 2026-11-16 | Root CMakeLists.txt, CMakePresets.json, vcpkg.json and projects/CMakeLists.txt in the ORE Studio shape, with one foundation component that builds and runs one test. |
 | [[id:F5C4F4F3-DC47-4423-B0AD-E64DD53BCFB1][Fix the upstream naming]] | DONE | 2026-11-12 | 2026-11-12 | Restore ORE Studio and ores.compass where the docs mean the upstream project, and point AGENTS.md at doc/compass.org. |
 
 * Decisions
