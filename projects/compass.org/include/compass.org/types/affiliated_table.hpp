@@ -31,6 +31,9 @@ namespace compass::org::types {
  * @brief Affiliated keywords, such as #+name:, #+caption: and #+attr_html:,
  * sorted by the element they are attached to.
  *
+ * names is the name org-element files the keyword under, in lower case:
+ * #+tblname: and #+label: are name, #+result: is results and #+headers: is
+ * header. Every row is kept, also where org-element keeps the last only.
  * options is the bracketed part of #+caption[short]: and of #+results[hash]:.
  * The objects of the value are the rows of the object table from
  * object_firsts[a] up to object_firsts of the next row, or up to

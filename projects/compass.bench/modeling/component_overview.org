@@ -2,7 +2,7 @@
 :ID: 1F522775-710C-4EFE-8317-8354D902816D
 :END:
 #+title: compass.bench
-#+description: The frozen benchmark harness. It times reading every tracked file of a git checkout, building its include graph and parsing its C++ and SQL with tree-sitter.
+#+description: The frozen benchmark harness. It times reading every tracked file of a git checkout, building its include graph, parsing its C++ and SQL with tree-sitter and parsing its org documents into the compass.org tables.
 #+type: component
 #+level: cross
 #+filetags: :bench:performance:component:
@@ -16,7 +16,7 @@ in the tooling layer of the
 * Summary
 
 =compass.bench= is the harness every compass-ng measurement runs through. It
-installs as =compass-bench= and has three stages. All list the tracked files
+installs as =compass-bench= and has four stages. All list the tracked files
 of a checkout with one =git ls-files -z= call and map files with
 =compass::platform::filesystem::mapped_file=.
 
@@ -35,6 +35,14 @@ of a checkout with one =git ls-files -z= call and map files with
   bytes. Per file it records the fastest parse time over the repetitions and
   the count of =ERROR= and =MISSING= nodes, found with a tree cursor that
   skips subtrees without errors. Each tree is deleted after counting.
+- =org= parses every =.org= file with the =compass.ingest= org parser, on N
+  threads over ranges balanced by bytes. Each thread keeps one set of
+  =compass.org= tables and refills it for every document.
+
+=org-dump= is not a stage. It parses one org file and prints its tables in
+the line format of =compass::org::io::dump=, which
+=build/scripts/org_element_dump.el= prints for org-element.
+=build/scripts/org_diff.py= compares the two over a set of files.
 
 * Inputs
 
@@ -49,6 +57,10 @@ of a checkout with one =git ls-files -z= call and map files with
     compile commands do not list. Print them with
     =clang++ -E -x c++ -v /dev/null=.
 - =compass-bench parse <checkout> [-j N] [--repeat R]=.
+- =compass-bench org <checkout> [-j N] [--repeat R]=.
+- =compass-bench org-dump <file>= prints to standard output.
+  =compass-bench org-dump --list <list>= reads one input path, a tab and an
+  output path per line and writes each dump to its output.
 - A git checkout. Tracked entries that are not regular files (submodules,
   symlinks) are skipped. A tracked file that is missing on disk is kept and
   counted as an error.
@@ -70,6 +82,10 @@ of a checkout with one =git ls-files -z= call and map files with
   =read=, then the thread count and setup times. Per language, the files
   with parse errors, the total error nodes, and the top 10 files by error
   nodes and by parse time.
+- For =org=: one stage row with the columns of =read=, then the thread count
+  and setup times, the rows the tables took summed over the documents
+  (elements, objects, headings, links, names), and the top 10 files by parse
+  time.
 - A =FAILED= line and exit status 1 when the stage read or scanned no files
   or hit any error. For =parse= this holds per language: a language with no
   files, or a file that cannot be read, fails the run. Parse errors inside a
@@ -118,6 +134,7 @@ Linux.
 | =includes_result= | The include table, the graph, the fan-in columns and wall times per step.      |
 | =language_result= | A =stage_result= and columns of file id, parse ms and error nodes per file.    |
 | =parse_result=    | One =language_result= per =language= (=cpp=, =sql=).                           |
+| =org_result=      | A =stage_result=, columns of file id and parse ms, and the table row counts.   |
 
 * Entry points
 
@@ -134,6 +151,8 @@ Linux.
 | =include/compass.bench/ops/includes_stage.hpp=  | The =includes= stage.                                  |
 | =include/compass.bench/ops/parse.hpp=           | Language routing, grammars and error node counting.    |
 | =include/compass.bench/ops/parse_stage.hpp=     | The =parse= stage.                                     |
+| =include/compass.bench/ops/org_stage.hpp=       | The =org= stage.                                       |
+| =include/compass.bench/ops/org_dump.hpp=        | The =org-dump= command.                                |
 | =include/compass.bench/io/compile_commands.hpp= | The compile_commands.json reader and word splitting.   |
 | =include/compass.bench/io/report.hpp=           | Plain-text reports and the failure predicates.         |
 | =src/main.cpp=                                  | Argument parsing and wiring.                           |
@@ -148,6 +167,8 @@ Linux.
 * Dependencies
 
 - =compass.platform= for =mapped_file=.
+- =compass.ingest= for the org parser and =compass.org= for its tables and
+  their dump.
 - tree-sitter from vcpkg, and the =tree-sitter-cpp= 0.23.4 and
   =tree-sitter-sql= 0.3.13 grammars from the overlay ports in
   =build/cmake/overlays/common=. The ports compile the generated parsers

@@ -1,0 +1,134 @@
+:PROPERTIES:
+:ID: D2B611DE-6D20-4408-B322-DF83B151AD94
+:END:
+#+title: compass.ingest
+#+description: Readers that fill the compass.org tables. Today it holds the org-mode parser: a hand-written parser from the bytes of one document to its tables, which follows org-element.el and is checked against it.
+#+type: component
+#+level: cross
+#+filetags: :ingest:org:parser:component:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+
+This page is the component overview for =compass.ingest=, a simple component
+in the domain layer of the
+[[id:8A9A460F-8024-4890-B091-C0D02FD84218][System Model]].
+
+* Summary
+
+=compass.ingest= turns source files into the tables of
+[[id:44C128E0-BCF3-4574-B171-BF5E72325085][compass.org]]. Today it holds one
+facet, =org=, with the org-mode parser. =parse= reads the bytes of one
+document and fills one document's tables. It is hand-written, uses no regular
+expression, and allocates per table and never per node.
+
+The parser follows =org-element.el= as Org 9.7 ships it. Where the Org Syntax
+specification and org-element disagree, org-element wins, because the HTML
+export must match =ox-html=, which walks the tree org-element builds.
+=build/scripts/org_element_dump.el= prints that tree and
+=build/scripts/org_diff.py= compares it with the parser's tables, file by
+file.
+
+* Inputs
+
+- The bytes of one org document, which the caller keeps alive: every range in
+  the tables points into them. A document is smaller than 4 GiB.
+- A =tables= value to fill. It is cleared first and keeps its capacity, so one
+  value serves a run of documents.
+
+* Outputs
+
+One document's =compass.org= tables, with =documents= left empty.
+
+- *Two passes.* The first pass builds the element tree and the element detail
+  tables. The TODO vocabulary is then read from the =#+todo:=, =#+seq_todo:=
+  and =#+typ_todo:= keywords of the document, or is =TODO= and =DONE= when it
+  has none. The second pass walks the elements in order and parses their
+  objects. A keyword line counts only where it is a keyword element, which is
+  known once the tree is; that is why headings are split in the second pass.
+- *Positions* are byte offsets and have the meaning of org-element's =:begin=,
+  =:end=, =:contents-begin=, =:contents-end= and =:post-blank=.
+- *Line ends* follow Emacs. When every line feed of the file follows a
+  carriage return, the file has CRLF line ends and parses like one with LF.
+  One bare line feed makes every carriage return a character of its line. A
+  file with carriage returns alone is one line.
+- *Characters above ASCII.* Whitespace is exact. Whether a character is a
+  letter or a word character is exact for Latin-1 and for the punctuation,
+  arrow, mathematical, box drawing and CJK punctuation blocks, and an
+  approximation elsewhere. It decides emphasis borders, scripts, entities and
+  the end of a plain link.
+- *Link types.* A link type is one of the 23 types org registers out of the
+  box. A bracket link written as =scheme:target= with any other scheme keeps
+  that scheme as its type, unless a second colon or a space follows the
+  colon. =file= in any case, =file+sys= and =file+emacs= are =file=. The path
+  is the text as written: brackets stay escaped and a wrapped path keeps its
+  line break.
+- *Affiliated keywords* are filed under the name org-element gives them, so
+  =#+tblname:= and =#+label:= are =name=.
+
+Not recognised:
+
+- Citations and citation references.
+- Radio links, which need the radio targets of the whole document.
+- Link abbreviations set by =#+link:=. The expanded path is not in the source,
+  so a link such as =[[doc:x]]= keeps =doc= as its type.
+- Inlinetasks: a line of stars is always a heading, as in Org without
+  =org-inlinetask= loaded.
+- =#+setupfile:=: keywords of another file are not read.
+
+* Verification
+
+| Check                 | Result                                                             |
+|-----------------------+--------------------------------------------------------------------|
+| ORE Studio corpus     | 10,909 of 10,909 files identical to org-element, 1,811,650 lines.  |
+| This repository       | 396 of 396 files identical.                                        |
+| Random org-like files | 9,000 of 9,000 files identical.                                    |
+| Emacs =ORG-NEWS=      | Differs only in 206 links that use =#+link:= abbreviations.       |
+
+The corpus is an archive of ORE Studio =origin/main=, restricted to =.org=
+files outside the top-level =build/=, =external/= and =vcpkg/=. The commands:
+
+#+begin_src sh
+python3 build/scripts/org_diff.py <root> \
+    --bench build/output/linux-clang-release/publish/bin/compass-bench \
+    --cache <directory for the org-element dumps>
+#+end_src
+
+The corpus does not hold every construct. Planning lines, dynamic blocks,
+babel calls, diary sexps, verse and center blocks, =table.el= tables, macros,
+angle links, radio targets, line breaks and inline source are
+covered by the unit tests alone, whose expected results are org-element's.
+
+* Entry points
+
+| Path                                   | Role                                                         |
+|----------------------------------------+--------------------------------------------------------------|
+| =include/compass.ingest/org/parser.hpp= | =parse=, the only public function.                           |
+| =src/org/parser.cpp=                   | The two passes and the TODO vocabulary.                      |
+| =src/org/elements.cpp=                 | First pass: elements, after =org-element--current-element=.  |
+| =src/org/objects.cpp=                  | Second pass: objects, after =org-element--object-lex=.       |
+| =src/org/text.hpp=                     | Line and character primitives over the source bytes.         |
+| =src/org/context.hpp=                  | The state both passes share and the name interner.           |
+| =src/org/entities.cpp=                 | The names of =org-entities=.                                 |
+| =tests/org_*_tests.cpp=                | One file per construct group; expected dumps from the oracle. |
+| =tests/org_parser_tests.cpp=           | The columns the dump does not print.                         |
+
+| Target                 | Kind                                      |
+|------------------------+-------------------------------------------|
+| =compass.ingest.lib=   | Library.                                  |
+| =compass.ingest.tests= | Catch2 executable, registered with CTest. |
+
+* Dependencies
+
+- =compass.org= for the tables and the dump.
+- The C++23 standard library.
+- Catch2, for the tests only. Emacs is needed to run the differential, not to
+  build or test.
+
+* See also
+
+- [[id:44C128E0-BCF3-4574-B171-BF5E72325085][compass.org]] --- the tables the
+  parser fills.
+- [[id:8A0E6F32-C4BC-4667-88E8-7F80CA25437C][Component architecture]] --- layout,
+  naming and facets.
+- [[id:8A9A460F-8024-4890-B091-C0D02FD84218][System Model]] --- where the domain
+  layer sits.

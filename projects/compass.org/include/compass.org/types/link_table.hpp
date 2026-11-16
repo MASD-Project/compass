@@ -39,8 +39,9 @@ enum class link_format : std::uint8_t { plain, angle, bracket };
  *
  * types is org-element's :type: the scheme written before the colon, or
  * file, custom-id, coderef, fuzzy or radio for a link with no scheme. paths
- * is the target without the scheme. The description is the contents of the
- * object row.
+ * is the target without the scheme, as written: brackets are still escaped
+ * and a path that wraps still holds its line break. The description is the
+ * contents of the object row.
  */
 struct link_table {
     column<link_id, object_id> objects;
