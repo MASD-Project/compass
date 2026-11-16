@@ -21,11 +21,11 @@ Every org file in ORE Studio and in this repository loads into data-oriented tab
 
 | Field         | Value                                  |
 |---------------+----------------------------------------|
-| State         | STARTED                              |
+| State         | DONE                              |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
-| Now           | Not yet started.                       |
+| Now           | Nothing. |
 | Waiting on    | Nothing.                               |
-| Next          | Break the story into tasks.            |
+| Next          | Nothing. |
 | Last touched  | 2026-11-16                               |
 
 * Acceptance
@@ -42,7 +42,7 @@ Every org file in ORE Studio and in this repository loads into data-oriented tab
 | [[id:80278EB3-59DC-4549-A790-14E20197F2C6][Define the org tables]] | DONE | 2026-11-16 | 2026-11-16 | Name the data-oriented tables an org document becomes, with handles, interned strings and offsets instead of pointers. |
 | [[id:336678B6-1DD8-4E13-8217-251CA28B96CB][Write the org parser]] | DONE | 2026-11-16 | 2026-11-16 | A hand-written org parser that follows org-element.el and the Org Syntax specification and fills the tables. |
 | [[id:B86647B3-59D7-4E28-8F5F-6AF7FF839173][Build the type registry]] | DONE | 2026-11-16 | 2026-11-16 | Load the document types and their schemas from doc/meta, and mark which types are codegen models. |
-| [[id:C965FC11-2598-48FA-AD95-B29EED689E63][Parse the ORE Studio corpus]] | BACKLOG | | | Parse all ORE Studio org files on all cores and compare the time against the baseline. |
+| [[id:C965FC11-2598-48FA-AD95-B29EED689E63][Parse the ORE Studio corpus]] | DONE | 2026-11-16 | 2026-11-16 | Parse all ORE Studio org files on all cores and compare the time against the baseline. |
 
 * Documents
 
@@ -56,3 +56,14 @@ Every org file in ORE Studio and in this repository loads into data-oriented tab
 * Out of scope
 
 -
+
+* Result
+
+- Every org file in ORE Studio and in this repository loads into the
+  =compass.org= tables with full fidelity: the parser in =compass.ingest=
+  matches org-element on all 10,910 ORE Studio files and all of this
+  repository's, and parses ORE Studio's org in about a quarter of a second.
+- The type registry is built from the =doc/meta= contract and a declared list
+  of codegen model types. Every document type in this repository resolves. In
+  ORE Studio, 11 types in use are missing from its own contract; they are
+  reported for ORE Studio to define.

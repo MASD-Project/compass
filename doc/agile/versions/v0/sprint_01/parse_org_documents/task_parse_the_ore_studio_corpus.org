@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :parse_org_documents:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/parse-the-ore-studio-corpus
+#+pr: https://github.com/MASD-Project/compass/pull/13
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -26,11 +26,11 @@ Parse all ORE Studio org files on all cores and compare the time against the bas
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                              |
 | Parent story | [[id:F1C69FBB-C16B-4F10-ACDB-F059C6355730][Parse org documents]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -55,7 +55,16 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Org files parsed, errors | 10,910 (69.7 MB), 0 | =compass-bench org <archive> --repeat 5= | ORE Studio 79cf6b7 |
+| Parse all, 8 threads (median of 5) | 244 ms (286 MB/s) | same run | ORE Studio 79cf6b7 |
+| Parse all, 1 thread (median of 3) | 656 ms (106 MB/s) | =compass-bench org <archive> -j 1 --repeat 3= | ORE Studio 79cf6b7 |
+| Parse and resolve types, 8 threads (median of 5) | 212 ms | =compass-bench types <archive> --meta <archive>/doc/meta --repeat 5= | ORE Studio 79cf6b7 |
+| Registry build, type resolution | 1.2 ms, 1.7 ms | same run | ORE Studio 79cf6b7 |
+| Documents with no =#+type:= | 204 | same run | ORE Studio 79cf6b7 |
+| Types used but not defined by ORE Studio's =doc/meta= | 11 | same run | ORE Studio 79cf6b7 |
+
+Load average was about 6 on 8 cores, so the timings are indicative. The
+compass-ng build is main at abddf6c.
 
 * Notes
 
@@ -74,7 +83,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/13][#13]] | [agile] Close Parse org documents with the ORE Studio corpus run |
 
 * Review
 
@@ -83,3 +92,14 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- Every ORE Studio org file parses with no error. A full parse takes about a
+  quarter of a second on 8 threads and two thirds of a second on one, well
+  inside the 5 s cold budget, and type resolution adds about 3 ms.
+- 204 documents carry no =#+type:=; most are files under =evidence/=
+  directories beside tasks.
+- 11 types in use are not defined by ORE Studio's own contract: test_scenario
+  (165), archetype (161), timeline (134), facet (46), feature (34),
+  release_notes (29), profile (14), technical_space (8), dataset_overview (2),
+  entity_view (2), analysis (1). They are gaps for ORE Studio to close; the
+  registry reports them rather than guessing.
