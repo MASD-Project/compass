@@ -139,6 +139,38 @@ namespace compass::codegen::ops::text {
     return out;
 }
 
+/**
+ * @brief s.replace('.', '_').upper(): an include name as a guard.
+ */
+[[nodiscard]] inline std::string upper_snake(std::string_view dotted) {
+    auto out = upper(dotted);
+    for (auto& c : out) {
+        if (c == '.')
+            c = '_';
+    }
+    return out;
+}
+
+/**
+ * @brief _format_description_as_comment: the first line as is, every
+ * other line behind the comment block's " * " prefix, a blank line as
+ * " *".
+ */
+[[nodiscard]] inline std::string comment_block(std::string_view description) {
+    std::string out;
+    const auto lines = split(description, '\n');
+    for (std::size_t i = 0; i < lines.size(); ++i) {
+        if (i == 0)
+            out += lines[i];
+        else if (lines[i].find_first_not_of(" \t\n\r\f\v") ==
+                 std::string_view::npos)
+            out += "\n *";
+        else
+            out.append("\n * ").append(lines[i]);
+    }
+    return out;
+}
+
 }
 
 #endif

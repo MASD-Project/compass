@@ -31,24 +31,6 @@ using compass::model::types::value_id;
 namespace {
 
 /*
- * _format_description_as_comment: the first line as is, every other line
- * behind the comment block's " * " prefix.
- */
-std::string comment_block(std::string_view description) {
-    std::string out;
-    const auto lines = text::split(description, '\n');
-    for (std::size_t i = 0; i < lines.size(); ++i) {
-        if (i == 0)
-            out += lines[i];
-        else if (values::strip(lines[i]).empty())
-            out += "\n *";
-        else
-            out.append("\n * ").append(lines[i]);
-    }
-    return out;
-}
-
-/*
  * ' '.join(s.split()): the words of @p s, separated by one space.
  */
 std::string one_line(std::string_view s) {
@@ -69,15 +51,6 @@ std::string one_line(std::string_view s) {
     }
 }
 
-std::string upper_snake(std::string_view dotted) {
-    auto out = text::upper(dotted);
-    for (auto& c : out) {
-        if (c == '.')
-            c = '_';
-    }
-    return out;
-}
-
 void set_default(builder& b, value_id entity, std::string_view key,
     const std::string& value) {
     if (values::member(b.tables(), entity, key).is_none())
@@ -91,7 +64,7 @@ void format_description(builder& b, value_id entity) {
     if (values::member(t, entity, "description").is_none())
         return;
     const std::string description(values::str(t, entity, "description"));
-    b.set(entity, "description_formatted", comment_block(description));
+    b.set(entity, "description_formatted", text::comment_block(description));
     const auto lines = b.list(entity, "description_lines");
     for (const auto line : text::split(description, '\n'))
         b.append(lines, std::string(line));
@@ -124,7 +97,7 @@ void derive_component_names(builder& b, value_id entity) {
     for (const auto key : {"component_include", "component_core",
              "component_service"}) {
         b.set(entity, std::string(key) + "_upper",
-            upper_snake(values::str(b.tables(), entity, key)));
+            text::upper_snake(values::str(b.tables(), entity, key)));
     }
     b.set(entity, "component_is_database", component == "database");
 

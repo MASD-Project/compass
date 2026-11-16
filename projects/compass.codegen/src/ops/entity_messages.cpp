@@ -270,10 +270,8 @@ void derive_messages(builder& b, value_id entity,
     }
 }
 
-void derive_filter_record(builder& b, value_id entity,
-    const types::entity_site& site) {
-    const auto& t = b.tables();
-    const auto filter = wire::filter_members(t, entity);
+bool write_filter_members(builder& b, value_id entity) {
+    const auto filter = wire::filter_members(b.tables(), entity);
     const auto list = b.list(entity, "filter_members");
     bool has_range = false;
     using kind = wire::filter_member::kind;
@@ -301,6 +299,14 @@ void derive_filter_record(builder& b, value_id entity,
             break;
         }
     }
+    return has_range;
+}
+
+void derive_filter_record(builder& b, value_id entity,
+    const types::entity_site& site) {
+    const bool has_range = write_filter_members(b, entity);
+    const auto& t = b.tables();
+    const auto filter = wire::filter_members(t, entity);
     std::string search = "{";
     for (const auto& s : filter.searchable)
         search += (search.size() > 1 ? ", \"" : "\"") + s + "\"";

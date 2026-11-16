@@ -31,6 +31,7 @@
 #include "compass.codegen/ops/entity_registry.hpp"
 #include "compass.codegen/ops/template_context.hpp"
 #include "compass.codegen/ops/manifest.hpp"
+#include "compass.codegen/ops/model_contexts.hpp"
 #include "compass.codegen/ops/output.hpp"
 #include "compass.codegen/ops/physical_space.hpp"
 #include "compass.codegen/ops/values.hpp"
@@ -369,10 +370,42 @@ struct context_type {
 constexpr context_type context_types[] = {
     {compass::model::types::model_type::entity, "domain_entity"},
     {compass::model::types::model_type::component, "component"},
+    {compass::model::types::model_type::junction, "junction"},
+    {compass::model::types::model_type::operation, "operation"},
+    {compass::model::types::model_type::field_group, "field_group"},
     {compass::model::types::model_type::asset_class_catalogue,
      "asset_class_catalogue"},
     {compass::model::types::model_type::outcome_catalogue,
      "outcome_catalogue"}};
+
+/**
+ * @brief The shared context of the model @p root of @p type, whose
+ * ores.codegen name is @p type_name, and for a junction its surface shape.
+ */
+compass::codegen::ops::junction_contexts build_context(compass::model::ops::builder& b,
+    compass::model::types::model_type type, value_id library, value_id root,
+    std::string_view stem, std::string_view type_name,
+    const compass::codegen::types::entity_registry& entities,
+    const compass::codegen::types::entity_site& site) {
+    namespace cops = compass::codegen::ops;
+    using compass::model::types::model_type;
+    switch (type) {
+    case model_type::entity:
+        return {cops::entity_context(b, library, root, stem, entities, site),
+            value_id::none()};
+    case model_type::junction:
+        return cops::junction_context(b, library, root, stem, entities, site);
+    case model_type::operation:
+        return {cops::operation_context(b, library, root, stem, entities,
+            site), value_id::none()};
+    case model_type::field_group:
+        return {cops::field_group_context(b, library, root, stem, entities,
+            site), value_id::none()};
+    default:
+        return {cops::model_context(b, library, root, stem, type_name),
+            value_id::none()};
+    }
+}
 
 /**
  * @brief The outputs compass builds contexts for, each with its context:
@@ -454,17 +487,15 @@ std::vector<planned> plan_models(const std::filesystem::path& checkout,
                 "ores.cpp.wire-codec", wire_codec_addresses, false),
             compass::codegen::ops::facet_enabled(properties,
                 "ores.cpp.protocol", protocol_addresses, true),
-            compass::codegen::ops::protocol_owned(registry, b.tables(), root,
-                path)};
-        const auto context = *type == compass::model::types::model_type::entity
-            ? compass::codegen::ops::entity_context(b, library, root, stem,
-                entities, site)
-            : compass::codegen::ops::model_context(b, library, root, stem,
-                type_name);
+            compass::codegen::ops::protocol_owned(registry, b.tables(),
+                compass::codegen::ops::values::member(b.tables(), root,
+                    type_name), path)};
+        const auto [context, surface] = build_context(b, *type, library, root,
+            stem, type_name, entities, site);
         ++r.contexts;
         for (const auto& u : units) {
             const auto variant = compass::codegen::ops::template_context(b,
-                context, stem, type_name, u.template_name, entities);
+                context, stem, type_name, u.template_name, entities, surface);
             plan.push_back({u, variant.is_none() ? context : variant,
                 type_name});
         }

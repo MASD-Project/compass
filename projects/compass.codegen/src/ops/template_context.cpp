@@ -23,12 +23,14 @@
 #include <array>
 #include <cstdio>
 #include <map>
+#include <stdexcept>
 #include <vector>
 #include "compass.codegen/ops/values.hpp"
 #include "compass.model/ops/typescript.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 #include "entity_surfaces.hpp"
 #include "entity_text.hpp"
+#include "model_steps.hpp"
 
 namespace compass::codegen::ops {
 
@@ -89,9 +91,39 @@ std::string_view precondition_sentence(std::string_view precondition) {
 }
 
 /*
- * _shell_command_commentary for a derived entity command.
+ * _declared_command_commentary: what a declared operation's command sends
+ * and prints, what it reads and whether it needs a session.
+ */
+std::string declared_commentary(const model_tables& t, value_id command) {
+    auto out = "Sends =" + text(t, command, "request") + "= and prints =" +
+        text(t, command, "response_type") + "=, so the shape is the "
+        "protocol's and the meaning is the service's.";
+    const auto positionals = values::items(t, command, "positionals");
+    if (!positionals.empty()) {
+        out += " It reads ";
+        for (std::size_t i = 0; i < positionals.size(); ++i)
+            out += (i == 0 ? "=" : ", =") + text(t, positionals[i], "name") +
+                "=";
+        out += ", in that order.";
+    }
+    if (values::truthy(t, command, "public"))
+        out += " A caller runs it before it has a session, so the command "
+            "presents no token and refuses none.";
+    else
+        out += " The caller must have established a session first.";
+    if (values::truthy(t, command, "is_destructive"))
+        out += " This command destroys the system it runs against. Do not "
+            "replay it against an environment you need.";
+    return out;
+}
+
+/*
+ * _shell_command_commentary: a derived entity command's, by its verb and
+ * precondition, or a declared operation's.
  */
 std::string command_commentary(const model_tables& t, value_id command) {
+    if (!values::truthy(t, command, "kind"))
+        return declared_commentary(t, command);
     const auto kind = text(t, command, "kind");
     std::vector<std::string_view> sentences{
         values::strip(verb_sentence(text(t, command, "verb")))};
@@ -114,17 +146,22 @@ std::string command_commentary(const model_tables& t, value_id command) {
 }
 
 /*
- * shell_recipe_document for a domain entity's shell plan.
+ * The names a recipe document is filed and titled by.
  */
-void write_shell_recipe(builder& b, value_id context, value_id entity) {
+struct recipe_names {
+    std::string component;
+    std::string menu;
+    std::string singular;
+    std::string plural;
+};
+
+/*
+ * shell_recipe_document: one section per command of @p commands.
+ */
+void write_shell_recipe(builder& b, value_id context, const recipe_names& n,
+    const std::vector<value_id>& commands, bool is_operation) {
     const auto& t = b.tables();
-    const auto component = text(t, entity, "component");
-    const auto singular = text(t, entity, "entity_singular");
-    const auto plural = text(t, entity, "entity_plural");
-    const auto menu = values::truthy(t, entity, "entity_plural") ? plural :
-        values::truthy(t, entity, "entity_singular") ? singular : std::string();
-    const auto commands = values::items(t,
-        values::member(t, entity, "shell"), "commands");
+    const auto& [component, menu, singular, plural] = n;
 
     const auto doc = b.object(context, "shell_recipe");
     b.set(doc, "id", recipe_org_id(component + "." + menu));
@@ -137,7 +174,8 @@ void write_shell_recipe(builder& b, value_id context, value_id entity) {
     b.set(doc, "description", "Every command the " + menu + " submenu "
         "answers, with the script each one exports into the shell's script "
         "library.");
-    const auto what = "the " + plural + " resource";
+    const auto what = is_operation ? std::string("declared operations") :
+        "the " + plural + " resource";
     if (commands.size() == 1)
         b.set(doc, "intro", "This file documents " + what + " at the shell. "
             "Its one command is =ores-shell> " + menu + " " +
@@ -150,7 +188,7 @@ void write_shell_recipe(builder& b, value_id context, value_id entity) {
             menu + "=, and every section exports its own script into "
             "=projects/ores.shell/scripts/library/=. Loading a script runs "
             "that one command, so a failure names the command it came from.");
-    b.set(doc, "is_operation", false);
+    b.set(doc, "is_operation", is_operation);
     const auto list = b.list(doc, "commands");
     for (const auto c : commands) {
         const auto name = text(t, c, "command");
@@ -234,15 +272,15 @@ std::string route_commentary(const model_tables& t, value_id route) {
 }
 
 /*
- * http_recipe_document for a domain entity's route plan.
+ * http_recipe_document: one section per route of @p routes, grouped under
+ * the plural of @p n.
  */
-void write_http_recipe(builder& b, value_id context, value_id entity) {
+void write_http_recipe(builder& b, value_id context, const recipe_names& n,
+    const std::vector<value_id>& routes) {
     const auto& t = b.tables();
-    const auto component = text(t, entity, "component");
-    const auto singular = text(t, entity, "entity_singular");
-    const auto plural = text(t, entity, "entity_plural");
-    const auto routes = values::items(t,
-        values::member(t, entity, "http_route"), "routes");
+    const auto& component = n.component;
+    const auto& singular = n.singular;
+    const auto& plural = n.plural;
 
     const auto doc = b.object(context, "http_recipe");
     b.set(doc, "id", recipe_org_id(component + "." + plural));
@@ -294,24 +332,38 @@ void write_http_recipe(builder& b, value_id context, value_id entity) {
         static_cast<std::int64_t>(routes.size()));
 }
 
+std::vector<std::string_view> message_field_types(const model_tables& t,
+    value_id owner) {
+    std::vector<std::string_view> out;
+    for (const auto m : values::items(t, owner, "messages")) {
+        for (const auto f : values::items(t, m, "fields"))
+            out.push_back(values::str(t, f, "cpp_type"));
+    }
+    return out;
+}
+
+/*
+ * utility_imports: ts_utility_imports of the messages of @p owner.
+ */
+void write_utility_imports(builder& b, value_id owner) {
+    const auto cpp_types = message_field_types(b.tables(), owner);
+    const auto utility = b.list(owner, "utility_imports");
+    for (const auto& i : compass::model::ops::ts_utility_imports(cpp_types)) {
+        const auto o = b.append_object(utility);
+        b.set(o, "name_pascal", i.pascal);
+        b.set(o, "module", i.module);
+    }
+}
+
 /*
  * ts_protocol.ts.mustache's imports: utility_imports and the domain
  * interfaces other than the entity's own, extra_domain_imports.
  */
 void write_ts_imports(builder& b, value_id entity,
     const types::entity_registry& registry) {
+    write_utility_imports(b, entity);
     const auto& t = b.tables();
-    std::vector<std::string_view> cpp_types;
-    for (const auto m : values::items(t, entity, "messages")) {
-        for (const auto f : values::items(t, m, "fields"))
-            cpp_types.push_back(values::str(t, f, "cpp_type"));
-    }
-    const auto utility = b.list(entity, "utility_imports");
-    for (const auto& i : compass::model::ops::ts_utility_imports(cpp_types)) {
-        const auto o = b.append_object(utility);
-        b.set(o, "name_pascal", i.pascal);
-        b.set(o, "module", i.module);
-    }
+    const auto cpp_types = message_field_types(t, entity);
     const auto component = values::member(t, entity, "component");
     const auto owner = values::is(t, component,
         compass::model::types::value_kind::string) ?
@@ -394,6 +446,152 @@ std::map<std::string, std::string, std::less<>> frontmatter(
     return out;
 }
 
+constexpr std::string_view shell_recipe_template = "shell_recipe.org.mustache";
+constexpr std::string_view http_recipe_template = "http_recipe.org.mustache";
+
+/*
+ * A domain entity's recipe names: its menu is its plural, or its singular
+ * when it states none.
+ */
+recipe_names entity_recipe_names(const model_tables& t, value_id entity) {
+    auto plural = text(t, entity, "entity_plural");
+    auto singular = text(t, entity, "entity_singular");
+    auto menu = !plural.empty() ? plural : singular;
+    return {text(t, entity, "component"), std::move(menu), std::move(singular),
+        std::move(plural)};
+}
+
+/*
+ * The context of a junction template that reads more than the junction:
+ * the shell and HTTP route units and recipes read its surface shape under
+ * domain_entity, and the TypeScript protocol its utility imports.
+ */
+value_id junction_template_context(builder& b, value_id context,
+    std::string_view model_key, std::string_view template_name,
+    value_id surface) {
+    const auto& t = b.tables();
+    if (template_name == "ts_protocol.ts.mustache") {
+        const auto copy = copy_of(b, context);
+        write_utility_imports(b, values::member(t, copy, "junction"));
+        write_utility_imports(b, values::member(t,
+            values::member(t, copy, model_key), "junction"));
+        return copy;
+    }
+    if (!template_name.starts_with("cpp_shell_command_") &&
+        !template_name.starts_with("cpp_http_route_") &&
+        template_name != shell_recipe_template &&
+        template_name != http_recipe_template)
+        return value_id::none();
+    if (surface.is_none())
+        return value_id::none();
+    const auto copy = copy_of(b, context);
+    const auto names = entity_recipe_names(t, surface);
+    if (template_name == shell_recipe_template)
+        write_shell_recipe(b, copy, names, values::items(b.tables(),
+            values::member(b.tables(), surface, "shell"), "commands"),
+            false);
+    if (template_name == http_recipe_template)
+        write_http_recipe(b, copy, names, values::items(b.tables(),
+            values::member(b.tables(), surface, "http_route"), "routes"));
+    b.set_copy(copy, "domain_entity", surface);
+    return copy;
+}
+
+/*
+ * operation_http_route_plan: one POST route per shell command that states
+ * :http_route:, its path the subject transliterated.
+ */
+void write_operation_http_route(builder& b, value_id operation) {
+    const auto plan = b.object(operation, "http_route");
+    const auto routes = b.list(plan, "routes");
+    std::int64_t count = 0;
+    for (const auto c : values::items(b.tables(), operation, "shell_commands")) {
+        const auto& t = b.tables();
+        if (!values::truthy(t, c, "http_route"))
+            continue;
+        const auto subject = text(t, c, "subject");
+        const auto segments = text::split(subject, '.');
+        if (segments.size() < 3)
+            throw std::runtime_error(text(t, operation, "entity_singular") +
+                ": message " + text(t, c, "request") + " states subject " +
+                subject + ", which cannot be routed");
+        auto pattern = "/api/" + std::string(segments[1]) + "/" +
+            std::string(segments[0]) + "/" + std::string(segments[2]);
+        std::string action;
+        for (std::size_t i = 3; i < segments.size(); ++i)
+            action += (i == 3 ? "" : "/") + std::string(segments[i]);
+        if (!action.empty())
+            pattern += "/" + action;
+        const auto name = values::truthy(t, c, "operation") ?
+            text(t, c, "operation") : text(t, c, "command");
+        auto identifier = values::truthy(t, c, "operation_identifier") ?
+            text(t, c, "operation_identifier") : name;
+        std::ranges::replace(identifier, '-', '_');
+        auto summary = name;
+        std::ranges::replace(summary, '-', ' ');
+        const bool requires_session = !values::truthy(t, c, "public");
+        const auto rate_policy = values::member(t, c, "rate_policy");
+        const bool has_fields = values::truthy(t, c, "positionals") ||
+            values::truthy(t, c, "flags");
+        const auto request = values::member(t, c, "request");
+        const auto response = values::member(t, c, "response_type");
+
+        const auto o = b.append_object(routes);
+        b.set(o, "command", name);
+        b.set(o, "identifier", identifier);
+        b.set(o, "method", "post");
+        b.set(o, "method_upper", "POST");
+        b.set(o, "pattern", pattern);
+        b.set(o, "summary", text::capitalize(summary));
+        b.set(o, "description", "Forwards to the " + subject + " operation.");
+        b.set(o, "subject", subject);
+        b.set_copy(o, "request", request);
+        b.set_copy(o, "response_type", response);
+        b.set(o, "requires_session", requires_session);
+        if (rate_policy.is_none())
+            b.set(o, "rate_policy", "");
+        else
+            b.set_copy(o, "rate_policy", rate_policy);
+        b.set(o, "has_fields", has_fields);
+        ++count;
+    }
+    b.set_integer(plan, "route_count", count);
+}
+
+/*
+ * The context of an operation template that reads more than the
+ * operation: the HTTP route units and recipe read its route plan, and the
+ * recipes their documents, filed under its entity singular.
+ */
+value_id operation_template_context(builder& b, value_id context,
+    std::string_view model_key, std::string_view template_name) {
+    const bool routes =
+        template_name.starts_with("cpp_http_route_operation_") ||
+        template_name == http_recipe_template;
+    if (!routes && template_name != shell_recipe_template)
+        return value_id::none();
+    const auto copy = copy_of(b, context);
+    const auto top = values::member(b.tables(), copy, "operation");
+    if (top.is_none())
+        return copy;
+    if (routes) {
+        write_operation_http_route(b, top);
+        write_operation_http_route(b, values::member(b.tables(),
+            values::member(b.tables(), copy, model_key), "operation"));
+    }
+    const auto& t = b.tables();
+    const auto singular = text(t, top, "entity_singular");
+    const recipe_names names{text(t, top, "component"), singular, singular,
+        singular};
+    if (template_name == shell_recipe_template)
+        write_shell_recipe(b, copy, names,
+            values::items(t, top, "shell_commands"), true);
+    if (template_name == http_recipe_template)
+        write_http_recipe(b, copy, names, values::items(b.tables(),
+            values::member(b.tables(), top, "http_route"), "routes"));
+    return copy;
+}
+
 }
 
 std::string recipe_org_id(std::string_view name) {
@@ -474,7 +672,8 @@ std::optional<types::convention_family> convention_family_of(
 
 value_id template_context(builder& b, value_id context,
     std::string_view model_key, std::string_view model_type,
-    std::string_view template_name, const types::entity_registry& registry) {
+    std::string_view template_name, const types::entity_registry& registry,
+    value_id surface) {
     const auto& t = b.tables();
     if (model_type == "component") {
         if (!is_registry_template(template_name))
@@ -487,17 +686,27 @@ value_id template_context(builder& b, value_id context,
             write_family(b, b.append_object(list), f);
         return copy;
     }
+    if (model_type == "junction")
+        return junction_template_context(b, context, model_key, template_name,
+            surface);
+    if (model_type == "operation")
+        return operation_template_context(b, context, model_key,
+            template_name);
     if (model_type != "domain_entity")
         return value_id::none();
     const auto entity = values::member(t, context, "domain_entity");
-    if (template_name == "shell_recipe.org.mustache") {
+    if (template_name == shell_recipe_template) {
         const auto copy = copy_of(b, context);
-        write_shell_recipe(b, copy, entity);
+        write_shell_recipe(b, copy, entity_recipe_names(t, entity),
+            values::items(t, values::member(t, entity, "shell"), "commands"),
+            false);
         return copy;
     }
-    if (template_name == "http_recipe.org.mustache") {
+    if (template_name == http_recipe_template) {
         const auto copy = copy_of(b, context);
-        write_http_recipe(b, copy, entity);
+        write_http_recipe(b, copy, entity_recipe_names(t, entity),
+            values::items(t, values::member(t, entity, "http_route"),
+                "routes"));
         return copy;
     }
     if (template_name == "cpp_convention_family_unit.cpp.mustache") {

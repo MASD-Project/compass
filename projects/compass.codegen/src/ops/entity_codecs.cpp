@@ -209,6 +209,15 @@ void write_list(builder& b, value_id entity, std::string_view key,
 
 }
 
+std::vector<std::string> member_headers_of(const builder& b, value_id owner,
+    std::span<const std::string> cpp_types,
+    const types::entity_registry& registry, std::string_view model_path) {
+    auto headers = headers_for(b, owner, registry, {std::string(model_path)});
+    for (const auto& type : cpp_types)
+        headers.visit(type);
+    return headers.take();
+}
+
 void derive_codec_includes(builder& b, value_id entity,
     const types::entity_registry& registry, const types::entity_site& site) {
     const auto& t = b.tables();
