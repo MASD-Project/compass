@@ -30,9 +30,25 @@ with what the codecs produced:
 | =gc=              | Removes old unreferenced objects and action objects from the store.      | Removes files from the store, unless =--dry-run=. |
 | =config=          | Prints every path and codec setting in effect, and where it came from.   | Nothing.                                          |
 
-The library holds the pipeline and prints nothing: =app::generate=,
-=app::diff=, =app::check= and =app::gc= each take the options and return a
-result. =app::run= parses a command line, reads the configuration file,
+The library holds the pipeline and prints nothing. =app/steps.hpp=
+exposes it as one function per step, so a caller can time each:
+
+| Step                                       | Does                                                                          |
+|--------------------------------------------+-------------------------------------------------------------------------------|
+| =list=                                     | The org files of the checkout, without =.compass.org=.                        |
+| =build_type_registry=                      | The type registry of the contract pages.                                      |
+| =open_files=, =resolve=                    | One row per file, and its ID from git's index, the worktree index or hashing. |
+| =load=                                     | Each object mapped from the store, or the file parsed into memory.            |
+| =corpus_of=                                | The rows that loaded, typed, as the corpus the codecs read.                   |
+| =read_dependency_record=, =run_codecs=     | The codecs run from the dependency record and the result cache.               |
+| =store_objects=, =write_worktree_index=    | The parsed objects and the worktree index written.                            |
+| =store_results=, =write_dependency_record= | The result cache and the dependency record written.                           |
+| =write_outputs=, =plan_outputs=            | The outputs written, or planned for a diff.                                   |
+| =collect=                                  | The store collected.                                                          |
+
+=app::generate=, =app::diff=, =app::check= and =app::gc= compose the steps;
+each takes the options and returns a result. =compass.bench= calls the same
+steps and adds only timing and repetition. =app::run= parses a command line, reads the configuration file,
 resolves the options, calls the command, has
 =io::report= print the result to the streams it is given, and returns the
 exit status, so the tests drive the executable's behaviour without spawning
@@ -124,7 +140,8 @@ range, 1-based, the column counted in bytes. The rule is written as
 | =include/compass.cli/types/results.hpp=          | What each command returns.                                                         |
 | =include/compass.cli/config/arguments.hpp=       | The command-line parser, the help and the version.                                 |
 | =include/compass.cli/io/listing.hpp=             | The org files of a checkout, from =git ls-files=.                                  |
-| =include/compass.cli/app/pipeline.hpp=           | One function per command.                                                          |
+| =include/compass.cli/app/steps.hpp=              | One function per step of the pipeline.                                             |
+| =include/compass.cli/app/pipeline.hpp=           | One function per command, composed of the steps.                                   |
 | =include/compass.cli/io/report.hpp=              | Printing each result.                                                              |
 | =include/compass.cli/app/application.hpp=        | =app::run= and the exit statuses.                                                  |
 | =src/main.cpp=                                   | The executable.                                                                    |
@@ -143,7 +160,8 @@ range, 1-based, the column counted in bytes. The rule is written as
   diff.
 - =compass.ingest= for the parser and the type registry builder.
 - =compass.store= for IDs, the store and collection.
-- =compass.org= and =compass.platform= for the tables and mapped files.
+- =compass.org= and =compass.platform= for the tables and mapped files,
+  which the steps' =corpus_files= exposes.
 - Catch2, git and bash, for the tests only.
 
 * See also
