@@ -30,6 +30,7 @@ add_library(${lib_target_name}
     ops/include_scan.cpp
     ops/includes_stage.cpp
     ops/listing.cpp
+    ops/model_corpus.cpp
     ops/models_stage.cpp
     ops/org_dump.cpp
     ops/org_stage.cpp
