@@ -471,4 +471,58 @@ void write_types_report(std::ostream& os, const types::types_result& stage,
             stage.stage.errors, stage.stage.first_error);
 }
 
+bool failed(const types::store_result& stage) {
+    return failed(stage.cold) || stage.rejected != 0 ||
+        stage.mismatches != 0;
+}
+
+void write_store_report(std::ostream& os, const types::store_result& stage,
+    const setup_timing& setup, const std::filesystem::path& objects) {
+    write_stage_header(os);
+    write_stage_row(os, stage.cold);
+    os << std::format("repetitions: {}  threads: {}\n",
+        stage.cold.wall_ms.size(), setup.threads);
+    os << std::format(
+        "git ls-files: {:.2f} ms  file table (lstat): {:.2f} ms\n",
+        setup.listing_ms, setup.table_ms);
+    os << std::format("store: {}\n", objects.string());
+
+    os << std::format("\n{:<14}{:>12}{:>10}{:>10}\n", "run", "median_ms",
+        "min_ms", "max_ms");
+    const auto run = [&](std::string_view name,
+        const std::vector<double>& wall_ms) {
+        if (wall_ms.empty())
+            return;
+        const auto [min, max] = std::ranges::minmax(wall_ms);
+        os << std::format("{:<14}{:>12.2f}{:>10.2f}{:>10.2f}\n", name,
+            median(wall_ms), min, max);
+    };
+    run("cold", stage.cold.wall_ms);
+    run("warm map", stage.map_ms);
+    run("warm verify", stage.verify_ms);
+
+    const double ratio = stage.cold.bytes > 0
+        ? static_cast<double>(stage.object_bytes) / stage.cold.bytes : 0;
+    os << std::format("\nobjects: {} for {} files\n", stage.objects,
+        stage.cold.files);
+    os << std::format("object bytes: {}  source bytes: {}  ratio: {:.3f}\n",
+        stage.object_bytes, stage.cold.bytes, ratio);
+    os << std::format("rejected objects: {}  dump mismatches: {}\n",
+        stage.rejected, stage.mismatches);
+
+    if (stage.cold.files == 0)
+        os << "\nFAILED: stage 'store' stored zero files.\n";
+    if (stage.cold.errors != 0)
+        os << std::format(
+            "\nFAILED: stage 'store' hit {} error(s). First: {}\n",
+            stage.cold.errors, stage.cold.first_error);
+    if (stage.rejected != 0)
+        os << std::format("\nFAILED: {} object(s) the stage wrote did not "
+                          "load.\n", stage.rejected);
+    if (stage.mismatches != 0)
+        os << std::format("\nFAILED: {} loaded object(s) dump differently "
+                          "from their parse. First: {}\n",
+            stage.mismatches, stage.first_mismatch);
+}
+
 }
