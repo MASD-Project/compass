@@ -20,6 +20,7 @@ set(lib_target_name ${name}.lib)
 set(exe_target_name ${name}.exe)
 
 add_library(${lib_target_name}
+    io/compile_commands.cpp
     io/report.cpp
     ops/listing.cpp
     ops/partition.cpp
