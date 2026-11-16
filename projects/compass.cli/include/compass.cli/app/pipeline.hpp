@@ -25,13 +25,13 @@
 
 /**
  * The commands of the compass executable, one function each. Every
- * command but gc first runs the pipeline: list the org files of the
- * checkout, resolve their IDs from git's index or the worktree index, map
- * each object from the store or parse the file, build the type registry
- * from the contract pages under the meta directory, and run the enabled
- * codecs from the dependency record of the checkout and the result cache
- * of the repository. The store is compass/objects under the git common
- * directory. None of these functions prints.
+ * command but gc first runs the steps of app/steps.hpp: list the org files
+ * of the checkout, build the type registry from the contract pages under
+ * the meta directory, resolve their IDs, load each object from the store
+ * or parse the file, and run the enabled codecs from the dependency record
+ * of the checkout and the result cache of the repository. The store is
+ * compass/objects under the git common directory. None of these functions
+ * prints.
  */
 namespace compass::cli::app {
 
