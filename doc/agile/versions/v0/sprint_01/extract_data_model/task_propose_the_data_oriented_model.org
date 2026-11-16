@@ -12,7 +12,7 @@
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-10-27
-#+updated: 2026-10-27
+#+updated: 2026-11-16
 #+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
 
 This page documents a task in the [[id:E20F0268-BB77-4E40-9FC3-CB2928C64C23][Extract the data model]] story. It captures the goal, current status, acceptance, and any notes or results.
@@ -25,12 +25,12 @@ Propose the compass-ng representation: tables, handles, string interning and gra
 
 | Field        | Value                                                               |
 |--------------+---------------------------------------------------------------------|
-| State        | STARTED                                                             |
+| State        | ABANDONED                                                             |
 | Parent story | [[id:E20F0268-BB77-4E40-9FC3-CB2928C64C23][Extract the data model]] |
-| Now          | Not started.                                                        |
+| Now          | Nothing.                                                        |
 | Waiting on   | Nothing.                                                            |
-| Next         | Start the task.                                                     |
-| Last touched | 2026-10-27                                                          |
+| Next         | Nothing.                                                     |
+| Last touched | 2026-11-16                                                          |
 
 * Acceptance
 
@@ -49,3 +49,9 @@ Propose the compass-ng representation: tables, handles, string interning and gra
 * Review
 
 * Result
+
+Abandoned on 2026-11-16 when Version 0 was re-scoped from a document server
+to a fast pipeline for codegen, gates and analysis. The proposal in
+[[id:2E063662-CB56-4AA6-9447-811838A3DEF5][Document store model]] assumes a server with snapshot reads and one
+writer, which Version 0 no longer builds. Its tables, handles and interned
+strings are input to the Parse org documents story.

@@ -1,0 +1,50 @@
+:PROPERTIES:
+:ID: BC1B09C4-CF0F-4C8F-9895-2F60C59F7AE2
+:END:
+#+title: Story: Export HTML identical to Emacs
+#+description: Export org documents to HTML byte-identical to the Emacs export the ORE Studio site uses today, outside the codegen pipeline.
+#+type: story
+#+level: s2
+#+filetags: :html:site:org:sprint_01:v0:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+#+environment:
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+compass exports every ORE Studio org document to HTML byte-identical to the site's Emacs export, with every accepted difference recorded.
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | BACKLOG                              |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | Not yet started.                       |
+| Waiting on    | Nothing.                               |
+| Next          | Break the story into tasks.            |
+| Last touched  | 2026-11-16                               |
+
+* Acceptance
+
+- The Emacs oracle is captured with the same Emacs setup the ORE Studio site build uses.
+- One command reports how many documents export byte-identical, with a diff for each one that does not.
+- Org features are implemented in order of how many corpus documents need them.
+- Every accepted difference is recorded with its reason.
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+| [[id:C3014585-6C7E-46B8-A087-3A91289B7BBC][Capture the Emacs oracle]] | BACKLOG | | | Export the ORE Studio corpus with the site build's Emacs setup and keep the result as the oracle. |
+| [[id:5BA34D01-E046-49BF-B292-C29FCD36D8BD][Build the HTML comparison]] | BACKLOG | | | Compare compass's export with the oracle and report the count of identical documents and the differences. |
+| [[id:E966E81A-A40D-4308-9436-2CB38D9DE3C5][Export HTML by feature frequency]] | BACKLOG | | | Implement HTML export for org features, most frequent in the corpus first. |
+
+* Decisions
+
+* Out of scope
+
+-

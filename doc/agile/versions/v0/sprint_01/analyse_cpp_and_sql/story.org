@@ -1,0 +1,56 @@
+:PROPERTIES:
+:ID: C1DC8A0C-83C7-408B-9D63-762562F0D797
+:END:
+#+title: Story: Analyse C++ and SQL
+#+description: Load ORE Studio's C++ and SQL, compute the established build-health and design metrics, and report what makes the build slow.
+#+type: story
+#+level: s2
+#+filetags: :cpp:sql:metrics:build:sprint_01:v0:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+#+environment:
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+compass reports, in seconds, which headers, components and functions make ORE Studio's build slow or its design tangled, using established metrics, and checks changed files for syntax errors.
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | BACKLOG                              |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | Not yet started.                       |
+| Waiting on    | Nothing.                               |
+| Next          | Break the story into tasks.            |
+| Last touched  | 2026-11-16                               |
+
+* Acceptance
+
+- The include graph gives transitive fan-in and fan-out per file and total lines compiled.
+- Rebuild cost weights fan-in by measured compile time from .ninja_log or -ftime-trace, and hotspots weight it by change frequency from git log.
+- Component metrics are computed: Lakos levels, CCD, ACD and NCCD, Martin's coupling and instability, and include cycles.
+- Complexity metrics are computed per function and type: cyclomatic and cognitive complexity, length, parameters, nesting, and struct member count.
+- SQL facts are extracted: tables, columns, foreign keys, functions and policies.
+- Changed files get a tree-sitter syntax check on every run, and a clang -fsyntax-only check on demand.
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+| [[id:B0C64BE8-0555-4F53-AF96-00F4332EAE68][Build the include graph]] | BACKLOG | | | Resolve every #include through compile_commands.json and compute fan-in, fan-out and total lines compiled. |
+| [[id:AF98EA25-ADE1-4662-A603-2F8C2FB95B35][Read build timings]] | BACKLOG | | | Load per-target times from .ninja_log and per-header and per-template times from clang -ftime-trace. |
+| [[id:153865FE-D5FE-4C61-8F5A-79F72B1F6C4D][Report rebuild cost and hotspots]] | BACKLOG | | | Weight fan-in by compile time and by change frequency from git log. |
+| [[id:55543165-6D1F-436C-B71B-673F240C4E0F][Compute component metrics]] | BACKLOG | | | Compute Lakos levels, CCD, ACD, NCCD, Martin's metrics and include cycles per component. |
+| [[id:C5945DF3-6991-4B8D-BF16-DB345F1BBECD][Compute complexity metrics]] | BACKLOG | | | Compute complexity metrics per function and type from the tree-sitter parse. |
+| [[id:68CF3E80-A299-4031-9AE6-7333E7834FD4][Extract SQL facts]] | BACKLOG | | | Extract tables, columns, foreign keys, functions and policies from ORE Studio SQL. |
+| [[id:A241A4E2-0062-4BD4-B241-6F96DC1ACDF9][Check syntax of changed files]] | BACKLOG | | | Report tree-sitter parse errors in changed files, and run clang -fsyntax-only on demand. |
+
+* Decisions
+
+* Out of scope
+
+-

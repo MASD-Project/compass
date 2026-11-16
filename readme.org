@@ -1,9 +1,9 @@
 #+title: compass-ng
 
-A high-performance, data-oriented C++ re-implementation of the document management of compass from
-[[https://github.com/OreStudio/OreStudio][ORE Studio]]. It is a side-kick for LLMs: it holds a project's documentation,
-knowledge and work as one linked corpus, served to LLMs (CLI, binary protocol), humans (web wiki) and a
-real-time ImGui viewer.
+A fast, data-oriented C++ pipeline for the documentation and code of [[https://github.com/OreStudio/OreStudio][ORE Studio]]. It loads org
+documents, C++ and SQL into memory once and runs codecs over them: code generation, HTML export
+identical to Emacs, gates and code analysis. It parses nothing twice, shares its cache across
+worktrees, and writes only files whose content changed.
 
 Start with [[file:doc/compass.org][doc/compass.org]].
 

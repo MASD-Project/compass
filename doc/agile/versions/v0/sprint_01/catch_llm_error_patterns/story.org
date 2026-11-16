@@ -1,0 +1,49 @@
+:PROPERTIES:
+:ID: 63D5482E-E1E7-45B0-883F-3B2DDFA2B447
+:END:
+#+title: Story: Catch the errors LLMs introduce
+#+description: Mine ORE Studio's failed builds for the errors LLMs introduce, rank the patterns, and ship checks that catch the top five before a build.
+#+type: story
+#+level: s2
+#+filetags: :gates:llm:sprint_01:v0:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+#+environment:
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+The five most frequent and costly error patterns LLMs introduce into ORE Studio are caught by compass checks before a build, each proven on the past commit where it happened.
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | BACKLOG                              |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | Not yet started.                       |
+| Waiting on    | Nothing.                               |
+| Next          | Break the story into tasks.            |
+| Last touched  | 2026-11-16                               |
+
+* Acceptance
+
+- Failures are collected from failed CI runs, fix-up commits after LLM-authored commits, PR review comments and ORE Studio's memories.
+- Error messages are normalised and grouped into patterns ranked by frequency and cost.
+- A check exists for each of the top five patterns, fires on the commit that introduced the error and stays quiet on the fix.
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+| [[id:694CC015-2319-4A60-A912-C47D01BA70E1][Mine failed builds]] | BACKLOG | | | Collect failures from failed CI runs, fix-up commits, PR reviews and memories. |
+| [[id:C2E54246-99BD-435E-803E-3C10652B67AB][Rank the patterns]] | BACKLOG | | | Normalise error messages, group them into patterns and rank them by frequency and cost. |
+| [[id:7BD09169-B1E5-46CA-8D10-4B5FFE681471][Ship checks for the top patterns]] | BACKLOG | | | Write a check for each of the top five patterns and prove each against its past failure. |
+
+* Decisions
+
+* Out of scope
+
+-

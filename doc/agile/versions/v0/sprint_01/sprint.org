@@ -2,19 +2,19 @@
 :ID: 850C1BC8-FE02-4EE0-A5D6-6085DC34CE27
 :END:
 #+title: Sprint 1
-#+description: Sprint 1 -- establish the project shape, extract the compass data model from ORE Studio, and choose the storage engine.
+#+description: Sprint 1 -- establish the project shape, measure ORE Studio's codegen and gates, and hold the Version 0 stories.
 #+type: sprint
 #+level: s3
 #+filetags: :v0:
 #+start_date: 2026-10-27
 #+end_date:
 #+created: 2026-10-27
-#+updated: 2026-10-27
+#+updated: 2026-11-16
 #+todo: STARTED | DONE
 
 * Mission
 
-Know what we build before we write code: the repository shape, the data model, and where the data lives.
+Know what we build and what we must beat: the repository shape, and measured baselines for ORE Studio's codegen, gates and parse cost.
 
 * Status
 
@@ -28,8 +28,8 @@ Know what we build before we write code: the repository shape, the data model, a
 | Release Notes  | Added at end of sprint.                                |
 | Now            | Sprint in flight.                                      |
 | Waiting on     | Nothing.                                               |
-| Next           | Review the component plan.                             |
-| Last touched   | 2026-10-27                                             |
+| Next           | Create the build skeleton, then measure the baseline.  |
+| Last touched   | 2026-11-16                                             |
 
 * Stories
 
@@ -40,5 +40,15 @@ Know what we build before we write code: the repository shape, the data model, a
 |------------------------------------------------------------------------+---------+------------+-----+--------------------------------------------------------------------------------------------------------------------------------------------------|
 | [[id:D08C23FF-2A6E-4EFA-A7B7-F91822875AE0][Project shape]]             | STARTED | 2026-10-27 |     | Set up the repository layout, the component plan and the document conventions, following ORE Studio and MASD.                                    |
 | [[id:9226D15F-B6A7-458E-970F-BFC839036CBE][Bring up compass legacy]] | STARTED | 2026-10-27 | | Copy the document-management slice of ores.compass into projects/compass.legacy, so the org documents are created and checked by the tool compass-ng uses until compass-ng replaces it. |
-| [[id:E20F0268-BB77-4E40-9FC3-CB2928C64C23][Extract the data model]]    | STARTED | 2026-10-27 |     | Extract the compass document model from ORE Studio (the doc contract and the ores.compass tool) and decide its data-oriented form in compass-ng. |
-| [[id:41B1692D-7666-4BEE-B724-EDB329A5B5CE][Choose the storage engine]] | BACKLOG |            |     | Decide how compass-ng persists data, given 10 or more concurrent clients with mostly reads and a steady stream of writes.                        |
+| [[id:E20F0268-BB77-4E40-9FC3-CB2928C64C23][Extract the data model]]    | DONE | 2026-10-27 | 2026-11-16 | Extract the compass document model from ORE Studio (the doc contract and the ores.compass tool) and decide its data-oriented form in compass-ng. |
+| [[id:41B1692D-7666-4BEE-B724-EDB329A5B5CE][Choose the storage engine]] | ABANDONED |            |     | Decide how compass-ng persists data, given 10 or more concurrent clients with mostly reads and a steady stream of writes.                        |
+| [[id:68ED0D5D-9A25-4886-B869-A30FF4A679A5][Measure the baseline]] | BACKLOG | | | Measure ORE Studio's codegen and gates as they are today, and the cost of parsing the whole ORE Studio tree, so every later story has a number to beat. |
+| [[id:F1C69FBB-C16B-4F10-ACDB-F059C6355730][Parse org documents]] | BACKLOG | | | A full-fidelity org-mode parser that loads every document into data-oriented tables and knows each document's type. |
+| [[id:10A99211-DCE0-4237-8D23-0599C2D00628][Share a content-addressed store]] | BACKLOG | | | Cache parsed data by content hash in a store shared by every worktree of a repository, so unchanged content is never parsed twice. |
+| [[id:8DC60B89-1605-4281-90FF-5AC8B33F629A][Run codecs and write only changes]] | BACKLOG | | | A pipeline of codecs that read the in-memory tables and produce output files or diagnostics, writing only outputs whose content changed and offering a diff mode that writes nothing. |
+| [[id:4F499B47-4AB8-4049-A72F-495351A6E2C7][Port ORE Studio codegen]] | BACKLOG | | | Port ores.codegen to compass codecs so that a full regeneration of ORE Studio takes less than 30 seconds and produces byte-identical output. |
+| [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] | BACKLOG | | | Fold every ORE Studio gate that needs no build into one fast compass check, run the same way locally, in CI and from an edit hook. |
+| [[id:C1DC8A0C-83C7-408B-9D63-762562F0D797][Analyse C++ and SQL]] | BACKLOG | | | Load ORE Studio's C++ and SQL, compute the established build-health and design metrics, and report what makes the build slow. |
+| [[id:BC1B09C4-CF0F-4C8F-9895-2F60C59F7AE2][Export HTML identical to Emacs]] | BACKLOG | | | Export org documents to HTML byte-identical to the Emacs export the ORE Studio site uses today, outside the codegen pipeline. |
+| [[id:63D5482E-E1E7-45B0-883F-3B2DDFA2B447][Catch the errors LLMs introduce]] | BACKLOG | | | Mine ORE Studio's failed builds for the errors LLMs introduce, rank the patterns, and ship checks that catch the top five before a build. |
+| [[id:889AD819-48C4-4082-82B3-69268706B6A3][Gate the Zettelkasten]] | BACKLOG | | | Encode the Zettelkasten rules as gates and graph reports over the documentation, with limits measured per document type. |
