@@ -26,9 +26,11 @@ add_library(${lib_target_name}
     codecs/tangle_check.cpp
     io/action_cache.cpp
     io/dependency_file.cpp
+    io/format_cache.cpp
     io/output_sink.cpp
     ops/action_cache.cpp
     ops/dependencies.cpp
+    ops/format_cache.cpp
     ops/outputs.cpp
     ops/registry.cpp
     ops/run.cpp
@@ -44,4 +46,6 @@ target_link_libraries(${lib_target_name}
     PUBLIC
         compass.org.lib
         compass.store.lib
-        Threads::Threads)
+        Threads::Threads
+    PRIVATE
+        compass.platform.lib)

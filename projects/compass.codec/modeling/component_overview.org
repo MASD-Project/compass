@@ -149,6 +149,21 @@ others is in its descriptor, so adding a codec adds a row to a list.
   and the manifest with the unit's set put first. The record names both keys
   of every unit, which is what keeps them through the store's collection;
   =io::action_keys= reads them from a worktree's record for the collector.
+- *Format cache.* =io::format_files= formats a =types::file_table= with the
+  =types::formatter= its extension selects (an external program, its
+  arguments, its passes and its style file) and returns the table formatted,
+  row for row. A formatted form is an action result keyed by
+  =ops::formatted_key=: the file's path, since clang-format and prettier read
+  the file name, the blob ID of the raw bytes and =ops::formatter_key=,
+  the formatter's name, its =--version= text, its arguments with the style
+  path left as a placeholder, its passes and the blob ID of the style file.
+  The version text is itself an action result keyed by =ops::program_key=,
+  the program file's resolved path, size and modification time, so a run in
+  which every key is found starts no process. Misses are written at their own
+  paths under a temporary directory and formatted in batches of
+  =io::format_batch= files, one process per pass per batch; rows of one key
+  are formatted once. No record names
+  these keys yet, so the collector keeps them only within its grace period.
 - *Output set.* =types::output_set= is what a run asks to have on disk: per
   file its codec, its path relative to the output root, its bytes and its
   blob ID, and the names of the /complete/ codecs, whose every unit ran or
