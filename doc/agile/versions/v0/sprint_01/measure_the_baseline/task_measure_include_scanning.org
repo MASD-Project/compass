@@ -8,7 +8,7 @@
 #+filetags: :measure_the_baseline:sprint_01:v0:
 #+owner: marco
 #+branch: feature/measure-include-scanning
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/8
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -100,7 +100,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/8][#8]] | [bench] Add the include scanning stage |
 
 * Review
 
