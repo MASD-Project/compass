@@ -303,7 +303,7 @@ excusal excuse(std::span<const finding_site> sites,
                         missing += (missing.empty() ? "" : ", ") +
                             std::string(field);
                 problem(f.path, e.line, "incomplete", std::format(
-                    "the exception for {} gives no {}", e.rule, missing),
+                    "the exception for {} lacks {}", e.rule, missing),
                     std::string(written_as));
             } else if (std::chrono::sys_days(*e.expires) <
                        std::chrono::sys_days(today)) {

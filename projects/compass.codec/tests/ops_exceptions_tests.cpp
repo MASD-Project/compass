@@ -229,9 +229,8 @@ TEST_CASE("an exception missing a field excuses nothing and names what is "
     CHECK(e.excused == std::vector<std::uint8_t>{0});
     REQUIRE(rules_of(e) ==
         std::vector<std::string>{"a.sql:1:exception/incomplete"});
-    CHECK_THAT(e.findings[0].message, ContainsSubstring("a reason"));
-    CHECK_THAT(e.findings[0].message, ContainsSubstring("an expiry"));
-    CHECK_THAT(e.findings[0].message, !ContainsSubstring("approver"));
+    CHECK(e.findings[0].message == "the exception for sql/not_re_runnable "
+        "lacks a reason, an expiry");
 }
 
 TEST_CASE("an exception that covers no finding is stale, unless its codec "
