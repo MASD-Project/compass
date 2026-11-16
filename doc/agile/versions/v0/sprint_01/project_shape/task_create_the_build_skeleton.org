@@ -25,11 +25,11 @@ Root CMakeLists.txt, CMakePresets.json, vcpkg.json and projects/CMakeLists.txt i
 
 | Field        | Value                                                      |
 |--------------+------------------------------------------------------------|
-| State        | STARTED                                                    |
+| State        | DONE                                                    |
 | Parent story | [[id:D08C23FF-2A6E-4EFA-A7B7-F91822875AE0][Project shape]] |
-| Now          | Not started.                                               |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                                                   |
-| Next         | Start the task.                                            |
+| Next         | Nothing. |
 | Last touched | 2026-10-27                                                 |
 
 * Acceptance
@@ -67,3 +67,18 @@ Root CMakeLists.txt, CMakePresets.json, vcpkg.json and projects/CMakeLists.txt i
 * Review
 
 * Result
+
+- vcpkg is a submodule in manifest mode with Catch2 as the only dependency.
+  The presets cap builds at two jobs and vcpkg at two concurrent installs, so
+  the -j2 rule holds without anyone passing the flag.
+- =compass.platform= is the first component: a static library with the
+  =filesystem= facet and =mapped_file=, a move-only read-only view over a
+  memory-mapped file. It refuses non-regular files and never calls mmap for an
+  empty file.
+- A clean =cmake --preset linux-clang-release=, build and =ctest= pass. The
+  test executable runs 7 cases with 20 assertions, and each of six deliberate
+  defects in =mapped_file= made it fail.
+- A clean configure takes about 10 s with Catch2 in the vcpkg binary cache and
+  about 60 s without it.
+- =compass add component= writes ORE Studio's codegen component type, so the
+  component overview was written by hand with =type: component=.
