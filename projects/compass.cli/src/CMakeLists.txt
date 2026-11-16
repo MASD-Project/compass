@@ -23,6 +23,8 @@ add_library(${lib_target_name}
     app/application.cpp
     app/pipeline.cpp
     config/arguments.cpp
+    config/precedence.cpp
+    config/repository_file.cpp
     io/listing.cpp
     io/report.cpp)
 
