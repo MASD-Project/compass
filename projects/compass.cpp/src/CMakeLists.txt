@@ -21,6 +21,7 @@ set(lib_target_name ${name}.lib)
 add_library(${lib_target_name}
     codecs/bff_list_requests.cpp
     codecs/catalogue.cpp
+    codecs/core_link_edges.cpp
     codecs/enum_attributes.cpp
     codecs/exported_types.cpp
     codecs/forward_declarable_includes.cpp
