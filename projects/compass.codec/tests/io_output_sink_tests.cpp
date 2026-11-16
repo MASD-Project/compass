@@ -1,0 +1,325 @@
+/* -*- mode: c++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+#include "compass.codec/io/output_sink.hpp"
+
+#include <algorithm>
+#include <chrono>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <string>
+#include <tuple>
+#include <vector>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_string.hpp>
+#include "compass.codec/ops/outputs.hpp"
+#include "compass.store/ops/blob_hash.hpp"
+
+namespace {
+
+using namespace compass::codec;
+using Catch::Matchers::ContainsSubstring;
+
+struct row {
+    std::string codec;
+    std::string path;
+    std::string content;
+};
+
+/**
+ * @brief The outputs of @p rows, with every codec they name complete,
+ * plus the codecs of @p also.
+ */
+types::output_set outputs(const std::vector<row>& rows,
+    const std::vector<std::string>& also = {}) {
+    types::output_set s;
+    for (const auto& r : rows) {
+        s.add(r.codec, r.path, r.content,
+            compass::store::ops::blob_id_of(r.content));
+        if (std::ranges::find(s.complete, r.codec) == s.complete.end())
+            s.complete.push_back(r.codec);
+    }
+    for (const auto& c : also)
+        s.complete.push_back(c);
+    return s;
+}
+
+std::string read(const std::filesystem::path& p) {
+    std::ifstream is(p, std::ios::binary);
+    return {std::istreambuf_iterator<char>(is), {}};
+}
+
+void write(const std::filesystem::path& p, const std::string& bytes) {
+    std::filesystem::create_directories(p.parent_path());
+    std::ofstream os(p, std::ios::binary | std::ios::trunc);
+    os << bytes;
+}
+
+/**
+ * @brief Everything a write would change about a file: its inode, its
+ * modification and change times to the nanosecond, and its size.
+ */
+using stamp = std::tuple<ino_t, long, long, long, long, off_t>;
+
+stamp stamp_of(const std::filesystem::path& p) {
+    struct stat st {};
+    REQUIRE(::stat(p.c_str(), &st) == 0);
+    return {st.st_ino, st.st_mtim.tv_sec, st.st_mtim.tv_nsec,
+        st.st_ctim.tv_sec, st.st_ctim.tv_nsec, st.st_size};
+}
+
+/**
+ * @brief An output root under a fresh temporary directory, and the
+ * record of what the sink wrote there, carried from run to run.
+ */
+class sink final {
+public:
+    sink() {
+        static int counter = 0;
+        dir_ = std::filesystem::temp_directory_path() /
+            ("compass.codec.sink.tests." + std::to_string(::getpid()) + "." +
+                std::to_string(counter++));
+        std::filesystem::create_directories(root());
+    }
+    ~sink() { std::filesystem::remove_all(dir_); }
+    sink(const sink&) = delete;
+    sink& operator=(const sink&) = delete;
+
+    [[nodiscard]] std::filesystem::path root() const { return dir_ / "out"; }
+    [[nodiscard]] const std::filesystem::path& dir() const { return dir_; }
+
+    io::sink_result run(const types::output_set& s) {
+        auto r = io::write_outputs(root(), s, record);
+        if (r.problems.empty())
+            record = r.record;
+        return r;
+    }
+
+    /**
+     * @brief Moves the record's written time past every file it names, as
+     * if the next run came a second later, so stat data is trusted.
+     */
+    void age() {
+        for (const auto& s : record.stats)
+            record.written.sec = std::max(record.written.sec, s.mtime.sec + 1);
+    }
+
+    types::written_outputs record;
+
+private:
+    std::filesystem::path dir_;
+};
+
+const std::vector<row> two = {
+    {"gen", "index.tsv", "path\ttitle\n"},
+    {"gen", "deep/dir/model.hpp", "struct model {};\n"}};
+
+}
+
+TEST_CASE("the written-outputs record lives under compass in the git "
+    "directory", "[io][output_sink]") {
+    CHECK(io::written_outputs_path("/r/.git") == "/r/.git/compass/outputs");
+}
+
+TEST_CASE("the first write creates every output under the root",
+    "[io][output_sink]") {
+    sink s;
+    const auto r = s.run(outputs(two));
+    CHECK(r.problems.empty());
+    CHECK(r.written == 2);
+    CHECK(r.unchanged + r.restored + r.removed + r.kept == 0);
+    CHECK(read(s.root() / "index.tsv") == "path\ttitle\n");
+    CHECK(read(s.root() / "deep/dir/model.hpp") == "struct model {};\n");
+    CHECK(s.record.paths ==
+        std::vector<std::string>{"deep/dir/model.hpp", "index.tsv"});
+    CHECK(s.record.root == s.root().string());
+}
+
+TEST_CASE("a run with nothing changed writes nothing and keeps every "
+    "modification time", "[io][output_sink]") {
+    sink s;
+    s.run(outputs(two));
+    const auto index = stamp_of(s.root() / "index.tsv");
+    const auto model = stamp_of(s.root() / "deep/dir/model.hpp");
+
+    // Straight after the first write every file is racily clean, so this
+    // run compares contents; the aged run trusts stat data.
+    for (const bool aged : {false, true}) {
+        if (aged)
+            s.age();
+        const auto r = s.run(outputs(two));
+        CHECK(r.unchanged == 2);
+        CHECK(r.written + r.restored + r.removed + r.kept == 0);
+        CHECK(stamp_of(s.root() / "index.tsv") == index);
+        CHECK(stamp_of(s.root() / "deep/dir/model.hpp") == model);
+    }
+}
+
+TEST_CASE("a changed output is rewritten and the others are untouched",
+    "[io][output_sink]") {
+    sink s;
+    s.run(outputs(two));
+    s.age();
+    const auto model = stamp_of(s.root() / "deep/dir/model.hpp");
+
+    const auto r = s.run(outputs({{"gen", "index.tsv", "path\ttitle\nA\n"},
+        two[1]}));
+    CHECK(r.written == 1);
+    CHECK(r.unchanged == 1);
+    CHECK(read(s.root() / "index.tsv") == "path\ttitle\nA\n");
+    CHECK(stamp_of(s.root() / "deep/dir/model.hpp") == model);
+}
+
+TEST_CASE("a hand-edited output is restored and a deleted one recreated",
+    "[io][output_sink]") {
+    for (const bool aged : {false, true}) {
+        sink s;
+        s.run(outputs(two));
+        if (aged)
+            s.age();
+        // Same size, so only the stat times and the content tell. An aged
+        // record stands for an edit made later, so its time moves on.
+        const auto edited = s.root() / "index.tsv";
+        write(edited, "PATH\tTITLE\n");
+        if (aged)
+            std::filesystem::last_write_time(edited,
+                std::filesystem::last_write_time(edited) +
+                    std::chrono::seconds(2));
+        std::filesystem::remove(s.root() / "deep/dir/model.hpp");
+
+        const auto r = s.run(outputs(two));
+        CHECK(r.restored == 2);
+        CHECK(r.written + r.unchanged == 0);
+        CHECK(read(s.root() / "index.tsv") == "path\ttitle\n");
+        CHECK(read(s.root() / "deep/dir/model.hpp") == "struct model {};\n");
+    }
+}
+
+TEST_CASE("an output no longer produced is removed, and nothing compass "
+    "did not write is", "[io][output_sink]") {
+    sink s;
+    s.run(outputs({two[0], two[1], {"other", "other.txt", "o\n"},
+        {"edited", "edited.txt", "e\n"}}));
+    write(s.root() / "notes.txt", "mine\n");
+    write(s.root() / "deep/notes.txt", "mine too\n");
+    write(s.root() / "edited.txt", "hand made\n");
+
+    // "other" is not complete, as a disabled codec is not.
+    const auto r = s.run(outputs({two[0]}, {"edited"}));
+    CHECK(r.removed == 1);
+    CHECK(r.kept == 1);
+    CHECK(r.unchanged == 1);
+    CHECK_FALSE(std::filesystem::exists(s.root() / "deep/dir"));
+    CHECK(read(s.root() / "deep/notes.txt") == "mine too\n");
+    CHECK(read(s.root() / "notes.txt") == "mine\n");
+    CHECK(read(s.root() / "other.txt") == "o\n");
+    CHECK(read(s.root() / "edited.txt") == "hand made\n");
+    CHECK(s.record.paths ==
+        std::vector<std::string>{"index.tsv", "other.txt"});
+
+    const auto again = s.run(outputs({two[0]}, {"edited"}));
+    CHECK(again.removed + again.kept == 0);
+    CHECK(read(s.root() / "edited.txt") == "hand made\n");
+}
+
+TEST_CASE("a lost or damaged record compares by content and touches no "
+    "unchanged file", "[io][output_sink]") {
+    sink s;
+    s.run(outputs({two[0], two[1], {"gen", "gone.txt", "g\n"}}));
+    const auto path = io::written_outputs_path(s.dir() / "git");
+    REQUIRE(io::write_written_outputs(path, s.record));
+    const auto index = stamp_of(s.root() / "index.tsv");
+    const auto model = stamp_of(s.root() / "deep/dir/model.hpp");
+
+    auto bytes = read(path);
+    bytes[bytes.size() / 2] ^= 0x01;
+    write(path, bytes);
+    const auto loaded = io::read_written_outputs(path);
+    CHECK_THAT(loaded.problem, ContainsSubstring("checksum"));
+    CHECK(loaded.record.size() == 0);
+
+    for (const auto& previous : {loaded.record, types::written_outputs{}}) {
+        s.record = previous;
+        const auto r = s.run(outputs(two));
+        CHECK(r.unchanged == 2);
+        CHECK(r.written + r.restored + r.removed + r.kept == 0);
+        CHECK(stamp_of(s.root() / "index.tsv") == index);
+        CHECK(stamp_of(s.root() / "deep/dir/model.hpp") == model);
+        CHECK(std::filesystem::exists(s.root() / "gone.txt"));
+    }
+}
+
+TEST_CASE("a path escaping the root is rejected and nothing is written",
+    "[io][output_sink]") {
+    for (const auto* bad : {"../escape.txt", "deep/../../escape.txt"}) {
+        sink s;
+        const auto r = s.run(outputs({two[0], {"gen", bad, "x\n"}}));
+        REQUIRE(r.problems.size() == 1);
+        CHECK_THAT(r.problems[0], ContainsSubstring(bad));
+        CHECK(std::filesystem::is_empty(s.root()));
+        CHECK_FALSE(std::filesystem::exists(s.dir() / "escape.txt"));
+        CHECK(s.record.size() == 0);
+    }
+    sink s;
+    const auto absolute = (s.dir() / "abs.txt").string();
+    CHECK(s.run(outputs({{"gen", absolute, "x\n"}})).problems.size() == 1);
+    CHECK_FALSE(std::filesystem::exists(absolute));
+}
+
+TEST_CASE("two codecs producing one path is rejected and nothing is "
+    "written", "[io][output_sink]") {
+    sink s;
+    const auto r = s.run(outputs({two[0], {"a", "same.txt", "1\n"},
+        {"b", "same.txt", "2\n"}}));
+    REQUIRE(r.problems.size() == 1);
+    CHECK(r.problems[0] == "a and b both produced \"same.txt\"");
+    CHECK(std::filesystem::is_empty(s.root()));
+}
+
+TEST_CASE("a record of another root is ignored and removes nothing",
+    "[io][output_sink]") {
+    sink s;
+    s.run(outputs(two));
+    s.record.root = "/elsewhere";
+    const auto r = s.run(outputs({two[0]}));
+    CHECK(r.unchanged == 1);
+    CHECK(r.removed == 0);
+    CHECK(std::filesystem::exists(s.root() / "deep/dir/model.hpp"));
+}
+
+TEST_CASE("the written-outputs file is rewritten only when it changes",
+    "[io][output_sink]") {
+    sink s;
+    s.run(outputs(two));
+    const auto path = io::written_outputs_path(s.dir() / "git");
+    CHECK(io::write_written_outputs(path, s.record));
+    const auto before = stamp_of(path);
+    CHECK_FALSE(io::write_written_outputs(path, s.record));
+    CHECK(stamp_of(path) == before);
+    CHECK(read(path) == ops::encode_written_outputs(s.record));
+
+    s.age();
+    s.run(outputs(two));
+    const auto aged = s.record;
+    s.run(outputs(two));
+    CHECK(s.record.written == aged.written);
+}
