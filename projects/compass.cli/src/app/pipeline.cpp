@@ -25,7 +25,6 @@
 #include <string>
 #include <string_view>
 #include <tuple>
-#include <utility>
 #include <vector>
 #include "compass.cli/app/steps.hpp"
 #include "compass.codec/codecs/catalogue.hpp"
@@ -101,10 +100,10 @@ void evaluate(pipeline& p, const types::options& o) {
  * parsed, the worktree index, the result cache and the dependency record.
  */
 void persist(const pipeline& p, unsigned threads) {
-    std::ignore = store_objects(p.files);
-    std::ignore = write_worktree_index(p.files);
-    std::ignore = store_results(p.files.checkout, p.run, threads);
-    std::ignore = write_dependency_record(p.files.checkout, p.run);
+    store_objects(p.files);
+    write_worktree_index(p.files);
+    store_results(p.files.checkout, p.run, threads);
+    write_dependency_record(p.files.checkout, p.run);
 }
 
 /**
