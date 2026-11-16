@@ -4,6 +4,9 @@
     "description": "Data-oriented codegen, gates and analysis over org documents, C++ and SQL.",
     "version-string": "0.0.1",
     "dependencies": [
-        "catch2"
+        "catch2",
+        "tree-sitter",
+        "tree-sitter-cpp",
+        "tree-sitter-sql"
     ]
 }
