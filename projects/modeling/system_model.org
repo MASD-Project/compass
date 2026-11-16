@@ -67,6 +67,18 @@ The document model. Composite components use the =api= / =core= split.
 | =compass.graph=     | =api=, =core= | The knowledge graph: typed links, backlinks, hierarchy (version → sprint → story → task), traversal and layout data for the viewer.                                            |
 | =compass.search=    | =api=, =core= | Inverted index, ranking, tag and type filters.                                                                                                                                 |
 | =compass.ingest=    | ---           | Readers that fill the =compass.org= tables: the org-mode parser first, then the C++ and SQL fact extractors.                                               |
+| =compass.codec=     | ---           | The codec runtime: the codec descriptor, the view of the corpus a codec reads through, the tables of files and diagnostics it fills, the registry and the runner; and the codecs that need only the org tables. |
+
+=compass.codec= is in the domain layer because a codec is defined in terms of
+the document model: its inputs are document types and its diagnostics name
+documents and source ranges. It depends on =compass.org= for the tables and
+the type registry, and on =compass.store= for the content ID of a document.
+It does not depend on =compass.ingest=: the runtime takes a corpus that is
+already in memory, so it runs the same over a fresh parse, a mapped store and,
+later, the blobs of a past commit. A component that adds codecs, such as code
+generation or HTML export, depends on =compass.codec= and nothing depends on
+it in return. The host that loads the corpus and writes the outputs belongs
+to the application layer; until it exists, =compass.bench= is the host.
 
 Work management (stories, tasks, sprints) is not a separate component. In
 compass a unit of work *is* a document with a lifecycle state; it lives in
