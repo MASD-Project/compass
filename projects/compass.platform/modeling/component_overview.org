@@ -1,0 +1,60 @@
+:PROPERTIES:
+:ID: 73F4046A-896C-4F38-864C-572B10F47389
+:END:
+#+title: compass.platform
+#+description: Operating-system abstractions for compass-ng. Today it holds a read-only memory-mapped file view.
+#+type: component
+#+level: cross
+#+filetags: :platform:filesystem:component:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+
+This page is the component overview for =compass.platform=, a simple component
+in the foundation layer of the
+[[id:8A9A460F-8024-4890-B091-C0D02FD84218][System Model]].
+
+* Summary
+
+=compass.platform= is the single home for operating-system code in compass-ng.
+Other components call it instead of including raw OS headers. Today it holds
+one facet, =filesystem=, with =mapped_file=: a read-only, memory-mapped view of
+a whole file. The pipeline reads org documents, C++ and SQL through it, so
+loading a file costs one =mmap= and no copy. It supports Linux and POSIX only.
+
+* Inputs
+
+- A filesystem path to a regular file.
+
+* Outputs
+
+- =mapped_file=: a move-only owner of the mapping. =bytes()= returns a
+  =std::span<const std::byte>= and =text()= returns a =std::string_view= over
+  the same bytes. =size()= and =empty()= report the length.
+- An empty file yields an empty view and no mapping.
+- A failed =open=, =fstat= or =mmap=, or a path that is not a regular file,
+  throws =std::system_error= with the errno code and the path in the message.
+
+* Entry points
+
+| Path                                                  | Role                  |
+|-------------------------------------------------------+-----------------------|
+| =include/compass.platform/filesystem/mapped_file.hpp= | Public type.          |
+| =src/filesystem/mapped_file.cpp=                      | POSIX implementation. |
+| =tests/filesystem_mapped_file_tests.cpp=              | Catch2 tests.         |
+
+| Target                   | Kind                                      |
+|--------------------------+-------------------------------------------|
+| =compass.platform.lib=   | Library.                                  |
+| =compass.platform.tests= | Catch2 executable, registered with CTest. |
+
+* Dependencies
+
+- The C++23 standard library and POSIX (=open=, =fstat=, =mmap=, =munmap=).
+- Catch2, for the tests only.
+
+* See also
+
+- [[id:8A0E6F32-C4BC-4667-88E8-7F80CA25437C][Component architecture]] --- layout,
+  naming and facets.
+- [[id:8A9A460F-8024-4890-B091-C0D02FD84218][System Model]] --- where the
+  foundation layer sits.
