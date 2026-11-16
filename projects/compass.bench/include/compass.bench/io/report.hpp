@@ -212,6 +212,20 @@ void write_codecs_report(std::ostream& os, const types::codecs_result& stage,
     const setup_timing& setup, const std::filesystem::path& objects);
 
 /**
+ * @brief The exit status of diff mode, as diff(1) has it: 2 when the run
+ * failed or its outputs could not be planned, 1 when writing them would
+ * write, restore or remove a file, 0 otherwise.
+ */
+[[nodiscard]] int diff_status(const types::codecs_diff& d);
+
+/**
+ * @brief Writes the summary of diff mode: what writing the outputs would
+ * do, the corpus and how it loaded, the times, and every failure.
+ */
+void write_codecs_diff_summary(std::ostream& os, const types::codecs_diff& d,
+    const setup_timing& setup);
+
+/**
  * @brief Writes the worktrees whose indexes were read, the live IDs, the
  * store's files by why they stay or go, the size of the store after the
  * collection against its cap, and the wall time of each phase.

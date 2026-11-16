@@ -61,7 +61,10 @@ constexpr std::size_t first_count = 10;
 
 /**
  * @brief The org files of the checkout, one row each, with the mappings
- * the corpus points into. ok is 0 for a row that did not load.
+ * the corpus points into. ok is 0 for a row that did not load. encoded
+ * holds the object of a row that was parsed, which its tables point into
+ * and which is stored only when the run persists; it is empty for a row
+ * whose object was mapped from the store.
  */
 struct loaded_files {
     std::vector<std::string_view> paths;
@@ -69,6 +72,7 @@ struct loaded_files {
     std::vector<store::io::resolved_id> resolved;
     std::vector<std::optional<mapped_file>> sources;
     std::vector<std::optional<mapped_file>> objects;
+    std::vector<std::vector<std::byte>> encoded;
     std::vector<ot::tables_view> tables;
     std::vector<ot::type_id> types;
     std::vector<std::uint8_t> ok;
@@ -76,7 +80,7 @@ struct loaded_files {
 
 struct tally {
     std::uint64_t loaded = 0;
-    std::uint64_t written = 0;
+    std::uint64_t parsed = 0;
     std::uint64_t errors = 0;
     std::string first_error;
 };
@@ -106,13 +110,17 @@ std::optional<ot::tables_view> map_object(loaded_files& f, std::size_t row,
     return *view;
 }
 
+/**
+ * @brief Loads the rows of @p range: maps each object from @p objects or,
+ * when it is missing or rejected, parses the file into an object held in
+ * memory. Writes nothing.
+ */
 tally load_range(loaded_files& f, const std::filesystem::path& checkout,
     const std::filesystem::path& objects,
     const store::io::id_resolver& resolver, const ot::type_registry& types,
     types::file_range range) {
     tally t;
     ot::tables parsed;
-    std::vector<std::byte> bytes;
     for (std::size_t row = range.begin; row < range.end; ++row) {
         try {
             f.resolved[row] = resolver.resolve(f.paths[row]);
@@ -126,15 +134,17 @@ tally load_range(loaded_files& f, const std::filesystem::path& checkout,
             if (view) {
                 ++t.loaded;
             } else {
+                f.objects[row].reset();
                 ingest::org::parse(source.text(), parsed);
+                auto& bytes = f.encoded[row];
                 compass::org::io::encode(ot::view(parsed), key, bytes);
-                store::io::write_object(path, bytes);
-                view = map_object(f, row, path, key);
-                if (!view)
+                const auto decoded = compass::org::io::decode(bytes, key);
+                if (!decoded || !compass::org::io::checksum_matches(bytes))
                     throw std::system_error(
                         std::make_error_code(std::errc::io_error),
-                        "the object just written does not load");
-                ++t.written;
+                        "the object just encoded does not load");
+                view = *decoded;
+                ++t.parsed;
             }
             f.tables[row] = *view;
             f.types[row] =
@@ -193,21 +203,35 @@ types::findings_summary summarise(const ct::corpus& c,
     return s;
 }
 
-}
+/**
+ * @brief What a run of the codecs read and computed, before anything is
+ * written: the corpus with the mappings it points into, the resolver that
+ * holds the worktree index, and the result.
+ */
+struct evaluation {
+    loaded_files files;
+    std::optional<store::io::id_resolver> resolver;
+    types::codecs_result result;
+};
 
-types::codecs_result run_codecs_stage(const std::filesystem::path& checkout,
+/**
+ * @brief Loads the corpus and runs the codecs into @p e. Reads the
+ * checkout, the store and the dependency record, and writes nothing:
+ * what a run stores stays in @p e for persist.
+ */
+void evaluate(evaluation& e, const std::filesystem::path& checkout,
     const types::file_table& table, const std::filesystem::path& meta,
     const std::filesystem::path& objects,
     const codec::types::configuration& settings, unsigned threads,
-    unsigned repetitions, const std::filesystem::path& output_root) {
-    types::codecs_result r;
+    unsigned repetitions) {
+    auto& r = e.result;
+    auto& f = e.files;
 
     auto start = std::chrono::steady_clock::now();
     const auto registry = build_meta_registry(meta).registry;
     r.registry_ms = since(start);
     r.registered_types = registry.types.size();
 
-    loaded_files f;
     for (std::uint32_t id = 0; id < table.size(); ++id) {
         if (table.extensions[table.extension_ids[id]] == ".org") {
             f.paths.emplace_back(table.paths[id]);
@@ -218,23 +242,23 @@ types::codecs_result run_codecs_stage(const std::filesystem::path& checkout,
     f.resolved.resize(count);
     f.sources.resize(count);
     f.objects.resize(count);
+    f.encoded.resize(count);
     f.tables.resize(count);
     f.types.resize(count);
     f.ok.assign(count, 0);
     r.files = count;
 
     start = std::chrono::steady_clock::now();
-    const store::io::id_resolver resolver(checkout);
+    const auto& resolver = e.resolver.emplace(checkout);
     const auto tallies = run_ranges(balance_ranges(f.sizes, threads),
         [&](types::file_range range) {
             return load_range(f, checkout, objects, resolver, registry,
                 range);
         }).second;
-    resolver.write_worktree_index(f.paths, f.resolved);
     r.load_ms = since(start);
     for (const auto& t : tallies) {
         r.loaded += t.loaded;
-        r.written += t.written;
+        r.parsed += t.parsed;
         r.errors += t.errors;
         if (r.first_error.empty())
             r.first_error = t.first_error;
@@ -255,9 +279,8 @@ types::codecs_result run_codecs_stage(const std::filesystem::path& checkout,
     r.registry = codec::ops::make_registry(codec::codecs::catalogue(),
         registry, settings);
     start = std::chrono::steady_clock::now();
-    const auto record_path = codec::io::dependency_file_path(
-        store::io::git_dir(checkout));
-    const auto previous = codec::io::read_dependency_file(record_path);
+    const auto previous = codec::io::read_dependency_file(
+        codec::io::dependency_file_path(store::io::git_dir(checkout)));
     r.record_read_ms = since(start);
     r.record_problem = previous.problem;
     r.record_bytes = previous.bytes;
@@ -271,9 +294,37 @@ types::codecs_result run_codecs_stage(const std::filesystem::path& checkout,
         for (std::size_t c = 0; c < r.registry.size(); ++c)
             r.ms[c].push_back(r.last.ms[c]);
     }
+    for (std::size_t c = 0; c < r.registry.size(); ++c)
+        r.findings.push_back(summarise(corpus, r.registry.codecs[c],
+            r.last.diagnostics[c]));
+}
+
+/**
+ * @brief Writes what @p e computed: the objects it parsed, the worktree
+ * index and the dependency record, then, with an @p output_root, the
+ * outputs and the written-outputs record. The only writer of the stage.
+ */
+void persist(evaluation& e, const std::filesystem::path& checkout,
+    const std::filesystem::path& objects, unsigned repetitions,
+    const std::filesystem::path& output_root) {
+    auto& r = e.result;
+    const auto& f = e.files;
+    auto start = std::chrono::steady_clock::now();
+    for (std::size_t row = 0; row < f.paths.size(); ++row) {
+        if (f.ok[row] == 0 || f.encoded[row].empty())
+            continue;
+        store::io::write_object(
+            store::io::object_path(objects, f.resolved[row].id),
+            f.encoded[row]);
+        ++r.written;
+    }
+    e.resolver->write_worktree_index(f.paths, f.resolved);
+    r.load_ms += since(start);
+
     if (repetitions != 0) {
         start = std::chrono::steady_clock::now();
-        r.record_written = codec::io::write_dependency_file(record_path,
+        r.record_written = codec::io::write_dependency_file(
+            codec::io::dependency_file_path(store::io::git_dir(checkout)),
             r.last.record);
         r.record_write_ms = since(start);
     }
@@ -293,10 +344,46 @@ types::codecs_result run_codecs_stage(const std::filesystem::path& checkout,
                 r.sink.record);
         r.sink_ms = since(start);
     }
-    for (std::size_t c = 0; c < r.registry.size(); ++c)
-        r.findings.push_back(summarise(corpus, r.registry.codecs[c],
-            r.last.diagnostics[c]));
-    return r;
+}
+
+}
+
+types::codecs_result run_codecs_stage(const std::filesystem::path& checkout,
+    const types::file_table& table, const std::filesystem::path& meta,
+    const std::filesystem::path& objects,
+    const codec::types::configuration& settings, unsigned threads,
+    unsigned repetitions, const std::filesystem::path& output_root) {
+    evaluation e;
+    evaluate(e, checkout, table, meta, objects, settings, threads,
+        repetitions);
+    persist(e, checkout, objects, repetitions, output_root);
+    return std::move(e.result);
+}
+
+types::codecs_diff diff_codecs_stage(const std::filesystem::path& checkout,
+    const types::file_table& table, const std::filesystem::path& meta,
+    const std::filesystem::path& objects,
+    const codec::types::configuration& settings, unsigned threads,
+    unsigned repetitions, const std::filesystem::path& root) {
+    evaluation e;
+    evaluate(e, checkout, table, meta, objects, settings, threads,
+        repetitions);
+    types::codecs_diff d;
+    auto start = std::chrono::steady_clock::now();
+    const auto previous = codec::io::read_written_outputs(
+        codec::io::written_outputs_path(store::io::git_dir(checkout)));
+    e.result.outputs_problem = previous.problem;
+    const auto outputs = codec::ops::outputs_of(e.result.registry,
+        e.result.last);
+    const auto plan = codec::io::plan_outputs(root, outputs,
+        previous.record);
+    d.plan_ms = since(start);
+    d.planned = codec::io::summarise(plan);
+    start = std::chrono::steady_clock::now();
+    d.diff = codec::io::diff_outputs(plan);
+    d.diff_ms = since(start);
+    d.run = std::move(e.result);
+    return d;
 }
 
 }
