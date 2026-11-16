@@ -234,7 +234,8 @@ TEST_CASE("parsing into tables that hold another document replaces it",
     parse(first, reused);
     parse(second, reused);
     std::ostringstream os;
-    compass::org::io::dump(os, second, reused);
+    compass::org::io::dump(os, second,
+        compass::org::types::view(reused));
 
     CHECK(os.str() == dump_of(second));
     CHECK(reused.elements.size() == parsed(second).elements.size());

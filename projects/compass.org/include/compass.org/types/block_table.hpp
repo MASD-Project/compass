@@ -36,14 +36,23 @@ namespace compass::org::types {
  * of the opening line, unparsed. bodies is the text between the opening and
  * closing lines.
  */
-struct block_table {
-    column<block_id, element_id> elements;
-    column<block_id, name_id> names;
-    column<block_id, source_range> parameters;
-    column<block_id, source_range> bodies;
+template <template <typename, column_value> class Column>
+struct basic_block_table {
+    Column<block_id, element_id> elements;
+    Column<block_id, name_id> names;
+    Column<block_id, source_range> parameters;
+    Column<block_id, source_range> bodies;
 
     [[nodiscard]] std::size_t size() const noexcept { return elements.size(); }
+
+    template <typename F, typename... Tables>
+    static constexpr void for_each_column(F&& f, Tables&&... t) {
+        f(t.elements...); f(t.names...); f(t.parameters...); f(t.bodies...);
+    }
 };
+
+using block_table = basic_block_table<column>;
+using block_table_view = basic_block_table<column_view>;
 
 inline constexpr std::size_t block_row_bytes = row_bytes(
     &block_table::elements, &block_table::names, &block_table::parameters,

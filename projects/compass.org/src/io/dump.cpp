@@ -109,7 +109,7 @@ bool repeats(std::string_view name) noexcept {
 
 class writer final {
 public:
-    writer(std::ostream& os, std::string_view source, const tables& t)
+    writer(std::ostream& os, std::string_view source, const tables_view& t)
         : os_(os), source_(source), t_(t) {}
 
     void run() {
@@ -386,7 +386,7 @@ private:
 
     std::ostream& os_;
     std::string_view source_;
-    const tables& t_;
+    const tables_view& t_;
     std::uint32_t heading_ = 0;
     std::uint32_t keyword_ = 0;
     std::uint32_t property_ = 0;
@@ -398,7 +398,8 @@ private:
 
 }
 
-void dump(std::ostream& os, std::string_view source, const tables& tables) {
+void dump(std::ostream& os, std::string_view source,
+    const tables_view& tables) {
     writer(os, source, tables).run();
 }
 

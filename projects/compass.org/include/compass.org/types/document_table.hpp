@@ -36,26 +36,40 @@ namespace compass::org::types {
  * for the last document. Handles stay local: a handle indexes the slice of
  * its document, never the corpus column.
  */
-struct document_table {
-    column<document_id, std::uint64_t> source_firsts;
-    column<document_id, std::uint32_t> name_byte_firsts;
-    column<document_id, std::uint32_t> name_firsts;
-    column<document_id, std::uint32_t> element_firsts;
-    column<document_id, std::uint32_t> object_firsts;
-    column<document_id, std::uint32_t> heading_firsts;
-    column<document_id, std::uint32_t> heading_tag_firsts;
-    column<document_id, std::uint32_t> keyword_firsts;
-    column<document_id, std::uint32_t> property_firsts;
-    column<document_id, std::uint32_t> affiliated_firsts;
-    column<document_id, std::uint32_t> block_firsts;
-    column<document_id, std::uint32_t> list_firsts;
-    column<document_id, std::uint32_t> item_firsts;
-    column<document_id, std::uint32_t> link_firsts;
+template <template <typename, column_value> class Column>
+struct basic_document_table {
+    Column<document_id, std::uint64_t> source_firsts;
+    Column<document_id, std::uint32_t> name_byte_firsts;
+    Column<document_id, std::uint32_t> name_firsts;
+    Column<document_id, std::uint32_t> element_firsts;
+    Column<document_id, std::uint32_t> object_firsts;
+    Column<document_id, std::uint32_t> heading_firsts;
+    Column<document_id, std::uint32_t> heading_tag_firsts;
+    Column<document_id, std::uint32_t> keyword_firsts;
+    Column<document_id, std::uint32_t> property_firsts;
+    Column<document_id, std::uint32_t> affiliated_firsts;
+    Column<document_id, std::uint32_t> block_firsts;
+    Column<document_id, std::uint32_t> list_firsts;
+    Column<document_id, std::uint32_t> item_firsts;
+    Column<document_id, std::uint32_t> link_firsts;
 
     [[nodiscard]] std::size_t size() const noexcept {
         return source_firsts.size();
     }
+
+    template <typename F, typename... Tables>
+    static constexpr void for_each_column(F&& f, Tables&&... t) {
+        f(t.source_firsts...); f(t.name_byte_firsts...); f(t.name_firsts...);
+        f(t.element_firsts...); f(t.object_firsts...); f(t.heading_firsts...);
+        f(t.heading_tag_firsts...); f(t.keyword_firsts...);
+        f(t.property_firsts...); f(t.affiliated_firsts...);
+        f(t.block_firsts...); f(t.list_firsts...); f(t.item_firsts...);
+        f(t.link_firsts...);
+    }
 };
+
+using document_table = basic_document_table<column>;
+using document_table_view = basic_document_table<column_view>;
 
 inline constexpr std::size_t document_row_bytes = row_bytes(
     &document_table::source_firsts, &document_table::name_byte_firsts,

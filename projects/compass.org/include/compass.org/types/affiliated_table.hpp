@@ -39,15 +39,25 @@ namespace compass::org::types {
  * object_firsts[a] up to object_firsts of the next row, or up to
  * object_firsts of the document element for the last row.
  */
-struct affiliated_table {
-    column<affiliated_id, element_id> owners;
-    column<affiliated_id, name_id> names;
-    column<affiliated_id, source_range> options;
-    column<affiliated_id, source_range> values;
-    column<affiliated_id, object_id> object_firsts;
+template <template <typename, column_value> class Column>
+struct basic_affiliated_table {
+    Column<affiliated_id, element_id> owners;
+    Column<affiliated_id, name_id> names;
+    Column<affiliated_id, source_range> options;
+    Column<affiliated_id, source_range> values;
+    Column<affiliated_id, object_id> object_firsts;
 
     [[nodiscard]] std::size_t size() const noexcept { return owners.size(); }
+
+    template <typename F, typename... Tables>
+    static constexpr void for_each_column(F&& f, Tables&&... t) {
+        f(t.owners...); f(t.names...); f(t.options...); f(t.values...);
+        f(t.object_firsts...);
+    }
 };
+
+using affiliated_table = basic_affiliated_table<column>;
+using affiliated_table_view = basic_affiliated_table<column_view>;
 
 inline constexpr std::size_t affiliated_row_bytes = row_bytes(
     &affiliated_table::owners, &affiliated_table::names,

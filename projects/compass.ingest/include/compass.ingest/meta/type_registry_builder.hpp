@@ -133,7 +133,7 @@ inline constexpr std::array<std::string_view, 16> model_types{
 class type_registry_builder {
 public:
     contract_report add_contract(std::string_view source,
-        const compass::org::types::tables& page);
+        const compass::org::types::tables_view& page);
 
     /**
      * @brief Adds a model type; false when the name is already registered.

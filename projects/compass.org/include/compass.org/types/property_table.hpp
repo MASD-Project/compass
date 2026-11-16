@@ -33,13 +33,22 @@ namespace compass::org::types {
  * names holds the key in upper case. The heading table says which heading
  * owns which rows.
  */
-struct property_table {
-    column<property_id, element_id> elements;
-    column<property_id, name_id> names;
-    column<property_id, source_range> values;
+template <template <typename, column_value> class Column>
+struct basic_property_table {
+    Column<property_id, element_id> elements;
+    Column<property_id, name_id> names;
+    Column<property_id, source_range> values;
 
     [[nodiscard]] std::size_t size() const noexcept { return elements.size(); }
+
+    template <typename F, typename... Tables>
+    static constexpr void for_each_column(F&& f, Tables&&... t) {
+        f(t.elements...); f(t.names...); f(t.values...);
+    }
 };
+
+using property_table = basic_property_table<column>;
+using property_table_view = basic_property_table<column_view>;
 
 inline constexpr std::size_t property_row_bytes = row_bytes(
     &property_table::elements, &property_table::names,

@@ -89,17 +89,27 @@ inline constexpr std::uint8_t post_blank_saturated = 0xFF;
  * object_firsts of the next row, or up to the end of the object table for the
  * last row.
  */
-struct element_table {
-    column<element_id, element_kind> kinds;
-    column<element_id, std::uint8_t> post_blanks;
-    column<element_id, source_range> ranges;
-    column<element_id, source_range> contents;
-    column<element_id, element_id> parents;
-    column<element_id, element_id> subtree_ends;
-    column<element_id, object_id> object_firsts;
+template <template <typename, column_value> class Column>
+struct basic_element_table {
+    Column<element_id, element_kind> kinds;
+    Column<element_id, std::uint8_t> post_blanks;
+    Column<element_id, source_range> ranges;
+    Column<element_id, source_range> contents;
+    Column<element_id, element_id> parents;
+    Column<element_id, element_id> subtree_ends;
+    Column<element_id, object_id> object_firsts;
 
     [[nodiscard]] std::size_t size() const noexcept { return kinds.size(); }
+
+    template <typename F, typename... Tables>
+    static constexpr void for_each_column(F&& f, Tables&&... t) {
+        f(t.kinds...); f(t.post_blanks...); f(t.ranges...); f(t.contents...);
+        f(t.parents...); f(t.subtree_ends...); f(t.object_firsts...);
+    }
 };
+
+using element_table = basic_element_table<column>;
+using element_table_view = basic_element_table<column_view>;
 
 inline constexpr std::size_t element_row_bytes = row_bytes(
     &element_table::kinds, &element_table::post_blanks,

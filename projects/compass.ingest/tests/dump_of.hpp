@@ -35,7 +35,8 @@ inline std::string dump_of(std::string_view source) {
     compass::org::types::tables tables;
     compass::ingest::org::parse(source, tables);
     std::ostringstream os;
-    compass::org::io::dump(os, source, tables);
+    compass::org::io::dump(os, source,
+        compass::org::types::view(tables));
     return os.str();
 }
 
