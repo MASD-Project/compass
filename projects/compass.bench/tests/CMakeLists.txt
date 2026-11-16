@@ -21,6 +21,7 @@ set(tests_target_name ${name}.tests)
 
 add_executable(${tests_target_name}
     io_compile_commands_tests.cpp
+    ops_codecs_stage_tests.cpp
     ops_ids_stage_tests.cpp
     ops_include_graph_tests.cpp
     ops_include_resolve_tests.cpp

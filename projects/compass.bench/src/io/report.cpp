@@ -668,6 +668,94 @@ void write_warm_report(std::ostream& os, const types::warm_result& stage,
     }
 }
 
+bool failed(const types::codecs_result& stage) {
+    return stage.files == 0 || stage.errors != 0 ||
+        !stage.registry.problems.empty();
+}
+
+void write_codecs_report(std::ostream& os, const types::codecs_result& stage,
+    const setup_timing& setup, const std::filesystem::path& objects) {
+    namespace ct = compass::codec::types;
+    os << std::format("org files: {}  documents: {}  repetitions: {}  "
+                      "threads: {}\n", stage.files, stage.documents,
+        stage.wall_ms.size(), setup.threads);
+    os << std::format(
+        "git ls-files: {:.2f} ms  file table (lstat): {:.2f} ms\n",
+        setup.listing_ms, setup.table_ms);
+    os << std::format("store: {}\n", objects.string());
+    os << std::format("type registry: {} types, {:.2f} ms\n",
+        stage.registered_types, stage.registry_ms);
+    os << std::format("corpus load: {:.2f} ms  objects loaded: {}  "
+                      "written: {}  errors: {}\n", stage.load_ms,
+        stage.loaded, stage.written, stage.errors);
+    for (const auto& problem : stage.registry.problems)
+        os << std::format("registry problem: {}\n", problem);
+
+    os << std::format("\n{:<20}{:<10}{:<13}{:>10}{:>9}{:>12}{:>13}{:>11}"
+                      "{:>9}{:>9}\n", "codec", "unit", "output", "documents",
+        "outputs", "bytes", "diagnostics", "median_ms", "min_ms", "max_ms");
+    const auto& codecs = stage.registry.codecs;
+    for (std::size_t c = 0; c < codecs.size(); ++c) {
+        const auto& d = codecs[c];
+        const auto unit = ct::unit_of(d) == ct::unit::document
+            ? "document" : "corpus";
+        const auto output = ct::output_of(d) == ct::output_kind::files
+            ? "files" : "diagnostics";
+        if (stage.registry.enabled[c] == 0) {
+            os << std::format("{:<20}{:<10}{:<13}{:>10}\n", d.name, unit,
+                output, "disabled");
+            continue;
+        }
+        const auto [min, max] = std::ranges::minmax(stage.ms[c]);
+        os << std::format("{:<20}{:<10}{:<13}{:>10}{:>9}{:>12}{:>13}"
+                          "{:>11.2f}{:>9.2f}{:>9.2f}\n", d.name, unit, output,
+            stage.last.documents[c], stage.last.files[c].size(),
+            stage.last.files[c].contents.bytes.size(),
+            stage.last.diagnostics[c].size(), median(stage.ms[c]), min, max);
+    }
+    if (!stage.wall_ms.empty()) {
+        const auto [min, max] = std::ranges::minmax(stage.wall_ms);
+        os << std::format("run wall ms: median {:.2f}  min {:.2f}  "
+                          "max {:.2f}\n", median(stage.wall_ms), min, max);
+    }
+
+    for (std::size_t c = 0; c < codecs.size(); ++c) {
+        const auto& files = stage.last.files[c];
+        if (files.size() != 0)
+            os << std::format("\noutputs of {} (not written):\n",
+                codecs[c].name);
+        for (std::uint32_t i = 0; i < files.size(); ++i) {
+            const ct::file_id id{i};
+            os << std::format("  {}  {} bytes\n", files.paths[id],
+                files.contents[id].size());
+        }
+        const auto& findings = stage.findings[c];
+        if (stage.last.diagnostics[c].size() == 0)
+            continue;
+        os << std::format("\ndiagnostics of {}: {} in {} document(s)\n",
+            codecs[c].name, stage.last.diagnostics[c].size(),
+            findings.documents);
+        os << "by rule:\n";
+        for (const auto& r : findings.rules)
+            os << std::format("{:>8}  {}\n", r.count, r.text);
+        os << std::format("top {} messages:\n", findings.messages.size());
+        for (const auto& m : findings.messages)
+            os << std::format("{:>8}  {}\n", m.count, m.text);
+        os << std::format("first {}:\n", findings.first.size());
+        for (const auto& line : findings.first)
+            os << std::format("  {}\n", line);
+    }
+
+    if (stage.files == 0)
+        os << "\nFAILED: stage 'codecs' found zero org files.\n";
+    if (stage.errors != 0)
+        os << std::format("\nFAILED: {} file(s) did not load. First: {}\n",
+            stage.errors, stage.first_error);
+    if (!stage.registry.problems.empty())
+        os << std::format("\nFAILED: the codec registry has {} "
+                          "problem(s).\n", stage.registry.problems.size());
+}
+
 void write_gc_report(std::ostream& os,
     const store::types::collection_result& result,
     const store::types::collection_options& options,

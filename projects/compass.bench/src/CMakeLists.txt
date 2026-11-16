@@ -22,6 +22,7 @@ set(exe_target_name ${name}.exe)
 add_library(${lib_target_name}
     io/compile_commands.cpp
     io/report.cpp
+    ops/codecs_stage.cpp
     ops/ids_stage.cpp
     ops/include_graph.cpp
     ops/include_resolve.cpp
@@ -46,6 +47,7 @@ target_include_directories(${lib_target_name} PUBLIC
 
 target_link_libraries(${lib_target_name}
     PUBLIC
+        compass.codec.lib
         compass.ingest.lib
         compass.platform.lib
         compass.store.lib
