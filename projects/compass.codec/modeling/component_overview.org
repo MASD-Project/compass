@@ -2,7 +2,7 @@
 :ID: 995ECC12-860C-4009-B9A2-8CA1A6102BD6
 :END:
 #+title: compass.codec
-#+description: The codec runtime: a codec as a descriptor and one function, the view of the corpus it reads through, the tables of files and diagnostics it fills, the registry the configuration enables codecs in, the runner, the dependency record that lets a run call only the units whose inputs changed, the output sink that plans and then writes only the files that changed, the unified diff that shows such a plan without writing, and the two codecs that need only the org tables.
+#+description: The codec runtime: a codec as a descriptor and one function, the view of the corpus it reads through, the tables of files and diagnostics it fills, the registry the configuration enables codecs in, the runner, the dependency record that lets a run call only the units whose inputs changed, the result cache that lets one worktree reuse the units another ran, the output sink that plans and then writes only the files that changed, the unified diff that shows such a plan without writing, and the two codecs that need only the org tables.
 #+type: component
 #+level: cross
 #+filetags: :codec:pipeline:gates:component:
@@ -43,6 +43,9 @@ others is in its descriptor, so adding a codec adds a row to a list.
   takes =true= or =false=. Any other key must be an option the codec declares.
 - The dependency record of the previous run, if any: =<git dir>/compass/deps=
   of the checkout, read by =io::read_dependency_file=.
+- The result cache of the repository, if any: the action objects under
+  =<git common dir>/compass/manifests= and =compass/results=, read through
+  the =types::action_source= that =io::action_source_of= returns.
 - To write outputs: an absolute output root and the record of what the sink
   wrote last time, =<git dir>/compass/outputs= of the checkout, read by
   =io::read_written_outputs=.
@@ -81,8 +84,9 @@ others is in its descriptor, so adding a codec adds a row to a list.
   call of a document codec, for one document, or the call of a corpus codec.
   A unit is keyed by codec name and document path, and carries the codec's
   version, the SHA-1 of its option values (=ops::configuration_hash=), its
-  inputs (kind, key, found, value) and its outputs: each file with its path,
-  blob ID and bytes, or the count, SHA-1 and encoded bytes of its findings.
+  inputs (kind, key, found, value), its outputs (each file with its path,
+  blob ID and bytes, or the count, SHA-1 and encoded bytes of its findings)
+  and the keys of its manifest and result in the result cache.
   An encoded finding names its document by path, not by corpus row, so a
   record outlives the corpus it was made from.
 - *Record file.* =io::dependency_file_path= is =compass/deps= under the
@@ -110,9 +114,9 @@ others is in its descriptor, so adding a codec adds a row to a list.
   A document codec is split into runs of documents, four per thread. Each
   piece fills its own tables and the tables of a codec are joined in document
   order, so the result is the same on any thread count. =types::run_result=
-  holds, per codec, the documents given, the units run and skipped, the
-  files, the diagnostics and the time summed over threads, and the record
-  of the run. An exception from a codec is rethrown after every thread has
+  holds, per codec, the documents given, the units run, skipped and cached,
+  the files, the diagnostics and the time summed over threads, the record
+  of the run and =fresh=, the units of the record that were called. An exception from a codec is rethrown after every thread has
   stopped.
 - *Selection.* Given the previous record, =ops::run= calls a unit only when
   it is new, its codec's version or configuration hash changed, or one of
@@ -123,6 +127,28 @@ others is in its descriptor, so adding a codec adds a row to a list.
   call's would have, so a run with a record returns what a run without one
   does, and its row is copied into the new record. The record of a run holds
   only the units of enabled codecs.
+- *Result cache.* A unit the record does not stand in for is looked up in
+  the cache before it is called, in two levels, as ccache's direct mode
+  does, so a unit never runs only to learn its inputs.
+  =ops::manifest_key= is computed before the run: the format version, the
+  codec's name, version and configuration hash, and the unit's identity, its
+  document's path and content ID, or an empty path and the type set hash of
+  a corpus unit. The manifest (=types::action_manifest=) under that key
+  lists up to =ops::manifest_capacity= (8) input sets, newest first, each
+  the inputs a call read, in its record's order, with the key of the result
+  it produced. The first set whose every input has the same answer now,
+  misses included, by the test selection uses, names the result object:
+  =ops::result_key= is the SHA-1 of the manifest key and the inputs sorted
+  by kind and key. The result (=ops::action_result=) holds the unit's files
+  and its encoded findings. Its outputs go into the run's result and its
+  row into the record exactly as a call's would, so a run from the cache
+  returns what a run with no cache does, byte for byte. A manifest or result
+  that does not load, or whose findings name a document the corpus lacks, is
+  a miss and the unit is called. =ops::run= only reads the cache;
+  =io::store_actions= writes, for the units in =fresh=, the result object
+  and the manifest with the unit's set put first. The record names both keys
+  of every unit, which is what keeps them through the store's collection;
+  =io::action_keys= reads them from a worktree's record for the collector.
 - *Output set.* =types::output_set= is what a run asks to have on disk: per
   file its codec, its path relative to the output root, its bytes and its
   blob ID, and the names of the /complete/ codecs, whose every unit ran or
@@ -200,6 +226,10 @@ others is in its descriptor, so adding a codec adds a row to a list.
 | =include/compass.codec/ops/run.hpp=            | =run= and =document_type=.                        |
 | =include/compass.codec/ops/dependencies.hpp=   | Hashes, the corpus index and the record encoding. |
 | =include/compass.codec/io/dependency_file.hpp= | Where the record lives; reading and writing it.   |
+| =include/compass.codec/types/action_manifest.hpp= | A manifest's input sets and =action_source=.   |
+| =include/compass.codec/ops/action_cache.hpp=   | The two keys and the manifest and result encodings. |
+| =include/compass.codec/io/action_cache.hpp=    | Reading the cache, storing fresh units, the keys a record names. |
+| =include/compass.codec/ops/parallel_for.hpp=   | The work loop the runner and the cache writer share. |
 | =include/compass.codec/types/output_set.hpp=   | The files a run asks to have on disk.             |
 | =include/compass.codec/types/written_outputs.hpp= | What the sink wrote under a root.              |
 | =include/compass.codec/ops/outputs.hpp=        | =outputs_of=, =check_outputs= and the record encoding. |
@@ -221,7 +251,8 @@ others is in its descriptor, so adding a codec adds a row to a list.
 - =compass.org= for the tables, the type registry and the document lookups.
 - =compass.store= for =blob_id=, the content ID of a document, for SHA-1, for
   =write_object=, which puts the record files and the outputs in place by
-  rename, and for =stat_of=, =hash_file= and =is_unchanged=, which decide
+  rename, for the action objects of the result cache and their directories,
+  and for =stat_of=, =hash_file= and =is_unchanged=, which decide
   whether an output on disk still holds what compass wrote.
 - The C++23 standard library and threads.
 - =compass.ingest= and Catch2, for the tests only: the tests parse their

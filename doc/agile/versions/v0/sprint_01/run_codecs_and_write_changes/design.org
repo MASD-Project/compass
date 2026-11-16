@@ -29,7 +29,7 @@ the overview.
 
 | Field        | Value                                                                          |
 |--------------+--------------------------------------------------------------------------------|
-| State        | STARTED                                                                        |
+| State        | LANDED                                                                         |
 | Parent story | [[id:8DC60B89-1605-4281-90FF-5AC8B33F629A][Run codecs and write only changes]] |
 | Last touched | 2026-11-16                                                                     |
 
@@ -39,8 +39,10 @@ the view records what each unit reads and a run calls only the units whose
 inputs changed. Changed-only writes are built: an output sink writes a file
 only when its content changed and restores generated files edited by hand.
 Diff mode is built: the sink plans before it writes, and a diff run prints
-the plan and writes nothing. The result cache is the next task. This page
-says where it attaches.
+the plan and writes nothing. The result cache is built: a unit no record
+stands in for is looked up in a cache every worktree of the repository
+shares, by a key that needs no inputs, before it runs. Every part this page
+argued for is built; the compass.codec overview describes them as they are.
 
 * Summary
 
@@ -351,6 +353,59 @@ A cached result must not hold a corpus row, because rows differ between
 worktrees. The cache will store a diagnostic's document as the position of
 the read it refers to, and resolve it on load.
 
+** The result cache as built
+
+The cache task built it this way.
+
+- /Two levels, as ccache's direct mode./ The plan let a unit with no record
+  in this worktree run once to learn its inputs. The cache instead looks a
+  unit up by what is known before it runs. The /manifest key/ is the SHA-1
+  of the format version, the codec's name, version and configuration hash,
+  and the unit's identity: its document's path and content ID, or, for a
+  corpus unit, an empty path and its type set hash. The manifest lists up to
+  eight input sets, newest first, each the inputs one call read, in its
+  record's order, with the key of the result it produced. The first set
+  whose every input has the same answer now, misses included, names the
+  /result/: its key is the SHA-1 of the manifest key and the inputs sorted
+  by kind and key, and its body the unit's files and encoded findings.
+- /The path is part of the identity./ The plan named the content ID alone.
+  Two documents with the same bytes then share a manifest, and in a
+  worktree that has both, the set one wrote holds for the other, which
+  takes its findings. For the same reason the result key holds the manifest
+  key and not only the inputs: a unit for A that reads B and a unit for B
+  that reads A read the same set. A test pins the first case.
+- /Findings by path./ A result holds its findings encoded as the record
+  holds them, each document named by path; the corpus index resolves them
+  on load, and a result naming a document the corpus lacks is a miss.
+- /Equal to a run with no cache./ A hit's files and findings go into the
+  result where the call's would, and its row into the record with the
+  matched set as its inputs. The tests compare outputs and record bytes
+  with a run that has no cache; on ORE Studio the two worktrees' records are
+  the same file byte for byte.
+- /Storage./ Generic in =compass.store=: an action object is named by its
+  key, framed with the magic =CMPSACT\n= and a SHA-1 of key, magic and
+  body, under =<git common dir>/compass/manifests= and =compass/results=,
+  written by temporary file and rename. A damaged, truncated or misnamed
+  object reads as missing. The keys and formats are =compass.codec='s
+  (=ops/action_cache=), so the store still knows nothing of codecs.
+- /Reads in the run, writes in persist./ =ops::run= takes an action source
+  and only reads, on the run's threads. It returns the units it called;
+  =io::store_actions= writes each one's result and puts its set first in
+  its manifest, rewriting the manifest only when that changes it. A diff run
+  still writes nothing. A result is always rewritten, so one whose damage
+  made the unit run is replaced.
+- /Liveness./ The dependency record (now version 2) names the manifest and
+  result of every unit, ran, skipped or cached. Collection lists the action
+  directories with the objects under one cap and grace period, and keeps an
+  action object while any worktree's record names its key. The store asks a
+  function for each worktree's keys, which the host fills with
+  =io::action_keys=, so the dependency points from the codec runtime to the
+  store and not back.
+- /Outputs stay in the record./ The record still holds every output, so a
+  run in one worktree with nothing changed reads one file and no action
+  object. Moving them out would make the no-change run read 10,000 small
+  files instead.
+
 ** Ratchet, exceptions and the rule table
 
 - /Ratchet./ Two runs are compared as multisets of (document path, rule,
@@ -524,6 +579,42 @@ compass-bench codecs . --meta doc/meta --write $S/out --repeat 1
 compass-bench codecs . --meta doc/meta --diff $S/out --repeat 1
 #+end_src
 
+** Result cache
+
+Numbers are indicative: one run each unless a median is given, 8 cores
+under a load average of 5 to 7, =-j 8=, a release build of this branch.
+ORE Studio is =origin/main= at =4ca9411b70=, extracted with =git archive=
+and committed as one commit, with a second worktree added on that commit.
+Neither run was given =--store=, so objects, records and the cache all sit
+under the scratch repository's =.git=.
+
+| Run                                                        | =document_index= | =required_sections= | Lookups | Run wall       | Cache writes                                | Process |
+|------------------------------------------------------------+------------------+---------------------+---------+----------------+---------------------------------------------+---------|
+| First worktree, empty cache                                | ran 1            | ran 10,117          | 9.1 ms  | 64.1 ms        | 10,118 results and manifests, 4.7 MB, 98 ms | 0.88 s  |
+| Second worktree, no record of its own                      | cached 1         | cached 10,117       | 32.9 ms | 67.2 ms        | none                                        | 0.45 s  |
+| Second worktree again, record removed, =--repeat 5=        | cached 1         | cached 10,117       | 29.2 ms | median 64.9 ms | none                                        |         |
+| First worktree, record and manifests removed, =--repeat 5= | ran 1            | ran 10,117          | 9.0 ms  | median 58.4 ms | 10,118 of each, 81 ms                       |         |
+
+The cache held 20,236 action objects, 5.3 MB of bytes and about 81 MB of
+4 KB disk blocks. The two worktrees' dependency records were identical, 6.6
+MB each, and =gc --dry-run= found 20,236 action keys named, all of them
+live.
+
+#+begin_src sh
+compass-bench codecs $S/repo --meta $S/repo/doc/meta -j 8 --repeat 1
+compass-bench codecs $S/second --meta $S/second/doc/meta -j 8 --repeat 1
+compass-bench gc $S/repo --cap 0 --grace 0 --dry-run
+#+end_src
+
+The second worktree ran no unit, and its process took half the time of the
+first because its 10,917 objects were mapped from the store, not parsed. The
+cache itself saves nothing here: the two codecs cost about 23 ms over all
+threads, and 10,118 lookups read 20,236 small files in about 30 ms. A run
+from the cache and a run that calls everything both take about 60 ms of
+wall time, most of it building the record (hashing the 1.9 MB index and
+encoding the findings). The cache pays for codecs that cost more per unit
+than two file reads: code generation and the HTML export.
+
 * Alternatives rejected
 
 - *A virtual interface.* =class codec= with virtual =name()=, =version()=,
@@ -533,6 +624,13 @@ compass-bench codecs . --meta doc/meta --diff $S/out --repeat 1
   calls, which breaks both parallel calls and caching. A descriptor is a
   value: it can be listed, compared, printed and built in a test with a
   lambda. The cost is the same, one indirect call per unit.
+- *Learning a unit's inputs by running it.* The plan's first form: key the
+  result by the inputs the record says a unit read, and run a unit with no
+  record once. A fresh worktree would then run every unit to save nothing.
+  The manifest gives the inputs before the run.
+- *Content-only unit identity.* See The result cache as built.
+- *Outputs in the store, the record holding hashes.* A smaller record, but
+  a run with nothing changed would read one object per unit.
 - *Self-registration.* A static object in each codec's file that adds itself
   to a global list. The set of codecs then depends on which object files the
   linker kept, and a static library drops the ones nothing refers to. The
@@ -580,15 +678,20 @@ compass-bench codecs . --meta doc/meta --diff $S/out --repeat 1
 
 * Least certain
 
-- *The path is in every key.* The recording task keyed every document read
-  by path, so a rename re-runs every unit that read the document. A result
-  cache shared across worktrees may want units keyed by content alone; it
-  can drop the path from the key of codecs that never read it only if the
-  path moves behind an accessor.
+- *The path is in every key.* A rename re-runs every unit that read the
+  document, and the cache does not help: the path is in the manifest key.
+  Dropping it needs the path behind an accessor, so a unit that never reads
+  it records no path input.
 - *The record holds the outputs.* 6 MB on ORE Studio, read and checked on
-  every run. Moving the outputs to the store, by hash, shrinks the record to
-  the inputs, but needs collection to treat the record as a root. The cache
-  task decides.
+  every run, and the cache holds the same bytes again. The cache task kept
+  them in the record (see The result cache as built).
+- *Many small files.* 20,236 action objects on ORE Studio take 5.3 MB of
+  bytes and about 81 MB of disk blocks, and a lookup is two file reads. A
+  pack of action objects, or no caching for codecs cheaper than a lookup,
+  would fix both.
+- *Concurrent manifest writes.* Two worktrees that add a set to one
+  manifest at once can lose one set; the unit then runs once more. No
+  result is ever wrong, since a result is checked against its key.
 - *A corpus unit re-runs on any change in its declared types.* That is the
   plan's rule and it makes =document_index= run on every edit. A corpus codec
   that is expensive will want the map and merge form.
