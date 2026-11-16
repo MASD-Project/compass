@@ -777,10 +777,11 @@ types::checkout_registry read_checkout_registry(
         if (f.path.starts_with(shell) && f.path.ends_with(overview) &&
             f.path.size() == shell.size() + component.size() +
                 overview.size()) {
-            const auto v = lower(strip(get_or(keywords(f.text),
-                "shell_command_aggregator")));
+            const auto kw = keywords(f.text);
+            const auto v = lower(strip(get_or(kw, "shell_command_aggregator")));
             if (v == "true" || v == "t" || v == "yes" || v == "1")
-                r.shell_registrars.emplace(component);
+                r.shell_registrars.emplace(component,
+                    words(get_or(kw, "shell_command_local_units")));
         }
     }
     return r;

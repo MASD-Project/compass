@@ -90,14 +90,16 @@ struct physical_space {
  * entity_singular) for the directory it lives in and the one above it,
  * the two levels _operation_protocol_owners scans. plural_owners maps each
  * plural a projects/<component>/modeling/ document names to those
- * components, as _plural_owners reads them. shell_registrars holds the
- * components whose shell part opts into the command registrar.
+ * components, as _plural_owners reads them. shell_registrars maps the
+ * components whose shell part opts into the command registrar to the
+ * local units it names (shell_command_surface).
  */
 struct checkout_registry {
     std::set<std::tuple<std::string, std::string, std::string>>
         protocol_owners;
     std::map<std::string, std::set<std::string>, std::less<>> plural_owners;
-    std::set<std::string, std::less<>> shell_registrars;
+    std::map<std::string, std::vector<std::string>, std::less<>>
+        shell_registrars;
 };
 
 }

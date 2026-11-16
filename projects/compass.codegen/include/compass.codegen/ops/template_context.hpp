@@ -59,12 +59,16 @@ namespace compass::codegen::ops {
  * templates read @p surface, its surface shape (junction_context), under
  * domain_entity, and its TypeScript protocol its utility_imports; an
  * operation's HTTP route templates read its http_route
- * (operation_http_route_plan). None for every other template.
+ * (operation_http_route_plan). The shell aggregator of an entity or a
+ * junction reads shell_aggregator, the units of the models beside the one
+ * at @p site and its component's local units. None for every other
+ * template.
  */
 [[nodiscard]] compass::model::types::value_id template_context(
     compass::model::ops::builder& b, compass::model::types::value_id context,
     std::string_view model_key, std::string_view model_type,
     std::string_view template_name, const types::entity_registry& registry,
+    const types::entity_site& site = {},
     compass::model::types::value_id surface =
         compass::model::types::value_id::none());
 

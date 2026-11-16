@@ -497,6 +497,47 @@ value_id junction_template_context(builder& b, value_id context,
     return copy;
 }
 
+bool is_shell_aggregator_template(std::string_view name) {
+    return name == "cpp_shell_command_aggregator_header.hpp.mustache" ||
+        name == "cpp_shell_command_aggregator_impl.cpp.mustache";
+}
+
+/*
+ * shell_aggregator: the command units of the models in the directory of
+ * the model at @p site and the local units of its component's shell
+ * surface, by name; none when the component has not opted in.
+ */
+value_id shell_aggregator_context(builder& b, value_id context,
+    std::string_view model_type, const types::entity_registry& registry,
+    const types::entity_site& site) {
+    const auto& t = b.tables();
+    const auto component = text(t, values::member(t, context, model_type),
+        "component");
+    const auto local = registry.shell_local_units.find(component);
+    if (component.empty() || local == registry.shell_local_units.end())
+        return value_id::none();
+    std::map<std::string, bool, std::less<>> units;
+    const auto dir = site.path.substr(0, site.path.rfind('/'));
+    if (const auto it = registry.shell_units.find(dir);
+        it != registry.shell_units.end()) {
+        for (const auto& name : it->second)
+            units[name + "_commands"] = false;
+    }
+    for (const auto& name : local->second)
+        units[name] = true;
+    const auto copy = copy_of(b, context);
+    const auto o = b.object(copy, "shell_aggregator");
+    b.set(o, "component", component);
+    b.set(o, "component_upper", text::upper_snake(component));
+    const auto list = b.list(o, "units");
+    for (const auto& [name, is_local] : units) {
+        const auto u = b.append_object(list);
+        b.set(u, "unit", name);
+        b.set(u, "local", is_local);
+    }
+    return copy;
+}
+
 /*
  * operation_http_route_plan: one POST route per shell command that states
  * :http_route:, its path the subject transliterated.
@@ -673,8 +714,12 @@ std::optional<types::convention_family> convention_family_of(
 value_id template_context(builder& b, value_id context,
     std::string_view model_key, std::string_view model_type,
     std::string_view template_name, const types::entity_registry& registry,
-    value_id surface) {
+    const types::entity_site& site, value_id surface) {
     const auto& t = b.tables();
+    if ((model_type == "domain_entity" || model_type == "junction") &&
+        is_shell_aggregator_template(template_name))
+        return shell_aggregator_context(b, context, model_type, registry,
+            site);
     if (model_type == "component") {
         if (!is_registry_template(template_name))
             return value_id::none();

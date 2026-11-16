@@ -343,7 +343,7 @@ TEST_CASE("the shell registrar renders where the component opts into it",
     CHECK(std::ranges::count(entity_outputs(swap), aggregator) == 0);
 
     codegen::types::checkout_registry registry;
-    registry.shell_registrars.emplace("trading");
+    registry.shell_registrars.emplace("trading", std::vector<std::string>{});
     CHECK(std::ranges::count(entity_outputs(swap, registry), aggregator) == 1);
 }
 
@@ -423,7 +423,8 @@ TEST_CASE("the registry reads operations, plurals and shell opt-ins",
         {"projects/ores.refdata/api/modeling/ores.refdata.nested.org",
          "#+entity_plural: nested_things\n"},
         {"projects/ores.shell/trading/modeling/component_overview.org",
-         "#+title: x\n#+shell_command_aggregator: true\n"},
+         "#+title: x\n#+shell_command_aggregator: true\n"
+         "#+shell_command_local_units: trading_navigator  book_tree\n"},
         {"projects/ores.shell/iam/modeling/component_overview.org",
          "#+title: x\n#+shell_command_aggregator: false\n"}};
     const auto r = codegen::ops::read_checkout_registry(files);
@@ -434,8 +435,9 @@ TEST_CASE("the registry reads operations, plurals and shell opt-ins",
             {"projects/ores.workflow", "workflow", "workflow"}});
     CHECK(r.plural_owners == std::map<std::string, std::set<std::string>,
         std::less<>>{{"lei_entities", {"ores.dq"}}});
-    CHECK(r.shell_registrars == std::set<std::string, std::less<>>{
-        "trading"});
+    CHECK(r.shell_registrars == std::map<std::string,
+        std::vector<std::string>, std::less<>>{
+            {"trading", {"trading_navigator", "book_tree"}}});
 }
 
 TEST_CASE("regenerate --all reaches the catalogue's modeling directories",

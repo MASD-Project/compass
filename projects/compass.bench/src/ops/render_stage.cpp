@@ -23,6 +23,7 @@
 #include <chrono>
 #include <fstream>
 #include <map>
+#include <set>
 #include <stdexcept>
 #include "compass.bench/ops/model_corpus.hpp"
 #include "compass.codegen/ops/compile.hpp"
@@ -352,6 +353,84 @@ compass::codegen::types::entity_registry load_entity_registry(
     return registry;
 }
 
+/**
+ * @brief A model's drawer properties followed by its
+ * physical_space_overrides, a later key winning. The properties view
+ * the outline they were read from and the overrides held here.
+ */
+struct model_properties {
+    std::vector<std::pair<std::string, bool>> overrides;
+    std::vector<compass::codegen::ops::drawer_property> properties;
+};
+
+model_properties drawer_properties(const parsed_document& p,
+    compass::model::ops::outline& outline,
+    const compass::model::ops::document_finder& find,
+    compass::model::ops::load_cache& cache) {
+    namespace mops = compass::model::ops;
+    mops::build_outline(p.file.text(), p.view, outline);
+    model_properties out;
+    out.overrides = mops::physical_space_overrides(outline, find, cache);
+    for (std::size_t i = 0; i < outline.file_property_keys.size(); ++i)
+        out.properties.push_back({outline.file_property_keys[i],
+            outline.file_property_values[i]});
+    for (const auto& [key, enabled] : out.overrides)
+        out.properties.push_back({key, enabled ? "true" : "false"});
+    return out;
+}
+
+/**
+ * @brief _shell_command_units for every modeling directory of projects/:
+ * the singulars of the entity and junction models in it, or one level
+ * below it, that enable ores.cpp.shell-command.
+ */
+std::map<std::string, std::set<std::string>, std::less<>> shell_units(
+    const types::file_table& table, model_corpus& documents,
+    const compass::model::ops::document_finder& find,
+    compass::model::ops::load_cache& cache) {
+    namespace mops = compass::model::ops;
+    using compass::model::types::model_type;
+    constexpr std::string_view facet = "ores.cpp.shell-command";
+    constexpr std::string_view addresses[] = {facet};
+    model_tables scratch;
+    mops::builder b(scratch);
+    mops::outline outline;
+    std::map<std::string, std::set<std::string>, std::less<>> out;
+    for (const auto& path : table.paths) {
+        if (!path.starts_with("projects/") || !path.ends_with(".org") ||
+            path.find("/modeling/") == std::string::npos)
+            continue;
+        auto* p = documents.get(path);
+        if (p == nullptr)
+            continue;
+        const auto type = mops::model_type_of(
+            mops::declared_type(document_of(*p)));
+        if (type != model_type::entity && type != model_type::junction)
+            continue;
+        if (!compass::codegen::ops::facet_enabled(
+                drawer_properties(*p, outline, find, cache).properties, facet,
+                addresses, false))
+            continue;
+        std::string error;
+        const auto id = mops::load_model(b, document_of(*p), *type, find,
+            cache, &error);
+        if (!error.empty())
+            continue;
+        const auto& t = b.tables();
+        const auto body = compass::codegen::ops::values::member(t,
+            t.models.roots[id], *type == model_type::entity ?
+                "domain_entity" : "junction");
+        const auto name = compass::codegen::ops::values::str(t, body,
+            *type == model_type::entity ? "entity_singular" : "name_singular");
+        if (name.empty())
+            continue;
+        const std::filesystem::path file(path);
+        out[file.parent_path().string()].emplace(name);
+        out[file.parent_path().parent_path().string()].emplace(name);
+    }
+    return out;
+}
+
 struct planned {
     compass::codegen::ops::unit unit;
     value_id context;
@@ -439,7 +518,9 @@ std::vector<planned> plan_models(const std::filesystem::path& checkout,
 
     const auto find = documents.finder();
     mops::load_cache cache;
-    const auto entities = load_entity_registry(table, documents, find, cache);
+    auto entities = load_entity_registry(table, documents, find, cache);
+    entities.shell_units = shell_units(table, documents, find, cache);
+    entities.shell_local_units = registry.shell_registrars;
     mops::outline outline;
     std::vector<planned> plan;
     for (const auto& path : table.paths) {
@@ -463,15 +544,8 @@ std::vector<planned> plan_models(const std::filesystem::path& checkout,
             continue;
         }
         const auto root = b.tables().models.roots[id];
-        mops::build_outline(p->file.text(), p->view, outline);
-        std::vector<compass::codegen::ops::drawer_property> properties;
-        for (std::size_t i = 0; i < outline.file_property_keys.size(); ++i)
-            properties.push_back({outline.file_property_keys[i],
-                outline.file_property_values[i]});
-        const auto overrides = mops::physical_space_overrides(outline, find,
-            cache);
-        for (const auto& [key, enabled] : overrides)
-            properties.push_back({key, enabled ? "true" : "false"});
+        const auto read = drawer_properties(*p, outline, find, cache);
+        const auto& properties = read.properties;
         const auto units = compass::codegen::ops::model_units(graph, registry,
             type_name, b.tables(), root, path, properties);
         if (units.empty())
@@ -495,7 +569,8 @@ std::vector<planned> plan_models(const std::filesystem::path& checkout,
         ++r.contexts;
         for (const auto& u : units) {
             const auto variant = compass::codegen::ops::template_context(b,
-                context, stem, type_name, u.template_name, entities, surface);
+                context, stem, type_name, u.template_name, entities, site,
+                surface);
             plan.push_back({u, variant.is_none() ? context : variant,
                 type_name});
         }

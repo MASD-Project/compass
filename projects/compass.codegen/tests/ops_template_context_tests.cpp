@@ -271,3 +271,38 @@ TEST_CASE("an operation's recipes read its declared commands",
     CHECK(member(f.tables, member(f.tables, shell, "operation"),
         "http_route").is_none());
 }
+
+/*
+ * The trading registrar, rendered from
+ * ores.trading.vanilla_swap_instrument (oracle: its shell_aggregator,
+ * whose one local unit is ore_commands, in name order with the rest).
+ */
+TEST_CASE("a shell aggregator lists its directory's units and the local "
+    "ones", "[codegen][template_context]") {
+    codegen::tests::entity_fixture f(R"j({"component": "trading"})j");
+    const auto context = f.b.detached_object();
+    f.b.set_copy(context, "domain_entity", f.loaded);
+    codegen::types::entity_registry registry;
+    registry.shell_units["projects/ores.trading/modeling"] =
+        {"activity_type", "activity_category"};
+    const codegen::types::entity_site site{
+        "projects/ores.trading/modeling/"
+        "ores.trading.vanilla_swap_instrument.org"};
+    const auto header = "cpp_shell_command_aggregator_header.hpp.mustache";
+
+    CHECK(codegen::ops::template_context(f.b, context, "x", "domain_entity",
+        header, registry, site).is_none());
+
+    registry.shell_local_units["trading"] = {"ore_commands"};
+    const auto copy = codegen::ops::template_context(f.b, context, "x",
+        "domain_entity", header, registry, site);
+    REQUIRE(!copy.is_none());
+    const auto expected = model::io::read_json(f.b, R"j({
+        "component": "trading", "component_upper": "TRADING",
+        "units": [
+            {"local": false, "unit": "activity_category_commands"},
+            {"local": false, "unit": "activity_type_commands"},
+            {"local": true, "unit": "ore_commands"}]})j");
+    CHECK(difference(f.tables, member(f.tables, copy, "shell_aggregator"),
+        expected, "shell_aggregator") == "");
+}
