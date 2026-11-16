@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :share_a_content_addressed_store:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/design-the-object-format
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ Define the object and pack format: position-independent tables that are memory-m
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:10A99211-DCE0-4237-8D23-0599C2D00628][Share a content-addressed store]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,23 @@ Define the object and pack format: position-independent tables that are memory-m
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- An object is one parsed document: a fixed header (magic, format version,
+  parser version, the content's git blob ID, table offsets and row counts)
+  followed by every =compass.org= column, aligned, as raw little-endian
+  arrays. Loading is mapping the file and pointing spans at the columns; there
+  is no decode step.
+- The =compass.org= tables gain a read-only view type over spans, so code that
+  reads tables works the same over freshly parsed vectors and over a mapped
+  object.
+- The store lives under the repository's git common directory, in
+  =compass/objects/=, so every worktree shares it. Objects are written to a
+  temporary file and renamed into place, and are never modified.
+- Loose objects first, one file per blob ID. =compass-bench= gains a =store=
+  stage that measures a cold run (parse and write every org file) and a warm
+  run (map every object and verify its header), so whether packs are needed is
+  decided by a number, not in advance.
+- A header whose format or parser version differs from the running build is
+  treated as missing, so a stale object forces a re-parse.
 
 * Measurements
 
