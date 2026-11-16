@@ -26,11 +26,11 @@ Format only changed raw outputs, through one long-lived formatter or the clang-f
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:4F499B47-4AB8-4049-A72F-495351A6E2C7][Port ORE Studio codegen]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -64,7 +64,12 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Formatted vs ores.codegen's own format step | 26,212 of 26,212 identical | =ore_format.py= over the oracle's raw renders, then =compare.py= | 1ba87ae |
+| Formatted vs the checked-in ORE tree | 26,188 of 26,212; the 24 differences are drift ORE's own format step shows too | =compare.py= | 1ba87ae |
+| Cold run, empty store | 23,109 formatted, 91 formatter processes; format 58.5 s, whole run 65.6 s, load average 60+ | =compass-bench render <ores> --format <git-dir> -j 2 --out <dir>= | 1ba87ae |
+| Warm run, no template change | 23,109 stored, 0 formatter processes; format 0.99 s, whole run 7.8 s | =compass-bench render <ores> --format <git-dir> -j 2 --out <dir>= | 1ba87ae |
+| ores.codegen's per-model formatting | clang-format 215.9 s, prettier 216.4 s, load average 30-78 | ORE's =clang_format_files= and =prettier_format_files= per model | 3c3ec08 |
+| ctest | 10 of 10 suites pass | =ctest --preset linux-clang-release= | 1ba87ae |
 
 * Notes
 
@@ -92,3 +97,40 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+A regeneration with no template change starts no formatter: every formatted
+output comes from the result store. The formatted outputs are byte-identical
+to what ores.codegen's own format step produces from the same raw renders.
+
+How ORE formats: =generate.py= runs, per model, =clang-format -i= twice over
+C++ outputs with the repository's =.clang-format=, and =prettier --write= over
+TypeScript with =.prettierrc.yaml= (prettier pinned to 3.9.8). SQL, org and
+text outputs are not formatted. Formatting takes most of a regeneration's
+time, and prettier's cost is mostly the start-up of one process per model.
+
+- =compass.platform= gains =run_program=, which replaces two copies of the
+  spawn code in =compass.cli= and =compass.bench=.
+- =compass.codec= caches formatted outputs in the result store. The key is the
+  raw bytes, the output path (clang-format and prettier both depend on the file
+  name), the formatter program's identity and the style file's hash. Misses
+  run in batches, one process per pass per batch.
+- =compass-bench render --format= measures it with ORE's formatter table.
+
+The 24 differences from the checked-in tree are not formatting. 22 come from
+the system-tenant shared-read change that was never regenerated, and 2 are
+hand edits: =ores.marketdata.service/config/options.hpp= and
+=ores.ore/core/tests/CMakeLists.txt=. Match the existing output should list
+them.
+
+Decisions to revisit:
+
+- ORE's formatter table lives in =compass.bench=. It moves to
+  =compass.codegen= when codegen becomes a codec.
+- No record names the formatted results, so gc keeps them only for its grace
+  period, and a gc can make the next regeneration cold.
+- The program's identity is its resolved path, size and modification time, so
+  the warm path never runs =--version=. Changing node alone does not change
+  prettier's key.
+- Everything ran with clang-format 21.1.8. ORE's CI uses clang-format 18,
+  which is not tested here; its key differs, so it reformats rather than
+  reusing results.
