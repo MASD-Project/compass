@@ -22,12 +22,13 @@
 #include <array>
 #include "compass.cpp/codecs/enum_attributes.hpp"
 #include "compass.cpp/codecs/exported_types.hpp"
+#include "compass.cpp/codecs/test_case_reachability.hpp"
 
 namespace compass::cpp::codecs {
 
 std::span<const compass::codec::types::descriptor> catalogue() noexcept {
-    static const std::array<compass::codec::types::descriptor, 2> all{
-        enum_attributes, exported_types};
+    static const std::array<compass::codec::types::descriptor, 3> all{
+        enum_attributes, exported_types, test_case_reachability};
     return all;
 }
 

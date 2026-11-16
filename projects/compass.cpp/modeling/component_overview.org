@@ -68,19 +68,40 @@ keeps in its =.compass.org=.
   =visibility_macro_on_enum=: an enum declaration, =enum=, an optional
   =class= or =struct=, a visibility macro, a name and =:=, ={= or =;=, not
   after =using=. One finding per declaration, at its keyword.
+- *=test_case_reachability=.* ORE Studio's =reachability= gate
+  (=projects/ores.codegen/scripts/check_test_case_reachability.py=). It
+  reads every test source under =projects/=: a file with a C++ source or
+  fragment suffix (=.cpp=, =.cc=, =.cxx=, =.c++=, =.hpp=, =.h=, =.hxx=,
+  =.ipp=, =.inc=, in any case) under a =tests= directory or whose stem ends
+  in =_tests=, outside any =node_modules=, =venv=, =.venv=, =build= or
+  =external= directory (=ops::is_test_source=). =ops::scan_source= removes
+  the backslash-newline splices, blanks comments and string, raw string and
+  character literals (a quote after a digit separates digits), and reads the
+  logical lines: =#if=, =#ifdef= and =#ifndef= open a block, =#endif= closes
+  one, and a Catch2 test macro, or a name the file's own =#define= binds to
+  one, followed by =(= declares a case. Rule =case_in_conditional=: a case
+  declared inside a block, once per line and block, naming the directive
+  that opened the innermost block. Rule =unbalanced_conditional=: an
+  =#endif= that closes nothing, or a block still open at the end of the
+  file. Rule =raw_string_moves=: a raw string begins or ends elsewhere once
+  the splices are removed; the file's cases are left out. Rule
+  =no_test_case=: no test source, or no case in any readable one, reported
+  on =projects=.
 
 * Entry points
 
-| Path                                            | Role                                                     |
-|-------------------------------------------------+----------------------------------------------------------|
-| =include/compass.cpp/codecs/catalogue.hpp=      | The codecs this component ships.                         |
-| =include/compass.cpp/codecs/exported_types.hpp= | The =exported_types= codec.                              |
-| =include/compass.cpp/codecs/enum_attributes.hpp= | The =enum_attributes= codec.                            |
-| =include/compass.cpp/ops/exported_types.hpp=    | Export macros, quoted includes and exported types of one file. |
-| =include/compass.cpp/ops/enum_attributes.hpp=   | Erasing, visibility macros and enum sites of one file.   |
-| =include/compass.cpp/ops/paths.hpp=             | pathlib's suffix, stem and order, and the files of a checkout as the operating system finds them. |
-| =include/compass.cpp/ops/text.hpp=              | Python's spaces, word characters and lines over bytes.   |
-| =tests/test_checkout.hpp=                       | Runs one codec over a checkout of files held in memory.  |
+| Path                                                    | Role                                                      |
+|---------------------------------------------------------+-----------------------------------------------------------|
+| =include/compass.cpp/codecs/catalogue.hpp=              | The codecs this component ships.                          |
+| =include/compass.cpp/codecs/exported_types.hpp=         | The =exported_types= codec.                               |
+| =include/compass.cpp/codecs/enum_attributes.hpp=        | The =enum_attributes= codec.                              |
+| =include/compass.cpp/codecs/test_case_reachability.hpp= | The =test_case_reachability= codec.                       |
+| =include/compass.cpp/ops/exported_types.hpp=            | Export macros, quoted includes and exported types.        |
+| =include/compass.cpp/ops/enum_attributes.hpp=           | Erasing, visibility macros and enum sites.                |
+| =include/compass.cpp/ops/test_case_reachability.hpp=    | Test sources, and the cases and conditionals of one.      |
+| =include/compass.cpp/ops/paths.hpp=                     | pathlib's suffixes and order, and which files exist.      |
+| =include/compass.cpp/ops/text.hpp=                      | Python's spaces, word characters and lines over bytes.    |
+| =tests/test_checkout.hpp=                               | Runs one codec over a checkout of files held in memory.   |
 
 | Target              | Kind                                      |
 |---------------------+-------------------------------------------|

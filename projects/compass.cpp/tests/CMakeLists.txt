@@ -21,7 +21,8 @@ set(tests_target_name ${name}.tests)
 
 add_executable(${tests_target_name}
     codecs_enum_attributes_tests.cpp
-    codecs_exported_types_tests.cpp)
+    codecs_exported_types_tests.cpp
+    codecs_test_case_reachability_tests.cpp)
 
 target_link_libraries(${tests_target_name}
     PRIVATE

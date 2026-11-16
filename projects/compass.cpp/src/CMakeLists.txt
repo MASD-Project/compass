@@ -22,9 +22,11 @@ add_library(${lib_target_name}
     codecs/catalogue.cpp
     codecs/enum_attributes.cpp
     codecs/exported_types.cpp
+    codecs/test_case_reachability.cpp
     ops/enum_attributes.cpp
     ops/exported_types.cpp
     ops/paths.cpp
+    ops/test_case_reachability.cpp
     ops/text.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})

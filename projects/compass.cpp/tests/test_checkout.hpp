@@ -82,8 +82,9 @@ inline outcome run(const compass::codec::types::descriptor& codec,
     const auto& t = r.diagnostics[0];
     for (std::uint32_t i = 0; i < t.size(); ++i) {
         const auto d = t[ct::diagnostic_id{i}];
-        out.findings.emplace_back(std::string(d.file),
-            ops::line_of(all.find(d.file)->second, d.range.begin),
+        const auto file = all.find(d.file);
+        out.findings.emplace_back(std::string(d.file), file == all.end()
+                ? 0 : ops::line_of(file->second, d.range.begin),
             std::string(d.message));
     }
     out.ran = r.ran[0];

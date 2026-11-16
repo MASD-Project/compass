@@ -88,8 +88,9 @@ generation code directly, reading the checkout from disk. It depends on
 =compass.model= and on =compass.codec=, whose runtime its =codegen= codec
 runs in; =compass.cli= adds that codec to the ones it runs.
 
-=compass.cpp= runs ORE Studio's C++ gates as codecs, =exported_types= and
-=enum_attributes=, with the byte scanners each gate needs. It is in the
+=compass.cpp= runs ORE Studio's C++ gates as codecs, =exported_types=,
+=enum_attributes= and =test_case_reachability=, with the byte scanners each
+gate needs. It is in the
 domain layer for the reason =compass.codegen= is, because what it reports
 is defined by the sources of a checkout, and it is
 a component of its own, not a facet of =compass.codec=, because the runtime
