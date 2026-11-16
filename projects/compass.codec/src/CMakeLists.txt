@@ -22,6 +22,7 @@ add_library(${lib_target_name}
     codecs/catalogue.cpp
     codecs/document_index.cpp
     codecs/required_sections.cpp
+    io/dependency_file.cpp
     ops/dependencies.cpp
     ops/registry.cpp
     ops/run.cpp)
