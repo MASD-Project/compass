@@ -8,7 +8,7 @@
 #+filetags: :project_shape:sprint_01:v0:
 #+owner: marco
 #+branch:
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/23
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-10-27
@@ -45,6 +45,10 @@ Agree the layers, the components and their naming with the product owner.
 * Test Scenarios
 
 * PRs
+
+| PR | Title |
+|----+-------|
+| [[https://github.com/MASD-Project/compass/pull/23][#23]] | [agile] Record the component plan decisions and the legacy targets |
 
 * Review
 
