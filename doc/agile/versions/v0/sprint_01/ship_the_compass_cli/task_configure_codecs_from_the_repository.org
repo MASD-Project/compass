@@ -8,7 +8,7 @@
 #+filetags: :ship_the_compass_cli:sprint_01:v0:
 #+owner: marco
 #+branch: feature/configure-codecs-from-the-repository
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/26
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -92,7 +92,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/26][#26]] | [cli] Configure compass from .compass.org |
 
 * Review
 
