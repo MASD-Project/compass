@@ -27,6 +27,11 @@ dump of them. It has no parser: the
 [[id:D2B611DE-6D20-4408-B322-DF83B151AD94][compass.ingest]] component fills
 the tables.
 
+Beside the document tables it holds the type registry: one row per =#+type:=
+value, with its kind, level, folder, TODO keywords and required sections. Its
+=ops= facet looks a type up by name. =compass.ingest= builds the registry from
+the contract pages of =doc/meta=.
+
 * Inputs
 
 - The source bytes of each document, which the caller keeps mapped. The tables
@@ -85,6 +90,24 @@ One =tables= value holds one document, or a corpus of documents end to end.
 - *Limits.* A document is smaller than 4 GiB. A =post_blanks= value of 255
   means 255 or more.
 
+A =type_registry= holds the document types of the contract and the codegen
+model types:
+
+| Table     | Handle          | Row bytes | One row per                                     |
+|-----------+-----------------+-----------+-------------------------------------------------|
+| =types=   | =type_id=       |        22 | Type, in byte order of its name.                |
+| =entries= | =type_entry_id= |         4 | TODO keyword or required section of a type.     |
+| =names=   | =name_id=       |         4 | Distinct string: type, folder, keyword, title. |
+
+- *Kind.* =document= for a type with a contract page, =model= for a codegen
+  model. A model has no level, folder, keyword or section.
+- *Entries.* The entries of a type are one run: its active TODO keywords, then
+  from =done_firsts= its done keywords, then from =section_firsts= its
+  required section titles. A type is stateful when it has a TODO keyword.
+- *Lookup.* =ops::find_type= is a binary search over the sorted rows and
+  matches the name exactly. A level or folder the contract does not state is
+  =none=.
+
 * Entry points
 
 | Path                                          | Role                                              |
@@ -96,8 +119,11 @@ One =tables= value holds one document, or a corpus of documents end to end.
 | =include/compass.org/types/object_table.hpp=  | =object_kind= and the object rows.                |
 | =include/compass.org/types/*_table.hpp=       | One header per remaining table.                   |
 | =include/compass.org/io/dump.hpp=             | The text dump of one document.                    |
+| =include/compass.org/types/type_registry.hpp= | =type_registry= and its tables.                   |
+| =include/compass.org/ops/type_lookup.hpp=     | =find_type= and the entries of a type.            |
 | =tests/types_tables_tests.cpp=                | A document built by hand and queried.             |
 | =tests/io_dump_tests.cpp=                     | The dump of tables built by hand.                 |
+| =tests/ops_type_lookup_tests.cpp=             | A registry built by hand and queried.             |
 
 | Target              | Kind                                      |
 |---------------------+-------------------------------------------|

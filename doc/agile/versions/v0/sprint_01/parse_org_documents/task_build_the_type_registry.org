@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :parse_org_documents:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/build-the-type-registry
+#+pr: https://github.com/MASD-Project/compass/pull/12
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -26,11 +26,11 @@ Load the document types and their schemas from doc/meta, and mark which types ar
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                              |
 | Parent story | [[id:F1C69FBB-C16B-4F10-ACDB-F059C6355730][Parse org documents]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -39,9 +39,21 @@ Load the document types and their schemas from doc/meta, and mark which types ar
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- The registry is data read from the document contract, not code. Each
+  =doc/meta/document_type_*.org= page is parsed with =compass.ingest= and its
+  =* Contract= section yields the type's name, level, folder, whether it is
+  stateful and its =#+todo:= keywords, and its required sections.
+- Codegen model types (entity, component, operation, field_group, junction,
+  module, family and the rest) are defined by ORE Studio's codegen meta-model
+  documents, not by =doc/meta=. They enter the registry from a short declared
+  list marked =model=, until the codegen port reads their schemas.
+- Data shape: a =type_table= in struct-of-arrays form (name, kind document or
+  model, level, stateful, required section names as a range into a names
+  column), keyed by interned name. Lookup by name is a sorted search.
+- The registry lives in =compass.org= beside the tables it describes.
+- =compass-bench types <checkout> --meta <dir>= builds the registry, parses
+  every org file, resolves each =#+type:= and reports counts per type and every
+  unresolved type with its files. The ORE Studio run is the next task.
 
 * Measurements
 
@@ -74,7 +86,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/12][#12]] | [org] Add the document type registry |
 
 * Review
 
@@ -83,3 +95,22 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- The registry is data: =compass.ingest='s =meta= facet parses the
+  =doc/meta= contract pages with the org parser and fills a sorted
+  =type_table= in =compass.org=; lookup is a binary search on the name.
+  Codegen model types come from a declared list of the 16 =ores.codegen.*=
+  values ORE Studio's loader handles.
+- 17 of the 24 contract pages state their level, folder, TODO keywords and
+  required sections in a shape the builder reads. =decision=, =plan=,
+  =design=, =meta=, =memory= and =retrospective, release_note, audit_report=
+  leave one or more fields out or state them in prose.
+- Sections the contract marks optional are not required.
+- =compass-bench types= resolves every document's =#+type:=. This repository:
+  397 files, none unresolved, 53 with no type (mostly =SKILL.org=). ORE
+  Studio: 10,910 files, 204 with no type, and 11 types its own =doc/meta= does
+  not define: test_scenario (165), archetype (161), timeline (134), facet
+  (46), feature (34), release_notes (29), profile (14), technical_space (8),
+  dataset_overview (2), entity_view (2), analysis (1). =release_notes= also
+  differs from the contract's =release_note=. These are gaps in ORE Studio's
+  contract, reported here for its owners.

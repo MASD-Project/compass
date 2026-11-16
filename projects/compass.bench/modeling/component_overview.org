@@ -2,7 +2,7 @@
 :ID: 1F522775-710C-4EFE-8317-8354D902816D
 :END:
 #+title: compass.bench
-#+description: The frozen benchmark harness. It times reading every tracked file of a git checkout, building its include graph, parsing its C++ and SQL with tree-sitter and parsing its org documents into the compass.org tables.
+#+description: The frozen benchmark harness. It times reading every tracked file of a git checkout, building its include graph, parsing its C++ and SQL with tree-sitter, parsing its org documents into the compass.org tables and resolving their types.
 #+type: component
 #+level: cross
 #+filetags: :bench:performance:component:
@@ -16,7 +16,7 @@ in the tooling layer of the
 * Summary
 
 =compass.bench= is the harness every compass-ng measurement runs through. It
-installs as =compass-bench= and has four stages. All list the tracked files
+installs as =compass-bench= and has five stages. All list the tracked files
 of a checkout with one =git ls-files -z= call and map files with
 =compass::platform::filesystem::mapped_file=.
 
@@ -38,6 +38,10 @@ of a checkout with one =git ls-files -z= call and map files with
 - =org= parses every =.org= file with the =compass.ingest= org parser, on N
   threads over ranges balanced by bytes. Each thread keeps one set of
   =compass.org= tables and refills it for every document.
+- =types= builds the type registry from the =document_type_*.org= pages of a
+  meta directory and the codegen model names, then parses every =.org= file
+  as =org= does and resolves its first =#+type:= keyword against the
+  registry. Each repetition builds the registry and resolves every file.
 
 =org-dump= is not a stage. It parses one org file and prints its tables in
 the line format of =compass::org::io::dump=, which
@@ -58,6 +62,8 @@ the line format of =compass::org::io::dump=, which
     =clang++ -E -x c++ -v /dev/null=.
 - =compass-bench parse <checkout> [-j N] [--repeat R]=.
 - =compass-bench org <checkout> [-j N] [--repeat R]=.
+- =compass-bench types <checkout> --meta <dir> [-j N] [--repeat R]=. =--meta=
+  is the directory of the contract pages, such as =doc/meta=.
 - =compass-bench org-dump <file>= prints to standard output.
   =compass-bench org-dump --list <list>= reads one input path, a tab and an
   output path per line and writes each dump to its output.
@@ -86,10 +92,19 @@ the line format of =compass::org::io::dump=, which
   and setup times, the rows the tables took summed over the documents
   (elements, objects, headings, links, names), and the top 10 files by parse
   time.
+- For =types=: one stage row for parsing and resolving, the median registry
+  build time and the resolve time summed over threads. Then one row per
+  contract page saying whether it fits the extraction rule and where its
+  level, folder, state and sections came from; the documents per registered
+  type with its kind, and the types no document uses; the documents with no
+  =#+type:=, the first 20 listed; and every unresolved type with its count
+  and up to five of its files.
 - A =FAILED= line and exit status 1 when the stage read or scanned no files
   or hit any error. For =parse= this holds per language: a language with no
   files, or a file that cannot be read, fails the run. Parse errors inside a
-  tree are data, not failure. A usage error exits with status 2.
+  tree are data, not failure. For =types=, a meta directory with no contract
+  page fails the run, and an unreadable meta directory or page exits with
+  status 1; unresolved types are data. A usage error exits with status 2.
 
 * Resolution
 
@@ -135,6 +150,8 @@ Linux.
 | =language_result= | A =stage_result= and columns of file id, parse ms and error nodes per file.    |
 | =parse_result=    | One =language_result= per =language= (=cpp=, =sql=).                           |
 | =org_result=      | A =stage_result=, columns of file id and parse ms, and the table row counts.   |
+| =meta_registry=   | The type registry and, per contract page, its path and =contract_report=.      |
+| =types_result=    | A =stage_result=, registry times, and per file its resolution, type and value. |
 
 * Entry points
 
@@ -153,6 +170,7 @@ Linux.
 | =include/compass.bench/ops/parse_stage.hpp=     | The =parse= stage.                                     |
 | =include/compass.bench/ops/org_stage.hpp=       | The =org= stage.                                       |
 | =include/compass.bench/ops/org_dump.hpp=        | The =org-dump= command.                                |
+| =include/compass.bench/ops/types_stage.hpp=     | The registry from a meta directory; the =types= stage. |
 | =include/compass.bench/io/compile_commands.hpp= | The compile_commands.json reader and word splitting.   |
 | =include/compass.bench/io/report.hpp=           | Plain-text reports and the failure predicates.         |
 | =src/main.cpp=                                  | Argument parsing and wiring.                           |
@@ -167,8 +185,8 @@ Linux.
 * Dependencies
 
 - =compass.platform= for =mapped_file=.
-- =compass.ingest= for the org parser and =compass.org= for its tables and
-  their dump.
+- =compass.ingest= for the org parser and the type registry builder, and
+  =compass.org= for the tables, their dump and the type lookup.
 - tree-sitter from vcpkg, and the =tree-sitter-cpp= 0.23.4 and
   =tree-sitter-sql= 0.3.13 grammars from the overlay ports in
   =build/cmake/overlays/common=. The ports compile the generated parsers

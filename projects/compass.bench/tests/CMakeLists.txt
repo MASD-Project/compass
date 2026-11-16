@@ -29,7 +29,8 @@ add_executable(${tests_target_name}
     ops_org_stage_tests.cpp
     ops_parse_tests.cpp
     ops_partition_tests.cpp
-    ops_read_stage_tests.cpp)
+    ops_read_stage_tests.cpp
+    ops_types_stage_tests.cpp)
 
 target_link_libraries(${tests_target_name}
     PRIVATE
