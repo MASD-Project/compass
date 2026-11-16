@@ -45,6 +45,7 @@
 #include "compass.bench/ops/types_stage.hpp"
 #include "compass.bench/ops/warm_stage.hpp"
 #include "compass.platform/filesystem/mapped_file.hpp"
+#include "compass.store/io/collection.hpp"
 #include "compass.store/io/location.hpp"
 
 namespace {
@@ -62,13 +63,15 @@ constexpr std::string_view usage =
     "           [--repeat R]\n"
     "       compass-bench warm <checkout> [--store <dir>] [-j N]\n"
     "           [--repeat R]\n"
+    "       compass-bench gc <checkout> [--store <dir>] [--cap <bytes>]\n"
+    "           [--grace <seconds>] [--dry-run]\n"
     "       compass-bench ids <checkout> [-j N] [--repeat R]\n"
     "           [--verify N|all]\n"
     "       compass-bench org-dump <file>\n"
     "       compass-bench org-dump --list <list>\n";
 
 enum class stage {
-    read, includes, parse, org, types, store, warm, ids, org_dump
+    read, includes, parse, org, types, store, warm, gc, ids, org_dump
 };
 
 struct options {
@@ -81,6 +84,7 @@ struct options {
     std::vector<std::string> implicit_system;
     std::filesystem::path meta;
     std::filesystem::path store;
+    compass::store::types::collection_options collection;
     std::uint64_t verify = 0;
     std::filesystem::path dump_file;
     std::filesystem::path dump_list;
@@ -97,6 +101,14 @@ std::optional<unsigned> parse_positive(std::string_view s) {
     unsigned v = 0;
     const auto [end, ec] = std::from_chars(s.data(), s.data() + s.size(), v);
     if (ec != std::errc{} || end != s.data() + s.size() || v == 0)
+        return std::nullopt;
+    return v;
+}
+
+std::optional<std::uint64_t> parse_count(std::string_view s) {
+    std::uint64_t v = 0;
+    const auto [end, ec] = std::from_chars(s.data(), s.data() + s.size(), v);
+    if (ec != std::errc{} || end != s.data() + s.size())
         return std::nullopt;
     return v;
 }
@@ -132,6 +144,8 @@ std::optional<options> parse_options(int argc, char** argv) {
         o.which = stage::store;
     else if (name == "warm")
         o.which = stage::warm;
+    else if (name == "gc")
+        o.which = stage::gc;
     else if (name == "ids")
         o.which = stage::ids;
     else if (name == "org-dump")
@@ -142,10 +156,16 @@ std::optional<options> parse_options(int argc, char** argv) {
     o.threads = std::max(1u, std::thread::hardware_concurrency());
     const bool includes = o.which == stage::includes;
     const bool typed = o.which == stage::types;
-    const bool stored = o.which == stage::store || o.which == stage::warm;
+    const bool collect = o.which == stage::gc;
+    const bool stored = o.which == stage::store || o.which == stage::warm ||
+        collect;
     const bool ids = o.which == stage::ids;
     for (int i = 3; i < argc; ++i) {
         const std::string_view flag = argv[i];
+        if (collect && flag == "--dry-run") {
+            o.collection.dry_run = true;
+            continue;
+        }
         if (i + 1 >= argc)
             return std::nullopt;
         const std::string_view value = argv[++i];
@@ -164,6 +184,14 @@ std::optional<options> parse_options(int argc, char** argv) {
             o.meta = value;
         } else if (stored && flag == "--store") {
             o.store = absolute_path(value);
+        } else if (collect && (flag == "--cap" || flag == "--grace")) {
+            const auto n = parse_count(value);
+            if (!n)
+                return std::nullopt;
+            if (flag == "--cap")
+                o.collection.cap = *n;
+            else
+                o.collection.grace = std::chrono::seconds(*n);
         } else if (ids && flag == "--verify") {
             const auto n = parse_positive(value);
             if (!n && value != "all")
@@ -294,6 +322,14 @@ int run_warm(const options& o) {
     return io::failed(stage) ? 1 : 0;
 }
 
+int run_gc(const options& o) {
+    const auto objects = objects_of(o);
+    const auto result =
+        compass::store::io::collect(o.checkout, objects, o.collection);
+    io::write_gc_report(std::cout, result, o.collection, objects);
+    return 0;
+}
+
 int run_ids(const options& o) {
     io::setup_timing setup;
     const auto table = list_checkout(o, setup);
@@ -320,6 +356,7 @@ int run(const options& o) {
     case stage::types: return run_types(o);
     case stage::store: return run_store(o);
     case stage::warm: return run_warm(o);
+    case stage::gc: return run_gc(o);
     case stage::ids: return run_ids(o);
     case stage::org_dump: return run_org_dump(o);
     }

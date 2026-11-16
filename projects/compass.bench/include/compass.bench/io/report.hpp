@@ -32,6 +32,7 @@
 #include "compass.bench/types/store_result.hpp"
 #include "compass.bench/types/types_result.hpp"
 #include "compass.bench/types/warm_result.hpp"
+#include "compass.store/types/collection.hpp"
 
 namespace compass::bench::io {
 
@@ -187,6 +188,16 @@ inline constexpr double warm_budget_ms = 1000;
  */
 void write_warm_report(std::ostream& os, const types::warm_result& stage,
     const setup_timing& setup, const std::filesystem::path& objects);
+
+/**
+ * @brief Writes the worktrees whose indexes were read, the live IDs, the
+ * store's files by why they stay or go, the size of the store after the
+ * collection against its cap, and the wall time of each phase.
+ */
+void write_gc_report(std::ostream& os,
+    const store::types::collection_result& result,
+    const store::types::collection_options& options,
+    const std::filesystem::path& objects);
 
 }
 

@@ -668,4 +668,43 @@ void write_warm_report(std::ostream& os, const types::warm_result& stage,
     }
 }
 
+void write_gc_report(std::ostream& os,
+    const store::types::collection_result& result,
+    const store::types::collection_options& options,
+    const std::filesystem::path& objects) {
+    os << std::format("store: {}\n", objects.string());
+    os << std::format("cap: {} bytes  grace: {} s  dry run: {}\n",
+        options.cap, options.grace.count(), options.dry_run ? "yes" : "no");
+    os << std::format("worktrees: {}\n", result.worktrees.size());
+    for (const auto& dir : result.worktrees)
+        os << std::format("  {}\n", dir.string());
+    os << std::format("live IDs: {}\n", result.live_ids);
+
+    const auto& plan = result.plan;
+    os << std::format("\n{:<18}{:>10}{:>16}\n", "files", "count", "bytes");
+    const auto row = [&](std::string_view name,
+                         const store::types::object_tally& t) {
+        os << std::format("{:<18}{:>10}{:>16}\n", name, t.objects, t.bytes);
+    };
+    row("stored", plan.stored);
+    row("live", plan.live);
+    row("within grace", plan.within_grace);
+    row("old unreferenced", plan.old_unreferenced);
+    row("temporary", plan.temporaries);
+    row("victims", plan.victims);
+    row("removed", result.removed);
+
+    const auto gone = options.dry_run ? plan.victims.bytes
+                                      : result.removed.bytes;
+    const auto after = plan.stored.bytes - gone;
+    os << std::format("\nstore {}: {} bytes, {} the cap\n",
+        options.dry_run ? "after a real run" : "now", after,
+        after <= options.cap ? "within" : "OVER");
+    os << std::format("worktrees {:.2f}  live {:.2f}  list {:.2f}  "
+                      "plan {:.2f}  remove {:.2f}  total {:.2f} ms\n",
+        result.worktrees_ms, result.live_ms, result.list_ms, result.plan_ms,
+        result.remove_ms, result.worktrees_ms + result.live_ms +
+            result.list_ms + result.plan_ms + result.remove_ms);
+}
+
 }
