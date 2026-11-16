@@ -1,0 +1,76 @@
+:PROPERTIES:
+:ID: 1A7DC6A9-F461-47A6-A585-34F946AD70F5
+:END:
+#+title: Story: Retire legacy tooling
+#+description: Remove each piece of legacy tooling, in this repository and in ORE Studio, once compass-ng does its job: the targets, what replaces each, and when it can go.
+#+type: story
+#+level: s2
+#+filetags: :legacy:tooling:sprint_01:v0:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+#+environment:
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+Every legacy capability has a named compass-ng replacement and a removal condition, and is removed when the condition holds.
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | BACKLOG                              |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | Not yet started.                       |
+| Waiting on    | Nothing.                               |
+| Next          | Break the story into tasks.            |
+| Last touched  | 2026-11-16                               |
+
+* Acceptance
+
+- The targets table lists every legacy capability with its replacement story and removal condition.
+- A capability is removed only when its replacement gives the same result on the same inputs.
+- Each removal is its own task, added to this story when its replacement lands.
+
+* Targets
+
+** ORE Studio
+
+| Legacy capability | Replaced by | Remove when |
+|-------------------+-------------+-------------|
+| =ores.codegen= generation (=codegen.sh generate/regenerate=, =compass codegen=) | [[id:4F499B47-4AB8-4049-A72F-495351A6E2C7][Port ORE Studio codegen]] | A full regeneration is byte-identical to =ores.codegen= for every component. |
+| Template tangling by Emacs (=template-drift= workflow) | [[id:4F499B47-4AB8-4049-A72F-495351A6E2C7][Port ORE Studio codegen]] | compass tangles every template identically to Emacs. |
+| Codegen drift checks (=component-drift=, =drift-sweep=, =paste-blocks= and about 16 generator =--check= scripts) | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]], through diff mode | Each check's compass codec gives the same verdict on the same commit. |
+| Model and codegen semantic checks (=ores.codegen/scripts/check_*.py=, about 15) | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] | Each check's codec gives the same verdict on the same commit. |
+| Whole-tree C++ and SQL regex scans (exported-types, enum-attributes, reachability, portable-stop, unity-collisions, unique-type-names, sql-hygiene, populate-refs and the rest) | [[id:C1DC8A0C-83C7-408B-9D63-762562F0D797][Analyse C++ and SQL]], [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] | Each scan's codec gives the same verdict on the same commit. |
+| Documentation checks (lint, org-links, heading-numbers, structure-notes, pattern-uses and the catalogue =--check= scripts) | [[id:889AD819-48C4-4082-82B3-69268706B6A3][Gate the Zettelkasten]], [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] | Each check's codec gives the same verdict on the same commit. |
+| Site export by Emacs (=build-site=) | [[id:BC1B09C4-CF0F-4C8F-9895-2F60C59F7AE2][Export HTML identical to Emacs]] | Every page is byte-identical to the Emacs export, or each difference is accepted and recorded. |
+| =local_checks.py= as the gate runner for build-free checks | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]], [[id:FEABA8E9-D541-45AA-9278-64DC1264C794][Ship the compass CLI]] | =compass check= runs every ported check, locally and in CI, with the same verdicts. |
+
+** This repository (=projects/compass.legacy=)
+
+| Legacy command | Replaced by | Remove when |
+|----------------+-------------+-------------|
+| =add= (scaffolding from the =doc_*.org.mustache= templates) | [[id:4F499B47-4AB8-4049-A72F-495351A6E2C7][Port ORE Studio codegen]], [[id:FEABA8E9-D541-45AA-9278-64DC1264C794][Ship the compass CLI]] | compass renders the same documents from the same templates. |
+| =lint= (filetag validation) | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] | A codec gives the same verdict on this repository. |
+| =sprint audit= (state drift between documents and tables) | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] | A codec reports the same findings. |
+| =list=, =show= | Needs a story | |
+| =index=, =search=, =find=, =debug= (org-roam full-text search) | Needs a story | |
+| =where=, =sprint status=, =sprint charts=, =story=, =task=, =journal=, =bearings=, =heading= | Needs a story | |
+
+When the last row of the second table goes, =projects/compass.legacy= and
+=compass.sh='s forwarding go with it.
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+|      |       |       |     |             |
+
+* Decisions
+
+* Out of scope
+
+-

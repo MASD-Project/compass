@@ -25,11 +25,11 @@ Agree the layers, the components and their naming with the product owner.
 
 | Field        | Value                                                      |
 |--------------+------------------------------------------------------------|
-| State        | BACKLOG                                                    |
+| State        | DONE                                                    |
 | Parent story | [[id:D08C23FF-2A6E-4EFA-A7B7-F91822875AE0][Project shape]] |
-| Now          | Not started.                                               |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                                                   |
-| Next         | Start the task.                                            |
+| Next         | Nothing. |
 | Last touched | 2026-10-27                                                 |
 
 * Acceptance
@@ -49,3 +49,20 @@ Agree the layers, the components and their naming with the product owner.
 * Review
 
 * Result
+
+The product owner decided, on 2026-11-16:
+
+1. The server-design components (=compass.server=, =compass.wire=,
+   =compass.storage=, =compass.documents=, =compass.graph=, =compass.search=,
+   =compass.web=, =compass.viewer=, =compass.utility=, =compass.logging=,
+   =compass.testing=) leave the system model. A component is added when a story
+   needs it.
+2. =compass.cli= is built now: a real =compass= executable hosts the pipeline so
+   the product owner can test it; =compass.bench= returns to measurement only.
+   The Ship the compass CLI story carries it.
+3. The names stand: =compass.platform=, =compass.store=, =compass.org=,
+   =compass.ingest=, =compass.codec=, =compass.bench=, =compass.cli=.
+4. Every component is simple; the composite meta-model and part catalogue are
+   not used until a component needs parts.
+5. Legacy functionality is removed as compass-ng takes it over; the Retire
+   legacy tooling story lists each target with what replaces it.
