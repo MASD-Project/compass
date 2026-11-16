@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :share_a_content_addressed_store:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/collect-unused-objects
+#+pr: https://github.com/MASD-Project/compass/pull/17
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -26,11 +26,11 @@ Evict least recently used objects when the store passes its size cap.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                              |
 | Parent story | [[id:10A99211-DCE0-4237-8D23-0599C2D00628][Share a content-addressed store]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -39,9 +39,22 @@ Evict least recently used objects when the store passes its size cap.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Use is decided by reachability, as git decides it, not by access times:
+  the disk is mounted =noatime=, and stamping objects on every load would make
+  a warm run write. An object is live when any worktree of the repository
+  refers to its ID, through that worktree's git index or its compass worktree
+  index. The worktrees come from the common directory's =worktrees/= entries
+  plus the main worktree.
+- Only unreferenced objects are candidates. They are removed oldest first, by
+  modification time, until the store is under its size cap. Objects written in
+  the last hour are never removed, so a run in progress cannot lose an object
+  it just wrote.
+- Removal deletes the object file; a concurrent reader that already mapped it
+  keeps its mapping. A loader that finds an object missing parses again, so
+  collection can never break correctness.
+- =compass-bench gc <checkout> --store <dir> [--cap <bytes>] [--dry-run]=
+  reports store size, live and unreferenced objects and bytes, what it would
+  remove or removed, and the time taken.
 
 * Measurements
 
@@ -55,7 +68,11 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Worktrees, live IDs | 2, 59,431 | =compass-bench gc <archive> --store <dir> --dry-run= | ORE Studio 7aa4435e21 |
+| Objects: live, unreferenced | 10,915, 1,000 (3.3 MB) | same run | ORE Studio 7aa4435e21 |
+| Removed with =--grace 0= and the cap at half | 517 (1.6 MB), oldest first; none on a second run | =compass-bench gc ... --grace 0 --cap <half>= | ORE Studio 7aa4435e21 |
+| Collection time: read indexes, list, plan, unlink | 113 to 123, 30, 1.5, 3 ms | same run | ORE Studio 7aa4435e21 |
+| This repository: a planted old orphan | chosen by the dry run, removed by the real run; the warm run after loaded 399 and wrote 0 | =compass-bench gc . --store <dir>= | compass-ng main plus this branch |
 
 * Notes
 
@@ -74,7 +91,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/17][#17]] | [store] Collect the store by reachability |
 
 * Review
 
@@ -83,3 +100,15 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- The store is collected by reachability: an object is live when any worktree
+  of the repository refers to its ID through its git index or its compass
+  worktree index. Access times are never used.
+- Unreferenced objects older than the grace period (one hour by default) are
+  removed oldest first until the store is under the cap; old temporary files
+  are removed whatever the cap. A victim whose size or modification time
+  changed after listing is skipped.
+- An index that cannot be read stops the collection before anything is
+  removed, so a repository with a split index never collects.
+- A removed object is parsed again on the next run; a test proves the dumps
+  match.

@@ -30,15 +30,15 @@ documentation; the link runs one way, from here to the overviews.
 
 | Field        | Value                                                                        |
 |--------------+------------------------------------------------------------------------------|
-| State        | STARTED                                                                      |
+| State        | LANDED                                                                       |
 | Parent story | [[id:10A99211-DCE0-4237-8D23-0599C2D00628][Share a content-addressed store]] |
 | Last touched | 2026-11-16                                                                   |
 
-The object format, the keys from git's index and the worktree index are
-implemented and measured; a warm run over ORE Studio's org files takes
-about 0.2 s. The design stays =STARTED= because eviction is not designed:
-it needs to know when an object was last used, and recording that may
-change the store. The state moves to =LANDED= when the story closes.
+The object format, the keys from git's index, the worktree index and
+collection are implemented and measured. A warm run over ORE Studio's org
+files takes about 0.2 s, and collecting the store about 0.15 s. The
+store as it is now is described by the
+[[id:EB285F25-4AF8-482D-B679-C650DA718CF6][compass.store]] overview.
 
 * Summary
 
@@ -71,7 +71,7 @@ margin of about twenty, so packs are not built.
 4. *Be safe to write from many processes.* Two worktrees parse the same file
    at the same time.
 5. *Serve the tasks that follow.* Blob IDs must be the ones git's index holds.
-   Eviction needs to know when an object was last used.
+   Collection must be able to tell which objects no worktree wants.
 
 * The object
 
@@ -206,6 +206,38 @@ API.
   component. Putting the layout in the store would make an infrastructure
   component depend on the domain layer.
 
+* Collection
+
+The store grows with every version of every file a worktree has seen, so
+something must remove what is no longer wanted. Git answers the same
+question for its own objects by reachability, and the store does the same.
+
+- *Live.* An object is live when any worktree of the repository refers to
+  its ID: through its git index, at any stage, or through its compass
+  worktree index. The worktrees are the main one, whose git directory is the
+  common directory, and every directory under =<common>/worktrees/= that
+  holds either index. A linked worktree whose checkout was deleted still
+  counts until git prunes it.
+- *Victims.* Every other object is a candidate once it is older than a grace
+  period, an hour by default, judged by its modification time. Candidates go
+  oldest first until the store is at or under its size cap. The grace period
+  means a run in progress never loses an object it just wrote, even when no
+  index names it yet.
+- *Never wrong, only slower.* Removal is an unlink. A process that mapped
+  the object keeps its mapping. A run that looks up a removed object finds it
+  missing, parses the source and writes it back. An index that exists but
+  cannot be read stops the collection before anything is removed, because the
+  IDs it holds cannot be kept.
+- *Leftovers.* A temporary file a crashed write left is removed once it is
+  past the grace period, whatever the cap, since nothing ever reads it.
+
+On an ORE Studio archive with a second worktree whose 1,000 edited org files
+had been reset, a collection read 59,431 live IDs from two indexes, found
+1,000 unreferenced objects among 11,915, and took about 150 ms, most of it
+checksumming the two git indexes. A warm run afterwards loaded every object
+the main worktree needed, and restoring the edits parsed again exactly the
+objects that had been removed.
+
 * Measurements
 
 =compass-bench store <checkout> --store <dir> --repeat 5= at commit =4308ab1=,
@@ -271,7 +303,7 @@ worth their cost when it passes a few hundred milliseconds.
 - *One pack per corpus.* One file, one =mmap=, no per-file cost. But a pack is
   rewritten or appended when one document changes, concurrent writers need a
   lock or a merge step, a worktree on another branch needs a different pack or
-  an index over a shared one, and eviction can no longer delete a file. The
+  an index over a shared one, and collection can no longer delete a file. The
   measurement shows the cost it removes is 0.05 s.
 - *One file per table.* Thirteen files a document multiplies the per-file
   cost, which is the cost that dominates, and a document could then be half
@@ -282,7 +314,7 @@ worth their cost when it passes a few hundred milliseconds.
   explicit bounds check.
 - *A hash of the parser's sources as the parser version.* See Versions.
 - *The parser version in the object path.* It would end two builds rewriting
-  each other's objects, at the cost of stale directories only eviction can
+  each other's objects, at the cost of stale directories only collection can
   remove. Left until that rewriting is measured to matter.
 - *Checksum checked inside =decode=.* Simpler to use correctly, but it forces
   every load to read every byte. The two are kept apart, and the measurement
@@ -290,6 +322,10 @@ worth their cost when it passes a few hundred milliseconds.
 - *=fsync= before the rename.* It makes an object durable. Durability is not a
   property a cache needs, and a sync per object would dominate the cold run.
 - *OpenSSL for SHA-1.* See The store.
+- *Least recently used, by access time or a stamp.* The disk is mounted
+  =noatime=, so access times say nothing, and stamping an object on every
+  load would make a warm run write to the store. What a worktree refers to
+  is known without any record of use, so reachability decides instead.
 - *A second, hand-written set of view structs.* Two definitions of sixty-one
   columns drift. One template has one definition.
 
@@ -310,8 +346,14 @@ worth their cost when it passes a few hundred milliseconds.
 - *Type punning.* A column is read through a pointer cast into the mapping.
   Every compiler in use accepts it; the standard's =start_lifetime_as_array=
   is not yet in the libraries.
-- *Temporary files.* A crash leaves a =tmp_*= file that nothing removes until
-  the eviction task does.
+- *Unreadable indexes.* A repository whose index is split, or a worktree
+  index of an older version left in a worktree no run has visited since, stops
+  every collection until that index is readable again. That keeps live
+  objects safe and lets the store grow.
+- *Modification time as age.* An object rewritten by a run takes a new
+  modification time, so the order is by last write, not by last use. An
+  object loaded every day but written long ago goes first once no index
+  names it, which is the case collection is for.
 
 * See also
 

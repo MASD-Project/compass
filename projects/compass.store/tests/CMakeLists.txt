@@ -20,6 +20,7 @@ set(lib_target_name ${name}.lib)
 set(tests_target_name ${name}.tests)
 
 add_executable(${tests_target_name}
+    io_collection_tests.cpp
     io_id_resolver_tests.cpp
     io_location_tests.cpp
     io_object_file_tests.cpp

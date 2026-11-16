@@ -59,6 +59,9 @@ of a checkout with one =git ls-files -z= call and map files with
   =git hash-object --no-filters=. Nothing is written to the checkout or its
   git directory.
 
+=gc= is not a stage either. It collects the store once with
+=compass.store='s =io::collect= and reports what it found and removed.
+
 =org-dump= is not a stage. It parses one org file and prints its tables in
 the line format of =compass::org::io::dump=, which
 =build/scripts/org_element_dump.el= prints for org-element.
@@ -83,6 +86,10 @@ the line format of =compass::org::io::dump=, which
 - =compass-bench store <checkout> [--store <dir>] [-j N] [--repeat R]=.
   =--store= is the objects directory; without it the stage uses
   =compass/objects= under the git common directory of the checkout.
+- =compass-bench gc <checkout> [--store <dir>] [--cap <bytes>] [--grace
+  <seconds>] [--dry-run]=. =--store= is as for =store=. =--cap= defaults to
+  0, which removes every unreferenced object past the grace period, and
+  =--grace= to 3600. =--dry-run= chooses the victims and removes none.
 - =compass-bench ids <checkout> [-j N] [--repeat R] [--verify N|all]=.
   =--verify= checks N IDs spread evenly over the files, or all of them; it
   defaults to none.
@@ -127,6 +134,13 @@ the line format of =compass::org::io::dump=, which
   runs. The distinct objects against the files, the object bytes against the
   source bytes with their ratio, the objects that did not load and the files
   whose two dumps differ. Either of the last two counts fails the run.
+- For =gc=: the store and options, the git directory of each worktree read,
+  the live IDs, then counts and bytes of the files stored, live, within the
+  grace period, old and unreferenced, temporary, chosen and removed; the
+  size of the store after the collection against the cap; and the wall
+  milliseconds of each phase. A store left over its cap because its live
+  objects fill it is data, not failure. An index that cannot be read exits
+  with status 1 and removes nothing.
 - For =ids=: the index version, its entries and how many may lend their
   ID, and whether =core.autocrlf= converts; the thread count and setup
   times; the files whose ID came from the index and those hashed, with the
@@ -224,8 +238,8 @@ Linux.
 - =compass.ingest= for the org parser and the type registry builder, and
   =compass.org= for the tables, their dump, the object codec and the type
   lookup.
-- =compass.store= for blob IDs, object paths, object writes and the ID
-  resolver.
+- =compass.store= for blob IDs, object paths, object writes, the ID
+  resolver and collection.
 - tree-sitter from vcpkg, and the =tree-sitter-cpp= 0.23.4 and
   =tree-sitter-sql= 0.3.13 grammars from the overlay ports in
   =build/cmake/overlays/common=. The ports compile the generated parsers

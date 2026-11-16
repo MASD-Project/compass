@@ -23,6 +23,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -31,7 +32,13 @@
 #include <catch2/matchers/catch_matchers_string.hpp>
 #include "compass.bench/io/report.hpp"
 #include "compass.bench/ops/listing.hpp"
+#include "compass.ingest/org/parser.hpp"
+#include "compass.org/io/dump.hpp"
+#include "compass.org/io/object.hpp"
+#include "compass.platform/filesystem/mapped_file.hpp"
+#include "compass.store/io/collection.hpp"
 #include "compass.store/io/location.hpp"
+#include "compass.store/ops/blob_hash.hpp"
 
 namespace {
 
@@ -111,6 +118,32 @@ void fill(const scoped_git_repo& repo) {
     repo.write("converted/d.org", "* D\n** E\n");
     repo.write("e.cpp", "int x;\n");
     repo.git("add -A");
+}
+
+const char* const org_paths[] = {
+    "a.org", "doc/b.org", "converted/c.org", "converted/d.org"};
+
+/**
+ * @brief The dump of the stored object of each org file, decoded against
+ * the file's current bytes, by path. A file with no object that decodes
+ * dumps as empty.
+ */
+std::map<std::string, std::string> stored_dumps(const scoped_git_repo& repo) {
+    using compass::platform::filesystem::mapped_file;
+    std::map<std::string, std::string> dumps;
+    for (const auto* path : org_paths) {
+        const mapped_file source(repo.checkout() / path);
+        const auto id = compass::store::ops::blob_id_of(source.text());
+        const mapped_file object(
+            compass::store::io::object_path(repo.objects(), id));
+        const auto view = compass::org::io::decode(object.bytes(),
+            {id.bytes, compass::ingest::org::parser_version});
+        std::ostringstream os;
+        if (view)
+            compass::org::io::dump(os, source.text(), *view);
+        dumps[path] = os.str();
+    }
+    return dumps;
 }
 
 }
@@ -198,4 +231,37 @@ TEST_CASE("a warm run that hashes or writes fails the stage",
     io::write_warm_report(os, r, {}, "store");
     CHECK_THAT(os.str(), Catch::Matchers::ContainsSubstring(
         "FAILED: warm run 2 hashed 0 file(s) and wrote 1 object(s)"));
+}
+
+TEST_CASE("a run after collection parses the removed objects again and they "
+    "dump as before", "[ops][warm_stage]") {
+    scoped_git_repo repo;
+    fill(repo);
+    (void)repo.run(1);
+    const auto before = stored_dumps(repo);
+    for (const auto* path : org_paths)
+        repo.write(path, std::string("* Rewritten ") + path + "\n");
+    repo.git("add -A");
+    CHECK(repo.run(1).runs[0].written == 4);
+    for (const auto& entry :
+        std::filesystem::recursive_directory_iterator(repo.objects())) {
+        std::filesystem::last_write_time(entry.path(),
+            std::filesystem::file_time_type::clock::now() -
+                std::chrono::hours(2));
+    }
+
+    const auto collected = compass::store::io::collect(repo.checkout(),
+        repo.objects(), {});
+    CHECK(collected.plan.stored.objects == 8);
+    CHECK(collected.removed.objects == 4);
+
+    fill(repo);
+    const auto r = repo.run(2);
+    CHECK(r.runs[0].loaded == 0);
+    CHECK(r.runs[0].written == 4);
+    CHECK(r.runs[1].loaded == 4);
+    CHECK(r.runs[1].written == 0);
+    CHECK_FALSE(io::failed(r));
+    CHECK(stored_dumps(repo) == before);
+    CHECK_FALSE(before.at("a.org").empty());
 }

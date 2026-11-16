@@ -2,7 +2,7 @@
 :ID: EB285F25-4AF8-482D-B679-C650DA718CF6
 :END:
 #+title: compass.store
-#+description: The content-addressed store every worktree of a repository shares: git blob IDs as keys, taken from git's index when git would call a file clean, else from a per-worktree index of the files compass hashed, else hashed; object paths under the git common directory, and writes that land whole or not at all.
+#+description: The content-addressed store every worktree of a repository shares: git blob IDs as keys, taken from git's index when git would call a file clean, else from a per-worktree index of the files compass hashed, else hashed; object paths under the git common directory, writes that land whole or not at all, and collection of the objects no worktree refers to.
 #+type: component
 #+level: cross
 #+filetags: :store:cache:worktrees:component:
@@ -19,7 +19,8 @@ the infrastructure layer of the
 content it was computed from. The key is the ID git gives that content, so a
 file with the same bytes has the same key in every worktree and its parse is
 done once per repository. The store is a cache: deleting it loses speed and
-nothing else.
+nothing else. Collection keeps it bounded: an object no worktree refers to
+is removed, oldest first, once the store passes its cap.
 
 Most keys cost nothing to find. Git's index already holds the ID of every
 clean tracked file, so the store reads the index. A file whose index ID it
@@ -42,6 +43,9 @@ and hands the bytes to =write_object=; later it maps the file with
   never written, and no lock is taken. The worktree index under its git
   directory is read, and written when the caller asks.
 - The bytes of an object, to write.
+- For collection: the git directory of every worktree, read from the common
+  directory; the git index and worktree index of each, read, never written;
+  the objects directory, listed; a size cap and a grace period.
 
 * Outputs
 
@@ -123,8 +127,30 @@ and hands the bytes to =write_object=; later it maps the file with
 - *Reads.* An object is read by mapping its file with =mapped_file=. A missing
   file is a miss.
 - *Leftovers.* A crash between write and rename leaves a file whose name
-  starts with =tmp_=. Nothing reads it. The collector of unused objects is the
-  place to remove old ones.
+  starts with =tmp_=. Nothing reads it, and collection removes it once it is
+  older than the grace period.
+- *Collection.* An object is live when a worktree of the repository refers
+  to its ID, as git decides reachability; access times are never read, so
+  loading an object writes nothing. =io::worktree_git_dirs= lists the git
+  directory of each worktree: the common directory, which is the main
+  worktree's, and each directory under =worktrees/= that holds a git index
+  or a worktree index. The checkout a linked worktree names is not looked
+  at, so a worktree whose checkout was deleted keeps its objects until git
+  prunes it. =io::live_ids= gathers every ID those indexes name, at every
+  stage. =io::list_objects= stats each object and temporary file.
+  =ops::plan_collection= keeps the live objects and any file modified within
+  the grace period, an hour by default, so a run in progress never loses an
+  object it just wrote; it takes the other objects oldest first by
+  modification time while the store is over its cap, and every old
+  temporary file. =io::collect= runs the four and unlinks each victim whose
+  size and modification time are still the ones listed; a dry run unlinks
+  nothing.
+- *Collection is safe to run at any time.* An index that exists and cannot
+  be read, split, damaged or of another version, stops the collection before
+  anything is removed, since the IDs it holds cannot be kept. A process that
+  has an object mapped keeps its mapping after the unlink. A run that looks
+  up a removed object finds it missing, parses the source again and writes
+  the object back, so collection costs speed and never correctness.
 
 SHA-1 is implemented here, in about a hundred lines, rather than taken from
 OpenSSL. The store hashes only files whose ID git's index does not already
@@ -154,6 +180,21 @@ it parsing and writing. Load average was 7 to 10 on 8 cores. A
 =compass-bench ids --verify all= run on the same repository afterwards
 matched all 60,213 IDs, the 12 from the worktree index among them.
 
+On the same kind of repository, an archive of ORE Studio =origin/main= at
+=7aa4435e21= (60,498 files, 10,917 org) with a linked worktree whose index
+had held 1,000 edited org files and was reset, =compass-bench gc= at
+=433b57a= found 2 worktrees, 59,431 live IDs and 11,915 objects (69.4 MB):
+10,915 live (66.2 MB) and 1,000 unreferenced (3.3 MB). With the default
+grace of an hour all 1,000 were within it and nothing was chosen; with
+=--grace 0= and a cap half way between, 517 objects (1.6 MB) were removed,
+oldest first, and a second run removed none. A collection took about
+150 ms: 113 to 123 ms to read both git indexes, which is mostly their
+checksums, 30 ms to stat the store, 1.5 ms to plan and 3 ms to unlink.
+Warm runs afterwards loaded all 10,917 objects of the main worktree and
+wrote none; restoring the edits in the linked worktree parsed and wrote the
+517 removed objects and loaded the other 10,400. The machine was shared, so
+the numbers are indicative.
+
 * Entry points
 
 | Path                                             | Role                                                                              |
@@ -170,6 +211,9 @@ matched all 60,213 IDs, the 12 from the worktree index among them.
 | =include/compass.store/io/id_resolver.hpp=       | =id_resolver=, =resolved_id=, =id_source=.                                        |
 | =include/compass.store/types/worktree_index.hpp= | =worktree_index=.                                                                 |
 | =include/compass.store/ops/worktree_index.hpp=   | =encode_worktree_index=, =decode_worktree_index=.                                 |
+| =include/compass.store/types/collection.hpp=     | =stored_objects=, =collection_plan=, =collection_options=, =collection_result=.   |
+| =include/compass.store/ops/collection.hpp=       | =plan_collection=.                                                                |
+| =include/compass.store/io/collection.hpp=        | =worktree_git_dirs=, =live_ids=, =list_objects=, =collect=.                       |
 | =tests/ops_blob_hash_tests.cpp=                  | IDs checked against =git hash-object=.                                            |
 | =tests/io_location_tests.cpp=                    | A main checkout, a linked worktree, bad input.                                    |
 | =tests/io_object_file_tests.cpp=                 | Replacement, failure and concurrent writers.                                      |
@@ -177,6 +221,7 @@ matched all 60,213 IDs, the 12 from the worktree index among them.
 | =tests/ops_git_settings_tests.cpp=               | Configuration, attribute rules and patterns.                                      |
 | =tests/io_id_resolver_tests.cpp=                 | Real repositories; IDs checked against =git hash-object=.                         |
 | =tests/io_worktree_index_tests.cpp=              | Reuse with no read, changes, racy entries, damage, pruning, linked worktrees.     |
+| =tests/io_collection_tests.cpp=                  | Linked and deleted worktrees, worktree indexes, cap, grace, order, dry runs.      |
 
 | Target                | Kind                                      |
 |-----------------------+-------------------------------------------|
@@ -186,8 +231,8 @@ matched all 60,213 IDs, the 12 from the worktree index among them.
 * Dependencies
 
 - The C++23 standard library. No other compass-ng component.
-- POSIX (=open=, =fstat=, =lstat=, =read=), and Linux's
-  =CLOCK_REALTIME_COARSE=.
+- POSIX (=open=, =fstat=, =lstat=, =read=, =unlink=, =clock_gettime=), and
+  Linux's =CLOCK_REALTIME_COARSE=.
 - Catch2 and the =git= command, for the tests only. The store itself starts
   no git process.
 

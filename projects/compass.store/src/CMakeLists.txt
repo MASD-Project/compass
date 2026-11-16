@@ -19,11 +19,13 @@ set(name "compass.store")
 set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
+    io/collection.cpp
     io/git_files.cpp
     io/id_resolver.cpp
     io/location.cpp
     io/object_file.cpp
     ops/blob_hash.cpp
+    ops/collection.cpp
     ops/git_index.cpp
     ops/git_settings.cpp
     ops/worktree_index.cpp)
