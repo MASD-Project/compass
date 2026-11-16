@@ -24,14 +24,15 @@
 #include "compass.cpp/codecs/exported_types.hpp"
 #include "compass.cpp/codecs/portable_stop.hpp"
 #include "compass.cpp/codecs/test_case_reachability.hpp"
+#include "compass.cpp/codecs/unique_type_names.hpp"
 #include "compass.cpp/codecs/unity_collisions.hpp"
 
 namespace compass::cpp::codecs {
 
 std::span<const compass::codec::types::descriptor> catalogue() noexcept {
-    static const std::array<compass::codec::types::descriptor, 5> all{
+    static const std::array<compass::codec::types::descriptor, 6> all{
         enum_attributes, exported_types, portable_stop,
-        test_case_reachability, unity_collisions};
+        test_case_reachability, unique_type_names, unity_collisions};
     return all;
 }
 

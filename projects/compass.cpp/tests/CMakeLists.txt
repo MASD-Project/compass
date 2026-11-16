@@ -24,6 +24,7 @@ add_executable(${tests_target_name}
     codecs_exported_types_tests.cpp
     codecs_portable_stop_tests.cpp
     codecs_test_case_reachability_tests.cpp
+    codecs_unique_type_names_tests.cpp
     codecs_unity_collisions_tests.cpp)
 
 target_link_libraries(${tests_target_name}
