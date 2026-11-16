@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/add-inline-exceptions
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ Parse exception comments with reason, expiry and approver, and report expired or
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,15 @@ Parse exception comments with reason, expiry and approver, and report expired or
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Survey how ORE Studio excuses violations today: baselines, allowlists,
+  registry exceptions and comment markers each gate reads. The exception
+  format should be able to replace them.
+- One comment form for any file type, naming the rule, a reason, an expiry
+  date and an approver. It covers the next line, or the same line.
+- The codec runtime suppresses a finding that a valid exception covers. A
+  missing reason, expiry or approver, an expired date, a malformed exception,
+  or one that covers no finding is itself a diagnostic.
+- Ratchet mode and =--commit= see exceptions as they are in each tree.
 
 * Measurements
 
