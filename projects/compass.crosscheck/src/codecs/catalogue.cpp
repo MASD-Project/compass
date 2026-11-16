@@ -23,19 +23,23 @@
 #include "compass.crosscheck/codecs/entity_binary_types.hpp"
 #include "compass.crosscheck/codecs/entity_writes.hpp"
 #include "compass.crosscheck/codecs/generated_column_refs.hpp"
+#include "compass.crosscheck/codecs/model_drift.hpp"
 #include "compass.crosscheck/codecs/model_sql_types.hpp"
 #include "compass.crosscheck/codecs/money_decimal_columns.hpp"
 #include "compass.crosscheck/codecs/open_reads.hpp"
 #include "compass.crosscheck/codecs/paste_blocks.hpp"
+#include "compass.crosscheck/codecs/registry_gates.hpp"
 #include "compass.crosscheck/codecs/subject_conformance.hpp"
+#include "compass.crosscheck/codecs/template_sections.hpp"
 
 namespace compass::crosscheck::codecs {
 
 std::span<const compass::codec::types::descriptor> catalogue() noexcept {
-    static const std::array<compass::codec::types::descriptor, 8> all{
+    static const std::array<compass::codec::types::descriptor, 13> all{
         entity_binary_types, entity_writes, generated_column_refs,
-        model_sql_types, money_decimal_columns, open_reads, paste_blocks,
-        subject_conformance};
+        http_areas, model_drift, model_sql_types, money_decimal_columns,
+        open_reads, paste_blocks, registry_exceptions, route_units,
+        subject_conformance, template_sections};
     return all;
 }
 
