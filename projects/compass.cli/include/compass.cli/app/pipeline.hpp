@@ -65,7 +65,18 @@ namespace compass::cli::app {
  * dependency record, so the next command starts warm, and writes no
  * output.
  *
- * @throws as generate does.
+ * When @p o names a commit, these are the diagnostics at that commit: its
+ * files are read from git's object database, with no checkout, and each
+ * output is compared with the commit's file at its path, as a check of a
+ * fresh checkout of the commit would. An org document whose blob the
+ * store has parsed is not parsed again, and a file that is not a document
+ * is read only when a codec that runs reads it. Only the parsed objects
+ * and the result cache, which every worktree shares, are stored; the
+ * worktree index and dependency record of the checkout are left alone.
+ *
+ * @throws as generate does, and std::runtime_error when the commit or a
+ * tree of it cannot be read, or the meta directory or the output root is
+ * not under the checkout.
  */
 [[nodiscard]] types::check_result check(const types::options& o);
 

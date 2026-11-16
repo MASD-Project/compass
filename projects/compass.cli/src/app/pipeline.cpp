@@ -26,6 +26,7 @@
 #include <fstream>
 #include <iterator>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -33,6 +34,7 @@
 #include "compass.cli/app/steps.hpp"
 #include "compass.cli/app/codecs.hpp"
 #include "compass.codec/io/format_cache.hpp"
+#include "compass.codec/ops/outputs.hpp"
 #include "compass.codec/ops/registry.hpp"
 #include "compass.store/io/location.hpp"
 
@@ -50,9 +52,11 @@ double since(std::chrono::steady_clock::time_point start) {
 /**
  * @brief Everything a run of the pipeline read and computed, before
  * anything is written. The files, the checkout's files and the corpus
- * point into listing, so the pipeline is never moved once evaluated.
+ * point into listing and, for a commit, into commit, so the pipeline is
+ * never moved once evaluated.
  */
 struct pipeline {
+    std::optional<commit_source> commit;
     listing listed;
     corpus_files files;
     ct::checkout_files checkout;
@@ -73,21 +77,50 @@ struct pipeline {
 };
 
 /**
- * @brief Lists, loads and runs the codecs over the checkout of @p o into
- * @p p. Reads the checkout, the store, the dependency record and the
- * result cache, and writes nothing.
+ * @brief @p path, a directory under @p checkout, relative to the root of
+ * a commit of it.
+ * @throws std::runtime_error when @p path is outside the checkout, so
+ * the commit has no such directory.
+ */
+std::filesystem::path in_commit(const std::filesystem::path& path,
+    const std::filesystem::path& checkout) {
+    auto relative = path.lexically_relative(checkout);
+    if (relative.empty() || *relative.begin() == "..")
+        throw std::runtime_error(path.string() + " is outside the checkout, "
+            "so a commit cannot hold it");
+    return relative == "." ? std::filesystem::path{} : relative;
+}
+
+/**
+ * @brief Lists, loads and runs the codecs over the checkout of @p o, or
+ * the commit it names, into @p p. Reads the checkout or git's objects,
+ * the store, the dependency record and the result cache, and writes
+ * nothing.
  */
 void evaluate(pipeline& p, const types::options& o) {
     const auto start = std::chrono::steady_clock::now();
     auto& s = p.summary;
-    org::types::type_registry type_registry;
-    p.timed("types", [&] { type_registry = build_type_registry(o.meta); });
+    const auto common = store::io::git_common_dir(o.checkout);
+    if (o.commit)
+        p.timed("tree", [&] { p.commit.emplace(common, *o.commit); });
+    const commit_source* commit = p.commit ? &*p.commit : nullptr;
 
-    p.timed("list", [&] { list(p.listed, o.checkout); });
+    org::types::type_registry type_registry;
+    p.timed("types", [&] {
+        type_registry = commit
+            ? build_type_registry(*commit, in_commit(o.meta, o.checkout))
+            : build_type_registry(o.meta);
+    });
+
+    p.timed("list", [&] {
+        if (commit)
+            list(p.listed, *commit);
+        else
+            list(p.listed, o.checkout);
+    });
     const auto& documents = p.listed.documents;
-    p.files = open_files(o.checkout,
-        store::io::objects_dir(store::io::git_common_dir(o.checkout)),
-        documents);
+    p.files = open_files(o.checkout, store::io::objects_dir(common),
+        documents, commit);
     s.files = documents.size();
     p.timed("resolve", [&] { resolve(p.files, o.threads); });
     p.timed("load", [&] { load(p.files, o.threads); });
@@ -138,13 +171,18 @@ void format(pipeline& p, const types::options& o) {
 
 /**
  * @brief Writes what @p p computed that later runs reuse: the objects it
- * parsed, the worktree index, the result cache and the dependency record.
+ * parsed and the result cache, which every worktree shares, and for a
+ * checkout its worktree index and dependency record. A run over a commit
+ * leaves the records of the checkout as they are, since they describe its
+ * files.
  */
 void persist(pipeline& p, unsigned threads) {
     p.timed("persist", [&] {
         store_objects(p.files);
-        write_worktree_index(p.files);
         store_results(p.files.checkout, p.run, threads);
+        if (p.commit)
+            return;
+        write_worktree_index(p.files);
         write_dependency_record(p.files.checkout, p.run);
     });
 }
@@ -172,6 +210,24 @@ std::optional<std::string> read_bytes(const std::filesystem::path& path) {
     if (!in)
         return std::nullopt;
     return std::string(std::istreambuf_iterator<char>(in), {});
+}
+
+/**
+ * @brief The drift finding of @p codec for the file at @p path, whose
+ * bytes are @p source, located at byte @p at of them.
+ */
+types::finding drift_finding(std::string path, std::string_view source,
+    std::uint32_t at, const std::string& codec, std::string message) {
+    const auto [line, column] = position_of(source, at);
+    return {
+        .path = std::move(path),
+        .line = line,
+        .column = column,
+        .rule = codec + "/drift",
+        .level = codec::types::severity::error,
+        .message = std::move(message),
+        .fix = "run compass generate, or change the model or template "
+               "that generates it"};
 }
 
 /**
@@ -207,18 +263,45 @@ std::vector<types::finding> drift_of(const codec::io::output_plan& plan,
                 ? "the file was edited after compass wrote it"
                 : "the file differs from what " + codec + " generates";
         }
-        const auto [line, column] = position_of(disk.value_or(""), at);
         const auto relative = file.lexically_relative(checkout);
-        out.push_back({
-            .path = relative.empty() || *relative.begin() == ".."
-                ? file.string() : relative.string(),
-            .line = line,
-            .column = column,
-            .rule = codec + "/drift",
-            .level = codec::types::severity::error,
-            .message = std::move(message),
-            .fix = "run compass generate, or change the model or template "
-                   "that generates it"});
+        out.push_back(drift_finding(relative.empty() ||
+                *relative.begin() == ".." ? file.string() : relative.string(),
+            disk.value_or(""), at, codec, std::move(message)));
+    }
+    return out;
+}
+
+/**
+ * @brief One finding for each output of @p outputs that the commit @p c
+ * does not hold as it is generated, under @p root, relative to the root
+ * of the commit: what drift_of finds in a fresh checkout of the commit,
+ * which has no written-outputs record, so nothing is removed or restored.
+ * A blob is read only when its ID differs from the output's.
+ */
+std::vector<types::finding> commit_drift_of(const commit_source& c,
+    const codec::types::output_set& outputs,
+    const std::filesystem::path& root) {
+    std::vector<types::finding> out;
+    for (std::uint32_t i = 0; i < outputs.size(); ++i) {
+        const codec::types::file_id id{i};
+        const auto path = (root / outputs.files.paths[id]).generic_string();
+        const auto row = c.files.find(path);
+        if (row && c.files.ids[*row] == outputs.hashes[id])
+            continue;
+        const std::string codec(outputs.codecs[id]);
+        std::optional<store::types::git_object> blob;
+        if (row && c.files.modes[*row] != store::types::gitlink_mode)
+            blob = c.objects.read(c.files.ids[*row]);
+        if (!blob) {
+            out.push_back(drift_finding(path, "", 0, codec,
+                codec + " generates this file and it is missing"));
+            continue;
+        }
+        const auto wanted = outputs.files.contents[id];
+        const auto at = static_cast<std::uint32_t>(std::ranges::mismatch(
+            blob->bytes, wanted).in1 - blob->bytes.begin());
+        out.push_back(drift_finding(path, blob->bytes, at, codec,
+            "the file differs from what " + codec + " generates"));
     }
     return out;
 }
@@ -271,7 +354,17 @@ types::check_result check(const types::options& o) {
     evaluate(p, o);
     format(p, o);
     persist(p, o.threads);
-    if (!p.summary.failed()) {
+    if (!p.summary.failed() && p.commit) {
+        p.timed("plan", [&] {
+            const auto outputs = codec::ops::outputs_of(p.codecs, p.run);
+            const auto problems = codec::ops::check_outputs(outputs);
+            for (const auto& problem : problems)
+                p.summary.errors.push_back("output: " + problem);
+            if (problems.empty())
+                r.findings = commit_drift_of(*p.commit, outputs,
+                    in_commit(o.output_root, o.checkout));
+        });
+    } else if (!p.summary.failed()) {
         p.timed("plan", [&] {
             planned_outputs planned;
             plan_outputs(planned, o.checkout, o.output_root, p.codecs, p.run);

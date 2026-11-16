@@ -20,6 +20,8 @@
 #include "compass.cli/app/steps.hpp"
 
 #include <algorithm>
+#include <span>
+#include <stdexcept>
 #include <system_error>
 #include <tuple>
 #include <utility>
@@ -34,6 +36,8 @@
 #include "compass.store/io/collection.hpp"
 #include "compass.store/io/location.hpp"
 #include "compass.store/io/object_file.hpp"
+#include "compass.store/ops/blob_hash.hpp"
+#include "compass.store/ops/git_index.hpp"
 
 namespace compass::cli::app {
 
@@ -87,14 +91,30 @@ std::optional<ot::tables_view> map_object(std::optional<mapped_file>& slot,
     return *view;
 }
 
+/**
+ * @brief The bytes of row @p row: its file mapped from the checkout, or its
+ * blob read from the commit.
+ */
+std::string_view text_of(corpus_files& f, std::size_t row) {
+    if (f.commit == nullptr)
+        return f.sources[row].emplace(f.checkout / f.paths[row]).text();
+    auto blob = f.commit->objects.read(f.resolved[row].id);
+    if (!blob)
+        throw std::system_error(
+            std::make_error_code(std::errc::no_such_file_or_directory),
+            "the blob " + store::ops::to_hex(f.resolved[row].id) +
+                " is missing from git's object database");
+    return f.blobs[row] = std::move(blob->bytes);
+}
+
 void load_row(corpus_files& f, std::size_t row, ot::tables& scratch) {
-    const auto& source = f.sources[row].emplace(f.checkout / f.paths[row]);
+    const auto text = f.texts[row] = text_of(f, row);
     const compass::org::io::object_key key{
         f.resolved[row].id.bytes, ingest::org::parser_version};
     auto view = map_object(f.mapped[row],
         store::io::object_path(f.objects, f.resolved[row].id), key);
     if (!view) {
-        ingest::org::parse(source.text(), scratch);
+        ingest::org::parse(text, scratch);
         auto& bytes = f.encoded[row];
         compass::org::io::encode(ot::view(scratch), key, bytes);
         const auto decoded = compass::org::io::decode(bytes, key);
@@ -107,7 +127,61 @@ void load_row(corpus_files& f, std::size_t row, ot::tables& scratch) {
     f.tables[row] = *view;
 }
 
+/**
+ * @brief The type registry @p pages declare, in the order given, with the
+ * model types after them.
+ */
+ot::type_registry registry_of(std::span<const std::string_view> pages) {
+    ingest::meta::type_registry_builder builder;
+    ot::tables tables;
+    for (const auto page : pages) {
+        ingest::org::parse(page, tables);
+        std::ignore = builder.add_contract(page, ot::view(tables));
+    }
+    for (const auto name : ingest::meta::model_types)
+        builder.add_model(name);
+    return builder.build();
 }
+
+bool is_contract_page(std::string_view name) noexcept {
+    return name.starts_with("document_type_") && name.ends_with(".org");
+}
+
+/**
+ * @brief The files of @p l as the commit @p c holds them: an ID and bytes
+ * for each file and symbolic link, none for a submodule.
+ */
+codec::types::checkout_files commit_files_of(const commit_source& c,
+    const listing& l) {
+    codec::types::checkout_files out;
+    out.paths.assign(l.files.begin(), l.files.end());
+    const auto blob_of = [&c](std::string_view path)
+        -> std::optional<store::types::object_id> {
+        const auto row = c.files.find(path);
+        if (!row || c.files.modes[*row] == store::types::gitlink_mode)
+            return std::nullopt;
+        return c.files.ids[*row];
+    };
+    out.content_of = blob_of;
+    out.read = [&c, blob_of](std::string_view path)
+        -> std::optional<std::string> {
+        const auto id = blob_of(path);
+        if (!id)
+            return std::nullopt;
+        auto blob = c.objects.read(*id);
+        if (!blob)
+            return std::nullopt;
+        return std::move(blob->bytes);
+    };
+    return out;
+}
+
+}
+
+commit_source::commit_source(const std::filesystem::path& git_common_dir,
+    const store::types::object_id& commit)
+    : objects(store::io::git_objects_dir(git_common_dir)), id(commit),
+      files(store::io::list_commit(objects, commit)) {}
 
 void list(listing& l, const std::filesystem::path& checkout) {
     l.files = io::list_files(checkout);
@@ -115,8 +189,21 @@ void list(listing& l, const std::filesystem::path& checkout) {
     std::erase(l.documents, config::repository_file_name);
 }
 
+void list(listing& l, const commit_source& c) {
+    l.files = c.files.paths;
+    for (std::size_t row = 0; row < c.files.size(); ++row) {
+        const std::string_view path = l.files[row];
+        if (path.ends_with(".org") &&
+            store::ops::is_regular_file(c.files.modes[row]) &&
+            path != config::repository_file_name)
+            l.documents.push_back(path);
+    }
+}
+
 codec::types::checkout_files checkout_files_of(const corpus_files& f,
     const listing& l) {
+    if (f.commit != nullptr)
+        return commit_files_of(*f.commit, l);
     codec::types::checkout_files out;
     out.paths.assign(l.files.begin(), l.files.end());
     out.content_of = [&f](std::string_view path)
@@ -139,37 +226,64 @@ codec::types::checkout_files checkout_files_of(const corpus_files& f,
 }
 
 ot::type_registry build_type_registry(const std::filesystem::path& meta) {
-    std::vector<std::filesystem::path> pages;
+    std::vector<std::filesystem::path> paths;
     for (const auto& entry : std::filesystem::directory_iterator(meta)) {
-        const auto name = entry.path().filename().string();
-        if (entry.is_regular_file() && name.starts_with("document_type_") &&
-            name.ends_with(".org"))
-            pages.push_back(entry.path());
+        if (entry.is_regular_file() &&
+            is_contract_page(entry.path().filename().string()))
+            paths.push_back(entry.path());
     }
-    std::ranges::sort(pages);
+    std::ranges::sort(paths);
+    std::vector<mapped_file> files;
+    std::vector<std::string_view> pages;
+    for (const auto& path : paths)
+        pages.push_back(files.emplace_back(path).text());
+    return registry_of(pages);
+}
 
-    ingest::meta::type_registry_builder builder;
-    ot::tables tables;
-    for (const auto& page : pages) {
-        const mapped_file file(page);
-        ingest::org::parse(file.text(), tables);
-        std::ignore = builder.add_contract(file.text(), ot::view(tables));
+ot::type_registry build_type_registry(const commit_source& c,
+    const std::filesystem::path& meta) {
+    auto prefix = meta.generic_string();
+    if (!prefix.empty() && !prefix.ends_with('/'))
+        prefix += '/';
+    std::vector<std::string> blobs;
+    bool directory = prefix.empty();
+    for (std::size_t row = 0; row < c.files.size(); ++row) {
+        const std::string_view path = c.files.paths[row];
+        if (!path.starts_with(prefix))
+            continue;
+        directory = true;
+        if (!store::ops::is_regular_file(c.files.modes[row]))
+            continue;
+        const auto name = path.substr(prefix.size());
+        if (name.find('/') != std::string_view::npos || !is_contract_page(name))
+            continue;
+        auto blob = c.objects.read(c.files.ids[row]);
+        if (!blob)
+            throw std::runtime_error("the blob of " + std::string(path) +
+                " is missing from git's object database");
+        blobs.push_back(std::move(blob->bytes));
     }
-    for (const auto name : ingest::meta::model_types)
-        builder.add_model(name);
-    return builder.build();
+    if (!directory)
+        throw std::runtime_error(meta.generic_string() +
+            " is not a directory of the commit " +
+            store::ops::to_hex(c.id));
+    const std::vector<std::string_view> pages(blobs.begin(), blobs.end());
+    return registry_of(pages);
 }
 
 corpus_files open_files(const std::filesystem::path& checkout,
     const std::filesystem::path& objects,
-    std::vector<std::string_view> paths) {
+    std::vector<std::string_view> paths, const commit_source* commit) {
     corpus_files f;
     f.checkout = checkout;
     f.objects = objects;
+    f.commit = commit;
     f.paths = std::move(paths);
     const auto count = f.paths.size();
     f.resolved.resize(count);
     f.sources.resize(count);
+    f.blobs.resize(count);
+    f.texts.resize(count);
     f.mapped.resize(count);
     f.encoded.resize(count);
     f.tables.resize(count);
@@ -178,6 +292,16 @@ corpus_files open_files(const std::filesystem::path& checkout,
 }
 
 void resolve(corpus_files& f, unsigned threads) {
+    if (f.commit != nullptr) {
+        const auto& files = f.commit->files;
+        for (std::size_t row = 0; row < f.paths.size(); ++row) {
+            if (const auto at = files.find(f.paths[row]))
+                f.resolved[row].id = files.ids[*at];
+            else
+                f.errors[row] = "the commit holds no such file";
+        }
+        return;
+    }
     const auto& resolver = f.resolver.emplace(f.checkout);
     for_each_row(f, threads, [&](std::size_t row, ot::tables&) {
         f.resolved[row] = resolver.resolve(f.paths[row]);
@@ -197,7 +321,7 @@ codec::types::corpus corpus_of(const corpus_files& f,
     for (std::size_t row = 0; row < f.paths.size(); ++row) {
         if (!f.errors[row].empty())
             continue;
-        const auto source = f.sources[row]->text();
+        const auto source = f.texts[row];
         corpus.paths.push_back(f.paths[row]);
         corpus.contents.push_back(f.resolved[row].id);
         corpus.sources.push_back(source);

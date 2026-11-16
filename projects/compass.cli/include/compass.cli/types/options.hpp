@@ -22,9 +22,12 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <optional>
+#include <string>
 #include "compass.cli/types/configuration.hpp"
 #include "compass.codec/types/configuration.hpp"
 #include "compass.store/types/collection.hpp"
+#include "compass.store/types/git_object.hpp"
 
 namespace compass::cli::types {
 
@@ -39,11 +42,13 @@ enum class command : std::uint8_t { generate, diff, check, gc, config };
  *
  * checkout is absolute. command_line holds --out, --meta and every
  * --set, as written, and collection the options of gc. timings asks for
- * the time of each step and what each codec ran or reused.
+ * the time of each step and what each codec ran or reused. revision is
+ * the --commit of check as written, or empty.
  */
 struct invocation {
     command which = command::generate;
     std::filesystem::path checkout;
+    std::string revision;
     unsigned threads = 1;
     bool timings = false;
     layer command_line;
@@ -56,11 +61,16 @@ struct invocation {
  *
  * checkout, meta and output_root are absolute. settings holds the value
  * of every codec setting, enabled and options, and collection the
- * options of gc, which no other command reads.
+ * options of gc, which no other command reads. commit, when set, is the
+ * commit check reads from git's object database instead of the files of
+ * the checkout; meta and output_root then name directories of that
+ * commit, and the checkout only locates the repository, its store, and
+ * the programs and style files of formatters.
  */
 struct options {
     command which = command::generate;
     std::filesystem::path checkout;
+    std::optional<store::types::object_id> commit;
     std::filesystem::path meta;
     std::filesystem::path output_root;
     unsigned threads = 1;

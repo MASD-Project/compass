@@ -24,6 +24,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include "compass.store/types/git_object.hpp"
 
 namespace compass::cli::io {
 
@@ -48,6 +49,19 @@ namespace compass::cli::io {
 [[nodiscard]] std::vector<std::string_view> org_files(
     const std::filesystem::path& checkout,
     const std::vector<std::string>& files);
+
+/**
+ * @brief The ID of the commit @p revision names in the repository of
+ * @p checkout, as `git rev-parse --verify <revision>^{commit}` resolves
+ * it, so a branch, a tag, an abbreviated ID or HEAD~2 all work. This is
+ * the one git process a check of a commit starts; its objects are read
+ * without git.
+ *
+ * @throws std::system_error when git cannot be started, and
+ * std::runtime_error when @p revision names no commit.
+ */
+[[nodiscard]] store::types::object_id resolve_commit(
+    const std::filesystem::path& checkout, std::string_view revision);
 
 }
 

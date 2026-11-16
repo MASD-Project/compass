@@ -26,7 +26,10 @@
 #include "compass.cli/config/arguments.hpp"
 #include "compass.cli/config/precedence.hpp"
 #include "compass.cli/config/repository_file.hpp"
+#include "compass.cli/io/listing.hpp"
 #include "compass.cli/io/report.hpp"
+#include "compass.store/io/git_objects.hpp"
+#include "compass.store/io/location.hpp"
 #include "compass.cli/app/codecs.hpp"
 
 namespace compass::cli::app {
@@ -69,7 +72,14 @@ int run_check(const types::options& o, bool timings, std::ostream& out,
 
 int run_command(const types::invocation& i, std::ostream& out,
     std::ostream& err) {
-    const auto file = config::read_repository_file(i.checkout);
+    std::optional<store::types::object_id> commit;
+    if (!i.revision.empty())
+        commit = io::resolve_commit(i.checkout, i.revision);
+    const auto file = commit
+        ? config::read_repository_file(store::io::git_objects(
+              store::io::git_objects_dir(
+                  store::io::git_common_dir(i.checkout))), *commit)
+        : config::read_repository_file(i.checkout);
     if (!file) {
         err << "compass: " << file.error() << "\n";
         return exit_failure;
@@ -83,6 +93,7 @@ int run_command(const types::invocation& i, std::ostream& out,
     }
     const types::options o{.which = i.which,
         .checkout = i.checkout,
+        .commit = commit,
         .meta = c.meta.value,
         .output_root = c.output.value,
         .threads = i.threads,

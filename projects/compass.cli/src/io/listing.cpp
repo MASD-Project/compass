@@ -24,6 +24,7 @@
 #include <string_view>
 #include <sys/stat.h>
 #include "compass.platform/process/run_program.hpp"
+#include "compass.store/ops/git_object.hpp"
 
 namespace compass::cli::io {
 
@@ -67,6 +68,25 @@ std::vector<std::string> list_files(const std::filesystem::path& checkout) {
     std::ranges::sort(out);
     out.erase(std::unique(out.begin(), out.end()), out.end());
     return out;
+}
+
+store::types::object_id resolve_commit(const std::filesystem::path& checkout,
+    std::string_view revision) {
+    std::string out;
+    try {
+        out = run_git(checkout, {"rev-parse", "--verify", "--quiet",
+            "--end-of-options", std::string(revision) + "^{commit}"});
+    } catch (const std::runtime_error&) {
+        throw std::runtime_error("no commit is named " +
+            std::string(revision) + " in " + checkout.string());
+    }
+    while (!out.empty() && out.back() == '\n')
+        out.pop_back();
+    const auto id = store::ops::from_hex(out);
+    if (!id)
+        throw std::runtime_error("git rev-parse printed no commit ID for " +
+            std::string(revision));
+    return *id;
 }
 
 std::vector<std::string_view> org_files(const std::filesystem::path& checkout,

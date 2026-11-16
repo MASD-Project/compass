@@ -37,8 +37,10 @@
 #include "compass.codec/types/run_result.hpp"
 #include "compass.org/types/tables.hpp"
 #include "compass.platform/filesystem/mapped_file.hpp"
+#include "compass.store/io/git_objects.hpp"
 #include "compass.store/io/id_resolver.hpp"
 #include "compass.store/types/collection.hpp"
+#include "compass.store/types/git_object.hpp"
 
 /**
  * The steps of the pipeline, in the order the commands call them: list the
@@ -51,23 +53,53 @@
 namespace compass::cli::app {
 
 /**
- * @brief The org files of a checkout, one row per path, and what resolving
- * and loading them found.
+ * @brief A commit of the repository of a checkout, read from git's object
+ * database with no checkout of it: its ID, the database and every path
+ * the commit holds. Neither copied nor moved, since views point into it.
+ */
+struct commit_source {
+    /**
+     * @brief Opens the object database of the repository whose git common
+     * directory is @p git_common_dir and lists the commit @p id.
+     * @throws std::runtime_error when the commit or one of its trees
+     * cannot be read, and as store::io::git_objects does.
+     */
+    commit_source(const std::filesystem::path& git_common_dir,
+        const store::types::object_id& id);
+
+    commit_source(const commit_source&) = delete;
+    commit_source& operator=(const commit_source&) = delete;
+
+    store::io::git_objects objects;
+    store::types::object_id id;
+    store::types::commit_files files;
+};
+
+/**
+ * @brief The org files of a checkout or of a commit, one row per path,
+ * and what resolving and loading them found.
  *
  * paths views strings the caller keeps alive. objects is the store the
- * objects are mapped from and written to. A row whose error is not empty
- * did not load and is left out of everything after. A row loaded from the
- * store has its object in mapped; a row parsed instead has it in encoded,
- * which tables points into, and which store_objects writes. sources stay
- * mapped while the files live, since the corpus points into them.
+ * objects are mapped from and written to. commit, when set, is the commit
+ * the rows are read from instead of the checkout: their IDs are the ones
+ * its trees record, their bytes its blobs, and there is no resolver. A
+ * row whose error is not empty did not load and is left out of everything
+ * after. A row loaded from the store has its object in mapped; a row
+ * parsed instead has it in encoded, which tables points into, and which
+ * store_objects writes. texts views each row's bytes: a file of the
+ * checkout mapped in sources, or a blob of the commit held in blobs. Both
+ * live as long as the files, since the corpus points into them.
  */
 struct corpus_files {
     std::filesystem::path checkout;
     std::filesystem::path objects;
+    const commit_source* commit = nullptr;
     std::vector<std::string_view> paths;
     std::optional<store::io::id_resolver> resolver;
     std::vector<store::io::resolved_id> resolved;
     std::vector<std::optional<platform::filesystem::mapped_file>> sources;
+    std::vector<std::string> blobs;
+    std::vector<std::string_view> texts;
     std::vector<std::optional<platform::filesystem::mapped_file>> mapped;
     std::vector<std::vector<std::byte>> encoded;
     std::vector<org::types::tables_view> tables;
@@ -96,8 +128,16 @@ struct listing {
 void list(listing& l, const std::filesystem::path& checkout);
 
 /**
- * @brief The files of @p l as the codecs read them: content IDs from the
- * resolver of @p f, bytes from disk.
+ * @brief Lists into @p l every path of the commit @p c and, as documents,
+ * its regular files whose name ends in .org, without the repository file.
+ */
+void list(listing& l, const commit_source& c);
+
+/**
+ * @brief The files of @p l as the codecs read them: for a checkout,
+ * content IDs from the resolver of @p f and bytes from disk; for a
+ * commit, the IDs its trees record and the bytes of its blobs, read only
+ * when asked for.
  * @pre resolve has run on @p f. @p f and @p l outlive the result.
  */
 [[nodiscard]] codec::types::checkout_files checkout_files_of(
@@ -114,25 +154,41 @@ void list(listing& l, const std::filesystem::path& checkout);
     const std::filesystem::path& meta);
 
 /**
- * @brief Rows for @p paths of @p checkout, with nothing resolved or loaded,
- * whose objects live under @p objects.
+ * @brief The type registry the contract pages document_type_*.org in the
+ * directory @p meta of the commit @p c declare, read as the other
+ * overload reads them from disk. @p meta is relative to the root of the
+ * commit.
+ *
+ * @throws std::runtime_error when the commit has no directory @p meta or
+ * a page's blob cannot be read.
+ */
+[[nodiscard]] org::types::type_registry build_type_registry(
+    const commit_source& c, const std::filesystem::path& meta);
+
+/**
+ * @brief Rows for @p paths of @p checkout, or of @p commit when it is not
+ * null, with nothing resolved or loaded, whose objects live under
+ * @p objects.
  */
 [[nodiscard]] corpus_files open_files(const std::filesystem::path& checkout,
     const std::filesystem::path& objects,
-    std::vector<std::string_view> paths);
+    std::vector<std::string_view> paths,
+    const commit_source* commit = nullptr);
 
 /**
- * @brief Builds the resolver of the checkout and resolves the ID of every
- * row from git's index, the worktree index or by hashing the file, on up
- * to @p threads threads. A file that cannot be hashed gets an error.
+ * @brief Resolves the ID of every row. For a checkout, builds its resolver
+ * and takes each ID from git's index, the worktree index or by hashing
+ * the file, on up to @p threads threads; a file that cannot be hashed
+ * gets an error. For a commit, takes the ID its trees record.
  */
 void resolve(corpus_files& f, unsigned threads);
 
 /**
  * @brief Loads every resolved row on up to @p threads threads: maps its
- * source, and maps its object from the store or, when it is missing or
- * rejected, parses the source into an object held in memory. Writes
- * nothing. A file that cannot be read gets an error.
+ * source, or reads its blob from the commit, and maps its object from the
+ * store or, when it is missing or rejected, parses the source into an
+ * object held in memory. Writes nothing. A file that cannot be read gets
+ * an error.
  */
 void load(corpus_files& f, unsigned threads);
 
