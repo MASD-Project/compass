@@ -40,7 +40,7 @@ A run never re-parses a file whose content any worktree of the repository has al
 | Task | State | Start | End | Description |
 |------+-------+-------+-----+-------------|
 | [[id:BBF84991-7193-4B2C-8E2E-362FB0F30B26][Design the object format]] | DONE | 2026-11-16 | 2026-11-16 | Define the object and pack format: position-independent tables that are memory-mapped, with a format and parser version in the header. |
-| [[id:1FB5EF03-F09F-448B-9416-E2EE53E77F94][Read blob IDs from the git index]] | BACKLOG | | | Take blob IDs for clean tracked files from git's index, and hash changed or untracked files the same way. |
+| [[id:1FB5EF03-F09F-448B-9416-E2EE53E77F94][Read blob IDs from the git index]] | STARTED | 2026-11-16 | | Take blob IDs for clean tracked files from git's index, and hash changed or untracked files the same way. |
 | [[id:0FE04F02-0E86-4751-8DF2-B50DA95E64E8][Write the worktree index]] | BACKLOG | | | Keep a per-worktree index that maps each path to its stat data and content hash. |
 | [[id:E18B47E6-E7A0-4427-9933-E2F9FDC1DEF8][Collect unused objects]] | BACKLOG | | | Evict least recently used objects when the store passes its size cap. |
 

@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :share_a_content_addressed_store:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/read-blob-ids-from-the-git-index
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ Take blob IDs for clean tracked files from git's index, and hash changed or untr
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:10A99211-DCE0-4237-8D23-0599C2D00628][Share a content-addressed store]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,22 @@ Take blob IDs for clean tracked files from git's index, and hash changed or untr
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- =compass.store= reads git's index file directly (versions 2, 3 and 4,
+  including path prefix compression in version 4), not through =git=
+  subprocesses: path, stat data and blob ID per entry.
+- A tracked file takes its blob ID from the index only when git would call it
+  clean: its stat data matches the entry and the entry is not racily clean
+  (modified in the same second the index was written). Otherwise compass hashes
+  the working-tree bytes.
+- The key must name the bytes compass parses. Git's blob ID names the bytes
+  after line-ending conversion and clean filters, so when =core.autocrlf=, an
+  =eol= or =text= attribute, or a =filter= attribute applies, compass hashes the
+  working-tree bytes instead. Detecting this conservatively is enough: any
+  =.gitattributes= that sets =eol=, =text= or =filter= for a path sends that
+  path to hashing.
+- =compass-bench= gains an =ids= stage that reports, for a checkout, how many
+  IDs came from the index and how many were hashed, how long each took, and
+  that every ID equals =git hash-object= on a sample.
 
 * Measurements
 
