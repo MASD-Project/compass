@@ -19,12 +19,14 @@
  */
 #include "compass.codegen/ops/entity_steps.hpp"
 
+#include <algorithm>
 #include <optional>
 #include <set>
 #include <string>
 #include <vector>
 #include "compass.codegen/ops/values.hpp"
 #include "compass.model/ops/typescript.hpp"
+#include "entity_text.hpp"
 #include "entity_wire.hpp"
 
 namespace compass::codegen::ops {
@@ -289,6 +291,152 @@ void derive_messages(builder& b, value_id entity,
         if (!read_only || !is_write_only(values::str(t, d, "name")))
             b.append_copy(list, d);
     }
+}
+
+void derive_filter_record(builder& b, value_id entity,
+    const types::entity_site& site) {
+    const auto& t = b.tables();
+    const auto filter = wire::filter_members(t, entity);
+    const auto list = b.list(entity, "filter_members");
+    bool has_range = false;
+    using kind = wire::filter_member::kind;
+    for (const auto& m : filter.members) {
+        const auto o = b.append_object(list);
+        b.set(o, "member", m.member);
+        b.set(o, "column", m.column);
+        b.set(o, "cpp_type", m.cpp_type);
+        switch (m.k) {
+        case kind::equals:
+            b.set(o, "is_equals", true);
+            b.set(o, "read_type", m.read_type);
+            b.set(o, "is_nullable", m.is_nullable);
+            break;
+        case kind::one_of:
+            b.set(o, "is_one_of", true);
+            b.set(o, "is_key", m.is_key);
+            b.set(o, "read_type", m.read_type);
+            break;
+        case kind::range:
+            has_range = true;
+            b.set(o, "is_range", true);
+            b.set(o, m.is_from ? "is_from" : "is_to", true);
+            b.set(o, "is_timestamp", m.is_timestamp);
+            break;
+        }
+    }
+    std::string search = "{";
+    for (const auto& s : filter.searchable)
+        search += (search.size() > 1 ? ", \"" : "\"") + s + "\"";
+    b.set(entity, "search_columns", search + "}");
+    b.set(entity, "has_search", !filter.searchable.empty());
+    b.set(entity, "has_range_filter", has_range);
+    b.set(entity, "has_filter_record",
+        (!filter.members.empty() || !filter.searchable.empty()) &&
+        site.protocol_enabled);
+    b.set(entity, "filter_type", "messaging::" + values::py_str(t,
+        values::member(t, entity, "entity_plural")) + "_filter");
+    const std::string singular(values::str(t, entity, "entity_singular"));
+    b.set(entity, "payload_member",
+        singular == "result" ? std::string("result_value") : singular);
+}
+
+void derive_ts_alias(builder& b, value_id entity) {
+    const auto& t = b.tables();
+    std::vector<std::string_view> cpp_types;
+    for (const auto m : values::items(t, entity, "messages")) {
+        for (const auto field : values::items(t, m, "fields"))
+            cpp_types.push_back(values::str(t, field, "cpp_type"));
+    }
+    const auto singular = std::string(values::str(t, entity, "entity_singular"));
+    const auto pascal = compass::model::ops::pascal_case(singular);
+    const auto taken = compass::model::ops::ts_utility_imports(cpp_types);
+    if (std::ranges::none_of(taken,
+            [&](const auto& i) { return i.pascal == pascal; }))
+        return;
+    const auto alias = pascal + "Entity";
+    const auto own = "ores::" + std::string(values::str(t, entity, "component")) +
+        "::domain::" + singular;
+    for (const auto key : {"messages", "declared_messages"}) {
+        for (const auto m : values::items(t, entity, key)) {
+            for (const auto field : values::items(t, m, "fields")) {
+                if (values::str(t, field, "cpp_type").find(own) ==
+                        std::string_view::npos ||
+                    !values::truthy(t, field, "ts_type"))
+                    continue;
+                b.set(field, "ts_type", text::replace_word(
+                    values::str(t, field, "ts_type"), pascal, alias));
+            }
+        }
+    }
+    b.set(entity, "entity_ts_alias", alias);
+}
+
+void derive_write_fields(builder& b, value_id entity,
+    const types::entity_registry& registry) {
+    const auto& t = b.tables();
+    const auto fields = wire::write_record_for(t, entity);
+    const auto keys = wire::key_column_names(t, entity);
+    struct preserved {
+        std::string name;
+        std::string member;
+    };
+    std::vector<preserved> kept;
+    for (const auto c : wire::write_record_columns(t, entity)) {
+        auto name = wire::column_name(t, c);
+        if (!wire::is_service_preserved(name) ||
+            std::ranges::find(keys, name) != keys.end())
+            continue;
+        kept.push_back({name, std::string(values::str(t, c, "group_prefix")) +
+            name});
+    }
+    std::vector<std::pair<std::string, value_id>> by_member;
+    for (const auto g : values::items(t, entity, "domain_group_fields"))
+        by_member.emplace_back(values::str(t, g, "name"), g);
+    const auto member_of = [&](const std::string& name) {
+        for (const auto& [n, g] : by_member) {
+            if (n == name)
+                return g;
+        }
+        return value_id::none();
+    };
+
+    const auto list = b.list(entity, "write_fields");
+    for (const auto& f : fields)
+        wire::append_field(b, list, f, registry.custom_types);
+    const auto written = values::items(t, list);
+    for (std::size_t i = 0; i < fields.size(); ++i) {
+        const auto& f = fields[i];
+        const auto member = member_of(f.domain_member.value_or(""));
+        const std::string wire_type(values::strip(f.cpp_type));
+        const auto member_type = values::truthy(t, member, "cpp_type") ?
+            std::string(values::strip(values::str(t, member, "cpp_type"))) :
+            wire_type;
+        if (f.render_is_enum && !member_type.empty() &&
+            member_type != wire_type) {
+            b.set(written[i], "enum_from_string", member_type + "_from_string");
+            b.set(written[i], "enum_default",
+                values::truthy(t, member, "default_value") ?
+                values::py_str(t, values::member(t, member, "default_value")) :
+                member_type + "{}");
+        }
+        if (wire_type != "std::string")
+            continue;
+        if (member_type == "std::chrono::year_month_day" ||
+            member_type == "std::optional<std::chrono::year_month_day>")
+            b.set(written[i], "date_from_string", true);
+        else if (member_type == "std::chrono::system_clock::time_point" ||
+            member_type ==
+                "std::optional<std::chrono::system_clock::time_point>")
+            b.set(written[i], "timestamp_from_string", true);
+    }
+
+    const auto preserved_list = b.list(entity, "preserved_fields");
+    for (const auto& p : kept) {
+        const auto o = b.append_object(preserved_list);
+        b.set(o, "name", p.name);
+        b.set(o, "member", p.member);
+    }
+    b.set(entity, "has_preserved_fields", !kept.empty());
 }
 
 void derive_message_struct_names(builder& b, value_id entity) {

@@ -58,6 +58,13 @@ std::string parent_id_field(const model_tables& t, value_id entity) {
 
 }
 
+bool is_service_preserved(std::string_view name) {
+    constexpr std::array<std::string_view, 7> preserved{"started_at",
+        "completed_at", "last_event_at", "command_published_at",
+        "terms_accepted_digest", "terms_accepted_by", "terms_accepted_at"};
+    return std::ranges::find(preserved, name) != preserved.end();
+}
+
 std::string column_name(const model_tables& t, value_id column) {
     for (const auto key : {"column", "field", "name"}) {
         if (values::truthy(t, column, key))

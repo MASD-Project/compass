@@ -92,6 +92,11 @@ value_id entity_context(compass::model::ops::builder& b, value_id library,
         directory_of(registry, site.path).entity_singulars);
     derive_codec_includes(b, entity, registry, site);
     derive_message_struct_names(b, entity);
+    derive_filter_record(b, entity, site);
+    derive_ts_alias(b, entity);
+    derive_key_finders(b, entity);
+    derive_declared_key(b, entity);
+    derive_write_fields(b, entity, registry);
     project_enforced_foreign_keys(b, entity);
     project_primary_key_extra_columns(b, entity);
     project_import_preview_columns(b, entity);

@@ -25,6 +25,7 @@ add_library(${lib_target_name}
     ops/entity_columns.cpp
     ops/entity_context.cpp
     ops/entity_economics.cpp
+    ops/entity_finders.cpp
     ops/entity_gates.cpp
     ops/entity_groups.cpp
     ops/entity_keys.cpp

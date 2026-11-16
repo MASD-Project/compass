@@ -101,6 +101,12 @@ struct field {
 };
 
 /**
+ * @brief Whether @p name is one of SERVICE_PRESERVED_FIELDS, the
+ * server-owned fields an update carries forward from the row it edits.
+ */
+[[nodiscard]] bool is_service_preserved(std::string_view name);
+
+/**
  * @brief write_record_for: the fields a client may send.
  */
 [[nodiscard]] std::vector<field> write_record_for(const model_tables& t,

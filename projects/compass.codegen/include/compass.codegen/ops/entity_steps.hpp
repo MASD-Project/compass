@@ -523,6 +523,56 @@ void derive_codec_includes(compass::model::ops::builder& b,
     const types::entity_registry& registry, const types::entity_site& site);
 
 /**
+ * @brief The filter record (core.py 6663-6684): filter_members as
+ * filter_members derives them, search_columns as a C++ string list,
+ * has_search, has_range_filter, has_filter_record (a record exists and
+ * @p site generates its protocol), filter_type and payload_member
+ * (response_payload_member).
+ */
+void derive_filter_record(compass::model::ops::builder& b,
+    compass::model::types::value_id entity, const types::entity_site& site);
+
+/**
+ * @brief entity_ts_alias (core.py 6685-6691, apply_ts_domain_alias): when
+ * a shared utility interface the messages import owns the entity's
+ * TypeScript name, the alias <Pascal>Entity, which the ts_type of every
+ * field naming the entity's own type follows. Nothing otherwise.
+ */
+void derive_ts_alias(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief The key finders (core.py 6692-6711): key_finders, the legacy
+ * service_find_by_code finder and a finder by the declared key when it is
+ * not the storage key and the model states no such read itself, each
+ * with the fragments _prepare_finder_render states, which
+ * service_find_by_code gains too; and key_resolvers, the declared key's
+ * read when it is not the storage key.
+ */
+void derive_key_finders(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief The declared key (core.py 6712-6758): declared_key,
+ * key_is_primary, history_by_row_id, declared_key_text and
+ * declared_row_text (_key_as_text), is_declared_key_finder on each key
+ * finder, declared_key_has_batch_read, declared_key_group_prefix and
+ * declared_key_is_uuid.
+ */
+void derive_declared_key(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief The write record (core.py 6759-6768): write_fields
+ * (write_record_for) with the enum and date conversions
+ * _prepare_enum_write_fields and _prepare_date_write_fields state on them,
+ * preserved_fields (service_preserved_fields) and has_preserved_fields.
+ */
+void derive_write_fields(compass::model::ops::builder& b,
+    compass::model::types::value_id entity,
+    const types::entity_registry& registry);
+
+/**
  * @brief struct_name (core.py 6657-6662), the message's name again, on
  * every message. A declared message is the very dict the Python appends
  * to messages, so it is set on declared_messages too.

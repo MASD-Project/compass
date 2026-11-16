@@ -87,6 +87,32 @@ namespace compass::codegen::ops::text {
 }
 
 /**
+ * @brief re.sub(rf"\b{word}\b", replacement, s): each occurrence of @p word
+ * that no word character touches on either side replaced.
+ */
+[[nodiscard]] inline std::string replace_word(std::string_view s,
+    std::string_view word, std::string_view replacement) {
+    const auto is_word = [](char c) {
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+            (c >= '0' && c <= '9') || c == '_';
+    };
+    std::string out;
+    std::size_t from = 0;
+    for (auto at = s.find(word); at != std::string_view::npos;
+         at = s.find(word, at + 1)) {
+        const auto end = at + word.size();
+        if ((at > 0 && is_word(s[at - 1])) ||
+            (end < s.size() && is_word(s[end])) || at < from)
+            continue;
+        out.append(s.substr(from, at - from));
+        out.append(replacement);
+        from = end;
+    }
+    out.append(s.substr(from));
+    return out;
+}
+
+/**
  * @brief snake_to_pascal: each word of a snake_case name capitalised,
  * joined.
  */

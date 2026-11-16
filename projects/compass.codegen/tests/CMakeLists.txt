@@ -25,6 +25,7 @@ add_executable(${tests_target_name}
     ops_entity_codecs_tests.cpp
     ops_entity_columns_tests.cpp
     ops_entity_economics_tests.cpp
+    ops_entity_finders_tests.cpp
     ops_entity_gates_tests.cpp
     ops_entity_groups_tests.cpp
     ops_entity_keys_tests.cpp
