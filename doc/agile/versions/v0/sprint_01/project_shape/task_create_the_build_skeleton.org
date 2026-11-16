@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :project_shape:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/create-the-build-skeleton
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -25,7 +25,7 @@ Root CMakeLists.txt, CMakePresets.json, vcpkg.json and projects/CMakeLists.txt i
 
 | Field        | Value                                                      |
 |--------------+------------------------------------------------------------|
-| State        | BACKLOG                                                    |
+| State        | STARTED                                                    |
 | Parent story | [[id:D08C23FF-2A6E-4EFA-A7B7-F91822875AE0][Project shape]] |
 | Now          | Not started.                                               |
 | Waiting on   | Nothing.                                                   |
@@ -37,6 +37,24 @@ Root CMakeLists.txt, CMakePresets.json, vcpkg.json and projects/CMakeLists.txt i
 - A configure, build and test with the default preset succeeds from a clean checkout.
 
 * Plan
+
+- vcpkg is a git submodule at =vcpkg/=, as in ORE Studio, used in manifest mode
+  from =vcpkg.json=. The only dependency for now is =catch2=.
+- =CMakePresets.json= follows ORE Studio's shape: a hidden base, Ninja, C++23,
+  =build/output/<preset>=, compile commands exported, the vcpkg toolchain. The
+  presets are =linux-clang-debug= and =linux-clang-release=, with matching build
+  and test presets.
+- The root =CMakeLists.txt= declares the project, enables testing and adds
+  =projects/=. =projects/CMakeLists.txt= adds each C++ component by name; it
+  never globs, so =compass.legacy= and =modeling= are not CMake targets.
+- The first component is =compass.platform=, a simple component in the
+  foundation layer. It holds one facet, =filesystem=, with a read-only
+  memory-mapped file view. The baseline parse harness reads the ORE Studio
+  tree through it.
+- Targets follow the component architecture: =compass.platform.lib= and
+  =compass.platform.tests=. The test maps a file with known bytes and an empty
+  file.
+- Builds run with =-j2=, per the project memory.
 
 * Measurements
 
