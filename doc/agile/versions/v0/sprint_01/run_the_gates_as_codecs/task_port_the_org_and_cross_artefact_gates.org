@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/port-the-org-and-cross-artefact-gates
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,23 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- The gates, from the [[id:AFF665C4-739C-4BDB-93BD-9D547351AE4F][gate classification]]:
+  - Org documents (12): org-links, component-docs, heading-numbers,
+    pattern-uses, generated-column-refs, shell-recipe-provenance,
+    model-drift, skill-namespace, http-areas, prototypes, rule-identifiers,
+    registry-exceptions.
+  - Cross-artefact (16): paste-blocks, subject-conformance, entity-writes,
+    money-decimal-columns, conventions-coverage, entity-binary-types,
+    open-reads, model-sql-types, protocol-twins, route-units,
+    template-sections, marketdata-identity-columns,
+    no-committed-credentials, no-pr-triggers, and the self-tests of
+    shell-menus and portable-stop.
+- Read org documents from the parsed corpus and models through
+  =compass.model=, not by re-reading text, and reuse the text facet for the
+  rest.
+- Check each against its original on ORE Studio 545cafca45, as it is and with
+  planted violations, in order of cost; move line- and file-shaped baselines
+  to inline exceptions.
 
 * Measurements
 
