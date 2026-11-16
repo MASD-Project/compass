@@ -41,7 +41,7 @@ The compass executable runs the pipeline on any checkout: it generates codec out
 | Task | State | Start | End | Description |
 |------+-------+-------+-----+-------------|
 | [[id:7E9CC2F3-4F53-4D2C-964B-61D22C95433B][Create the compass executable]] | DONE | 2026-11-16 | 2026-11-16 | The compass.cli component and the compass executable with generate, diff, check and gc, hosting the pipeline that compass.bench hosts today. |
-| [[id:6282261B-1DCD-456E-90B0-E523299430DE][Configure codecs from the repository]] | STARTED | 2026-11-16 | | Read which codecs run, their options and the output root from a configuration file at the repository root. |
+| [[id:6282261B-1DCD-456E-90B0-E523299430DE][Configure codecs from the repository]] | DONE | 2026-11-16 | 2026-11-16 | Read which codecs run, their options and the output root from a configuration file at the repository root. |
 | [[id:0C218273-FF56-4C96-8464-7C8311E3B97F][Hand the pipeline to the CLI]] | BACKLOG | | | Move pipeline hosting from compass.bench into compass.cli, so the bench only measures. |
 | [[id:1E08D45F-984E-49C0-AF9A-6DBFF5A96BCA][Write the CLI recipes]] | BACKLOG | | | Recipes for running compass generate, diff, check and gc on a checkout, including ORE Studio. |
 
