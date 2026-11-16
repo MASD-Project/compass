@@ -20,6 +20,7 @@
 #ifndef COMPASS_CLI_TYPES_OPTIONS_HPP
 #define COMPASS_CLI_TYPES_OPTIONS_HPP
 
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <optional>
@@ -44,13 +45,15 @@ enum class command : std::uint8_t { generate, diff, check, gc, config };
  * --set, as written, and collection the options of gc. timings asks for
  * the time of each step and what each codec ran or reused. revision is
  * the --commit of check as written, or empty. ratchet, when set, is the
- * base of check --ratchet as written, empty for the default.
+ * base of check --ratchet as written, empty for the default. today is
+ * the --today of check, when given.
  */
 struct invocation {
     command which = command::generate;
     std::filesystem::path checkout;
     std::string revision;
     std::optional<std::string> ratchet;
+    std::optional<std::chrono::year_month_day> today;
     unsigned threads = 1;
     bool timings = false;
     layer command_line;
@@ -67,7 +70,9 @@ struct invocation {
  * commit check reads from git's object database instead of the files of
  * the checkout; meta and output_root then name directories of that
  * commit, and the checkout only locates the repository, its store, and
- * the programs and style files of formatters.
+ * the programs and style files of formatters. today is the date check
+ * judges the expiry of exceptions against, for a commit as for the
+ * checkout.
  */
 struct options {
     command which = command::generate;
@@ -76,6 +81,7 @@ struct options {
     std::filesystem::path meta;
     std::filesystem::path output_root;
     unsigned threads = 1;
+    std::chrono::year_month_day today;
     codec::types::configuration settings;
     store::types::collection_options collection;
 };

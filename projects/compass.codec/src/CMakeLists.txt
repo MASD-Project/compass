@@ -28,8 +28,10 @@ add_library(${lib_target_name}
     io/dependency_file.cpp
     io/format_cache.cpp
     io/output_sink.cpp
+    io/unmarked_file.cpp
     ops/action_cache.cpp
     ops/dependencies.cpp
+    ops/exceptions.cpp
     ops/format_cache.cpp
     ops/outputs.cpp
     ops/registry.cpp

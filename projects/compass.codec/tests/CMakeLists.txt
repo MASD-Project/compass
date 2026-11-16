@@ -26,8 +26,10 @@ add_executable(${tests_target_name}
     io_dependency_file_tests.cpp
     io_format_cache_tests.cpp
     io_output_sink_tests.cpp
+    io_unmarked_file_tests.cpp
     ops_action_cache_tests.cpp
     ops_dependencies_tests.cpp
+    ops_exceptions_tests.cpp
     ops_file_findings_tests.cpp
     ops_file_inputs_tests.cpp
     ops_format_cache_tests.cpp

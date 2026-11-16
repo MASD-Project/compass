@@ -35,6 +35,7 @@ thing with what the codecs produced:
 | =check=           | Prints every diagnostic as =path:line:column: rule: message (fix: ...)=, and a =codec/drift= diagnostic for each file =generate= would change. | Store and records, no output.                     |
 | =check --commit=  | The same diagnostics at a commit, read from git's objects with no checkout. | Store and result cache only.                   |
 | =check --ratchet= | Only the diagnostics the merge base of HEAD and a base lacks.            | Store and records, as =check=.                    |
+| =check --today=   | The same diagnostics, with exception expiry judged as of another date.  | As =check=.                                       |
 | =gc=              | Removes old unreferenced objects and action objects from the store.      | Removes files from the store, unless =--dry-run=. |
 | =config=          | Prints every path and codec setting in effect, and where it came from.   | Nothing.                                          |
 
@@ -113,6 +114,24 @@ the checkout and 1.8 s for the merge base, 0.8 s of each reading the
 dependency record. The same line added to a generated SQL file failed
 twice: on the line, and on the drift the edit caused.
 
+After the codecs, =check= excuses the findings a valid inline exception
+covers (step =exceptions=). It reads the exception comments of every
+document, every file a codec read (the =file= inputs of the run's record)
+and every file with a finding, and hands them with the findings and
+=options::today= to =ops::excuse= of =compass.codec=. The findings it
+excuses are dropped and counted in =check_result::excused=; the problems
+of the exceptions are added as =exception/...= findings. Exceptions are
+read after the run and never recorded, so a reused or cached result does
+not hide one that has since expired. A file whose content ID
+=compass/unmarked= lists is not read: =io::read_unmarked_file= and
+=io::write_unmarked_file= keep the IDs of the files with no marker, and
+only a check of the checkout writes them. A check of a commit reads the
+exceptions of the commit, and ratchet mode checks both sides with the
+same =today=, so an exception that expires is not new. On the ORE Studio
+copy the step took about 130 ms reading 28,421 files (269 MB) and
+10,927 documents, and about 22 ms once the record listed them; the warm
+check went from 2.63 s to 2.66 s.
+
 =app::generate=, =app::diff=, =app::check= and =app::gc= compose the steps;
 each takes the options and returns a result. =compass.bench= calls the same
 steps and adds only timing and repetition. =app::run= parses a command line, reads the configuration file,
@@ -137,6 +156,7 @@ the standard streams.
 | =--timings=                     | no                                       | =generate=, =diff=, =check=: print each step's time and what each codec ran or reused. |
 | =--commit <rev>=                | the files on disk                        | =check= only: check the commit =<rev>= names, as =git rev-parse <rev>^{commit}= resolves it, with that commit's =.compass.org=. The output root and meta directory must be under the checkout. |
 | =--ratchet [<base>]=            | the upstream, else =origin/main=         | =check= only: fail only on findings the merge base of HEAD and =<base>= lacks. The next argument is the base unless it starts with =-= or names a command; =--ratchet=<base>= always takes one. Not with =--commit=. |
+| =--today <YYYY-MM-DD>=          | today in UTC                             | =check= only: the date the expiry of inline exceptions is judged against, for the checkout, a commit and both sides of a ratchet. |
 | =--dry-run=, =--cap=, =--grace= | no, 0 bytes, 3600 s                      | =gc= only.                                      |
 | =--help=, =-h=, =--version=     |                                          | Print and exit 0, whatever else is there.       |
 
@@ -176,14 +196,17 @@ the standard streams.
   the configuration hash in the dependency and cache keys.
 - The store and the result cache under the git common directory, and the
   worktree index, dependency record and written-outputs record under the
-  checkout's own git directory.
+  checkout's own git directory, and =compass/unmarked= beside them.
+- The inline exceptions of the files =check= reads; see
+  [[id:5B528519-8BCE-4CB8-A48E-B525FD71F873][How do I excuse a finding?]].
 
 * Outputs
 
 - Standard output: =generate= prints one line of counts (written,
   unchanged, restored, removed, kept), the output root, the corpus, the
   units each codec ran rather than reused, and the wall time. =diff= prints the unified diffs. =check= prints one line per
-  diagnostic, sorted by path, line and column, then the count. Its
+  diagnostic, sorted by path, line and column, then the count and, when
+  any, how many findings exceptions excused. Its
   diagnostics include one per file =generate= would write, restore or
   remove, under the rule =drift= of the codec that emits it, at the first
   byte that differs; a file outside the checkout is named by its absolute
@@ -196,7 +219,7 @@ the standard streams.
   =.compass.org:<line>= or =command line=.
 - Standard error: the summary of =diff=; with =--timings=, one line per
   step (=tree= for a commit, =types=, =list=, =resolve=, =load=, =record=,
-  =codecs=, =format=, =persist=, =write= or =plan=) with its wall time,
+  =codecs=, =format=, =persist=, =write= or =plan=, =exceptions=) with its wall time,
   and one line per codec
   with the units it ran, took from the record and took from the cache,
   and what formatting its files did; every error of the configuration
