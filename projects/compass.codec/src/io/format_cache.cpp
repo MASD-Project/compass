@@ -1,0 +1,272 @@
+/* -*- mode: c++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+#include "compass.codec/io/format_cache.hpp"
+
+#include <atomic>
+#include <chrono>
+#include <cstdlib>
+#include <cstring>
+#include <fstream>
+#include <iterator>
+#include <span>
+#include <stdexcept>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+#include <unistd.h>
+#include "compass.codec/ops/format_cache.hpp"
+#include "compass.codec/ops/parallel_for.hpp"
+#include "compass.platform/process/run_program.hpp"
+#include "compass.store/io/action_file.hpp"
+#include "compass.store/io/location.hpp"
+#include "compass.store/ops/blob_hash.hpp"
+
+namespace compass::codec::io {
+
+namespace {
+
+using compass::store::types::blob_id;
+
+struct key_hash {
+    std::size_t operator()(const blob_id& id) const noexcept {
+        std::size_t h = 0;
+        std::memcpy(&h, id.bytes.data(), sizeof h);
+        return h;
+    }
+};
+
+std::string read_file(const std::filesystem::path& path) {
+    std::ifstream is(path, std::ios::binary);
+    if (!is)
+        throw std::runtime_error("cannot read " + path.string());
+    return {std::istreambuf_iterator<char>(is), {}};
+}
+
+void write_file(const std::filesystem::path& path, std::string_view text) {
+    std::filesystem::create_directories(path.parent_path());
+    std::ofstream os(path, std::ios::binary);
+    os << text;
+    if (!os)
+        throw std::runtime_error("cannot write " + path.string());
+}
+
+/**
+ * @brief A directory of its own under the system's temporary directory,
+ * removed with everything in it when this goes.
+ */
+class scratch_dir final {
+public:
+    scratch_dir() {
+        static std::atomic<unsigned> counter{0};
+        path_ = std::filesystem::temp_directory_path() /
+            ("compass-format." + std::to_string(::getpid()) + "." +
+                std::to_string(counter++));
+        std::filesystem::remove_all(path_);
+        std::filesystem::create_directories(path_);
+    }
+    ~scratch_dir() {
+        std::error_code ignored;
+        std::filesystem::remove_all(path_, ignored);
+    }
+    scratch_dir(const scratch_dir&) = delete;
+    scratch_dir& operator=(const scratch_dir&) = delete;
+
+    const std::filesystem::path& path() const noexcept { return path_; }
+
+private:
+    std::filesystem::path path_;
+};
+
+/**
+ * @brief The version @p program reports, read from the store when this
+ * very program file reported it before, else by running it.
+ */
+std::string program_version(const std::filesystem::path& results,
+    const std::filesystem::path& program, std::atomic<std::uint64_t>& runs) {
+    const auto resolved = std::filesystem::canonical(program);
+    const auto mtime = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::filesystem::last_write_time(resolved).time_since_epoch()).count();
+    const auto key = ops::program_key(resolved.string(),
+        std::filesystem::file_size(resolved), mtime);
+    if (auto version = store::io::read_action(results, key))
+        return std::move(*version);
+    ++runs;
+    auto r = platform::process::run_program(
+        {{program.string(), "--version"}, {}, {}});
+    if (r.exit_code != 0)
+        throw std::runtime_error(program.string() + " --version exited with " +
+            std::to_string(r.exit_code));
+    store::io::write_action(results, key, r.output);
+    return std::move(r.output);
+}
+
+blob_id formatter_key(const std::filesystem::path& results,
+    const types::formatter& f, std::atomic<std::uint64_t>& runs) {
+    const auto style = f.style.empty()
+        ? store::ops::blob_id_of({}) : store::ops::blob_id_of(read_file(f.style));
+    return ops::formatter_key(f, program_version(results, f.program, runs),
+        style);
+}
+
+/**
+ * @brief Formats the rows @p rows of @p raw with @p f, puts each formatted
+ * form in @p texts and in the store under its key in @p keys. Rows that
+ * share a path go under directories of their own, numbered by occurrence,
+ * so each keeps its file name and none overwrites another.
+ */
+void format_misses(const std::filesystem::path& results,
+    const types::formatter& f, const types::file_table& raw,
+    const std::vector<std::size_t>& rows, const std::vector<blob_id>& keys,
+    std::vector<std::string>& texts, unsigned threads,
+    std::atomic<std::uint64_t>& runs) {
+    const scratch_dir dir;
+    std::unordered_map<std::string_view, std::size_t> occurrences;
+    std::vector<std::string> files;
+    files.reserve(rows.size());
+    for (const auto row : rows) {
+        const types::file_id id{static_cast<std::uint32_t>(row)};
+        const auto path = raw.paths[id];
+        files.push_back(std::to_string(occurrences[path]++) + "/" +
+            std::string(path));
+        write_file(dir.path() / files.back(), raw.contents[id]);
+    }
+    const auto batches = (rows.size() + format_batch - 1) / format_batch;
+    ops::parallel_for(batches, threads, [&](std::size_t b) {
+        const auto first = b * format_batch;
+        const auto last = std::min(rows.size(), first + format_batch);
+        const std::span<const std::string> batch(files.data() + first,
+            last - first);
+        const auto command = ops::format_command(f, batch);
+        for (unsigned pass = 0; pass < f.passes; ++pass) {
+            ++runs;
+            const auto r = platform::process::run_program(
+                {command, dir.path(), {}});
+            if (r.exit_code != 0)
+                throw std::runtime_error(f.name + " exited with " +
+                    std::to_string(r.exit_code));
+        }
+        for (auto i = first; i < last; ++i) {
+            const auto row = rows[i];
+            texts[row] = read_file(dir.path() / files[i]);
+            store::io::write_action(results, keys[row], texts[row]);
+        }
+    });
+}
+
+}
+
+std::optional<std::filesystem::path> find_program(std::string_view name) {
+    if (name.empty())
+        return std::nullopt;
+    const auto executable = [](const std::filesystem::path& p) {
+        return std::filesystem::is_regular_file(p) &&
+            ::access(p.c_str(), X_OK) == 0;
+    };
+    if (name.find('/') != std::string_view::npos) {
+        const std::filesystem::path p(name);
+        return executable(p) ? std::optional(p) : std::nullopt;
+    }
+    const char* path = std::getenv("PATH");
+    std::string_view dirs = path == nullptr ? "" : path;
+    while (true) {
+        const auto colon = dirs.find(':');
+        const auto dir = dirs.substr(0, colon);
+        const auto candidate = std::filesystem::path(dir.empty() ? "." : dir) /
+            name;
+        if (executable(candidate))
+            return candidate;
+        if (colon == std::string_view::npos)
+            return std::nullopt;
+        dirs.remove_prefix(colon + 1);
+    }
+}
+
+formatted_files format_files(const std::filesystem::path& git_common_dir,
+    std::span<const types::formatter> formatters,
+    const types::file_table& raw, unsigned threads) {
+    const auto start = std::chrono::steady_clock::now();
+    const auto results = store::io::actions_dir(git_common_dir,
+        store::types::action_kind::result);
+    std::atomic<std::uint64_t> runs{0};
+
+    const auto n = raw.size();
+    std::vector<std::optional<std::size_t>> chosen(n);
+    std::vector<std::optional<blob_id>> formatter_keys(formatters.size());
+    for (std::size_t i = 0; i < n; ++i) {
+        chosen[i] = ops::formatter_of(formatters,
+            raw.paths[types::file_id{static_cast<std::uint32_t>(i)}]);
+        if (chosen[i] && !formatter_keys[*chosen[i]])
+            formatter_keys[*chosen[i]] = formatter_key(results,
+                formatters[*chosen[i]], runs);
+    }
+
+    std::vector<blob_id> keys(n);
+    std::vector<std::string> texts(n);
+    std::vector<std::uint8_t> found(n, 0);
+    ops::parallel_for(n, threads, [&](std::size_t i) {
+        const types::file_id id{static_cast<std::uint32_t>(i)};
+        if (!chosen[i])
+            return;
+        keys[i] = ops::formatted_key(*formatter_keys[*chosen[i]],
+            raw.paths[id], store::ops::blob_id_of(raw.contents[id]));
+        if (auto body = store::io::read_action(results, keys[i])) {
+            texts[i] = std::move(*body);
+            found[i] = 1;
+        }
+    });
+
+    formatted_files out;
+    std::vector<std::vector<std::size_t>> misses(formatters.size());
+    std::unordered_map<blob_id, std::size_t, key_hash> first_miss;
+    std::vector<std::pair<std::size_t, std::size_t>> copies;
+    for (std::size_t i = 0; i < n; ++i) {
+        if (!chosen[i]) {
+            ++out.stats.unformatted;
+        } else if (found[i] != 0) {
+            ++out.stats.hits;
+        } else {
+            ++out.stats.formatted;
+            const auto [it, added] = first_miss.try_emplace(keys[i], i);
+            if (added)
+                misses[*chosen[i]].push_back(i);
+            else
+                copies.emplace_back(i, it->second);
+        }
+    }
+    for (std::size_t f = 0; f < formatters.size(); ++f) {
+        if (!misses[f].empty())
+            format_misses(results, formatters[f], raw, misses[f], keys, texts,
+                threads, runs);
+    }
+    for (const auto& [row, source] : copies)
+        texts[row] = texts[source];
+
+    for (std::size_t i = 0; i < n; ++i) {
+        const types::file_id id{static_cast<std::uint32_t>(i)};
+        out.files.add(raw.paths[id],
+            chosen[i] ? std::string_view(texts[i]) : raw.contents[id]);
+    }
+    out.stats.runs = runs;
+    out.stats.format_ms = std::chrono::duration<double, std::milli>(
+        std::chrono::steady_clock::now() - start).count();
+    return out;
+}
+
+}

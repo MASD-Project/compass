@@ -37,7 +37,7 @@ No compass-ng dependency. Generic, reusable code.
 
 | Component          | Role                                                    |
 |--------------------+---------------------------------------------------------|
-| =compass.platform= | OS abstraction: memory-mapped files.                    |
+| =compass.platform= | OS abstraction: memory-mapped files, child processes.  |
 
 * Infrastructure layer
 | Component       | Role                                                                                                                       |

@@ -17,9 +17,12 @@ in the foundation layer of the
 
 =compass.platform= is the single home for operating-system code in compass-ng.
 Other components call it instead of including raw OS headers. Today it holds
-one facet, =filesystem=, with =mapped_file=: a read-only, memory-mapped view of
+two facets. =filesystem= has =mapped_file=: a read-only, memory-mapped view of
 a whole file. The pipeline reads org documents, C++ and SQL through it, so
-loading a file costs one =mmap= and no copy. It supports Linux and POSIX only.
+loading a file costs one =mmap= and no copy. =process= has =run_program=,
+which runs a program in a given directory, optionally with a file as standard
+input, and returns its exit code and standard output; git and the formatters
+run through it. It supports Linux and POSIX only.
 
 * Inputs
 

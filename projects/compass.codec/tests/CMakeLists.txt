@@ -24,9 +24,11 @@ add_executable(${tests_target_name}
     codecs_required_sections_tests.cpp
     codecs_tangle_tests.cpp
     io_dependency_file_tests.cpp
+    io_format_cache_tests.cpp
     io_output_sink_tests.cpp
     ops_action_cache_tests.cpp
     ops_dependencies_tests.cpp
+    ops_format_cache_tests.cpp
     ops_outputs_tests.cpp
     ops_registry_tests.cpp
     ops_run_tests.cpp
