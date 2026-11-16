@@ -85,12 +85,19 @@ public:
      */
     void remove(types::value_id parent, std::string_view key);
 
+    /**
+     * @brief A new object or list that no value holds, for a value built
+     * before it is known where, or whether, it goes.
+     */
+    types::value_id detached_object();
+    types::value_id detached_list();
+
     types::value_id append_object(types::value_id list);
     types::value_id append_list(types::value_id list);
     void append(types::value_id list, std::string_view value);
     void append(types::value_id list, bool value);
     void append_integer(types::value_id list, std::int64_t value);
-    void append_copy(types::value_id list, types::value_id value);
+    types::value_id append_copy(types::value_id list, types::value_id value);
 
     /**
      * @brief The object or list at @p key, created empty when absent.

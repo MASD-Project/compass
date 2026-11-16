@@ -21,8 +21,13 @@ set(lib_target_name ${name}.lib)
 add_library(${lib_target_name}
     io/json.cpp
     ops/builder.cpp
+    ops/common.cpp
     ops/component.cpp
+    ops/entity.cpp
+    ops/entity_checks.cpp
+    ops/field_group.cpp
     ops/load.cpp
+    ops/messages.cpp
     ops/outline.cpp
     ops/text.cpp)
 

@@ -157,6 +157,14 @@ void builder::remove(value_id parent, std::string_view key) {
     }
 }
 
+value_id builder::detached_object() {
+    return add_row(value_kind::object, text_id::none(), 0);
+}
+
+value_id builder::detached_list() {
+    return add_row(value_kind::list, text_id::none(), 0);
+}
+
 value_id builder::append_object(value_id list) {
     const auto child = add_row(value_kind::object, text_id::none(), 0);
     link(list, child);
@@ -182,9 +190,10 @@ void builder::append_integer(value_id list, std::int64_t value) {
     link(list, add_row(value_kind::integer, text_id::none(), value));
 }
 
-void builder::append_copy(value_id list, value_id value) {
+value_id builder::append_copy(value_id list, value_id value) {
     const auto child = copy(value, text_id::none());
     link(list, child);
+    return child;
 }
 
 value_id builder::ensure_object(value_id parent, std::string_view key) {

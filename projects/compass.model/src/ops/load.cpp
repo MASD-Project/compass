@@ -89,6 +89,12 @@ types::model_id load_model(builder& b, const document& d, model_type t,
             else
                 load_component(c, root);
             break;
+        case model_type::entity:
+            load_entity(c, root);
+            break;
+        case model_type::field_group:
+            load_field_group(c, root);
+            break;
         default:
             throw model_error("model type not loaded yet: " +
                 std::string(types::name_of(t)));

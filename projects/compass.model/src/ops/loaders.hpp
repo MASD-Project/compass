@@ -20,8 +20,13 @@
 #ifndef COMPASS_MODEL_OPS_LOADERS_HPP
 #define COMPASS_MODEL_OPS_LOADERS_HPP
 
+#include <cstdint>
+#include <initializer_list>
+#include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 #include "compass.model/ops/builder.hpp"
 #include "compass.model/ops/load.hpp"
 #include "compass.model/ops/outline.hpp"
@@ -58,8 +63,155 @@ void collect_implementations(load_context& c, types::value_id parent,
  */
 [[nodiscard]] std::string_view file_name(const document& d) noexcept;
 
+/**
+ * @brief int() of Python over a property value: an optional sign and
+ * decimal digits, single underscores allowed between them.
+ */
+[[nodiscard]] std::optional<std::int64_t> parse_int(std::string_view s)
+    noexcept;
+
+/**
+ * @brief What _parse_typed makes of @p raw: a boolean for true or false in
+ * any case, an integer when int() reads it, or else the string.
+ */
+[[nodiscard]] types::value_kind typed_kind(std::string_view raw) noexcept;
+void set_typed(builder& b, types::value_id parent, std::string_view key,
+    std::string_view raw);
+
+[[nodiscard]] std::vector<std::string_view> lines_of(std::string_view text);
+
+/**
+ * @brief The #include targets of the block named includes of @p n, as
+ * _includes_from_named_block reads them, appended to @p list.
+ */
+void includes_from_named_block(load_context& c, node_id n,
+    types::value_id list);
+
+/**
+ * @brief _ensure_profile_binding: refuses :profile: outside * Flags.
+ */
+void ensure_profile_binding(const outline& o);
+
+/**
+ * @brief _reject_junction_only_flags: refuses :client_read_only: in the
+ * root * Flags, unless @p root_allowed, and in * C++ ** Flags.
+ */
+void reject_junction_only_flags(const outline& o, std::string_view kind,
+    bool root_allowed = false);
+
+/**
+ * @brief _member_name: the name or column of a member, or empty.
+ */
+[[nodiscard]] std::string_view member_name(const builder& b,
+    types::value_id member);
+
+/**
+ * @brief What economic_declaration returns: whether the members declare
+ * :economic:, and the names of those that are.
+ */
+struct economic {
+    bool declared = false;
+    std::vector<std::string> members;
+};
+[[nodiscard]] economic economic_declaration(const builder& b,
+    std::string_view owner, const std::vector<types::value_id>& members,
+    const std::vector<types::value_id>& carried);
+
+/**
+ * @brief Writes has_economic_declaration, economic_fields and
+ * has_economic_fields and, when @p canonical, canonical_members and
+ * has_canonical_members as the same list.
+ */
+void write_economic(builder& b, types::value_id parent, const economic& e,
+    bool canonical);
+
+/**
+ * @brief str() of Python over a scalar value.
+ */
+[[nodiscard]] std::string text_value(const builder& b, types::value_id v);
+
+/**
+ * @brief The Python truth of a value: true, a non-zero integer, a non-empty
+ * string, list or object.
+ */
+[[nodiscard]] bool truthy(const builder& b, types::value_id v);
+
+/**
+ * @brief The text of a string value, or empty for any other value or none.
+ */
+[[nodiscard]] std::string_view string_of(const builder& b, types::value_id v);
+
+/**
+ * @brief One row of an org table as _normalise_table makes it: a dict from
+ * header to cell, a header written twice keeping its first place and its
+ * last cell.
+ */
+struct org_row {
+    std::vector<key_value> cells;
+
+    [[nodiscard]] lookup get(std::string_view key) const;
+    [[nodiscard]] std::string_view value_or(std::string_view key,
+        std::string_view fallback = {}) const;
+};
+
+/**
+ * @brief The rows below the header of table @p table.
+ */
+[[nodiscard]] std::vector<org_row> rows_of(const outline& o,
+    std::uint32_t table);
+
+/**
+ * @brief _parse_org_table_rows: the rows of the first table of @p n or, when
+ * it has none, of its first descendant that has one.
+ */
+[[nodiscard]] std::vector<org_row> first_table_rows(const outline& o,
+    node_id n);
+
+/**
+ * @brief The rows of the first table of @p n itself, or none.
+ */
+[[nodiscard]] std::vector<org_row> own_table_rows(const outline& o,
+    node_id n);
+
+/**
+ * @brief Every property of @p n with its key lowered, typed by
+ * _parse_typed unless its key is in @p raw.
+ */
+void set_properties(builder& b, types::value_id object, const outline& o,
+    node_id n, std::initializer_list<std::string_view> raw = {});
+
+/**
+ * @brief The org_id of a node: its last property named ID in any case.
+ */
+[[nodiscard]] lookup org_id(const outline& o, node_id n);
+
+/**
+ * @brief The TypeScript type _ts_type projects @p cpp_type onto, or empty.
+ */
+[[nodiscard]] std::string ts_type(load_context& c, std::string_view cpp_type);
+
+/**
+ * @brief _to_pascal_case.
+ */
+[[nodiscard]] std::string pascal_case(std::string_view name);
+
+/**
+ * @brief The (type, header) rows of projects/modeling/cpp_custom_types.org,
+ * sorted by type.
+ */
+[[nodiscard]] std::vector<std::pair<std::string, std::string>>
+custom_type_headers(load_context& c);
+
+/**
+ * @brief parse_declared_messages: the * Messages section as the list both
+ * twins render, appended to @p list.
+ */
+void declared_messages(load_context& c, types::value_id list);
+
 void load_component(load_context& c, types::value_id root);
 void load_component_overview(load_context& c, types::value_id root);
+void load_field_group(load_context& c, types::value_id root);
+void load_entity(load_context& c, types::value_id root);
 
 }
 
