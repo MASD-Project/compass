@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :port_codegen:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/cache-formatted-output
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ Format only changed raw outputs, through one long-lived formatter or the clang-f
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:4F499B47-4AB8-4049-A72F-495351A6E2C7][Port ORE Studio codegen]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,18 @@ Format only changed raw outputs, through one long-lived formatter or the clang-f
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Find out first how ores.codegen formats each output after rendering: which
+  formatter, version and style file for each output kind (C++, TypeScript,
+  SQL, CMake, org), and how it calls them. Measure what formatting costs on
+  the full regeneration.
+- Format a raw output only when its formatted form is not in the store yet.
+  The key is the raw output's hash, the formatter's identity and version,
+  and the style file's hash. The raw outputs are already exact, so the
+  formatted form is a pure function of that key.
+- Run formatters once per batch, or through the clang-format library, not
+  once per file.
+- Check the formatted outputs against what ores.codegen writes for the same
+  archive, and measure a cold run and a warm run.
 
 * Measurements
 
