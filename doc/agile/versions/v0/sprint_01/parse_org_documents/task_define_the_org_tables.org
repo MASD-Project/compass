@@ -26,11 +26,11 @@ Name the data-oriented tables an org document becomes, with handles, interned st
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:F1C69FBB-C16B-4F10-ACDB-F059C6355730][Parse org documents]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -67,7 +67,17 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Org documents, bytes | 10,905, 69.6 MB | =build/scripts/org_census.py <archive>= | ORE Studio 800c3a6 |
+| Headings, sections, paragraphs | 108,544, 109,955, 189,202 | same run | ORE Studio 800c3a6 |
+| Keywords, node properties | 113,873, 52,589 | same run | ORE Studio 800c3a6 |
+| Tables, rows, cells | 28,266, 170,651, 442,125 | same run | ORE Studio 800c3a6 |
+| Blocks, items | 21,144, 89,322 | same run | ORE Studio 800c3a6 |
+| Links (=id:= links) | 63,411 (53,231) | same run | ORE Studio 800c3a6 |
+| Emphasis (verbatim) | 261,725 (225,939) | same run | ORE Studio 800c3a6 |
+
+The census is line-based. On a 545-file sample it matches org-element exactly
+for headings, sections, tables, cells and blocks, is within 1.2% for links,
+items and paragraphs, and undercounts bold by 7%.
 
 * Notes
 
@@ -95,3 +105,22 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- =compass.org= holds the tables as thirteen struct-of-arrays tables: an
+  =elements= tree in pre-order with parents and subtree ends, =objects=
+  nested the same way, detail tables for headings, tags, keywords,
+  properties, affiliated keywords, blocks, lists, items and links, per-document
+  interned =names=, and =documents= laying a corpus end to end. Plain text has
+  no rows; it is the source between objects.
+- Positions follow org-element's =:begin=, =:end=, =:contents-*= and
+  =:post-blank=, so the HTML exporter can follow ox-html's logic. Rare
+  constructs (timestamps, macros, entities, footnote labels) are a kind and a
+  range read from the source.
+- Every table has its own handle type, and a column can be indexed only by its
+  own handle; the tests pin this, the row sizes and a hand-built document.
+- The ORE Studio corpus should take about 59 MB of tables on top of 70 MB of
+  mapped source. This is census counts times row sizes, not a measurement.
+- Open for the parser task: names are interned per document, so cross-document
+  comparison needs a load-time index; element rows carry no index into their
+  detail table, so random access is a binary search; the columns are
+  =std::vector= until the pack work maps them.
