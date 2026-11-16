@@ -25,6 +25,7 @@ add_library(${lib_target_name}
     ops/include_graph.cpp
     ops/include_resolve.cpp
     ops/include_scan.cpp
+    ops/includes_stage.cpp
     ops/listing.cpp
     ops/partition.cpp
     ops/read_stage.cpp

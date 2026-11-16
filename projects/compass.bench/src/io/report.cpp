@@ -24,6 +24,11 @@
 #include <cstdint>
 #include <format>
 #include <numeric>
+#include <span>
+#include <string>
+#include <string_view>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace compass::bench::io {
@@ -31,6 +36,8 @@ namespace compass::bench::io {
 namespace {
 
 constexpr std::size_t top_extensions = 15;
+constexpr std::size_t top_unresolved = 10;
+constexpr std::size_t top_fan_in = 15;
 
 double median(std::vector<double> v) {
     std::ranges::sort(v);
@@ -76,6 +83,54 @@ void write_extensions(std::ostream& os, const types::file_table& table) {
     }
 }
 
+void write_step(std::ostream& os, std::string_view name,
+    const std::vector<double>& wall_ms) {
+    const auto [min, max] = std::ranges::minmax(wall_ms);
+    os << std::format("{:<10}{:>12.2f}{:>10.2f}{:>10.2f}\n", name,
+        median(wall_ms), min, max);
+}
+
+void write_unresolved(std::ostream& os, const types::includes_result& stage) {
+    const auto& includes = stage.includes;
+    std::unordered_map<std::string, std::uint64_t> counts;
+    for (std::size_t i = 0; i < includes.size(); ++i) {
+        if (includes.targets[i] != types::unresolved_target)
+            continue;
+        const auto quoted = includes.kinds[i] == types::include_kind::quoted;
+        const auto name = includes.name(i);
+        ++counts[quoted ? std::format("\"{}\"", name)
+                        : std::format("<{}>", name)];
+    }
+    std::vector<std::pair<std::string, std::uint64_t>> rows(counts.begin(),
+        counts.end());
+    std::ranges::sort(rows, [](const auto& a, const auto& b) {
+        return a.second != b.second ? a.second > b.second : a.first < b.first;
+    });
+    rows.resize(std::min(rows.size(), top_unresolved));
+
+    os << std::format("top {} unresolved names\n", top_unresolved);
+    os << std::format("{:>10}  {}\n", "includes", "name");
+    for (const auto& [name, count] : rows)
+        os << std::format("{:>10}  {}\n", count, name);
+}
+
+void write_fan_in(std::ostream& os, std::string_view title,
+    std::span<const std::uint32_t> fan_in, const types::file_table& table) {
+    std::vector<std::uint32_t> order(fan_in.size());
+    std::iota(order.begin(), order.end(), 0);
+    const auto n = std::min(order.size(), top_fan_in);
+    std::ranges::partial_sort(order, order.begin() + n,
+        [&](auto a, auto b) {
+            return fan_in[a] != fan_in[b] ? fan_in[a] > fan_in[b] : a < b;
+        });
+
+    os << title << "\n";
+    os << std::format("{:>10}  {}\n", "fan_in", "file");
+    for (std::size_t i = 0; i < n && fan_in[order[i]] > 0; ++i)
+        os << std::format("{:>10}  {}\n", fan_in[order[i]],
+            table.paths[order[i]]);
+}
+
 }
 
 bool failed(const types::stage_result& stage) {
@@ -97,6 +152,72 @@ void write_report(std::ostream& os, const types::stage_result& stage,
     if (stage.errors != 0)
         os << std::format("\nFAILED: stage '{}' hit {} error(s). First: {}\n",
             stage.name, stage.errors, stage.first_error);
+}
+
+bool failed(const types::includes_result& stage) {
+    return stage.files == 0 || stage.errors != 0;
+}
+
+void write_includes_report(std::ostream& os,
+    const types::includes_result& stage, const includes_setup& setup,
+    const types::file_table& table) {
+    os << std::format("{:<10}{:>12}{:>10}{:>10}\n", "step", "median_ms",
+        "min_ms", "max_ms");
+    write_step(os, "scan", stage.scan_ms);
+    write_step(os, "resolve", stage.resolve_ms);
+    write_step(os, "graph", stage.graph_ms);
+    write_step(os, "closure", stage.closure_ms);
+    os << std::format("repetitions: {}  scan threads: {}\n",
+        stage.scan_ms.size(), setup.common.threads);
+
+    const auto& includes = stage.includes;
+    std::uint64_t quoted = 0, internal = 0, external = 0, unresolved = 0;
+    for (std::size_t i = 0; i < includes.size(); ++i) {
+        quoted += includes.kinds[i] == types::include_kind::quoted;
+        const auto t = includes.targets[i];
+        if (t == types::external_target)
+            ++external;
+        else if (t == types::unresolved_target)
+            ++unresolved;
+        else
+            ++internal;
+    }
+    os << std::format("files scanned: {}  bytes: {}  errors: {}\n",
+        stage.files, stage.bytes, stage.errors);
+    os << std::format("includes found: {} (quoted {}, angle {}); "
+                      "macro operands skipped: {}\n",
+        includes.size(), quoted, includes.size() - quoted, includes.computed);
+    os << std::format("in checkout: {}  external: {}  unresolved: {}\n",
+        internal, external, unresolved);
+    os << std::format("edges: {} (distinct includer and target pairs)  "
+                      "source files: {}\n",
+        stage.graph.targets.size(), stage.roots.size());
+    os << std::format("git ls-files: {:.2f} ms  file table (lstat): {:.2f} ms"
+                      "  compile commands: {:.2f} ms\n",
+        setup.common.listing_ms, setup.common.table_ms,
+        setup.compile_commands_ms);
+    os << std::format("compile commands: {}  directories: {}  contexts: {}  "
+                      "implicit system directories: {}\n",
+        setup.commands, setup.directories, setup.contexts,
+        setup.implicit_system);
+
+    os << "\n";
+    write_unresolved(os, stage);
+    os << "\n";
+    write_fan_in(os, std::format("top {} by direct fan-in", top_fan_in),
+        stage.direct_fan_in, table);
+    os << "\n";
+    write_fan_in(os,
+        std::format("top {} by transitive fan-in (source files reaching it)",
+            top_fan_in),
+        stage.transitive_fan_in, table);
+
+    if (stage.files == 0)
+        os << "\nFAILED: stage 'includes' scanned zero files.\n";
+    if (stage.errors != 0)
+        os << std::format(
+            "\nFAILED: stage 'includes' hit {} error(s). First: {}\n",
+            stage.errors, stage.first_error);
 }
 
 }
