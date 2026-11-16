@@ -29,6 +29,7 @@ add_library(${lib_target_name}
     codecs/registrars.cpp
     codecs/route_auth.cpp
     codecs/shell.cpp
+    codecs/stream_coverage.cpp
     codecs/test_case_reachability.cpp
     codecs/translation_unit_budget.cpp
     codecs/unique_type_names.cpp

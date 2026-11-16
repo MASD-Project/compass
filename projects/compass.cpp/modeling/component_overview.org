@@ -154,6 +154,14 @@ keeps in its =.compass.org=.
   the rules report a corpus root it does not classify, a family no document
   has, a state the generated tables contradict and a suite that names an
   unused family.
+- *=stream_coverage=.* =stream-coverage=
+  (=build/scripts/check_stream_coverage.py=). It reads the stream and
+  durable consumer declarations of the tree (=ensure_stream=,
+  =serve_step_commands=, =js_queue_subscribe=), resolving names through
+  constants, =nats_subject= members, arrays and the arguments callers pass,
+  and applies NATS's two rules: every durable subject has exactly one
+  stream, and no two streams overlap. A declaration it cannot read is a
+  finding, not a skip.
 - *=core_link_edges=.* =core-link-edges= (=check_core_link_edges.py=). Rule
   =forbidden_edge=: a core's =target_link_libraries= names another
   component's core or service library. The JSON baseline is replaced by
