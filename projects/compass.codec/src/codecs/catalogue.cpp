@@ -22,12 +22,14 @@
 #include <array>
 #include "compass.codec/codecs/document_index.hpp"
 #include "compass.codec/codecs/required_sections.hpp"
+#include "compass.codec/codecs/tangle.hpp"
+#include "compass.codec/codecs/tangle_check.hpp"
 
 namespace compass::codec::codecs {
 
 std::span<const types::descriptor> catalogue() noexcept {
-    static const std::array<types::descriptor, 2> all{
-        document_index, required_sections};
+    static const std::array<types::descriptor, 4> all{
+        document_index, required_sections, tangle, tangle_check};
     return all;
 }
 

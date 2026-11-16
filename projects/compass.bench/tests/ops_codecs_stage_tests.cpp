@@ -98,7 +98,7 @@ TEST_CASE("the codecs stage loads the corpus, runs both codecs and writes "
     CHECK_FALSE(io::failed(r));
     CHECK(files_of(repo.checkout()) == before);
 
-    REQUIRE(r.registry.size() == 2);
+    REQUIRE(r.registry.size() == 4);
     REQUIRE(r.registry.codecs[0].name == "document_index");
     CHECK(r.last.documents[0] == 4);
     REQUIRE(r.last.files[0].size() == 1);
@@ -217,15 +217,15 @@ TEST_CASE("a second run of the codecs stage with nothing changed calls no "
     scoped_git_repo repo;
     fill(repo);
     const auto first = run(repo);
-    CHECK(first.last.ran == std::vector<std::uint64_t>{1, 2});
+    CHECK(first.last.ran == std::vector<std::uint64_t>{1, 2, 0, 0});
     CHECK(first.record_written);
     CHECK(first.record_problem.empty());
 
     const auto second = run(repo);
 
     CHECK(second.record_units == 3);
-    CHECK(second.last.ran == std::vector<std::uint64_t>{0, 0});
-    CHECK(second.last.skipped == std::vector<std::uint64_t>{1, 2});
+    CHECK(second.last.ran == std::vector<std::uint64_t>{0, 0, 0, 0});
+    CHECK(second.last.skipped == std::vector<std::uint64_t>{1, 2, 0, 0});
     CHECK_FALSE(second.record_written);
     CHECK(second.last.diagnostics[1].size() == 1);
     CHECK(std::string(second.last.files[0].contents[{0}]) ==
@@ -246,8 +246,8 @@ TEST_CASE("editing one task calls its unit and the corpus unit only",
 
     const auto r = run(repo);
 
-    CHECK(r.last.ran == std::vector<std::uint64_t>{1, 1});
-    CHECK(r.last.skipped == std::vector<std::uint64_t>{0, 1});
+    CHECK(r.last.ran == std::vector<std::uint64_t>{1, 1, 0, 0});
+    CHECK(r.last.skipped == std::vector<std::uint64_t>{0, 1, 0, 0});
     CHECK(r.last.diagnostics[1].size() == 0);
     CHECK(r.record_written);
 }

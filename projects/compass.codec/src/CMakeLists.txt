@@ -22,6 +22,8 @@ add_library(${lib_target_name}
     codecs/catalogue.cpp
     codecs/document_index.cpp
     codecs/required_sections.cpp
+    codecs/tangle.cpp
+    codecs/tangle_check.cpp
     io/action_cache.cpp
     io/dependency_file.cpp
     io/output_sink.cpp
@@ -30,6 +32,7 @@ add_library(${lib_target_name}
     ops/outputs.cpp
     ops/registry.cpp
     ops/run.cpp
+    ops/tangle.cpp
     ops/unified_diff.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})

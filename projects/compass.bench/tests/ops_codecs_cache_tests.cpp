@@ -149,13 +149,13 @@ TEST_CASE("a second worktree on the same commit runs no unit and writes "
     "the first's outputs byte for byte", "[ops][codecs_cache]") {
     two_worktrees w;
     const auto first = w.run(w.first(), w.out("out1"));
-    CHECK(first.last.ran == counts{1, 2});
+    CHECK(first.last.ran == counts{1, 2, 0, 0});
 
     const auto second = w.run(w.second(), w.out("out2"));
 
-    CHECK(second.last.ran == counts{0, 0});
-    CHECK(second.last.skipped == counts{0, 0});
-    CHECK(second.last.cached == counts{1, 2});
+    CHECK(second.last.ran == counts{0, 0, 0, 0});
+    CHECK(second.last.skipped == counts{0, 0, 0, 0});
+    CHECK(second.last.cached == counts{1, 2, 0, 0});
     CHECK(second.actions.results == 0);
     CHECK(contents(w.out("out2")) == contents(w.out("out1")));
     CHECK(record_of(second) == record_of(first));
@@ -176,11 +176,11 @@ TEST_CASE("an edit in one worktree runs that document's unit and the "
     const auto edited = w.run(w.first(), w.out("out1"));
     const auto other = w.run(w.second(), w.out("out2"));
 
-    CHECK(edited.last.ran == counts{1, 1});
-    CHECK(edited.last.skipped == counts{0, 1});
+    CHECK(edited.last.ran == counts{1, 1, 0, 0});
+    CHECK(edited.last.skipped == counts{0, 1, 0, 0});
     CHECK(edited.last.diagnostics[1].size() == 0);
-    CHECK(other.last.ran == counts{0, 0});
-    CHECK(other.last.skipped == counts{1, 2});
+    CHECK(other.last.ran == counts{0, 0, 0, 0});
+    CHECK(other.last.skipped == counts{1, 2, 0, 0});
     CHECK(other.last.diagnostics[1].size() == 1);
 }
 
@@ -193,8 +193,8 @@ TEST_CASE("a configuration the first worktree did not run with misses the "
 
     const auto second = w.run(w.second(), w.out("out2"), settings);
 
-    CHECK(second.last.ran == counts{1, 0});
-    CHECK(second.last.cached == counts{0, 2});
+    CHECK(second.last.ran == counts{1, 0, 0, 0});
+    CHECK(second.last.cached == counts{0, 2, 0, 0});
     CHECK(contents(w.out("out2")).contains("other.tsv"));
 }
 
@@ -213,8 +213,8 @@ TEST_CASE("damaged action objects are ignored and their units run",
 
     const auto second = w.run(w.second(), w.out("out2"));
 
-    CHECK(second.last.ran == counts{1, 2});
-    CHECK(second.last.cached == counts{0, 0});
+    CHECK(second.last.ran == counts{1, 2, 0, 0});
+    CHECK(second.last.cached == counts{0, 0, 0, 0});
     CHECK(contents(w.out("out2")) == contents(w.out("out1")));
     CHECK(record_of(second) == record_of(first));
 }
@@ -226,7 +226,7 @@ TEST_CASE("collection keeps the action objects any worktree's record names "
     std::ofstream(w.second() / "doc" / "task_b.org", std::ios::binary)
         << "#+title: Task: b\n#+type: task\n* Goal\n* Result\n";
     const auto second = w.run(w.second(), w.out("out2"));
-    REQUIRE(second.last.ran == counts{1, 1});
+    REQUIRE(second.last.ran == counts{1, 1, 0, 0});
     const auto orphan = compass::store::ops::blob_id_of("orphan");
     compass::store::io::write_action(compass::store::io::actions_dir(
         w.common(), action_kind::result), orphan, "unnamed");
