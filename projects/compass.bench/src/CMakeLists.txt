@@ -27,6 +27,8 @@ add_library(${lib_target_name}
     ops/include_scan.cpp
     ops/includes_stage.cpp
     ops/listing.cpp
+    ops/org_dump.cpp
+    ops/org_stage.cpp
     ops/parse.cpp
     ops/parse_stage.cpp
     ops/partition.cpp
@@ -40,6 +42,7 @@ target_include_directories(${lib_target_name} PUBLIC
 
 target_link_libraries(${lib_target_name}
     PUBLIC
+        compass.ingest.lib
         compass.platform.lib
         Threads::Threads
         unofficial::tree-sitter::tree-sitter

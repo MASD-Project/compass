@@ -307,4 +307,35 @@ void write_parse_report(std::ostream& os, const types::parse_result& stage,
     }
 }
 
+bool failed(const types::org_result& stage) {
+    return failed(stage.stage);
+}
+
+void write_org_report(std::ostream& os, const types::org_result& stage,
+    const setup_timing& setup, const types::file_table& table) {
+    write_stage_header(os);
+    write_stage_row(os, stage.stage);
+    os << std::format("repetitions: {}  threads: {}\n",
+        stage.stage.wall_ms.size(), setup.threads);
+    os << std::format(
+        "git ls-files: {:.2f} ms  file table (lstat): {:.2f} ms\n",
+        setup.listing_ms, setup.table_ms);
+    os << std::format("rows: elements {}  objects {}  headings {}  links {}"
+                      "  names {}\n",
+        stage.elements, stage.objects, stage.headings, stage.links,
+        stage.names);
+
+    os << std::format("\ntop {} org files by parse time\n", top_parse);
+    os << std::format("{:>10}{:>12}  {}\n", "parse_ms", "bytes", "file");
+    for (const auto row : top_rows<double>(stage.parse_ms))
+        os << std::format("{:>10.2f}{:>12}  {}\n", stage.parse_ms[row],
+            table.sizes[stage.ids[row]], table.paths[stage.ids[row]]);
+
+    if (stage.stage.files == 0)
+        os << "\nFAILED: stage 'org' parsed zero files.\n";
+    if (stage.stage.errors != 0)
+        os << std::format("\nFAILED: stage 'org' hit {} error(s). First: {}\n",
+            stage.stage.errors, stage.stage.first_error);
+}
+
 }
