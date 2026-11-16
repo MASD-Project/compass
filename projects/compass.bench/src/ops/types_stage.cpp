@@ -31,6 +31,7 @@
 #include "compass.bench/ops/partition.hpp"
 #include "compass.ingest/meta/type_registry_builder.hpp"
 #include "compass.ingest/org/parser.hpp"
+#include "compass.org/ops/document_fields.hpp"
 #include "compass.org/ops/type_lookup.hpp"
 #include "compass.org/types/tables.hpp"
 #include "compass.platform/filesystem/mapped_file.hpp"
@@ -54,32 +55,15 @@ double since(std::chrono::steady_clock::time_point start) {
         std::chrono::steady_clock::now() - start).count();
 }
 
-std::string_view trim(std::string_view s) noexcept {
-    while (!s.empty() && (s.front() == ' ' || s.front() == '\t'))
-        s.remove_prefix(1);
-    while (!s.empty() && (s.back() == ' ' || s.back() == '\t' ||
-        s.back() == '\r' || s.back() == '\n'))
-        s.remove_suffix(1);
-    return s;
-}
-
 /**
  * @brief The value of the first #+type: keyword of a parsed document.
  */
 std::optional<std::string_view> type_keyword(std::string_view source,
     const ot::tables_view& t) noexcept {
-    for (std::uint32_t k = 0; k < t.keywords.size(); ++k) {
-        const ot::keyword_id id{k};
-        const auto n = t.keywords.names[id];
-        const auto first = t.names.firsts[n];
-        const auto end = n.next().value < t.names.size()
-            ? t.names.firsts[n.next()]
-            : static_cast<std::uint32_t>(t.name_bytes.size());
-        if (std::string_view(t.name_bytes.data() + first, end - first) ==
-            "type")
-            return trim(t.keywords.values[id].of(source));
-    }
-    return std::nullopt;
+    const auto k = org::ops::find_keyword(t, "type");
+    if (k.is_none())
+        return std::nullopt;
+    return org::ops::trimmed(source, t.keywords.values[k]).of(source);
 }
 
 tally resolve_range(const std::filesystem::path& checkout,

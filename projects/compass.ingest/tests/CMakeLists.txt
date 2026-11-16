@@ -23,6 +23,7 @@ add_executable(${tests_target_name}
     meta_type_registry_builder_tests.cpp
     org_block_tests.cpp
     org_crlf_tests.cpp
+    org_document_fields_tests.cpp
     org_document_tests.cpp
     org_drawer_tests.cpp
     org_emphasis_tests.cpp
