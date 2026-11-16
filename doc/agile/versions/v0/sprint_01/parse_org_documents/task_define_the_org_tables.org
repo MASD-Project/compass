@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :parse_org_documents:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/define-the-org-tables
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ Name the data-oriented tables an org document becomes, with handles, interned st
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:F1C69FBB-C16B-4F10-ACDB-F059C6355730][Parse org documents]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,21 @@ Name the data-oriented tables an org document becomes, with handles, interned st
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Count first: a census script, =build/scripts/org_census.py=, counts every
+  org construct across the ORE Studio corpus (headings, keywords, drawers,
+  property drawers, blocks by kind, tables, lists, links by type, emphasis,
+  timestamps, footnotes, macros, babel calls, LaTeX). The counts rank what the
+  tables must hold and, later, the order of the HTML export work.
+- The tables live in a new domain component, =compass.org=, in its =types=
+  facet: one header per table, plain aggregates in struct-of-arrays form,
+  dense 32-bit handles, byte offsets into the source instead of copied text,
+  interned strings for keys and tags. Every handle type is distinct, so a
+  heading handle cannot index the block table.
+- The design is written as the story's =design.org= and lands in the
+  =compass.org= component overview, which is the durable description.
+- The headers compile and carry =static_assert= checks on row sizes. There is
+  no parser yet; that is Write the org parser.
+- =projects/modeling/system_model.org= gains =compass.org=.
 
 * Measurements
 
