@@ -30,6 +30,7 @@ add_library(${lib_target_name}
     ops/entity_order.cpp
     ops/entity_registry.cpp
     ops/entity_repository.cpp
+    ops/entity_rules.cpp
     ops/entity_seeds.cpp
     ops/entity_sql_names.cpp
     ops/entity_sql_table.cpp

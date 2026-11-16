@@ -338,6 +338,18 @@ void resolve_routed_check(compass::model::ops::builder& b,
     const types::entity_registry& registry);
 
 /**
+ * @brief The table's rules of core.py 5632-5736: has_gist_exclusion,
+ * has_audit_columns, change_reason_code_declared and each insert trigger
+ * validation's nullable, taken from its column; for a current-state table
+ * no current-only index, no as_of read, touch function or bi-temporal
+ * trigger; the last markers of the foreign keys and the sql section's
+ * fk_copy_validations, text_code_validations and extra_delete_sets; and
+ * the temporal_filter, list_temporal_filter and version_filter fragments.
+ */
+void derive_table_rules(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
  * @brief enforced_foreign_keys (core.py 5306), the foreign keys with
  * enforce set. The Python's list holds the very key objects, so the
  * oracle shows them as later steps leave them: run after the last change
