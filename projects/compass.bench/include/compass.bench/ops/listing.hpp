@@ -39,6 +39,20 @@ namespace compass::bench::ops {
 [[nodiscard]] std::string git_ls_files(const std::filesystem::path& checkout);
 
 /**
+ * @brief The IDs `git hash-object --no-filters --stdin-paths` prints for
+ * @p paths, relative to @p checkout, in order: the IDs of the bytes on
+ * disk, with no conversion. A path must not hold a newline nor start with
+ * a double quote.
+ *
+ * git reads the paths from a temporary file and writes nothing to the
+ * repository. Throws as git_ls_files does, and std::runtime_error if git
+ * prints a different number of IDs.
+ */
+[[nodiscard]] std::vector<std::string> git_hash_objects(
+    const std::filesystem::path& checkout,
+    std::span<const std::string_view> paths);
+
+/**
  * @brief Splits NUL-terminated git output into paths that view into @p raw.
  */
 [[nodiscard]] std::vector<std::string_view> parse_listing(std::string_view raw);

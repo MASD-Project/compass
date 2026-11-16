@@ -2,7 +2,7 @@
 :ID: 1F522775-710C-4EFE-8317-8354D902816D
 :END:
 #+title: compass.bench
-#+description: The frozen benchmark harness. It times reading every tracked file of a git checkout, building its include graph, parsing its C++ and SQL with tree-sitter, parsing its org documents into the compass.org tables and resolving their types.
+#+description: The frozen benchmark harness. It times reading every tracked file of a git checkout, building its include graph, parsing its C++ and SQL with tree-sitter, parsing its org documents into the compass.org tables, resolving their types, storing them and finding the git blob ID of every file.
 #+type: component
 #+level: cross
 #+filetags: :bench:performance:component:
@@ -51,6 +51,13 @@ of a checkout with one =git ls-files -z= call and map files with
   reads every column. Last, outside any timing, the dump of every loaded
   object is compared with the dump of its parse. The warm runs take the blob
   IDs from the cold run and read objects the page cache holds.
+- =ids= finds the git blob ID of every tracked file, on N threads. Each
+  repetition builds a =compass.store= =id_resolver=, which reads the index,
+  the configuration and the attributes files, then asks it for the index ID
+  of every file, one =lstat= each, then hashes the files that got none.
+  Last, outside any timing, a sample of the IDs is checked against
+  =git hash-object --no-filters=. Nothing is written to the checkout or its
+  git directory.
 
 =org-dump= is not a stage. It parses one org file and prints its tables in
 the line format of =compass::org::io::dump=, which
@@ -76,6 +83,9 @@ the line format of =compass::org::io::dump=, which
 - =compass-bench store <checkout> [--store <dir>] [-j N] [--repeat R]=.
   =--store= is the objects directory; without it the stage uses
   =compass/objects= under the git common directory of the checkout.
+- =compass-bench ids <checkout> [-j N] [--repeat R] [--verify N|all]=.
+  =--verify= checks N IDs spread evenly over the files, or all of them; it
+  defaults to none.
 - =compass-bench org-dump <file>= prints to standard output.
   =compass-bench org-dump --list <list>= reads one input path, a tab and an
   output path per line and writes each dump to its output.
@@ -117,6 +127,12 @@ the line format of =compass::org::io::dump=, which
   runs. The distinct objects against the files, the object bytes against the
   source bytes with their ratio, the objects that did not load and the files
   whose two dumps differ. Either of the last two counts fails the run.
+- For =ids=: the index version, its entries and how many may lend their
+  ID, and whether =core.autocrlf= converts; the thread count and setup
+  times; the files whose ID came from the index and those hashed, with the
+  bytes hashed; the median, min and max wall milliseconds of reading the
+  index, stat-ing and hashing; and the IDs verified with the mismatches. A
+  file that cannot be hashed or any mismatch fails the run.
 - A =FAILED= line and exit status 1 when the stage read or scanned no files
   or hit any error. For =parse= this holds per language: a language with no
   files, or a file that cannot be read, fails the run. Parse errors inside a
@@ -177,7 +193,7 @@ Linux.
 |-------------------------------------------------+--------------------------------------------------------|
 | =include/compass.bench/types/=                  | The types of the data shape table.                     |
 | =include/compass.bench/ops/listing.hpp=         | Git listing, parsing and table building.               |
-| =include/compass.bench/ops/partition.hpp=       | Byte-balanced contiguous ranges.                       |
+| =include/compass.bench/ops/partition.hpp=       | Byte-balanced ranges and the thread runner over them.  |
 | =include/compass.bench/ops/read_stage.hpp=      | The =read= stage.                                      |
 | =include/compass.bench/ops/search_paths.hpp=    | Rebasing and the search context of each file.          |
 | =include/compass.bench/ops/include_scan.hpp=    | The =#include= scanner.                                |
@@ -189,6 +205,7 @@ Linux.
 | =include/compass.bench/ops/org_stage.hpp=       | The =org= stage.                                       |
 | =include/compass.bench/ops/org_dump.hpp=        | The =org-dump= command.                                |
 | =include/compass.bench/ops/store_stage.hpp=     | The =store= stage.                                     |
+| =include/compass.bench/ops/ids_stage.hpp=       | The =ids= stage.                                       |
 | =include/compass.bench/ops/types_stage.hpp=     | The registry from a meta directory; the =types= stage. |
 | =include/compass.bench/io/compile_commands.hpp= | The compile_commands.json reader and word splitting.   |
 | =include/compass.bench/io/report.hpp=           | Plain-text reports and the failure predicates.         |
@@ -207,7 +224,8 @@ Linux.
 - =compass.ingest= for the org parser and the type registry builder, and
   =compass.org= for the tables, their dump, the object codec and the type
   lookup.
-- =compass.store= for blob IDs, object paths and object writes.
+- =compass.store= for blob IDs, object paths, object writes and the ID
+  resolver.
 - tree-sitter from vcpkg, and the =tree-sitter-cpp= 0.23.4 and
   =tree-sitter-sql= 0.3.13 grammars from the overlay ports in
   =build/cmake/overlays/common=. The ports compile the generated parsers

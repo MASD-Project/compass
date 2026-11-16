@@ -20,6 +20,8 @@
 #include "compass.bench/ops/listing.hpp"
 
 #include <cerrno>
+#include <fstream>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <system_error>
@@ -67,23 +69,31 @@ private:
     int fds_[2] = {-1, -1};
 };
 
-}
-
-std::string git_ls_files(const std::filesystem::path& checkout) {
+/**
+ * @brief Runs git in @p checkout with @p args and returns its standard
+ * output. Standard input is @p input when given, else inherited.
+ */
+std::string run_git(const std::filesystem::path& checkout,
+    std::vector<std::string> args, const std::filesystem::path& input = {}) {
     pipe_ends pipe;
 
     posix_spawn_file_actions_t actions;
     posix_spawn_file_actions_init(&actions);
     posix_spawn_file_actions_adddup2(&actions, pipe.write_end(), STDOUT_FILENO);
+    if (!input.empty())
+        posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, input.c_str(),
+            O_RDONLY, 0);
 
-    std::string dir = checkout.string();
-    std::string arg0 = "git", arg1 = "-C", arg3 = "ls-files", arg4 = "-z";
-    char* argv[] = {arg0.data(), arg1.data(), dir.data(), arg3.data(),
-        arg4.data(), nullptr};
+    const std::string dir = checkout.string();
+    args.insert(args.begin(), {"git", "-C", dir});
+    std::vector<char*> argv;
+    for (auto& arg : args)
+        argv.push_back(arg.data());
+    argv.push_back(nullptr);
 
     pid_t pid = 0;
     const int spawn_error =
-        ::posix_spawnp(&pid, "git", &actions, nullptr, argv, environ);
+        ::posix_spawnp(&pid, "git", &actions, nullptr, argv.data(), environ);
     posix_spawn_file_actions_destroy(&actions);
     if (spawn_error != 0)
         throw_errno(spawn_error, "posix_spawnp git");
@@ -110,8 +120,48 @@ std::string git_ls_files(const std::filesystem::path& checkout) {
             throw_errno(errno, "waitpid git");
     }
     if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
-        throw std::runtime_error("git ls-files failed for " + dir);
+        throw std::runtime_error("git " + args[3] + " failed for " + dir);
     return output;
+}
+
+}
+
+std::string git_ls_files(const std::filesystem::path& checkout) {
+    return run_git(checkout, {"ls-files", "-z"});
+}
+
+std::vector<std::string> git_hash_objects(
+    const std::filesystem::path& checkout,
+    std::span<const std::string_view> paths) {
+    const auto input = std::filesystem::temp_directory_path() /
+        ("compass-bench." + std::to_string(::getpid()) + ".paths");
+    {
+        std::ofstream os(input, std::ios::binary);
+        for (const auto path : paths)
+            os << path << '\n';
+        if (!os)
+            throw std::runtime_error("cannot write " + input.string());
+    }
+    std::string output;
+    try {
+        output = run_git(checkout,
+            {"hash-object", "--no-filters", "--stdin-paths"}, input);
+    } catch (...) {
+        std::filesystem::remove(input);
+        throw;
+    }
+    std::filesystem::remove(input);
+
+    std::vector<std::string> ids;
+    ids.reserve(paths.size());
+    std::istringstream lines(output);
+    for (std::string line; std::getline(lines, line);)
+        ids.push_back(line);
+    if (ids.size() != paths.size())
+        throw std::runtime_error("git hash-object gave " +
+            std::to_string(ids.size()) + " IDs for " +
+            std::to_string(paths.size()) + " paths");
+    return ids;
 }
 
 std::vector<std::string_view> parse_listing(std::string_view raw) {

@@ -525,4 +525,67 @@ void write_store_report(std::ostream& os, const types::store_result& stage,
             stage.mismatches, stage.first_mismatch);
 }
 
+bool failed(const types::ids_result& stage) {
+    return stage.files == 0 || stage.errors != 0 || stage.mismatches != 0;
+}
+
+void write_ids_report(std::ostream& os, const types::ids_result& stage,
+    const setup_timing& setup) {
+    os << std::format("index: version {}  entries: {}  trusted: {}  "
+                      "autocrlf: {}\n", stage.index_version,
+        stage.index_entries, stage.trusted_entries,
+        stage.autocrlf ? "converts" : "no");
+    os << std::format("repetitions: {}  threads: {}\n", stage.read_ms.size(),
+        setup.threads);
+    os << std::format(
+        "git ls-files: {:.2f} ms  file table (lstat): {:.2f} ms\n",
+        setup.listing_ms, setup.table_ms);
+
+    const auto share = [&](std::uint64_t n) {
+        return stage.files > 0 ? 100.0 * n / stage.files : 0;
+    };
+    os << std::format("\n{:<8}{:>10}{:>9}{:>16}\n", "source", "files", "%",
+        "bytes");
+    os << std::format("{:<8}{:>10}{:>9.2f}{:>16}\n", "index",
+        stage.from_index, share(stage.from_index), "");
+    os << std::format("{:<8}{:>10}{:>9.2f}{:>16}\n", "hashed", stage.hashed,
+        share(stage.hashed), stage.hashed_bytes);
+    os << std::format("{:<8}{:>10}{:>9}{:>16}\n", "errors", stage.errors, "",
+        "");
+    os << std::format("{:<8}{:>10}\n", "total", stage.files);
+
+    os << std::format("\n{:<14}{:>12}{:>10}{:>10}\n", "step", "median_ms",
+        "min_ms", "max_ms");
+    const auto step = [&](std::string_view name,
+        const std::vector<double>& wall_ms) {
+        if (wall_ms.empty())
+            return;
+        const auto [min, max] = std::ranges::minmax(wall_ms);
+        os << std::format("{:<14}{:>12.2f}{:>10.2f}{:>10.2f}\n", name,
+            median(wall_ms), min, max);
+    };
+    step("read index", stage.read_ms);
+    step("stat", stage.stat_ms);
+    step("hash", stage.hash_ms);
+    std::vector<double> total;
+    for (std::size_t i = 0; i < stage.read_ms.size(); ++i)
+        total.push_back(stage.read_ms[i] + stage.stat_ms[i] +
+            stage.hash_ms[i]);
+    step("total", total);
+
+    os << std::format("\nverified against git hash-object: {}  "
+                      "mismatches: {}\n", stage.verified, stage.mismatches);
+
+    if (stage.files == 0)
+        os << "\nFAILED: stage 'ids' resolved zero files.\n";
+    if (stage.errors != 0)
+        os << std::format(
+            "\nFAILED: stage 'ids' could not hash {} file(s). First: {}\n",
+            stage.errors, stage.first_error);
+    if (stage.mismatches != 0)
+        os << std::format("\nFAILED: {} ID(s) differ from git hash-object. "
+                          "First: {}\n", stage.mismatches,
+            stage.first_mismatch);
+}
+
 }
