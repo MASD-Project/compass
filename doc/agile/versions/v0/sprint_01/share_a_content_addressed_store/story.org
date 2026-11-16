@@ -1,0 +1,51 @@
+:PROPERTIES:
+:ID: 10A99211-DCE0-4237-8D23-0599C2D00628
+:END:
+#+title: Story: Share a content-addressed store
+#+description: Cache parsed data by content hash in a store shared by every worktree of a repository, so unchanged content is never parsed twice.
+#+type: story
+#+level: s2
+#+filetags: :cache:storage:worktrees:sprint_01:v0:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+#+environment:
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+A run never re-parses a file whose content any worktree of the repository has already parsed, and a run with nothing changed finishes in under a second.
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | BACKLOG                              |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | Not yet started.                       |
+| Waiting on    | Nothing.                               |
+| Next          | Break the story into tasks.            |
+| Last touched  | 2026-11-16                               |
+
+* Acceptance
+
+- Objects are immutable, keyed by content hash, written by temporary file and rename, and stored under the repository's git common directory.
+- Each worktree keeps its own index of path, modification time, size, inode and hash; clean tracked files take their blob ID from git's index.
+- A warm run over ORE Studio with nothing changed finishes in under one second.
+- Deleting the store loses only speed, never correctness, and a size cap evicts the least recently used objects.
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+| [[id:BBF84991-7193-4B2C-8E2E-362FB0F30B26][Design the object format]] | BACKLOG | | | Define the object and pack format: position-independent tables that are memory-mapped, with a format and parser version in the header. |
+| [[id:1FB5EF03-F09F-448B-9416-E2EE53E77F94][Read blob IDs from the git index]] | BACKLOG | | | Take blob IDs for clean tracked files from git's index, and hash changed or untracked files the same way. |
+| [[id:0FE04F02-0E86-4751-8DF2-B50DA95E64E8][Write the worktree index]] | BACKLOG | | | Keep a per-worktree index that maps each path to its stat data and content hash. |
+| [[id:E18B47E6-E7A0-4427-9933-E2F9FDC1DEF8][Collect unused objects]] | BACKLOG | | | Evict least recently used objects when the store passes its size cap. |
+
+* Decisions
+
+* Out of scope
+
+-

@@ -7,7 +7,7 @@
 #+level: s2
 #+filetags: :choose_storage:sprint_01:v0:
 #+created: 2026-10-27
-#+updated: 2026-10-27
+#+updated: 2026-11-16
 #+todo: BACKLOG STARTED | DONE ABANDONED
 
 This page documents a story in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
@@ -20,12 +20,12 @@ A decision that names the storage engine and the concurrency model, with the rea
 
 | Field         | Value                                                 |
 |---------------+-------------------------------------------------------|
-| State         | BACKLOG                                               |
+| State         | ABANDONED                                             |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
-| Now           | Not started.                                          |
+| Now           | Nothing.                                             |
 | Waiting on    | Nothing.                                              |
-| Next          | Compare storage candidates.                           |
-| Last touched  | 2026-10-27                                            |
+| Next          | Nothing.                           |
+| Last touched  | 2026-11-16                                            |
 
 * Acceptance
 
@@ -37,8 +37,8 @@ A decision that names the storage engine and the concurrency model, with the rea
 
 | Task                                                                     | State   | Start | End | Description                                                                                                                         |
 |--------------------------------------------------------------------------+---------+-------+-----+-------------------------------------------------------------------------------------------------------------------------------------|
-| [[id:1759A8E5-40AF-44C0-9E9B-82D2EB6CE227][Compare storage candidates]]  | BACKLOG |       |     | Compare SQLite in WAL mode, an embedded key-value store and a custom append-only log with snapshots, against the concurrency model. |
-| [[id:A337654E-A6C2-4CC1-9BD2-9559AC6B2213][Record the storage decision]] | BACKLOG |       |     | Write the decision and its reasons into the story.                                                                                  |
+| [[id:1759A8E5-40AF-44C0-9E9B-82D2EB6CE227][Compare storage candidates]]  | ABANDONED |       |     | Compare SQLite in WAL mode, an embedded key-value store and a custom append-only log with snapshots, against the concurrency model. |
+| [[id:A337654E-A6C2-4CC1-9BD2-9559AC6B2213][Record the storage decision]] | ABANDONED |       |     | Write the decision and its reasons into the story.                                                                                  |
 
 * Decisions
 
@@ -46,3 +46,5 @@ A decision that names the storage engine and the concurrency model, with the rea
 * Out of scope
 
 * Result
+
+Abandoned on 2026-11-16 when Version 0 was re-scoped from a document server to a fast pipeline for codegen, gates and analysis. The pipeline needs no storage engine of this kind, and its data model is covered by the stories Parse org documents and Share a content-addressed store.

@@ -1,0 +1,120 @@
+:PROPERTIES:
+:ID: AA2CA7E4-6B27-4771-9F74-F2EEC15D902E
+:END:
+#+title: Investigation: ORE Studio codegen and gates
+#+description: How ORE Studio's code generator and gates work at origin/main bc5ec90f3e, where their time goes, and which gates can run without a build.
+#+type: investigation
+#+level: s1
+#+filetags: :codegen:gates:performance:measure_the_baseline:sprint_01:v0:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+
+A point-in-time record, written while the story that commissioned it was open, of an [[id:A7F8D9E2-3C4B-4A5D-B67C-8E9F0A1B2C3D][investigation]] into How ORE Studio's code generator and gates work at origin/main bc5ec90f3e, where their time goes, and which gates can run without a build. It was written on 2026-11-12.
+
+It is a snapshot, not a description of the system. Whatever it concludes that the code must keep doing belongs on the page that owns the subject; cite that page from code, recipes and models, not this one.
+
+* Context
+
+ORE Studio's code generation and gates are too slow to run while an agent
+works. Running the full gates can take more than an hour, so agents find out
+about mistakes from CI rather than from the edit that caused them. Version 0
+of compass-ng was re-scoped to fix this. This investigation records how the
+generator and the gates work today and where their time goes, so the stories
+have a baseline to beat.
+
+* Methodology
+
+- Source: a =git archive= of ORE Studio =origin/main= at =bc5ec90f3e=,
+  extracted into a scratch directory. No ORE Studio worktree was modified.
+- Codegen: the generator was run in process with cProfile over one component
+  (marketdata) and over the whole model catalogue.
+- Gates: each cheap check in =build/scripts/local_checks.py= was timed in the
+  scratch copy. Build, database and test gates were not run; their times come
+  from earlier =local_checks= reports and from ORE Studio's documents.
+- Size: tracked files were counted with =git ls-files= and =stat=.
+
+*The timings are indicative, not a baseline.* The two research runs shared the
+machine with each other and with ORE Studio builds and services, at a load
+average of about 48 on 8 cores. CPU seconds are fairer than wall times.
+[[id:68ED0D5D-9A25-4886-B869-A30FF4A679A5][Measure the baseline]] re-measures
+on an idle machine.
+
+* Paths taken
+
+- A full catalogue render under cProfile was stopped after about 11 minutes,
+  at 11,467 files from about 505 of 810 models.
+- One full component render (marketdata) completed without the profiler and
+  gave the cost breakdown.
+- component-drift failed in the scratch copy, probably because the local
+  clang-format (21) differs from the version CI uses. boost-deps, er-diagram,
+  money-decimal-columns and recipe-inventories also exited non-zero there, cause
+  not investigated. Their timings are unreliable.
+
+* Conclusions
+
+** Size of ORE Studio
+
+| Input        | Files  | Size   |
+|--------------+--------+--------|
+| C++ (cpp, hpp) | 23,413 | 183 MB |
+| Org          | 10,353 | 66 MB  |
+| SQL          | 3,400  | 65 MB  |
+
+** Code generation
+
+- Models are org documents under =projects/*/modeling/=: 948 of them, typed
+  entity (545), component (124), operation (79), field_group (45), junction
+  (27), module (10) and family (4). Some read JSON through =#+data_source:=.
+- Templates are 176 Mustache files rendered by pystache, tangled by Emacs from
+  226 literate org sources.
+- Output is C++, SQL, TypeScript, CMake and recipe documents, about 27 files per
+  model and an estimated 15,000 to 20,000 files in all.
+- Every output is written unconditionally and then rewritten by clang-format
+  (twice) or prettier, so every regeneration changes the modification time of
+  every generated file and the build recompiles them.
+- A full render took more than 11 minutes. marketdata (55 models, 1,501 files)
+  took 34 s: prettier 37%, clang-format 31%, Python rendering and parsing 32%.
+- There is no caching: about 80 org parses per model, a model load per output,
+  and a template parse per render. Nothing runs in parallel.
+- The CLI's =diff= command is a stub. Drift checks render to a temporary
+  directory and compare bytes.
+
+** Gates
+
+- About 105 gates: 91 in =./compass.sh check= (=local_checks.py=), about 5 that
+  only CI runs, and about 9 scheduled platform workflows. No workflow runs on
+  pull requests, and there are no git hooks.
+- By kind: codegen drift and regeneration about 37, structural checks over C++
+  and SQL about 27, docs about 14, tool test suites 5, build and test 7,
+  platform about 9.
+- The build and test tier costs the most: build 17 to 25 minutes and ctest
+  about 17 minutes, from earlier reports.
+- The checks that need no build total about 2,090 s wall and 990 s CPU when run
+  one after another. The largest are the full drift render (913 s wall, 576 s
+  CPU), the codegen test suite (458 s, single-threaded), exported-types (200 s)
+  and sql-hygiene (160 s).
+- About 15 checks each parse the model corpus on their own, and the structural
+  scans each read the whole tree again.
+- Several model checks parse generated headers to recover facts the models
+  already state.
+- There is no compile check per change. A C++ change learns whether it compiles
+  only from the full build or from the 3-hourly CI run.
+
+* Recommendations
+
+- Parse once into shared tables and run every gate that needs no build over
+  them; the stories in Sprint 1 carry this.
+- Render codegen in memory and compare, which makes every drift check a diff
+  and removes about 37 gates' re-rendering.
+- Format only outputs whose raw render changed, through a cache, and never spawn
+  a formatter per model.
+- Check model rules against the loaded models, not against generated output.
+- Add a syntax check for changed files: tree-sitter on every run, and
+  =clang -fsyntax-only= with =compile_commands.json= on demand.
+- Re-measure everything on an idle machine before using any of these numbers
+  as a baseline.
+
+* See also
+
+- [[id:68ED0D5D-9A25-4886-B869-A30FF4A679A5][Measure the baseline]] — the story that commissioned this investigation.
+- [[id:2F71292F-CDB0-4E2E-B50F-4F02E10597C4][Product identity]] — the targets these numbers are measured against.

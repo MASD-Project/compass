@@ -7,9 +7,11 @@
 #+level: cross
 #+filetags: :meta:overview:entry_point:
 #+created: 2026-10-27
-#+updated: 2026-10-27
+#+updated: 2026-11-16
 
-compass-ng is a high-performance, data-oriented re-implementation of the
+compass-ng is a fast, data-oriented C++ pipeline that loads a project's org
+documents and source code into memory and runs codecs over them: code
+generation, HTML export, gates and code analysis. It grows from the
 document-management part of compass from ORE Studio. See
 [[id:2F71292F-CDB0-4E2E-B50F-4F02E10597C4][Product identity]] for what it is and why.
 

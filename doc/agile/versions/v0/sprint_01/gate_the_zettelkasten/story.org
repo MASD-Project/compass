@@ -1,0 +1,51 @@
+:PROPERTIES:
+:ID: 889AD819-48C4-4082-82B3-69268706B6A3
+:END:
+#+title: Story: Gate the Zettelkasten
+#+description: Encode the Zettelkasten rules as gates and graph reports over the documentation, with limits measured per document type.
+#+type: story
+#+level: s2
+#+filetags: :zettelkasten:docs:gates:sprint_01:v0:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+#+environment:
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+The mechanical Zettelkasten rules are gates, the structural ones are graph reports, and every limit is measured from the corpus per document type.
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | BACKLOG                              |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | Not yet started.                       |
+| Waiting on    | Nothing.                               |
+| Next          | Break the story into tasks.            |
+| Last touched  | 2026-11-16                               |
+
+* Acceptance
+
+- Rules from Luhmann, Ahrens, Matuschak and zettelkasten.de that our zettelkasten page lacks are recorded there.
+- Words, sections, inbound and outbound links are measured per document type over the ORE Studio corpus.
+- Gates cover orphans, dead ends, missing back-links, size, bare See also links, see-also-only pages, structure note shape, aside sections and broken links, with ratchet mode.
+- Reports cover clusters without a structure note, untagged hubs, islands, load-bearing pages, possible duplicates and pages with no link outside their cluster.
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+| [[id:A4104AE8-71F2-4709-984F-4AEFFB237693][Read up on Zettelkasten]] | BACKLOG | | | Read Luhmann, Ahrens, Matuschak and zettelkasten.de and record the rules our page lacks. |
+| [[id:4D67CFBC-99B5-443B-8821-4358784541F1][Measure documents per type]] | BACKLOG | | | Measure size and link distributions per document type and set limits at a percentile. |
+| [[id:8409AB43-EEAA-4FD7-A185-77FDA07AEB14][Ship the Zettelkasten gates]] | BACKLOG | | | Implement the mechanical rules as check codecs with ratchet mode. |
+| [[id:5CE6BD7D-3EB5-471E-9A44-A323C7CB234A][Report on graph health]] | BACKLOG | | | Report clusters, hubs, islands, centrality, duplicates and cross-cluster links. |
+
+* Decisions
+
+* Out of scope
+
+-

@@ -7,7 +7,7 @@
 #+level: s2
 #+filetags: :extract_data_model:sprint_01:v0:
 #+created: 2026-10-27
-#+updated: 2026-10-27
+#+updated: 2026-11-16
 #+todo: BACKLOG STARTED | DONE ABANDONED
 
 This page documents a story in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
@@ -20,12 +20,12 @@ A knowledge document that states the compass data model as ORE Studio has it, an
 
 | Field         | Value                                                 |
 |---------------+-------------------------------------------------------|
-| State         | STARTED                                               |
+| State         | DONE                                               |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
-| Now           | Not started.                                          |
+| Now           | Nothing.                                          |
 | Waiting on    | Nothing.                                              |
-| Next          | Read the document contract.                           |
-| Last touched  | 2026-10-27                                            |
+| Next          | Nothing.                           |
+| Last touched  | 2026-11-16                                            |
 
 * Acceptance
 
@@ -41,7 +41,7 @@ A knowledge document that states the compass data model as ORE Studio has it, an
 | [[id:B1A01CD5-C912-4396-BEA8-87378BE6019E][Read the document contract]]      | DONE | 2026-10-27 | 2026-10-27 | Extract the conceptual model from ORE Studio doc/meta: glossary, cybernetic levels, document types, lifecycle and execution model. |
 | [[id:7A3769DB-2B92-4EAC-8DC1-9B27380AA3AC][Read the compass tool model]]     | DONE |       | 2026-10-27 | Extract the model compass.legacy uses at runtime: its index, database, search and graph, for the document-management commands only.  |
 | [[id:E77E6111-47EC-4E20-8E3B-DF7254B6E25A][Measure the corpus]]              | DONE |       | 2026-10-27 | Measure the ORE Studio corpus: documents per type, sizes, links.                                                                   |
-| [[id:D88E1DA6-CF28-4A09-9A5A-BD06E0733B6C][Propose the data-oriented model]] | STARTED | 2026-10-27 |     | Propose the compass-ng representation: tables, handles, string interning and graph layout.                                         |
+| [[id:D88E1DA6-CF28-4A09-9A5A-BD06E0733B6C][Propose the data-oriented model]] | ABANDONED | 2026-10-27 | 2026-11-16 | Propose the compass-ng representation: tables, handles, string interning and graph layout.                                         |
 
 * Decisions
 
@@ -49,3 +49,9 @@ A knowledge document that states the compass data model as ORE Studio has it, an
 * Out of scope
 
 * Result
+
+[[id:379EC6BB-620D-4A5D-8A17-33B1D7353586][Compass document model]] records the document model as
+ORE Studio implements it, and is the reference for the Parse org documents
+story. The data-oriented proposal was abandoned on 2026-11-16, when Version 0
+was re-scoped from a document server to a fast pipeline for codegen, gates
+and analysis.
