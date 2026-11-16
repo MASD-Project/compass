@@ -20,8 +20,10 @@
 #ifndef COMPASS_BENCH_IO_REPORT_HPP
 #define COMPASS_BENCH_IO_REPORT_HPP
 
+#include <cstddef>
 #include <ostream>
 #include "compass.bench/types/file_table.hpp"
+#include "compass.bench/types/includes_result.hpp"
 #include "compass.bench/types/stage_result.hpp"
 
 namespace compass::bench::io {
@@ -47,6 +49,34 @@ struct setup_timing {
  */
 void write_report(std::ostream& os, const types::stage_result& stage,
     const setup_timing& setup, const types::file_table& table);
+
+/**
+ * @brief The setup the includes stage runs once, before any repetition.
+ */
+struct includes_setup {
+    setup_timing common;
+    double compile_commands_ms = 0;
+    std::size_t commands = 0;
+    std::size_t directories = 0;
+    std::size_t contexts = 0;
+    std::size_t implicit_system = 0;
+};
+
+/**
+ * @brief True when the includes stage scanned nothing or hit any error.
+ */
+[[nodiscard]] bool failed(const types::includes_result& stage);
+
+/**
+ * @brief Writes the step timings, the include counts and the top tables.
+ *
+ * The tables are the most frequent unresolved names, and the files with
+ * the highest direct and transitive fan-in. A failed stage gets a FAILED
+ * banner naming the reason.
+ */
+void write_includes_report(std::ostream& os,
+    const types::includes_result& stage, const includes_setup& setup,
+    const types::file_table& table);
 
 }
 

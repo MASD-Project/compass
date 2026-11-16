@@ -2,7 +2,7 @@
 :ID: 1F522775-710C-4EFE-8317-8354D902816D
 :END:
 #+title: compass.bench
-#+description: The frozen benchmark harness. Today it times reading every tracked file of a git checkout.
+#+description: The frozen benchmark harness. It times reading every tracked file of a git checkout and building its include graph.
 #+type: component
 #+level: cross
 #+filetags: :bench:performance:component:
@@ -16,49 +16,114 @@ in the tooling layer of the
 * Summary
 
 =compass.bench= is the harness every compass-ng measurement runs through. It
-installs as =compass-bench=. Today it has one stage, =read=: it lists the
-tracked files of a checkout with one =git ls-files -z= call, maps each regular
-file with =compass::platform::filesystem::mapped_file= and folds every byte into
-a checksum, on N threads. Later stages (include scan, tree-sitter) join the
-same executable and reuse the file table and the range split.
+installs as =compass-bench= and has two stages. Both list the tracked files
+of a checkout with one =git ls-files -z= call and map files with
+=compass::platform::filesystem::mapped_file=.
+
+- =read= folds every byte of every regular file into a checksum, on N
+  threads.
+- =includes= scans every C and C++ file (=.hpp=, =.cpp=, =.h=, =.hh=, =.cc=,
+  =.cxx=, =.ipp=, =.tpp=) for =#include= directives on N threads. The scanner
+  is hand-written and skips comments and string, char and raw string
+  literals. The stage then resolves each include through the directories of
+  =compile_commands.json=, builds the include graph and computes the
+  transitive fan-in of each file, on one thread. Each step is timed
+  separately.
+
+Later stages (tree-sitter) join the same executable and reuse the file table
+and the range split.
 
 * Inputs
 
 - =compass-bench read <checkout> [-j N] [--repeat R]=. =-j= defaults to all
   cores and =--repeat= to 5.
+- =compass-bench includes <checkout> --compile-commands <file> --source-root
+  <dir> [--isystem <dir>]... [-j N] [--repeat R]=.
+  - =--source-root= is the directory the compile commands were generated
+    against. It is required because the entries of a unity build all live in
+    the build tree, so no prefix of the "file" entries names the source root.
+  - =--isystem= adds an implicit system directory of the compiler, which
+    compile commands do not list. Print them with
+    =clang++ -E -x c++ -v /dev/null=.
 - A git checkout. Tracked entries that are not regular files (submodules,
   symlinks) are skipped. A tracked file that is missing on disk is kept and
   counted as an error.
+- For =includes=, the compile commands of the commit the checkout holds.
 
 * Outputs
 
-- A stage table: files, bytes, errors, median, min and max wall milliseconds
-  over the repetitions, and MB/s (10^6 bytes) at the median.
-- The checksum, the thread count, and the =git ls-files= and =lstat= setup
-  times on their own lines.
-- The top 15 extensions by bytes, with file counts.
-- A =FAILED= line and exit status 1 when the stage read no files or hit any
-  error. A usage error exits with status 2.
+- For =read=: a stage table of files, bytes, errors, median, min and max wall
+  milliseconds over the repetitions, and MB/s (10^6 bytes) at the median. The
+  checksum, the thread count, and the =git ls-files= and =lstat= setup times
+  on their own lines. The top 15 extensions by bytes, with file counts.
+- For =includes=: the median, min and max wall milliseconds of the scan,
+  resolve, graph and closure steps. Files and bytes scanned, includes found
+  by kind, and how many resolved inside the checkout, outside it (external)
+  and nowhere (unresolved). Distinct edges, the setup times, and the counts
+  of compile commands, directories and search contexts. Then the top 10
+  unresolved names, and the top 15 files by direct and by transitive fan-in.
+- A =FAILED= line and exit status 1 when the stage read or scanned no files
+  or hit any error. A usage error exits with status 2.
+
+* Resolution
+
+Each compile command contributes its =-iquote=, =-I= and =-isystem=
+directories. A directory under the build directory of the command stays
+absolute and is external, so generated headers resolve as external while the
+build tree exists. Any other directory under the source root is rebased onto
+the checkout. Directories outside the source root stay absolute and are
+external.
+
+A command is anchored at the checkout directory it compiles. That is the
+directory of its file or, for a unity source in the build tree, the
+build-tree directory above =CMakeFiles=. Each file is searched with the
+union of the commands anchored at or below its nearest ancestor that has any.
+A source file therefore gets the directories of its own target, and a header
+gets those of every target in its component. A file in no compiled component
+gets the union of all commands.
+
+A quoted include tries the directory of the includer, then the =-iquote=,
+=-I=, =-isystem= and implicit directories. An angle include starts at =-I=.
+In an internal directory, a hit must be a file of the file table. In an
+external directory, a hit must be a regular file on disk.
+
+The rule for headers is an approximation. A compiler searches a header with
+the directories of the translation unit that includes it. A header whose
+includes depend on the directories of its includer, such as a shared test
+fixture, can be unresolved here although it compiles. Conditional
+compilation is not evaluated, so an include under =#ifdef _WIN32= counts on
+Linux.
 
 * Data shape
 
-| Type           | Holds                                                                         |
-|----------------+-------------------------------------------------------------------------------|
-| =file_table=   | Columns of path, size and extension id; extensions interned once.             |
-| =file_range=   | A contiguous run of file ids for one thread, balanced by bytes.               |
-| =stage_result= | Files, bytes, errors, checksum, first error and one wall time per repetition. |
+| Type              | Holds                                                                          |
+|-------------------+--------------------------------------------------------------------------------|
+| =file_table=      | Columns of path, size and extension id; extensions interned once.              |
+| =file_range=      | A contiguous run of file ids for one thread, balanced by bytes.                |
+| =stage_result=    | Files, bytes, errors, checksum, first error and one wall time per repetition.  |
+| =compile_command= | One compile_commands.json entry: directory, absolute file, argument words.     |
+| =search_paths=    | Interned include directories, search contexts, and the context of each file.   |
+| =include_table=   | Columns of includer, line, kind, header name and target per =#include=.        |
+| =include_graph=   | Compressed sparse rows of distinct include edges over file ids.                |
+| =includes_result= | The include table, the graph, the fan-in columns and wall times per step.      |
 
 * Entry points
 
-| Path                                         | Role                                         |
-|----------------------------------------------+----------------------------------------------|
-| =include/compass.bench/types/=               | =file_table=, =file_range=, =stage_result=.  |
-| =include/compass.bench/ops/listing.hpp=      | Git listing, parsing and table building.     |
-| =include/compass.bench/ops/partition.hpp=    | Byte-balanced contiguous ranges.             |
-| =include/compass.bench/ops/read_stage.hpp=   | The =read= stage.                            |
-| =include/compass.bench/io/report.hpp=        | Plain-text report and the failure predicate. |
-| =src/main.cpp=                               | Argument parsing and wiring.                 |
-| =tests/=                                     | Catch2 tests.                                |
+| Path                                            | Role                                                   |
+|-------------------------------------------------+--------------------------------------------------------|
+| =include/compass.bench/types/=                  | The types of the data shape table.                     |
+| =include/compass.bench/ops/listing.hpp=         | Git listing, parsing and table building.               |
+| =include/compass.bench/ops/partition.hpp=       | Byte-balanced contiguous ranges.                       |
+| =include/compass.bench/ops/read_stage.hpp=      | The =read= stage.                                      |
+| =include/compass.bench/ops/search_paths.hpp=    | Rebasing and the search context of each file.          |
+| =include/compass.bench/ops/include_scan.hpp=    | The =#include= scanner.                                |
+| =include/compass.bench/ops/include_resolve.hpp= | Include resolution.                                    |
+| =include/compass.bench/ops/include_graph.hpp=   | Graph building, direct and transitive fan-in.          |
+| =include/compass.bench/ops/includes_stage.hpp=  | The =includes= stage.                                  |
+| =include/compass.bench/io/compile_commands.hpp= | The compile_commands.json reader and word splitting.   |
+| =include/compass.bench/io/report.hpp=           | Plain-text reports and the failure predicates.         |
+| =src/main.cpp=                                  | Argument parsing and wiring.                           |
+| =tests/=                                        | Catch2 tests.                                          |
 
 | Target                | Kind                                      |
 |-----------------------+-------------------------------------------|
@@ -69,8 +134,8 @@ same executable and reuse the file table and the range split.
 * Dependencies
 
 - =compass.platform= for =mapped_file=.
-- The C++23 standard library, POSIX (=posix_spawnp=, =lstat=) and =git= on
-  the =PATH=.
+- The C++23 standard library, POSIX (=posix_spawnp=, =lstat=, =stat=) and
+  =git= on the =PATH=.
 - Catch2, for the tests only.
 
 * See also

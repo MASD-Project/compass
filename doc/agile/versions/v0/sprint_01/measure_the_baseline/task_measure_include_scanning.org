@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :measure_the_baseline:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/measure-include-scanning
+#+pr: https://github.com/MASD-Project/compass/pull/8
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -26,11 +26,11 @@ Scan every #include in ORE Studio, resolve it through compile_commands.json, and
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                              |
 | Parent story | [[id:68ED0D5D-9A25-4886-B869-A30FF4A679A5][Measure the baseline]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -39,9 +39,24 @@ Scan every #include in ORE Studio, resolve it through compile_commands.json, and
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Add an =includes= stage to =compass-bench=. It scans every C and C++ file in
+  the file table (=.hpp=, =.cpp=, =.h=, =.hh=, =.cc=, =.cxx=, =.ipp=, =.tpp=)
+  for =#include= lines with a hand-written scanner over the mapped bytes: no
+  regex, no preprocessor, skipping comments and string literals.
+- Resolution reads =compile_commands.json= once: the =-I=, =-iquote= and
+  =-isystem= directories per translation unit, rebased from the build's source
+  root onto the checkout being measured. Quoted includes try the includer's
+  directory first. A target inside the checkout is an edge; a target found
+  outside it (vcpkg, the system) is external; anything else is unresolved.
+- Data shape: an include table in struct-of-arrays form (includer file id,
+  target file id or external or unresolved, line), and the graph as compressed
+  sparse rows over file ids, built once after scanning.
+- Report: scan time and resolve time separately, includes found, edges,
+  external, unresolved (with the top unresolved names), and the top headers by
+  direct fan-in. Transitive fan-in is computed and timed too, so its cost is
+  known before Analyse C++ and SQL depends on it.
+- The measurement uses an archive of the ORE Studio commit that the
+  =compile_commands.json= was generated from, so paths agree.
 
 * Measurements
 
@@ -55,7 +70,18 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| C and C++ files scanned | 24,518 (193 MB) | =compass-bench includes <archive> --compile-commands <cc> --source-root <root> --isystem <clang dirs> --repeat 5= | ORE Studio 4e41d25 |
+| Scan, 8 threads (median of 5) | 132 ms | same run | ORE Studio 4e41d25 |
+| Scan, 1 thread | 509 ms | same with =-j 1= | ORE Studio 4e41d25 |
+| Resolve, 1 thread | 120 ms | same run | ORE Studio 4e41d25 |
+| Build the CSR graph | 1.1 ms | same run | ORE Studio 4e41d25 |
+| Transitive fan-in for every header | 1.8 ms | same run | ORE Studio 4e41d25 |
+| Includes found | 206,485 | same run | ORE Studio 4e41d25 |
+| Resolved in checkout, external, unresolved | 120,340, 86,093, 52 | same run | ORE Studio 4e41d25 |
+| Highest transitive fan-in | =ores.utility/export.hpp=, 11,304 files | same run | ORE Studio 4e41d25 |
+
+Taken on a shared machine (load average 5 to 10 on 8 cores) with a warm page
+cache, so the timings are indicative. The counts were identical across runs.
 
 * Notes
 
@@ -74,7 +100,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/8][#8]] | [bench] Add the include scanning stage |
 
 * Review
 
@@ -83,3 +109,25 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- =compass-bench includes= scans every C and C++ file with a hand-written
+  scanner, resolves each include through =compile_commands.json= rebased onto
+  the checkout, builds the include graph as CSR and computes transitive fan-in.
+- The whole ORE Studio include graph costs about a quarter of a second: 132 ms
+  to scan on 8 threads, 120 ms to resolve on one, and under 3 ms for the graph
+  and every header's transitive fan-in. Resolving is single-threaded and is the
+  obvious next speed-up.
+- 52 of 206,485 includes stay unresolved, each with a known cause: Windows-only
+  headers under =#ifdef=, files no compile command builds (prototypes, scripts,
+  vendored ORE tools), one cross-component test fixture, and one stale
+  generated include.
+- ORE Studio builds in unity mode, so its compile commands name generated
+  =unity_N_cxx.cxx= files; =--source-root= is required, and each command is
+  anchored at the build directory above =CMakeFiles=.
+- A header takes its component's include directories. The compiler uses the
+  directories of whichever translation unit includes it, so a header shared
+  across components can resolve differently; this caused one of the 52.
+- Review found that a relative =--source-root= resolved nothing inside the
+  checkout while still exiting 0. Paths are now made absolute at the CLI
+  boundary, and every path form gives the same counts.
+- 15 defects injected into the scanner and resolver were all caught.
