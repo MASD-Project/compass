@@ -273,7 +273,9 @@ TEST_CASE("a manifest keeps only its newest input sets",
     last["story.org"] += std::to_string(ops::manifest_capacity) + "\n";
 
     CHECK(run(cache, last).ran == counts{0, 0});
-    CHECK(run(cache, first).ran == counts{0, 1});
+    // The corpus unit of document_index has one manifest too, so the
+    // oldest state fell off it as well.
+    CHECK(run(cache, first).ran == counts{1, 1});
 }
 
 TEST_CASE("a change of version or configuration misses the cache",

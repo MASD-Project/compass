@@ -25,6 +25,8 @@
 #include <optional>
 #include <span>
 #include <stdexcept>
+#include <unordered_set>
+#include <algorithm>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -60,13 +62,17 @@ struct document {
  * order of the first read.
  * Every document handed out is a path input, so the path a document is read
  * at is part of what the unit read. A lookup adds an input whether or not a
- * document answered it. by_document is false for a corpus unit: it depends
- * on the whole set of documents it may read, so the documents it opens are
+ * document answered it, and so does a read of a file of the checkout, a
+ * test of whether one exists and a listing of their paths. corpus is true
+ * for the log of a corpus unit, and whole once that unit enumerated the
+ * documents it may read: it then depends on the whole set of them, as one
+ * type_set input, so the documents it opens and looks up after that are
  * not listed one by one. registry is true once the unit read the type
  * registry.
  */
 struct read_log {
-    bool by_document = true;
+    bool corpus = false;
+    bool whole = false;
     bool registry = false;
     std::vector<input_kind> kinds;
     std::vector<std::string> keys;
@@ -77,16 +83,99 @@ struct read_log {
 
     void add(input_kind kind, std::string_view key,
         const std::optional<compass::store::types::blob_id>& value) {
-        for (std::size_t i = 0; i < kinds.size(); ++i) {
-            if (kinds[i] == kind && keys[i] == key)
-                return;
-        }
+        std::string name(1, static_cast<char>(kind));
+        name += key;
+        if (!seen_.insert(std::move(name)).second)
+            return;
         kinds.push_back(kind);
         keys.emplace_back(key);
         found.push_back(value ? 1 : 0);
         values.push_back(value.value_or(compass::store::types::blob_id{}));
     }
+
+private:
+    std::unordered_set<std::string> seen_;
 };
+
+/**
+ * @brief The key of a listing input: @p prefix and @p suffix joined by
+ * '*'.
+ * @throws std::invalid_argument when @p prefix holds a '*', which would
+ * make the key ambiguous.
+ */
+[[nodiscard]] inline std::string listing_key(std::string_view prefix,
+    std::string_view suffix) {
+    if (prefix.find('*') != std::string_view::npos)
+        throw std::invalid_argument("a listing prefix holds '*': " +
+            std::string(prefix));
+    std::string key(prefix);
+    key.push_back('*');
+    key += suffix;
+    return key;
+}
+
+/**
+ * @brief The paths of @p files that start with @p prefix and end with
+ * @p suffix, in byte order; none when there are no files.
+ */
+[[nodiscard]] inline std::vector<std::string_view> matching_files(
+    const checkout_files* files, std::string_view prefix,
+    std::string_view suffix) {
+    std::vector<std::string_view> out;
+    if (files == nullptr)
+        return out;
+    const auto& paths = files->paths;
+    for (auto it = std::ranges::lower_bound(paths, prefix);
+         it != paths.end() && it->starts_with(prefix); ++it) {
+        if (it->size() >= prefix.size() + suffix.size() &&
+            it->ends_with(suffix))
+            out.push_back(*it);
+    }
+    return out;
+}
+
+/**
+ * @brief True when @p files holds @p path.
+ */
+[[nodiscard]] inline bool holds_file(const checkout_files* files,
+    std::string_view path) {
+    return files != nullptr && std::ranges::binary_search(files->paths, path);
+}
+
+/**
+ * @brief The value of a listing input of @p paths: the SHA-1 of each path
+ * followed by a NUL.
+ */
+[[nodiscard]] inline compass::store::types::blob_id listing_hash(
+    std::span<const std::string_view> paths) {
+    std::string bytes;
+    for (const auto p : paths) {
+        bytes += p;
+        bytes.push_back('\0');
+    }
+    return {compass::store::ops::sha1_of(bytes)};
+}
+
+/**
+ * @brief What a file, file_exists or listing input with key @p key is
+ * answered now by the files of @p c.
+ * @pre @p kind is input_kind::file, file_exists or listing.
+ */
+[[nodiscard]] inline std::optional<compass::store::types::blob_id>
+file_answer(const corpus& c, input_kind kind, std::string_view key) {
+    if (kind == input_kind::listing) {
+        const auto star = key.find('*');
+        const auto prefix = key.substr(0, star);
+        const auto suffix = star == std::string_view::npos
+            ? std::string_view{} : key.substr(star + 1);
+        return listing_hash(matching_files(c.files, prefix, suffix));
+    }
+    if (!holds_file(c.files, key))
+        return std::nullopt;
+    if (kind == input_kind::file_exists)
+        return compass::store::types::blob_id{};
+    return c.files->content_of(key);
+}
 
 /**
  * @brief True when a codec whose type flags are @p reads may read a
@@ -163,12 +252,16 @@ public:
     /**
      * @brief How many documents the codec may read.
      */
-    [[nodiscard]] std::size_t size() const noexcept { return rows_.size(); }
+    [[nodiscard]] std::size_t size() const noexcept {
+        enumerate();
+        return rows_.size();
+    }
 
     /**
      * @brief The @p i th visible document.
      */
     [[nodiscard]] document operator[](std::size_t i) const {
+        enumerate();
         return open(rows_[i]);
     }
 
@@ -186,6 +279,54 @@ public:
     [[nodiscard]] std::optional<document> find_path(
         std::string_view path) const {
         return find(input_kind::path, path);
+    }
+
+    /**
+     * @brief The bytes of the file of the checkout at @p path, document or
+     * not, or nothing when the checkout has no such file or it cannot be
+     * read.
+     */
+    [[nodiscard]] std::optional<std::string> read_file(
+        std::string_view path) const {
+        std::optional<std::string> bytes;
+        if (holds_file(corpus_->files, path))
+            bytes = corpus_->files->read(path);
+        if (log_ != nullptr) {
+            std::optional<compass::store::types::blob_id> answer;
+            if (bytes)
+                answer = compass::store::ops::blob_id_of(*bytes);
+            log_->add(input_kind::file, path, answer);
+        }
+        return bytes;
+    }
+
+    /**
+     * @brief True when the checkout has a file at @p path. Only the
+     * answer is an input, not the file's bytes.
+     */
+    [[nodiscard]] bool file_exists(std::string_view path) const {
+        const auto found = holds_file(corpus_->files, path);
+        if (log_ != nullptr) {
+            std::optional<compass::store::types::blob_id> answer;
+            if (found)
+                answer = compass::store::types::blob_id{};
+            log_->add(input_kind::file_exists, path, answer);
+        }
+        return found;
+    }
+
+    /**
+     * @brief The paths of the files of the checkout, documents or not,
+     * that start with @p prefix and end with @p suffix, in byte order.
+     * @throws std::invalid_argument when @p prefix holds a '*'.
+     */
+    [[nodiscard]] std::vector<std::string_view> list_files(
+        std::string_view prefix, std::string_view suffix = {}) const {
+        const auto key = listing_key(prefix, suffix);
+        auto out = matching_files(corpus_->files, prefix, suffix);
+        if (log_ != nullptr)
+            log_->add(input_kind::listing, key, listing_hash(out));
+        return out;
     }
 
     [[nodiscard]] const compass::org::types::type_registry& types() const
@@ -212,7 +353,12 @@ public:
 
 private:
     [[nodiscard]] bool recording() const noexcept {
-        return log_ != nullptr && log_->by_document;
+        return log_ != nullptr && !log_->whole;
+    }
+
+    void enumerate() const noexcept {
+        if (log_ != nullptr && log_->corpus)
+            log_->whole = true;
     }
 
     [[nodiscard]] document open(compass::org::types::document_id row) const {

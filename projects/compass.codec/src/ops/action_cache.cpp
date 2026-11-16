@@ -249,7 +249,7 @@ std::optional<types::action_manifest> decode_manifest(std::string_view body) {
         for (std::uint32_t i = 0; i < inputs && r.ok(); ++i) {
             const auto kind = r.u8();
             if (kind > static_cast<std::uint8_t>(
-                    types::input_kind::type_registry))
+                    types::last_input_kind))
                 return std::nullopt;
             m.input_kinds.values.push_back(
                 static_cast<types::input_kind>(kind));
