@@ -25,6 +25,7 @@ add_executable(${tests_target_name}
     ops_load_asset_class_catalogue_tests.cpp
     ops_load_component_tests.cpp
     ops_load_entity_tests.cpp
+    ops_load_family_tests.cpp
     ops_load_field_group_tests.cpp
     ops_load_junction_tests.cpp
     ops_load_operation_tests.cpp

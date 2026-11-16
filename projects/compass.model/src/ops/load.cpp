@@ -115,6 +115,8 @@ types::model_id load_model(builder& b, const document& d, model_type t,
             load_field_group(c, root);
             break;
         case model_type::family:
+            load_family(c, root);
+            break;
         case model_type::trade_type_catalogue:
             b.set(root, "error", "NotPorted");
             if (error != nullptr)

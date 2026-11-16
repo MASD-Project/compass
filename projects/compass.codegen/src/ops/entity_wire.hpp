@@ -77,6 +77,12 @@ using compass::model::types::value_id;
     value_id entity);
 
 /**
+ * @brief key_is_primary: whether the primary key is exactly the declared
+ * key, as it is when the model declares none.
+ */
+[[nodiscard]] bool key_is_primary(const model_tables& t, value_id entity);
+
+/**
  * @brief declared_key_column: the column named by the declared key among
  * the primary key columns, natural keys and columns; none otherwise.
  */

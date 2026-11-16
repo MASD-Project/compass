@@ -33,28 +33,22 @@ using compass::model::types::value_id;
 namespace {
 
 /*
- * The column paths the table display streams specially: uuids through
- * to_string, optionals unwrapped, plain bools as words.
+ * Classifies a column of @p cpp_type at @p path into @p out.
  */
-struct display_types {
-    std::set<std::string, std::less<>> uuid;
-    std::set<std::string, std::less<>> optional;
-    std::set<std::string, std::less<>> boolean;
+void classify(table_display_types& out, std::string_view cpp_type,
+    std::string_view path) {
+    const auto cpp = values::strip(cpp_type);
+    const bool is_optional = cpp.starts_with("std::optional<");
+    if (cpp.contains("boost::uuids::uuid") && !is_optional)
+        out.uuid.emplace(path);
+    if (is_optional)
+        out.optional.emplace(path);
+    if (cpp == "bool")
+        out.boolean.emplace(path);
+}
 
-    void classify(std::string_view cpp_type, std::string_view path) {
-        const auto cpp = values::strip(cpp_type);
-        const bool is_optional = cpp.starts_with("std::optional<");
-        if (cpp.contains("boost::uuids::uuid") && !is_optional)
-            uuid.emplace(path);
-        if (is_optional)
-            optional.emplace(path);
-        if (cpp == "bool")
-            boolean.emplace(path);
-    }
-};
-
-display_types display_types_of(const model_tables& t, value_id entity) {
-    display_types out;
+table_display_types display_types_of(const model_tables& t, value_id entity) {
+    table_display_types out;
     const auto pk = values::member(t, entity, "primary_key");
     if (values::truthy(t, pk, "is_uuid"))
         out.uuid.emplace(values::str(t, pk, "column"));
@@ -63,9 +57,9 @@ display_types display_types_of(const model_tables& t, value_id entity) {
             out.uuid.emplace(values::str(t, k, "column"));
     }
     for (const auto c : values::items(t, entity, "columns"))
-        out.classify(values::str(t, c, "cpp_type"), values::str(t, c, "name"));
+        classify(out, values::str(t, c, "cpp_type"), values::str(t, c, "name"));
     for (const auto f : values::items(t, entity, "domain_group_fields"))
-        out.classify(values::str(t, f, "cpp_type"), values::str(t, f, "name"));
+        classify(out, values::str(t, f, "cpp_type"), values::str(t, f, "name"));
     return out;
 }
 
@@ -93,11 +87,17 @@ void derive_table_display(builder& b, value_id entity) {
     const auto cpp = values::member(t, entity, "cpp");
     if (cpp.is_none())
         return;
+    prepare_table_display(b, cpp, display_types_of(t, entity),
+        display_members(t, entity));
+}
+
+void prepare_table_display(builder& b, value_id cpp,
+    const table_display_types& types,
+    const std::map<std::string, std::string, std::less<>>& members) {
+    const auto& t = b.tables();
     const auto display = values::member(t, cpp, "table_display");
     if (display.is_none())
         return;
-    const auto types = display_types_of(t, entity);
-    const auto members = display_members(t, entity);
     const auto iter_var = values::member(t, cpp, "iterator_var");
 
     bool has_uuid = false;

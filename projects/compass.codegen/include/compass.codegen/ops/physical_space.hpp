@@ -67,11 +67,12 @@ struct drawer_property {
 /**
  * @brief _protocol_owned_by_operation: whether an operation model in the
  * directory of @p model_path, or the one above it, states the protocol of
- * the domain entity of @p model, by its component and singular.
+ * @p entity, a domain entity or a junction, by its component and its
+ * entity_singular or name_singular.
  */
 [[nodiscard]] bool protocol_owned(const types::checkout_registry& registry,
     const compass::model::types::model_tables& models,
-    compass::model::types::value_id model, std::string_view model_path);
+    compass::model::types::value_id entity, std::string_view model_path);
 
 /**
  * @brief One output to render: the template and the output path relative
@@ -109,15 +110,18 @@ struct checkout_file {
  * order, each with its output path, an output named twice kept once.
  *
  * Output paths are resolved as resolve_output_path resolves them for a
- * component and for a domain entity. A component's directory under
- * projects/ is the one above the modeling/ of @p model_path, the model's
- * path relative to the checkout. A domain entity is narrowed first by the
- * gates resolve_targets applies to one: what @p registry says owns its
- * protocol, its menu and its shell registrar, its audit shape and its
- * profile. An archetype whose path names a placeholder the entity does
- * not declare is skipped. Any other model type's pattern is kept as
- * written, which is right only for the types whose patterns name no
- * placeholder, such as the catalogues. @p properties is the model's
+ * component, a domain entity, a junction, an operation, a field group
+ * and a family.
+ * A component's directory under projects/ is the one above the modeling/
+ * of @p model_path, the model's path relative to the checkout. A domain
+ * entity is narrowed first by the gates resolve_targets applies to one:
+ * what @p registry says owns its protocol, its menu and its shell
+ * registrar, its audit shape and its profile; a junction by what owns its
+ * protocol, its :list_by: sides, :history: and :events:. An archetype
+ * whose path names a placeholder the model does not declare is skipped.
+ * Any other model type's pattern is kept as written, which is right only
+ * for the types whose patterns name no placeholder, such as the
+ * catalogues. @p properties is the model's
  * drawer followed by its physical_space_overrides, a later key winning;
  * their :ores.<address>.enabled: entries override the defaults, the most
  * specific address first.

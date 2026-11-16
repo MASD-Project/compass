@@ -51,8 +51,9 @@ compass::model::types::value_id library_values(
  * - asset_class_catalogue and outcome_catalogue: the catalogue under its
  *   type's name.
  *
- * No other type gets more than the model: the values ores.codegen derives
- * for entities, junctions, operations and field groups are not ported.
+ * No other type gets more than the model here: entity_context and the
+ * contexts of model_contexts.hpp build the entities, junctions,
+ * operations, field groups and families.
  */
 compass::model::types::value_id model_context(
     compass::model::ops::builder& b, compass::model::types::value_id library,

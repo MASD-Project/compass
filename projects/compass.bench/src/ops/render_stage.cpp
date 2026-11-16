@@ -23,6 +23,7 @@
 #include <chrono>
 #include <fstream>
 #include <map>
+#include <set>
 #include <stdexcept>
 #include "compass.bench/ops/model_corpus.hpp"
 #include "compass.codegen/ops/compile.hpp"
@@ -31,6 +32,7 @@
 #include "compass.codegen/ops/entity_registry.hpp"
 #include "compass.codegen/ops/template_context.hpp"
 #include "compass.codegen/ops/manifest.hpp"
+#include "compass.codegen/ops/model_contexts.hpp"
 #include "compass.codegen/ops/output.hpp"
 #include "compass.codegen/ops/physical_space.hpp"
 #include "compass.codegen/ops/values.hpp"
@@ -351,6 +353,84 @@ compass::codegen::types::entity_registry load_entity_registry(
     return registry;
 }
 
+/**
+ * @brief A model's drawer properties followed by its
+ * physical_space_overrides, a later key winning. The properties view
+ * the outline they were read from and the overrides held here.
+ */
+struct model_properties {
+    std::vector<std::pair<std::string, bool>> overrides;
+    std::vector<compass::codegen::ops::drawer_property> properties;
+};
+
+model_properties drawer_properties(const parsed_document& p,
+    compass::model::ops::outline& outline,
+    const compass::model::ops::document_finder& find,
+    compass::model::ops::load_cache& cache) {
+    namespace mops = compass::model::ops;
+    mops::build_outline(p.file.text(), p.view, outline);
+    model_properties out;
+    out.overrides = mops::physical_space_overrides(outline, find, cache);
+    for (std::size_t i = 0; i < outline.file_property_keys.size(); ++i)
+        out.properties.push_back({outline.file_property_keys[i],
+            outline.file_property_values[i]});
+    for (const auto& [key, enabled] : out.overrides)
+        out.properties.push_back({key, enabled ? "true" : "false"});
+    return out;
+}
+
+/**
+ * @brief _shell_command_units for every modeling directory of projects/:
+ * the singulars of the entity and junction models in it, or one level
+ * below it, that enable ores.cpp.shell-command.
+ */
+std::map<std::string, std::set<std::string>, std::less<>> shell_units(
+    const types::file_table& table, model_corpus& documents,
+    const compass::model::ops::document_finder& find,
+    compass::model::ops::load_cache& cache) {
+    namespace mops = compass::model::ops;
+    using compass::model::types::model_type;
+    constexpr std::string_view facet = "ores.cpp.shell-command";
+    constexpr std::string_view addresses[] = {facet};
+    model_tables scratch;
+    mops::builder b(scratch);
+    mops::outline outline;
+    std::map<std::string, std::set<std::string>, std::less<>> out;
+    for (const auto& path : table.paths) {
+        if (!path.starts_with("projects/") || !path.ends_with(".org") ||
+            path.find("/modeling/") == std::string::npos)
+            continue;
+        auto* p = documents.get(path);
+        if (p == nullptr)
+            continue;
+        const auto type = mops::model_type_of(
+            mops::declared_type(document_of(*p)));
+        if (type != model_type::entity && type != model_type::junction)
+            continue;
+        if (!compass::codegen::ops::facet_enabled(
+                drawer_properties(*p, outline, find, cache).properties, facet,
+                addresses, false))
+            continue;
+        std::string error;
+        const auto id = mops::load_model(b, document_of(*p), *type, find,
+            cache, &error);
+        if (!error.empty())
+            continue;
+        const auto& t = b.tables();
+        const auto body = compass::codegen::ops::values::member(t,
+            t.models.roots[id], *type == model_type::entity ?
+                "domain_entity" : "junction");
+        const auto name = compass::codegen::ops::values::str(t, body,
+            *type == model_type::entity ? "entity_singular" : "name_singular");
+        if (name.empty())
+            continue;
+        const std::filesystem::path file(path);
+        out[file.parent_path().string()].emplace(name);
+        out[file.parent_path().parent_path().string()].emplace(name);
+    }
+    return out;
+}
+
 struct planned {
     compass::codegen::ops::unit unit;
     value_id context;
@@ -369,10 +449,101 @@ struct context_type {
 constexpr context_type context_types[] = {
     {compass::model::types::model_type::entity, "domain_entity"},
     {compass::model::types::model_type::component, "component"},
+    {compass::model::types::model_type::junction, "junction"},
+    {compass::model::types::model_type::operation, "operation"},
+    {compass::model::types::model_type::field_group, "field_group"},
+    {compass::model::types::model_type::family, "family"},
     {compass::model::types::model_type::asset_class_catalogue,
      "asset_class_catalogue"},
     {compass::model::types::model_type::outcome_catalogue,
      "outcome_catalogue"}};
+
+/**
+ * @brief A model's shared context and what its template variants are
+ * built from: a junction's surface shape or a family's service context.
+ */
+struct built_context {
+    value_id context;
+    value_id prepared;
+};
+
+/**
+ * @brief The shared context of the model @p root of @p type, whose
+ * ores.codegen name is @p type_name. @p members are the entity models a
+ * family names.
+ */
+built_context build_context(compass::model::ops::builder& b,
+    compass::model::types::model_type type, value_id library, value_id root,
+    std::string_view stem, std::string_view type_name,
+    const compass::codegen::types::entity_registry& entities,
+    const compass::codegen::types::entity_site& site,
+    const compass::codegen::ops::family_members& members) {
+    namespace cops = compass::codegen::ops;
+    using compass::model::types::model_type;
+    switch (type) {
+    case model_type::entity:
+        return {cops::entity_context(b, library, root, stem, entities, site),
+            value_id::none()};
+    case model_type::junction: {
+        const auto [context, surface] = cops::junction_context(b, library,
+            root, stem, entities, site);
+        return {context, surface};
+    }
+    case model_type::family: {
+        const auto [context, service] = cops::family_context(b, library, root,
+            stem, entities, site, members);
+        return {context, service};
+    }
+    case model_type::operation:
+        return {cops::operation_context(b, library, root, stem, entities,
+            site), value_id::none()};
+    case model_type::field_group:
+        return {cops::field_group_context(b, library, root, stem, entities,
+            site), value_id::none()};
+    default:
+        return {cops::model_context(b, library, root, stem, type_name),
+            value_id::none()};
+    }
+}
+
+/**
+ * @brief The entity models beside the family at @p path, by the singular
+ * each declares, the first in path order winning, loaded into @p b.
+ */
+compass::codegen::ops::family_members family_members_of(
+    std::string_view path, const types::file_table& table,
+    model_corpus& documents, compass::model::ops::builder& b,
+    const compass::model::ops::document_finder& find,
+    compass::model::ops::load_cache& cache) {
+    namespace mops = compass::model::ops;
+    const auto dir = path.substr(0, path.rfind('/') + 1);
+    std::vector<std::string_view> paths;
+    for (const auto& p : table.paths) {
+        if (p.starts_with(dir) && p.ends_with(".org") &&
+            p.find('/', dir.size()) == std::string::npos)
+            paths.push_back(p);
+    }
+    std::ranges::sort(paths);
+    compass::codegen::ops::family_members out;
+    for (const auto p : paths) {
+        auto* d = documents.get(p);
+        if (d == nullptr || mops::model_type_of(mops::declared_type(
+                document_of(*d))) != compass::model::types::model_type::entity)
+            continue;
+        std::string error;
+        const auto id = mops::load_model(b, document_of(*d),
+            compass::model::types::model_type::entity, find, cache, &error);
+        if (!error.empty())
+            continue;
+        const auto entity = compass::codegen::ops::values::member(b.tables(),
+            b.tables().models.roots[id], "domain_entity");
+        const std::string singular(compass::codegen::ops::values::str(
+            b.tables(), entity, "entity_singular"));
+        if (!singular.empty())
+            out.try_emplace(singular, entity);
+    }
+    return out;
+}
 
 /**
  * @brief The outputs compass builds contexts for, each with its context:
@@ -406,7 +577,9 @@ std::vector<planned> plan_models(const std::filesystem::path& checkout,
 
     const auto find = documents.finder();
     mops::load_cache cache;
-    const auto entities = load_entity_registry(table, documents, find, cache);
+    auto entities = load_entity_registry(table, documents, find, cache);
+    entities.shell_units = shell_units(table, documents, find, cache);
+    entities.shell_local_units = registry.shell_registrars;
     mops::outline outline;
     std::vector<planned> plan;
     for (const auto& path : table.paths) {
@@ -430,15 +603,8 @@ std::vector<planned> plan_models(const std::filesystem::path& checkout,
             continue;
         }
         const auto root = b.tables().models.roots[id];
-        mops::build_outline(p->file.text(), p->view, outline);
-        std::vector<compass::codegen::ops::drawer_property> properties;
-        for (std::size_t i = 0; i < outline.file_property_keys.size(); ++i)
-            properties.push_back({outline.file_property_keys[i],
-                outline.file_property_values[i]});
-        const auto overrides = mops::physical_space_overrides(outline, find,
-            cache);
-        for (const auto& [key, enabled] : overrides)
-            properties.push_back({key, enabled ? "true" : "false"});
+        const auto read = drawer_properties(*p, outline, find, cache);
+        const auto& properties = read.properties;
         const auto units = compass::codegen::ops::model_units(graph, registry,
             type_name, b.tables(), root, path, properties);
         if (units.empty())
@@ -454,17 +620,19 @@ std::vector<planned> plan_models(const std::filesystem::path& checkout,
                 "ores.cpp.wire-codec", wire_codec_addresses, false),
             compass::codegen::ops::facet_enabled(properties,
                 "ores.cpp.protocol", protocol_addresses, true),
-            compass::codegen::ops::protocol_owned(registry, b.tables(), root,
-                path)};
-        const auto context = *type == compass::model::types::model_type::entity
-            ? compass::codegen::ops::entity_context(b, library, root, stem,
-                entities, site)
-            : compass::codegen::ops::model_context(b, library, root, stem,
-                type_name);
+            compass::codegen::ops::protocol_owned(registry, b.tables(),
+                compass::codegen::ops::values::member(b.tables(), root,
+                    type_name), path)};
+        const auto members = *type == compass::model::types::model_type::family
+            ? family_members_of(path, table, documents, b, find, cache)
+            : compass::codegen::ops::family_members{};
+        const auto [context, prepared] = build_context(b, *type, library,
+            root, stem, type_name, entities, site, members);
         ++r.contexts;
         for (const auto& u : units) {
             const auto variant = compass::codegen::ops::template_context(b,
-                context, stem, type_name, u.template_name, entities);
+                context, stem, type_name, u.template_name, entities, site,
+                prepared);
             plan.push_back({u, variant.is_none() ? context : variant,
                 type_name});
         }

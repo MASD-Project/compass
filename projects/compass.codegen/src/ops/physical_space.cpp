@@ -79,6 +79,32 @@ constexpr std::string_view no_temporal_archetypes[] = {
     "ores.cpp.presentation.history_field_mapper_impl",
     "ores.cpp.eventing-integration-test.nats_integration_test"};
 
+/**
+ * @brief _JUNCTION_MESSAGING_FACETS: what serves a junction's list reads,
+ * which one with no :list_by: side does not have.
+ */
+constexpr std::string_view junction_messaging_facets[] = {
+    "ores.cpp.nats-handler", "ores.cpp.nats-sub-registrar",
+    "ores.cpp.protocol", "ores.cpp.service", "ores.ts.protocol"};
+
+/**
+ * @brief _JUNCTION_HISTORY_FACETS: what reads the history of a junction
+ * that states :history: true.
+ */
+constexpr std::string_view junction_history_facets[] = {
+    "ores.cpp.history-provider-registrar", "ores.cpp.presentation"};
+
+/**
+ * @brief _JUNCTION_EVENT_FACETS and _JUNCTION_EVENT_ARCHETYPES: what
+ * announces the changes of a junction that states :events: true.
+ */
+constexpr std::string_view junction_event_facets[] = {
+    "ores.cpp.nats-eventing", "ores.cpp.nats-event-registrar",
+    "ores.sql.schema.notify_trigger", "ores.sql.schema.notify_trigger_drop"};
+
+constexpr std::string_view junction_event_archetypes[] = {
+    "ores.sql.schema.notify_trigger", "ores.sql.schema.notify_trigger_drop"};
+
 constexpr std::string_view shell_aggregator_templates[] = {
     "cpp_shell_command_aggregator_header.hpp.mustache",
     "cpp_shell_command_aggregator_impl.cpp.mustache"};
@@ -446,62 +472,151 @@ std::vector<placeholder> component_placeholders(const model_tables& t,
 }
 
 /**
- * @brief resolve_output_path's placeholders for a domain entity:
- * _component_path_vars, the entity's names, its shell menu and the
- * placeholders _resolve_flagged_entity fills only for an entity that
- * declares what they need.
+ * @brief _component_path_vars of @p model, as placeholders.
  */
-std::vector<placeholder> entity_placeholders(const model_tables& t,
-    value_id entity) {
-    const auto component = get_or(t, entity, "component", "unknown");
-    const auto subcomponent = get_or(t, entity, "subcomponent", "");
+std::vector<placeholder> path_placeholders(const model_tables& t,
+    value_id model) {
+    const auto component = get_or(t, model, "component", "unknown");
+    const auto subcomponent = get_or(t, model, "subcomponent", "");
     const bool split = !subcomponent.empty();
     const auto own_dir = "ores." + component;
-    const auto cached_by = get_or(t, entity, "cached_by", component);
+    const auto cached_by = get_or(t, model, "cached_by", component);
     const auto dot = cached_by.find('.');
     const auto cache_component = cached_by.substr(0, dot);
     const auto cache_subcomponent = dot == std::string::npos
         ? std::string("core") : cached_by.substr(dot + 1);
-    const auto singular = get_or(t, entity, "entity_singular", "unknown");
-    const auto plural = get_or(t, entity, "entity_plural", singular + "s");
-    const auto menu = values::str(t, entity, "entity_plural");
-
-    const auto stated = [&](std::string_view key) {
-        return !strip(values::str(t, entity, key)).empty();
-    };
-    const auto when = [](bool declared, std::string value) {
-        return declared ? std::optional(std::move(value)) : std::nullopt;
-    };
-    const bool writable = !(values::truthy(t, entity, "read_only") ||
-        values::truthy(t, entity, "client_read_only"));
-
     return {
         {"{component}", component},
         {"{component_dir}", split ? own_dir + "/" + subcomponent : own_dir},
         {"{component_core_dir}", split ? own_dir + "/core" : own_dir},
         {"{component_service_dir}", split ? own_dir + "/service" : own_dir},
         {"{component_include}", split ? component + "." + subcomponent
-            : get_or(t, entity, "component_include", component)},
+            : get_or(t, model, "component_include", component)},
         {"{component_core}", split ? component + ".core"
-            : get_or(t, entity, "component_core", component)},
+            : get_or(t, model, "component_core", component)},
         {"{component_service}", split ? component + ".service"
-            : get_or(t, entity, "component_service", component)},
+            : get_or(t, model, "component_service", component)},
         {"{cache_component_dir}", "ores." + cache_component},
         {"{cache_component}", cache_component},
         {"{cache_subcomponent}", cache_subcomponent},
         {"{generator_facet_name}",
-            get_or(t, entity, "generator_facet_name", "generators")},
-        {"{entity_plural}", plural},
+            get_or(t, model, "generator_facet_name", "generators")}};
+}
+
+/**
+ * @brief _resolve_flagged_entity's placeholders, named after @p singular
+ * and filled only for a model that declares what they need.
+ */
+void add_flagged_placeholders(std::vector<placeholder>& out,
+    const model_tables& t, value_id model, const std::string& singular) {
+    const auto stated = [&](std::string_view key) {
+        return !strip(values::str(t, model, key)).empty();
+    };
+    const auto when = [](bool declared, std::string value) {
+        return declared ? std::optional(std::move(value)) : std::nullopt;
+    };
+    const bool writable = !(values::truthy(t, model, "read_only") ||
+        values::truthy(t, model, "client_read_only"));
+    out.push_back({"{web_entity}",
+        when(stated("web_resource"), singular + "_web")});
+    out.push_back({"{web_classification_entity}",
+        when(stated("web_classification"), singular + "_classification")});
+    out.push_back({"{system_owned_entity}", when(writable &&
+        values::truthy(t, model, "system_tenant_validation"),
+        singular + "_system_owned")});
+}
+
+/**
+ * @brief resolve_output_path's placeholders for a domain entity:
+ * _component_path_vars, the entity's names, its shell menu and the
+ * flagged placeholders.
+ */
+std::vector<placeholder> entity_placeholders(const model_tables& t,
+    value_id entity) {
+    auto out = path_placeholders(t, entity);
+    const auto singular = get_or(t, entity, "entity_singular", "unknown");
+    const auto plural = get_or(t, entity, "entity_plural", singular + "s");
+    const auto menu = values::str(t, entity, "entity_plural");
+    out.push_back({"{entity_plural}", plural});
+    out.push_back({"{entity}", singular});
+    out.push_back({"{EntityPascal}", snake_to_pascal(singular)});
+    out.push_back({"{shell_menu}", std::string(menu.empty()
+        ? values::str(t, entity, "entity_singular") : menu)});
+    add_flagged_placeholders(out, t, entity, singular);
+    return out;
+}
+
+/**
+ * @brief resolve_output_path's placeholders for a junction, whose plural
+ * is its name.
+ */
+std::vector<placeholder> junction_placeholders(const model_tables& t,
+    value_id junction) {
+    auto out = path_placeholders(t, junction);
+    const auto name = get_or(t, junction, "name", "unknown");
+    const std::string singular(values::str(t, junction, "name_singular"));
+    const auto plural = values::str(t, junction, "entity_plural");
+    out.push_back({"{junction_name}", name});
+    out.push_back({"{entity}", singular});
+    out.push_back({"{EntityPascal}", snake_to_pascal(singular)});
+    out.push_back({"{entity_plural}", name});
+    out.push_back({"{shell_menu}", std::string(plural.empty()
+        ? values::str(t, junction, "name") : plural)});
+    add_flagged_placeholders(out, t, junction, singular);
+    return out;
+}
+
+/**
+ * @brief resolve_output_path's placeholders for an operation, whose menu
+ * and plural are its entity singular.
+ */
+std::vector<placeholder> operation_placeholders(const model_tables& t,
+    value_id operation) {
+    auto out = path_placeholders(t, operation);
+    const auto singular = get_or(t, operation, "entity_singular", "unknown");
+    const std::string menu(values::str(t, operation, "entity_singular"));
+    out.push_back({"{entity}", singular});
+    out.push_back({"{EntityPascal}", snake_to_pascal(singular)});
+    out.push_back({"{entity_plural}", menu});
+    out.push_back({"{shell_menu}", menu});
+    return out;
+}
+
+/**
+ * @brief resolve_output_path's placeholders for a family.
+ */
+std::vector<placeholder> family_placeholders(const model_tables& t,
+    value_id family) {
+    auto out = path_placeholders(t, family);
+    const auto singular = get_or(t, family, "entity_singular", "unknown");
+    out.push_back({"{entity_plural}",
+        get_or(t, family, "entity_plural", singular + "s")});
+    out.push_back({"{entity}", singular});
+    out.push_back({"{EntityPascal}", snake_to_pascal(singular)});
+    return out;
+}
+
+/**
+ * @brief resolve_output_path's placeholders for a field group.
+ */
+std::vector<placeholder> field_group_placeholders(const model_tables& t,
+    value_id group) {
+    const auto component = get_or(t, group, "component", "unknown");
+    const auto subcomponent = get_or(t, group, "subcomponent", "");
+    const auto stated_include = values::str(t, group, "component_include");
+    const auto include = subcomponent.empty()
+        ? get_or(t, group, "component_include", component)
+        : stated_include.empty() ? component + "." + subcomponent
+        : std::string(stated_include);
+    const auto singular = get_or(t, group, "entity_singular", "unknown");
+    return {
+        {"{component_dir}", subcomponent.empty() ? "ores." + component
+            : "ores." + component + "/" + subcomponent},
+        {"{component_include}", include},
+        {"{component}", component},
+        {"{header}", get_or(t, group, "header", "")},
         {"{entity}", singular},
-        {"{EntityPascal}", snake_to_pascal(singular)},
-        {"{shell_menu}", std::string(menu.empty()
-            ? values::str(t, entity, "entity_singular") : menu)},
-        {"{web_entity}", when(stated("web_resource"), singular + "_web")},
-        {"{web_classification_entity}",
-            when(stated("web_classification"), singular + "_classification")},
-        {"{system_owned_entity}", when(writable &&
-            values::truthy(t, entity, "system_tenant_validation"),
-            singular + "_system_owned")}};
+        {"{EntityPascal}", snake_to_pascal(singular)}};
 }
 
 /**
@@ -546,11 +661,42 @@ bool gate_entity(facet_set& facets, const types::physical_space& g,
     return current_state;
 }
 
+/**
+ * @brief resolve_targets' gates for the junction @p junction of the
+ * model at @p model_path: drops from @p facets what the junction cannot
+ * render, and returns whether its notify trigger archetypes are withheld,
+ * as they are for a junction that announces nothing.
+ */
+bool gate_junction(facet_set& facets, const types::physical_space& g,
+    const types::checkout_registry& registry, const model_tables& t,
+    value_id junction, std::string_view model_path) {
+    if (values::truthy(t, junction, "sql_only")) {
+        std::erase_if(facets, [&](const std::string& f) {
+            const auto row = facet_row(g, f);
+            return !row || g.facets.technical_spaces[*row] != "ores.sql";
+        });
+    }
+    if (registry.protocol_owners.contains({std::string(parent(model_path)),
+            std::string(values::str(t, junction, "component")),
+            std::string(values::str(t, junction, "name_singular"))}))
+        drop(facets, protocol_facets);
+    if (!values::truthy(t, values::member(t, junction, "left"), "list_by") &&
+        !values::truthy(t, values::member(t, junction, "right"), "list_by")) {
+        drop(facets, junction_messaging_facets);
+        drop(facets, protocol_facets);
+    }
+    if (!values::truthy(t, junction, "history"))
+        drop(facets, junction_history_facets);
+    const bool silent = !values::truthy(t, junction, "events");
+    if (silent)
+        drop(facets, junction_event_facets);
+    return silent;
+}
+
 }
 
 bool protocol_owned(const types::checkout_registry& registry,
-    const model_tables& models, value_id model, std::string_view model_path) {
-    const auto entity = values::member(models, model, "domain_entity");
+    const model_tables& models, value_id entity, std::string_view model_path) {
     const auto singular = values::truthy(models, entity, "entity_singular") ?
         values::str(models, entity, "entity_singular") :
         values::str(models, entity, "name_singular");
@@ -645,10 +791,11 @@ types::checkout_registry read_checkout_registry(
         if (f.path.starts_with(shell) && f.path.ends_with(overview) &&
             f.path.size() == shell.size() + component.size() +
                 overview.size()) {
-            const auto v = lower(strip(get_or(keywords(f.text),
-                "shell_command_aggregator")));
+            const auto kw = keywords(f.text);
+            const auto v = lower(strip(get_or(kw, "shell_command_aggregator")));
             if (v == "true" || v == "t" || v == "yes" || v == "1")
-                r.shell_registrars.emplace(component);
+                r.shell_registrars.emplace(component,
+                    words(get_or(kw, "shell_command_local_units")));
         }
     }
     return r;
@@ -678,22 +825,32 @@ std::vector<unit> model_units(const types::physical_space& g,
             facets.insert(f.addresses[i]);
     }
 
-    const auto entity = type == "domain_entity"
-        ? values::member(models, model, "domain_entity") : value_id::none();
-    const bool no_temporal = type == "domain_entity" &&
-        gate_entity(facets, g, registry, models, entity, model_path);
+    const auto owned = values::member(models, model, type);
+    const bool is_entity = (type == "domain_entity" || type == "junction") &&
+        !owned.is_none();
+    std::span<const std::string_view> withheld;
+    if (type == "domain_entity" &&
+        gate_entity(facets, g, registry, models, owned, model_path))
+        withheld = no_temporal_archetypes;
+    if (type == "junction" &&
+        gate_junction(facets, g, registry, models, owned, model_path))
+        withheld = junction_event_archetypes;
     if (!facet_renders(g, "ores.cpp.protocol", type, o))
         drop(facets, protocol_dependent_facets);
 
-    const auto component = values::member(models, model, "component");
-    const bool is_component = type == "component" && !component.is_none();
+    const bool is_component = type == "component" && !owned.is_none();
     const auto kind = is_component
-        ? string_member(models, component, "kind") : std::nullopt;
-    const bool registrar = !entity.is_none() && registry.shell_registrars
-        .contains(values::str(models, entity, "component"));
-    const auto placeholders = is_component
-        ? component_placeholders(models, component, kind, model_path)
-        : !entity.is_none() ? entity_placeholders(models, entity)
+        ? string_member(models, owned, "kind") : std::nullopt;
+    const bool registrar = is_entity && registry.shell_registrars
+        .contains(values::str(models, owned, "component"));
+    const auto placeholders = owned.is_none() ? std::vector<placeholder>{}
+        : type == "component"
+        ? component_placeholders(models, owned, kind, model_path)
+        : type == "domain_entity" ? entity_placeholders(models, owned)
+        : type == "junction" ? junction_placeholders(models, owned)
+        : type == "operation" ? operation_placeholders(models, owned)
+        : type == "field_group" ? field_group_placeholders(models, owned)
+        : type == "family" ? family_placeholders(models, owned)
         : std::vector<placeholder>{};
 
     std::vector<std::size_t> deferred;
@@ -708,8 +865,7 @@ std::vector<unit> model_units(const types::physical_space& g,
             if (!a.kinds[j].empty() && (!kind ||
                 std::ranges::find(a.kinds[j], *kind) == a.kinds[j].end()))
                 continue;
-            if (no_temporal && std::ranges::find(no_temporal_archetypes,
-                    a.addresses[j]) != std::end(no_temporal_archetypes))
+            if (std::ranges::find(withheld, a.addresses[j]) != withheld.end())
                 continue;
             if (!is_enabled(a.addresses[j], facet, ts, o, a.defaults[j] != 0))
                 continue;

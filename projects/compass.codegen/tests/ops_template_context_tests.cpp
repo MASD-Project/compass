@@ -201,3 +201,108 @@ TEST_CASE("a convention family is read from its model's text",
     CHECK_FALSE(codegen::ops::convention_family_of("x/ores.refdata.y.org",
         "#+type: ores.codegen.junction\n#+convention_family: y\n"));
 }
+
+/*
+ * ores.iam.auth_event_operations, whose one declared command states
+ * :http_route: (oracle: the operation's http_route and the http_recipe
+ * and shell_recipe of its recipe contexts).
+ */
+TEST_CASE("an operation's recipes read its declared commands",
+    "[codegen][template_context]") {
+    codegen::tests::entity_fixture f(R"j({"operation": {"component": "iam",
+        "entity_singular": "auth_event_operations",
+        "shell_commands": [{"command": "list-auth-events",
+            "operation": "list-auth-events",
+            "operation_identifier": "list_auth_events", "http_route": true,
+            "public": false, "rate_policy": "",
+            "request": "list_auth_events_request",
+            "response_type": "list_auth_events_response",
+            "subject": "iam.v1.auth_events.list",
+            "usage": "list-auth-events <account_id> <event_type>",
+            "invocation": "list-auth-events __none__ __none__",
+            "positionals": [{"name": "account_id"}, {"name": "event_type"}],
+            "flags": []}]}})j");
+    const auto context = f.b.detached_object();
+    f.b.set_copy(context, "ores.iam.auth_event_operations", f.loaded);
+    f.b.set_copy(context, "operation", member(f.tables, f.loaded,
+        "operation"));
+    codegen::types::entity_registry registry;
+
+    const auto http = codegen::ops::template_context(f.b, context,
+        "ores.iam.auth_event_operations", "operation",
+        "http_recipe.org.mustache", registry);
+    REQUIRE(!http.is_none());
+    const auto op = member(f.tables, http, "operation");
+    const auto routes = model::io::read_json(f.b, R"j([{
+        "command": "list-auth-events",
+        "description": "Forwards to the iam.v1.auth_events.list operation.",
+        "has_fields": true, "identifier": "list_auth_events",
+        "method": "post", "method_upper": "POST",
+        "pattern": "/api/v1/iam/auth_events/list", "rate_policy": "",
+        "request": "list_auth_events_request", "requires_session": true,
+        "response_type": "list_auth_events_response",
+        "subject": "iam.v1.auth_events.list",
+        "summary": "List auth events"}])j");
+    CHECK(difference(f.tables, member(f.tables, member(f.tables, op,
+        "http_route"), "routes"), routes, "routes") == "");
+    const auto recipe = member(f.tables, http, "http_recipe");
+    CHECK(f.json(recipe, "group") == "\"auth_event_operations\"");
+    CHECK(f.json(recipe, "id") ==
+        "\"73A40B85-A485-5673-BB44-944926EAB983\"");
+    CHECK(f.json(items(f.tables, recipe, "endpoints").front(),
+        "commentary") == "\"List auth events. It needs a session.\"");
+
+    const auto shell = codegen::ops::template_context(f.b, context,
+        "ores.iam.auth_event_operations", "operation",
+        "shell_recipe.org.mustache", registry);
+    REQUIRE(!shell.is_none());
+    const auto doc = member(f.tables, shell, "shell_recipe");
+    CHECK(f.json(doc, "is_operation") == "true");
+    CHECK(f.json(doc, "intro") == "\"This file documents declared "
+        "operations at the shell. Its one command is =ores-shell> "
+        "auth_event_operations list-auth-events=, and the section below "
+        "exports it as a script into =projects/ores.shell/scripts/library/=, "
+        "which the shell can load.\"");
+    CHECK(f.json(items(f.tables, doc, "commands").front(), "commentary") ==
+        "\"Sends =list_auth_events_request= and prints "
+        "=list_auth_events_response=, so the shape is the protocol's and the "
+        "meaning is the service's. It reads =account_id=, =event_type=, in "
+        "that order. The caller must have established a session first.\"");
+    CHECK(member(f.tables, member(f.tables, shell, "operation"),
+        "http_route").is_none());
+}
+
+/*
+ * The trading registrar, rendered from
+ * ores.trading.vanilla_swap_instrument (oracle: its shell_aggregator,
+ * whose one local unit is ore_commands, in name order with the rest).
+ */
+TEST_CASE("a shell aggregator lists its directory's units and the local "
+    "ones", "[codegen][template_context]") {
+    codegen::tests::entity_fixture f(R"j({"component": "trading"})j");
+    const auto context = f.b.detached_object();
+    f.b.set_copy(context, "domain_entity", f.loaded);
+    codegen::types::entity_registry registry;
+    registry.shell_units["projects/ores.trading/modeling"] =
+        {"activity_type", "activity_category"};
+    const codegen::types::entity_site site{
+        "projects/ores.trading/modeling/"
+        "ores.trading.vanilla_swap_instrument.org"};
+    const auto header = "cpp_shell_command_aggregator_header.hpp.mustache";
+
+    CHECK(codegen::ops::template_context(f.b, context, "x", "domain_entity",
+        header, registry, site).is_none());
+
+    registry.shell_local_units["trading"] = {"ore_commands"};
+    const auto copy = codegen::ops::template_context(f.b, context, "x",
+        "domain_entity", header, registry, site);
+    REQUIRE(!copy.is_none());
+    const auto expected = model::io::read_json(f.b, R"j({
+        "component": "trading", "component_upper": "TRADING",
+        "units": [
+            {"local": false, "unit": "activity_category_commands"},
+            {"local": false, "unit": "activity_type_commands"},
+            {"local": true, "unit": "ore_commands"}]})j");
+    CHECK(difference(f.tables, member(f.tables, copy, "shell_aggregator"),
+        expected, "shell_aggregator") == "");
+}

@@ -343,7 +343,7 @@ TEST_CASE("the shell registrar renders where the component opts into it",
     CHECK(std::ranges::count(entity_outputs(swap), aggregator) == 0);
 
     codegen::types::checkout_registry registry;
-    registry.shell_registrars.emplace("trading");
+    registry.shell_registrars.emplace("trading", std::vector<std::string>{});
     CHECK(std::ranges::count(entity_outputs(swap, registry), aggregator) == 1);
 }
 
@@ -353,6 +353,62 @@ TEST_CASE("a store-only entity renders only its SQL",
         "entity_singular": "grid_sample", "entity_plural": "grid_samples",
         "sql_only": true})") == std::vector<std::string>{
             "projects/ores.sql/create/compute/compute_grid_samples_create.sql"});
+}
+
+namespace {
+
+/**
+ * @brief The outputs model_units lists for the junction @p json at the
+ * path of ores.refdata.party_country_junction, the shell command on.
+ */
+std::vector<std::string> junction_outputs(const std::string& json) {
+    const auto g = codegen::ops::load_physical_space(entity_nodes);
+    model::types::model_tables t;
+    model::ops::builder b(t);
+    const auto model = model::io::read_json(b, "{\"junction\": " + json + "}");
+    return outputs(codegen::ops::model_units(g, {}, "junction", t, model,
+        "projects/ores.refdata/modeling/"
+        "ores.refdata.party_country_junction.org", shell_on));
+}
+
+bool has(const std::vector<std::string>& outputs, std::string_view o) {
+    return std::ranges::find(outputs, o) != outputs.end();
+}
+
+}
+
+/*
+ * Expected paths are the ones ores.codegen wrote for
+ * ores.refdata.party_country_junction.
+ */
+TEST_CASE("a junction's outputs resolve its name and gate its surfaces",
+    "[codegen][physical_space]") {
+    const std::string sides = R"("left": {"column": "party_id",
+        "list_by": true}, "right": {"column": "country_alpha2_code"})";
+    const auto all = junction_outputs(R"({"component": "refdata",
+        "subcomponent": "api", "name": "party_countries",
+        "name_singular": "party_country", "history": true, )" + sides + "}");
+    CHECK(has(all, "projects/ores.refdata/api/include/ores.refdata.api/"
+        "domain/party_country.hpp"));
+    CHECK(has(all, "projects/ores.refdata/api/include/ores.refdata.api/"
+        "messaging/party_country_protocol.hpp"));
+    CHECK(has(all, "projects/ores.refdata/core/include/ores.refdata.core/"
+        "messaging/party_country_history_provider_registrar.hpp"));
+    CHECK(has(all, "projects/ores.refdata/core/include/ores.refdata.core/"
+        "presentation/party_country_history_field_mapper.hpp"));
+    CHECK(has(all, "projects/ores.shell/refdata/include/ores.shell/app/"
+        "commands/refdata/party_country_commands.hpp"));
+    CHECK(has(all, "doc/recipes/shell/party_countries/party_country.org"));
+
+    const auto silent = junction_outputs(R"({"component": "refdata",
+        "subcomponent": "api", "name": "party_countries",
+        "name_singular": "party_country", "left": {"column": "party_id"},
+        "right": {"column": "country_alpha2_code"}})");
+    CHECK(std::ranges::none_of(silent, [](const std::string& o) {
+        return o.contains("history") || o.contains("protocol");
+    }));
+    CHECK(has(silent, "projects/ores.refdata/api/include/ores.refdata.api/"
+        "domain/party_country.hpp"));
 }
 
 TEST_CASE("the registry reads operations, plurals and shell opt-ins",
@@ -367,7 +423,8 @@ TEST_CASE("the registry reads operations, plurals and shell opt-ins",
         {"projects/ores.refdata/api/modeling/ores.refdata.nested.org",
          "#+entity_plural: nested_things\n"},
         {"projects/ores.shell/trading/modeling/component_overview.org",
-         "#+title: x\n#+shell_command_aggregator: true\n"},
+         "#+title: x\n#+shell_command_aggregator: true\n"
+         "#+shell_command_local_units: trading_navigator  book_tree\n"},
         {"projects/ores.shell/iam/modeling/component_overview.org",
          "#+title: x\n#+shell_command_aggregator: false\n"}};
     const auto r = codegen::ops::read_checkout_registry(files);
@@ -378,8 +435,9 @@ TEST_CASE("the registry reads operations, plurals and shell opt-ins",
             {"projects/ores.workflow", "workflow", "workflow"}});
     CHECK(r.plural_owners == std::map<std::string, std::set<std::string>,
         std::less<>>{{"lei_entities", {"ores.dq"}}});
-    CHECK(r.shell_registrars == std::set<std::string, std::less<>>{
-        "trading"});
+    CHECK(r.shell_registrars == std::map<std::string,
+        std::vector<std::string>, std::less<>>{
+            {"trading", {"trading_navigator", "book_tree"}}});
 }
 
 TEST_CASE("regenerate --all reaches the catalogue's modeling directories",

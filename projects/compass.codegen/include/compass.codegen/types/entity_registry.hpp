@@ -143,7 +143,12 @@ struct convention_family {
  * directory of projects/ to what its models declare. domain_headers holds
  * the path of every header under a domain/ directory of projects/, which
  * _foreign_root asks about. convention_families holds the convention
- * families (discover_entries), by key.
+ * families (discover_entries), by key. shell_units maps a modeling
+ * directory to the singulars of the entity and junction models in it, or
+ * one level below it, that enable ores.cpp.shell-command
+ * (_shell_command_units). shell_local_units maps each component whose
+ * shell part opts into the command registrar to the local units it names
+ * (shell_command_surface).
  */
 struct entity_registry {
     std::map<std::string, table_owner, std::less<>> tables;
@@ -154,6 +159,9 @@ struct entity_registry {
     std::map<std::string, model_directory, std::less<>> directories;
     std::set<std::string, std::less<>> domain_headers;
     std::vector<convention_family> convention_families;
+    std::map<std::string, std::set<std::string>, std::less<>> shell_units;
+    std::map<std::string, std::vector<std::string>, std::less<>>
+        shell_local_units;
 };
 
 }

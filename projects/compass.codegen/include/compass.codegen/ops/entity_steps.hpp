@@ -20,6 +20,10 @@
 #ifndef COMPASS_CODEGEN_OPS_ENTITY_STEPS_HPP
 #define COMPASS_CODEGEN_OPS_ENTITY_STEPS_HPP
 
+#include <map>
+#include <set>
+#include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 #include "compass.model/ops/builder.hpp"
@@ -234,6 +238,27 @@ void derive_entity_names(compass::model::ops::builder& b,
  */
 void derive_table_display(compass::model::ops::builder& b,
     compass::model::types::value_id entity);
+
+/**
+ * @brief The column paths a table display streams specially: uuids
+ * through to_string, optionals unwrapped, plain bools as words.
+ */
+struct table_display_types {
+    std::set<std::string, std::less<>> uuid;
+    std::set<std::string, std::less<>> optional;
+    std::set<std::string, std::less<>> boolean;
+};
+
+/**
+ * @brief _prepare_table_display on the cpp section @p cpp: each
+ * table_display row's iter_var, its column prefixed by the member of
+ * @p members that carries it, is_uuid, is_optional and is_bool from
+ * @p types, and has_uuid_table_display and has_optional_table_display.
+ * Nothing when @p cpp states no table display.
+ */
+void prepare_table_display(compass::model::ops::builder& b,
+    compass::model::types::value_id cpp, const table_display_types& types,
+    const std::map<std::string, std::string, std::less<>>& members);
 
 /**
  * @brief Copies each repository member to the entity's top level (core.py
@@ -521,6 +546,38 @@ void derive_messages(compass::model::ops::builder& b,
 void derive_codec_includes(compass::model::ops::builder& b,
     compass::model::types::value_id entity,
     const types::entity_registry& registry, const types::entity_site& site);
+
+/**
+ * @brief _member_headers: the headers that declare the shape of every
+ * type @p cpp_types name, in first-seen order, for @p owner, a model
+ * object with component and component_include or subcomponent, of the
+ * model at @p model_path.
+ */
+[[nodiscard]] std::vector<std::string> member_headers_of(
+    const compass::model::ops::builder& b,
+    compass::model::types::value_id owner,
+    std::span<const std::string> cpp_types,
+    const types::entity_registry& registry, std::string_view model_path);
+
+/**
+ * @brief family_protocol_messages for the family @p family whose central
+ * entity model, as loaded, is @p central: messages, the key record (the
+ * central row's own), the item and write records and the get, get_many,
+ * put and put_many pairs; key_fields, item_fields and write_fields; and
+ * the domain_includes, protocol_includes and protocol_imports of each
+ * entity it names, the central row first.
+ */
+void derive_family_messages(compass::model::ops::builder& b,
+    compass::model::types::value_id family,
+    compass::model::types::value_id central,
+    const types::entity_registry& registry);
+
+/**
+ * @brief filter_members, as filter_members derives them from @p entity.
+ * Returns whether one of them is a range.
+ */
+bool write_filter_members(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
 
 /**
  * @brief The filter record (core.py 6663-6684): filter_members as

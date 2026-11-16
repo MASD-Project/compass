@@ -55,12 +55,24 @@ namespace compass::codegen::ops {
  * (shell_recipe_document), http_recipe (http_recipe_document),
  * convention_unit or convention_registry (convention_family_context) at
  * the top, or with the entity's utility_imports and extra_domain_imports
- * for ts_protocol.ts.mustache. None for every other template.
+ * for ts_protocol.ts.mustache. A junction's shell and HTTP route
+ * templates read @p prepared, its surface shape (junction_context), under
+ * domain_entity, and its TypeScript protocol its utility_imports; a
+ * family's service, handler and registrar templates read @p prepared,
+ * its service context (family_context), whole; an
+ * operation's HTTP route templates read its http_route
+ * (operation_http_route_plan). The shell aggregator of an entity or a
+ * junction reads shell_aggregator, the units of the models beside the one
+ * at @p site and its component's local units. None for every other
+ * template.
  */
 [[nodiscard]] compass::model::types::value_id template_context(
     compass::model::ops::builder& b, compass::model::types::value_id context,
     std::string_view model_key, std::string_view model_type,
-    std::string_view template_name, const types::entity_registry& registry);
+    std::string_view template_name, const types::entity_registry& registry,
+    const types::entity_site& site = {},
+    compass::model::types::value_id prepared =
+        compass::model::types::value_id::none());
 
 }
 
