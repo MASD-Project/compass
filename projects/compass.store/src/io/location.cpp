@@ -47,7 +47,7 @@ std::filesystem::path resolve(const std::filesystem::path& base,
 
 }
 
-std::filesystem::path git_common_dir(const std::filesystem::path& checkout) {
+std::filesystem::path git_dir(const std::filesystem::path& checkout) {
     constexpr std::string_view prefix = "gitdir: ";
     const auto dot_git = checkout / ".git";
     if (std::filesystem::is_directory(dot_git))
@@ -58,10 +58,13 @@ std::filesystem::path git_common_dir(const std::filesystem::path& checkout) {
     const auto line = first_line(dot_git);
     if (!line.starts_with(prefix) || line.size() == prefix.size())
         throw std::runtime_error("no gitdir in " + dot_git.string());
-    const auto git_dir = resolve(checkout, line.substr(prefix.size()));
+    return resolve(checkout, line.substr(prefix.size()));
+}
 
-    const auto common = first_line(git_dir / "commondir");
-    return common.empty() ? git_dir : resolve(git_dir, common);
+std::filesystem::path git_common_dir(const std::filesystem::path& checkout) {
+    const auto dir = git_dir(checkout);
+    const auto common = first_line(dir / "commondir");
+    return common.empty() ? dir : resolve(dir, common);
 }
 
 std::filesystem::path objects_dir(const std::filesystem::path& git_common_dir) {

@@ -26,6 +26,17 @@
 namespace compass::store::io {
 
 /**
+ * @brief The git directory of one checkout, as `git rev-parse --git-dir`
+ * names it: the .git directory of a main checkout, or the directory the
+ * .git file of a linked worktree names. Its index file lives there.
+ *
+ * @throws std::runtime_error when @p checkout holds no .git or its .git
+ * file cannot be understood.
+ */
+[[nodiscard]] std::filesystem::path git_dir(
+    const std::filesystem::path& checkout);
+
+/**
  * @brief The git directory every worktree of a repository shares, as
  * `git rev-parse --git-common-dir` names it.
  *

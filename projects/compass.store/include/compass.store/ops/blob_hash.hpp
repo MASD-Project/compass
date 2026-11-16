@@ -20,6 +20,8 @@
 #ifndef COMPASS_STORE_OPS_BLOB_HASH_HPP
 #define COMPASS_STORE_OPS_BLOB_HASH_HPP
 
+#include <array>
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include "compass.store/types/blob_id.hpp"
@@ -34,6 +36,13 @@ namespace compass::store::ops {
  * checkout.
  */
 [[nodiscard]] types::blob_id blob_id_of(std::string_view content) noexcept;
+
+/**
+ * @brief The SHA-1 of @p data as 20 raw bytes. Git ends its index file with
+ * this digest of everything before it.
+ */
+[[nodiscard]] std::array<std::uint8_t, 20> sha1_of(std::string_view data)
+    noexcept;
 
 /**
  * @brief The ID as git prints it: 40 lower-case hexadecimal digits.
