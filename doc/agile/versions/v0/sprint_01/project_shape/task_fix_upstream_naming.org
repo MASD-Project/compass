@@ -8,7 +8,7 @@
 #+filetags: :project_shape:sprint_01:v0:
 #+owner: marco
 #+branch: feature/fix-upstream-naming
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/3
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-12
@@ -85,7 +85,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/3][#3]] | [doc] Name ORE Studio where the docs mean the upstream |
 
 * Review
 
