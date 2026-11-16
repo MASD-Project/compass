@@ -8,7 +8,7 @@
 #+filetags: :run_codecs_and_write_changes:sprint_01:v0:
 #+owner: marco
 #+branch: feature/add-diff-mode
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/21
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -90,7 +90,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/21][#21]] | [codec] Add diff mode: show what a run would change |
 
 * Review
 
