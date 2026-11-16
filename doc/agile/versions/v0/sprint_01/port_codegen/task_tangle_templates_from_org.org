@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :port_codegen:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/tangle-templates-from-org
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ Extract the Mustache templates from their literate org sources without Emacs.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:4F499B47-4AB8-4049-A72F-495351A6E2C7][Port ORE Studio codegen]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,24 @@ Extract the Mustache templates from their literate org sources without Emacs.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Tangling is a codec over the org tables compass already holds: no Emacs.
+  The product owner's rule is that tangles stay simple concatenations.
+- In ORE Studio's 226 template sources, 185 blocks carry =:tangle=; none uses
+  =:noweb=, =:padline=, =:comments=, =:mkdirp= or =:shebang=, and no file sets
+  header arguments by =#+PROPERTY=. One file contains a =<<...>>= pattern,
+  which without =:noweb yes= stays literal text.
+- So a tangle codec takes each source block with =:tangle <path>= (=no= and
+  absent mean skip), concatenates the bodies in document order per target
+  path, and copies the three Emacs defaults that change bytes: a blank line
+  between blocks tangled to the same file (=:padline yes=), the leading comma
+  removed from escaped lines (=,*=, =,#+=), and the path resolved against the
+  org file's directory.
+- A header argument the codec does not implement makes it emit a diagnostic
+  for that block rather than guess, so a template that needs more than
+  concatenation is caught, not silently mistangled.
+- The oracle is the =.mustache= files Emacs tangled, as committed in ORE
+  Studio: every tangled file must be byte-identical. Diff mode then replaces
+  the =template-drift= check.
 
 * Measurements
 
