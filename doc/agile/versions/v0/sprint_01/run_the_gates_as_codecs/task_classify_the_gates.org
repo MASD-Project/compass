@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/classify-the-gates
+#+pr: https://github.com/MASD-Project/compass/pull/36
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -26,11 +26,11 @@ Classify each ORE Studio gate as port, replace by diff mode, or keep as a build 
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -39,9 +39,15 @@ Classify each ORE Studio gate as port, replace by diff mode, or keep as a build 
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Enumerate every gate from ORE Studio's =local_checks.py= and its CI
+  workflows at one recorded commit, read from a =git archive= copy.
+- For each, record what it reads, what it checks, and its class: port as a
+  compass check, replace by diff mode (it regenerates and compares, which
+  compass's codegen codec now does), or keep as a build gate.
+- Time each cheap gate in the archive copy, with the machine load beside each
+  number. Take build, database and test gate times from CI run logs.
+- Keep the table in an evidence file beside this task, so later tasks can
+  pick their ports from it in order of cost.
 
 * Measurements
 
@@ -55,7 +61,10 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Gates classified | 121: 96 local_checks.py, 25 CI only | [[id:AFF665C4-739C-4BDB-93BD-9D547351AE4F][gate classification]] | ORE 545cafca45 |
+| Port | 87, 379 s wall run one after another (about 329 s without sql-hygiene's repeat), load 2.4-12 | [[id:AFF665C4-739C-4BDB-93BD-9D547351AE4F][gate classification]] | ORE 545cafca45 |
+| Replace by diff mode | 3: component-drift 539 s, component-drift --all 423 s, drift-sweep 350 s | [[id:AFF665C4-739C-4BDB-93BD-9D547351AE4F][gate classification]] | ORE 545cafca45 |
+| Keep as build gate | 31 | [[id:AFF665C4-739C-4BDB-93BD-9D547351AE4F][gate classification]] | ORE 545cafca45 |
 
 * Notes
 
@@ -74,7 +83,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/36][#36]] | [agile] Classify ORE Studio's gates |
 
 * Review
 
@@ -83,3 +92,24 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+Every gate in ORE Studio's =local_checks.py= and CI workflows is classified,
+with its baseline time, in the [[id:AFF665C4-739C-4BDB-93BD-9D547351AE4F][gate classification]].
+
+The slowest ports are exported-types (62 s), sql-hygiene (50 s, run twice in
+CI through validate-sql-schema), tangle-shell (41 s), paste-blocks (29 s),
+enum-attributes (20 s), reachability (13 s), unity-collisions (12 s),
+tangle-templates (11 s) and portable-stop (11 s). The three diff-mode gates
+alone take about 22 minutes, and compass's codegen codec already replaces
+their work.
+
+Open questions, recorded in the evidence:
+
+- The tangle gates are ports only if compass tangles as Emacs does. It does
+  for templates (171 of 171), but tangle-shell was not checked.
+- 28 ports regenerate artefacts that are not codegen output. Each becomes diff
+  mode once compass has a codec for it.
+- site-page becomes diff mode if compass's HTML export replaces Emacs.
+- At this ORE commit 11 gates fail on real problems, including the 24 drift
+  files, a stale PlantUML schema, a stale backlog index and three failing
+  codegen tests.
