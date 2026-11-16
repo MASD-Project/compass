@@ -1,0 +1,211 @@
+{
+ "columns": [
+  {
+   "cpp_type": "boost::uuids::uuid",
+   "is_minted": true,
+   "name": "id"
+  },
+  {
+   "cpp_type": "boost::uuids::uuid",
+   "is_session_party": true,
+   "name": "party_id"
+  },
+  {
+   "cpp_type": "bool",
+   "default_value": "false",
+   "name": "quoted"
+  },
+  {
+   "cpp_type": "std::vector<std::string>",
+   "name": "tags"
+  },
+  {
+   "cpp_type": "double",
+   "default_value": "0.0",
+   "name": "rate"
+  },
+  {
+   "cpp_type": "std::string",
+   "default_value": "'spot \"x\"'",
+   "name": "label",
+   "searchable": true
+  },
+  {
+   "cpp_type": "std::string",
+   "default_value": "kind::spot",
+   "name": "kind"
+  },
+  {
+   "cpp_type": "std::chrono::year_month_day",
+   "name": "settles"
+  },
+  {
+   "cpp_type": "std::optional<boost::uuids::uuid>",
+   "name": "base_id"
+  }
+ ],
+ "component": "refdata",
+ "entity_plural": "currency_pairs",
+ "entity_singular": "currency_pair",
+ "key_field": "code",
+ "messages": [
+  {
+   "derived": true,
+   "fields": [
+    {
+     "cpp_type": "std::uint32_t",
+     "name": "offset"
+    },
+    {
+     "cpp_type": "ores::utility::domain::order",
+     "name": "order"
+    }
+   ],
+   "name": "list_currency_pairs_request",
+   "response_type": "list_currency_pairs_response",
+   "subject": "refdata.v1.currency_pairs.list"
+  },
+  {
+   "derived": true,
+   "fields": [
+    {
+     "cpp_type": "std::optional<boost::uuids::uuid>",
+     "name": "base_id"
+    },
+    {
+     "cpp_type": "ores::utility::domain::order",
+     "name": "order"
+    }
+   ],
+   "name": "list_by_base_id_request",
+   "response_type": "list_currency_pairs_response",
+   "subject": "refdata.v1.currency_pairs.list_by_base_id"
+  },
+  {
+   "derived": true,
+   "fields": [],
+   "name": "get_currency_pairs_request",
+   "response_type": "get_currency_pairs_response",
+   "subject": "refdata.v1.currency_pairs.get"
+  },
+  {
+   "derived": true,
+   "fields": [],
+   "name": "put_currency_pair_request",
+   "response_type": "put_currency_pair_response",
+   "subject": "refdata.v1.currency_pairs.put"
+  },
+  {
+   "derived": true,
+   "fields": [],
+   "name": "put_many_currency_pairs_request",
+   "response_type": "put_many_currency_pairs_response",
+   "subject": "refdata.v1.currency_pairs.put_many"
+  },
+  {
+   "derived": true,
+   "fields": [],
+   "name": "delete_currency_pair_request",
+   "response_type": "delete_currency_pair_response",
+   "subject": "refdata.v1.currency_pairs.delete"
+  },
+  {
+   "derived": true,
+   "fields": [],
+   "name": "delete_many_currency_pairs_request",
+   "requires_session": "false",
+   "response_type": "delete_many_currency_pairs_response",
+   "subject": "refdata.v1.currency_pairs.delete_many"
+  },
+  {
+   "derived": true,
+   "fields": [
+    {
+     "cpp_type": "std::string",
+     "name": "code"
+    },
+    {
+     "cpp_type": "ores::utility::domain::order",
+     "name": "order"
+    }
+   ],
+   "name": "get_currency_pair_versions_request",
+   "response_type": "get_currency_pair_versions_response",
+   "subject": "refdata.v1.currency_pairs_versions.list",
+   "verb": "list_versions"
+  },
+  {
+   "derived": true,
+   "fields": [],
+   "name": "get_currency_pair_version_request",
+   "response_type": "get_currency_pair_version_response",
+   "subject": "refdata.v1.currency_pairs_versions.get",
+   "verb": "get_version"
+  }
+ ],
+ "natural_keys": [
+  {
+   "column": "code",
+   "cpp_type": "std::string"
+  }
+ ],
+ "primary_key": {
+  "columns": [
+   {
+    "column": "id",
+    "cpp_type": "boost::uuids::uuid",
+    "is_minted": true
+   }
+  ]
+ },
+ "sortable_fields": [
+  {
+   "name": "code"
+  },
+  {
+   "name": "label"
+  }
+ ],
+ "web_classification": "currency-pairs",
+ "web_classification_topic": "fx",
+ "web_resource": " currency-pairs ",
+ "web_writes": "many",
+ "write_fields": [
+  {
+   "cpp_type": "boost::uuids::uuid",
+   "name": "id"
+  },
+  {
+   "cpp_type": "std::string",
+   "name": "code"
+  },
+  {
+   "cpp_type": "bool",
+   "name": "quoted"
+  },
+  {
+   "cpp_type": "std::vector<std::string>",
+   "name": "tags"
+  },
+  {
+   "cpp_type": "double",
+   "name": "rate"
+  },
+  {
+   "cpp_type": "std::string",
+   "name": "label"
+  },
+  {
+   "cpp_type": "std::string",
+   "name": "kind"
+  },
+  {
+   "cpp_type": "std::chrono::year_month_day",
+   "name": "settles"
+  },
+  {
+   "cpp_type": "std::optional<boost::uuids::uuid>",
+   "name": "base_id"
+  }
+ ]
+}

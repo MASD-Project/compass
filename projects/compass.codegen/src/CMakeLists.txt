@@ -21,10 +21,38 @@ set(lib_target_name ${name}.lib)
 add_library(${lib_target_name}
     ops/compile.cpp
     ops/context.cpp
+    ops/entity_codecs.cpp
+    ops/entity_columns.cpp
+    ops/entity_context.cpp
+    ops/entity_economics.cpp
+    ops/entity_finders.cpp
+    ops/entity_gates.cpp
+    ops/entity_groups.cpp
+    ops/entity_keys.cpp
+    ops/entity_markers.cpp
+    ops/entity_messages.cpp
+    ops/entity_names.cpp
+    ops/entity_operations.cpp
+    ops/entity_order.cpp
+    ops/entity_presentation.cpp
+    ops/entity_primary_key.cpp
+    ops/entity_registry.cpp
+    ops/entity_repository.cpp
+    ops/entity_rules.cpp
+    ops/entity_seeds.cpp
+    ops/entity_service.cpp
+    ops/entity_sql_names.cpp
+    ops/entity_sql_table.cpp
+    ops/entity_storage.cpp
+    ops/entity_supply.cpp
+    ops/entity_surfaces.cpp
+    ops/entity_typescript.cpp
+    ops/entity_wire.cpp
     ops/manifest.cpp
     ops/output.cpp
     ops/physical_space.cpp
-    ops/render.cpp)
+    ops/render.cpp
+    ops/template_context.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
 
@@ -33,4 +61,6 @@ target_include_directories(${lib_target_name} PUBLIC
 
 target_link_libraries(${lib_target_name}
     PUBLIC
-        compass.model.lib)
+        compass.model.lib
+    PRIVATE
+        compass.store.lib)

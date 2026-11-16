@@ -27,9 +27,13 @@
 #include "compass.bench/ops/model_corpus.hpp"
 #include "compass.codegen/ops/compile.hpp"
 #include "compass.codegen/ops/context.hpp"
+#include "compass.codegen/ops/entity_context.hpp"
+#include "compass.codegen/ops/entity_registry.hpp"
+#include "compass.codegen/ops/template_context.hpp"
 #include "compass.codegen/ops/manifest.hpp"
 #include "compass.codegen/ops/output.hpp"
 #include "compass.codegen/ops/physical_space.hpp"
+#include "compass.codegen/ops/values.hpp"
 #include "compass.model/io/json.hpp"
 #include "compass.model/ops/builder.hpp"
 #include "compass.model/ops/load.hpp"
@@ -91,14 +95,17 @@ template_map compile_templates(const std::filesystem::path& checkout) {
     return templates;
 }
 
-void write_output(const std::filesystem::path& out, std::string_view path,
-    std::string_view text) {
-    const auto target = out / "renders" / std::filesystem::path(path);
+void write_file(const std::filesystem::path& target, std::string_view text) {
     std::filesystem::create_directories(target.parent_path());
     std::ofstream os(target, std::ios::binary);
     os << text;
     if (!os)
         throw std::runtime_error("cannot write " + target.string());
+}
+
+void write_output(const std::filesystem::path& out, std::string_view path,
+    std::string_view text) {
+    write_file(out / "renders" / std::filesystem::path(path), text);
 }
 
 struct unit {
@@ -201,19 +208,171 @@ compass::codegen::types::physical_space load_graph(
     return compass::codegen::ops::load_physical_space(nodes);
 }
 
+/**
+ * @brief The registry of the checkout's models resolve_targets consults,
+ * read from every .org file under a modeling/ directory of projects/.
+ */
+compass::codegen::types::checkout_registry load_registry(
+    const std::filesystem::path& checkout, const types::file_table& table) {
+    std::vector<compass::platform::filesystem::mapped_file> files;
+    std::vector<std::string_view> paths;
+    for (const auto& path : table.paths) {
+        if (!path.starts_with("projects/") || !path.ends_with(".org") ||
+            path.find("/modeling/") == std::string::npos)
+            continue;
+        files.emplace_back(checkout / std::filesystem::path(path));
+        paths.push_back(path);
+    }
+    std::vector<compass::codegen::ops::checkout_file> documents;
+    for (std::size_t i = 0; i < files.size(); ++i)
+        documents.push_back({paths[i], files[i].text()});
+    return compass::codegen::ops::read_checkout_registry(documents);
+}
+
+/**
+ * @brief The registry of the entity models a domain entity's enrichment
+ * reads beside its own: those of projects/<component>/modeling/, scanned
+ * in path order as _entity_org_by_table scans them, a later claim of a
+ * table winning, each loaded into tables of its own; the routes of
+ * the trade type catalogues there; and the custom-type registry.
+ */
+compass::codegen::types::entity_registry load_entity_registry(
+    const types::file_table& table, model_corpus& documents,
+    const compass::model::ops::document_finder& find,
+    compass::model::ops::load_cache& cache) {
+    namespace mops = compass::model::ops;
+    using parts = std::pair<std::string_view, std::string_view>;
+    std::vector<std::pair<parts, std::string_view>> paths;
+    constexpr std::string_view projects = "projects/";
+    constexpr std::string_view modeling = "/modeling/";
+    for (const auto& path : table.paths) {
+        if (!path.starts_with(projects) || !path.ends_with(".org"))
+            continue;
+        const std::string_view rest(path.data() + projects.size(),
+            path.size() - projects.size());
+        const auto at = rest.find(modeling);
+        if (at == std::string_view::npos || at == 0 ||
+            rest.find('/', at + modeling.size()) != std::string_view::npos ||
+            rest.substr(0, at).find('/') != std::string_view::npos)
+            continue;
+        paths.push_back({{rest.substr(0, at), rest.substr(at + modeling.size())},
+            path});
+    }
+    std::ranges::sort(paths);
+
+    compass::codegen::types::entity_registry registry;
+    registry.custom_types = mops::custom_type_headers(find, cache);
+    model_tables scratch;
+    mops::builder b(scratch);
+    mops::outline outline;
+    for (const auto& [key, path] : paths) {
+        auto* p = documents.get(path);
+        if (p == nullptr)
+            continue;
+        const auto doc = document_of(*p);
+        const auto type = mops::model_type_of(mops::declared_type(doc));
+        if (type == compass::model::types::model_type::trade_type_catalogue) {
+            mops::build_outline(p->file.text(), p->view, outline);
+            registry.trade_type_routes[
+                std::filesystem::path(key.second).stem().string()] =
+                compass::codegen::ops::trade_type_routes_of(outline);
+        }
+        const auto claim =
+            compass::codegen::ops::entity_table_claim_of(p->file.text());
+        if (!claim)
+            continue;
+        auto& owner = registry.tables[claim->table];
+        owner = {claim->entity_singular, std::nullopt};
+        if (!type)
+            continue;
+        std::string error;
+        const auto id = mops::load_model(b, doc, *type, find, cache, &error);
+        if (error.empty())
+            owner.parent = compass::codegen::ops::parent_entity_of(scratch,
+                scratch.models.roots[id]);
+    }
+
+    for (const auto& path : table.paths) {
+        if (!path.starts_with(projects) || !path.ends_with(".org") ||
+            path.find(modeling) == std::string::npos)
+            continue;
+        auto* p = documents.get(path);
+        if (p == nullptr)
+            continue;
+        compass::codegen::ops::add_directory_model(
+            registry.directories[path.substr(0, path.rfind('/'))],
+            p->file.text());
+    }
+
+    constexpr std::string_view refdata = "projects/ores.refdata/modeling/";
+    for (const auto& path : table.paths) {
+        if (!path.starts_with(refdata) || !path.ends_with(".org") ||
+            path.find('/', refdata.size()) != std::string::npos)
+            continue;
+        auto* p = documents.get(path);
+        if (p == nullptr)
+            continue;
+        if (auto f = compass::codegen::ops::convention_family_of(path,
+                p->file.text()))
+            registry.convention_families.push_back(std::move(*f));
+    }
+    std::ranges::sort(registry.convention_families, {},
+        &compass::codegen::types::convention_family::key);
+
+    for (const auto& path : table.paths) {
+        if (path.starts_with(projects) && path.ends_with(".hpp") &&
+            path.find("/domain/") != std::string::npos)
+            registry.domain_headers.insert(path);
+    }
+
+    constexpr std::string_view group_suffix = "_field_group.org";
+    for (const auto& path : table.paths) {
+        if (!path.starts_with(projects) || !path.ends_with(group_suffix) ||
+            path.find(modeling) == std::string::npos)
+            continue;
+        auto* p = documents.get(path);
+        if (p == nullptr)
+            continue;
+        std::string error;
+        const auto id = mops::load_model(b, document_of(*p),
+            compass::model::types::model_type::field_group, find, cache,
+            &error);
+        if (!error.empty())
+            continue;
+        const auto& t = b.tables();
+        const auto group = compass::codegen::ops::values::member(t,
+            scratch.models.roots[id], "field_group");
+        if (!compass::codegen::ops::values::truthy(t, group, "has_economic_fields"))
+            continue;
+        const auto name = std::filesystem::path(path).filename().string();
+        registry.economic_field_groups.insert(
+            name.substr(0, name.size() - group_suffix.size()));
+    }
+    return registry;
+}
+
 struct planned {
     compass::codegen::ops::unit unit;
     value_id context;
+    std::string_view type;
 };
 
 /**
- * @brief The model types compass.codegen builds whole contexts for. Their
- * ores.codegen names are the same as compass.model's.
+ * @brief The model types compass.codegen builds whole contexts for, with
+ * their ores.codegen names.
  */
-constexpr compass::model::types::model_type context_types[] = {
-    compass::model::types::model_type::component,
-    compass::model::types::model_type::asset_class_catalogue,
-    compass::model::types::model_type::outcome_catalogue};
+struct context_type {
+    compass::model::types::model_type type;
+    std::string_view name;
+};
+
+constexpr context_type context_types[] = {
+    {compass::model::types::model_type::entity, "domain_entity"},
+    {compass::model::types::model_type::component, "component"},
+    {compass::model::types::model_type::asset_class_catalogue,
+     "asset_class_catalogue"},
+    {compass::model::types::model_type::outcome_catalogue,
+     "outcome_catalogue"}};
 
 /**
  * @brief The outputs compass builds contexts for, each with its context:
@@ -232,6 +391,7 @@ std::vector<planned> plan_models(const std::filesystem::path& checkout,
     const auto library = compass::codegen::ops::library_values(b,
         licence.text(), modelines.text(), current_year());
     const auto graph = load_graph(checkout);
+    const auto registry = load_registry(checkout, table);
 
     model_corpus documents(checkout);
     const compass::platform::filesystem::mapped_file catalogue(
@@ -246,6 +406,7 @@ std::vector<planned> plan_models(const std::filesystem::path& checkout,
 
     const auto find = documents.finder();
     mops::load_cache cache;
+    const auto entities = load_entity_registry(table, documents, find, cache);
     mops::outline outline;
     std::vector<planned> plan;
     for (const auto& path : table.paths) {
@@ -256,10 +417,11 @@ std::vector<planned> plan_models(const std::filesystem::path& checkout,
             continue;
         const auto type = mops::model_type_of(
             mops::declared_type(document_of(*p)));
-        if (!type || std::ranges::find(context_types, *type) ==
-            std::end(context_types))
+        const auto known = std::ranges::find_if(context_types,
+            [&](const context_type& c) { return type && c.type == *type; });
+        if (known == std::end(context_types))
             continue;
-        const auto type_name = compass::model::types::name_of(*type);
+        const auto type_name = known->name;
         std::string error;
         const auto id = mops::load_model(b, document_of(*p), *type, find,
             cache, &error);
@@ -273,18 +435,69 @@ std::vector<planned> plan_models(const std::filesystem::path& checkout,
         for (std::size_t i = 0; i < outline.file_property_keys.size(); ++i)
             properties.push_back({outline.file_property_keys[i],
                 outline.file_property_values[i]});
-        const auto units = compass::codegen::ops::model_units(graph,
+        const auto overrides = mops::physical_space_overrides(outline, find,
+            cache);
+        for (const auto& [key, enabled] : overrides)
+            properties.push_back({key, enabled ? "true" : "false"});
+        const auto units = compass::codegen::ops::model_units(graph, registry,
             type_name, b.tables(), root, path, properties);
         if (units.empty())
             continue;
         const auto stem = std::filesystem::path(path).stem().string();
-        const auto context = compass::codegen::ops::model_context(b,
-            library, root, stem, type_name);
+        constexpr std::string_view wire_codec_addresses[] = {
+            "ores.cpp.wire-codec.codec_header",
+            "ores.cpp.wire-codec.codec_impl",
+            "ores.cpp.wire-codec.protocol_codec_impl"};
+        constexpr std::string_view protocol_addresses[] = {"ores.cpp.protocol"};
+        const compass::codegen::types::entity_site site{path,
+            compass::codegen::ops::facet_enabled(properties,
+                "ores.cpp.wire-codec", wire_codec_addresses, false),
+            compass::codegen::ops::facet_enabled(properties,
+                "ores.cpp.protocol", protocol_addresses, true),
+            compass::codegen::ops::protocol_owned(registry, b.tables(), root,
+                path)};
+        const auto context = *type == compass::model::types::model_type::entity
+            ? compass::codegen::ops::entity_context(b, library, root, stem,
+                entities, site)
+            : compass::codegen::ops::model_context(b, library, root, stem,
+                type_name);
         ++r.contexts;
-        for (const auto& u : units)
-            plan.push_back({u, context});
+        for (const auto& u : units) {
+            const auto variant = compass::codegen::ops::template_context(b,
+                context, stem, type_name, u.template_name, entities);
+            plan.push_back({u, variant.is_none() ? context : variant,
+                type_name});
+        }
     }
     return plan;
+}
+
+/**
+ * @brief Writes each distinct context of @p plan once, as
+ * <out>/contexts/<n>.json, and <out>/context_index.json, which names for
+ * every output its context and its model type, for
+ * build/scripts/codegen_render_diff.py.
+ */
+void write_contexts(const std::filesystem::path& out, const model_tables& t,
+    const std::vector<planned>& plan) {
+    std::map<std::uint32_t, std::size_t> numbers;
+    std::string index = "[\n";
+    std::string text;
+    for (std::size_t i = 0; i < plan.size(); ++i) {
+        const auto& p = plan[i];
+        const auto [it, added] = numbers.try_emplace(p.context.value,
+            numbers.size());
+        const auto number = std::to_string(it->second);
+        if (added) {
+            text.clear();
+            compass::model::io::write_json(text, t, p.context);
+            write_file(out / "contexts" / (number + ".json"), text);
+        }
+        index += "{\"output\": \"" + p.unit.output + "\", \"context\": \"" +
+            number + "\", \"type\": \"" + std::string(p.type) + "\"}" +
+            (i + 1 < plan.size() ? ",\n" : "\n");
+    }
+    write_file(out / "context_index.json", index + "]\n");
 }
 
 void render_models(render_result& r, const template_map& templates,
@@ -295,10 +508,12 @@ void render_models(render_result& r, const template_map& templates,
     compass::model::ops::builder b(t);
     const auto plan = plan_models(checkout, table, b, r);
     r.setup_ms = elapsed_ms(start);
+    if (!out.empty())
+        write_contexts(out, t, plan);
 
     r.render_ms.assign(repetitions, 0.0);
     std::string text;
-    for (const auto& [u, context] : plan) {
+    for (const auto& [u, context, type] : plan) {
         const auto it = templates.find(u.template_name);
         if (it == templates.end()) {
             r.messages.push_back(u.output + ": no template " +

@@ -1,0 +1,24 @@
+:PROPERTIES:
+:ID: 0B6F4B5C-9B3E-4E0A-8E51-3C2A1D7F9A10
+:ores.cpp.wire-codec.enabled: True
+:ores.cpp.wire-codec.enabled: false
+:END:
+#+title: Swap convention
+#+type: ores.codegen.entity
+#+component: refdata
+#+entity_plural: swap_conventions_x
+#+Convention_Family: swap
+#+convention_write: by_id
+
+* Columns
+
+** id
+:PROPERTIES:
+:type: uuid
+:END:
+
+** party_id   :key:
+
+* Notes
+
+** party_name

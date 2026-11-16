@@ -30,8 +30,10 @@
 #include <utility>
 #include <vector>
 #include "compass.model/ops/builder.hpp"
+#include "compass.model/ops/economic.hpp"
 #include "compass.model/ops/load.hpp"
 #include "compass.model/ops/outline.hpp"
+#include "compass.model/ops/typescript.hpp"
 
 /*
  * One loader per org_loader function of ores.codegen. Each fills the root
@@ -50,8 +52,6 @@ struct profile_assignment {
     std::string text;
 };
 
-using custom_types = std::vector<std::pair<std::string, std::string>>;
-
 struct load_cache::impl {
     template <typename T>
     struct entry {
@@ -62,6 +62,8 @@ struct load_cache::impl {
     std::map<std::string, entry<custom_types>, std::less<>> registries;
     std::map<std::string, entry<std::vector<profile_assignment>>, std::less<>>
         profiles;
+    std::map<std::string, entry<std::vector<std::pair<std::string, bool>>>,
+        std::less<>> physical_spaces;
 };
 
 struct load_context {
@@ -126,24 +128,6 @@ void ensure_profile_binding(const outline& o);
  */
 void reject_junction_only_flags(const outline& o, std::string_view kind,
     bool root_allowed = false);
-
-/**
- * @brief _member_name: the name or column of a member, or empty.
- */
-[[nodiscard]] std::string_view member_name(const builder& b,
-    types::value_id member);
-
-/**
- * @brief What economic_declaration returns: whether the members declare
- * :economic:, and the names of those that are.
- */
-struct economic {
-    bool declared = false;
-    std::vector<std::string> members;
-};
-[[nodiscard]] economic economic_declaration(const builder& b,
-    std::string_view owner, const std::vector<types::value_id>& members,
-    const std::vector<types::value_id>& carried);
 
 /**
  * @brief Writes has_economic_declaration, economic_fields and
@@ -214,11 +198,6 @@ void set_properties(builder& b, types::value_id object, const outline& o,
 [[nodiscard]] lookup org_id(const outline& o, node_id n);
 
 /**
- * @brief The TypeScript type _ts_type projects @p cpp_type onto, or empty.
- */
-[[nodiscard]] std::string ts_type(load_context& c, std::string_view cpp_type);
-
-/**
  * @brief One row of _TS_UTILITY_DOMAIN_TYPES: a C++ type with a
  * hand-written TypeScript interface, and the module that exports it.
  */
@@ -228,17 +207,6 @@ struct ts_utility_type {
     std::string_view module;
 };
 [[nodiscard]] std::span<const ts_utility_type> ts_utility_types() noexcept;
-
-/**
- * @brief _to_pascal_case.
- */
-[[nodiscard]] std::string pascal_case(std::string_view name);
-
-/**
- * @brief The (type, header) rows of projects/modeling/cpp_custom_types.org,
- * sorted by type.
- */
-[[nodiscard]] const custom_types& custom_type_headers(load_context& c);
 
 /**
  * @brief parse_declared_messages: the * Messages section as the list both

@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :port_codegen:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/build-entity-render-contexts
+#+pr: https://github.com/MASD-Project/compass/pull/31
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -26,11 +26,11 @@ Port ores.codegen's entity enrichment (about 4,000 lines of generate_from_model)
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                              |
 | Parent story | [[id:4F499B47-4AB8-4049-A72F-495351A6E2C7][Port ORE Studio codegen]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -39,9 +39,18 @@ Port ores.codegen's entity enrichment (about 4,000 lines of generate_from_model)
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- The oracle is the one the render task built: =codegen_render_dump.py=
+  captures each output's raw text and the context it was rendered from.
+  Compare contexts first, then renders: a context that matches renders
+  identically, since the engine is exact.
+- Port =generate_from_model='s entity enrichment into =compass.codegen= as
+  pure functions from =compass.model= values to context values, one step at a
+  time in the order the Python applies them, each checked against the oracle's
+  contexts before the next.
+- Work in order of output count per archetype, so each step moves the most
+  outputs to identical.
+- Record each remaining difference class with its count when the identical
+  rate stops improving cheaply.
 
 * Measurements
 
@@ -55,7 +64,13 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Entity contexts identical | 23,803 of 23,805 (from 0) | =check.sh --every-path= (=compass-bench render= then =codegen_render_diff.py=) | 96adf93 |
+| All contexts identical | 24,483 of 24,485 | =check.sh --every-path= (=compass-bench render= then =codegen_render_diff.py=) | 96adf93 |
+| Renders identical | 24,483 of 26,212 (from 678); 1,727 missing, 2 different | =check.sh --every-path= (=compass-bench render= then =codegen_render_diff.py=) | 96adf93 |
+| Context build, 668 models | 1.30 s (0.36 s at the skeleton) | =compass-bench render= | 96adf93 |
+| Render, 24,637 outputs | 0.46 s median of 5 | =compass-bench render= | 96adf93 |
+| Oracle =generate_from_model=, entity outputs | 423.7 s (=render_template= 39.6 s of it) | =codegen_render_dump.py= | d38ecda |
+| ctest | 10 of 10 suites pass | =ctest --preset linux-clang-release= | 96adf93 |
 
 * Notes
 
@@ -74,7 +89,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/31][#31]] | [codegen] Build entity render contexts |
 
 * Review
 
@@ -83,3 +98,31 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+compass builds the context of every entity output, and 23,803 of the 23,805
+render byte-identical to ores.codegen. The enrichment is ported step by step
+from =generate_from_model= (core.py 4113-6864) into =compass.codegen=, with
+Catch2 tests built from the oracle's values.
+
+Left open, moved to [[id:03E4FA2A-CBA9-4D70-BCCC-73D02218A768][Build junction, operation and field group contexts]]:
+
+- =.shell_aggregator= (2 outputs, such as =trading_commands.hpp=): the Python
+  scans the model directory for models with the shell command facet and reads
+  their component overviews. It is an aggregate across models, like the
+  outputs of that task.
+- The 1,727 missing renders are outputs compass builds no context for; none is
+  an entity output.
+
+Decisions to revisit:
+
+- Context build costs 1.30 s, of which deep copies of the context tree are
+  61% of instructions (callgrind): the entity copied into =domain_entity= and
+  about 1,000 per-template variants. Sharing nodes through an overlay, and
+  looking members up by interned key, are the fixes; both change the builder
+  or the renderer. Tracked under Cache formatted output's speed work.
+- =compass-bench= reads convention families from a hardcoded
+  =projects/ores.refdata/modeling/=, not from the component catalogue.
+- =compass.codegen= links =compass.store= privately for SHA-1 (uuid5 recipe
+  ids).
+- Python's =ValueError= checks are ported only where they guard a value; none
+  fires on ORE Studio.

@@ -83,6 +83,15 @@ std::string_view domain_entity_name(std::string_view t) {
     return is_identifier(t) ? t : std::string_view{};
 }
 
+/**
+ * @brief _TS_DOMAIN_STRING_TYPES: the domain member types the protocol
+ * projection refuses that cross the wire as a string.
+ */
+bool is_domain_string_type(std::string_view t) {
+    return t == "boost::uuids::uuid" || t == "std::chrono::year_month_day" ||
+        t == "boost::asio::ip::address";
+}
+
 std::vector<std::string_view> split_template_arguments(std::string_view a) {
     std::vector<std::string_view> parts;
     int depth = 0;
@@ -139,6 +148,63 @@ std::string ts_of(std::string_view t, const custom_types& custom) {
     if (t.find("::") == std::string_view::npos)
         return pascal_case(t);
     return {};
+}
+
+bool ident(char ch) {
+    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
+        (ch >= '0' && ch <= '9') || ch == '_';
+}
+
+bool ident_start(char ch) {
+    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_';
+}
+
+std::size_t identifier_end(std::string_view s, std::size_t i) {
+    if (i >= s.size() || !ident_start(s[i]))
+        return i;
+    while (i < s.size() && ident(s[i]))
+        ++i;
+    return i;
+}
+
+/*
+ * Every match of
+ * ores::(?!utility::)<ident>::domain::(<ident>) in @p s, as (whole match,
+ * entity, owner).
+ */
+struct domain_ref {
+    std::string_view whole;
+    std::string_view entity;
+    std::string_view owner;
+};
+
+std::vector<domain_ref> domain_refs(std::string_view s) {
+    std::vector<domain_ref> out;
+    std::size_t i = 0;
+    while ((i = s.find("ores::", i)) != std::string_view::npos) {
+        const auto start = i;
+        auto p = i + 6;
+        if (s.substr(p).starts_with("utility::")) {
+            ++i;
+            continue;
+        }
+        const auto owner_end = identifier_end(s, p);
+        if (owner_end == p || s.substr(owner_end, 10) != "::domain::") {
+            ++i;
+            continue;
+        }
+        const auto entity_start = owner_end + 10;
+        const auto entity_end = identifier_end(s, entity_start);
+        if (entity_end == entity_start) {
+            ++i;
+            continue;
+        }
+        out.push_back({s.substr(start, entity_end - start),
+            s.substr(entity_start, entity_end - entity_start),
+            s.substr(p, owner_end - p)});
+        i = entity_end;
+    }
+    return out;
 }
 
 bool is_yes(std::string_view lowered) {
@@ -204,13 +270,63 @@ std::span<const ts_utility_type> ts_utility_types() noexcept {
     return types;
 }
 
-const custom_types& custom_type_headers(load_context& c) {
+std::vector<ts_domain_import> ts_domain_imports(
+    const std::vector<std::string_view>& cpp_types,
+    std::optional<std::string_view> component, const custom_types& custom) {
+    std::map<std::string, std::string> entities;
+    for (const auto cpp_type : cpp_types) {
+        for (const auto& ref : domain_refs(cpp_type)) {
+            const bool registered = std::ranges::any_of(custom,
+                [&](const auto& row) { return row.first == ref.whole; });
+            if (!registered)
+                entities[std::string(ref.entity)] = ref.owner;
+        }
+    }
+    std::vector<ts_domain_import> out;
+    for (const auto& [entity, owner] : entities) {
+        const bool hand_written = std::ranges::any_of(ts_utility_types(),
+            [&](const ts_utility_type& u) {
+                const auto at = u.cpp.rfind("::");
+                return u.cpp.substr(at + 2) == entity;
+            });
+        if (hand_written)
+            continue;
+        out.push_back({entity, pascal_case(entity),
+            !component || owner == *component ? std::string("../domain") :
+                "../../" + owner + "/domain"});
+    }
+    return out;
+}
+
+std::vector<ts_import> ts_utility_imports(
+    const std::vector<std::string_view>& cpp_types) {
+    std::map<std::string, std::string_view> found;
+    for (const auto cpp_type : cpp_types) {
+        for (const auto& u : ts_utility_types()) {
+            for (auto at = cpp_type.find(u.cpp); at != std::string_view::npos;
+                 at = cpp_type.find(u.cpp, at + 1)) {
+                const auto end = at + u.cpp.size();
+                if (end < cpp_type.size() && ident(cpp_type[end]))
+                    continue;
+                found[std::string(u.pascal)] = u.module;
+                break;
+            }
+        }
+    }
+    std::vector<ts_import> out;
+    for (const auto& [pascal, module] : found)
+        out.push_back({pascal, std::string(module)});
+    return out;
+}
+
+const custom_types& custom_type_headers(const document_finder& find,
+    load_cache& cache) {
     static const custom_types none;
     constexpr std::string_view path = "projects/modeling/cpp_custom_types.org";
-    const auto d = c.find(path);
+    const auto d = find(path);
     if (!d)
         return none;
-    auto& cached = c.cache.get().registries[std::string(path)];
+    auto& cached = cache.get().registries[std::string(path)];
     if (cached.source == d->source.data() && cached.size == d->source.size())
         return cached.value;
     outline o;
@@ -241,8 +357,79 @@ const custom_types& custom_type_headers(load_context& c) {
     return cached.value;
 }
 
-std::string ts_type(load_context& c, std::string_view cpp_type) {
-    return ts_of(cpp_type, custom_type_headers(c));
+std::string ts_type(std::string_view cpp_type, const custom_types& custom) {
+    return ts_of(cpp_type, custom);
+}
+
+std::string ts_domain_type(std::string_view cpp_type,
+    const custom_types& custom) {
+    cpp_type = trim(cpp_type);
+    if (cpp_type.starts_with("std::optional<") && cpp_type.ends_with(">")) {
+        const auto inner = ts_domain_type(
+            cpp_type.substr(14, cpp_type.size() - 15), custom);
+        return inner.empty() ? inner : inner + " | null";
+    }
+    if (is_domain_string_type(cpp_type))
+        return "string";
+    return ts_of(cpp_type, custom);
+}
+
+std::vector<ts_import> field_group_ts_imports(std::string_view component,
+    std::string_view own, const std::vector<std::string>& cpp_types,
+    const custom_types& custom) {
+    std::map<std::string, std::string> found;
+    const auto walk = [&](this const auto& self, std::string_view t) -> void {
+        t = trim(t);
+        if (t.empty())
+            return;
+        for (const std::string_view open : {"std::optional<", "std::vector<"}) {
+            if (t.starts_with(open) && t.ends_with(">")) {
+                self(t.substr(open.size(), t.size() - open.size() - 1));
+                return;
+            }
+        }
+        if (t.starts_with("std::map<") && t.ends_with(">")) {
+            const auto args = split_template_arguments(t.substr(9, t.size() - 10));
+            if (args.size() == 2)
+                self(args[1]);
+            return;
+        }
+        if (is_domain_string_type(t) || std::ranges::any_of(ts_scalars,
+                [&](const auto& s) { return s.first == t; }))
+            return;
+        if (t.starts_with("domain::") || std::ranges::any_of(custom,
+                [&](const auto& row) { return row.first == t; }))
+            return;
+        for (const auto& u : ts_utility_types()) {
+            if (u.cpp == t) {
+                found[std::string(u.pascal)] =
+                    "../../../" + std::string(u.module) + ".js";
+                return;
+            }
+        }
+        std::string_view owner = component;
+        auto name = domain_entity_name(t);
+        if (!name.empty()) {
+            const auto rest = t.substr(6);
+            owner = rest.substr(0, rest.find("::"));
+        } else if (t.find("::") != std::string_view::npos) {
+            return;
+        } else {
+            name = t;
+        }
+        if (name == own)
+            return;
+        found[pascal_case(name)] = owner == component
+            ? "./" + std::string(name) + ".js"
+            : "../../" + std::string(owner) + "/domain/" + std::string(name) +
+                ".js";
+    };
+    for (const auto& t : cpp_types)
+        walk(t);
+    std::vector<ts_import> out;
+    for (auto& [pascal, module] : found)
+        out.push_back({pascal, std::move(module)});
+    return out;
 }
 
 void declared_messages(load_context& c, value_id list) {
@@ -329,7 +516,8 @@ void declared_messages(load_context& c, value_id list) {
                 fp[to_lower(p.key)] = p.value;
             if (const auto it = fp.find("cpp_type"); it != fp.end()) {
                 b.set(field, "cpp_type", it->second);
-                const auto mapped = ts_type(c, it->second);
+                const auto mapped = ts_type(it->second,
+                    custom_type_headers(c.find, c.cache));
                 if (!mapped.empty())
                     b.set(field, "ts_type", mapped);
             }

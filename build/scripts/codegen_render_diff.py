@@ -15,13 +15,25 @@
 # this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
 # Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
-r"""Compare compass's raw renders with ores.codegen's, output by output.
+r"""Compare compass's contexts and raw renders with ores.codegen's.
 
 <oracle> is a dump of build/scripts/codegen_render_dump.py; <compass> is
 what `compass-bench render <checkout> --out <compass>` wrote. Both hold
 renders/<output path>. Every output of the oracle is counted: identical,
 different, or missing from compass. Outputs compass wrote that the oracle
 has not are counted as extra, unless --template narrows the comparison.
+
+When <compass> holds context_index.json, the contexts are compared first:
+each output's context as compass built it against the one the oracle
+rendered from, as JSON values. The report gives identical contexts of the
+outputs compass built, by model type, and per JSON path, with list indices
+written [*], how many outputs first differ there and an example. A first
+difference is the first path, in sorted key order, where the two differ:
+a value, a key only one side has, or a list length. With --every-path an
+output counts under every path where it differs, which shows the progress
+of a path that sorts after another difference. A Python float in the
+oracle equals compass's string of the same text, because compass reads
+real numbers as text.
 
 The report gives identical outputs of total and the time the oracle's
 render_template calls took for the outputs compass rendered, the baseline
@@ -52,6 +64,102 @@ def first_difference(expected, actual):
     return line, line_of(expected), line_of(actual)
 
 
+def differences(expected, actual, path=""):
+    """Every path where two JSON values differ, in sorted key order, with
+    both sides. A list's items share the path [*]."""
+    if isinstance(expected, float) and isinstance(actual, str):
+        if repr(expected) != actual:
+            yield path, expected, actual
+        return
+    if type(expected) is not type(actual):
+        yield path, expected, actual
+        return
+    if isinstance(expected, dict):
+        for key in sorted(set(expected) | set(actual)):
+            at = f"{path}.{key}"
+            if key not in actual:
+                yield at, expected[key], "<absent>"
+            elif key not in expected:
+                yield at, "<absent>", actual[key]
+            else:
+                yield from differences(expected[key], actual[key], at)
+        return
+    if isinstance(expected, list):
+        for e, a in zip(expected, actual):
+            yield from differences(e, a, f"{path}[*]")
+        if len(expected) != len(actual):
+            yield f"{path}.length", len(expected), len(actual)
+        return
+    if expected != actual:
+        yield path, expected, actual
+
+
+def compare_contexts(oracle, compass, index, every_path):
+    """The context differential, for the outputs compass built a context
+    for. With every_path, each output counts once under every path where
+    its contexts differ, not only under the first."""
+    with open(os.path.join(compass, "context_index.json"),
+              encoding="utf-8") as f:
+        mine = {e["output"]: e for e in json.load(f)}
+    by_type = collections.defaultdict(lambda: [0, 0])
+    counted = collections.Counter()
+    example = {}
+    oracle_cache = {}
+    compass_cache = {}
+    verdicts = {}
+
+    def load(cache, path):
+        if path not in cache:
+            if len(cache) > 64:
+                cache.clear()
+            with open(path, encoding="utf-8") as f:
+                cache[path] = json.load(f)
+        return cache[path]
+
+    def verdict(expected, actual):
+        found = {}
+        for path, want, got in differences(expected, actual):
+            found.setdefault(path, (want, got))
+            if not every_path:
+                break
+        return found
+
+    for entry in index:
+        m = mine.get(entry["output"])
+        if m is None:
+            continue
+        key = (entry["context"], m["context"])
+        if key not in verdicts:
+            verdicts[key] = verdict(
+                load(oracle_cache, os.path.join(
+                    oracle, "contexts", entry["context"] + ".json")),
+                load(compass_cache, os.path.join(
+                    compass, "contexts", m["context"] + ".json")))
+        found = verdicts[key]
+        counts = by_type[m["type"]]
+        counts[1] += 1
+        if not found:
+            counts[0] += 1
+        for path, (want, got) in found.items():
+            counted[path] += 1
+            example.setdefault(path, (entry["output"], want, got))
+
+    same = sum(c[0] for c in by_type.values())
+    total = sum(c[1] for c in by_type.values())
+    print(f"contexts identical: {same} of {total} outputs "
+          f"compass built a context for")
+    for model_type, (same, of) in sorted(by_type.items()):
+        print(f"{same:6} of {of:6} {model_type}")
+    print("every difference by path:" if every_path
+          else "first differences by path:")
+    for path, count in counted.most_common():
+        output, want, got = example[path]
+        print(f"{count:6} {path}")
+        print(f"    {output}")
+        print(f"      oracle:  {json.dumps(want)[:160]}")
+        print(f"      compass: {json.dumps(got)[:160]}")
+
+
 def read(path):
     with open(path, encoding="utf-8", newline="") as f:
         return f.read()
@@ -61,6 +169,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("oracle")
     parser.add_argument("compass")
+    parser.add_argument("--every-path", action="store_true",
+                        help="count every differing context path, not only "
+                             "the first")
     parser.add_argument("--template",
                         help="only outputs of this template")
     args = parser.parse_args()
@@ -69,6 +180,11 @@ def main():
         index = json.load(f)["outputs_by_path"]
     if args.template:
         index = [e for e in index if e["template"] == args.template]
+
+    if os.path.exists(os.path.join(args.compass, "context_index.json")):
+        compare_contexts(args.oracle, args.compass, index,
+                         args.every_path)
+        print()
 
     stats = collections.defaultdict(lambda: {"total": 0, "identical": 0,
                                              "missing": 0, "first": None})

@@ -49,7 +49,10 @@ models; an output keeps its last write, as the checkout would.
 render_seconds is the time of every render_template call;
 output_render_seconds counts only the last render of each output, the set
 a renderer that writes each output once is timed on, and
-codegen_render_diff.py sums the seconds of any subset.
+codegen_render_diff.py sums the seconds of any subset. generate_seconds is the
+time of the generate_from_model call that wrote the output, shared by the
+outputs one call writes: loading the model, enriching it, rendering and
+writing, which bounds what the enrichment costs per output.
 
 Usage: python3 -I build/scripts/codegen_render_dump.py <checkout> <out>
 """
@@ -114,7 +117,8 @@ def main():
     generate.prettier_format_files = lambda paths, base: None
 
     state = {"model": None, "template": None, "context": None,
-             "mustache": None, "render_seconds": 0.0, "renders": 0}
+             "mustache": None, "render_seconds": 0.0, "renders": 0,
+             "written": []}
     index = {}
 
     original_render = core.render_template
@@ -138,7 +142,14 @@ def main():
 
     def generate_from_model(model_path, *rest, **kwargs):
         state["model"] = os.path.relpath(os.path.realpath(model_path), root)
-        return original_generate(model_path, *rest, **kwargs)
+        state["written"] = []
+        start = time.perf_counter()
+        result = original_generate(model_path, *rest, **kwargs)
+        elapsed = time.perf_counter() - start
+        for relative in state["written"]:
+            index[relative]["generate_seconds"] = (
+                elapsed / len(state["written"]))
+        return result
 
     generate.generate_from_model = generate_from_model
 
@@ -154,6 +165,7 @@ def main():
                            "model": state["model"], "context": digest,
                            "pasted": text != state["mustache"],
                            "seconds": state["seconds"]}
+        state["written"].append(relative)
 
     def core_open(file, mode="r", *rest, **kwargs):
         if "w" in mode:
