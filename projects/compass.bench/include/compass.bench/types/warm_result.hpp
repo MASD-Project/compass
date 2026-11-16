@@ -30,8 +30,9 @@ namespace compass::bench::types {
  * @brief What one repetition of the warm stage did.
  *
  * The four times are the wall times of its phases: building the resolver
- * and resolving every ID, loading every object, parsing and writing the
- * objects that were missing or rejected, and writing the worktree index.
+ * and resolving every ID, loading every object or parsing the file when
+ * it was missing or rejected, writing the parsed objects, and writing the
+ * worktree index.
  * The sources count the IDs from git's index, from the worktree index and
  * from hashing. loaded counts the objects that decoded and whose checksum
  * matched, written those parsed and written instead. errors counts files

@@ -30,13 +30,13 @@ namespace compass::bench::ops {
 /**
  * @brief Loads the .org files of the table as a corpus and runs the
  * enabled codecs of compass.codec over it, @p repetitions times, on
- * @p threads threads.
+ * @p threads threads, through the steps of compass.cli.
  *
  * The type registry comes from the contract pages of @p meta. The corpus
  * is loaded once, as the warm stage loads it: the ID of each file comes
- * from a store::io::id_resolver, its object is mapped from @p objects and
- * checked, and a file whose object is missing or rejected is parsed into
- * memory. Sources and objects stay mapped while the codecs run. The run
+ * from app::resolve, its object is mapped from @p objects and checked by
+ * app::load, and a file whose object is missing or rejected is parsed
+ * into memory. Sources and objects stay mapped while the codecs run. The run
  * is persisted after it ends: the parsed objects are written to the
  * store and the worktree index of the checkout is rewritten.
  *

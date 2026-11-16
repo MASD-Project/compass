@@ -27,14 +27,16 @@
 namespace compass::bench::ops {
 
 /**
- * @brief Runs the org pipeline end to end over the .org files of the
- * table, @p repetitions times, on @p threads threads.
+ * @brief Runs the steps of compass.cli that fill the store over the .org
+ * files of the table, @p repetitions times, on @p threads threads.
  *
- * Each repetition builds a store::io::id_resolver and resolves the ID of
- * every file (git's index, then the worktree index, then hashing), maps
- * each file's object under @p objects and checks its header and checksum,
- * parses and writes the object of every file whose object was missing or
- * rejected, and last rewrites the worktree index of the checkout.
+ * Each repetition resolves the ID of every file (git's index, then the
+ * worktree index, then hashing) with app::resolve, loads every file with
+ * app::load, which maps its object under @p objects and checks its header
+ * and checksum, or parses the file when the object is missing or
+ * rejected, writes the parsed objects with app::store_objects, and last
+ * rewrites the worktree index of the checkout with
+ * app::write_worktree_index.
  *
  * Nothing is removed between repetitions, so the first fills the store
  * and the worktree index and the ones after it are warm. The checkout's

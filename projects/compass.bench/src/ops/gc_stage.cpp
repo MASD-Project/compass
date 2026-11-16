@@ -19,8 +19,7 @@
  */
 #include "compass.bench/ops/gc_stage.hpp"
 
-#include "compass.codec/io/action_cache.hpp"
-#include "compass.store/io/collection.hpp"
+#include "compass.cli/app/steps.hpp"
 
 namespace compass::bench::ops {
 
@@ -28,8 +27,7 @@ store::types::collection_result run_gc_stage(
     const std::filesystem::path& checkout,
     const std::filesystem::path& objects,
     const store::types::collection_options& options) {
-    return store::io::collect(checkout, objects, options,
-        codec::io::action_keys);
+    return cli::app::collect(checkout, objects, options);
 }
 
 }
