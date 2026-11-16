@@ -35,7 +35,7 @@ namespace ops = compass::org::ops;
 contract_report add(type_registry_builder& b, std::string_view page) {
     ot::tables t;
     compass::ingest::org::parse(page, t);
-    return b.add_contract(page, t);
+    return b.add_contract(page, ot::view(t));
 }
 
 std::vector<std::string> texts(const ot::type_registry& r,

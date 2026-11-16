@@ -1,0 +1,315 @@
+:PROPERTIES:
+:ID: 4EA2D9C6-CE60-44A0-8B37-EEF23EA614E8
+:END:
+#+title: Design: the object format of the content-addressed store
+#+description: The argument for how a parsed org document is stored once and mapped back with no decode step: one loose object per git blob ID under the git common directory, a fixed little-endian header and raw aligned columns, a read-only view the readers share, and the alternatives rejected, measured on the ORE Studio corpus.
+#+type: design
+#+level: s2
+#+filetags: :cache:storage:worktrees:design:share_a_content_addressed_store:sprint_01:v0:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+#+todo: DRAFT STARTED | LANDED SUPERSEDED ABANDONED
+#+outcome: EB285F25-4AF8-482D-B679-C650DA718CF6
+
+#+begin_note
+*This document describes a transition, not the current state.* It argues from
+"every run parses every org file" to a store of parsed documents that every
+worktree of a repository shares, and it expires when the
+[[id:10A99211-DCE0-4237-8D23-0599C2D00628][Share a content-addressed store]]
+story lands.
+
+The durable description of the store is the
+[[id:EB285F25-4AF8-482D-B679-C650DA718CF6][compass.store]] component overview,
+which =#+outcome:= names, and the layout of an object is in the
+[[id:44C128E0-BCF3-4574-B171-BF5E72325085][compass.org]] component overview.
+Read those pages for the store as it is. Do not link to this page from durable
+documentation; the link runs one way, from here to the overviews.
+#+end_note
+
+* Status
+
+| Field        | Value                                                                        |
+|--------------+------------------------------------------------------------------------------|
+| State        | STARTED                                                                      |
+| Parent story | [[id:10A99211-DCE0-4237-8D23-0599C2D00628][Share a content-addressed store]] |
+| Last touched | 2026-11-16                                                                   |
+
+The first task, the object format, is implemented and measured. The state
+moves to =LANDED= when the story closes.
+
+* Summary
+
+The parse of an org document is written once, as one file named by the git
+blob ID of its source, under =<git common dir>/compass/objects/=. Every
+worktree of the repository finds it there. The file is a 664-byte header
+followed by each column of the =compass.org= tables as its raw array, so
+loading it is one =mmap= and 62 bounds checks: no value is read, copied or
+converted.
+
+Readers no longer take the owning =tables=. They take a =tables_view=, the same
+members over spans, which is built from a fresh parse or from a mapped object
+in the same way. The dump, the type registry builder and the benchmark stages
+have one code path for both.
+
+On the ORE Studio corpus (10,910 org files, 69.7 MB) the objects take 66.1 MB.
+Writing them all takes 0.31 to 0.39 s, and mapping and checksumming them all
+takes 0.05 s, on 8 threads. Loose objects meet the one-second budget with a
+margin of about twenty, so packs are not built.
+
+* What the format must do
+
+1. *Load with no decode step.* A warm run has under a second for everything.
+   An object must be usable as it is mapped.
+2. *Mean the same wherever it is mapped.* Two processes map it at different
+   addresses, so nothing in it is a pointer.
+3. *Never be trusted.* The store is shared by every worktree, by builds of
+   different ages, and survives crashes. An object that is stale, cut short
+   or damaged must be treated as missing, not read.
+4. *Be safe to write from many processes.* Two worktrees parse the same file
+   at the same time.
+5. *Serve the tasks that follow.* Blob IDs must be the ones git's index holds.
+   Eviction needs to know when an object was last used.
+
+* The object
+
+All integers are little-endian. Offsets count bytes from the start of the
+object.
+
+| Offset | Bytes | Field               | Checked on load against                         |
+|--------+-------+---------------------+-------------------------------------------------|
+|      0 |     8 | magic =CMPSORG\n=   | The constant.                                   |
+|      8 |     4 | byte order          | =0x01020304=.                                   |
+|     12 |     4 | format version      | =object_format_version= of the build.           |
+|     16 |     4 | parser version      | =parser_version= of the build.                  |
+|     20 |    20 | blob ID, raw        | The ID the object was looked up by.             |
+|     40 |     8 | size                | The size of the file.                           |
+|     48 |     8 | checksum            | The bytes from offset 56 to the end, on demand. |
+|     56 |     8 | name bytes offset   | Inside the file.                                |
+|     64 |     8 | name bytes size     | Inside the file.                                |
+|     72 |   104 | rows, 13 tables     | Each column of the table fits inside the file.  |
+|    176 |   488 | offsets, 61 columns | Aligned, after the header, inside the file.     |
+|    664 |       | columns             |                                                 |
+
+- *Columns.* Every column of every table, in the order =for_each_table= and
+  =for_each_column= list them, then the name bytes. Each is the array as it is
+  in memory. The =documents= table is included and has no rows in the object of
+  one document.
+- *Alignment.* Every column starts at a multiple of 8 bytes, which is the
+  largest alignment of any column value. The gap is zeros. A mapped file starts
+  on a page boundary, so a column pointer is aligned for its type. One rule
+  for all columns costs at most 200 bytes an object over aligning each to its
+  own type, and it leaves no rule to get wrong when a column is added.
+- *Position independence.* Rows already hold only handles and byte offsets. A
+  name is a row of the name table, whose value is an offset into the name
+  bytes, which are stored in the object. The header names columns by offset.
+- *Endianness.* The build fails on a big-endian host, with a =static_assert=.
+  The byte order field is there so that a build that lifts that restriction
+  rejects the objects of the other order instead of misreading them.
+- *The source is not in the object.* A =source_range= is read against the
+  source file, as before. A codec that reads text maps the source as well.
+
+** Versions
+
+=object_format_version= is a constant in =compass.org=, bumped by hand when the
+header or the set, order or type of the columns changes. A =static_assert= on
+the number of tables, the number of columns and the sum of the value sizes
+fails the build when a column is added, removed or resized, and its message
+names the constant.
+
+=parser_version= is a constant in =compass.ingest=, bumped by hand when some
+source would parse to different tables. A hash of the parser's sources was
+considered and rejected:
+
+- It changes on an edit that changes no table: a comment, a rename, a faster
+  scan. Each such edit would empty the store.
+- The store is shared. Two worktrees on branches whose parser sources differ
+  in any byte would each see the other's objects as stale and rewrite them on
+  every run.
+- It needs the build to hash sources at configure time, and a second build
+  system would have to produce the same hash.
+
+A hand-bumped constant can be forgotten, and a stale object read as current is
+a wrong answer, not a slow one. A test in =compass.ingest= pins the checksum
+and size of the object of a reference document that has one of each construct
+with a detail table. It fails when the parser or the layout changes those
+bytes, and its message says which constant to bump. It does not catch a change
+that leaves the reference document's tables alone.
+
+Two builds with different versions still take turns rewriting an object. That
+is rarer than with a hash, and correct. If it is measured to matter, the
+version can go into the path.
+
+** What load checks, and what it does not
+
+=decode= accepts bytes only when the magic, byte order, both versions, the blob
+ID and the size are the expected ones, and every column starts aligned, after
+the header, and ends inside the file. Any failure is the same to the caller:
+the object is missing. After =decode= no span reaches outside the mapping,
+whatever the bytes hold.
+
+=decode= does not read the columns, so it cannot know that a handle inside one
+is in range. That is the checksum's work. =checksum_matches= hashes every byte
+after the checksum field with a multiply-rotate fold over 64-bit words, at
+about 5 GB/s on one thread. It finds a torn write or a decayed byte. It is not
+cryptographic: whoever can write under =.git= can already change the sources.
+
+The two are separate because the point of mapping is to touch only the columns
+a codec reads, and the checksum touches them all. The measurement below shows
+that for objects of this size the difference is not measurable, so a reader
+can afford to check every object it maps.
+
+* The view
+
+Each table is now one template over its column form:
+=basic_element_table<column>= owns vectors and is what the parser fills;
+=basic_element_table<column_view>= holds spans. =tables= and =tables_view= are
+the two instances of =basic_tables=. =view(tables)= points a view at owned
+columns; =decode= points one at a mapped object.
+
+=for_each_table= and =for_each_column= list every table and every column once.
+The view, the encoder, the decoder and the parser's clear are written against
+that list, and a =static_assert= compares the number of columns listed with
+the size of =tables_view=, so a column left out of the list does not compile.
+
+The readers that existed took =const tables&=. They were moved to
+=const tables_view&= and the old signatures were removed, so there is one read
+API.
+
+* The store
+
+- *Where.* =<git common dir>/compass/objects/<first two hex>/<other 38>=. The
+  git common directory is the one directory every worktree of a repository
+  shares, and it is outside every working tree, so the store is never listed,
+  committed or cleaned. It is resolved by reading =.git= and =commondir=, with
+  no git process.
+- *Keys.* The blob ID git computes: SHA-1 over ="blob <size>\0<content>"=. The
+  next task takes the same ID from git's index for a clean tracked file and
+  hashes nothing. SHA-1 is a hundred lines in =compass.store=; OpenSSL would
+  be the largest dependency of the build for one function, and its speed
+  matters little when only changed files are hashed.
+- *Writes.* A temporary file in the object's directory, then a rename. The
+  rename is atomic, so a reader maps a whole object or none, and concurrent
+  writers of one object all succeed. Nothing is synced: an object lost or cut
+  short by a crash fails the checks above and is written again.
+- *Which component.* The store is a new component, =compass.store=, in the
+  infrastructure layer. It knows keys, places and files and has no dependency
+  on another component. The layout of an object is in the =io= facet of
+  =compass.org=, beside the tables it mirrors, so adding a column changes one
+  component. Putting the layout in the store would make an infrastructure
+  component depend on the domain layer.
+
+* Measurements
+
+=compass-bench store <checkout> --store <dir> --repeat 5= at commit =4308ab1=,
+over an archive of ORE Studio =origin/main= at =a04ad2a5c3=, on 8 cores of a
+shared machine with a load average between 7 and 10. Times are the median of
+five; the numbers are indicative.
+
+| Run         | Threads | Store on | Median ms | Min ms | Max ms |
+|-------------+---------+----------+-----------+--------+--------|
+| cold        |       8 | tmpfs    |     385.4 |  332.6 |  444.5 |
+| cold        |       8 | tmpfs    |     309.5 |  278.0 |  331.7 |
+| cold        |       8 | ext4     |     306.6 |  295.1 |  684.5 |
+| cold        |       1 | tmpfs    |    1149.6 | 1147.0 | 1188.7 |
+| warm map    |       8 | tmpfs    |      55.5 |   44.8 |   76.4 |
+| warm map    |       8 | tmpfs    |      47.1 |   40.9 |   49.5 |
+| warm map    |       8 | ext4     |      48.1 |   45.5 |   49.4 |
+| warm map    |       1 | tmpfs    |      92.6 |   90.7 |   98.1 |
+| warm verify |       8 | tmpfs    |      55.4 |   45.6 |   63.3 |
+| warm verify |       8 | tmpfs    |      45.4 |   44.9 |   47.5 |
+| warm verify |       8 | ext4     |      48.5 |   44.8 |   51.5 |
+| warm verify |       1 | tmpfs    |     104.1 |  103.7 |  106.6 |
+
+- 10,910 files, 69,663,737 source bytes, 10,908 objects (two files
+  repeat the content of another), 66,101,434 object bytes: 0.949 bytes of object per
+  byte of source. Headers are 7.2 MB of that.
+- Every run rejected no object, and the dump of every loaded object equals the
+  dump of its parse.
+- Parsing alone, =compass-bench org=, took 149.7 ms in the same session. The
+  cold run adds hashing, encoding and one file create and rename per document.
+- The warm runs read objects the cold run had just written, so the page cache
+  held them. They take the blob IDs from the cold run; finding the ID of a
+  file without reading it is the worktree index task.
+
+What limits the warm run is the file, not its bytes. On one thread it takes
+8.5 microseconds an object to open, map, check and unmap, and the checksum of
+all 66 MB adds 12 ms. Eight threads are only twice as fast as one, which fits
+the kernel serialising =mmap= and =munmap= within a process; that cause is
+inferred, not measured.
+
+** Loose objects or packs
+
+The budget is one second for a whole warm run. Loading every org object takes
+about 0.05 s. All of ORE Studio is about 37,000 files; at the measured cost
+per object that is 0.3 s on one thread and, if the scaling holds, under 0.2 s
+on eight. That is an estimate from the org numbers, not a measurement.
+
+So loose objects stay, and packs are not built. A pack would remove the
+per-file cost, which is nearly all of the warm run, and the object format
+already allows one: the =documents= table lays documents end to end, so a pack
+can be an object with more than one document row. The number to watch is the
+warm load of the whole corpus once C++ and SQL facts are stored. Packs become
+worth their cost when it passes a few hundred milliseconds.
+
+* Alternatives rejected
+
+- *FlatBuffers or Cap'n Proto.* Both give a mapped, position-independent
+  layout with schema evolution. The tables are already arrays of trivially
+  copyable values, which is the layout these libraries produce for a vector of
+  structs, so they would add a schema language, a code generator and
+  generated accessors between a reader and a span it could have had directly.
+  Schema evolution is not needed: the store is a cache, and a new layout is a
+  new version that reads nothing old.
+- *One pack per corpus.* One file, one =mmap=, no per-file cost. But a pack is
+  rewritten or appended when one document changes, concurrent writers need a
+  lock or a merge step, a worktree on another branch needs a different pack or
+  an index over a shared one, and eviction can no longer delete a file. The
+  measurement shows the cost it removes is 0.05 s.
+- *One file per table.* Thirteen files a document multiplies the per-file
+  cost, which is the cost that dominates, and a document could then be half
+  written.
+- *Row counts only, offsets derived.* The offsets follow from the row counts
+  and the alignment rule, so the header could be 500 bytes shorter. Storing
+  them keeps the loader free of layout arithmetic and gives every column an
+  explicit bounds check.
+- *A hash of the parser's sources as the parser version.* See Versions.
+- *The parser version in the object path.* It would end two builds rewriting
+  each other's objects, at the cost of stale directories only eviction can
+  remove. Left until that rewriting is measured to matter.
+- *Checksum checked inside =decode=.* Simpler to use correctly, but it forces
+  every load to read every byte. The two are kept apart, and the measurement
+  says a reader can call both.
+- *=fsync= before the rename.* It makes an object durable. Durability is not a
+  property a cache needs, and a sync per object would dominate the cold run.
+- *OpenSSL for SHA-1.* See The store.
+- *A second, hand-written set of view structs.* Two definitions of sixty-one
+  columns drift. One template has one definition.
+
+* Least certain
+
+- *The checksum is on demand.* A reader that maps an object and follows a
+  handle without calling =checksum_matches= trusts the file system. The next
+  task should decide whether the store's read path always calls it; the
+  measurement says it can.
+- *Header size.* 664 bytes an object is 11% of the stored bytes on this
+  corpus, because the median document is small. Deriving offsets would cut it
+  to about 180.
+- *The pinned test.* It catches a forgotten version bump only for constructs
+  in its reference document.
+- *Blob IDs under filters.* A file rewritten on checkout, by =core.autocrlf= or
+  a clean filter, has an index ID that is not the hash of its working tree
+  bytes. The git index task must hash such files or key them differently.
+- *Type punning.* A column is read through a pointer cast into the mapping.
+  Every compiler in use accepts it; the standard's =start_lifetime_as_array=
+  is not yet in the libraries.
+- *Temporary files.* A crash leaves a =tmp_*= file that nothing removes until
+  the eviction task does.
+
+* See also
+
+- [[id:10A99211-DCE0-4237-8D23-0599C2D00628][Share a content-addressed store]]
+  --- the story this design belongs to.
+- [[id:EB285F25-4AF8-482D-B679-C650DA718CF6][compass.store]] --- the durable
+  description of the store.
+- [[id:44C128E0-BCF3-4574-B171-BF5E72325085][compass.org]] --- the durable
+  description of the tables, the view and the object layout.

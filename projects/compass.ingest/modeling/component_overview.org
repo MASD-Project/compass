@@ -40,6 +40,12 @@ file.
 
 One document's =compass.org= tables, with =documents= left empty.
 
+- *Version.* =parser_version= is a constant bumped by hand whenever some
+  source would now parse to different tables. A store keeps the tables of a
+  source under it, so the tables of an older parser are parsed again.
+  =tests/org_stored_tests.cpp= pins the stored bytes of a reference document
+  and fails, naming the constant, when they change.
+
 - *Two passes.* The first pass builds the element tree and the element detail
   tables. The TODO vocabulary is then read from the =#+todo:=, =#+seq_todo:=
   and =#+typ_todo:= keywords of the document, or is =TODO= and =DONE= when it

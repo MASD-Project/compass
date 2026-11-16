@@ -125,3 +125,34 @@ TEST_CASE("an empty source range stands for absent text", "[types][column]") {
     CHECK(absent.of(first_source).empty());
     CHECK(source_range{9, 12}.size() == 3);
 }
+
+TEST_CASE("a view points at every column of the tables it is taken from",
+    "[types][view]") {
+    tables t;
+    std::size_t rows = 0;
+    for_each_table([&](auto& table) {
+        for_each_column([&](auto& column) { column.values.resize(++rows); },
+            table);
+    }, t);
+    t.name_bytes = {'a', 'b'};
+
+    const auto v = view(t);
+
+    std::size_t expected = 0;
+    std::size_t seen = 0;
+    for_each_table([&](const auto& viewed, const auto& owned) {
+        for_each_column([&](const auto& column, const auto& source) {
+            CHECK(column.size() == ++expected);
+            CHECK(static_cast<const void*>(column.values.data()) ==
+                static_cast<const void*>(source.values.data()));
+            ++seen;
+        }, viewed, owned);
+    }, v, t);
+    CHECK(seen == column_count);
+    CHECK(rows == column_count);
+    CHECK(v.name_bytes.data() == t.name_bytes.data());
+    CHECK(v.name_bytes.size() == 2);
+}
+
+static_assert(table_count == 13);
+static_assert(column_count == 61);

@@ -71,15 +71,25 @@ enum class object_kind : std::uint8_t {
  * empty for an object that holds no other object. post_blanks counts the
  * spaces after the object and saturates like the element column.
  */
-struct object_table {
-    column<object_id, object_kind> kinds;
-    column<object_id, std::uint8_t> post_blanks;
-    column<object_id, source_range> ranges;
-    column<object_id, source_range> contents;
-    column<object_id, object_id> subtree_ends;
+template <template <typename, column_value> class Column>
+struct basic_object_table {
+    Column<object_id, object_kind> kinds;
+    Column<object_id, std::uint8_t> post_blanks;
+    Column<object_id, source_range> ranges;
+    Column<object_id, source_range> contents;
+    Column<object_id, object_id> subtree_ends;
 
     [[nodiscard]] std::size_t size() const noexcept { return kinds.size(); }
+
+    template <typename F, typename... Tables>
+    static constexpr void for_each_column(F&& f, Tables&&... t) {
+        f(t.kinds...); f(t.post_blanks...); f(t.ranges...); f(t.contents...);
+        f(t.subtree_ends...);
+    }
 };
+
+using object_table = basic_object_table<column>;
+using object_table_view = basic_object_table<column_view>;
 
 inline constexpr std::size_t object_row_bytes = row_bytes(
     &object_table::kinds, &object_table::post_blanks, &object_table::ranges,

@@ -66,7 +66,7 @@ std::optional<ot::type_level> parse_level(std::string_view s) noexcept {
  */
 class page_view {
 public:
-    page_view(std::string_view source, const ot::tables& t) noexcept
+    page_view(std::string_view source, const ot::tables_view& t) noexcept
         : src_(source), t_(t) {}
 
     std::string_view name(ot::name_id n) const noexcept {
@@ -184,11 +184,11 @@ public:
         return trim(text(t_.items.tags[ot::item_id{i}]));
     }
 
-    const ot::tables& tables() const noexcept { return t_; }
+    const ot::tables_view& tables() const noexcept { return t_; }
 
 private:
     std::string_view src_;
-    const ot::tables& t_;
+    const ot::tables_view& t_;
 };
 
 struct todo_keywords {
@@ -397,7 +397,7 @@ bool type_registry_builder::has(std::string_view name) const {
 }
 
 contract_report type_registry_builder::add_contract(std::string_view source,
-    const ot::tables& page) {
+    const ot::tables_view& page) {
     const page_view p(source, page);
     contract_fields f;
     const auto contract = p.contract();

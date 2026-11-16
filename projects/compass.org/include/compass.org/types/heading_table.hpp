@@ -51,19 +51,30 @@ enum class comment_state : std::uint8_t { live, commented };
  * likewise. The properties before property_firsts of the first heading
  * belong to the document.
  */
-struct heading_table {
-    column<heading_id, element_id> elements;
-    column<heading_id, std::uint16_t> levels;
-    column<heading_id, name_id> todos;
-    column<heading_id, todo_type> todo_types;
-    column<heading_id, std::uint8_t> priorities;
-    column<heading_id, comment_state> comments;
-    column<heading_id, source_range> titles;
-    column<heading_id, tag_id> tag_firsts;
-    column<heading_id, property_id> property_firsts;
+template <template <typename, column_value> class Column>
+struct basic_heading_table {
+    Column<heading_id, element_id> elements;
+    Column<heading_id, std::uint16_t> levels;
+    Column<heading_id, name_id> todos;
+    Column<heading_id, todo_type> todo_types;
+    Column<heading_id, std::uint8_t> priorities;
+    Column<heading_id, comment_state> comments;
+    Column<heading_id, source_range> titles;
+    Column<heading_id, tag_id> tag_firsts;
+    Column<heading_id, property_id> property_firsts;
 
     [[nodiscard]] std::size_t size() const noexcept { return elements.size(); }
+
+    template <typename F, typename... Tables>
+    static constexpr void for_each_column(F&& f, Tables&&... t) {
+        f(t.elements...); f(t.levels...); f(t.todos...); f(t.todo_types...);
+        f(t.priorities...); f(t.comments...); f(t.titles...);
+        f(t.tag_firsts...); f(t.property_firsts...);
+    }
 };
+
+using heading_table = basic_heading_table<column>;
+using heading_table_view = basic_heading_table<column_view>;
 
 inline constexpr std::size_t heading_row_bytes = row_bytes(
     &heading_table::elements, &heading_table::levels, &heading_table::todos,
@@ -76,11 +87,20 @@ static_assert(heading_row_bytes == 29);
 /**
  * @brief The tags written on headings, one row per tag.
  */
-struct heading_tag_table {
-    column<tag_id, name_id> names;
+template <template <typename, column_value> class Column>
+struct basic_heading_tag_table {
+    Column<tag_id, name_id> names;
 
     [[nodiscard]] std::size_t size() const noexcept { return names.size(); }
+
+    template <typename F, typename... Tables>
+    static constexpr void for_each_column(F&& f, Tables&&... t) {
+        f(t.names...);
+    }
 };
+
+using heading_tag_table = basic_heading_tag_table<column>;
+using heading_tag_table_view = basic_heading_tag_table<column_view>;
 
 inline constexpr std::size_t heading_tag_row_bytes =
     row_bytes(&heading_tag_table::names);

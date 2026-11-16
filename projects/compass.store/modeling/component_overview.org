@@ -1,0 +1,94 @@
+:PROPERTIES:
+:ID: EB285F25-4AF8-482D-B679-C650DA718CF6
+:END:
+#+title: compass.store
+#+description: The content-addressed store every worktree of a repository shares: git blob IDs as keys, object paths under the git common directory, and writes that land whole or not at all.
+#+type: component
+#+level: cross
+#+filetags: :store:cache:worktrees:component:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+
+This page is the component overview for =compass.store=, a simple component in
+the infrastructure layer of the
+[[id:8A9A460F-8024-4890-B091-C0D02FD84218][System Model]].
+
+* Summary
+
+=compass.store= keeps what compass-ng has already computed, keyed by the
+content it was computed from. The key is the ID git gives that content, so a
+file with the same bytes has the same key in every worktree and its parse is
+done once per repository. The store is a cache: deleting it loses speed and
+nothing else.
+
+The component knows keys, places and files. It does not know what an object
+holds. The bytes of a parsed org document are laid out by
+[[id:44C128E0-BCF3-4574-B171-BF5E72325085][compass.org]], in
+=io/object.hpp=, which also checks them when they are mapped back. A caller
+joins the two: it hashes a source, asks =compass.org= to encode the tables,
+and hands the bytes to =write_object=; later it maps the file with
+=compass.platform= and asks =compass.org= to decode it.
+
+* Inputs
+
+- The bytes of a source file, to compute its blob ID.
+- The root of a git checkout, to find the store.
+- The bytes of an object, to write.
+
+* Outputs
+
+- *Blob ID.* =ops::blob_id_of= returns the SHA-1 of ="blob <size>\0<content>"=
+  as 20 raw bytes, the ID =git hash-object= prints. For a clean tracked file it
+  equals the ID in git's index, so a later task can read it from there instead
+  of hashing. =ops::to_hex= prints it as git does.
+- *Location.* =io::git_common_dir= resolves the git directory every worktree
+  shares, reading =.git= and =commondir= as git writes them, with no git
+  process. =io::objects_dir= is =compass/objects= under it. =io::object_path=
+  is =<first two hex digits>/<other 38>= under that, the layout of git's loose
+  objects.
+- *Writes.* =io::write_object= writes to a temporary file in the directory of
+  the object and renames it into place. A reader sees the old object, the new
+  one or none. Concurrent writers of one object all succeed and leave one
+  file. Nothing is synced to disk; an object a crash cut short fails the
+  checks of its decoder and is written again.
+- *Reads.* An object is read by mapping its file with =mapped_file=. A missing
+  file is a miss.
+- *Leftovers.* A crash between write and rename leaves a file whose name
+  starts with =tmp_=. Nothing reads it. The collector of unused objects is the
+  place to remove old ones.
+
+SHA-1 is implemented here, in about a hundred lines, rather than taken from
+OpenSSL. The store hashes only files whose ID git's index does not already
+hold, so the speed of an accelerated SHA-1 buys little, and OpenSSL would be
+the largest dependency of the build for one function.
+
+* Entry points
+
+| Path                                     | Role                                           |
+|------------------------------------------+------------------------------------------------|
+| =include/compass.store/types/blob_id.hpp=  | =blob_id=: the key of the store.                 |
+| =include/compass.store/ops/blob_hash.hpp=  | =blob_id_of= and =to_hex=.                         |
+| =include/compass.store/io/location.hpp=    | =git_common_dir=, =objects_dir=, =object_path=.      |
+| =include/compass.store/io/object_file.hpp= | =write_object=.                                  |
+| =tests/ops_blob_hash_tests.cpp=            | IDs checked against =git hash-object=.           |
+| =tests/io_location_tests.cpp=              | A main checkout, a linked worktree, bad input. |
+| =tests/io_object_file_tests.cpp=           | Replacement, failure and concurrent writers.   |
+
+| Target                | Kind                                      |
+|-----------------------+-------------------------------------------|
+| =compass.store.lib=   | Library.                                  |
+| =compass.store.tests= | Catch2 executable, registered with CTest. |
+
+* Dependencies
+
+- The C++23 standard library. No other compass-ng component.
+- Catch2 and the =git= command, for the tests only.
+
+* See also
+
+- [[id:8A0E6F32-C4BC-4667-88E8-7F80CA25437C][Component architecture]] --- layout,
+  naming and facets.
+- [[id:8A9A460F-8024-4890-B091-C0D02FD84218][System Model]] --- where the
+  infrastructure layer sits.
+- [[id:44C128E0-BCF3-4574-B171-BF5E72325085][compass.org]] --- the layout of
+  the object of a parsed org document.

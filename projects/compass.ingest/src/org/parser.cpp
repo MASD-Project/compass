@@ -31,28 +31,11 @@ using detail::context;
 namespace types = compass::org::types;
 
 void clear(types::tables& t) {
-    const auto reset = [](auto&... columns) { (columns.values.clear(), ...); };
-    reset(t.elements.kinds, t.elements.post_blanks, t.elements.ranges,
-        t.elements.contents, t.elements.parents, t.elements.subtree_ends,
-        t.elements.object_firsts);
-    reset(t.objects.kinds, t.objects.post_blanks, t.objects.ranges,
-        t.objects.contents, t.objects.subtree_ends);
-    reset(t.headings.elements, t.headings.levels, t.headings.todos,
-        t.headings.todo_types, t.headings.priorities, t.headings.comments,
-        t.headings.titles, t.headings.tag_firsts, t.headings.property_firsts);
-    reset(t.heading_tags.names);
-    reset(t.keywords.elements, t.keywords.names, t.keywords.values);
-    reset(t.properties.elements, t.properties.names, t.properties.values);
-    reset(t.affiliated.owners, t.affiliated.names, t.affiliated.options,
-        t.affiliated.values, t.affiliated.object_firsts);
-    reset(t.blocks.elements, t.blocks.names, t.blocks.parameters,
-        t.blocks.bodies);
-    reset(t.lists.elements, t.lists.types);
-    reset(t.items.elements, t.items.checkboxes, t.items.tags);
-    reset(t.links.objects, t.links.types, t.links.formats, t.links.paths);
-    reset(t.names.firsts);
+    types::for_each_table([](auto& table) {
+        types::for_each_column([](auto& column) { column.values.clear(); },
+            table);
+    }, t);
     t.name_bytes.clear();
-    t.documents = {};
 }
 
 /**

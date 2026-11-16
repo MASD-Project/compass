@@ -29,13 +29,20 @@
 namespace compass::org::types {
 
 /**
+ * @brief What a column holds: a value with no pointer and no destructor, so
+ * its array can be written to an object and mapped back as it is.
+ */
+template <typename Value>
+concept column_value = std::is_trivially_copyable_v<Value>;
+
+/**
  * @brief Read-only run of one column, indexed by the handle of its table.
  *
- * It is the form a column takes when it is not owned: one document's rows
- * inside a corpus column, or a column mapped from a pack.
+ * It is the form a column takes when it is not owned: the rows of a parsed
+ * document seen through a view, one document's rows inside a corpus column,
+ * or a column mapped from an object.
  */
-template <typename Handle, typename Value>
-    requires std::is_trivially_copyable_v<Value>
+template <typename Handle, column_value Value>
 struct column_view {
     std::span<const Value> values;
 
@@ -53,8 +60,7 @@ struct column_view {
  * Values are trivially copyable and hold no pointer, so the array can be
  * written to a pack and mapped back as it is.
  */
-template <typename Handle, typename Value>
-    requires std::is_trivially_copyable_v<Value>
+template <typename Handle, column_value Value>
 struct column {
     std::vector<Value> values;
 
@@ -76,6 +82,18 @@ struct column {
         return {std::span<const Value>(values).subspan(first, count)};
     }
 };
+
+/**
+ * @brief Calls f once per column of a table, in the order the table lists
+ * them.
+ *
+ * Given several tables of one shape, f gets the same column of each: this
+ * is how a view is pointed at owned columns or at a mapped object.
+ */
+template <typename F, typename Table, typename... Tables>
+constexpr void for_each_column(F&& f, Table&& first, Tables&&... rest) {
+    std::remove_cvref_t<Table>::for_each_column(f, first, rest...);
+}
 
 /**
  * @brief Bytes one row takes across the columns of a table.

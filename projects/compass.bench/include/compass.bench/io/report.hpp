@@ -21,12 +21,14 @@
 #define COMPASS_BENCH_IO_REPORT_HPP
 
 #include <cstddef>
+#include <filesystem>
 #include <ostream>
 #include "compass.bench/types/file_table.hpp"
 #include "compass.bench/types/includes_result.hpp"
 #include "compass.bench/types/org_result.hpp"
 #include "compass.bench/types/parse_result.hpp"
 #include "compass.bench/types/stage_result.hpp"
+#include "compass.bench/types/store_result.hpp"
 #include "compass.bench/types/types_result.hpp"
 
 namespace compass::bench::io {
@@ -129,6 +131,22 @@ void write_org_report(std::ostream& os, const types::org_result& stage,
  */
 void write_types_report(std::ostream& os, const types::types_result& stage,
     const setup_timing& setup, const types::file_table& table);
+
+/**
+ * @brief True when the store stage stored no file, hit any error, rejected
+ * an object it had written, or loaded an object that dumps differently from
+ * its parse.
+ */
+[[nodiscard]] bool failed(const types::store_result& stage);
+
+/**
+ * @brief Writes the cold stage table, the wall times of the cold and the
+ * two warm runs, and the object bytes against the source bytes.
+ *
+ * A failed stage gets a FAILED banner naming the reason.
+ */
+void write_store_report(std::ostream& os, const types::store_result& stage,
+    const setup_timing& setup, const std::filesystem::path& objects);
 
 }
 

@@ -35,11 +35,20 @@ namespace compass::org::types {
  * their handles are. The bytes of n run from firsts[n] up to firsts of the
  * next row, or up to the end of the name bytes for the last row.
  */
-struct name_table {
-    column<name_id, std::uint32_t> firsts;
+template <template <typename, column_value> class Column>
+struct basic_name_table {
+    Column<name_id, std::uint32_t> firsts;
 
     [[nodiscard]] std::size_t size() const noexcept { return firsts.size(); }
+
+    template <typename F, typename... Tables>
+    static constexpr void for_each_column(F&& f, Tables&&... t) {
+        f(t.firsts...);
+    }
 };
+
+using name_table = basic_name_table<column>;
+using name_table_view = basic_name_table<column_view>;
 
 inline constexpr std::size_t name_row_bytes = row_bytes(&name_table::firsts);
 

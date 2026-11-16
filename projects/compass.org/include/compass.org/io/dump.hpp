@@ -50,10 +50,11 @@ namespace compass::org::io {
  * build/scripts/org_element_dump.el prints org-element's parse tree in the
  * same format, so the two can be compared line by line.
  *
- * @p tables must hold one document, as the parser fills it.
+ * @p tables must hold one document, as the parser fills it or as it is
+ * mapped from an object.
  */
 void dump(std::ostream& os, std::string_view source,
-    const types::tables& tables);
+    const types::tables_view& tables);
 
 }
 

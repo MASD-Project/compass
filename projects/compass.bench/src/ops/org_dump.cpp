@@ -33,7 +33,8 @@ void dump_org_file(const std::filesystem::path& file, std::ostream& os) {
     const platform::filesystem::mapped_file mapped(file);
     compass::org::types::tables tables;
     ingest::org::parse(mapped.text(), tables);
-    compass::org::io::dump(os, mapped.text(), tables);
+    compass::org::io::dump(os, mapped.text(),
+        compass::org::types::view(tables));
 }
 
 std::size_t dump_org_list(const std::filesystem::path& list) {

@@ -43,14 +43,23 @@ enum class link_format : std::uint8_t { plain, angle, bracket };
  * and a path that wraps still holds its line break. The description is the
  * contents of the object row.
  */
-struct link_table {
-    column<link_id, object_id> objects;
-    column<link_id, name_id> types;
-    column<link_id, link_format> formats;
-    column<link_id, source_range> paths;
+template <template <typename, column_value> class Column>
+struct basic_link_table {
+    Column<link_id, object_id> objects;
+    Column<link_id, name_id> types;
+    Column<link_id, link_format> formats;
+    Column<link_id, source_range> paths;
 
     [[nodiscard]] std::size_t size() const noexcept { return objects.size(); }
+
+    template <typename F, typename... Tables>
+    static constexpr void for_each_column(F&& f, Tables&&... t) {
+        f(t.objects...); f(t.types...); f(t.formats...); f(t.paths...);
+    }
 };
+
+using link_table = basic_link_table<column>;
+using link_table_view = basic_link_table<column_view>;
 
 inline constexpr std::size_t link_row_bytes = row_bytes(&link_table::objects,
     &link_table::types, &link_table::formats, &link_table::paths);

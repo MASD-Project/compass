@@ -67,7 +67,7 @@ std::string_view trim(std::string_view s) noexcept {
  * @brief The value of the first #+type: keyword of a parsed document.
  */
 std::optional<std::string_view> type_keyword(std::string_view source,
-    const ot::tables& t) noexcept {
+    const ot::tables_view& t) noexcept {
     for (std::uint32_t k = 0; k < t.keywords.size(); ++k) {
         const ot::keyword_id id{k};
         const auto n = t.keywords.names[id];
@@ -93,7 +93,7 @@ tally resolve_range(const std::filesystem::path& checkout,
                 checkout / table.paths[r.ids[row]]);
             ingest::org::parse(file.text(), tables);
             const auto start = std::chrono::steady_clock::now();
-            const auto value = type_keyword(file.text(), tables);
+            const auto value = type_keyword(file.text(), ot::view(tables));
             const auto type = value ? org::ops::find_type(r.meta.registry,
                 *value) : ot::type_id::none();
             t.resolve_ms += since(start);
@@ -135,7 +135,7 @@ types::meta_registry build_meta_registry(const std::filesystem::path& meta) {
         const platform::filesystem::mapped_file file(page);
         ingest::org::parse(file.text(), tables);
         r.paths.push_back(page.filename().string());
-        r.reports.push_back(builder.add_contract(file.text(), tables));
+        r.reports.push_back(builder.add_contract(file.text(), ot::view(tables)));
     }
     for (const auto name : ingest::meta::model_types)
         builder.add_model(name);

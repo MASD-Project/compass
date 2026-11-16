@@ -81,7 +81,7 @@ struct builder {
 
     std::string dump(std::string_view source) const {
         std::ostringstream os;
-        compass::org::io::dump(os, source, t);
+        compass::org::io::dump(os, source, view(t));
         return os.str();
     }
 };

@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :share_a_content_addressed_store:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/design-the-object-format
+#+pr: https://github.com/MASD-Project/compass/pull/14
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -26,11 +26,11 @@ Define the object and pack format: position-independent tables that are memory-m
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                              |
 | Parent story | [[id:10A99211-DCE0-4237-8D23-0599C2D00628][Share a content-addressed store]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -39,9 +39,23 @@ Define the object and pack format: position-independent tables that are memory-m
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- An object is one parsed document: a fixed header (magic, format version,
+  parser version, the content's git blob ID, table offsets and row counts)
+  followed by every =compass.org= column, aligned, as raw little-endian
+  arrays. Loading is mapping the file and pointing spans at the columns; there
+  is no decode step.
+- The =compass.org= tables gain a read-only view type over spans, so code that
+  reads tables works the same over freshly parsed vectors and over a mapped
+  object.
+- The store lives under the repository's git common directory, in
+  =compass/objects/=, so every worktree shares it. Objects are written to a
+  temporary file and renamed into place, and are never modified.
+- Loose objects first, one file per blob ID. =compass-bench= gains a =store=
+  stage that measures a cold run (parse and write every org file) and a warm
+  run (map every object and verify its header), so whether packs are needed is
+  decided by a number, not in advance.
+- A header whose format or parser version differs from the running build is
+  treated as missing, so a stale object forces a re-parse.
 
 * Measurements
 
@@ -55,7 +69,15 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Cold: parse and write every org object, 8 threads (median of 5) | 307 to 385 ms over three runs | =compass-bench store <archive> --store <dir> --repeat 5= | ORE Studio a04ad2a5c3 |
+| Warm: map every object | 47 to 55 ms | same run | ORE Studio a04ad2a5c3 |
+| Warm: map, validate and touch every column | 45 to 55 ms | same run | ORE Studio a04ad2a5c3 |
+| Object bytes against source bytes | 66.1 MB against 69.7 MB (0.949) | same run | ORE Studio a04ad2a5c3 |
+| Load cost per object, one thread | 8.5 µs | same run with =-j 1= | ORE Studio a04ad2a5c3 |
+| This repository: cold, warm map | 9.8 ms, 2.0 ms for 399 objects | =compass-bench store . --store <dir> --repeat 3= | compass-ng f739804 |
+
+The ORE Studio runs had load average 7 to 10, so the timings are indicative.
+Every loaded object's dump equals its parse's dump.
 
 * Notes
 
@@ -74,7 +96,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/14][#14]] | [store] Add the object format and the compass.store component |
 
 * Review
 
@@ -83,3 +105,22 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- An object is a 664-byte little-endian header (magic, byte-order mark, format
+  and parser versions, the source's git blob ID, size, checksum, row counts and
+  column offsets) followed by every =compass.org= column as a raw array aligned
+  to 8 bytes, then the interned name bytes. Loading is mapping the file and
+  pointing spans at the columns after a bounds check of every offset.
+- Readers take =tables_view= over spans, whether the tables come from a parse
+  or a mapped object; the old read signatures are gone.
+- =compass.store= is a new infrastructure component: blob IDs computed the way
+  git computes them, paths under =<git common dir>/compass/objects/=, and
+  writes to a temporary file renamed into place. A stored object's name equals
+  git's blob ID for the same file.
+- Loose objects meet the warm budget: all of ORE Studio's org loads in about
+  50 ms against 1 s, so packs are not needed.
+- Format and parser versions are hand-bumped constants; a pinned checksum test
+  names the version to bump when the stored form changes.
+- Open for the next tasks: whether the read path always verifies the checksum,
+  and that blob IDs from git's index differ from working-tree hashes under
+  =autocrlf= or clean filters.

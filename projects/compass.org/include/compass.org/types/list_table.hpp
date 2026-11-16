@@ -36,12 +36,21 @@ enum class list_type : std::uint8_t { unordered, ordered, descriptive };
 /**
  * @brief Plain lists, in document order.
  */
-struct list_table {
-    column<list_id, element_id> elements;
-    column<list_id, list_type> types;
+template <template <typename, column_value> class Column>
+struct basic_list_table {
+    Column<list_id, element_id> elements;
+    Column<list_id, list_type> types;
 
     [[nodiscard]] std::size_t size() const noexcept { return elements.size(); }
+
+    template <typename F, typename... Tables>
+    static constexpr void for_each_column(F&& f, Tables&&... t) {
+        f(t.elements...); f(t.types...);
+    }
 };
+
+using list_table = basic_list_table<column>;
+using list_table_view = basic_list_table<column_view>;
 
 inline constexpr std::size_t list_row_bytes =
     row_bytes(&list_table::elements, &list_table::types);
@@ -60,13 +69,22 @@ enum class checkbox : std::uint8_t { none, off, on, partial };
  * own objects. The bullet and the counter are read from the source at the
  * start of the item.
  */
-struct item_table {
-    column<item_id, element_id> elements;
-    column<item_id, checkbox> checkboxes;
-    column<item_id, source_range> tags;
+template <template <typename, column_value> class Column>
+struct basic_item_table {
+    Column<item_id, element_id> elements;
+    Column<item_id, checkbox> checkboxes;
+    Column<item_id, source_range> tags;
 
     [[nodiscard]] std::size_t size() const noexcept { return elements.size(); }
+
+    template <typename F, typename... Tables>
+    static constexpr void for_each_column(F&& f, Tables&&... t) {
+        f(t.elements...); f(t.checkboxes...); f(t.tags...);
+    }
 };
+
+using item_table = basic_item_table<column>;
+using item_table_view = basic_item_table<column_view>;
 
 inline constexpr std::size_t item_row_bytes = row_bytes(
     &item_table::elements, &item_table::checkboxes, &item_table::tags);

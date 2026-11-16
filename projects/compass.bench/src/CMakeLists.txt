@@ -34,6 +34,7 @@ add_library(${lib_target_name}
     ops/partition.cpp
     ops/read_stage.cpp
     ops/search_paths.cpp
+    ops/store_stage.cpp
     ops/types_stage.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
@@ -45,6 +46,7 @@ target_link_libraries(${lib_target_name}
     PUBLIC
         compass.ingest.lib
         compass.platform.lib
+        compass.store.lib
         Threads::Threads
         unofficial::tree-sitter::tree-sitter
     PRIVATE
