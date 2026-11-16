@@ -15,11 +15,17 @@ the domain layer of the
 
 * Summary
 
-=compass.sql= runs ORE Studio's =sql-hygiene= gate
-(=projects/ores.sql/utility/check_sql_hygiene.py=) as a corpus codec. The
-script reread every SQL file of the tree on each run; the codec reads them
-through its view, so a run in which no SQL file changed reuses its findings
-without reading any.
+=compass.sql= runs ORE Studio's SQL gates as corpus codecs: =sql-hygiene=
+(=projects/ores.sql/utility/check_sql_hygiene.py=), =populate-refs=,
+=sql-reachability=, =rls-widenings=, =handler-permissions= and
+=curve-parameter-paths=. Each script reread its files on every run; a codec
+reads them through its view, so a run in which none of them changed reuses
+its findings without reading any.
+
+The gates after =sql_hygiene= take their scripts' regular expressions
+verbatim through =compass.platform='s =text::regex=; =ops::scripts= holds
+the helpers they share: comment blanking, top-level splitting and pathlib's
+order.
 
 The scanner is a port, not a parser: it reproduces the script's rules,
 including what they get wrong, such as reporting =create  table  if not
@@ -30,7 +36,7 @@ matches are not spaces. tree-sitter is not used: its SQL grammar does not
 read psql scripts (see
 [[id:E2DCD7CE-4CFC-47D8-A65D-E05A4CA48EB6][Measure tree-sitter parsing]]).
 
-The codec is off by default.
+The codecs are off by default, and =codecs::catalogue= lists them.
 
 * Inputs
 
@@ -61,12 +67,43 @@ The codec is off by default.
   A message holds no count: the script's depth of an open comment and the
   number of times an index is created are left out.
 
+- *=populate_refs=.* =populate-refs=
+  (=projects/ores.codegen/scripts/check_populate_references.py=). Rule
+  =unresolved_reference=: a populate call passes literal names to a function
+  whose body raises =not found= on a lookup, and no populate call to a
+  function that inserts that row passes the same names. Rule
+  =unbalanced_parentheses=: a definition or call the check reads does not
+  close, where the script stops with a traceback.
+- *=sql_reachability=.* =sql-reachability= (=check_sql_reachability.py=).
+  Rule =unreachable_file=: a file under =create=, =populate= or =drop= that
+  no =\i= or =\ir= walk from the root scripts and the four declared entry
+  points reaches. Rule =missing_include=: an include or entry point names
+  no file.
+- *=rls_widenings=.* =rls-widenings=
+  (=check_rls_system_tenant_widenings.py=). Rule =system_tenant_widening=:
+  a =create policy= under =create= compares the current tenant with the
+  system tenant. The script's table of excused policies is replaced by
+  inline exceptions on their =create policy= lines.
+- *=handler_permissions=.* =handler-permissions=
+  (=check_handler_permissions.py=). Rule =unseeded_permission=: a handler of
+  a component of the =components= option checks a code the =seeds= script
+  does not seed.
+- *=curve_parameter_paths=.* =curve-parameter-paths=
+  (=projects/ores.sql/utility/check_curve_parameter_paths.py=). Rule
+  =undeclared_path=: a quoted =/CurveConfiguration/= path of the artefact
+  that the ORE curve schema does not declare and no exemption explains.
+  Rule =stale_exemption=: an exemption no path needs. The exemptions file
+  stays, because a rule is a pattern over paths, not a line.
+
 * Entry points
 
 | Path                                           | Role                                         |
 |------------------------------------------------+----------------------------------------------|
 | =include/compass.sql/codecs/sql_hygiene.hpp=   | The =sql_hygiene= codec.                     |
 | =include/compass.sql/ops/hygiene.hpp=          | The four rules over the text of one file.    |
+| =include/compass.sql/ops/scripts.hpp=          | The helpers the SQL gate scripts share.      |
+| =include/compass.sql/codecs/catalogue.hpp=     | The codecs this component ships.             |
+| =include/compass.sql/codecs/<gate>.hpp=        | One header for each other codec.             |
 
 | Target              | Kind                                      |
 |---------------------+-------------------------------------------|
@@ -77,6 +114,7 @@ The codec is off by default.
 
 - =compass.codec= for the descriptor, the corpus view and the diagnostic
   table.
+- =compass.platform= for regular expressions and Python's decoding.
 - The C++23 standard library.
 - =compass.store= and Catch2, for the tests only.
 

@@ -42,7 +42,7 @@ No compass-ng dependency. Generic, reusable code.
 
 | Component          | Role                                                    |
 |--------------------+---------------------------------------------------------|
-| =compass.platform= | OS abstraction: memory-mapped files, child processes.  |
+| =compass.platform= | OS abstraction: memory-mapped files, child processes; Python-compatible regular expressions and text decoding. |
 
 * Infrastructure layer
 | Component       | Role                                                                                                                       |
@@ -100,22 +100,22 @@ generation code directly, reading the checkout from disk. It depends on
 =compass.model= and on =compass.codec=, whose runtime its =codegen= codec
 runs in; =compass.cli= adds that codec to the ones it runs.
 
-=compass.cpp= runs ORE Studio's C++ gates as codecs, =exported_types=,
-=enum_attributes= and =test_case_reachability=, with the byte scanners each
-gate needs. It is in the
+=compass.cpp= runs ORE Studio's C++ gates as codecs, from =exported_types=
+to =core_link_edges=, each a port of one gate script. It is in the
 domain layer for the reason =compass.codegen= is, because what it reports
 is defined by the sources of a checkout, and it is
 a component of its own, not a facet of =compass.codec=, because the runtime
 must not grow a reader for each language a check reads, and not part of
 =compass.ingest=, whose fact extractors fill tables for the store: these
 scanners reproduce the rules of particular scripts and keep nothing. It
-depends on =compass.codec= only; =compass.cli= adds its codecs to the ones
-it runs.
+depends on =compass.codec= and on =compass.platform= for regular
+expressions; =compass.cli= adds its codecs to the ones it runs.
 
-=compass.sql= is the same for SQL: the =sql_hygiene= codec and the scanner
-that follows PostgreSQL's lexer as ORE Studio's script does. It is a
-component of its own, not part of =compass.cpp=, because the two languages
-share no scanner, and it depends on =compass.codec= only.
+=compass.sql= is the same for SQL: =sql_hygiene=, whose scanner follows
+PostgreSQL's lexer as ORE Studio's script does, and the other SQL gates. It
+is a component of its own, not part of =compass.cpp=, because the two
+languages share no scanner, and it depends on =compass.codec= and
+=compass.platform=.
 
 Work management (stories, tasks, sprints) is not a separate component: a unit
 of work is a document with a lifecycle state, read through the same tables.

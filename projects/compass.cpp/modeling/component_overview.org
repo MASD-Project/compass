@@ -2,7 +2,7 @@
 :ID: 1B649514-55E4-4015-B71A-62BA58BEFA26
 :END:
 #+title: compass.cpp
-#+description: The checks over C++ sources as text: the scanners that read includes, export macros, enum declarations and test cases the way ORE Studio's gate scripts read them, and the codecs that run those gates in the codec runtime.
+#+description: The checks over C++, CMake and the files beside them as text: ports of ORE Studio's gate scripts, rule for rule, run as codecs in the codec runtime.
 #+type: component
 #+level: cross
 #+filetags: :cpp:gates:checks:component:
@@ -23,12 +23,23 @@ the findings without reading anything.
 
 The scanners are ports, not parsers. Each reproduces the rules of one
 script, including what the script gets wrong, because the acceptance of the
-port is the same verdict on the same commit. They work on bytes: a byte of
-0x80 or more counts as a word character, as Python counts the letters of a
-multi-byte character, and the non-ASCII spaces Python's =\s= also matches
-are not spaces. tree-sitter is not used: it was measured too slow for the
-always-on path (see
+port is the same verdict on the same commit. The first three work on bytes
+with hand-written scanners: a byte of 0x80 or more counts as a word
+character, as Python counts the letters of a multi-byte character, and the
+non-ASCII spaces Python's =\s= also matches are not spaces. The later ones
+take the scripts' regular expressions verbatim through
+=compass.platform='s =text::regex=, which has Python's syntax and Unicode
+classes, and read a file as Python's =read_text()= does, with its decoding
+errors and line ends (=text::decoding=). tree-sitter is not used: it was
+measured too slow for the always-on path (see
 [[id:E2DCD7CE-4CFC-47D8-A65D-E05A4CA48EB6][Measure tree-sitter parsing]]).
+
+A script that kept a baseline of excused findings is ported without it
+where the baseline is line- or file-shaped: each entry becomes an inline
+exception on the line it excused (=forward_declarable_includes=,
+=core_link_edges=). A table that is the gate's configuration rather than a
+list of excuses becomes an option with ORE Studio's values as its default
+(=translation_unit_budget=, =xml_family_census=).
 
 Every codec is off by default; a repository enables the ones whose rules it
 keeps in its =.compass.org=.
@@ -88,6 +99,66 @@ keeps in its =.compass.org=.
   =no_test_case=: no test source, or no case in any readable one, reported
   on =projects=.
 
+- *=unity_collisions=.* ORE Studio's =unity-collisions= gate
+  (=build/scripts/check_unity_collisions.py=). Rule =unrecorded_collision=:
+  two =.cpp= files under =projects/ores.*= with the same nearest
+  =CMakeLists.txt= define the same name with internal linkage in the same
+  named namespace, and =cmake/unity_exclusions.cmake=, a build input that
+  stays, keeps at most one of them out of the unity build. Rule
+  =missing_recorded_file=: the exclusions name a file that does not exist.
+- *=portable_stop=.* =portable-stop=
+  (=projects/ores.codegen/scripts/check_portable_stop_types.py=). Rule
+  =stop_type_outside_platform=: a line outside =ores.platform= names
+  =std::jthread=, =stop_token=, =stop_source= or =stop_callback=, or
+  includes =<stop_token>=, comments and strings aside.
+- *=unique_type_names=.* =unique-type-names=
+  (=build/scripts/check_unique_type_names.py=). Rule =type_defined_twice=:
+  two headers that can meet in one binary define the same qualified class or
+  struct.
+- *=forward_declarable_includes=.* =forward-declarable-includes=
+  (=build/scripts/check_forward_declarable_includes.py=). Rule
+  =includes_definition_it_only_names=: a header includes the defining
+  header of a type of the =list= option only to name it. Rule
+  =bad_type_list=: the list is malformed or empty. The script's baseline
+  is replaced by inline exceptions.
+- *=handler_registrars=, =event_registrars=, =history_registrars=.* The
+  three registrar composition gates
+  (=check_handler_registrar_composition.py=,
+  =check_event_registrar_composition.py=,
+  =check_history_registrar_composition.py=): every generated registrar of
+  the named components is called from its composition file, or, for a
+  handler registrar, its subjects are answered by hand.
+- *=shell_command_units=, =shell_menus=, =shell_command_composition=.* The
+  shell gates (=check_shell_command_units.py=,
+  =check_shell_menu_collisions.py=, =check_shell_command_composition.py=):
+  a menu is built once, by one file, from its name alone; a unit is
+  registered once; every generated command unit is registered.
+- *=route_auth=.* =route-auth= (=check_route_auth_declarations.py=). Rule
+  =route_without_auth=: an =add_route= of =ores.http= whose builder chain,
+  followed through =auto= locals, states no authentication position. Rule
+  =too_few_routes=: fewer than 20 routes found.
+- *=bff_list_requests=.* =bff-list-requests=
+  (=check_bff_list_requests.py=). A hand-written BFF list request states
+  what the C++ protocol decodes (=missing_member=, =filter_mismatch=,
+  =wrong_rows=), and the generated =list_requests.ts= is the table the
+  protocol headers give (=stale_table=). The script's generator runs
+  prettier; the codec lays out each array as prettier does at the width
+  =.prettierrc.yaml= sets, which reproduces the committed table.
+- *=translation_unit_budget=.* =translation-unit-budget=. Rule
+  =over_budget=: a unit that includes =conventions_family_pack.hpp= names
+  more convention families than one or its recorded ceiling. Rule
+  =below_ceiling=: a ceiling above what its unit names. The ceilings are an
+  option, since each holds a number an exception cannot.
+- *=xml_family_census=.* =xml-family-census=
+  (=check_xml_family_coverage.py=). The =families= option is the census;
+  the rules report a corpus root it does not classify, a family no document
+  has, a state the generated tables contradict and a suite that names an
+  unused family.
+- *=core_link_edges=.* =core-link-edges= (=check_core_link_edges.py=). Rule
+  =forbidden_edge=: a core's =target_link_libraries= names another
+  component's core or service library. The JSON baseline is replaced by
+  inline exceptions above the CMake lines.
+
 * Entry points
 
 | Path                                                    | Role                                                      |
@@ -101,6 +172,10 @@ keeps in its =.compass.org=.
 | =include/compass.cpp/ops/test_case_reachability.hpp=    | Test sources, and the cases and conditionals of one.      |
 | =include/compass.cpp/ops/paths.hpp=                     | pathlib's suffixes and order, and which files exist.      |
 | =include/compass.cpp/ops/text.hpp=                      | Python's spaces, word characters and lines over bytes.    |
+| =include/compass.cpp/ops/report.hpp=                    | Adds one finding on a byte of a checkout file.            |
+| =include/compass.cpp/codecs/registrars.hpp=             | The three registrar composition codecs.                   |
+| =include/compass.cpp/codecs/shell.hpp=                  | The three shell codecs.                                   |
+| =include/compass.cpp/codecs/<gate>.hpp=                 | One header for each other codec, named after it.          |
 | =tests/test_checkout.hpp=                               | Runs one codec over a checkout of files held in memory.   |
 
 | Target              | Kind                                      |
@@ -114,6 +189,7 @@ keeps in its =.compass.org=.
 
 - =compass.codec= for the descriptor, the corpus view the codecs read
   through and the diagnostic table they fill.
+- =compass.platform= for regular expressions and Python's decoding.
 - The C++23 standard library.
 - =compass.store= and Catch2, for the tests only.
 

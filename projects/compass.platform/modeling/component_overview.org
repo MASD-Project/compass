@@ -17,12 +17,16 @@ in the foundation layer of the
 
 =compass.platform= is the single home for operating-system code in compass-ng.
 Other components call it instead of including raw OS headers. Today it holds
-two facets. =filesystem= has =mapped_file=: a read-only, memory-mapped view of
+three facets. =filesystem= has =mapped_file=: a read-only, memory-mapped view of
 a whole file. The pipeline reads org documents, C++ and SQL through it, so
 loading a file costs one =mmap= and no copy. =process= has =run_program=,
 which runs a program in a given directory, optionally with a file as standard
 input, and returns its exit code and standard output; git and the formatters
-run through it. It supports Linux and POSIX only.
+run through it. =text= holds what the ports of ORE Studio's Python gates
+share: =regex=, regular expressions with Python's =re= syntax and Unicode
+classes over UTF-8 bytes, through PCRE2 with JIT; and =decoding=, how
+=read_text()= turns bytes into text (strict, ignoring or replacing invalid
+UTF-8, and universal newlines). It supports Linux and POSIX only.
 
 * Inputs
 
@@ -37,6 +41,12 @@ run through it. It supports Linux and POSIX only.
 - A failed =open=, =fstat= or =mmap=, or a path that is not a regular file,
   throws =std::system_error= with the errno code and the path in the message.
 
+- =regex=: =search=, =match=, =fullmatch=, =find_all= and =substitute=,
+  with byte offsets and named groups. A subject may hold invalid UTF-8,
+  which matches nothing. A pattern that does not compile throws
+  =std::invalid_argument=. Matching allocates nothing: each thread keeps its
+  match data and a JIT stack that grows to 64 MiB.
+
 * Entry points
 
 | Path                                                  | Role                  |
@@ -44,6 +54,8 @@ run through it. It supports Linux and POSIX only.
 | =include/compass.platform/filesystem/mapped_file.hpp= | Public type.          |
 | =src/filesystem/mapped_file.cpp=                      | POSIX implementation. |
 | =tests/filesystem_mapped_file_tests.cpp=              | Catch2 tests.         |
+| =include/compass.platform/text/regex.hpp=             | Public type.          |
+| =include/compass.platform/text/decoding.hpp=          | Public functions.     |
 
 | Target                   | Kind                                      |
 |--------------------------+-------------------------------------------|
@@ -53,6 +65,7 @@ run through it. It supports Linux and POSIX only.
 * Dependencies
 
 - The C++23 standard library and POSIX (=open=, =fstat=, =mmap=, =munmap=).
+- PCRE2 (8-bit, with JIT), for =text::regex=.
 - Catch2, for the tests only.
 
 * See also
