@@ -30,13 +30,16 @@
 #include <string>
 #include <string_view>
 #include <tuple>
+#include <unordered_set>
 #include <vector>
 #include "compass.cli/app/steps.hpp"
 #include "compass.cli/app/codecs.hpp"
 #include "compass.cli/io/listing.hpp"
 #include "compass.cli/ops/ratchet.hpp"
 #include "compass.codec/io/format_cache.hpp"
+#include "compass.codec/ops/exceptions.hpp"
 #include "compass.codec/ops/outputs.hpp"
+#include "compass.codec/ops/parallel_for.hpp"
 #include "compass.codec/ops/registry.hpp"
 #include "compass.store/io/git_objects.hpp"
 #include "compass.store/io/location.hpp"
@@ -397,6 +400,80 @@ types::diff_result diff(const types::options& o) {
     return r;
 }
 
+/**
+ * @brief The exception comments of every document of @p p, every other
+ * file its codecs read and every file @p findings name, for the files
+ * that hold any. A file that cannot be read holds none.
+ */
+std::vector<ct::file_exceptions> exceptions_of(const pipeline& p,
+    const std::vector<types::finding>& findings, unsigned threads) {
+    std::unordered_set<std::string_view> documents(p.corpus.paths.begin(),
+        p.corpus.paths.end());
+    std::vector<std::string_view> files;
+    const auto& record = p.run.record;
+    for (std::uint32_t i = 0; i < record.input_count(); ++i) {
+        const ct::input_id id{i};
+        if (record.input_kinds[id] == ct::input_kind::file)
+            files.push_back(record.input_keys[id]);
+    }
+    for (const auto& f : findings)
+        files.push_back(f.path);
+    std::erase_if(files, [&](std::string_view f) {
+        return documents.contains(f);
+    });
+    std::ranges::sort(files);
+    files.erase(std::unique(files.begin(), files.end()), files.end());
+
+    const auto n = p.corpus.size();
+    std::vector<ct::file_exceptions> all(n + files.size());
+    codec::ops::parallel_for(all.size(), threads, [&](std::size_t i) {
+        if (i < n) {
+            all[i] = codec::ops::parse_exceptions(p.corpus.paths[i],
+                p.corpus.sources[i]);
+            return;
+        }
+        const auto path = files[i - n];
+        if (const auto bytes = p.checkout.read(path))
+            all[i] = codec::ops::parse_exceptions(path, *bytes);
+    });
+    std::erase_if(all, [](const ct::file_exceptions& f) {
+        return f.exceptions.empty() && f.malformed.empty();
+    });
+    return all;
+}
+
+/**
+ * @brief Drops each finding of @p r that a valid exception of the files
+ * of @p p covers as of @p today, counting it in excused, and adds the
+ * findings about the exceptions themselves.
+ */
+void excuse_findings(const pipeline& p, std::chrono::year_month_day today,
+    unsigned threads, types::check_result& r) {
+    const auto files = exceptions_of(p, r.findings, threads);
+    std::vector<codec::ops::finding_site> sites;
+    sites.reserve(r.findings.size());
+    for (const auto& f : r.findings)
+        sites.push_back({f.path, f.line, f.rule});
+    auto e = codec::ops::excuse(sites, files, p.codecs, today);
+    std::vector<types::finding> kept;
+    for (std::size_t i = 0; i < r.findings.size(); ++i) {
+        if (e.excused[i])
+            ++r.excused;
+        else
+            kept.push_back(std::move(r.findings[i]));
+    }
+    for (auto& f : e.findings)
+        kept.push_back({.path = std::move(f.path),
+            .line = f.line,
+            .column = 1,
+            .rule = std::move(f.rule),
+            .level = codec::types::severity::error,
+            .message = std::move(f.message),
+            .fix = std::move(f.fix),
+            .drift = {}});
+    r.findings = std::move(kept);
+}
+
 types::check_result check(const types::options& o) {
     const auto start = std::chrono::steady_clock::now();
     types::check_result r;
@@ -423,8 +500,6 @@ types::check_result check(const types::options& o) {
             r.findings = drift_of(planned.plan, o.output_root, o.checkout);
         });
     }
-    r.run = p.summary;
-
     for (std::size_t c = 0; c < p.codecs.size(); ++c) {
         const auto& d = p.codecs.codecs[c];
         const auto& t = p.run.diagnostics[c];
@@ -457,6 +532,11 @@ types::check_result check(const types::options& o) {
                 .drift = {}});
         }
     }
+    if (!p.summary.failed())
+        p.timed("exceptions", [&] {
+            excuse_findings(p, o.today, o.threads, r);
+        });
+    r.run = p.summary;
     std::ranges::stable_sort(r.findings, {}, [](const types::finding& f) {
         return std::tie(f.path, f.line, f.column);
     });

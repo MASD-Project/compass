@@ -19,6 +19,7 @@
  */
 #include "compass.cli/app/application.hpp"
 
+#include <chrono>
 #include <exception>
 #include <thread>
 #include <variant>
@@ -111,6 +112,9 @@ int run_command(const types::invocation& i, std::ostream& out,
         .meta = c.meta.value,
         .output_root = c.output.value,
         .threads = i.threads,
+        .today = i.today.value_or(std::chrono::year_month_day{
+            std::chrono::floor<std::chrono::days>(
+                std::chrono::system_clock::now())}),
         .settings = config::settings_of(c),
         .collection = i.collection};
     switch (o.which) {

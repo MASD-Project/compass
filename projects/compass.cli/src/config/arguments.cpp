@@ -26,6 +26,7 @@
 #include <optional>
 #include <vector>
 #include "compass.cli/config/precedence.hpp"
+#include "compass.codec/ops/exceptions.hpp"
 
 namespace compass::cli::config {
 
@@ -62,6 +63,8 @@ constexpr std::string_view help =
     "  --ratchet [<base>]          check: fail only on diagnostics the merge "
     "base of HEAD and <base> lacks (default: the upstream, else "
     "origin/main)\n"
+    "  --today <YYYY-MM-DD>        check: judge the expiry of exceptions "
+    "as of this date (default: today in UTC)\n"
     "  --dry-run                   gc: remove nothing, report what would go\n"
     "  --cap <bytes>               gc: the size the store comes down to "
     "(default: 0)\n"
@@ -118,7 +121,7 @@ bool add_setting(std::string_view s, std::vector<types::setting>& settings) {
 bool takes_value(std::string_view flag) {
     return flag == "-C" || flag == "--meta" || flag == "--out" ||
         flag == "-j" || flag == "--set" || flag == "--cap" ||
-        flag == "--grace" || flag == "--commit";
+        flag == "--grace" || flag == "--commit" || flag == "--today";
 }
 
 }
@@ -201,6 +204,10 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
             if (value.empty() || value.starts_with("-"))
                 return bad_value();
             o.revision = value;
+        } else if (arg == "--today") {
+            o.today = codec::ops::parse_date(value);
+            if (!o.today)
+                return bad_value();
         } else {
             const auto n = parse_number<std::uint64_t>(value);
             if (!n)
@@ -220,6 +227,8 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
         return usage_error{"--commit applies to check only"};
     if (o.ratchet && *which != types::command::check)
         return usage_error{"--ratchet applies to check only"};
+    if (o.today && *which != types::command::check)
+        return usage_error{"--today applies to check only"};
     if (o.ratchet && !o.revision.empty())
         return usage_error{"--ratchet and --commit cannot be combined"};
     o.which = *which;

@@ -125,11 +125,13 @@ struct finding {
 };
 
 /**
- * @brief What compass check found, sorted by path, line and column.
+ * @brief What compass check found, sorted by path, line and column, less
+ * the excused findings a valid exception covers.
  */
 struct check_result {
     run_summary run;
     std::vector<finding> findings;
+    std::size_t excused = 0;
     double ms = 0;
 };
 

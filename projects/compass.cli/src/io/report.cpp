@@ -44,6 +44,11 @@ std::string corpus_note(const types::run_summary& s, double ms) {
         s.parsed, units.empty() ? "none" : units, ms);
 }
 
+std::string excused_note(std::size_t excused) {
+    return excused == 0 ? std::string() : std::format(", {} excused by "
+        "exception{}", excused, excused == 1 ? "" : "s");
+}
+
 void write_findings(std::ostream& out,
     const std::vector<types::finding>& findings) {
     for (const auto& f : findings)
@@ -103,8 +108,9 @@ void write_check(std::ostream& out, std::ostream& err,
     const types::check_result& r) {
     write_problems(err, r.run);
     write_findings(out, r.findings);
-    out << std::format("{} diagnostic{} ({})\n", r.findings.size(),
-        r.findings.size() == 1 ? "" : "s", corpus_note(r.run, r.ms));
+    out << std::format("{} diagnostic{}{} ({})\n", r.findings.size(),
+        r.findings.size() == 1 ? "" : "s", excused_note(r.excused),
+        corpus_note(r.run, r.ms));
 }
 
 void write_ratchet(std::ostream& out, std::ostream& err,
@@ -114,10 +120,10 @@ void write_ratchet(std::ostream& out, std::ostream& err,
     write_lines(err, "merge base: codec registry: ", r.previous.run.problems);
     write_findings(out, r.split.fresh);
     const auto n = r.split.fresh.size();
-    out << std::format("{} new diagnostic{}, {} excused as present at {}, "
-                       "the merge base of HEAD and {}; {} renamed file{} "
+    out << std::format("{} new diagnostic{}{}, {} excused as present at "
+                       "{}, the merge base of HEAD and {}; {} renamed file{} "
                        "followed ({}; {:.1f} ms in all)\n", n,
-        n == 1 ? "" : "s", r.split.excused,
+        n == 1 ? "" : "s", excused_note(r.current.excused), r.split.excused,
         store::ops::to_hex(r.merge_base).substr(0, 12), r.base,
         r.renames.size(), r.renames.size() == 1 ? "" : "s",
         corpus_note(r.current.run, r.current.ms), r.ms);
