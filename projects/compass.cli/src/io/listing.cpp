@@ -19,53 +19,14 @@
  */
 #include "compass.cli/io/listing.hpp"
 
-#include <cerrno>
 #include <stdexcept>
 #include <string_view>
-#include <system_error>
-#include <fcntl.h>
-#include <spawn.h>
 #include <sys/stat.h>
-#include <sys/wait.h>
-#include <unistd.h>
-
-extern char** environ;
+#include "compass.platform/process/run_program.hpp"
 
 namespace compass::cli::io {
 
 namespace {
-
-[[noreturn]] void throw_errno(int error, const char* operation) {
-    throw std::system_error(error, std::generic_category(), operation);
-}
-
-class pipe_ends final {
-public:
-    pipe_ends() {
-        if (::pipe2(fds_, O_CLOEXEC) == -1)
-            throw_errno(errno, "pipe2");
-    }
-    ~pipe_ends() {
-        close_read();
-        close_write();
-    }
-    pipe_ends(const pipe_ends&) = delete;
-    pipe_ends& operator=(const pipe_ends&) = delete;
-
-    int read_end() const noexcept { return fds_[0]; }
-    int write_end() const noexcept { return fds_[1]; }
-    void close_read() noexcept { close_one(fds_[0]); }
-    void close_write() noexcept { close_one(fds_[1]); }
-
-private:
-    static void close_one(int& fd) noexcept {
-        if (fd != -1)
-            ::close(fd);
-        fd = -1;
-    }
-
-    int fds_[2] = {-1, -1};
-};
 
 /**
  * @brief Runs git in @p checkout with @p args and returns its standard
@@ -73,50 +34,13 @@ private:
  */
 std::string run_git(const std::filesystem::path& checkout,
     std::vector<std::string> args) {
-    pipe_ends pipe;
-
-    posix_spawn_file_actions_t actions;
-    posix_spawn_file_actions_init(&actions);
-    posix_spawn_file_actions_adddup2(&actions, pipe.write_end(), STDOUT_FILENO);
-
     const std::string dir = checkout.string();
+    const auto command = args.front();
     args.insert(args.begin(), {"git", "-C", dir});
-    std::vector<char*> argv;
-    for (auto& arg : args)
-        argv.push_back(arg.data());
-    argv.push_back(nullptr);
-
-    pid_t pid = 0;
-    const int spawn_error =
-        ::posix_spawnp(&pid, "git", &actions, nullptr, argv.data(), environ);
-    posix_spawn_file_actions_destroy(&actions);
-    if (spawn_error != 0)
-        throw_errno(spawn_error, "posix_spawnp git");
-    pipe.close_write();
-
-    std::string output;
-    char buffer[1 << 16];
-    for (;;) {
-        const ssize_t n = ::read(pipe.read_end(), buffer, sizeof buffer);
-        if (n > 0) {
-            output.append(buffer, static_cast<std::size_t>(n));
-        } else if (n == 0) {
-            break;
-        } else if (errno != EINTR) {
-            const int error = errno;
-            ::waitpid(pid, nullptr, 0);
-            throw_errno(error, "read from git");
-        }
-    }
-
-    int status = 0;
-    while (::waitpid(pid, &status, 0) == -1) {
-        if (errno != EINTR)
-            throw_errno(errno, "waitpid git");
-    }
-    if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
-        throw std::runtime_error("git " + args[3] + " failed for " + dir);
-    return output;
+    auto r = platform::process::run_program({std::move(args), {}, {}});
+    if (r.exit_code != 0)
+        throw std::runtime_error("git " + command + " failed for " + dir);
+    return std::move(r.output);
 }
 
 bool is_plain_file(const std::filesystem::path& path) {

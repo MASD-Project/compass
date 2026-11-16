@@ -19,7 +19,8 @@ set(name "compass.platform")
 set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
-    filesystem/mapped_file.cpp)
+    filesystem/mapped_file.cpp
+    process/run_program.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
 
