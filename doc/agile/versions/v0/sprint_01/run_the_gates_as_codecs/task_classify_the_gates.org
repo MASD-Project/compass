@@ -8,7 +8,7 @@
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
 #+branch: feature/classify-the-gates
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/36
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -83,7 +83,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/36][#36]] | [agile] Classify ORE Studio's gates |
 
 * Review
 
