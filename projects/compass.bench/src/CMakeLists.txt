@@ -30,6 +30,7 @@ add_library(${lib_target_name}
     ops/include_scan.cpp
     ops/includes_stage.cpp
     ops/listing.cpp
+    ops/models_stage.cpp
     ops/org_dump.cpp
     ops/org_stage.cpp
     ops/parse.cpp
@@ -50,6 +51,7 @@ target_link_libraries(${lib_target_name}
     PUBLIC
         compass.codec.lib
         compass.ingest.lib
+        compass.model.lib
         compass.platform.lib
         compass.store.lib
         Threads::Threads
