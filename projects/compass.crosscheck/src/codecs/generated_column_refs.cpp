@@ -102,8 +102,8 @@ void table_writers(const ct::corpus_view& v, ct::diagnostic_table& out) {
             continue;
         }
         std::set<std::string> members;
-        for (const auto& m : word.find_all(without_comments(read(v,
-                 headers.front()))))
+        const auto header = without_comments(read(v, headers.front()));
+        for (const auto& m : word.find_all(header))
             members.emplace(m.group());
         for (const auto& a : access.find_all(body)) {
             if (a.group(1) != var || members.contains(std::string(a.group(2))))
