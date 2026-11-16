@@ -60,6 +60,13 @@ struct findings_summary {
  * load_ms covers resolving every ID, mapping every source and object and
  * writing the worktree index.
  *
+ * The dependency record of the checkout is read once, before the first
+ * repetition, and each repetition starts from it, so every repetition
+ * calls the same units. record_problem says why a record that was there
+ * was not used, record_bytes is the size of the file read and
+ * record_units its units; record_written is true when the record the last
+ * repetition made differed from the file and replaced it.
+ *
  * registry holds the codecs. ms has one row per codec and one time per
  * repetition, summed over threads, and wall_ms one wall time per
  * repetition. last is what the last repetition produced, and findings
@@ -75,6 +82,12 @@ struct codecs_result {
     std::uint64_t registered_types = 0;
     double registry_ms = 0;
     double load_ms = 0;
+    std::string record_problem;
+    std::uint64_t record_bytes = 0;
+    std::uint64_t record_units = 0;
+    double record_read_ms = 0;
+    bool record_written = false;
+    double record_write_ms = 0;
     codec::types::registry registry;
     std::vector<std::vector<double>> ms;
     std::vector<double> wall_ms;

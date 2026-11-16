@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :run_codecs_and_write_changes:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/record-dependencies
+#+pr: https://github.com/MASD-Project/compass/pull/19
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -26,11 +26,11 @@ Record the inputs each codec reads at run time, as compiler dependency files do,
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                              |
 | Parent story | [[id:8DC60B89-1605-4281-90FF-5AC8B33F629A][Run codecs and write only changes]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -39,9 +39,22 @@ Record the inputs each codec reads at run time, as compiler dependency files do,
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- The =corpus_view= records every read: the documents a codec unit opens, the
+  lookups it makes by ID or path, including lookups that find nothing, and the
+  document path when it reads it. A corpus-unit codec also depends on the set
+  of documents of its declared types, recorded as a hash of their paths and
+  IDs, so adding or removing a document re-runs it.
+- The dependency record maps each codec unit (codec, version, configuration
+  hash, and the document for per-document codecs) to its inputs as
+  (key, content ID) pairs and to the outputs it produced. It is per-worktree
+  state, kept beside the worktree index in =<gitdir>/compass/=, and rewritten
+  only when it changes.
+- Selection compares the record with the current corpus: a unit re-runs when
+  any recorded input's ID changed, when a missed lookup now resolves, when its
+  type set changed, or when its codec's version or configuration changed.
+- =compass-bench codecs= reports how many units ran and how many were skipped,
+  and a test edits one document and checks that only the units that read it
+  re-run, including a unit that reads it through a link.
 
 * Measurements
 
@@ -55,7 +68,14 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| ORE Studio first run: units ran, wall | 1 + 10,117, 32.8 ms | =compass-bench codecs <archive> --meta <archive>/doc/meta -j 8 --repeat 5= | ORE Studio 7aa4435e21 |
+| ORE Studio, nothing changed | 0 + 0, 17.7 ms | same | ORE Studio 7aa4435e21 |
+| ORE Studio, one task edited | 1 + 1, 31.6 ms | same | ORE Studio 7aa4435e21 |
+| ORE Studio dependency record | 6.2 MB; read 39 ms, write check 41 ms | same | ORE Studio 7aa4435e21 |
+| This repository: first run, unchanged run | 1 + 348 units in 1.16 ms, 0 units in 0.69 ms, same outputs | =compass-bench codecs . --meta doc/meta= | compass-ng 016c60a |
+
+Indicative timings on a shared machine. Running both codecs over ORE Studio with
+no recording took 12.4 ms (Define the codec interface).
 
 * Notes
 
@@ -74,7 +94,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/19][#19]] | [codec] Record codec reads and re-run only what changed |
 
 * Review
 
@@ -83,3 +103,20 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- Codecs record their reads through the view with no opt-in: documents
+  handed out, lookups by ID or path with their answer (misses included), and
+  reads of the type registry. A corpus unit records the hash of its type set.
+- The record at =<gitdir>/compass/deps= keeps each unit's inputs and outputs;
+  a unit re-runs only when an input changed, a missed lookup now resolves, its
+  type set changed, or its codec's version or configuration changed. A skipped
+  unit's outputs come from the record, because the store's collection would
+  remove objects no git index names.
+- On ORE Studio a run with nothing changed runs no unit, and editing one task
+  re-runs one unit per codec.
+- *Recording costs more than it saves for cheap codecs.* An unchanged run over
+  ORE Studio takes 17.7 ms against 12.4 ms for running both codecs with no
+  record: the 6.2 MB record costs about 40 ms to read and 40 ms to check, much
+  of it SHA-1 (estimated, not profiled). It pays off for expensive codecs such
+  as codegen and the HTML export; a cheaper integrity check, or letting cheap
+  codecs opt out, is the follow-up.

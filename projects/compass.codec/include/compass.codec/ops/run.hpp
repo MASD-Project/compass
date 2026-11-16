@@ -22,6 +22,7 @@
 
 #include <string_view>
 #include "compass.codec/types/corpus.hpp"
+#include "compass.codec/types/dependency_record.hpp"
 #include "compass.codec/types/registry.hpp"
 #include "compass.codec/types/run_result.hpp"
 #include "compass.org/types/tables.hpp"
@@ -48,6 +49,16 @@ namespace compass::codec::ops {
  * codec are joined in document order, so the result does not depend on the
  * thread count. Nothing is written anywhere else.
  *
+ * A unit of @p previous, the record of an earlier run, stands in for the
+ * call when its codec's version and configuration hash are unchanged and
+ * every input it recorded has the same answer in @p c: a path or ID lookup
+ * finds the same document, or still finds none; the set of documents of a
+ * corpus codec has the same paths and content IDs; the type registry has
+ * the same tables. Its recorded outputs are then put in the result where
+ * the call's would be, so the result is the one a run with no record
+ * gives. Every other unit is called, through a view that records what it
+ * reads.
+ *
  * @pre @p r was built against @p types, and the types of @p c are rows of
  * @p types or none.
  * @throws whatever a codec throws; the first exception is rethrown once
@@ -55,7 +66,7 @@ namespace compass::codec::ops {
  */
 [[nodiscard]] types::run_result run(const types::registry& r,
     const types::corpus& c, const compass::org::types::type_registry& types,
-    unsigned threads);
+    unsigned threads, const types::dependency_record& previous = {});
 
 }
 

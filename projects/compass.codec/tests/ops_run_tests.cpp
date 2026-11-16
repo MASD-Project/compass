@@ -215,7 +215,9 @@ TEST_CASE("a codec reads the configured value of its option", "[ops][run]") {
 
 TEST_CASE("an option the descriptor does not declare throws", "[ops][run]") {
     tests::test_corpus t;
-    const types::corpus_view view(t.corpus(), t.types(), {}, {}, {});
+    const types::corpus_index index;
+    const types::corpus_view view(t.corpus(), t.types(), index, {}, {}, {},
+        {});
     CHECK_THROWS_AS(view.option("prefix"), std::out_of_range);
 }
 

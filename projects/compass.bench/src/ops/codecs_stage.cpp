@@ -34,6 +34,7 @@
 #include "compass.bench/ops/partition.hpp"
 #include "compass.bench/ops/types_stage.hpp"
 #include "compass.codec/codecs/catalogue.hpp"
+#include "compass.codec/io/dependency_file.hpp"
 #include "compass.codec/ops/registry.hpp"
 #include "compass.codec/ops/run.hpp"
 #include "compass.codec/types/corpus.hpp"
@@ -251,12 +252,28 @@ types::codecs_result run_codecs_stage(const std::filesystem::path& checkout,
 
     r.registry = codec::ops::make_registry(codec::codecs::catalogue(),
         registry, settings);
+    start = std::chrono::steady_clock::now();
+    const auto record_path = codec::io::dependency_file_path(
+        store::io::git_dir(checkout));
+    const auto previous = codec::io::read_dependency_file(record_path);
+    r.record_read_ms = since(start);
+    r.record_problem = previous.problem;
+    r.record_bytes = previous.bytes;
+    r.record_units = previous.record.size();
+
     r.ms.resize(r.registry.size());
     for (unsigned rep = 0; rep < repetitions; ++rep) {
-        r.last = codec::ops::run(r.registry, corpus, registry, threads);
+        r.last = codec::ops::run(r.registry, corpus, registry, threads,
+            previous.record);
         r.wall_ms.push_back(r.last.wall_ms);
         for (std::size_t c = 0; c < r.registry.size(); ++c)
             r.ms[c].push_back(r.last.ms[c]);
+    }
+    if (repetitions != 0) {
+        start = std::chrono::steady_clock::now();
+        r.record_written = codec::io::write_dependency_file(record_path,
+            r.last.record);
+        r.record_write_ms = since(start);
     }
     for (std::size_t c = 0; c < r.registry.size(); ++c)
         r.findings.push_back(summarise(corpus, r.registry.codecs[c],

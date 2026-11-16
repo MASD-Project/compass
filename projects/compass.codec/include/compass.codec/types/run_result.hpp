@@ -22,6 +22,7 @@
 
 #include <cstdint>
 #include <vector>
+#include "compass.codec/types/dependency_record.hpp"
 #include "compass.codec/types/diagnostic_table.hpp"
 #include "compass.codec/types/file_table.hpp"
 
@@ -35,15 +36,23 @@ namespace compass::codec::types {
  * disabled codec, which is not called. A codec fills one of files and
  * diagnostics and leaves the other empty. Their rows are in the order one
  * thread calling the codec document by document would produce, whatever
- * the thread count. ms sums the time spent inside the codec over every
- * thread, so it can exceed wall_ms, the wall time of the whole run.
+ * the thread count and whether each unit ran or was skipped. A unit is
+ * one call: one per document for a document codec, one for a corpus
+ * codec. ran counts the units that were called and skipped those whose
+ * recorded outputs were reused instead. ms sums the time spent inside the
+ * codec over every thread, so it can exceed wall_ms, the wall time of the
+ * whole run. record holds what every unit of the enabled codecs read and
+ * produced, for the next run.
  */
 struct run_result {
     std::vector<std::uint64_t> documents;
+    std::vector<std::uint64_t> ran;
+    std::vector<std::uint64_t> skipped;
     std::vector<file_table> files;
     std::vector<diagnostic_table> diagnostics;
     std::vector<double> ms;
     double wall_ms = 0;
+    dependency_record record;
 };
 
 }

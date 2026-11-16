@@ -34,9 +34,10 @@ the overview.
 | Last touched | 2026-11-16                                                                     |
 
 The interface, the registry, the runner and two codecs are implemented and
-run over this repository and over ORE Studio. Dependency recording,
-changed-only writes, diff mode and the result cache are the next tasks. This
-page says where each one attaches; none of them is built.
+run over this repository and over ORE Studio. Dependency recording is built:
+the view records what each unit reads and a run calls only the units whose
+inputs changed. Changed-only writes, diff mode and the result cache are the
+next tasks. This page says where each one attaches.
 
 * Summary
 
@@ -135,10 +136,11 @@ row, path, content ID (the git blob ID), type, source bytes and tables. A
 document of another type has no number, so a codec cannot name it. The view
 also gives the type registry and =option(key)=.
 
-Every read of a document goes through =operator[]=. That one function is the
-hook for dependency recording. Each piece of work the runner starts gets its
-own view object in the recording design below, so a record is written by one
-thread and needs no lock.
+Every read of a document goes through =operator[]=, =find_id= or
+=find_path=, and those are the hooks for dependency recording. Each piece of
+work the runner starts copies the codec's view and points it at the log of
+the unit it is calling, so a log is written by one thread and needs no
+lock.
 
 * The outputs
 
@@ -189,8 +191,8 @@ declaration to what a call did read.
 - A corpus codec that walks the view records the walk: the set of visible
   (path, content ID) pairs. Any change in the declared types re-runs it.
 - A codec that needs another document, such as HTML export printing the title
-  of a link target, asks the view for it: =view.find(id)=, to be added with
-  the recording task. The view records the question and the answer,
+  of a link target, asks the view for it: =view.find_id(id)= or
+  =view.find_path(path)=. The view records the question and the answer,
   including "no such document". A document that appears later with that ID
   then re-runs the codec for A, which a list of documents read could not
   express.
@@ -202,6 +204,45 @@ and may look up any document, so one set serves it. A codec that is called
 for tasks and looks up stories needs two sets; that becomes a second =inputs=
 field, =references=, empty by default. A new field with a default and a new
 method on the view change no existing codec.
+
+** The record as built
+
+The recording task built the record this way.
+
+- /Inputs./ A document handed out is a =path= input: its path as the key and
+  its content ID as the value. A =find_id= is an =id= input whose value is
+  the blob ID of the path found, so it changes when another document takes
+  the ID; the document found is also a =path= input. A =find_path= is a
+  =path= input. A miss has =found= 0. A call of =types()= is a
+  =type_registry= input with the SHA-1 of the registry's tables, which is
+  what re-runs =required_sections= when a contract changes its required
+  sections. A corpus unit records one =type_set= input, the SHA-1 of the
+  sorted paths and content IDs of every document it may read, and nothing
+  else about documents: every answer it could get is a function of that set.
+- /The path of a document is a recorded read./ Every document input is keyed
+  by path, so a codec that reads =document.path= depends on it without an
+  accessor, and a rename is a new unit. The question in Least certain below
+  is settled this way.
+- /Key./ A unit is named by codec and document path and is reused when the
+  codec's version and configuration hash equal the recorded ones and every
+  input has the recorded answer. Answers are computed by the same functions
+  for the view and for the check, so they cannot disagree.
+- /Outputs live in the record./ Each file is kept with its path, blob ID and
+  bytes; findings are kept encoded with their document as a path, with
+  their count and SHA-1. A skipped unit's outputs are put into the
+  =run_result= where the call's would have been, so the writer task gets a
+  complete result either way. The store was the alternative: collection
+  removes any object that no git index or worktree index names, so a skipped
+  unit's output could vanish between runs and the runner would need a
+  fallback to call it again. The cache task, which shares results across
+  worktrees, is where outputs move into the store with a root that keeps
+  them live.
+- /File./ =<git dir>/compass/deps=, beside the worktree index: magic
+  =CMPSDEP\n=, version, the units, a SHA-1 trailer. It is written by
+  temporary file and rename and only when its bytes change. A damaged file,
+  or one of another version, is ignored and every unit runs.
+- /Disabled codecs/ are not in the record of a run, so re-enabling a codec
+  runs all its units once.
 
 ** Write only changed outputs, and diff mode
 
@@ -306,6 +347,37 @@ and =* Detail= in the knowledge contract stands for "the content". The
 registry holds neither nuance, so some of these findings are the registry's.
 That is a matter for the registry builder, not for the codec.
 
+** Dependency recording
+
+Numbers are indicative: one machine, 8 cores, =-j 8=, =--repeat 5=, a release
+build of this branch, load average 3 to 4. Each repository is a
+=git archive= committed as one commit; the edit appends a line to one task
+document. =ran= counts the units called in each repetition.
+
+| Run                         | Repository        | =document_index= ran | =required_sections= ran | Median wall | Record                            |
+|-----------------------------+-------------------+----------------------+-------------------------+-------------+-----------------------------------|
+| First                       | This repository   | 1                    | 348                     | 1.09 ms     | written, 349 units, 152,792 bytes |
+| Nothing changed             | This repository   | 0                    | 0                       | 0.44 ms     | read 1.1 ms, unchanged 1.1 ms     |
+| One task edited             | This repository   | 1                    | 1                       | 1.05 ms     | read 1.1 ms, rewritten 1.2 ms     |
+| First                       | ORE Studio        | 1                    | 10,117                  | 32.8 ms     | written in 25 ms, 10,118 units, 6,193,522 bytes |
+| Nothing changed             | ORE Studio        | 0                    | 0                       | 17.7 ms     | read 39 ms, unchanged 41 ms       |
+| One task edited             | ORE Studio        | 1                    | 1                       | 31.6 ms     | read 38 ms, rewritten 42 ms       |
+
+ORE Studio is =origin/main= at =7aa4435e21=. The edited task re-runs its own
+=required_sections= unit and =document_index=, which is a corpus unit over
+every document. The wall time of the edited run is the time of
+=document_index=, as before.
+
+Recording costs time on a run that calls every unit: 12.4 ms became 32.8 ms
+on ORE Studio. The added work, read from the code and not profiled, is
+building the record: the blob ID of the 1.9 MB index, the type set hash,
+the corpus index and the encoded findings. The record file costs more than
+any run. By the rate at which the store's SHA-1 checks git's index (29 ms
+for 9 MB), about 20 ms of each read and of each write check is the SHA-1 of
+6 MB. A third of the file is the index bytes. Most of the rest is paths,
+stored twice per document unit, as the unit's name and as its input, and
+the encoded findings.
+
 * Alternatives rejected
 
 - *A virtual interface.* =class codec= with virtual =name()=, =version()=,
@@ -353,11 +425,18 @@ That is a matter for the registry builder, not for the codec.
 
 * Least certain
 
-- *The path of a document is not a recorded read.* =document= hands out the
-  path with the content. A document codec whose output depends on the path,
-  as HTML export's output path does, makes the path part of its cache key.
-  Either the key of a document unit always includes the path, which re-runs
-  on a rename, or the path moves behind an accessor. The cache task decides.
+- *The path is in every key.* The recording task keyed every document read
+  by path, so a rename re-runs every unit that read the document. A result
+  cache shared across worktrees may want units keyed by content alone; it
+  can drop the path from the key of codecs that never read it only if the
+  path moves behind an accessor.
+- *The record holds the outputs.* 6 MB on ORE Studio, read and checked on
+  every run. Moving the outputs to the store, by hash, shrinks the record to
+  the inputs, but needs collection to treat the record as a root. The cache
+  task decides.
+- *A corpus unit re-runs on any change in its declared types.* That is the
+  plan's rule and it makes =document_index= run on every edit. A corpus codec
+  that is expensive will want the map and merge form.
 - *Either files or diagnostics.* The story says so and the types enforce it.
   Code generation will meet models it cannot generate from. Whether that is a
   paired check codec or a third output kind is open.

@@ -690,10 +690,19 @@ void write_codecs_report(std::ostream& os, const types::codecs_result& stage,
         stage.loaded, stage.written, stage.errors);
     for (const auto& problem : stage.registry.problems)
         os << std::format("registry problem: {}\n", problem);
+    os << std::format("dependency record: {} units, {} bytes, read "
+                      "{:.2f} ms; {}, {:.2f} ms\n", stage.record_units,
+        stage.record_bytes, stage.record_read_ms,
+        stage.record_written ? "rewritten" : "unchanged",
+        stage.record_write_ms);
+    if (!stage.record_problem.empty())
+        os << std::format("dependency record not used: {}\n",
+            stage.record_problem);
 
-    os << std::format("\n{:<20}{:<10}{:<13}{:>10}{:>9}{:>12}{:>13}{:>11}"
-                      "{:>9}{:>9}\n", "codec", "unit", "output", "documents",
-        "outputs", "bytes", "diagnostics", "median_ms", "min_ms", "max_ms");
+    os << std::format("\n{:<20}{:<10}{:<13}{:>10}{:>8}{:>9}{:>9}{:>12}"
+                      "{:>13}{:>11}{:>9}{:>9}\n", "codec", "unit", "output",
+        "documents", "ran", "skipped", "outputs", "bytes", "diagnostics",
+        "median_ms", "min_ms", "max_ms");
     const auto& codecs = stage.registry.codecs;
     for (std::size_t c = 0; c < codecs.size(); ++c) {
         const auto& d = codecs[c];
@@ -707,9 +716,10 @@ void write_codecs_report(std::ostream& os, const types::codecs_result& stage,
             continue;
         }
         const auto [min, max] = std::ranges::minmax(stage.ms[c]);
-        os << std::format("{:<20}{:<10}{:<13}{:>10}{:>9}{:>12}{:>13}"
-                          "{:>11.2f}{:>9.2f}{:>9.2f}\n", d.name, unit, output,
-            stage.last.documents[c], stage.last.files[c].size(),
+        os << std::format("{:<20}{:<10}{:<13}{:>10}{:>8}{:>9}{:>9}{:>12}"
+                          "{:>13}{:>11.2f}{:>9.2f}{:>9.2f}\n", d.name, unit,
+            output, stage.last.documents[c], stage.last.ran[c],
+            stage.last.skipped[c], stage.last.files[c].size(),
             stage.last.files[c].contents.bytes.size(),
             stage.last.diagnostics[c].size(), median(stage.ms[c]), min, max);
     }
