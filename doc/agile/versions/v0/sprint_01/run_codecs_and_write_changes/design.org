@@ -272,10 +272,11 @@ The writing task built it this way.
   record; a disabled codec is not, so its files stay.
 - /Refusals first./ A path that is absolute, empty, or has an empty, =.= or
   =..= component, or a path two rows produce, is a problem, and nothing is
-  written when there is one. The checks are lexical. A directory under the
-  root that is a symbolic link to elsewhere is followed, as by any writer;
-  a final component that is a link is replaced by the rename, never written
-  through.
+  written when there is one. A path that passes through a directory under
+  the root that is a symbolic link is also refused, since the link could
+  send the write outside the root; a removal through one is skipped and its
+  file kept. A final component that is a link is replaced by the rename,
+  never written through.
 - /Decision per output./ When the recorded entry has the same blob ID and
   the file's stat data equals the recorded stat data and is not racily
   clean, the file is not opened. Otherwise an existing file is hashed and
@@ -551,10 +552,6 @@ outputs.
 - *Stat data stands for content.* A tool that rewrites a generated file
   with the same size and restores its times and inode would go unnoticed,
   as it would by git. The racy rule covers the same-second case only.
-- *Directory links under the root.* The path checks are lexical, so a
-  directory under the root that links elsewhere is written through. The
-  root belongs to the host; resolving every parent would cost a
-  =realpath= per output.
 - *Unregistered input types run anyway.* A codec that lists a type the
   registry lacks runs over the rest and the registry reports a problem. A
   host may prefer to refuse to run.

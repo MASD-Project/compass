@@ -79,6 +79,28 @@ void remove_empty_directories(std::filesystem::path dir,
     }
 }
 
+/**
+ * @brief Whether a directory between @p base and the file named by @p path
+ * is a symbolic link. Such a link could send a write or a removal outside
+ * the output root, so no output may pass through one.
+ */
+bool passes_symlink(const std::filesystem::path& base, std::string_view path) {
+    auto dir = base;
+    for (std::size_t first = 0;;) {
+        const auto slash = path.find('/', first);
+        if (slash == std::string_view::npos)
+            return false;
+        dir /= std::string(path.substr(first, slash - first));
+        std::error_code error;
+        const auto type = std::filesystem::symlink_status(dir, error).type();
+        if (error || type == std::filesystem::file_type::not_found)
+            return false;
+        if (type == std::filesystem::file_type::symlink)
+            return true;
+        first = slash + 1;
+    }
+}
+
 bool same_entries(const std::vector<entry>& next,
     const types::written_outputs& previous) {
     if (next.size() != previous.size())
@@ -137,6 +159,16 @@ sink_result write_outputs(const std::filesystem::path& root,
     // Joining a name and taking the parent drops a trailing separator, so
     // the base compares equal to the parent of every top-level output.
     const auto base = (root / "x").parent_path();
+    for (std::uint32_t i = 0; i < outputs.size(); ++i) {
+        const auto path = outputs.files.paths[types::file_id{i}];
+        if (passes_symlink(base, path))
+            r.problems.push_back("output path passes through a symbolic "
+                                 "link: " + std::string(path));
+    }
+    if (!r.problems.empty()) {
+        r.record = previous;
+        return r;
+    }
     const types::written_outputs none;
     const auto& prev = previous.root == base.string() ? previous : none;
     const auto recorded = [&](std::string_view path)
@@ -192,6 +224,12 @@ sink_result write_outputs(const std::filesystem::path& root,
             continue;
         }
         const auto target = base / path;
+        if (passes_symlink(base, path)) {
+            next.push_back({path, prev.codecs[k], prev.hashes[k],
+                prev.stats[k]});
+            ++r.kept;
+            continue;
+        }
         const auto file = store::io::stat_of(target);
         if (!file)
             continue;

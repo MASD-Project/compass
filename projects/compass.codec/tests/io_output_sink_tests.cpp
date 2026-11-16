@@ -285,6 +285,32 @@ TEST_CASE("a path escaping the root is rejected and nothing is written",
     CHECK_FALSE(std::filesystem::exists(absolute));
 }
 
+TEST_CASE("a path through a symbolic link is rejected, and a removal "
+    "through one leaves the target alone", "[io][output_sink]") {
+    sink s;
+    const auto outside = s.dir() / "outside";
+    std::filesystem::create_directories(outside);
+    std::filesystem::create_directory_symlink(outside, s.root() / "link");
+
+    const auto r = s.run(outputs({two[0], {"gen", "link/a.txt", "x\n"}}));
+    REQUIRE(r.problems.size() == 1);
+    CHECK_THAT(r.problems[0], ContainsSubstring("link/a.txt"));
+    CHECK_FALSE(std::filesystem::exists(outside / "a.txt"));
+    CHECK_FALSE(std::filesystem::exists(s.root() / "index.tsv"));
+
+    std::filesystem::remove(s.root() / "link");
+    s.run(outputs({two[0], {"gen", "link/b.txt", "b\n"}}));
+    REQUIRE(read(s.root() / "link/b.txt") == "b\n");
+    std::filesystem::remove_all(s.root() / "link");
+    write(outside / "b.txt", "b\n");
+    std::filesystem::create_directory_symlink(outside, s.root() / "link");
+
+    const auto removal = s.run(outputs({two[0]}));
+    CHECK(removal.removed == 0);
+    CHECK(removal.kept == 1);
+    CHECK(read(outside / "b.txt") == "b\n");
+}
+
 TEST_CASE("two codecs producing one path is rejected and nothing is "
     "written", "[io][output_sink]") {
     sink s;
