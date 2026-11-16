@@ -18,7 +18,7 @@
  *
  */
 #include <algorithm>
-#include <set>
+#include <cctype>
 #include <string>
 #include "entity.hpp"
 #include "loaders.hpp"
