@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :share_a_content_addressed_store:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/collect-unused-objects
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ Evict least recently used objects when the store passes its size cap.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:10A99211-DCE0-4237-8D23-0599C2D00628][Share a content-addressed store]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,22 @@ Evict least recently used objects when the store passes its size cap.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Use is decided by reachability, as git decides it, not by access times:
+  the disk is mounted =noatime=, and stamping objects on every load would make
+  a warm run write. An object is live when any worktree of the repository
+  refers to its ID, through that worktree's git index or its compass worktree
+  index. The worktrees come from the common directory's =worktrees/= entries
+  plus the main worktree.
+- Only unreferenced objects are candidates. They are removed oldest first, by
+  modification time, until the store is under its size cap. Objects written in
+  the last hour are never removed, so a run in progress cannot lose an object
+  it just wrote.
+- Removal deletes the object file; a concurrent reader that already mapped it
+  keeps its mapping. A loader that finds an object missing parses again, so
+  collection can never break correctness.
+- =compass-bench gc <checkout> --store <dir> [--cap <bytes>] [--dry-run]=
+  reports store size, live and unreferenced objects and bytes, what it would
+  remove or removed, and the time taken.
 
 * Measurements
 
