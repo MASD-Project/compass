@@ -20,9 +20,11 @@
 #include <algorithm>
 #include <charconv>
 #include <chrono>
+#include <cstdint>
 #include <exception>
 #include <filesystem>
 #include <iostream>
+#include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -30,6 +32,7 @@
 #include <vector>
 #include "compass.bench/io/compile_commands.hpp"
 #include "compass.bench/io/report.hpp"
+#include "compass.bench/ops/ids_stage.hpp"
 #include "compass.bench/ops/includes_stage.hpp"
 #include "compass.bench/ops/listing.hpp"
 #include "compass.bench/ops/org_dump.hpp"
@@ -56,10 +59,12 @@ constexpr std::string_view usage =
     "       compass-bench types <checkout> --meta <dir> [-j N] [--repeat R]\n"
     "       compass-bench store <checkout> [--store <dir>] [-j N]\n"
     "           [--repeat R]\n"
+    "       compass-bench ids <checkout> [-j N] [--repeat R]\n"
+    "           [--verify N|all]\n"
     "       compass-bench org-dump <file>\n"
     "       compass-bench org-dump --list <list>\n";
 
-enum class stage { read, includes, parse, org, types, store, org_dump };
+enum class stage { read, includes, parse, org, types, store, ids, org_dump };
 
 struct options {
     stage which = stage::read;
@@ -71,6 +76,7 @@ struct options {
     std::vector<std::string> implicit_system;
     std::filesystem::path meta;
     std::filesystem::path store;
+    std::uint64_t verify = 0;
     std::filesystem::path dump_file;
     std::filesystem::path dump_list;
 };
@@ -119,6 +125,8 @@ std::optional<options> parse_options(int argc, char** argv) {
         o.which = stage::types;
     else if (name == "store")
         o.which = stage::store;
+    else if (name == "ids")
+        o.which = stage::ids;
     else if (name == "org-dump")
         return parse_dump_options(argc, argv);
     else
@@ -128,6 +136,7 @@ std::optional<options> parse_options(int argc, char** argv) {
     const bool includes = o.which == stage::includes;
     const bool typed = o.which == stage::types;
     const bool stored = o.which == stage::store;
+    const bool ids = o.which == stage::ids;
     for (int i = 3; i < argc; ++i) {
         const std::string_view flag = argv[i];
         if (i + 1 >= argc)
@@ -148,6 +157,11 @@ std::optional<options> parse_options(int argc, char** argv) {
             o.meta = value;
         } else if (stored && flag == "--store") {
             o.store = absolute_path(value);
+        } else if (ids && flag == "--verify") {
+            const auto n = parse_positive(value);
+            if (!n && value != "all")
+                return std::nullopt;
+            o.verify = n ? *n : std::numeric_limits<std::uint64_t>::max();
         } else {
             return std::nullopt;
         }
@@ -259,6 +273,15 @@ int run_store(const options& o) {
     return io::failed(stage) ? 1 : 0;
 }
 
+int run_ids(const options& o) {
+    io::setup_timing setup;
+    const auto table = list_checkout(o, setup);
+    const auto stage = ops::run_ids_stage(o.checkout, table, o.threads,
+        o.repetitions, o.verify);
+    io::write_ids_report(std::cout, stage, setup);
+    return io::failed(stage) ? 1 : 0;
+}
+
 int run_org_dump(const options& o) {
     if (o.dump_list.empty())
         ops::dump_org_file(o.dump_file, std::cout);
@@ -275,6 +298,7 @@ int run(const options& o) {
     case stage::org: return run_org(o);
     case stage::types: return run_types(o);
     case stage::store: return run_store(o);
+    case stage::ids: return run_ids(o);
     case stage::org_dump: return run_org_dump(o);
     }
     return 2;

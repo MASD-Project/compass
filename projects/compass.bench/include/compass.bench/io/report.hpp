@@ -24,6 +24,7 @@
 #include <filesystem>
 #include <ostream>
 #include "compass.bench/types/file_table.hpp"
+#include "compass.bench/types/ids_result.hpp"
 #include "compass.bench/types/includes_result.hpp"
 #include "compass.bench/types/org_result.hpp"
 #include "compass.bench/types/parse_result.hpp"
@@ -147,6 +148,22 @@ void write_types_report(std::ostream& os, const types::types_result& stage,
  */
 void write_store_report(std::ostream& os, const types::store_result& stage,
     const setup_timing& setup, const std::filesystem::path& objects);
+
+/**
+ * @brief True when the ids stage resolved no file, failed to hash any, or
+ * gave any ID that differs from git's.
+ */
+[[nodiscard]] bool failed(const types::ids_result& stage);
+
+/**
+ * @brief Writes the index the resolver read, the files by source of their
+ * ID, the wall times of reading, stat-ing and hashing, and the result of
+ * the check against git hash-object.
+ *
+ * A failed stage gets a FAILED banner naming the reason.
+ */
+void write_ids_report(std::ostream& os, const types::ids_result& stage,
+    const setup_timing& setup);
 
 }
 

@@ -20,9 +20,12 @@ set(lib_target_name ${name}.lib)
 set(tests_target_name ${name}.tests)
 
 add_executable(${tests_target_name}
+    io_id_resolver_tests.cpp
     io_location_tests.cpp
     io_object_file_tests.cpp
-    ops_blob_hash_tests.cpp)
+    ops_blob_hash_tests.cpp
+    ops_git_index_tests.cpp
+    ops_git_settings_tests.cpp)
 
 target_link_libraries(${tests_target_name}
     PRIVATE

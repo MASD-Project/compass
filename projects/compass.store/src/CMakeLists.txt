@@ -19,9 +19,13 @@ set(name "compass.store")
 set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
+    io/git_files.cpp
+    io/id_resolver.cpp
     io/location.cpp
     io/object_file.cpp
-    ops/blob_hash.cpp)
+    ops/blob_hash.cpp
+    ops/git_index.cpp
+    ops/git_settings.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
 

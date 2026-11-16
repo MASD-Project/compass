@@ -147,6 +147,12 @@ types::blob_id blob_id_of(std::string_view content) noexcept {
     return {h.finish()};
 }
 
+std::array<std::uint8_t, 20> sha1_of(std::string_view data) noexcept {
+    sha1 h;
+    h.update(data);
+    return h.finish();
+}
+
 std::string to_hex(const types::blob_id& id) {
     constexpr std::string_view digits = "0123456789abcdef";
     std::string hex;
