@@ -21,6 +21,7 @@
 #define COMPASS_CODEC_OPS_RUN_HPP
 
 #include <string_view>
+#include "compass.codec/types/action_manifest.hpp"
 #include "compass.codec/types/corpus.hpp"
 #include "compass.codec/types/dependency_record.hpp"
 #include "compass.codec/types/registry.hpp"
@@ -56,8 +57,17 @@ namespace compass::codec::ops {
  * corpus codec has the same paths and content IDs; the type registry has
  * the same tables. Its recorded outputs are then put in the result where
  * the call's would be, so the result is the one a run with no record
- * gives. Every other unit is called, through a view that records what it
- * reads.
+ * gives.
+ *
+ * A unit no record stands in for is looked up in @p cache, which other
+ * worktrees fill, in two steps. Its manifest key needs no inputs: the
+ * codec's name, version and configuration hash and the unit's identity,
+ * its document's path and content ID or, for a corpus unit, its type set.
+ * The manifest lists the input sets seen for that key; the first whose
+ * inputs all have the same answer in @p c, by the same test as a record's,
+ * names the result object, whose outputs stand in for the call. Every
+ * other unit is called, through a view that records what it reads. Nothing
+ * is written to the cache here; the caller stores the units in fresh.
  *
  * @pre @p r was built against @p types, and the types of @p c are rows of
  * @p types or none.
@@ -66,7 +76,8 @@ namespace compass::codec::ops {
  */
 [[nodiscard]] types::run_result run(const types::registry& r,
     const types::corpus& c, const compass::org::types::type_registry& types,
-    unsigned threads, const types::dependency_record& previous = {});
+    unsigned threads, const types::dependency_record& previous = {},
+    const types::action_source& cache = {});
 
 }
 

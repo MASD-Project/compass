@@ -39,7 +39,7 @@ namespace compass::codec::ops {
  * @brief The version of the dependency record file this build writes and
  * reads. A file of any other version is not read, so every unit runs.
  */
-inline constexpr std::uint32_t dependency_record_version = 1;
+inline constexpr std::uint32_t dependency_record_version = 2;
 
 /**
  * @brief The row of every document by path and by ID property.
@@ -91,8 +91,8 @@ inline constexpr std::uint32_t dependency_record_version = 1;
  * All integers are little-endian. The magic "CMPSDEP\n", the version and
  * the unit count come first. Each unit follows: codec name, version,
  * configuration hash, document path, its inputs (kind, key, found, value),
- * its files (path, blob ID, content) and its findings (count, hash,
- * encoded bytes). A string is its length and its bytes. The SHA-1 of
+ * its files (path, blob ID, content), its findings (count, hash, encoded
+ * bytes) and the keys of its manifest and result objects. A string is its length and its bytes. The SHA-1 of
  * everything before it ends the file.
  */
 [[nodiscard]] std::string encode_dependency_record(

@@ -22,8 +22,10 @@ add_library(${lib_target_name}
     codecs/catalogue.cpp
     codecs/document_index.cpp
     codecs/required_sections.cpp
+    io/action_cache.cpp
     io/dependency_file.cpp
     io/output_sink.cpp
+    ops/action_cache.cpp
     ops/dependencies.cpp
     ops/outputs.cpp
     ops/registry.cpp
