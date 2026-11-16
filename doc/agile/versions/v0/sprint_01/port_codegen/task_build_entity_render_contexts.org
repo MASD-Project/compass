@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :port_codegen:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/build-entity-render-contexts
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ Port ores.codegen's entity enrichment (about 4,000 lines of generate_from_model)
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:4F499B47-4AB8-4049-A72F-495351A6E2C7][Port ORE Studio codegen]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,18 @@ Port ores.codegen's entity enrichment (about 4,000 lines of generate_from_model)
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- The oracle is the one the render task built: =codegen_render_dump.py=
+  captures each output's raw text and the context it was rendered from.
+  Compare contexts first, then renders: a context that matches renders
+  identically, since the engine is exact.
+- Port =generate_from_model='s entity enrichment into =compass.codegen= as
+  pure functions from =compass.model= values to context values, one step at a
+  time in the order the Python applies them, each checked against the oracle's
+  contexts before the next.
+- Work in order of output count per archetype, so each step moves the most
+  outputs to identical.
+- Record each remaining difference class with its count when the identical
+  rate stops improving cheaply.
 
 * Measurements
 

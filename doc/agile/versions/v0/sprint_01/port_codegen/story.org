@@ -45,7 +45,7 @@ compass regenerates all of ORE Studio's generated code byte-for-byte identical t
 | [[id:3F9C6D25-FB4E-45CE-A6F1-0FD9AAF31E80][Cache formatted output]] | BACKLOG | | | Format only changed raw outputs, through one long-lived formatter or the clang-format library, cached by raw output hash and formatter version. |
 | [[id:319529A3-A7E5-4626-8B41-90A15237A8F2][Match the existing output]] | BACKLOG | | | Compare the full regeneration with ores.codegen output at the same ORE Studio commit. |
 | [[id:BE459C5A-3AE2-44AA-AE65-6ED63A0CAC39][Load family and trade type models]] | BACKLOG | | | Port the loaders for the 4 family models and the trade type catalogue, which read other entity models of their directory. |
-| [[id:656B419E-EE0C-4FC3-B647-D08E6F1438F0][Build entity render contexts]] | BACKLOG | | | Port ores.codegen's entity enrichment (about 4,000 lines of generate_from_model) so compass builds the render context of every entity output. |
+| [[id:656B419E-EE0C-4FC3-B647-D08E6F1438F0][Build entity render contexts]] | STARTED | 2026-11-16 | | Port ores.codegen's entity enrichment (about 4,000 lines of generate_from_model) so compass builds the render context of every entity output. |
 | [[id:03E4FA2A-CBA9-4D70-BCCC-73D02218A768][Build junction, operation and field group contexts]] | BACKLOG | | | Build the render contexts of junction, operation and field group outputs, and of the convention-family registries that read the entity models. |
 
 * Decisions
