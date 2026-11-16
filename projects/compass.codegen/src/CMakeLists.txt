@@ -28,6 +28,7 @@ add_library(${lib_target_name}
     ops/entity_markers.cpp
     ops/entity_names.cpp
     ops/entity_order.cpp
+    ops/entity_primary_key.cpp
     ops/entity_registry.cpp
     ops/entity_repository.cpp
     ops/entity_rules.cpp

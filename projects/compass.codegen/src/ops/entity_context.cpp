@@ -73,7 +73,9 @@ value_id entity_context(compass::model::ops::builder& b, value_id library,
     resolve_pinned_keys(b, entity, registry);
     resolve_routed_check(b, entity, registry);
     derive_table_rules(b, entity);
+    derive_primary_key(b, entity);
     project_enforced_foreign_keys(b, entity);
+    project_primary_key_extra_columns(b, entity);
     project_sql_table(b, context, loaded, entity);
     b.set_copy(context, "domain_entity", entity);
     return context;

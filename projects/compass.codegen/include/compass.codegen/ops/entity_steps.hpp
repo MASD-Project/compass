@@ -350,6 +350,30 @@ void derive_table_rules(compass::model::ops::builder& b,
     compass::model::types::value_id entity);
 
 /**
+ * @brief The primary key's enrichment (core.py 5738-6058): the type flags,
+ * uuid_check_fn, default cpp_type and render_label of the key and each of
+ * its columns (_enrich_primary_key_field), the columns' last marker and
+ * key_text, removal_key_text and row_text, has_timestamp_key_columns
+ * (which also sets has_date_or_timestamp_natural_keys), and the strings
+ * the SQL, repository, batch, eventing and notify templates splice: the
+ * storage key widened by :sql_key: columns, the parameter and argument
+ * lists, key_columns (copies taken before value_text is set), the log
+ * fields and the notify key, which is the declared key when the model
+ * states one. Nothing without a primary key.
+ */
+void derive_primary_key(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
+ * @brief primary_key.extra_columns (core.py 5793), the key's columns
+ * after the first. The Python's list holds the very column objects, so
+ * the oracle shows them as later steps leave them: run after the last
+ * change to a key column.
+ */
+void project_primary_key_extra_columns(compass::model::ops::builder& b,
+    compass::model::types::value_id entity);
+
+/**
  * @brief enforced_foreign_keys (core.py 5306), the foreign keys with
  * enforce set. The Python's list holds the very key objects, so the
  * oracle shows them as later steps leave them: run after the last change
