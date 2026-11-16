@@ -26,9 +26,10 @@
 namespace compass::bench::ops {
 
 /**
- * @brief Collects the store of the repository @p checkout belongs to,
- * keeping every object a worktree's index names and every action object
- * a worktree's dependency record names.
+ * @brief Collects the store of the repository @p checkout belongs to
+ * with app::collect of compass.cli, keeping every object a worktree's
+ * index names and every action object a worktree's dependency record
+ * names.
  */
 [[nodiscard]] store::types::collection_result run_gc_stage(
     const std::filesystem::path& checkout,

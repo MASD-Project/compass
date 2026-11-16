@@ -20,6 +20,13 @@ installs as =compass-bench= and runs in stages. All list the tracked files
 of a checkout with one =git ls-files -z= call and map files with
 =compass::platform::filesystem::mapped_file=.
 
+=warm=, =codecs= and =gc= host no pipeline of their own. They call the steps
+of =compass.cli='s =app/steps.hpp=, the code the =compass= executable runs,
+and add only timing and repetition. Their files are the =.org= rows of the
+bench's file table without =.compass.org=, the files =app::list= gives the
+=compass= executable. The other stages measure one primitive in isolation
+and call it directly.
+
 - =read= folds every byte of every regular file into a checksum, on N
   threads.
 - =includes= scans every C and C++ file (=.hpp=, =.cpp=, =.h=, =.hh=, =.cc=,
@@ -58,8 +65,15 @@ of a checkout with one =git ls-files -z= call and map files with
   Last, outside any timing, a sample of the IDs is checked against
   =git hash-object --no-filters=. Nothing is written to the checkout or its
   git directory.
+- =warm= fills the store and the worktree index, =--repeat= times. Each
+  repetition times four steps: =app::resolve= for every ID, =app::load= to
+  map and check every object or parse the file when it has none,
+  =app::store_objects= to write the parsed objects, and
+  =app::write_worktree_index=. Nothing is removed between repetitions, so
+  the first may fill the store and the rest find it full.
 - =codecs= loads every =.org= file as a corpus and runs the codecs of
-  =compass.codec= over it. The corpus is loaded once: the ID of each file
+  =compass.codec= over it. The corpus is loaded once through
+  =app::resolve=, =app::load= and =app::corpus_of=: the ID of each file
   comes from an =id_resolver=, its object is mapped from the store and
   checked, and a file with no usable object is parsed into memory. Every
   source and object stays mapped, and the type of each
@@ -86,7 +100,7 @@ of a checkout with one =git ls-files -z= call and map files with
   canonical JSON, for =build/scripts/codegen_model_diff.py=.
 
 =gc= is not a stage either. =ops::run_gc_stage= collects the store once with
-=compass.store='s =io::collect=, keeping the action objects of the result
+=compass.cli='s =app::collect=, keeping the action objects of the result
 cache that any worktree's dependency record names (=compass.codec='s
 =io::action_keys=), and reports what it found and removed.
 
@@ -114,6 +128,8 @@ the line format of =compass::org::io::dump=, which
 - =compass-bench store <checkout> [--store <dir>] [-j N] [--repeat R]=.
   =--store= is the objects directory; without it the stage uses
   =compass/objects= under the git common directory of the checkout.
+- =compass-bench warm <checkout> [--store <dir>] [-j N] [--repeat R]=.
+  =--store= is as for =store=.
 - =compass-bench codecs <checkout> --meta <dir> [--store <dir>] [--set
   <codec>.<key>=<value>]... [--write <root> | --diff <root>] [-j N]
   [--repeat R]=. =--meta=
@@ -173,6 +189,13 @@ the line format of =compass::org::io::dump=, which
   runs. The distinct objects against the files, the object bytes against the
   source bytes with their ratio, the objects that did not load and the files
   whose two dumps differ. Either of the last two counts fails the run.
+- For =warm=: the org files, the setup times, the objects directory and
+  the entries of the last worktree index written. One row per repetition
+  with the milliseconds of resolving, loading, writing and indexing, the
+  IDs from git's index, the worktree index and hashing, and the objects
+  loaded, written and in error. Then the median of each phase over the
+  repetitions after the first, against a budget. A repetition after the
+  first that hashes a file or writes an object fails the run.
 - For =gc=: the store and options, the git directory of each worktree read,
   the live IDs and the action keys the records name, then counts and bytes
   of the files stored, live, within the grace period, old and unreferenced,
@@ -292,8 +315,9 @@ Linux.
 | =include/compass.bench/ops/ids_stage.hpp=       | The =ids= stage.                                       |
 | =include/compass.bench/ops/models_stage.hpp=    | The =models= stage and its report.                     |
 | =include/compass.bench/ops/types_stage.hpp=     | The registry from a meta directory; the =types= stage. |
-| =include/compass.bench/ops/codecs_stage.hpp=    | Corpus loading and the =codecs= stage.                 |
-| =include/compass.bench/ops/gc_stage.hpp=        | The =gc= command with the result cache's roots.        |
+| =include/compass.bench/ops/warm_stage.hpp=      | The =warm= stage, on the steps of =compass.cli=.       |
+| =include/compass.bench/ops/codecs_stage.hpp=    | The =codecs= stage, on the steps of =compass.cli=.     |
+| =include/compass.bench/ops/gc_stage.hpp=        | The =gc= command, on =app::collect=.                   |
 | =include/compass.bench/io/compile_commands.hpp= | The compile_commands.json reader and word splitting.   |
 | =include/compass.bench/io/report.hpp=           | Plain-text reports and the failure predicates.         |
 | =src/main.cpp=                                  | Argument parsing and wiring.                           |
@@ -307,6 +331,8 @@ Linux.
 
 * Dependencies
 
+- =compass.cli= for the steps of the pipeline the =warm=, =codecs= and =gc=
+  stages time. The bench is in the tooling layer, above it.
 - =compass.platform= for =mapped_file=.
 - =compass.ingest= for the org parser and the type registry builder, and
   =compass.org= for the tables, their dump, the object codec and the type

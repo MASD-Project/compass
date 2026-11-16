@@ -22,6 +22,7 @@ set(exe_target_name ${name}.exe)
 add_library(${lib_target_name}
     app/application.cpp
     app/pipeline.cpp
+    app/steps.cpp
     config/arguments.cpp
     config/precedence.cpp
     config/repository_file.cpp
@@ -39,11 +40,11 @@ target_compile_definitions(${lib_target_name} PRIVATE
 target_link_libraries(${lib_target_name}
     PUBLIC
         compass.codec.lib
+        compass.org.lib
+        compass.platform.lib
         compass.store.lib
     PRIVATE
         compass.ingest.lib
-        compass.org.lib
-        compass.platform.lib
         Threads::Threads)
 
 add_executable(${exe_target_name}

@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :ship_the_compass_cli:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/hand-the-pipeline-to-the-cli
+#+pr: https://github.com/MASD-Project/compass/pull/27
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -26,11 +26,11 @@ Move pipeline hosting from compass.bench into compass.cli, so the bench only mea
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                              |
 | Parent story | [[id:FEABA8E9-D541-45AA-9278-64DC1264C794][Ship the compass CLI]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -39,9 +39,17 @@ Move pipeline hosting from compass.bench into compass.cli, so the bench only mea
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- A behaviour-preserving refactor. The pipeline steps (list, resolve, load or
+  parse, registry, run codecs, sink or diff, collect) live once, in
+  =compass.cli='s library, as functions the commands call.
+- =compass.bench='s stages that host the pipeline (warm, codecs, gc, models)
+  call those functions and add only timing and repetition; their copies of the
+  loading code are deleted. Stages that measure one primitive in isolation
+  (read, includes, parse, org, ids, store) keep calling the primitive.
+- The bench may time a step only if the library exposes it as a step, so the
+  library exposes the steps the bench times, not one opaque run function.
+- Every existing test passes unchanged, and each moved stage's output on this
+  repository is the same before and after, apart from its timings.
 
 * Measurements
 
@@ -74,7 +82,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/27][#27]] | [cli] Run the bench on the pipeline steps compass runs |
 
 * Review
 
@@ -83,3 +91,18 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- The pipeline lives once, as steps in =compass.cli='s =app/steps.hpp=:
+  =list=, =build_type_registry=, =open_files=, =resolve=, =load=,
+  =corpus_of=, =read_dependency_record=, =run_codecs=, =store_objects=,
+  =write_worktree_index=, =store_results=, =write_dependency_record=,
+  =write_outputs=, =plan_outputs= and =collect=. The commands are built from
+  them.
+- The bench's =warm=, =codecs= and =gc= stages call those steps and add only
+  timing; =compass.bench= lost a net 245 lines. The stages that measure one
+  primitive (=read=, =includes=, =parse=, =org=, =types=, =store=, =ids=,
+  =models=) call it directly.
+- The refactor preserved behaviour: 22 baseline runs gave 43 output files
+  identical apart from timings. One deliberate change followed: the hosting
+  stages now skip =.compass.org= as the CLI does, so both read 410 files on
+  this repository.

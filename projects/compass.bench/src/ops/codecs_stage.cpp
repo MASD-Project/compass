@@ -17,6 +17,7 @@
  * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  */
+#include "compass.cli/config/repository_file.hpp"
 #include "compass.bench/ops/codecs_stage.hpp"
 
 #include <algorithm>
@@ -26,137 +27,28 @@
 #include <format>
 #include <functional>
 #include <map>
-#include <optional>
 #include <string>
 #include <string_view>
-#include <system_error>
+#include <utility>
 #include <vector>
-#include "compass.bench/ops/partition.hpp"
-#include "compass.bench/ops/types_stage.hpp"
+#include "compass.cli/app/steps.hpp"
 #include "compass.codec/codecs/catalogue.hpp"
-#include "compass.codec/io/action_cache.hpp"
-#include "compass.codec/io/dependency_file.hpp"
-#include "compass.codec/io/output_sink.hpp"
-#include "compass.codec/ops/outputs.hpp"
 #include "compass.codec/ops/registry.hpp"
-#include "compass.codec/ops/run.hpp"
-#include "compass.codec/types/corpus.hpp"
-#include "compass.ingest/org/parser.hpp"
-#include "compass.org/io/object.hpp"
-#include "compass.org/types/tables.hpp"
-#include "compass.platform/filesystem/mapped_file.hpp"
-#include "compass.store/io/id_resolver.hpp"
-#include "compass.store/io/location.hpp"
-#include "compass.store/io/object_file.hpp"
 
 namespace compass::bench::ops {
 
 namespace {
 
-using platform::filesystem::mapped_file;
 namespace ot = compass::org::types;
 namespace ct = compass::codec::types;
+namespace app = compass::cli::app;
 
 constexpr std::size_t top_count = 15;
 constexpr std::size_t first_count = 10;
 
-/**
- * @brief The org files of the checkout, one row each, with the mappings
- * the corpus points into. ok is 0 for a row that did not load. encoded
- * holds the object of a row that was parsed, which its tables point into
- * and which is stored only when the run persists; it is empty for a row
- * whose object was mapped from the store.
- */
-struct loaded_files {
-    std::vector<std::string_view> paths;
-    std::vector<std::uint64_t> sizes;
-    std::vector<store::io::resolved_id> resolved;
-    std::vector<std::optional<mapped_file>> sources;
-    std::vector<std::optional<mapped_file>> objects;
-    std::vector<std::vector<std::byte>> encoded;
-    std::vector<ot::tables_view> tables;
-    std::vector<ot::type_id> types;
-    std::vector<std::uint8_t> ok;
-};
-
-struct tally {
-    std::uint64_t loaded = 0;
-    std::uint64_t parsed = 0;
-    std::uint64_t errors = 0;
-    std::string first_error;
-};
-
 double since(std::chrono::steady_clock::time_point start) {
     return std::chrono::duration<double, std::milli>(
         std::chrono::steady_clock::now() - start).count();
-}
-
-/**
- * @brief Maps the object at @p path into row @p row and returns its
- * tables, or nothing when it is missing, does not decode or fails its
- * checksum.
- */
-std::optional<ot::tables_view> map_object(loaded_files& f, std::size_t row,
-    const std::filesystem::path& path,
-    const compass::org::io::object_key& key) {
-    try {
-        f.objects[row].emplace(path);
-    } catch (const std::system_error&) {
-        return std::nullopt;
-    }
-    const auto bytes = f.objects[row]->bytes();
-    const auto view = compass::org::io::decode(bytes, key);
-    if (!view || !compass::org::io::checksum_matches(bytes))
-        return std::nullopt;
-    return *view;
-}
-
-/**
- * @brief Loads the rows of @p range: maps each object from @p objects or,
- * when it is missing or rejected, parses the file into an object held in
- * memory. Writes nothing.
- */
-tally load_range(loaded_files& f, const std::filesystem::path& checkout,
-    const std::filesystem::path& objects,
-    const store::io::id_resolver& resolver, const ot::type_registry& types,
-    types::file_range range) {
-    tally t;
-    ot::tables parsed;
-    for (std::size_t row = range.begin; row < range.end; ++row) {
-        try {
-            f.resolved[row] = resolver.resolve(f.paths[row]);
-            const auto& source = f.sources[row].emplace(
-                checkout / f.paths[row]);
-            const compass::org::io::object_key key{
-                f.resolved[row].id.bytes, ingest::org::parser_version};
-            const auto path =
-                store::io::object_path(objects, f.resolved[row].id);
-            auto view = map_object(f, row, path, key);
-            if (view) {
-                ++t.loaded;
-            } else {
-                f.objects[row].reset();
-                ingest::org::parse(source.text(), parsed);
-                auto& bytes = f.encoded[row];
-                compass::org::io::encode(ot::view(parsed), key, bytes);
-                const auto decoded = compass::org::io::decode(bytes, key);
-                if (!decoded || !compass::org::io::checksum_matches(bytes))
-                    throw std::system_error(
-                        std::make_error_code(std::errc::io_error),
-                        "the object just encoded does not load");
-                view = *decoded;
-                ++t.parsed;
-            }
-            f.tables[row] = *view;
-            f.types[row] =
-                codec::ops::document_type(source.text(), *view, types);
-            f.ok[row] = 1;
-        } catch (const std::system_error& e) {
-            if (t.errors++ == 0)
-                t.first_error = std::string(f.paths[row]) + ": " + e.what();
-        }
-    }
-    return t;
 }
 
 using text_counts = std::map<std::string, std::uint64_t, std::less<>>;
@@ -206,19 +98,18 @@ types::findings_summary summarise(const ct::corpus& c,
 
 /**
  * @brief What a run of the codecs read and computed, before anything is
- * written: the corpus with the mappings it points into, the resolver that
- * holds the worktree index, and the result.
+ * written: the files the corpus points into, and the result.
  */
 struct evaluation {
-    loaded_files files;
-    std::optional<store::io::id_resolver> resolver;
+    app::corpus_files files;
     types::codecs_result result;
 };
 
 /**
- * @brief Loads the corpus and runs the codecs into @p e. Reads the
- * checkout, the store, the dependency record and the result cache, and
- * writes nothing: what a run stores stays in @p e for persist.
+ * @brief Runs the steps of compass.cli up to the codecs into @p e, timing
+ * each. Reads the checkout, the store, the dependency record and the
+ * result cache, and writes nothing: what a run stores stays in @p e for
+ * persist.
  */
 void evaluate(evaluation& e, const std::filesystem::path& checkout,
     const types::file_table& table, const std::filesystem::path& meta,
@@ -229,70 +120,46 @@ void evaluate(evaluation& e, const std::filesystem::path& checkout,
     auto& f = e.files;
 
     auto start = std::chrono::steady_clock::now();
-    const auto registry = build_meta_registry(meta).registry;
+    const auto registry = app::build_type_registry(meta);
     r.registry_ms = since(start);
     r.registered_types = registry.types.size();
 
+    std::vector<std::string_view> paths;
     for (std::uint32_t id = 0; id < table.size(); ++id) {
-        if (table.extensions[table.extension_ids[id]] == ".org") {
-            f.paths.emplace_back(table.paths[id]);
-            f.sizes.push_back(table.sizes[id]);
-        }
+        if (table.extensions[table.extension_ids[id]] == ".org" &&
+            table.paths[id] != cli::config::repository_file_name)
+            paths.emplace_back(table.paths[id]);
     }
-    const auto count = f.paths.size();
-    f.resolved.resize(count);
-    f.sources.resize(count);
-    f.objects.resize(count);
-    f.encoded.resize(count);
-    f.tables.resize(count);
-    f.types.resize(count);
-    f.ok.assign(count, 0);
-    r.files = count;
+    r.files = paths.size();
 
     start = std::chrono::steady_clock::now();
-    const auto& resolver = e.resolver.emplace(checkout);
-    const auto tallies = run_ranges(balance_ranges(f.sizes, threads),
-        [&](types::file_range range) {
-            return load_range(f, checkout, objects, resolver, registry,
-                range);
-        }).second;
+    f = app::open_files(checkout, objects, std::move(paths));
+    app::resolve(f, threads);
+    app::load(f, threads);
+    const auto corpus = app::corpus_of(f, registry);
     r.load_ms = since(start);
-    for (const auto& t : tallies) {
-        r.loaded += t.loaded;
-        r.parsed += t.parsed;
-        r.errors += t.errors;
-        if (r.first_error.empty())
-            r.first_error = t.first_error;
-    }
-
-    ct::corpus corpus;
-    for (std::size_t row = 0; row < count; ++row) {
-        if (f.ok[row] == 0)
-            continue;
-        corpus.paths.push_back(f.paths[row]);
-        corpus.contents.push_back(f.resolved[row].id);
-        corpus.sources.push_back(f.sources[row]->text());
-        corpus.tables.push_back(f.tables[row]);
-        corpus.types.push_back(f.types[row]);
+    for (std::size_t row = 0; row < f.paths.size(); ++row) {
+        if (f.errors[row].empty()) {
+            ++(f.mapped[row] ? r.loaded : r.parsed);
+        } else if (r.errors++ == 0) {
+            r.first_error = std::string(f.paths[row]) + ": " + f.errors[row];
+        }
     }
     r.documents = corpus.size();
 
     r.registry = codec::ops::make_registry(codec::codecs::catalogue(),
         registry, settings);
     start = std::chrono::steady_clock::now();
-    const auto previous = codec::io::read_dependency_file(
-        codec::io::dependency_file_path(store::io::git_dir(checkout)));
+    const auto previous = app::read_dependency_record(checkout);
     r.record_read_ms = since(start);
     r.record_problem = previous.problem;
     r.record_bytes = previous.bytes;
     r.record_units = previous.record.size();
 
     r.ms.resize(r.registry.size());
-    const auto cache = codec::io::action_source_of(
-        store::io::git_common_dir(checkout));
     for (unsigned rep = 0; rep < repetitions; ++rep) {
-        r.last = codec::ops::run(r.registry, corpus, registry, threads,
-            previous.record, cache);
+        r.last = app::run_codecs(r.registry, corpus, registry, threads,
+            previous.record, checkout);
         r.wall_ms.push_back(r.last.wall_ms);
         for (std::size_t c = 0; c < r.registry.size(); ++c)
             r.ms[c].push_back(r.last.ms[c]);
@@ -309,48 +176,30 @@ void evaluate(evaluation& e, const std::filesystem::path& checkout,
  * written-outputs record. The only writer of the stage.
  */
 void persist(evaluation& e, const std::filesystem::path& checkout,
-    const std::filesystem::path& objects, unsigned threads,
-    unsigned repetitions, const std::filesystem::path& output_root) {
+    unsigned threads, unsigned repetitions,
+    const std::filesystem::path& output_root) {
     auto& r = e.result;
-    const auto& f = e.files;
     auto start = std::chrono::steady_clock::now();
-    for (std::size_t row = 0; row < f.paths.size(); ++row) {
-        if (f.ok[row] == 0 || f.encoded[row].empty())
-            continue;
-        store::io::write_object(
-            store::io::object_path(objects, f.resolved[row].id),
-            f.encoded[row]);
-        ++r.written;
-    }
-    e.resolver->write_worktree_index(f.paths, f.resolved);
+    r.written = app::store_objects(e.files);
+    app::write_worktree_index(e.files);
     r.load_ms += since(start);
 
     if (repetitions != 0) {
         start = std::chrono::steady_clock::now();
-        r.actions = codec::io::store_actions(
-            store::io::git_common_dir(checkout), r.last.record,
-            r.last.fresh, threads);
+        r.actions = app::store_results(checkout, r.last, threads);
         r.actions_ms = since(start);
         start = std::chrono::steady_clock::now();
-        r.record_written = codec::io::write_dependency_file(
-            codec::io::dependency_file_path(store::io::git_dir(checkout)),
-            r.last.record);
+        r.record_written = app::write_dependency_record(checkout, r.last);
         r.record_write_ms = since(start);
     }
     if (repetitions != 0 && !output_root.empty()) {
         start = std::chrono::steady_clock::now();
-        const auto record_path = codec::io::written_outputs_path(
-            store::io::git_dir(checkout));
-        const auto previous_outputs =
-            codec::io::read_written_outputs(record_path);
-        r.outputs_problem = previous_outputs.problem;
-        r.sink = codec::io::write_outputs(output_root,
-            codec::ops::outputs_of(r.registry, r.last),
-            previous_outputs.record);
+        auto written =
+            app::write_outputs(checkout, output_root, r.registry, r.last);
+        r.outputs_problem = std::move(written.record_problem);
+        r.sink = std::move(written.sink);
         r.wrote_outputs = r.sink.problems.empty();
-        if (r.wrote_outputs)
-            r.outputs_written = codec::io::write_written_outputs(record_path,
-                r.sink.record);
+        r.outputs_written = written.record_written;
         r.sink_ms = since(start);
     }
 }
@@ -365,7 +214,7 @@ types::codecs_result run_codecs_stage(const std::filesystem::path& checkout,
     evaluation e;
     evaluate(e, checkout, table, meta, objects, settings, threads,
         repetitions);
-    persist(e, checkout, objects, threads, repetitions, output_root);
+    persist(e, checkout, threads, repetitions, output_root);
     return std::move(e.result);
 }
 
@@ -379,17 +228,14 @@ types::codecs_diff diff_codecs_stage(const std::filesystem::path& checkout,
         repetitions);
     types::codecs_diff d;
     auto start = std::chrono::steady_clock::now();
-    const auto previous = codec::io::read_written_outputs(
-        codec::io::written_outputs_path(store::io::git_dir(checkout)));
-    e.result.outputs_problem = previous.problem;
-    const auto outputs = codec::ops::outputs_of(e.result.registry,
+    app::planned_outputs planned;
+    app::plan_outputs(planned, checkout, root, e.result.registry,
         e.result.last);
-    const auto plan = codec::io::plan_outputs(root, outputs,
-        previous.record);
+    e.result.outputs_problem = planned.previous.problem;
     d.plan_ms = since(start);
-    d.planned = codec::io::summarise(plan);
+    d.planned = codec::io::summarise(planned.plan);
     start = std::chrono::steady_clock::now();
-    d.diff = codec::io::diff_outputs(plan);
+    d.diff = codec::io::diff_outputs(planned.plan);
     d.diff_ms = since(start);
     d.run = std::move(e.result);
     return d;

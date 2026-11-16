@@ -57,6 +57,7 @@ target_link_libraries(${lib_target_name}
         Threads::Threads
         unofficial::tree-sitter::tree-sitter
     PRIVATE
+        compass.cli.lib
         unofficial::tree-sitter-cpp::tree-sitter-cpp
         unofficial::tree-sitter-sql::tree-sitter-sql)
 
