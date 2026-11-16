@@ -8,7 +8,7 @@
 #+filetags: :port_codegen:sprint_01:v0:
 #+owner: marco
 #+branch: feature/tangle-templates-from-org
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/30
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -91,7 +91,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/30][#30]] | [codec] Tangle org sources without Emacs |
 
 * Review
 
