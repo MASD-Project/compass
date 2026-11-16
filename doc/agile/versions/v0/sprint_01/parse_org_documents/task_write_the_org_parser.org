@@ -8,7 +8,7 @@
 #+filetags: :parse_org_documents:sprint_01:v0:
 #+owner: marco
 #+branch: feature/write-the-org-parser
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/11
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -91,7 +91,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/11][#11]] | [ingest] Add the org parser, verified against org-element |
 
 * Review
 
