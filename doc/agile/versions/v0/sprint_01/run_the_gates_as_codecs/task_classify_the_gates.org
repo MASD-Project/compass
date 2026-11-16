@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/classify-the-gates
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ Classify each ORE Studio gate as port, replace by diff mode, or keep as a build 
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,15 @@ Classify each ORE Studio gate as port, replace by diff mode, or keep as a build 
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Enumerate every gate from ORE Studio's =local_checks.py= and its CI
+  workflows at one recorded commit, read from a =git archive= copy.
+- For each, record what it reads, what it checks, and its class: port as a
+  compass check, replace by diff mode (it regenerates and compares, which
+  compass's codegen codec now does), or keep as a build gate.
+- Time each cheap gate in the archive copy, with the machine load beside each
+  number. Take build, database and test gate times from CI run logs.
+- Keep the table in an evidence file beside this task, so later tasks can
+  pick their ports from it in order of cost.
 
 * Measurements
 
