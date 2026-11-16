@@ -27,7 +27,8 @@ add_executable(${tests_target_name}
     ops_dependencies_tests.cpp
     ops_outputs_tests.cpp
     ops_registry_tests.cpp
-    ops_run_tests.cpp)
+    ops_run_tests.cpp
+    ops_unified_diff_tests.cpp)
 
 # The parser and the registry builder are needed to make the corpus a test
 # runs over; the library itself does not depend on compass.ingest.

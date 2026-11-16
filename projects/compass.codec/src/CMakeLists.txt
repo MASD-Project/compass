@@ -27,7 +27,8 @@ add_library(${lib_target_name}
     ops/dependencies.cpp
     ops/outputs.cpp
     ops/registry.cpp
-    ops/run.cpp)
+    ops/run.cpp
+    ops/unified_diff.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
 
