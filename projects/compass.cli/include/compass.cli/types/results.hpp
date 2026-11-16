@@ -20,6 +20,7 @@
 #ifndef COMPASS_CLI_TYPES_RESULTS_HPP
 #define COMPASS_CLI_TYPES_RESULTS_HPP
 
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <optional>
@@ -29,7 +30,9 @@
 #include "compass.codec/io/format_cache.hpp"
 #include "compass.codec/io/output_sink.hpp"
 #include "compass.codec/types/diagnostic_table.hpp"
+#include "compass.store/types/blob_id.hpp"
 #include "compass.store/types/collection.hpp"
+#include "compass.store/types/git_object.hpp"
 
 namespace compass::cli::types {
 
@@ -94,8 +97,21 @@ struct diff_result {
 };
 
 /**
+ * @brief The two sides of a drift finding, as blob IDs: file is what the
+ * path holds, none when it is missing, and generated what the codec
+ * generates for it, none when it no longer generates the file.
+ */
+struct drift_sides {
+    std::optional<store::types::blob_id> file;
+    std::optional<store::types::blob_id> generated;
+
+    friend bool operator==(const drift_sides&, const drift_sides&) = default;
+};
+
+/**
  * @brief One diagnostic, located: line and column are 1-based, the column
- * counted in bytes. rule is the codec and rule name as codec/rule.
+ * counted in bytes. rule is the codec and rule name as codec/rule. drift
+ * is set on a codec/drift finding only.
  */
 struct finding {
     std::string path;
@@ -105,6 +121,7 @@ struct finding {
     codec::types::severity level = codec::types::severity::error;
     std::string message;
     std::string fix;
+    std::optional<drift_sides> drift;
 };
 
 /**
@@ -114,6 +131,50 @@ struct check_result {
     run_summary run;
     std::vector<finding> findings;
     double ms = 0;
+};
+
+/**
+ * @brief A file the merge base holds at from and HEAD at to.
+ */
+struct rename {
+    std::string from;
+    std::string to;
+
+    friend bool operator==(const rename&, const rename&) = default;
+};
+
+/**
+ * @brief The findings of a check split against those of an earlier
+ * check: fresh are the ones it did not have, in their order, and excused
+ * counts the others.
+ */
+struct ratchet_split {
+    std::vector<finding> fresh;
+    std::size_t excused = 0;
+};
+
+/**
+ * @brief What compass check --ratchet found.
+ *
+ * base is the base as named, or the default it fell back to, and
+ * merge_base the merge base of HEAD and it. current is the check of the
+ * checkout and previous the check of the merge base, with the same
+ * configuration. renames are the files of the merge base with findings
+ * that HEAD holds at another path. split holds the findings of current
+ * that previous did not have.
+ */
+struct ratchet_result {
+    std::string base;
+    store::types::object_id merge_base;
+    check_result current;
+    check_result previous;
+    std::vector<rename> renames;
+    ratchet_split split;
+    double ms = 0;
+
+    [[nodiscard]] bool failed() const noexcept {
+        return current.run.failed() || previous.run.failed();
+    }
 };
 
 /**

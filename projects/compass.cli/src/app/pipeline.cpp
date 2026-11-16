@@ -33,10 +33,14 @@
 #include <vector>
 #include "compass.cli/app/steps.hpp"
 #include "compass.cli/app/codecs.hpp"
+#include "compass.cli/io/listing.hpp"
+#include "compass.cli/ops/ratchet.hpp"
 #include "compass.codec/io/format_cache.hpp"
 #include "compass.codec/ops/outputs.hpp"
 #include "compass.codec/ops/registry.hpp"
+#include "compass.store/io/git_objects.hpp"
 #include "compass.store/io/location.hpp"
+#include "compass.store/ops/blob_hash.hpp"
 
 namespace compass::cli::app {
 
@@ -214,10 +218,11 @@ std::optional<std::string> read_bytes(const std::filesystem::path& path) {
 
 /**
  * @brief The drift finding of @p codec for the file at @p path, whose
- * bytes are @p source, located at byte @p at of them.
+ * bytes are @p source, located at byte @p at of them, with its @p sides.
  */
 types::finding drift_finding(std::string path, std::string_view source,
-    std::uint32_t at, const std::string& codec, std::string message) {
+    std::uint32_t at, const std::string& codec, std::string message,
+    types::drift_sides sides) {
     const auto [line, column] = position_of(source, at);
     return {
         .path = std::move(path),
@@ -227,7 +232,8 @@ types::finding drift_finding(std::string path, std::string_view source,
         .level = codec::types::severity::error,
         .message = std::move(message),
         .fix = "run compass generate, or change the model or template "
-               "that generates it"};
+               "that generates it",
+        .drift = std::move(sides)};
 }
 
 /**
@@ -250,6 +256,11 @@ std::vector<types::finding> drift_of(const codec::io::output_plan& plan,
         const std::string codec(plan.codecs[i]);
         std::string message;
         std::uint32_t at = 0;
+        types::drift_sides sides;
+        if (disk)
+            sides.file = store::ops::blob_id_of(*disk);
+        if (action != output_action::remove)
+            sides.generated = store::ops::blob_id_of(plan.contents[i]);
         if (action == output_action::remove) {
             message = "compass wrote this file and " + codec +
                 " no longer generates it";
@@ -266,7 +277,8 @@ std::vector<types::finding> drift_of(const codec::io::output_plan& plan,
         const auto relative = file.lexically_relative(checkout);
         out.push_back(drift_finding(relative.empty() ||
                 *relative.begin() == ".." ? file.string() : relative.string(),
-            disk.value_or(""), at, codec, std::move(message)));
+            disk.value_or(""), at, codec, std::move(message),
+            std::move(sides)));
     }
     return out;
 }
@@ -292,16 +304,54 @@ std::vector<types::finding> commit_drift_of(const commit_source& c,
         std::optional<store::types::git_object> blob;
         if (row && c.files.modes[*row] != store::types::gitlink_mode)
             blob = c.objects.read(c.files.ids[*row]);
+        types::drift_sides sides{.file = {}, .generated = outputs.hashes[id]};
         if (!blob) {
             out.push_back(drift_finding(path, "", 0, codec,
-                codec + " generates this file and it is missing"));
+                codec + " generates this file and it is missing", sides));
             continue;
         }
+        sides.file = c.files.ids[*row];
         const auto wanted = outputs.files.contents[id];
         const auto at = static_cast<std::uint32_t>(std::ranges::mismatch(
             blob->bytes, wanted).in1 - blob->bytes.begin());
         out.push_back(drift_finding(path, blob->bytes, at, codec,
-            "the file differs from what " + codec + " generates"));
+            "the file differs from what " + codec + " generates", sides));
+    }
+    return out;
+}
+
+/**
+ * @brief The files with @p findings at the commit @p from that the
+ * commit @p to holds at another path: those whose blob it holds at a new
+ * path, then those git's rename detection pairs by similarity. git runs
+ * only when a file with findings is gone and no blob explains it.
+ */
+std::vector<types::rename> renames_of(const std::filesystem::path& checkout,
+    const store::types::object_id& from, const store::types::object_id& to,
+    const std::vector<types::finding>& findings) {
+    const store::io::git_objects db(store::io::git_objects_dir(
+        store::io::git_common_dir(checkout)));
+    const auto head = store::io::list_commit(db, to);
+    std::vector<std::string_view> gone;
+    for (const auto& f : findings) {
+        if (!head.find(f.path))
+            gone.push_back(f.path);
+    }
+    if (gone.empty())
+        return {};
+    const auto base = store::io::list_commit(db, from);
+    std::erase_if(gone, [&](std::string_view p) { return !base.find(p); });
+    std::ranges::sort(gone);
+    gone.erase(std::unique(gone.begin(), gone.end()), gone.end());
+    auto out = ops::exact_renames(base, head, gone);
+    if (out.size() == gone.size())
+        return out;
+    for (auto& r : io::similar_renames(checkout, from, to)) {
+        const bool wanted = std::ranges::binary_search(gone, r.from);
+        const bool known = std::ranges::contains(out, r.from,
+            &types::rename::from);
+        if (wanted && !known)
+            out.push_back(std::move(r));
     }
     return out;
 }
@@ -403,12 +453,33 @@ types::check_result check(const types::options& o) {
                     std::string(d.rules[t.rules[id].value].name),
                 .level = t.levels[id],
                 .message = std::string(t.messages[id]),
-                .fix = std::string(t.fixes[id])});
+                .fix = std::string(t.fixes[id]),
+                .drift = {}});
         }
     }
     std::ranges::stable_sort(r.findings, {}, [](const types::finding& f) {
         return std::tie(f.path, f.line, f.column);
     });
+    r.ms = since(start);
+    return r;
+}
+
+types::ratchet_result ratchet(const types::options& o,
+    std::string_view base) {
+    const auto start = std::chrono::steady_clock::now();
+    types::ratchet_result r;
+    const auto head = io::resolve_commit(o.checkout, "HEAD");
+    const auto tip = io::resolve_base(o.checkout, base);
+    r.base = tip.name;
+    r.merge_base = io::merge_base(o.checkout, head, tip.id);
+    r.current = check(o);
+    auto at_base = o;
+    at_base.commit = r.merge_base;
+    r.previous = check(at_base);
+    r.renames = renames_of(o.checkout, r.merge_base, head,
+        r.previous.findings);
+    r.split = ops::split_new(r.previous.findings, r.current.findings,
+        r.renames);
     r.ms = since(start);
     return r;
 }

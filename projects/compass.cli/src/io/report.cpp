@@ -22,6 +22,7 @@
 #include <format>
 #include <string>
 #include <vector>
+#include "compass.store/ops/blob_hash.hpp"
 
 namespace compass::cli::io {
 
@@ -41,6 +42,13 @@ std::string corpus_note(const types::run_summary& s, double ms) {
     return std::format("{} documents, {} from the store, {} parsed; "
                        "units run: {}; {:.1f} ms", s.documents, s.loaded,
         s.parsed, units.empty() ? "none" : units, ms);
+}
+
+void write_findings(std::ostream& out,
+    const std::vector<types::finding>& findings) {
+    for (const auto& f : findings)
+        out << std::format("{}:{}:{}: {}: {} (fix: {})\n", f.path, f.line,
+            f.column, f.rule, f.message, f.fix);
 }
 
 std::string source_of(const types::origin& o,
@@ -94,11 +102,25 @@ void write_diff(std::ostream& out, std::ostream& err,
 void write_check(std::ostream& out, std::ostream& err,
     const types::check_result& r) {
     write_problems(err, r.run);
-    for (const auto& f : r.findings)
-        out << std::format("{}:{}:{}: {}: {} (fix: {})\n", f.path, f.line,
-            f.column, f.rule, f.message, f.fix);
+    write_findings(out, r.findings);
     out << std::format("{} diagnostic{} ({})\n", r.findings.size(),
         r.findings.size() == 1 ? "" : "s", corpus_note(r.run, r.ms));
+}
+
+void write_ratchet(std::ostream& out, std::ostream& err,
+    const types::ratchet_result& r) {
+    write_problems(err, r.current.run);
+    write_lines(err, "merge base: ", r.previous.run.errors);
+    write_lines(err, "merge base: codec registry: ", r.previous.run.problems);
+    write_findings(out, r.split.fresh);
+    const auto n = r.split.fresh.size();
+    out << std::format("{} new diagnostic{}, {} excused as present at {}, "
+                       "the merge base of HEAD and {}; {} renamed file{} "
+                       "followed ({}; {:.1f} ms in all)\n", n,
+        n == 1 ? "" : "s", r.split.excused,
+        store::ops::to_hex(r.merge_base).substr(0, 12), r.base,
+        r.renames.size(), r.renames.size() == 1 ? "" : "s",
+        corpus_note(r.current.run, r.current.ms), r.ms);
 }
 
 void write_configuration(std::ostream& out, const types::configuration& c,

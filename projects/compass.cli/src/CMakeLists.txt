@@ -28,7 +28,8 @@ add_library(${lib_target_name}
     config/precedence.cpp
     config/repository_file.cpp
     io/listing.cpp
-    io/report.cpp)
+    io/report.cpp
+    ops/ratchet.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
 

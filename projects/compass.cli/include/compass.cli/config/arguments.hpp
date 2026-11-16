@@ -70,9 +70,11 @@ using parsed_arguments =
  * --out and --set go into the command-line layer as written, with no
  * default; resolving the configuration makes the paths absolute. -j
  * defaults to @p default_threads.
- * --timings asks for the time of each step. --dry-run, --cap and --grace
- * belong to gc alone. --help or -h anywhere
- * asks for help and --version for the version, whatever else is there.
+ * --timings asks for the time of each step. --ratchet belongs to
+ * check and takes the next argument as its base unless it starts with -
+ * or names a command; --ratchet=<base> always does. --dry-run, --cap
+ * and --grace belong to gc alone. --help or -h anywhere asks for help and
+ * --version for the version, whatever else is there.
  */
 [[nodiscard]] parsed_arguments parse_arguments(
     std::span<const std::string_view> args,

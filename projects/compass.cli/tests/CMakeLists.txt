@@ -24,9 +24,11 @@ add_executable(${tests_target_name}
     app_codegen_tests.cpp
     app_commit_tests.cpp
     app_pipeline_tests.cpp
+    app_ratchet_tests.cpp
     config_arguments_tests.cpp
     config_precedence_tests.cpp
-    config_repository_file_tests.cpp)
+    config_repository_file_tests.cpp
+    ops_ratchet_tests.cpp)
 
 target_link_libraries(${tests_target_name}
     PRIVATE

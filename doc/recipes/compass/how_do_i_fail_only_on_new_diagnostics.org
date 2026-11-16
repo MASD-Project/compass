@@ -1,0 +1,88 @@
+:PROPERTIES:
+:ID: BDD4B58A-38F3-4EE3-9D0D-15EB56086D83
+:END:
+#+title: How do I fail only on new diagnostics?
+#+description: Run compass check --ratchet to fail only on diagnostics that the merge base of HEAD and a base branch does not have.
+#+type: recipe
+#+level: cross
+#+filetags: :compass:cli:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+
+=compass check --ratchet= runs the check of
+[[id:45FA67C9-60BC-420D-BB66-8A272CB1106C][compass.cli]] twice: once over the
+files on disk and once over the merge base, read from git's objects as
+[[id:A604E719-D542-4C81-BB5B-AF0A70425BF6][How do I check a past commit?]]
+describes.
+
+* Question
+
+How do I make a branch fail only on the diagnostics it introduced, not on
+those it inherited?
+
+* Answer
+
+Pass =--ratchet= to =compass check=, with the branch or commit to compare
+against:
+
+#+begin_src sh :results verbatim
+build/output/linux-clang-release/publish/bin/compass check --ratchet origin/main
+#+end_src
+
+On a branch of ORE Studio that adds one =create table= to a hand-written
+SQL file, with the base given as a commit ID, it prints:
+
+: projects/ores.sql/setup_schema.sql:173:1: sql_hygiene/not_re_runnable: create table without `if not exists`; a second run would fail (fix: make the statement idempotent)
+: 1 new diagnostic, 24 excused as present at 08a73b676978, the merge base of HEAD and 08a73b676978431f74a9db13791388be130409c5; 0 renamed files followed (...)
+
+Without a base, =--ratchet= uses the upstream of the current branch, else
+=origin/main=. A base that names no commit, or shares no history with
+HEAD, is an error. =--ratchet=<base>= also works, and =--ratchet= cannot
+be combined with =--commit=.
+
+The output prints each new diagnostic in full, then counts the new ones
+and the excused ones. The exit status is 1 when a diagnostic is new, 0
+when none is, and 2 on failure, including a failure to check the merge
+base.
+
+How a diagnostic is matched:
+
+- The current side is the files on disk, as a plain =compass check= sees
+  them, uncommitted changes included. The old side is the merge base of
+  HEAD and the base, not the tip of the base.
+- Both sides run with the =.compass.org= on disk. A gate the branch
+  enables excuses what the merge base already broke.
+- A diagnostic matches an old one by file, rule and message, not by line.
+  Each old diagnostic excuses one new one: a violation that moved because
+  lines were added above it is not new, but a second copy of it is.
+- A file renamed between the merge base and HEAD keeps its diagnostics.
+  A rename is found by identical content first. When a file with
+  diagnostics is gone and no file of HEAD has its content, =git diff -M=
+  pairs it by similarity.
+- A =codec/drift= diagnostic matches by the content of the file and of
+  what the codec generates for it, not by its message. Drift the branch
+  did not touch is excused. If the branch edits a drifted file, or
+  changes what is generated for it, the drift is new.
+
+On that copy of ORE Studio, with codegen and four ported gates enabled,
+the 24 excused diagnostics are its existing drift. The first
+run with an empty store took 27.2 s, 17.5 s of which was clang-format.
+Later runs took 5.2 s: 3.2 s for the files on disk and 1.8 s for the
+merge base.
+
+* Script
+
+=compass check --ratchet= (=projects/compass.cli=, =app::ratchet=, with
+the matching in =ops::split_new=).
+
+* Tested by
+
+=compass.cli.tests= (=[ratchet]=): a new violation in a file that has
+some, a moved, duplicated and removed violation, a renamed file with and
+without edits, drift, the configuration, the merge base and bases that
+cannot be resolved, each on a temporary git repository.
+
+* See also
+
+- [[id:5A6EBB88-638D-43A3-96E5-068340C7AEEA][How do I check documents with compass?]] --- the plain check.
+- [[id:A604E719-D542-4C81-BB5B-AF0A70425BF6][How do I check a past commit?]] --- how the merge base is checked.

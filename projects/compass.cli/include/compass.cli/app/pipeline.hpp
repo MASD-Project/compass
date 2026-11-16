@@ -20,6 +20,7 @@
 #ifndef COMPASS_CLI_APP_PIPELINE_HPP
 #define COMPASS_CLI_APP_PIPELINE_HPP
 
+#include <string_view>
 #include "compass.cli/types/options.hpp"
 #include "compass.cli/types/results.hpp"
 
@@ -79,6 +80,29 @@ namespace compass::cli::app {
  * not under the checkout.
  */
 [[nodiscard]] types::check_result check(const types::options& o);
+
+/**
+ * @brief Checks the checkout and the merge base of HEAD and @p base, and
+ * splits the findings of the checkout into those the merge base did not
+ * have and those it did.
+ *
+ * @p base is any revision; when empty, the upstream of the current
+ * branch, else origin/main. git rev-parse resolves HEAD and the base, one
+ * git merge-base finds the merge base, and git diff -M runs only when a
+ * file with findings at the merge base is gone from HEAD and no file of
+ * HEAD holds its blob. Both
+ * checks run with the configuration of @p o, so a rule that is new in
+ * the checkout's configuration excuses what the merge base already broke.
+ * The checkout is checked as check does, uncommitted changes included,
+ * and renames are followed from the merge base to HEAD. See
+ * ops::split_new for the matching.
+ *
+ * @throws as check does, and std::runtime_error when @p base names no
+ * commit, there is no default base, or HEAD and the base share no
+ * history.
+ */
+[[nodiscard]] types::ratchet_result ratchet(const types::options& o,
+    std::string_view base);
 
 /**
  * @brief Collects the store with the collection options of @p o.

@@ -59,6 +59,9 @@ constexpr std::string_view help =
     "time and what each codec ran or reused\n"
     "  --commit <rev>              check: check this commit, read from git's "
     "objects, not the files on disk\n"
+    "  --ratchet [<base>]          check: fail only on diagnostics the merge "
+    "base of HEAD and <base> lacks (default: the upstream, else "
+    "origin/main)\n"
     "  --dry-run                   gc: remove nothing, report what would go\n"
     "  --cap <bytes>               gc: the size the store comes down to "
     "(default: 0)\n"
@@ -150,6 +153,19 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
             o.timings = true;
             continue;
         }
+        if (arg == "--ratchet") {
+            const bool has_base = i + 1 < args.size() &&
+                !args[i + 1].starts_with("-") && !command_named(args[i + 1]);
+            o.ratchet = has_base ? std::string(args[++i]) : std::string();
+            continue;
+        }
+        if (constexpr std::string_view with_base = "--ratchet=";
+            arg.starts_with(with_base)) {
+            o.ratchet = std::string(arg.substr(with_base.size()));
+            if (o.ratchet->empty())
+                return usage_error{"--ratchet= needs a base"};
+            continue;
+        }
         if (!arg.starts_with("-")) {
             if (which)
                 return usage_error{"unexpected argument: " + std::string(arg)};
@@ -202,6 +218,10 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
         return usage_error{std::string(gc_flag) + " applies to gc only"};
     if (!o.revision.empty() && *which != types::command::check)
         return usage_error{"--commit applies to check only"};
+    if (o.ratchet && *which != types::command::check)
+        return usage_error{"--ratchet applies to check only"};
+    if (o.ratchet && !o.revision.empty())
+        return usage_error{"--ratchet and --commit cannot be combined"};
     o.which = *which;
     o.checkout = absolute_under(working_directory, checkout);
     return o;

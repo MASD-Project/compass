@@ -46,4 +46,5 @@ date with its models fails. Nothing is written.
 
 * See also
 
--
+- [[id:BDD4B58A-38F3-4EE3-9D0D-15EB56086D83][How do I fail only on new diagnostics?]] --- =compass check --ratchet=, which fails only on diagnostics a branch introduced.
+- [[id:A604E719-D542-4C81-BB5B-AF0A70425BF6][How do I check a past commit?]] --- the same check at any commit.

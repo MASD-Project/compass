@@ -44,7 +44,7 @@ One compass check command runs every ORE Studio gate that needs no build in seco
 | Task | State | Start | End | Description |
 |------+-------+-------+-----+-------------|
 | [[id:9CBCFC60-6AA4-40A7-A6B3-7DB43ED18A42][Classify the gates]] | DONE | 2026-11-16 | 2026-11-16 | Classify each ORE Studio gate as port, replace by diff mode, or keep as a build gate, with its measured cost. |
-| [[id:0BF85A51-A61C-4FCC-AF6F-53BD689721E2][Add ratchet mode]] | BACKLOG | | | Compare diagnostics against the merge base and fail only on new ones. |
+| [[id:0BF85A51-A61C-4FCC-AF6F-53BD689721E2][Add ratchet mode]] | DONE | 2026-11-16 | 2026-11-16 | Compare diagnostics against the merge base and fail only on new ones. |
 | [[id:35F12CD3-E765-42D8-A6D6-641FB0EC7F1F][Add inline exceptions]] | BACKLOG | | | Parse exception comments with reason, expiry and approver, and report expired or incomplete ones. |
 | [[id:4D217E91-CB98-416D-9129-9AB01D9B62A4][Check a past commit]] | DONE | 2026-11-16 | 2026-11-16 | Run checks against any commit by reading blobs from git's object store. |
 | [[id:9E8AA07D-B8CE-43FC-844E-2104C2EC7967][Add the edit hook]] | BACKLOG | | | A Claude Code hook that checks the changed files after each edit. |

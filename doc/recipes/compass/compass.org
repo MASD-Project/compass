@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :recipe:compass:docs:search:
 #+created: 2026-05-24
-#+updated: 2026-07-12
+#+updated: 2026-11-16
 
 How to use =compass=, the [[id:6F7A122F-BC0F-4F3E-BA46-8B793FF15D10][developer toolkit]] for compass-ng.
 One CLI ([[proj:projects/compass.legacy/compass.sh][=projects/compass.legacy/compass.sh=]]) covers the doc/agile pillars
@@ -24,6 +24,7 @@ The =compass= executable of compass-ng.
 - [[id:2AD84580-A94E-4EEE-A234-3EB437A8B492][How do I see what compass would change?]] — Run compass diff to print, as unified diffs, every change compass generate would make, writing nothing.
 - [[id:5A6EBB88-638D-43A3-96E5-068340C7AEEA][How do I check documents with compass?]] — Run compass check to report every diagnostic of the enabled codecs, one line each with the fix to apply.
 - [[id:A604E719-D542-4C81-BB5B-AF0A70425BF6][How do I check a past commit?]] — Run compass check --commit to check any commit from git's object database, with no checkout, reusing every parse and result the store holds.
+- [[id:BDD4B58A-38F3-4EE3-9D0D-15EB56086D83][How do I fail only on new diagnostics?]] — Run compass check --ratchet to fail only on diagnostics that the merge base of HEAD and a base branch does not have.
 - [[id:AA6DE55E-DAD3-47E5-B485-DAD2365898E9][How do I configure compass?]] — Edit .compass.org at the repository root to choose the codecs and their options, and run compass config to see the effective settings.
 - [[id:F16E0DF4-46E0-4254-8FEB-593463C41ACB][How do I collect the compass store?]] — Run compass gc to remove old objects and cached results no worktree refers to.
 
