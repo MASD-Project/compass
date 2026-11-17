@@ -26,6 +26,7 @@
 #include <string>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.cpp/ops/lexer.hpp"
 #include "compass.cpp/ops/paths.hpp"
 #include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
@@ -48,9 +49,16 @@ std::vector<std::string_view> sorted_sources(const ct::corpus_view& v,
     return paths;
 }
 
-std::string read_replacing(const ct::corpus_view& v, std::string_view p) {
-    return pt::universal_newlines(pt::decode_replacing(
-        v.read_file(p).value_or("")));
+/**
+ * @brief The code of @p bytes with its comments blanked and its literals
+ * kept, offset for offset; decoded, and so without offsets, when it is not
+ * UTF-8.
+ */
+std::pair<std::string, bool> code_of(std::string_view bytes) {
+    auto text = ops::without_comments(bytes);
+    if (pt::is_utf8(bytes))
+        return {std::move(text), true};
+    return {pt::universal_newlines(pt::decode_replacing(text)), false};
 }
 
 constexpr std::array<ct::rule, 3> unit_rules{{
@@ -66,9 +74,7 @@ void run_units(const ct::corpus_view& v, ct::diagnostic_table& out) {
         const auto parts = ops::components_of(path);
         if (std::ranges::find(parts, "tests") != parts.end())
             continue;
-        const auto bytes = v.read_file(path).value_or("");
-        const auto text = read_replacing(v, path);
-        const bool exact = text == bytes;
+        const auto [text, exact] = code_of(v.read_file(path).value_or(""));
         const auto at = [&](std::size_t offset) {
             return static_cast<std::uint32_t>(exact ? offset : 0);
         };
@@ -123,9 +129,7 @@ void run_menus(const ct::corpus_view& v, ct::diagnostic_table& out) {
     };
     std::map<std::string, std::vector<site>> owners;
     for (const auto path : sorted_sources(v, shell_root)) {
-        const auto bytes = v.read_file(path).value_or("");
-        const auto text = read_replacing(v, path);
-        const bool exact = text == bytes;
+        const auto [text, exact] = code_of(v.read_file(path).value_or(""));
         const auto at = [&](std::size_t offset) {
             return static_cast<std::uint32_t>(exact ? offset : 0);
         };
@@ -169,7 +173,7 @@ void run_composition(const ct::corpus_view& v, ct::diagnostic_table& out) {
     for (const auto p : v.list_files("projects/ores.shell/application/src/",
              ".cpp")) {
         for (const auto& m : registration.find_all(
-                 v.read_file(p).value_or("")))
+                 ops::without_comments(v.read_file(p).value_or(""))))
             composed.insert(std::string(m.group(1)) + "_commands");
     }
     for (const auto c : composition_components) {

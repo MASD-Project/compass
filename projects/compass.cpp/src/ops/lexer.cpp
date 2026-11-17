@@ -300,6 +300,14 @@ lexed lex(std::string_view source) {
     return lexer(source).run();
 }
 
+std::string without_comments(std::string_view source) {
+    auto l = lex(source);
+    for (const auto s : l.literals)
+        l.code.replace(s.begin, s.end - s.begin,
+            source.substr(s.begin, s.end - s.begin));
+    return std::move(l.code);
+}
+
 directive_parts parts_of(const lexed& l, span d) noexcept {
     const std::string_view code(l.code);
     auto i = static_cast<std::size_t>(d.begin) + 1;

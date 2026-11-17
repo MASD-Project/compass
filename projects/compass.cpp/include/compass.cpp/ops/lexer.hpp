@@ -72,6 +72,12 @@ struct lexed {
 [[nodiscard]] lexed lex(std::string_view source);
 
 /**
+ * @brief @p source with its comments blanked and its literals kept, byte
+ * for byte, for a reader that matches what a literal holds.
+ */
+[[nodiscard]] std::string without_comments(std::string_view source);
+
+/**
  * @brief The keyword of the directive @p d of @p l, such as "include" or
  * "if", and the code after it to the end of its logical line.
  */
