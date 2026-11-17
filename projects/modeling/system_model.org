@@ -42,7 +42,7 @@ No compass-ng dependency. Generic, reusable code.
 
 | Component          | Role                                                    |
 |--------------------+---------------------------------------------------------|
-| =compass.platform= | OS abstraction: memory-mapped files, child processes; Python-compatible regular expressions, text decoding and ElementTree-shaped XML. |
+| =compass.platform= | OS abstraction: memory-mapped files, child processes, the running executable's path; Python-compatible regular expressions, text decoding and ElementTree-shaped XML. |
 
 * Infrastructure layer
 | Component       | Role                                                                                                                       |

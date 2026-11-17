@@ -22,7 +22,9 @@ a whole file. The pipeline reads org documents, C++ and SQL through it, so
 loading a file costs one =mmap= and no copy. =process= has =run_program=,
 which runs a program in a given directory, optionally with a file as standard
 input, and returns its exit code and standard output; git and the formatters
-run through it. =text= holds what the ports of ORE Studio's Python gates
+run through it. It also has =executable_path=, the running binary's own path
+with symbolic links resolved; =compass --version= reads the build manifest
+beside it, so it finds the manifest even when it runs through a link. =text= holds what the ports of ORE Studio's Python gates
 share: =regex=, regular expressions with Python's =re= syntax and Unicode
 classes over UTF-8 bytes, through PCRE2 with JIT; =decoding=, how
 =read_text()= turns bytes into text (strict, ignoring or replacing invalid
@@ -42,6 +44,9 @@ element tree Python's =xml.etree.ElementTree= builds. It supports Linux and POSI
 - A failed =open=, =fstat= or =mmap=, or a path that is not a regular file,
   throws =std::system_error= with the errno code and the path in the message.
 
+- =executable_path=: the absolute path =/proc/self/exe= links to, or an
+  empty path when it cannot be read.
+
 - =regex=: =search=, =match=, =fullmatch=, =find_all= and =substitute=,
   with byte offsets and named groups. A subject may hold invalid UTF-8,
   which matches nothing. A pattern that does not compile throws
@@ -60,6 +65,7 @@ element tree Python's =xml.etree.ElementTree= builds. It supports Linux and POSI
 | =include/compass.platform/filesystem/mapped_file.hpp= | Public type.          |
 | =src/filesystem/mapped_file.cpp=                      | POSIX implementation. |
 | =tests/filesystem_mapped_file_tests.cpp=              | Catch2 tests.         |
+| =include/compass.platform/process/executable.hpp=     | Public function.      |
 | =include/compass.platform/text/regex.hpp=             | Public type.          |
 | =include/compass.platform/text/decoding.hpp=          | Public functions.     |
 | =include/compass.platform/text/xml.hpp=               | Public type.          |
