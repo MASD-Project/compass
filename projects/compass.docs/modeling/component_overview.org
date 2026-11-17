@@ -125,6 +125,27 @@ They are off by default.
   =projects/ores.http/scripts/library=; a recipe that names no target gives
   nothing, nothing is stripped and the banner carries no description. It
   writes all 414 files as Emacs does.
+- *=skill_catalogue=.* =skill-catalogue= (=generate_skills_catalogue.py=).
+  A corpus codec that rewrites the first region between the script's
+  markers in =doc/llm/skills/claude_code_skills.org=: per domain of the
+  script's table, the skills named =compass-<domain>-...= in name order,
+  each with its =:ID:=, title and description, the description cut to 110
+  characters.
+- *=skill_type_tables=.* =skill-type-tables=
+  (=generate_skill_type_tables.py=). Rewrites every region between its
+  markers in =compass-doc-add= and =compass-doc-show=: the document types
+  read from the =doc_*.org.mustache= templates and from
+  =_STATIC_PARENT= and =_DEFAULTABLE_PARENT= in =compass.py=, and the
+  read-only commands with the help =compass.py= gives each.
+- *=skill_recipes=.* =skill-recipes= (=link_skill_recipes.py=). Writes each
+  skill of the script's table with the recipe links its Recipes section
+  lacks appended; a skill or recipe that does not exist leaves the skill
+  alone, where the script stops.
+
+=ops::replace_region= replaces the first region between two markers, or
+every one, as the scripts do with =re.search= or =re.sub=; the generators
+that keep hand-written text around a generated region emit the whole file,
+reading the file they write.
 
 * Entry points
 

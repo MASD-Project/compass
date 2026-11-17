@@ -1,0 +1,67 @@
+/* -*- mode: c++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+#ifndef COMPASS_DOCS_CODECS_SKILL_TABLES_HPP
+#define COMPASS_DOCS_CODECS_SKILL_TABLES_HPP
+
+#include "compass.codec/types/descriptor.hpp"
+
+namespace compass::docs::codecs {
+
+/**
+ * @brief ORE Studio's skill-catalogue generator
+ * (generate_skills_catalogue.py): the generated region of
+ * doc/llm/skills/claude_code_skills.org.
+ *
+ * Each skill directory under doc/llm/skills with a SKILL.org is grouped by
+ * the segment after compass-, in the script's domain order, as a row of
+ * its ID, name, title and description, the description cut to 110
+ * characters. The first region between the script's BEGIN and END markers
+ * is replaced; a catalogue without them is not written.
+ */
+extern const compass::codec::types::descriptor skill_catalogue;
+
+/**
+ * @brief ORE Studio's skill-type-tables generator
+ * (generate_skill_type_tables.py): the document types table of
+ * compass-doc-add and the read-only commands table of compass-doc-show.
+ *
+ * The types come from the doc_*.org.mustache templates and the parents
+ * compass.py's _STATIC_PARENT and _DEFAULTABLE_PARENT name; the commands
+ * from the help of compass.py's subparsers. Every region between a
+ * table's markers is replaced.
+ */
+extern const compass::codec::types::descriptor skill_type_tables;
+
+/**
+ * @brief ORE Studio's skill-recipes generator (link_skill_recipes.py): each
+ * skill of the script's table links, in its Recipes section, the recipes
+ * that own its commands.
+ *
+ * A link a skill lacks is appended to the section, after the links it
+ * carries; a skill without the section gains an empty Recipes and
+ * Reference pair before its Artefacts heading, or at its end. A skill or
+ * recipe of the table that does not exist leaves that skill alone, where
+ * the script stops.
+ */
+extern const compass::codec::types::descriptor skill_recipes;
+
+}
+
+#endif
