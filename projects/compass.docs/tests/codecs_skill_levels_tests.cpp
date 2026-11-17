@@ -20,6 +20,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <string>
+#include <vector>
 #include "compass.docs/codecs/skill_tables.hpp"
 #include "test_tree.hpp"
 
@@ -51,20 +52,19 @@ tests::files full_tree() {
 
 }
 
-TEST_CASE("a skill gets the table's level, on its level line or after its "
-    "export line", "[codecs][skill_levels]") {
+TEST_CASE("a skill whose level is not the table's is reported on its level "
+    "line, and one with none at its start", "[codecs][skill_level_tags]") {
     auto all = full_tree();
-    all[skill_path("compass-pr-merge")] = "#+level: s5\n#+level: s4\n";
+    all[skill_path("compass-pr-merge")] = "#+title: x\n#+level: s5\n";
     all[skill_path("compass-doc-find")] =
         "#+title: x\n#+export_exclude_tags: noexport\n\n* Body\n";
-    const auto out = tests::generate(codecs::skill_levels, all);
+    const auto found = tests::run(codecs::skill_level_tags, all);
 
-    CHECK(out.at(skill_path("compass-pr-merge")) ==
-        "#+level: s1\n#+level: s4\n");
-    CHECK(out.at(skill_path("compass-doc-find")) == "#+title: x\n"
-        "#+export_exclude_tags: noexport\n#+level: cross\n\n* Body\n");
-    CHECK(out.at(skill_path("compass-pr-raise")) ==
-        all.at(skill_path("compass-pr-raise")));
+    CHECK(found == std::vector<tests::finding>{
+        {skill_path("compass-doc-find"), 1,
+            "compass-doc-find: level is None, table says cross"},
+        {skill_path("compass-pr-merge"), 2,
+            "compass-pr-merge: level is s5, table says s1"}});
 }
 
 TEST_CASE("the inventory counts each System's slice, the auditor's by its "
@@ -81,9 +81,12 @@ TEST_CASE("the inventory counts each System's slice, the auditor's by its "
     CHECK(text.find("\n15 skills are tagged =cross=") != std::string::npos);
 }
 
-TEST_CASE("a skill the table lacks stops the codec before it writes",
-    "[codecs][skill_levels]") {
+TEST_CASE("a skill the table lacks writes no inventory and is reported",
+    "[codecs][skill_levels][skill_level_tags]") {
     auto all = full_tree();
     all[skill_path("compass-new-skill")] = "#+level: s1\n";
     CHECK(tests::generate(codecs::skill_levels, all).empty());
+    CHECK(tests::run(codecs::skill_level_tags, all) ==
+        std::vector<tests::finding>{{skill_path("compass-new-skill"), 1,
+            "no level for compass-new-skill"}});
 }

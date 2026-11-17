@@ -66,18 +66,25 @@ extern const compass::codec::types::descriptor skill_type_tables;
 extern const compass::codec::types::descriptor skill_recipes;
 
 /**
- * @brief ORE Studio's skill-levels generator (apply_skill_levels.py): the
- * #+level: of every skill, from the script's table, and the generated
- * inventory of doc/llm/skills/skill_systems_levels.org, the count of
- * skills each System sees.
- *
- * A skill whose level differs gains the table's, on its #+level: line or
- * after its export_exclude_tags line. Every skill is emitted. A skill
- * missing from the table, or a table entry with no skill, emits nothing,
- * where the script stops; an inventory without its markers is not
- * written.
+ * @brief The inventory half of ORE Studio's skill-levels generator
+ * (apply_skill_levels.py): the generated region of
+ * doc/llm/skills/skill_systems_levels.org, the count of skills each
+ * System sees by the script's table. A skill missing from the table, or a
+ * table entry with no skill, writes nothing, where the script stops; an
+ * inventory without its markers is not written.
  */
 extern const compass::codec::types::descriptor skill_levels;
+
+/**
+ * @brief The page half of apply_skill_levels.py, as the verdict its
+ * --check gives: each skill whose #+level: is not the table's, each skill
+ * the table lacks and each table entry with no skill.
+ *
+ * The script writes the level into the page. That page is also written by
+ * skill_recipes and structure_notes, and an output has one producer, so
+ * this half reports instead of writing.
+ */
+extern const compass::codec::types::descriptor skill_level_tags;
 
 /**
  * @brief The table skill_levels applies: each skill and the System it
