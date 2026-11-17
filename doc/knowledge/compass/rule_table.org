@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-173 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 57 are cited by no rule.
+183 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 57 are cited by no rule.
 
 ** Rules
 
@@ -36,18 +36,22 @@ memories no rule cites are the candidates for the next checks.
 | =component_docs= | missing_puml | A component's modeling/ directory holds a .puml diagram. |  |
 | =component_docs= | name_collision | No top-level component's dotted name extends another's. |  |
 | =component_docs= | backtick_link | No bracket link a site export cannot resolve sits inside a backtick span of a page under doc/. |  |
+| =convention_kind_terms= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =conventions_coverage= | duplicate_row | Each (kind, id) is one row of the conventions dataset. |  |
 | =conventions_coverage= | no_source | Each row of the conventions dataset names its source. |  |
 | =conventions_coverage= | undefined_index | Each Ibor or overnight index a convention names is defined by an index convention of the dataset. |  |
 | =conventions_coverage= | missing_convention | The dataset holds every convention ORE holds, or propose_decisions.tsv says why not. |  |
 | =conventions_coverage= | differing_convention | The dataset states a convention's terms as ORE does, or propose_decisions.tsv says why not. |  |
 | =conventions_coverage= | extract_failed | decisions.tsv reads, so the canonical set of the ORE examples can be extracted. |  |
+| =conventions_dataset= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =core_link_edges= | forbidden_edge | No component's core links another component's core or service library; it links the api contract. |  |
 | =core_link_edges= | unresolved_link | Every library a core links names no variable the check cannot resolve. |  |
 | =core_link_edges= | unnamed_core | Every core library file states its name. |  |
+| =curve_column_guards= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =curve_parameter_paths= | undeclared_path | Every curve parameter path the artefact names is one the ORE curve schema declares, or an exemption explains. |  |
 | =curve_parameter_paths= | stale_exemption | Every exemption explains some path of the artefact. |  |
 | =curve_parameter_paths= | unreadable_input | The schema declares the root element, and the exemptions read. |  |
+| =curve_sections_wiring= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =entity_binary_types= | wire_mismatch | A generated row binds each column in the binary format its column's type defines, to a column its table creates and a member its struct declares. |  |
 | =entity_binary_types= | unclassified | Every bound member and column has a type the check can place on the wire, or both are text. |  |
 | =entity_binary_types= | no_table | Every generated row's table is created by some create script, or is a view. |  |
@@ -55,6 +59,7 @@ memories no rule cites are the candidates for the next checks.
 | =entity_writes= | sql_writer | No SQL function but the purge writes an entity table with INSERT, UPDATE or DELETE. | =5724BDE2-7FA4-4667-9129-2D9DD7783AB2= |
 | =entity_writes= | cpp_writer | No hand-written C++ file but the repository of each table it names writes an entity table in raw SQL. | =5724BDE2-7FA4-4667-9129-2D9DD7783AB2= |
 | =enum_attributes= | visibility_macro_on_enum | No symbol visibility or DLL storage macro decorates an enum. |  |
+| =er_diagram= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =event_registrars= | uncomposed_registrar | Every generated registrar of a checked component is called from its composition file. | =B5492D6C-7C18-4723-BA47-232AEAA13314= |
 | =event_registrars= | missing_composition | A checked component that generates registrars has its composition file. | =B5492D6C-7C18-4723-BA47-232AEAA13314= |
 | =exported_types= | uncompiled_exported_type | No library exports a type that none of its translation units compiles. |  |
@@ -98,6 +103,9 @@ memories no rule cites are the candidates for the next checks.
 | =open_reads= | unguarded_history | Every history provider a generated registrar registers names a literal read code. |  |
 | =open_reads= | stale_allow | Every subject Authorised reads allow-lists is defined by a protocol header. |  |
 | =open_reads= | no_allow_list | Authorised reads has its allow-list section. |  |
+| =ore_output_catalogue= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
+| =ore_renderings_tables= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
+| =ore_value_sets= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =org_links= | colon_link | No link's raw target begins with a colon, which no link type does. |  |
 | =parameter_value_sets= | unresolved | The value set curation resolves: every file reads, and no generator stops on it. |  |
 | =parameter_value_sets= | unlinked_parameter | Every parameter a screen draws names a value set, by a curated link. |  |
@@ -137,6 +145,7 @@ memories no rule cites are the candidates for the next checks.
 | =rls_widenings= | system_tenant_widening | No row-level security policy lets a system-tenant session see every tenant's rows. | =C3D570EF-468D-427D-B355-30C0443BCDDF=, =5A5D6490-AF64-4AAF-8B3D-48EF3EDAF3D2=, =07177FE0-F0B9-44E8-B67C-CEAA6DCC696A= |
 | =route_auth= | route_without_auth | Every add_route call states its authentication position: auth_required, auth_optional or roles. |  |
 | =route_auth= | too_few_routes | The scan finds at least 20 add_route calls, so a pattern that stops matching fails rather than passes. |  |
+| =route_inventory= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =route_units= | unregistered_unit | A component's route aggregate registers the route unit of every model that opts into one. |  |
 | =route_units= | twice_registered | An aggregate registers each unit once. |  |
 | =route_units= | missing_unit | Every unit an aggregate registers has its source in the component. |  |
@@ -145,6 +154,7 @@ memories no rule cites are the candidates for the next checks.
 | =rule_identifiers= | foreign_code | A rule's identifier carries its own page's code. |  |
 | =rule_identifiers= | duplicate | No identifier is on two rules. | =00BA1689-B060-4BD8-BC46-67034D663B7F= |
 | =rule_identifiers= | bad_citation | Every checklist line cites two-digit identifiers a page carries, or a page that carries none yet. | =00BA1689-B060-4BD8-BC46-67034D663B7F= |
+| =script_library_seed= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =shell_command_composition= | unregistered_unit | Every generated shell command unit of a checked component is registered by an application source. |  |
 | =shell_command_units= | menu_built_twice | One command unit builds each of its menus once. |  |
 | =shell_command_units= | menu_owned_twice | One menu name has one owning file. |  |

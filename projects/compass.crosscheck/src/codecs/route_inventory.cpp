@@ -30,6 +30,7 @@
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.cpp/ops/glob.hpp"
+#include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
 #include "compass.crosscheck/ops/python_literals.hpp"
 #include "compass.platform/text/regex.hpp"
@@ -51,9 +52,11 @@ constexpr std::string_view classification_path =
 constexpr std::string_view pairing_path = "build/scripts/route_pairing.py";
 
 /**
- * @brief Where the script stops without writing.
+ * @brief Where the script stops without writing, and why when known.
  */
-struct stop {};
+struct stop {
+    std::string why;
+};
 
 struct route {
     std::string method;
@@ -103,7 +106,7 @@ struct tables {
 std::string read(const ct::corpus_view& v, std::string_view path) {
     auto text = v.read_file(path);
     if (!text)
-        throw stop{};
+        throw stop{"cannot read " + std::string(path)};
     return std::move(*text);
 }
 
@@ -634,7 +637,12 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
         }
         lines.emplace_back();
         out.files.add(inventory_path, joined(lines, "\n"));
-    } catch (const stop&) {
+    } catch (const stop& s) {
+        co::refuse(out, inventory_path, s.why.empty() ? "the routes or the "
+            "route tables do not read as " + std::string(script_path) +
+            " reads them" : s.why, "Run " + std::string(script_path) +
+            ", which names the problem, and correct the table or route it "
+            "names.");
     }
 }
 
@@ -647,7 +655,7 @@ const ct::descriptor route_inventory{
                "ores.http register and the route classification and pairing.",
     .reads = ct::inputs::of_types({}),
     .options = {},
-    .rules = {},
+    .rules = co::refusal_rules,
     .enabled_by_default = false,
     .run = ct::corpus_function<ct::file_output>{run}};
 

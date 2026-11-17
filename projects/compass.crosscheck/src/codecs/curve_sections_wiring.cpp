@@ -25,6 +25,7 @@
 #include <string_view>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.cpp/ops/report.hpp"
 #include "compass.crosscheck/ops/curve_wiring.hpp"
 
 namespace compass::crosscheck::codecs {
@@ -32,6 +33,7 @@ namespace compass::crosscheck::codecs {
 namespace {
 
 namespace ct = compass::codec::types;
+namespace co = compass::cpp::ops;
 namespace cw = compass::crosscheck::ops::curve;
 
 constexpr std::string_view module_path =
@@ -399,21 +401,40 @@ std::string render_sql(const std::vector<cw::segment_kind>& kinds,
 }
 
 void run(const ct::corpus_view& v, ct::file_output& out) {
+    const auto refuse = [&](const std::string& why) {
+        co::refuse(out, module_path, why, "Correct the curve configuration "
+            "projection or the ORE schema the reason names.");
+    };
     const auto projection = v.read_file(cw::projection_path);
     const auto schema = v.read_file(cw::schema_path);
-    if (!projection || !schema)
+    if (!projection || !schema) {
+        refuse("cannot read " + std::string(!projection ? cw::projection_path
+            : cw::schema_path));
         return;
+    }
     const auto declared = cw::leaves_of_schema(*schema);
-    if (!declared)
+    if (!declared) {
+        refuse("the schema " + std::string(cw::schema_path) + " names a "
+            "type it does not declare");
         return;
+    }
     const auto wired = cw::wiring(*projection, *declared);
-    if (!wired || !wired->problems.empty())
+    if (!wired) {
+        refuse("a section table of " + std::string(cw::projection_path) +
+            " cannot be read");
         return;
+    }
+    if (!wired->problems.empty()) {
+        refuse(co::listed(wired->problems));
+        return;
+    }
     const auto kinds = cw::kind_leaves(*projection).first;
     const auto [default_types, problems] =
         cw::default_curve_types(*projection);
-    if (!problems.empty())
+    if (!problems.empty()) {
+        refuse(co::listed(problems));
         return;
+    }
     out.files.add(module_path, render(wired->sections));
     out.files.add(sql_path, render_sql(kinds, default_types));
 }
@@ -427,7 +448,7 @@ const ct::descriptor curve_sections_wiring{
                "validators from the curve configuration projection.",
     .reads = ct::inputs::of_types({}),
     .options = {},
-    .rules = {},
+    .rules = co::refusal_rules,
     .enabled_by_default = false,
     .run = ct::corpus_function<ct::file_output>{run}};
 

@@ -41,11 +41,17 @@ namespace vs = compass::crosscheck::ops::value_sets;
 
 void write(const ct::corpus_view& v, ct::file_output& out) {
     const auto r = vs::evaluate(v);
-    if (r.stopped || !r.problems.empty())
+    if (r.stopped || !r.problems.empty()) {
+        co::refuse(out, vs::seed_path, "the value set curation does not "
+            "resolve", "Correct what parameter_value_sets reports.");
         return;
+    }
     out.files.add(vs::seed_path, vs::render_seed(r.data));
-    if (!r.rows || !r.columns)
+    if (!r.rows || !r.columns) {
+        co::refuse(out, vs::map_path, "the element map cannot be built",
+            "Correct what parameter_value_sets reports.");
         return;
+    }
     out.files.add(vs::columns_path, vs::render_columns(*r.columns));
     out.files.add(vs::map_path, vs::render_map(*r.rows));
 }
@@ -214,7 +220,7 @@ const ct::descriptor ore_value_sets{
                "its columns from one resolution of the value set curation.",
     .reads = ct::inputs::of_types({}),
     .options = {},
-    .rules = {},
+    .rules = co::refusal_rules,
     .enabled_by_default = false,
     .run = ct::corpus_function<ct::file_output>{write}};
 

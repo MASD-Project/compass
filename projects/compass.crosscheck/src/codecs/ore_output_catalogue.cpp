@@ -30,6 +30,7 @@
 #include <vector>
 #include "compass.codec/io/format_cache.hpp"
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
 #include "compass.crosscheck/ops/csv.hpp"
 #include "compass.crosscheck/ops/python_literals.hpp"
@@ -63,9 +64,11 @@ constexpr std::string_view data_hpp_path =
 constexpr std::string_view page_id = "34C68112-7A34-4557-835C-BDCAA7BB9C2A";
 
 /**
- * @brief Where the script stops without writing.
+ * @brief Where the script stops without writing, and why when known.
  */
-struct stop {};
+struct stop {
+    std::string why;
+};
 
 using strings = std::vector<std::string>;
 using text_map = std::map<std::string, std::string, std::less<>>;
@@ -92,7 +95,7 @@ struct tables {
 std::string read(const ct::corpus_view& v, std::string_view path) {
     auto text = v.read_file(path);
     if (!text)
-        throw stop{};
+        throw stop{"cannot read " + std::string(path)};
     return std::move(*text);
 }
 
@@ -800,7 +803,8 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
             if (std::ranges::none_of(patterns, [&](const std::string& p) {
                     return fnmatch(name, p);
                 }))
-                return;
+                throw stop{"the ORE output " + name + " matches no pattern "
+                    "of the catalogue"};
         }
         const auto docs_source = read(v, docs_path);
         const auto constants = ops::python_string_constants(docs_source);
@@ -817,8 +821,14 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
         out.files.add(data_path, render(catalogue));
         out.files.add(data_hpp_path, data_hpp);
         out.files.add(page_path, formats_page);
-    } catch (const stop&) {
-    } catch (const ops::csv_error&) {
+    } catch (const stop& s) {
+        co::refuse(out, data_path, s.why.empty() ? "its inputs do not read "
+            "as " + std::string(script_path) + " reads them" : s.why,
+            "Run " + std::string(script_path) + ", which names the problem, "
+            "and correct the input it names.");
+    } catch (const ops::csv_error& e) {
+        co::refuse(out, data_path, std::string("an ORE output sample is not "
+            "CSV: ") + e.what(), "Correct the sample the reason names.");
     }
 }
 
@@ -855,7 +865,7 @@ const ct::descriptor ore_output_catalogue{
                "page from the output samples ORE ships.",
     .reads = ct::inputs::of_types({}),
     .options = options,
-    .rules = {},
+    .rules = co::refusal_rules,
     .enabled_by_default = false,
     .run = ct::corpus_function<ct::file_output>{run},
     .formatters = formatters_of};

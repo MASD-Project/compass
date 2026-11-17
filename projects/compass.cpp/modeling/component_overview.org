@@ -190,7 +190,7 @@ keeps in its =.compass.org=.
 | =include/compass.cpp/ops/paths.hpp=                     | pathlib's suffixes, order and glob, and which files exist.    |
 | =include/compass.cpp/ops/glob.hpp=                      | The files of a view a pathlib glob lists, in its order.       |
 | =include/compass.cpp/ops/text.hpp=                      | Python's spaces, word characters and lines over bytes.        |
-| =include/compass.cpp/ops/report.hpp=                    | Adds one finding on a byte of a checkout file.                |
+| =include/compass.cpp/ops/report.hpp=                    | Adds one finding on a byte of a checkout file, or a generator's refusal of an output, under the shared =refusal_rules=. |
 | =include/compass.cpp/codecs/registrars.hpp=             | The three registrar composition codecs.                       |
 | =include/compass.cpp/codecs/shell.hpp=                  | The three shell codecs.                                       |
 | =include/compass.cpp/codecs/<gate>.hpp=                 | One header for each other codec, named after it.              |

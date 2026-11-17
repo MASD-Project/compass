@@ -26,6 +26,7 @@
 #include "compass.codec/ops/registry.hpp"
 #include "compass.codec/ops/run.hpp"
 #include "compass.store/ops/blob_hash.hpp"
+#include "test_checkout.hpp"
 
 namespace {
 
@@ -87,8 +88,14 @@ TEST_CASE("each rendering maps to its canonical form in the file's order, "
         "}\n\n#endif\n"));
 }
 
-TEST_CASE("a renderings file that is not JSON writes nothing",
-    "[codecs][ore_renderings_tables]") {
-    CHECK(generate({{"projects/ores.sql/utility/ore_renderings.json",
-        "{\"tables\": "}}).empty());
+TEST_CASE("a renderings file that is not JSON writes nothing and is "
+    "refused", "[codecs][ore_renderings_tables]") {
+    const files broken{{"projects/ores.sql/utility/ore_renderings.json",
+        "{\"tables\": "}};
+    CHECK(generate(broken).empty());
+    const auto r = crosscheck::tests::run(
+        crosscheck::codecs::ore_renderings_tables, broken);
+    REQUIRE(r.findings.size() == 1);
+    CHECK(std::get<2>(r.findings[0]) == header + " is not generated: "
+        "projects/ores.sql/utility/ore_renderings.json is not JSON");
 }

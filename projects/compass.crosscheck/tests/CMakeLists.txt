@@ -33,6 +33,7 @@ add_executable(${tests_target_name}
     codecs_ore_renderings_tables_tests.cpp
     codecs_paste_blocks_tests.cpp
     codecs_protocol_twins_tests.cpp
+    codecs_refusals_tests.cpp
     codecs_registry_gates_tests.cpp
     codecs_route_inventory_tests.cpp
     codecs_script_library_seed_tests.cpp

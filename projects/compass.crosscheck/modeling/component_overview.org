@@ -252,7 +252,9 @@ model:
 
 - *=ore_value_sets=.* The value set seed, the element map and its columns
   seed, byte for byte what the two scripts write on ORE 545cafca45 with
-  the =r.id= exemption. It writes nothing while the model has a problem.
+  the =r.id= exemption. It writes nothing while the model has a problem,
+  and refuses the seed, or the element map, pointing at
+  =parameter_value_sets= for why.
 - *=parameter_value_sets=.* Every rule, once: =unresolved= (a generator
   would raise, and why), =unlinked_parameter= (a parameter a screen draws,
   pricing or engine run setting, with no set), =clash=, =unknown_set=,
@@ -275,7 +277,15 @@ calls with positional and keyword arguments, and a lambda, read as its
 body. =ops::resolved= substitutes a module's
 string constants for its names. Where a script stops without writing,
 because a problem is reported or a table cannot be read, the codec writes
-nothing, so its drift findings are silent where the gate would fail.
+nothing and reports a =refused= finding on its first output that says why,
+so =compass check= fails where the script would, and the sink keeps the
+file a good run wrote. Every generator here declares that one rule,
+=ops::refusal_rules= of =compass.cpp=: =curve_sections_wiring=,
+=curve_column_guards=, =convention_kind_terms=, =ore_renderings_tables=,
+=script_library_seed=, =ore_output_catalogue=, =er_diagram=,
+=conventions_dataset=, =route_inventory= and =ore_value_sets=. At
+545cafca45 two refuse: =convention_kind_terms=, whose terms stop on =r.id=,
+and =ore_value_sets=, for the same reason.
 
 Where a script reads a file with a strict UTF-8 decode and would stop on a
 file that is not UTF-8, these codecs read it with invalid bytes replaced,

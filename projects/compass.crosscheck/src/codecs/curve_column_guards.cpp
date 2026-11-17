@@ -22,6 +22,7 @@
 #include <string>
 #include <string_view>
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.cpp/ops/report.hpp"
 #include "compass.crosscheck/codecs/curve_sections_wiring.hpp"
 #include "compass.crosscheck/ops/curve_wiring.hpp"
 #include "compass.crosscheck/ops/projection_columns.hpp"
@@ -31,6 +32,7 @@ namespace compass::crosscheck::codecs {
 namespace {
 
 namespace ct = compass::codec::types;
+namespace co = compass::cpp::ops;
 namespace cw = compass::crosscheck::ops::curve;
 
 constexpr std::string_view map_path = "projects/ores.sql/populate/refdata/"
@@ -214,8 +216,13 @@ std::string render_drop(const std::map<std::string, std::string>& tables) {
 
 void run(const ct::corpus_view& v, ct::file_output& out) {
     const auto found = ops::curve_columns(v);
-    if (!found)
+    if (!found) {
+        co::refuse(out, map_path, "the curve configuration columns cannot be "
+            "derived from the projection, the schema and the curve models",
+            "Run curve_sections_wiring, whose refusal names the problem, or "
+            "give every curve entity a model with its :tablename:.");
         return;
+    }
     std::map<std::string, std::string> tables;
     for (const auto& c : *found)
         tables.insert_or_assign(c.table, c.entity);
@@ -233,7 +240,7 @@ const ct::descriptor curve_column_guards{
                "and the guard's drop from the curve configuration projection.",
     .reads = ct::inputs::of_types({}),
     .options = {},
-    .rules = {},
+    .rules = co::refusal_rules,
     .enabled_by_default = false,
     .run = ct::corpus_function<ct::file_output>{run}};
 

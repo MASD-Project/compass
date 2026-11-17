@@ -20,8 +20,12 @@
 #ifndef COMPASS_CPP_OPS_REPORT_HPP
 #define COMPASS_CPP_OPS_REPORT_HPP
 
+#include <array>
 #include <cstdint>
+#include <span>
+#include <string>
 #include <string_view>
+#include "compass.codec/types/descriptor.hpp"
 #include "compass.codec/types/diagnostic_table.hpp"
 
 namespace compass::cpp::ops {
@@ -33,6 +37,27 @@ namespace compass::cpp::ops {
 void report(compass::codec::types::diagnostic_table& out,
     std::string_view file, std::uint32_t offset, std::uint32_t rule,
     std::string_view message, std::string_view fix);
+
+/**
+ * @brief The one rule of a generator that refuses: rule 0 of its
+ * descriptor.
+ */
+inline constexpr std::array<compass::codec::types::rule, 1> refusal_rules{{
+    {"refused", "A generator writes its output only from inputs it can "
+        "read and resolve; otherwise it says why and leaves the file it "
+        "wrote before."}}};
+
+/**
+ * @brief Refuses to generate @p output, because of @p why: a finding of
+ * refusal_rules on that file, whose message names it.
+ */
+void refuse(compass::codec::types::file_output& out, std::string_view output,
+    std::string_view why, std::string_view fix);
+
+/**
+ * @brief @p problems joined by "; ", for the reason of a refusal.
+ */
+[[nodiscard]] std::string listed(std::span<const std::string> problems);
 
 }
 

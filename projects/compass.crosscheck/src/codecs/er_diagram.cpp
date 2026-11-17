@@ -30,6 +30,7 @@
 #include "compass.codegen/ops/compile.hpp"
 #include "compass.codegen/ops/render.hpp"
 #include "compass.cpp/ops/paths.hpp"
+#include "compass.cpp/ops/report.hpp"
 #include "compass.crosscheck/ops/python_literals.hpp"
 #include "compass.model/ops/builder.hpp"
 #include "compass.platform/text/decoding.hpp"
@@ -40,6 +41,7 @@ namespace compass::crosscheck::codecs {
 namespace {
 
 namespace ct = compass::codec::types;
+namespace co = compass::cpp::ops;
 namespace mo = compass::model::ops;
 namespace mt = compass::model::types;
 namespace so = compass::sql::ops;
@@ -202,11 +204,22 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
     const auto parser = v.read_file(v.option("parser"));
     const auto group_source = v.read_file(v.option("template"));
     const auto index_source = v.read_file(v.option("index_template"));
-    if (!parser || !group_source || !index_source)
+    const auto unread = !parser ? "parser" : !group_source ? "template"
+        : !index_source ? "index_template" : "";
+    if (*unread != '\0') {
+        co::refuse(out, v.option("output"), "cannot read " +
+            std::string(v.option(unread)) + ", the option " + unread,
+            "Restore the file, or set the option to the file that holds it.");
         return;
+    }
     const auto conventions = conventions_of(text_of(*parser));
-    if (!conventions)
+    if (!conventions) {
+        co::refuse(out, v.option("output"), std::string(v.option("parser")) +
+            " does not state COMPONENT_PREFIXES, FK_COLUMNS and TABLE_STYLES "
+            "in the shape the parser reads", "Correct the literals of the "
+            "parser.");
         return;
+    }
 
     auto paths = v.list_files(std::string(v.option("create_dir")) + "/",
         "_create.sql");
@@ -310,7 +323,7 @@ const ct::descriptor er_diagram{
         "group and an index, from the create scripts.",
     .reads = ct::inputs::of_types({}),
     .options = options,
-    .rules = {},
+    .rules = co::refusal_rules,
     .enabled_by_default = false,
     .run = ct::corpus_function<ct::file_output>{run}};
 

@@ -25,6 +25,7 @@
 #include <string_view>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.cpp/ops/report.hpp"
 #include "compass.crosscheck/ops/projection_columns.hpp"
 
 namespace compass::crosscheck::codecs {
@@ -32,6 +33,7 @@ namespace compass::crosscheck::codecs {
 namespace {
 
 namespace ct = compass::codec::types;
+namespace co = compass::cpp::ops;
 
 constexpr std::string_view out_path =
     "projects/ores.sql/populate/refdata/refdata_convention_kind_terms_populate.sql";
@@ -187,8 +189,13 @@ where valid_to = ores_utility_infinity_timestamp_fn();
 
 void run(const ct::corpus_view& v, ct::file_output& out) {
     const auto terms = ops::convention_terms(v);
-    if (!terms)
+    if (!terms) {
+        co::refuse(out, out_path, "the convention kind terms cannot be read "
+            "from the ores.ore mapper and the convention models",
+            "Run generate_convention_kind_terms.py, which names the "
+            "problem, and correct the mapper or the curation it reads.");
         return;
+    }
     const auto& rows = terms->rows;
     std::map<std::string, std::set<std::string>> columns;
     for (const auto& r : rows)
@@ -196,8 +203,12 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
     std::string triggers, drops;
     for (const auto& [entity, cols] : columns) {
         const auto table = ops::convention_table(v, entity);
-        if (!table)
+        if (!table) {
+            co::refuse(out, out_path, "the convention entity " + entity +
+                " has no model with a :tablename:", "Give the entity's "
+                "refdata model a :tablename: property.");
             return;
+        }
         const auto stem = table->substr(0, table->size() < 4 ? 0
             : table->size() - 4);
         triggers += "\ncreate or replace trigger " + stem +
@@ -240,7 +251,7 @@ const ct::descriptor convention_kind_terms{
                "triggers and the triggers' drops from the ores.ore mapper.",
     .reads = ct::inputs::of_types({}),
     .options = {},
-    .rules = {},
+    .rules = co::refusal_rules,
     .enabled_by_default = false,
     .run = ct::corpus_function<ct::file_output>{run}};
 

@@ -27,6 +27,7 @@
 #include <string>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
 #include "compass.crosscheck/ops/csv.hpp"
 #include "compass.crosscheck/ops/python_literals.hpp"
@@ -44,10 +45,12 @@ namespace pt = compass::platform::text;
 using kind = ops::python_value::kind;
 
 /**
- * @brief Where the script stops without writing: a GenError, or a
- * ValueError its decoders raise.
+ * @brief Where the script stops without writing, and why when known: a
+ * GenError, or a ValueError its decoders raise.
  */
-struct stop {};
+struct stop {
+    std::string why;
+};
 
 /**
  * @brief The text render() writes around the blocks, with the names it
@@ -812,14 +815,21 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
     const auto tsv = v.read_file(here + "conventions.tsv");
     const auto map = v.read_file(here + "oresmd_index_map.tsv");
     const auto methodology = v.read_file(here + "methodology.txt");
-    if (!source || !tsv || !map || !methodology)
+    const std::string output(v.option("output"));
+    const auto fix = "Run " + script + ", which names the problem, and "
+        "correct the curated table it names.";
+    if (!source || !tsv || !map || !methodology) {
+        co::refuse(out, output, "cannot read " + (!source ? script
+            : here + (!tsv ? "conventions.tsv" : !map
+                ? "oresmd_index_map.tsv" : "methodology.txt")), fix);
         return;
+    }
     try {
         const auto t = tables_of(text_of_file(*source));
 
         const auto records = ops::csv_rows(pt::decode_replacing(*tsv), '\t');
         if (records.empty())
-            throw stop{};
+            throw stop{"conventions.tsv has no header"};
         const auto& header = records.front();
         std::vector<row> rows;
         for (std::size_t i = 1; i < records.size(); ++i) {
@@ -842,7 +852,7 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
         for (const auto& k : kinds) {
             if (!t.kinds.contains(k) && !t.composites.contains(k) &&
                 !t.cut_kinds.contains(k))
-                throw stop{};
+                throw stop{"the kind " + k + " has no table in the script"};
         }
 
         std::map<std::string, std::string, std::less<>> index_map;
@@ -853,7 +863,8 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
             if (tab == std::string_view::npos || tab == 0 ||
                 tab + 1 == line.size() ||
                 line.find('\t', tab + 1) != std::string_view::npos)
-                throw stop{};
+                throw stop{"a line of oresmd_index_map.tsv is not two "
+                    "columns"};
             index_map.insert_or_assign(std::string(line.substr(0, tab)),
                 std::string(line.substr(tab + 1)));
         }
@@ -864,10 +875,12 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
                 continue;
             const auto& id = column_of(r, "id");
             if (!holds(t.index_kinds, column_of(r, "kind")))
-                throw stop{};
+                throw stop{"the convention " + id + " states an oresmd_uri "
+                    "its kind does not index"};
             if (const auto it = index_map.find(id);
                 it != index_map.end() && it->second != stated)
-                throw stop{};
+                throw stop{"the convention " + id + " states an oresmd_uri "
+                    "the index map contradicts"};
             index_map.insert_or_assign(id, stated);
         }
         for (const auto& r : rows) {
@@ -877,7 +890,8 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
             const fields f(column_of(r, "signature"));
             for (const auto& name : referenced(t, k, column_of(r, "id"), f)) {
                 if (!index_map.contains(name))
-                    throw stop{};
+                    throw stop{"the convention " + column_of(r, "id") +
+                        " references " + name + ", which has no index"};
             }
         }
 
@@ -896,9 +910,13 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
             }
         }
         sql += "end $$;\n";
-        out.files.add(std::string(v.option("output")), sql);
-    } catch (const stop&) {
-    } catch (const ops::csv_error&) {
+        out.files.add(output, sql);
+    } catch (const stop& s) {
+        co::refuse(out, output, s.why.empty() ? "its inputs do not read as "
+            + script + " reads them" : s.why, fix);
+    } catch (const ops::csv_error& e) {
+        co::refuse(out, output, std::string("conventions.tsv is not a table: ")
+            + e.what(), fix);
     }
 }
 
@@ -911,7 +929,7 @@ const ct::descriptor conventions_dataset{
         "dataset from its curated table.",
     .reads = ct::inputs::of_types({}),
     .options = options,
-    .rules = {},
+    .rules = co::refusal_rules,
     .enabled_by_default = false,
     .run = ct::corpus_function<ct::file_output>{run}};
 
