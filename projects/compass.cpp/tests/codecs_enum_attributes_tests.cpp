@@ -105,6 +105,15 @@ TEST_CASE("erasing blanks comments and literals byte for byte and keeps "
     CHECK(ops::erase_comments_and_literals("/*/ x") == "    x");
 }
 
+TEST_CASE("a digit separator does not open a character literal",
+    "[ops][enum_attributes]") {
+    CHECK(ops::erase_comments_and_literals("int n = 1'000;\nenum class e;") ==
+        "int n = 1'000;\nenum class e;");
+    CHECK(ops::erase_comments_and_literals("x = 0xFF'FFu + 0b1'0;\n'a'") ==
+        "x = 0xFF'FFu + 0b1'0;\n   ");
+    CHECK(ops::erase_comments_and_literals("u8'a' L'b'") == "u8    L   ");
+}
+
 TEST_CASE("a visibility macro is a define whose body is a visibility or "
     "DLL attribute", "[ops][enum_attributes]") {
     macro_set m;

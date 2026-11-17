@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <map>
 #include <optional>
 #include <string>
@@ -226,6 +227,43 @@ void check_malformed(std::string_view path, std::string_view source,
 }
 
 /**
+ * @brief The :ID: values of @p lines that a property drawer may hold: not
+ * those inside a #+begin_ ... #+end_ block, which org reads as text, so an
+ * example of a page is not one.
+ */
+std::vector<std::string_view> page_ids(
+    const std::vector<std::string_view>& lines) {
+    static const pt::regex id(R"(^:ID:\s+(\S+))");
+    static const pt::regex begin(R"(^\s*#\+begin_(\S+))",
+        {.ignorecase = true});
+    static const pt::regex end(R"(^\s*#\+end_(\S+))", {.ignorecase = true});
+    std::vector<std::string_view> out;
+    std::optional<std::string> open;
+    const auto lowered = [](std::string_view s) {
+        std::string r(s);
+        std::ranges::transform(r, r.begin(), [](unsigned char c) {
+            return static_cast<char>(std::tolower(c));
+        });
+        return r;
+    };
+    for (const auto line : lines) {
+        if (open) {
+            if (const auto m = end.match(line);
+                m && lowered(m->group(1)) == *open)
+                open.reset();
+            continue;
+        }
+        if (const auto m = begin.match(line)) {
+            open = lowered(m->group(1));
+            continue;
+        }
+        if (const auto m = id.match(line))
+            out.push_back(m->group(1));
+    }
+    return out;
+}
+
+/**
  * @brief Maps one page. Its own findings are the filetags, the unclosed
  * markers and the malformed links. Its fact is its type, the :ID: lines
  * it holds, its id links line by line with the line's offset, the
@@ -235,7 +273,6 @@ void check_malformed(std::string_view path, std::string_view source,
 void map_page(std::string_view path, std::string_view source,
     const ct::option_values&, ct::file_scan& out) {
     static const pt::regex type(R"(^#\+type:\s*(\S+))", {.multiline = true});
-    static const pt::regex id(R"(^:ID:\s+(\S+))", {.multiline = true});
     static const pt::regex link(
         R"(\[\[id:([0-9A-Fa-f-]{36})\](?:\[([^\]]*)\])?\])");
     static const pt::regex source_marker(
@@ -251,10 +288,10 @@ void map_page(std::string_view path, std::string_view source,
     const auto t = type.search(text);
     fact.number(t ? 1 : 0);
     fact.text(t ? t->group(1) : std::string_view());
-    const auto ids = id.find_all(text);
+    const auto ids = page_ids(lines);
     fact.number(static_cast<std::uint32_t>(ids.size()));
-    for (const auto& m : ids)
-        fact.text(m.group(1));
+    for (const auto i : ids)
+        fact.text(i);
 
     std::uint32_t count = 0;
     std::string links;

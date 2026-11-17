@@ -20,6 +20,7 @@
 #include "compass.codec/io/output_sink.hpp"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -34,8 +35,12 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 #include "compass.codec/ops/outputs.hpp"
+#include "compass.codec/ops/registry.hpp"
+#include "compass.codec/ops/run.hpp"
+#include "compass.codec/types/corpus_view.hpp"
 #include "compass.store/io/git_files.hpp"
 #include "compass.store/ops/blob_hash.hpp"
+#include "test_corpus.hpp"
 
 namespace {
 
@@ -143,6 +148,39 @@ std::map<std::string, std::pair<std::string, stamp>> snapshot(
             out[e.path().string()] = {read(e.path()), stamp_of(e.path())};
     }
     return out;
+}
+
+/**
+ * @brief Writes page.org from the task's title, and nothing when the
+ * task has no title, which it reports as a refusal.
+ */
+void page(const types::corpus_view& v, types::file_output& out) {
+    const auto& d = v[0];
+    const auto at = d.source.find("#+title: ");
+    if (at == std::string_view::npos) {
+        out.refusals.add({d.row, {}, {0}, types::severity::error,
+            "page.org is not written: the task has no title", ""});
+        return;
+    }
+    out.files.add("page.org", d.source.substr(at));
+}
+
+constexpr std::array<types::rule, 1> page_rules{{{"refused", ""}}};
+
+const types::descriptor page_codec{.name = "page", .version = 1,
+    .summary = "", .reads = types::inputs::every_document(), .options = {},
+    .rules = page_rules, .enabled_by_default = true,
+    .run = types::corpus_function<types::file_output>{page}};
+
+/**
+ * @brief The outputs of the page codec run over one document, @p source.
+ */
+types::output_set page_outputs(std::string_view source) {
+    tests::test_corpus t;
+    t.add("task.org", source);
+    const std::array codecs{page_codec};
+    const auto r = ops::make_registry(codecs, t.types(), {});
+    return ops::outputs_of(r, ops::run(r, t.corpus(), t.types(), 1));
 }
 
 const std::vector<row> two = {
@@ -427,4 +465,15 @@ TEST_CASE("a plan with nothing changed has no diff and keeps the record",
     CHECK(io::diff_outputs(plan).empty());
     CHECK(ops::encode_written_outputs(plan.record) ==
         ops::encode_written_outputs(s.record));
+}
+
+TEST_CASE("a generator that refuses after a good run keeps the file it "
+    "wrote", "[io][output_sink]") {
+    sink s;
+    s.run(page_outputs("#+title: Task: a\n"));
+    REQUIRE(read(s.root() / "page.org") == "#+title: Task: a\n");
+
+    const auto r = s.run(page_outputs("No title.\n"));
+    CHECK(r.removed == 0);
+    CHECK(read(s.root() / "page.org") == "#+title: Task: a\n");
 }

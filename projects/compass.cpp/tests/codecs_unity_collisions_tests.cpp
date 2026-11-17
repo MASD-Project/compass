@@ -67,6 +67,23 @@ TEST_CASE("names two sources of one target define with internal linkage "
         {"projects/ores.a/src/one.cpp", 3}});
 }
 
+TEST_CASE("a name inside a raw string with a delimiter is not a definition",
+    "[codecs][unity_collisions]") {
+    const files all{
+        {"CMakeLists.txt", ""},
+        {"projects/ores.c/src/CMakeLists.txt", ""},
+        {"projects/ores.c/src/a.cpp",
+         "namespace ores::c {\nstatic int helper() { return 0; }\n}\n"},
+        {"projects/ores.c/src/b.cpp",
+         "namespace ores::c {\n"
+         "const char* text = R\"cpp(\n"
+         ")\";\n"
+         "static int helper() { return 1; }\n"
+         ")cpp\";\n"
+         "}\n"}};
+    CHECK(tests::run(codecs::unity_collisions, all).findings.empty());
+}
+
 TEST_CASE("a recorded file is out of the unity build, so its names do not "
     "collide", "[codecs][unity_collisions]") {
     auto t = tree();

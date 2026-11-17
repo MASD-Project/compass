@@ -116,7 +116,7 @@ constexpr std::array<ct::rule, 2> menu_rules{{
 void run_menus(const ct::corpus_view& v, ct::diagnostic_table& out) {
     static const pt::regex construction(
         R"re(cli::Menu\s*>?\s*\(\s*"([^"]*)"\s*([,)]))re");
-    static const pt::regex root_command(R"re(root_menu\.Insert\(\s*\n\s*"([^"]+)")re");
+    static const pt::regex root_command(R"re(root_menu\.Insert\(\s*"([^"]+)")re");
     struct site {
         std::string_view path;
         std::uint32_t offset;

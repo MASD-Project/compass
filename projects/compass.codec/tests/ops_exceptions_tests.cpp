@@ -49,11 +49,14 @@ constexpr std::array<ct::rule, 2> sql_rules{{
     {"not_re_runnable", ""}, {"duplicate_index", ""}}};
 
 void diagnostics(const ct::corpus_view&, ct::diagnostic_table&) {}
-void files(const ct::corpus_view&, ct::file_table&) {}
+
+constexpr std::array<ct::rule, 1> gen_rules{{{"refused", ""}}};
+
+void files(const ct::corpus_view&, ct::file_output&) {}
 
 /**
  * @brief A registry with sql, a diagnostics codec that runs, off, one
- * that does not, and gen, a files codec that runs.
+ * that does not, and gen, a files codec that runs and may refuse.
  */
 ct::descriptor codec(std::string_view name, ct::codec_function run,
     std::span<const ct::rule> rules = {}) {
@@ -67,7 +70,8 @@ ct::descriptor codec(std::string_view name, ct::codec_function run,
 ct::registry registry() {
     ct::registry r;
     r.codecs = {codec("sql", &diagnostics, sql_rules),
-        codec("off", &diagnostics, sql_rules), codec("gen", &files)};
+        codec("off", &diagnostics, sql_rules),
+        codec("gen", &files, gen_rules)};
     r.enabled = {1, 0, 1};
     return r;
 }
@@ -256,6 +260,13 @@ TEST_CASE("an exception naming an unknown rule or an exception rule is "
     CHECK(e.excused == std::vector<std::uint8_t>{0, 0, 1});
     CHECK(rules_of(e) == std::vector<std::string>{
         "a.sql:1:exception/malformed", "a.sql:2:exception/malformed"});
+}
+
+TEST_CASE("a codec of files declares drift and the refusals it names",
+          "[ops_exceptions]") {
+    CHECK(status_of(registry(), "gen/drift") == rule_status::enabled);
+    CHECK(status_of(registry(), "gen/refused") == rule_status::enabled);
+    CHECK(status_of(registry(), "gen/other") == rule_status::unknown);
 }
 
 TEST_CASE("an exception of file scope excuses its rule anywhere in its "

@@ -29,7 +29,7 @@
 #include <span>
 #include <stdexcept>
 #include <string>
-#include <tuple>
+#include <type_traits>
 #include <unordered_map>
 #include <variant>
 #include <vector>
@@ -129,9 +129,18 @@ struct piece {
     std::vector<std::uint8_t> kept;
 };
 
+/**
+ * @brief Calls @p body with the tables of @p p a call emitting @p Output
+ * fills: the files and the refusals, or the diagnostics.
+ */
 template <typename Output>
-Output& output(piece& p) noexcept {
-    return std::get<Output&>(std::tie(p.files, p.diagnostics));
+void with_output(piece& p, auto&& body) {
+    if constexpr (std::is_same_v<Output, types::file_output>) {
+        types::file_output out{p.files, p.diagnostics};
+        body(out);
+    } else {
+        body(p.diagnostics);
+    }
 }
 
 /**
@@ -436,7 +445,7 @@ struct call {
         r.files_begin = static_cast<std::uint32_t>(p.files.size());
         r.diagnostics_begin = static_cast<std::uint32_t>(
             p.diagnostics.size());
-        body(output<Output>(p));
+        with_output<Output>(p, body);
         r.files_end = static_cast<std::uint32_t>(p.files.size());
         r.diagnostics_end = static_cast<std::uint32_t>(p.diagnostics.size());
     }

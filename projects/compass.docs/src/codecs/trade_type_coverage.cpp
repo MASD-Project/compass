@@ -28,6 +28,7 @@
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.cpp/ops/paths.hpp"
+#include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
 #include "compass.platform/text/regex.hpp"
 
@@ -368,7 +369,7 @@ std::vector<std::string> counts(const std::vector<row>& rows,
             "same product."};
 }
 
-void coverage(const ct::corpus_view& v, ct::file_table& out) {
+void coverage(const ct::corpus_view& v, ct::file_output& out) {
     try {
         const auto rows = mined_rows(v.read_file(mined_path).value_or(""));
         const auto catalogue_text = v.read_file(catalogue_path).value_or("");
@@ -391,27 +392,36 @@ void coverage(const ct::corpus_view& v, ct::file_table& out) {
         block.insert(block.end(), {"", std::string(end_marker)});
 
         const auto text = v.read_file(document_path);
-        if (!text || co::count(*text, begin_marker) != 1 ||
+        if (!text)
+            throw stopped("the note does not exist");
+        if (co::count(*text, begin_marker) != 1 ||
             co::count(*text, end_marker) != 1)
-            return;
+            throw stopped("the note does not hold its generated region once");
         for (const auto& r : rows)
             if (at(r, "in_catalogue") == "yes" &&
                 disagrees(r, entry_of(cat, at(r, "trade_type"))))
-                return;
+                throw stopped("the catalogue states a form for " +
+                    at(r, "trade_type") + " that ORE does not read it as");
         const auto tagged = unsupported(catalogue_text);
         std::set<std::string, std::less<>> unregistered;
         for (const auto& r : rows)
             if (at(r, "in_catalogue") == "yes" && at(r, "registered") == "no")
                 unregistered.insert(at(r, "trade_type"));
-        if (tagged != unregistered || std::ranges::any_of(tagged,
+        if (tagged != unregistered)
+            throw stopped("the catalogue's unsupported tags are not the "
+                "trade types ORE does not register");
+        if (std::ranges::any_of(tagged,
                 [&](const std::string& c) { return trades.recorded(c); }))
-            return;
+            throw stopped("a trade type tagged unsupported has a recorded "
+                "trade");
         const auto head = text->substr(0, text->find(begin_marker));
         const auto tail = text->substr(text->find(end_marker) +
             end_marker.size());
-        out.add(document_path, head + joined(block, "\n") + tail);
-    } catch (const stopped&) {
-        return;
+        out.files.add(document_path, head + joined(block, "\n") + tail);
+    } catch (const stopped& e) {
+        co::refuse(out, document_path, e.what(), "Run "
+            "build/scripts/generate_trade_type_coverage.py, which names the "
+            "problem, and correct the source it names.");
     }
 }
 
@@ -424,8 +434,8 @@ const ct::descriptor trade_type_coverage{
         "note.",
     .reads = ct::inputs::of_types({}),
     .options = {},
-    .rules = {},
+    .rules = co::refusal_rules,
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{coverage}};
+    .run = ct::corpus_function<ct::file_output>{coverage}};
 
 }

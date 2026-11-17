@@ -22,6 +22,7 @@
 #include <array>
 #include <map>
 #include <string>
+#include <vector>
 #include <catch2/catch_test_macros.hpp>
 #include "compass.codec/ops/registry.hpp"
 #include "compass.codec/ops/run.hpp"
@@ -33,7 +34,12 @@ using namespace compass;
 namespace ct = compass::codec::types;
 using files = std::map<std::string, std::string, std::less<>>;
 
-files generate(const files& all) {
+/**
+ * @brief The files pending_models writes over @p all, by path, and the
+ * message of each output it refuses, in @p refusals when given.
+ */
+files generate(const files& all,
+    std::vector<std::string>* refusals = nullptr) {
     ct::checkout_files checkout;
     for (const auto& [path, bytes] : all)
         checkout.paths.push_back(path);
@@ -55,6 +61,9 @@ files generate(const files& all) {
     const auto& f = r.files[0];
     for (std::uint32_t i = 0; i < f.size(); ++i)
         out.emplace(f.paths[ct::file_id{i}], f.contents[ct::file_id{i}]);
+    const auto& d = r.diagnostics[0];
+    for (std::uint32_t i = 0; i < d.size() && refusals != nullptr; ++i)
+        refusals->emplace_back(d.messages[ct::diagnostic_id{i}]);
     return out;
 }
 
@@ -311,14 +320,18 @@ TEST_CASE("a gated entity and a gated junction get the pending models ORE "
     }
 }
 
-TEST_CASE("a model the derivation refuses stops the codec",
-    "[codecs][pending_models]") {
+TEST_CASE("a model the derivation refuses is reported, and the others are "
+    "written", "[codecs][pending_models]") {
     auto all = tree();
     auto& thing = all.at("projects/ores.a/modeling/ores.a.thing.org");
     thing.replace(thing.find(":profile:"), 9, ":profiles");
 
-    // The models run in path order, so the junction before it is kept.
-    const auto out = generate(all);
+    std::vector<std::string> refusals;
+    const auto out = generate(all, &refusals);
     CHECK(out.size() == 1);
     CHECK(out.contains("projects/ores.a/modeling/ores.a.link_change.org"));
+    CHECK(refusals == std::vector<std::string>{
+        "projects/ores.a/modeling/ores.a.thing_change.org is not generated: "
+        "projects/ores.a/modeling/ores.a.thing.org: gated model has no "
+        "':profile:' flag"});
 }

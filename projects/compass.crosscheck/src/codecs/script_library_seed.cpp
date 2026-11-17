@@ -30,6 +30,7 @@
 #include <variant>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
 #include "compass.platform/text/regex.hpp"
 #include "compass.platform/text/xml.hpp"
@@ -516,14 +517,19 @@ std::string seed(const std::vector<script>& scripts) {
             "tenant_id, script_name, sequence_number");
 }
 
-void library_seed(const ct::corpus_view& v, ct::file_table& out) {
+void library_seed(const ct::corpus_view& v, ct::file_output& out) {
+    const auto fix = "Correct " + std::string(library_path) + ".";
     const auto text = v.read_file(library_path);
-    if (!text)
+    if (!text) {
+        co::refuse(out, seed_path, "cannot read " + std::string(library_path),
+            fix);
         return;
+    }
     try {
-        out.add(seed_path, seed(load(*text)));
-    } catch (const stopped&) {
-        return;
+        out.files.add(seed_path, seed(load(*text)));
+    } catch (const stopped& e) {
+        co::refuse(out, seed_path, std::string(library_path) + ": " +
+            e.what(), fix);
     }
 }
 
@@ -535,8 +541,8 @@ const ct::descriptor script_library_seed{
     .summary = "Writes the script library seed from ORE's script library.",
     .reads = ct::inputs::of_types({}),
     .options = {},
-    .rules = {},
+    .rules = co::refusal_rules,
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{library_seed}};
+    .run = ct::corpus_function<ct::file_output>{library_seed}};
 
 }

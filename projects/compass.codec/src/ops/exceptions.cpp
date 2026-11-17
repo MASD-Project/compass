@@ -250,10 +250,10 @@ rule_status status_of(const ct::registry& codecs, std::string_view rule) {
         const auto& d = codecs.codecs[c];
         if (d.name != codec)
             continue;
-        const bool declared = output_of(d) == ct::output_kind::files
-            ? name == drift_rule.name
-            : std::ranges::any_of(d.rules,
-                  [&](const ct::rule& r) { return r.name == name; });
+        const bool declared = (output_of(d) == ct::output_kind::files &&
+                name == drift_rule.name) ||
+            std::ranges::any_of(d.rules,
+                [&](const ct::rule& r) { return r.name == name; });
         if (!declared)
             return rule_status::unknown;
         return codecs.enabled[c] ? rule_status::enabled

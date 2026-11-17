@@ -61,7 +61,7 @@ constexpr std::array<std::string_view, 11> not_a_declaration{"#", "}",
 
 const pt::regex& lexeme() {
     static const pt::regex r(
-        R"re(R"\((?:.|\n)*?\)"|//[^\n]*|/\*.*?\*/|"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*')re",
+        R"re(R"([^()\\\s"]{0,16})\((?:.|\n)*?\)\1"|//[^\n]*|/\*.*?\*/|"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*')re",
         {.dotall = true});
     return r;
 }

@@ -34,4 +34,20 @@ void report(compass::codec::types::diagnostic_table& out,
         .file = file});
 }
 
+void refuse(compass::codec::types::file_output& out, std::string_view output,
+    std::string_view why, std::string_view fix) {
+    report(out.refusals, output, 0, 0, std::string(output) +
+        " is not generated: " + std::string(why), fix);
+}
+
+std::string listed(std::span<const std::string> problems) {
+    std::string out;
+    for (const auto& p : problems) {
+        if (!out.empty())
+            out += "; ";
+        out += p;
+    }
+    return out;
+}
+
 }

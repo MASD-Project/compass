@@ -72,14 +72,23 @@ TEST_CASE("each missing section is its own finding, in contract order",
     CHECK(d.messages[{1}] == "story document has no \"Status\" section");
 }
 
-TEST_CASE("a complete document is not reported, whatever the level, "
-    "keyword and tags of its headings", "[codecs][required_sections]") {
+TEST_CASE("a complete document is not reported, whatever the keyword and "
+    "tags of its headings", "[codecs][required_sections]") {
     tests::test_corpus t;
-    t.add("flat.org", "#+type: task\n* Goal\n* Result\n");
-    t.add("nested.org",
-        "#+type: task\n* Notes\n** DONE Goal :tag:\n*** Result\n");
+    t.add("flat.org", "#+type: task\n* Goal\n* DONE Result :tag:\n");
 
     CHECK(findings(t).size() == 0);
+}
+
+TEST_CASE("a required section is a heading of level 1, not one nested in "
+    "another section", "[codecs][required_sections]") {
+    tests::test_corpus t;
+    t.add("nested.org", "#+type: task\n* Goal\n* Notes\n** Result\n");
+
+    const auto d = findings(t);
+
+    REQUIRE(d.size() == 1);
+    CHECK(d.messages[{0}] == "task document has no \"Result\" section");
 }
 
 TEST_CASE("a section the contract calls optional is not required",

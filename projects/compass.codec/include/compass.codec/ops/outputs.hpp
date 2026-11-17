@@ -20,6 +20,7 @@
 #ifndef COMPASS_CODEC_OPS_OUTPUTS_HPP
 #define COMPASS_CODEC_OPS_OUTPUTS_HPP
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -42,10 +43,19 @@ inline constexpr std::uint32_t written_outputs_version = 1;
  * its record, but for a codec whose files were formatted, whose files and
  * IDs are its formatted ones. A path two parts of a staged codec emit
  * is taken once, from the later part. Every enabled codec of @p r is
- * complete: a run either calls a unit or reuses its recorded outputs.
+ * complete, as a run either calls a unit or reuses its recorded outputs,
+ * but for one that refused an output.
  */
 [[nodiscard]] types::output_set outputs_of(const types::registry& r,
     const types::run_result& result);
+
+/**
+ * @brief True when codec @p codec of @p r emits files and reported a
+ * refusal in @p result. Such a codec is not complete, so what it wrote
+ * before stays on disk.
+ */
+[[nodiscard]] bool refused(const types::registry& r,
+    const types::run_result& result, std::size_t codec);
 
 /**
  * @brief True when @p path names a file under an output root and nothing

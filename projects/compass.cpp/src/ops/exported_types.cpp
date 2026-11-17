@@ -19,6 +19,7 @@
  */
 #include "compass.cpp/ops/exported_types.hpp"
 
+#include "compass.cpp/ops/test_case_reachability.hpp"
 #include "compass.cpp/ops/text.hpp"
 
 namespace compass::cpp::ops {
@@ -85,6 +86,16 @@ std::optional<std::string_view> define_at(std::string_view text,
     return text.substr(i, end - i);
 }
 
+/**
+ * @brief An open #if group: whether the code around it is compiled, and
+ * whether one of its branches is known to be taken, by a condition of 1.
+ * A condition other than 0 or 1 may hold, so its branch counts.
+ */
+struct conditional {
+    bool outer_live = true;
+    bool taken = false;
+};
+
 bool has_library_guard(std::string_view text) {
     for (auto i = text.find('#'); i != std::string_view::npos;
          i = text.find('#', i + 1)) {
@@ -120,20 +131,48 @@ std::optional<std::string_view> export_macro(std::string_view header) {
 }
 
 std::vector<std::string_view> quoted_includes(std::string_view text) {
+    const auto blanked = blank_comments_and_literals(text);
+    std::vector<conditional> open;
+    bool live = true;
     std::vector<std::string_view> out;
-    for (auto i = text.find('#'); i != std::string_view::npos;) {
-        const auto open = after_word_and_spaces(text,
-            skip_spaces(text, i + 1), "include");
-        if (open != std::string_view::npos && open < text.size() &&
-            text[open] == '"') {
-            const auto close = text.find('"', open + 1);
-            if (close != std::string_view::npos && close > open + 1) {
-                out.push_back(text.substr(open + 1, close - open - 1));
-                i = text.find('#', close + 1);
+    for (std::size_t start = 0; start < text.size();) {
+        auto end = text.find('\n', start);
+        if (end == std::string_view::npos)
+            end = text.size();
+        const auto line = std::string_view(blanked).substr(start,
+            end - start);
+        const auto at = start;
+        start = end + 1;
+        auto i = skip_spaces(line, 0);
+        if (i >= line.size() || line[i] != '#')
+            continue;
+        i = skip_spaces(line, i + 1);
+        auto word_end = i;
+        while (word_end < line.size() && is_identifier(line[word_end]))
+            ++word_end;
+        const auto word = line.substr(i, word_end - i);
+        const auto condition = strip(line.substr(word_end));
+        if (word == "if" || word == "ifdef" || word == "ifndef") {
+            const auto known = word == "if" ? condition : "";
+            open.push_back({live, known == "1"});
+            live = live && known != "0";
+        } else if ((word == "elif" || word == "else") && !open.empty()) {
+            auto& c = open.back();
+            const auto known = word == "elif" ? condition : "1";
+            live = c.outer_live && !c.taken && known != "0";
+            c.taken = c.taken || known == "1";
+        } else if (word == "endif" && !open.empty()) {
+            live = open.back().outer_live;
+            open.pop_back();
+        } else if (word == "include" && live) {
+            const auto quote = at + skip_spaces(
+                text.substr(at, end - at), word_end);
+            if (quote >= end || text[quote] != '"')
                 continue;
-            }
+            const auto close = text.find('"', quote + 1);
+            if (close < end && close > quote + 1)
+                out.push_back(text.substr(quote + 1, close - quote - 1));
         }
-        i = text.find('#', i + 1);
     }
     return out;
 }

@@ -20,8 +20,10 @@
 #include "compass.codegen/ops/context.hpp"
 
 #include <cctype>
+#include <charconv>
 #include <map>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -231,6 +233,19 @@ void derive_component(compass::model::ops::builder& b, value_id component) {
     b.set(component, "has_app_config_decl", config_decl);
 }
 
+}
+
+int copyright_year(std::string_view codec, std::string_view option) {
+    if (option.empty())
+        throw std::runtime_error(std::string(codec) + ": set the option "
+            "year, the copyright year of the licence blocks");
+    int year = 0;
+    const auto end = option.data() + option.size();
+    const auto [at, error] = std::from_chars(option.data(), end, year);
+    if (error != std::errc{} || at != end || year < 1)
+        throw std::runtime_error(std::string(codec) + ": the option year is "
+            "not a year: " + std::string(option));
+    return year;
 }
 
 value_id library_values(compass::model::ops::builder& b,

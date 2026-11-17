@@ -45,7 +45,10 @@ the codec, set in the checkout's =.compass.org=.
   =convention_component=, the component of the catalogue whose modeling
   directory declares the convention families (=refdata=, which
   =convention_family_registry.py= names); =year=, the copyright year,
-  empty for the year of the run; =clang_format= and =prettier=, each a
+  required (=ops::copyright_year=): the year is configuration and never
+  the clock, so a warm and a cold run write the same bytes in any year,
+  and a new year is one change to the configuration, which reruns every
+  unit; =clang_format= and =prettier=, each a
   comma-separated list of candidate programs, a name searched on =PATH= and
   a path relative to the checkout, empty for none; and
   =clang_format_style= and =prettier_style=, their style files.
@@ -148,7 +151,9 @@ the codec, set in the checkout's =.compass.org=.
   =clang_format_files= and =prettier_format_files= run them. The runtime
   formats the codec's files through the result cache in every run.
 - *=component_files=.* ORE Studio's =cmake-sources= generator
-  (=regenerate_cmake_component_files.py --all=), off by default. A corpus
+  (=regenerate_cmake_component_files.py --all=), off by default. Its
+  options are =library= and =year=, which, as for =codegen=, is required
+  and never the clock. A corpus
   codec that reads no document: each =projects/**/modeling/component_overview.org=
   with a =#+full_name:= line is a component, the later path winning a
   shared name. For its =src= and =tests= directories that hold a
@@ -165,7 +170,9 @@ the codec, set in the checkout's =.compass.org=.
   section sets =:gated:= or =:pending_change:= true, it writes
   =ores.<component>.<singular>_change.org= beside it as the script derives
   it, its =:ID:= the uuid5 =ops::uuid5= gives. A model the script refuses
-  stops the codec there, as it stops the script.
+  is refused, as a =refused= finding on its pending model that names the
+  model and the reason; the other models are still written, and the codec
+  removes none of the files it wrote before.
 
 | Outputs at ORE Studio =5ce3cd7e6c=    | Identical | Of    |
 |---------------------------------------+-----------+-------|

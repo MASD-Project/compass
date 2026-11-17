@@ -130,7 +130,7 @@ bool in_search(std::string_view path) {
     return path.starts_with("doc/") || path.starts_with("projects/modeling/");
 }
 
-void run(const ct::corpus_view& v, ct::file_table& out) {
+void run(const ct::corpus_view& v, ct::file_output& out) {
     static const pt::regex id(R"(^:ID:\s*(\S+)\s*$)", {.multiline = true});
     static const pt::regex link(
         R"(\[\[id:([0-9A-Fa-f-]{36})\]\[([^\]]*)\]\])");
@@ -184,7 +184,7 @@ void run(const ct::corpus_view& v, ct::file_table& out) {
             add(target, false);
     }
     for (const auto& target : written)
-        out.add(docs.at(target).path, docs.at(target).text);
+        out.files.add(docs.at(target).path, docs.at(target).text);
 }
 
 }
@@ -198,6 +198,6 @@ const ct::descriptor structure_notes{
     .options = {},
     .rules = {},
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{run}};
+    .run = ct::corpus_function<ct::file_output>{run}};
 
 }

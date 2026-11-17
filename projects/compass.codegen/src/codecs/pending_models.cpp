@@ -32,6 +32,7 @@
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.codegen/ops/template_context.hpp"
 #include "compass.cpp/ops/paths.hpp"
+#include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
 #include "compass.platform/text/regex.hpp"
 
@@ -586,27 +587,28 @@ std::string derive(const ct::corpus_view& v, std::string_view path,
     return out;
 }
 
-void derive_all(const ct::corpus_view& v, ct::file_table& out) {
+void derive_all(const ct::corpus_view& v, ct::file_output& out) {
     auto models = v.list_files("projects/", ".org");
     std::erase_if(models, [](std::string_view p) {
         return !co::glob_matches("projects/*/modeling/ores.*.org", p);
     });
     std::ranges::stable_sort(models, co::component_less);
-    try {
-        for (const auto path : models) {
-            const auto text = v.read_file(path).value_or("");
-            if (!is_gated(text))
-                continue;
-            const auto front = split_model(text).front;
-            auto singular = keyword(front, "entity_singular");
-            if (singular.empty())
-                singular = keyword(front, "name_singular");
-            const auto target = std::string(co::parent_of(path)) + "/ores." +
-                keyword(front, "component") + "." + singular + "_change.org";
-            out.add(target, derive(v, path, text));
+    for (const auto path : models) {
+        const auto text = v.read_file(path).value_or("");
+        if (!is_gated(text))
+            continue;
+        const auto front = split_model(text).front;
+        auto singular = keyword(front, "entity_singular");
+        if (singular.empty())
+            singular = keyword(front, "name_singular");
+        const auto target = std::string(co::parent_of(path)) + "/ores." +
+            keyword(front, "component") + "." + singular + "_change.org";
+        try {
+            out.files.add(target, derive(v, path, text));
+        } catch (const refused& e) {
+            co::refuse(out, target, std::string(path) + ": " + e.what(),
+                "Correct the gated model the reason names.");
         }
-    } catch (const refused&) {
-        return;
     }
 }
 
@@ -618,8 +620,8 @@ const ct::descriptor pending_models{
     .summary = "Writes the pending-change model of every gated model.",
     .reads = ct::inputs::of_types({}),
     .options = {},
-    .rules = {},
+    .rules = co::refusal_rules,
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{derive_all}};
+    .run = ct::corpus_function<ct::file_output>{derive_all}};
 
 }

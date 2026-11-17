@@ -27,11 +27,11 @@ namespace compass::codec::codecs {
 namespace {
 
 void run(const types::document& d, const types::corpus_view& v,
-    types::file_table& out) {
+    types::file_output& out) {
     if (!ops::in_directory(d.path, v.option("directory")))
         return;
     for (const auto& t : ops::tangle(d).targets)
-        out.add(t.path, t.content);
+        out.files.add(t.path, t.content);
 }
 
 }
@@ -45,6 +45,6 @@ const types::descriptor tangle{
     .options = ops::tangle_scope,
     .rules = {},
     .enabled_by_default = false,
-    .run = types::document_function<types::file_table>{run}};
+    .run = types::document_function<types::file_output>{run}};
 
 }

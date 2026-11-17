@@ -27,6 +27,16 @@
 namespace compass::codegen::ops {
 
 /**
+ * @brief The copyright year the option year of the codec @p codec gives.
+ * The year is configuration, never the clock, so a run in another year
+ * writes the same bytes and a new year is one deliberate change.
+ * @throws std::runtime_error naming @p codec when @p option is empty or
+ * not a year.
+ */
+[[nodiscard]] int copyright_year(std::string_view codec,
+    std::string_view option);
+
+/**
  * @brief The values every context starts from, which core.load_data and
  * generate_from_model read from the library's data directory: the licence
  * text as licence-GPL-v3, the four modelines of @p modeline_org as

@@ -109,7 +109,7 @@ inline constexpr types::rule drift_rule{"drift", "Every file a codec "
 /**
  * @brief Whether a rule named codec/rule is one no codec of a registry
  * declares, one of a codec that does not run, or one of a codec that
- * runs. A codec that emits files declares drift.
+ * runs. A codec that emits files declares drift besides its own rules.
  */
 enum class rule_status : std::uint8_t { unknown, disabled, enabled };
 

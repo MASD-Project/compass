@@ -66,17 +66,31 @@ TEST_CASE("a skill outside the compass namespace is reported",
         places{{"doc/llm/skills/review/SKILL.org", 1}});
 }
 
-TEST_CASE("only a plain pull_request trigger is reported",
-    "[codecs][no_pr_triggers]") {
+TEST_CASE("a pull_request or pull_request_target event of on is reported, "
+    "in any form YAML states it", "[codecs][no_pr_triggers]") {
     const files t{
         {".github/workflows/a.yml",
          "on:\n  push:\n  pull_request:  \n  pull_request_review:\n"
          "#  pull_request:\n    pull_request:\n"},
         {".github/workflows/b.yaml", "on:\n  pull_request:\n"},
-        {".github/workflows/sub/c.yml", "on:\n  pull_request:\n"}};
+        {".github/workflows/sub/c.yml", "on:\n  pull_request:\n"},
+        {".github/workflows/d.yml", "name: d\non: [push, pull_request]\n"},
+        {".github/workflows/e.yml", "on: pull_request_target # risky\n"},
+        {".github/workflows/f.yml",
+         "on:\n    pull_request_target:\n      types: [opened]\n"},
+        {".github/workflows/g.yml", "\"on\":\n  - push\n  - pull_request\n"},
+        {".github/workflows/h.yml", "on: { pull_request: {}, push: {} }\n"},
+        {".github/workflows/i.yml",
+         "on:\n  pull_request_review:\njobs:\n  pull_request:\n"
+         "    runs-on: x\n"}};
     CHECK(tests::places(tests::run(codecs::no_pr_triggers, t)) ==
         places{{".github/workflows/a.yml", 3},
-            {".github/workflows/b.yaml", 2}});
+            {".github/workflows/b.yaml", 2},
+            {".github/workflows/d.yml", 2},
+            {".github/workflows/e.yml", 1},
+            {".github/workflows/f.yml", 2},
+            {".github/workflows/g.yml", 3},
+            {".github/workflows/h.yml", 1}});
     CHECK(tests::run(codecs::no_pr_triggers, {{"x.yml", ""}}).size() == 1);
 }
 

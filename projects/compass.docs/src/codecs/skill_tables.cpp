@@ -29,6 +29,7 @@
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.cpp/ops/glob.hpp"
+#include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
 #include "compass.docs/ops/regions.hpp"
 #include "compass.docs/ops/skills.hpp"
@@ -108,10 +109,13 @@ std::optional<std::array<std::string, 3>> skill_meta(
         std::string(co::strip(t->group(1))), desc};
 }
 
-void catalogue(const ct::corpus_view& v, ct::file_table& out) {
+void catalogue(const ct::corpus_view& v, ct::file_output& out) {
     const auto text = v.read_file(catalogue_path);
-    if (!text)
+    if (!text) {
+        co::refuse(out, catalogue_path, "the page does not exist",
+            "Restore the page with its generated region.");
         return;
+    }
     std::map<std::string_view, std::vector<std::string>> groups;
     const auto names = skill_names(v);
     for (const auto& name : names) {
@@ -133,8 +137,12 @@ void catalogue(const ct::corpus_view& v, ct::file_table& out) {
         parts.emplace_back("|------+-------+-------------|");
         for (const auto& name : members) {
             const auto meta = skill_meta(v, name);
-            if (!meta)
+            if (!meta) {
+                co::refuse(out, catalogue_path, "the skill " + name +
+                    " has no :ID:, #+title: or description: line",
+                    "Give the skill's SKILL.org the line it lacks.");
                 return;
+            }
             parts.push_back("| [[id:" + (*meta)[0] + "][" + name + "]] | " +
                 (*meta)[1] + " | " + (*meta)[2] + " |");
         }
@@ -143,7 +151,11 @@ void catalogue(const ct::corpus_view& v, ct::file_table& out) {
     parts.emplace_back(catalogue_end);
     if (const auto fresh = ops::replace_region(*text, catalogue_begin,
             catalogue_end, ops::join_lines(parts), ops::replace::first))
-        out.add(catalogue_path, *fresh);
+        out.files.add(catalogue_path, *fresh);
+    else
+        co::refuse(out, catalogue_path, "the page has no generated catalogue "
+            "region", "Restore its BEGIN and END generated catalogue "
+            "markers.");
 }
 
 constexpr std::string_view tables_script =
@@ -294,10 +306,15 @@ std::string show_table(std::string_view compass) {
     return ops::join_lines(lines);
 }
 
-void type_tables(const ct::corpus_view& v, ct::file_table& out) {
+void type_tables(const ct::corpus_view& v, ct::file_output& out) {
+    const auto add_skill = std::string(skills_dir) +
+        "compass-doc-add/SKILL.org";
     const auto compass = v.read_file(compass_py);
-    if (!compass)
+    if (!compass) {
+        co::refuse(out, add_skill, "cannot read " + std::string(compass_py),
+            "Restore the file, or move the generator to where it went.");
         return;
+    }
     struct target {
         std::string path;
         std::string begin;
@@ -305,7 +322,7 @@ void type_tables(const ct::corpus_view& v, ct::file_table& out) {
         std::string block;
     };
     const target targets[] = {
-        {std::string(skills_dir) + "compass-doc-add/SKILL.org",
+        {add_skill,
             "# BEGIN generated types (" + std::string(tables_script) + ")",
             "# END generated types", add_table(v, *compass)},
         {std::string(skills_dir) + "compass-doc-show/SKILL.org",
@@ -313,11 +330,17 @@ void type_tables(const ct::corpus_view& v, ct::file_table& out) {
             "# END generated targets", show_table(*compass)}};
     for (const auto& t : targets) {
         const auto text = v.read_file(t.path);
-        if (!text)
+        if (!text) {
+            co::refuse(out, t.path, "the skill page does not exist",
+                "Restore the skill with its generated region.");
             return;
+        }
         if (const auto fresh = ops::replace_region(*text, t.begin, t.end,
                 t.block, ops::replace::every))
-            out.add(t.path, *fresh);
+            out.files.add(t.path, *fresh);
+        else
+            co::refuse(out, t.path, "the page has no region " + t.begin,
+                "Restore the region's BEGIN and END markers.");
     }
 }
 
@@ -403,7 +426,7 @@ std::optional<std::pair<std::string, std::string>> recipe_line(
         std::string(link.why) + "."};
 }
 
-void recipes(const ct::corpus_view& v, ct::file_table& out) {
+void recipes(const ct::corpus_view& v, ct::file_output& out) {
     static const pt::regex section(R"(^\* Recipes\s*$(.*?)(?=^\* ))",
         {.dotall = true, .multiline = true});
     for (const auto& owner : owners) {
@@ -442,7 +465,7 @@ void recipes(const ct::corpus_view& v, ct::file_table& out) {
         if (!recipes_found)
             continue;
         if (added.empty()) {
-            out.add(path, *text);
+            out.files.add(path, *text);
             continue;
         }
         auto existing = std::string_view(body);
@@ -453,7 +476,7 @@ void recipes(const ct::corpus_view& v, ct::file_table& out) {
         const auto fresh_body = existing.empty()
             ? "\n\n" + added + "\n\n"
             : "\n\n" + std::string(existing) + "\n" + added + "\n\n";
-        out.add(path, text->substr(0, start) + fresh_body + text->substr(end));
+        out.files.add(path, text->substr(0, start) + fresh_body + text->substr(end));
     }
 }
 
@@ -465,9 +488,9 @@ const ct::descriptor skill_catalogue{
     .summary = "Writes the generated catalogue of the skills.",
     .reads = ct::inputs::of_types({}),
     .options = {},
-    .rules = {},
+    .rules = co::refusal_rules,
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{catalogue}};
+    .run = ct::corpus_function<ct::file_output>{catalogue}};
 
 const ct::descriptor skill_type_tables{
     .name = "skill_type_tables",
@@ -476,9 +499,9 @@ const ct::descriptor skill_type_tables{
         "the polymorphic skills.",
     .reads = ct::inputs::of_types({}),
     .options = {},
-    .rules = {},
+    .rules = co::refusal_rules,
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{type_tables}};
+    .run = ct::corpus_function<ct::file_output>{type_tables}};
 
 const ct::descriptor skill_recipes{
     .name = "skill_recipes",
@@ -489,6 +512,6 @@ const ct::descriptor skill_recipes{
     .options = {},
     .rules = {},
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{recipes}};
+    .run = ct::corpus_function<ct::file_output>{recipes}};
 
 }

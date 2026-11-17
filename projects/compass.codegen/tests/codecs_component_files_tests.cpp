@@ -23,6 +23,7 @@
 #include <map>
 #include <string>
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_string.hpp>
 #include "compass.codec/ops/registry.hpp"
 #include "compass.codec/ops/run.hpp"
 #include "compass.store/ops/blob_hash.hpp"
@@ -35,9 +36,9 @@ using files = std::map<std::string, std::string, std::less<>>;
 
 /**
  * @brief Runs component_files alone over a checkout of @p all, none of it
- * a document, and returns what it writes.
+ * a document, with the option year @p year, and returns what it writes.
  */
-files generate(const files& all) {
+files generate(const files& all, std::string_view year = "2026") {
     ct::checkout_files checkout;
     for (const auto& [path, bytes] : all)
         checkout.paths.push_back(path);
@@ -52,7 +53,7 @@ files generate(const files& all) {
     const org::types::type_registry types;
     ct::configuration configuration;
     configuration.set("component_files", "enabled", "true");
-    configuration.set("component_files", "year", "2026");
+    configuration.set("component_files", "year", year);
     const std::array codecs{codegen::codecs::component_files};
     const auto r = codec::ops::run(codec::ops::make_registry(codecs, types,
         configuration), corpus, types, 2);
@@ -112,6 +113,15 @@ TEST_CASE("each CMake directory of a modelled component lists its sources "
         "H ['ores.a/x.hpp']\n");
     CHECK(out.at("projects/ores.b/tests/component_files.cmake") ==
         "tests ['t.cpp']\n");
+}
+
+TEST_CASE("the copyright year is the configured one, and an empty year is "
+    "refused rather than taken from the clock", "[codecs][component_files]") {
+    CHECK(generate(tree(), "2031").at("projects/ores.a/src/"
+        "component_files.cmake").find("# Copyright (C) 2031 Marco") !=
+        std::string::npos);
+    CHECK_THROWS_WITH(generate(tree(), ""), "component_files: set the option "
+        "year, the copyright year of the licence blocks");
 }
 
 TEST_CASE("a component with no include directory lists no headers",

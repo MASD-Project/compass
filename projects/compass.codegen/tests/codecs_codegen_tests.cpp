@@ -32,6 +32,7 @@
 #include <vector>
 #include <unistd.h>
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_string.hpp>
 #include "compass.codec/ops/outputs.hpp"
 #include "compass.codec/ops/registry.hpp"
 #include "compass.codec/ops/run.hpp"
@@ -399,14 +400,18 @@ TEST_CASE("an output two models name is written once, from the later",
     CHECK(edited.text.find("project(ores.b)") != std::string::npos);
 }
 
-TEST_CASE("the codegen codec needs its library and convention component",
-    "[codegen][codec]") {
+TEST_CASE("the codegen codec needs its library, convention component and "
+    "year", "[codegen][codec]") {
     CHECK_THROWS_AS(codegen::codecs::settings_of(values_of(
         {"", "refdata", "", "", "", "", ""})), std::runtime_error);
     CHECK_THROWS_AS(codegen::codecs::settings_of(values_of(
         {"lib", "", "", "", "", "", ""})), std::runtime_error);
     CHECK_THROWS_AS(codegen::codecs::settings_of(values_of(
         {"lib", "refdata", "20x6", "", "", "", ""})), std::runtime_error);
+    CHECK_THROWS_WITH(codegen::codecs::settings_of(values_of(
+        {"lib", "refdata", "", "", "", "", ""})),
+        "codegen: set the option year, the copyright year of the licence "
+        "blocks");
     const auto s = codegen::codecs::settings_of(values_of(
         {"lib//", "refdata", "2031", "", "", "", ""}));
     CHECK(s.library == "lib");

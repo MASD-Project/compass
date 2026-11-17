@@ -16,7 +16,8 @@ the domain layer of the
 * Summary
 
 Every output and every check of compass-ng is a /codec/: a function that reads
-the corpus in memory and emits either files or diagnostics. =compass.codec=
+the corpus in memory and emits either files or diagnostics; a codec of files
+also reports each output it refuses to produce. =compass.codec=
 defines what a codec is and runs codecs. It does not load the corpus. A host
 loads the documents, calls the runner and decides what happens to the result:
 write it, diff it, cache it or report it. A codec never writes a file; when the
@@ -69,23 +70,34 @@ others is in its descriptor, so adding a codec adds a row to a list.
   stored, with no bump; see /Code hash/ below. The function
   is one of four types, and its type is the only statement of two facts: a
   =document_function= is called once per document and a =corpus_function=
-  once over all of them, and each emits a =file_table= or a
-  =diagnostic_table=. A =scan_function= is a corpus function of
+  once over all of them, and each emits a =file_output= or a
+  =diagnostic_table=. A =file_output= is a =file_table= and the
+  /refusals/ of the call (see /Refusal/). A =scan_function= is a corpus function of
   diagnostics in two steps (see /Scan/), and a =staged_function= a corpus
   function of files in a prepare step and parts (see /Staged codec/).
   =unit_of= and =output_of= read both facts back.
-- *Rules.* =types::rule= is one rule a diagnostics codec enforces: its
+- *Refusal.* A codec of files that cannot produce an output, because an
+  input is missing or does not parse, adds a finding to the refusals of
+  its =file_output= saying why, under a rule it declares, and emits the
+  files it can. The finding is recorded with the unit, as any other, and
+  =compass check= reports it, so a generator that cannot run fails the
+  check where its script would have failed. A codec that refused in a run
+  is not complete (see /Output set/), so the sink removes none of its
+  files: the file a good run wrote stays on disk, unchanged, until a run
+  that does not refuse writes it again. The hook takes the same rule.
+- *Rules.* =types::rule= is one rule a diagnostics codec enforces, or one
+  reason a codec of files refuses an output: its
   name, unique within the codec, so that =codec/rule= names it in a finding
   and in an inline exception; a one-line statement of what it enforces;
   and =enforces=, the =:ID:= of each memory or document that states the
   rule in prose, as uppercase UUIDs, empty when none does. The rules the
   runtime reports without a codec declaring them are constants beside
   =ops::excuse=: =ops::exception_rules=, under =ops::exception_codec=, and
-  =ops::drift_rule=, which every files codec declares. The descriptors
+  =ops::drift_rule=, which every files codec declares besides its own. The descriptors
   are the one source of this metadata, and the rule table is generated
   from it.
 - *Rule table.* =ops::rules_of= lists every rule of a catalogue: the
-  rules of the diagnostics codecs by codec name, each codec's in the
+  rules each codec declares, by codec name, each codec's in the
   order it declares them, then the exception rules, then drift once for
   all files codecs. =ops::rule_table= renders them as an org knowledge
   page, one table row per rule with its codec, name, statement and a link
@@ -354,7 +366,8 @@ others is in its descriptor, so adding a codec adds a row to a list.
   was reused. =ops::outputs_of= builds it from a =run_result=, from the
   record but for formatted codecs; a path two parts of a staged codec
   emit is taken once, from the later part; every enabled codec is
-  complete. =ops::check_outputs= lists a path that is not plain
+  complete but one that refused an output (=ops::refused=).
+  =ops::check_outputs= lists a path that is not plain
   relative (absolute, empty, or with an empty, =.= or =..= component) and a
   path two rows produce, naming both codecs.
 - *Output sink.* The sink is a plan and an apply. =io::plan_outputs= reads
@@ -434,8 +447,9 @@ others is in its descriptor, so adding a codec adds a row to a list.
   of the paths. The option =path= names the file and defaults to
   =doc/document_index.tsv=.
 - *=required_sections=.* A document codec over every typed document. It
-  reports each section the type requires and no heading of the document
-  carries, under the rule =missing_section=. The fix names the heading to add.
+  reports each section the type requires and no heading of level 1 of the
+  document carries, under the rule =missing_section=; a heading nested in
+  another section is not the section. The fix names the heading to add.
 - *Tangling.* =ops::tangle= does what org-babel-tangle-file does under
   =emacs -Q=, without Emacs. It reads the block table of one document and
   returns the files its source blocks tangle to and the blocks it cannot
@@ -476,14 +490,15 @@ others is in its descriptor, so adding a codec adds a row to a list.
   documents that tangle to one path, and names the path.
 - *=tangle_check=.* A document codec over every document that reports each
   problem of =ops::tangle=, under the rules =unsupported_header_argument=
-  and =target_outside_checkout=. It is a codec of its own because a codec
-  emits files or diagnostics, not both. Enable it with =tangle=.
+  and =target_outside_checkout=. It is still a codec of its own; now that
+  a codec of files reports its refusals, it can become =tangle='s.
+  Enable it with =tangle=.
 
 * Entry points
 
 | Path                                                | Role                                                                                   |
 |-----------------------------------------------------+----------------------------------------------------------------------------------------|
-| =include/compass.codec/types/descriptor.hpp=        | =descriptor=, =inputs=, =option=, =rule=, the function types, =stage= and =part_sink=. |
+| =include/compass.codec/types/descriptor.hpp=        | =descriptor=, =inputs=, =option=, =rule=, =file_output=, the function types, =stage= and =part_sink=. |
 | =include/compass.codec/types/corpus.hpp=            | The corpus a host fills.                                                               |
 | =include/compass.codec/types/checkout_files.hpp=    | Every file of the checkout, for file inputs.                                           |
 | =include/compass.codec/types/corpus_view.hpp=       | =document=, =read_log= and =corpus_view=.                                              |

@@ -119,6 +119,19 @@ TEST_CASE("an ID in a heading's drawer resolves a link, in any case",
     CHECK(tests::run(codecs::lint, t).empty());
 }
 
+TEST_CASE("an :ID: line inside a block is an example, not a page's ID",
+    "[codecs][lint]") {
+    const files t{
+        {"doc/a.org", page(target_id, "knowledge",
+            "#+begin_example\n:PROPERTIES:\n:ID: " + task_id +
+            "\n:END:\n#+end_example\n"
+            "  #+BEGIN_SRC org\n:ID: " + task_id + "\n  #+END_SRC\n")},
+        {"doc/b.org", "[[id:" + task_id + "][example]]\n"}};
+    CHECK(tests::messages(tests::run(codecs::lint, t)) ==
+        std::vector<std::string>{"[[id:" + task_id + "]] -> example "
+            "resolves to no :ID: in the corpus"});
+}
+
 TEST_CASE("a durable page linking an agile one is reported only with "
     "strict_links", "[codecs][lint]") {
     const files t{

@@ -19,7 +19,9 @@
  */
 #include "compass.docs/codecs/tree_gates.hpp"
 
+#include <algorithm>
 #include <array>
+#include <cstdint>
 #include <set>
 #include <string>
 #include <vector>
@@ -119,8 +121,69 @@ constexpr std::array<ct::rule, 2> trigger_rules{{
         pull_request_trigger_sources},
     {"no_workflows", "The repository has workflow files to read."}}};
 
+bool is_pull_request_event(std::string_view word) {
+    return word == "pull_request" || word == "pull_request_target";
+}
+
+/**
+ * @brief @p line without a YAML comment: from a # at its start or after a
+ * blank.
+ */
+std::string_view uncommented(std::string_view line) {
+    for (std::size_t i = 0; i < line.size(); ++i)
+        if (line[i] == '#' && (i == 0 || co::is_space(line[i - 1])))
+            return line.substr(0, i);
+    return line;
+}
+
+/**
+ * @brief The 1-based lines of @p lines that name a pull request event of
+ * the workflow's top-level on key, stated as a scalar, a flow sequence or
+ * mapping, or a block sequence or mapping at any indentation.
+ */
+std::vector<std::uint32_t> pull_request_events(
+    const std::vector<std::string_view>& lines) {
+    static const pt::regex on_key(R"(^(?:on|"on"|'on')\s*:(.*)$)");
+    static const pt::regex word(R"([A-Za-z0-9_-]+)");
+    std::vector<std::uint32_t> out;
+    for (std::size_t n = 0; n < lines.size(); ++n) {
+        const auto m = on_key.match(lines[n]);
+        if (!m)
+            continue;
+        const auto inline_value = co::strip(uncommented(m->group(1)));
+        if (!inline_value.empty()) {
+            const auto words = word.find_all(inline_value);
+            if (std::ranges::any_of(words, [](const auto& w) {
+                    return is_pull_request_event(w.group());
+                }))
+                out.push_back(static_cast<std::uint32_t>(n + 1));
+            continue;
+        }
+        std::size_t child = 0;
+        for (auto k = n + 1; k < lines.size(); ++k) {
+            const auto content = co::strip(uncommented(lines[k]));
+            if (content.empty())
+                continue;
+            const auto indent = co::skip_spaces(lines[k], 0);
+            if (indent == 0)
+                break;
+            if (child == 0)
+                child = indent;
+            if (indent != child)
+                continue;
+            auto key = content.starts_with("- ")
+                ? co::strip(content.substr(2))
+                : content.substr(0, content.find(':'));
+            if (key.size() >= 2 && (key.front() == '"' || key.front() == '\''))
+                key = key.substr(1, key.size() - 2);
+            if (is_pull_request_event(key))
+                out.push_back(static_cast<std::uint32_t>(k + 1));
+        }
+    }
+    return out;
+}
+
 void workflow_triggers(const ct::corpus_view& v, ct::diagnostic_table& out) {
-    static const pt::regex trigger(R"(^  pull_request:\s*$)");
     std::set<std::string_view> files;
     for (const auto suffix : {"*.yml", "*.yaml"}) {
         for (const auto p : co::glob(v, std::string(".github/workflows/") +
@@ -136,11 +199,7 @@ void workflow_triggers(const ct::corpus_view& v, ct::diagnostic_table& out) {
     for (const auto path : files) {
         const auto bytes = v.read_file(path).value_or("");
         const auto text = pt::universal_newlines(pt::decode_replacing(bytes));
-        std::uint32_t number = 0;
-        for (const auto line : co::split_lines(text)) {
-            ++number;
-            if (co::strip(line).starts_with('#') || !trigger.match(line))
-                continue;
+        for (const auto number : pull_request_events(co::split_lines(text))) {
             co::report(out, path, co::offset_of_line(bytes, number), 0,
                 "the workflow triggers on a pull request", "GitHub runs no "
                 "pull-request check: the local runner is the gate. Drop the "

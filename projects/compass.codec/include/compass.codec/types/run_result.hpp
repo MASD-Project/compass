@@ -36,8 +36,9 @@ namespace compass::codec::types {
  * codec, indexed by codec_id.
  *
  * documents counts the documents the codec was given, and is zero for a
- * disabled codec, which is not called. A codec fills one of files and
- * diagnostics and leaves the other empty. Their rows are in the order one
+ * disabled codec, which is not called. A codec of diagnostics fills only
+ * diagnostics; a codec of files fills files, and diagnostics with the
+ * outputs it refused. Their rows are in the order one
  * thread calling the codec document by document would produce, whatever
  * the thread count and whether each unit ran or was skipped. A unit is
  * one call: one per document for a document codec, one for a corpus

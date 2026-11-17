@@ -96,6 +96,17 @@ struct rule {
 };
 
 /**
+ * @brief What one call of a codec of files emits: the files, and a
+ * finding for each output it refuses to produce, which says why. A codec
+ * that reports a refusal keeps on disk every file it wrote before, so a
+ * refusal after a good run never removes the file that run wrote.
+ */
+struct file_output {
+    file_table& files;
+    diagnostic_table& refusals;
+};
+
+/**
  * @brief A codec that is run once per visible document.
  *
  * The first argument is the document to work on. The view gives the codec
@@ -251,15 +262,16 @@ struct staged_function {
 
 /**
  * @brief The function of a codec. Its type says what one call works on, a
- * document or the corpus, and what it emits, files or diagnostics. A scan
- * is a corpus function of diagnostics, and a staged function a corpus
- * function of files.
+ * document or the corpus, and what it emits, files or diagnostics. A
+ * codec of files may also refuse an output, as a finding. A scan is a
+ * corpus function of diagnostics, and a staged function a corpus function
+ * of files.
  *
  * A function reads only through its arguments and writes only to its
  * output table, so calls may run on any thread, in any order.
  */
-using codec_function = std::variant<document_function<file_table>,
-    document_function<diagnostic_table>, corpus_function<file_table>,
+using codec_function = std::variant<document_function<file_output>,
+    document_function<diagnostic_table>, corpus_function<file_output>,
     corpus_function<diagnostic_table>, scan_function, staged_function>;
 
 /**
@@ -283,8 +295,9 @@ using formatters_function = std::vector<formatter> (*)(
  * a result an older build stored. A result is kept under the name, the
  * version, the code, the option values and the content IDs of the
  * documents read, so a change to any of them runs the codec again.
- * rules is empty for a codec that emits files. formatters is null for a
- * codec whose files are written as it emits them.
+ * rules holds, for a codec of files, the reasons it may refuse an output,
+ * and is empty for one that never refuses. formatters is null for a codec
+ * whose files are written as it emits them.
  *
  * A descriptor is constant data: every span and string points at storage
  * that outlives the registry it is added to.
@@ -311,7 +324,7 @@ enum class output_kind : std::uint8_t { files, diagnostics };
 [[nodiscard]] constexpr unit unit_of(const descriptor& d) noexcept {
     if (std::holds_alternative<staged_function>(d.run))
         return unit::staged;
-    return std::holds_alternative<document_function<file_table>>(d.run) ||
+    return std::holds_alternative<document_function<file_output>>(d.run) ||
         std::holds_alternative<document_function<diagnostic_table>>(d.run)
         ? unit::document : unit::corpus;
 }
@@ -320,8 +333,8 @@ enum class output_kind : std::uint8_t { files, diagnostics };
  * @brief What the codec emits.
  */
 [[nodiscard]] constexpr output_kind output_of(const descriptor& d) noexcept {
-    return std::holds_alternative<document_function<file_table>>(d.run) ||
-        std::holds_alternative<corpus_function<file_table>>(d.run) ||
+    return std::holds_alternative<document_function<file_output>>(d.run) ||
+        std::holds_alternative<corpus_function<file_output>>(d.run) ||
         std::holds_alternative<staged_function>(d.run)
         ? output_kind::files : output_kind::diagnostics;
 }

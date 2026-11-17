@@ -19,6 +19,7 @@
  */
 #include "compass.cpp/codecs/shell.hpp"
 
+#include <algorithm>
 #include <catch2/catch_test_macros.hpp>
 #include "test_checkout.hpp"
 
@@ -74,6 +75,17 @@ TEST_CASE("a menu with a prompt and a name two units own are reported",
         {"projects/ores.shell/refdata/src/books.cpp", 4},
         {"projects/ores.shell/refdata/src/books.cpp", 3},
         {"projects/ores.shell/refdata/src/books.cpp", 2}});
+}
+
+TEST_CASE("a root command inserted on one line owns its name",
+    "[codecs][shell_menus]") {
+    auto all = tree();
+    all["projects/ores.shell/refdata/src/quit.cpp"] =
+        "void wire() { root_menu.Insert(\"quit\", quit); }\n";
+    const auto r = tests::run(codecs::shell_menus, all);
+    CHECK(std::ranges::count(tests::places(r.findings),
+        std::pair<std::string, std::uint32_t>{
+            "projects/ores.shell/refdata/src/quit.cpp", 1}) == 1);
 }
 
 TEST_CASE("a generated command unit no application source registers is "

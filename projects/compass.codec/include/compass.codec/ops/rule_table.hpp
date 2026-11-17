@@ -46,7 +46,7 @@ struct rule_row {
 inline constexpr std::string_view every_files_codec = "/each files codec/";
 
 /**
- * @brief Every rule of @p catalogue: the rules of the diagnostics codecs
+ * @brief Every rule of @p catalogue: the rules each codec declares,
  * ordered by codec name, each codec's in the order it declares them, then
  * the exception rules, then drift once for every codec that emits files.
  */

@@ -87,10 +87,12 @@ the parsed tables.
   =outside_namespace=: a skill directory under =doc/llm/skills= not named
   =compass-...=.
 - *=no_pr_triggers=.* =no-pr-triggers= (=check_no_pr_triggers.py=). Rule
-  =pull_request_trigger=: a line of a workflow directly under
-  =.github/workflows= that is =pull_request:= indented by exactly two
-  spaces and is not a comment; =pull_request_review= and a deeper key are
-  other things. Rule =no_workflows=: there is no workflow file.
+  =pull_request_trigger=: a workflow directly under =.github/workflows=
+  whose top-level =on= names =pull_request= or =pull_request_target=, as a
+  scalar (=on: pull_request=), a flow sequence or mapping (=on: [push,
+  pull_request]=) or a key or item of its block at any indentation;
+  =pull_request_review= and a deeper key are other things. Rule
+  =no_workflows=: there is no workflow file.
 - *=prototypes=.* =prototypes= (=check_prototype_inventory.py=). The
   prototypes under =doc/prototypes/<group>/<name>/=, the group pages and
   the top page agree; each review directory has its index and each row its
@@ -112,7 +114,8 @@ the parsed tables.
   line that is not lowercase; =unclosed_marker=, a =# BEGIN generated X=
   with no =# END generated X= on a line of its own; =malformed_link=, an
   id link whose target has a hyphen and is not a UUID. Its fact is its
-  type, the =:ID:= lines it holds, its id links line by line and the
+  type, the =:ID:= lines it holds outside a =#+begin_= block (one inside,
+  such as an example page, names no page), its id links line by line and the
   scripts its markers name, and the reduce step reports
   =marker_without_writer= (the script does not exist, or its source does
   not mention the page's file name, or a =SKILL.org='s directory) and
@@ -178,7 +181,8 @@ They are off by default.
   (=apply_skill_levels.py=): the region between its markers in
   =doc/llm/skills/skill_systems_levels.org=, the count of skills each
   System sees by the script's =LEVELS= table, copied into the codec. A
-  skill the table lacks, or an entry with no skill, writes nothing.
+  skill the table lacks, or an entry with no skill, writes nothing and is
+  refused.
 - *=skill_level_tags=.* The page half of =skill-levels=, as a check: each
   skill whose =#+level:= is not the table's, each skill the table lacks
   and each entry with no skill, reported as the script's =--check= does.
@@ -205,12 +209,18 @@ They are off by default.
   (=generate_trade_type_coverage.py --write=): the generated block of
   =doc/knowledge/domain/ore_trade_type_coverage.org= from ORE's mined
   trade types, the catalogue, the recorded trades and the coverage
-  story's tasks; nothing is written where the script refuses.
+  story's tasks; where the script refuses, nothing is written and the
+  codec refuses with the script's reason.
 
 A generator that edits pages emits every page it may edit, edited or not:
 the sink removes a file a complete codec wrote before and no longer emits,
 so a page emitted only while it lacked its link would be deleted once it
-had it.
+had it. Where a script would stop, =skill_catalogue=, =skill_type_tables=,
+=skill_levels=, =recipe_inventories= and =trade_type_coverage= refuse
+instead: a =refused= finding on the page, with the reason (a page or
+region that is missing, a skill without its =:ID:=, title or description,
+a merge conflict in a recipe index, a coverage source the script
+rejects), and the page a good run wrote is kept.
 
 =ops::replace_region= replaces the first region between two markers, or
 every one, as the scripts do with =re.search= or =re.sub=; the generators

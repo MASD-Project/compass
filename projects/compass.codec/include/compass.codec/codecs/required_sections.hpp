@@ -28,8 +28,8 @@ namespace compass::codec::codecs {
  * @brief Reports each section a document lacks that its registered type
  * requires.
  *
- * A document has a section when one of its headings, at any level, has
- * that title. A section the contract calls optional is not in the type
+ * A document has a section when one of its headings of level 1 has that
+ * title; a heading nested in another section is not the section. A section the contract calls optional is not in the type
  * registry, so its absence is never reported. The range of a finding is
  * the value of the #+type: keyword, which is what makes the section
  * required, and the fix names the heading to add.

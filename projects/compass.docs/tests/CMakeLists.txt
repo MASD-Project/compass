@@ -29,6 +29,7 @@ add_executable(${tests_target_name}
     codecs_physical_inventory_tests.cpp
     codecs_recipe_inventories_tests.cpp
     codecs_recipe_libraries_tests.cpp
+    codecs_refusals_tests.cpp
     codecs_skill_levels_tests.cpp
     codecs_skill_tables_tests.cpp
     codecs_structure_notes_tests.cpp

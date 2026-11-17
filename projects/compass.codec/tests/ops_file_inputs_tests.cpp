@@ -48,7 +48,7 @@ using counts = std::vector<std::uint64_t>;
  * file it reads, the paths it lists under data/ that end in .txt and
  * whether data/flag exists. It never enumerates the documents.
  */
-void assemble(const types::corpus_view& v, types::file_table& out) {
+void assemble(const types::corpus_view& v, types::file_output& out) {
     std::string text;
     if (const auto story = v.find_path("story.org"))
         text += story->source;
@@ -56,13 +56,13 @@ void assemble(const types::corpus_view& v, types::file_table& out) {
     for (const auto p : v.list_files("data/", ".txt"))
         text += std::string(p) + "\n";
     text += v.file_exists("data/flag") ? "flag\n" : "no flag\n";
-    out.add("out.txt", text);
+    out.files.add("out.txt", text);
 }
 
 constexpr types::descriptor assembler{.name = "assemble", .version = 1,
     .summary = "", .reads = types::inputs::every_document(), .options = {},
     .rules = {}, .enabled_by_default = true,
-    .run = types::corpus_function<types::file_table>{assemble}};
+    .run = types::corpus_function<types::file_output>{assemble}};
 
 sources documents() {
     return {{"story.org", "#+type: story\n* Goal\n"},

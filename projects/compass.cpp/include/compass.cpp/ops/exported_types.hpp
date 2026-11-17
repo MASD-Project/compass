@@ -41,8 +41,10 @@ namespace compass::cpp::ops {
     std::string_view header);
 
 /**
- * @brief Every name of an #include "name" in @p text, in order, wherever
- * it is, comments included.
+ * @brief Every name of an #include "name" directive of @p text, in
+ * order: not one in a comment or a literal, nor one in a branch of an #if
+ * a condition of 0 excludes, or that follows a branch a condition of 1
+ * takes. Any other condition may hold, so its branches count.
  */
 [[nodiscard]] std::vector<std::string_view> quoted_includes(
     std::string_view text);

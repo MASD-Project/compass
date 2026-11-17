@@ -318,7 +318,7 @@ TEST_CASE("find_program searches PATH and accepts a path with a slash",
 
 namespace {
 
-void no_files(const types::corpus_view&, types::file_table&) {}
+void no_files(const types::corpus_view&, types::file_output&) {}
 
 std::vector<types::formatter> fake_formatters(const types::option_values& o,
     const std::filesystem::path& checkout) {
@@ -335,7 +335,7 @@ types::descriptor files_codec(std::string_view name,
     return {.name = name, .version = 1, .summary = "",
         .reads = types::inputs::every_document(), .options = fake_options,
         .rules = {}, .enabled_by_default = true,
-        .run = types::corpus_function<types::file_table>{no_files},
+        .run = types::corpus_function<types::file_output>{no_files},
         .formatters = formatters};
 }
 

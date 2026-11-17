@@ -22,6 +22,7 @@
 #include <string>
 #include <string_view>
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.cpp/ops/report.hpp"
 #include "compass.crosscheck/codecs/curve_sections_wiring.hpp"
 #include "compass.crosscheck/ops/curve_wiring.hpp"
 #include "compass.crosscheck/ops/projection_columns.hpp"
@@ -31,6 +32,7 @@ namespace compass::crosscheck::codecs {
 namespace {
 
 namespace ct = compass::codec::types;
+namespace co = compass::cpp::ops;
 namespace cw = compass::crosscheck::ops::curve;
 
 constexpr std::string_view map_path = "projects/ores.sql/populate/refdata/"
@@ -212,16 +214,21 @@ std::string render_drop(const std::map<std::string, std::string>& tables) {
         "ores_refdata_validate_curve_values_fn();\n";
 }
 
-void run(const ct::corpus_view& v, ct::file_table& out) {
+void run(const ct::corpus_view& v, ct::file_output& out) {
     const auto found = ops::curve_columns(v);
-    if (!found)
+    if (!found) {
+        co::refuse(out, map_path, "the curve configuration columns cannot be "
+            "derived from the projection, the schema and the curve models",
+            "Run curve_sections_wiring, whose refusal names the problem, or "
+            "give every curve entity a model with its :tablename:.");
         return;
+    }
     std::map<std::string, std::string> tables;
     for (const auto& c : *found)
         tables.insert_or_assign(c.table, c.entity);
-    out.add(map_path, render_map(*found));
-    out.add(guard_path, render_guard(tables));
-    out.add(drop_path, render_drop(tables));
+    out.files.add(map_path, render_map(*found));
+    out.files.add(guard_path, render_guard(tables));
+    out.files.add(drop_path, render_drop(tables));
 }
 
 }
@@ -233,8 +240,8 @@ const ct::descriptor curve_column_guards{
                "and the guard's drop from the curve configuration projection.",
     .reads = ct::inputs::of_types({}),
     .options = {},
-    .rules = {},
+    .rules = co::refusal_rules,
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{run}};
+    .run = ct::corpus_function<ct::file_output>{run}};
 
 }

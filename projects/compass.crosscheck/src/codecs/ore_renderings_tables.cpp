@@ -23,6 +23,7 @@
 #include <string>
 #include <string_view>
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.cpp/ops/report.hpp"
 #include "compass.codegen/ops/values.hpp"
 #include "compass.model/io/json.hpp"
 #include "compass.model/ops/builder.hpp"
@@ -32,6 +33,7 @@ namespace compass::crosscheck::codecs {
 namespace {
 
 namespace ct = compass::codec::types;
+namespace co = compass::cpp::ops;
 namespace mt = compass::model::types;
 namespace values = compass::codegen::ops::values;
 
@@ -75,21 +77,30 @@ std::string quote(std::string_view text) {
     return out + "\"";
 }
 
-void renderings(const ct::corpus_view& v, ct::file_table& out) {
+void renderings(const ct::corpus_view& v, ct::file_output& out) {
+    const auto refuse = [&](const std::string& why) {
+        co::refuse(out, header_path, why, "Correct " +
+            std::string(renderings_path) + ".");
+    };
     const auto json = v.read_file(renderings_path);
-    if (!json)
+    if (!json) {
+        refuse("cannot read " + std::string(renderings_path));
         return;
+    }
     mt::model_tables t;
     compass::model::ops::builder b(t);
     mt::value_id root;
     try {
         root = compass::model::io::read_json(b, *json);
     } catch (const std::runtime_error&) {
+        refuse(std::string(renderings_path) + " is not JSON");
         return;
     }
     const auto tables = values::member(t, root, "tables");
-    if (!values::is(t, tables, mt::value_kind::object))
+    if (!values::is(t, tables, mt::value_kind::object)) {
+        refuse(std::string(renderings_path) + " has no \"tables\" object");
         return;
+    }
     std::string text(licence);
     text += "\n#ifndef " + std::string(guard) + "\n#define " +
         std::string(guard) + "\n\n#include \"conventions_fields.hpp\"\n\n"
@@ -106,7 +117,7 @@ void renderings(const ct::corpus_view& v, ct::file_table& out) {
         text += "\n};\n";
     }
     text += "\n}\n\n#endif\n";
-    out.add(header_path, text);
+    out.files.add(header_path, text);
 }
 
 }
@@ -117,8 +128,8 @@ const ct::descriptor ore_renderings_tables{
     .summary = "Writes the reader's code tables from ore_renderings.json.",
     .reads = ct::inputs::of_types({}),
     .options = {},
-    .rules = {},
+    .rules = co::refusal_rules,
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{renderings}};
+    .run = ct::corpus_function<ct::file_output>{renderings}};
 
 }

@@ -98,6 +98,19 @@ bool follows_using(std::string_view text, std::size_t keyword) noexcept {
         word_starts(text, j - 5);
 }
 
+/**
+ * @brief True when the quote at @p quote is a digit separator: the token
+ * before it, of identifier characters, dots and quotes, is a number,
+ * which starts with a digit, as 1'000 and 0xFF'FF do.
+ */
+bool in_number(std::string_view text, std::size_t quote) noexcept {
+    auto start = quote;
+    while (start > 0 && (is_identifier(text[start - 1]) ||
+               text[start - 1] == '.' || text[start - 1] == '\''))
+        --start;
+    return start < quote && text[start] >= '0' && text[start] <= '9';
+}
+
 }
 
 std::string erase_comments_and_literals(std::string_view text) {
@@ -118,6 +131,8 @@ std::string erase_comments_and_literals(std::string_view text) {
             for (auto at = index; at < std::min(index + 2, length); ++at)
                 out[at] = ' ';
             index += 2;
+        } else if (current == '\'' && in_number(text, index)) {
+            ++index;
         } else if (current == '"' || current == '\'') {
             const auto quote = current;
             out[index++] = ' ';

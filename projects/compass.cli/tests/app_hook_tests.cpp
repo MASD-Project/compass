@@ -238,6 +238,34 @@ TEST_CASE("a new document is checked by every document codec",
         expected(before, findings_of(check(repo).out), "doc/task_c.org"));
 }
 
+TEST_CASE("a generator that refuses after a good run is reported and keeps "
+    "its file, in the hook, in check and in generate", "[app][hook]") {
+    scoped_git_repo repo;
+    repo.write(".compass.org", "#+output: .\n\n* Codecs\n\n"
+        "| name | enabled | options |\n"
+        "| document_index | no | |\n"
+        "| required_sections | no | |\n"
+        "| ore_renderings_tables | yes | |\n");
+    const std::string json = "projects/ores.sql/utility/ore_renderings.json";
+    const std::string header =
+        "projects/ores.ore/core/src/domain/conventions_renderings.hpp";
+    repo.write(json, "{\"tables\": {\"a\": {\"A\": [\"A\"]}}}");
+    repo.git("add -A");
+    REQUIRE(run({"generate", "-C", repo.checkout().string(), "-j", "2"})
+        .status == 0);
+    const auto good = scoped_git_repo::read_file(repo.checkout() / header);
+    REQUIRE_FALSE(good.empty());
+    REQUIRE(check(repo).status == 0);
+
+    repo.write(json, "{\"tables\": ");
+    const lines refused{header + ":1:ore_renderings_tables/refused"};
+    CHECK(findings_of(hook(repo, json).out) == refused);
+    CHECK(findings_of(check(repo).out) == refused);
+    CHECK(run({"generate", "-C", repo.checkout().string(), "-j", "2"})
+        .status == 0);
+    CHECK(scoped_git_repo::read_file(repo.checkout() / header) == good);
+}
+
 TEST_CASE("inline exceptions apply to the hook's findings", "[app][hook]") {
     scoped_git_repo repo;
     setup(repo);

@@ -27,6 +27,7 @@
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.cpp/ops/paths.hpp"
+#include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
 #include "compass.platform/text/regex.hpp"
 
@@ -207,11 +208,19 @@ std::string_view strip_newlines(std::string_view text) {
     return text;
 }
 
-void shell(const ct::corpus_view& v, ct::file_table& out) {
+void shell(const ct::corpus_view& v, ct::file_output& out) {
     static const pt::regex category_re(R"(:recipe:shell:([^:]+):)");
     const auto current = v.read_file(shell_index);
-    if (!current || has_conflict(*current))
+    if (!current) {
+        co::refuse(out, shell_index, "the index does not exist",
+            "Restore the index page.");
         return;
+    }
+    if (has_conflict(*current)) {
+        co::refuse(out, shell_index, "the index holds merge conflict "
+            "markers", "Resolve the conflict.");
+        return;
+    }
 
     grouping groups;
     for (const auto path : org_files(v, shell_root)) {
@@ -293,7 +302,7 @@ void shell(const ct::corpus_view& v, ct::file_table& out) {
         (text += i > 0 ? "\n\n" : "") += blocks[i];
     while (text.ends_with('\n'))
         text.pop_back();
-    out.add(shell_index, text + "\n");
+    out.files.add(shell_index, text + "\n");
 }
 
 constexpr std::string_view http_root = "doc/recipes/http/";
@@ -320,11 +329,14 @@ any note beside a link, are hand-written and are kept.
 The hand-written recipes that predate the facet are catalogued separately in
 =doc/recipes/http/http.org=.)";
 
-void http(const ct::corpus_view& v, ct::file_table& out) {
+void http(const ct::corpus_view& v, ct::file_output& out) {
     static const pt::regex category_re(R"(:recipe:http:([^:]+):)");
     const auto current = v.read_file(http_index).value_or("");
-    if (has_conflict(current))
+    if (has_conflict(current)) {
+        co::refuse(out, http_index, "the index holds merge conflict "
+            "markers", "Resolve the conflict.");
         return;
+    }
 
     std::map<std::string, std::string, std::less<>> paragraphs;
     std::map<std::string, std::string, std::less<>> notes;
@@ -386,10 +398,10 @@ void http(const ct::corpus_view& v, ct::file_table& out) {
     }
     while (text.ends_with('\n'))
         text.pop_back();
-    out.add(http_index, text + "\n");
+    out.files.add(http_index, text + "\n");
 }
 
-void inventories(const ct::corpus_view& v, ct::file_table& out) {
+void inventories(const ct::corpus_view& v, ct::file_output& out) {
     shell(v, out);
     http(v, out);
 }
@@ -402,8 +414,8 @@ const ct::descriptor recipe_inventories{
     .summary = "Writes the shell and HTTP recipe inventories.",
     .reads = ct::inputs::of_types({}),
     .options = {},
-    .rules = {},
+    .rules = co::refusal_rules,
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{inventories}};
+    .run = ct::corpus_function<ct::file_output>{inventories}};
 
 }

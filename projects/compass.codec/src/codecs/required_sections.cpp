@@ -46,6 +46,8 @@ constexpr std::array<types::rule, 1> rules{{
 bool has_section(const types::document& d, std::string_view title) {
     const auto& h = d.tables.headings;
     for (std::uint32_t i = 0; i < h.size(); ++i) {
+        if (h.levels[ot::heading_id{i}] != 1)
+            continue;
         const auto range = h.titles[ot::heading_id{i}];
         if (org::ops::trimmed(d.source, range).of(d.source) == title)
             return true;
