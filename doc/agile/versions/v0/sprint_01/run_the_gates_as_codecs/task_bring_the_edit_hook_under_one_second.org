@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/bring-the-edit-hook-under-one-second
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -40,9 +40,16 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Make code generation incremental: a model edit re-renders only that model's
+  outputs and those of the models that read it, and a template edit only that
+  template's outputs. Each model's contexts and outputs are cached under a key
+  of its recorded reads, including reads served from the shared load cache,
+  and of the derived prework it uses (entity registry, checkout registry,
+  template graph, catalogue).
+- Cut the C++ and SQL scans that still cost most on an edit (stream_coverage,
+  forward_declarable_includes, exported_types, populate_refs,
+  test_case_reachability) and the cost of a new file, which joins listings.
+- Keep the 24 codegen drift files and the hook-versus-check comparison exact.
 
 * Measurements
 
