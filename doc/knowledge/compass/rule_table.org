@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-187 rules, 45 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
+185 rules, 45 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
 
 ** Rules
 
@@ -86,9 +86,7 @@ memories no rule cites are the candidates for the next checks.
 | =marketdata_identity_columns= | views | Each asset class with series has one view exposing the context, its identity fields and its instrument types. |  |
 | =marketdata_identity_columns= | index_mapping | The projector places exactly the index names the grammar declares, each in a column the table has. |  |
 | =marketdata_identity_columns= | unreadable_source | The schema, projector, SQL and index grammar have the shapes the check reads. |  |
-| =model_drift= | unknown_profile | A model binds only to profiles that exist. |  |
 | =model_drift= | contradicted | A model does not redeclare a feature its profile fixes to another value. |  |
-| =model_drift= | profile_conflict | The profiles a model binds to agree on every feature they fix. |  |
 | =model_drift= | unset_required | A model sets every feature its profile requires. |  |
 | =model_drift= | self_contradicting | A model states a feature once, or always with one value. |  |
 | =model_drift= | no_profiles | The tree has profiles to bind to. |  |

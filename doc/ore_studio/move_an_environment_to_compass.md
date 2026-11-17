@@ -292,6 +292,7 @@ remove it too.
 | `paste-blocks` (codec `paste_blocks`) | `codegen/drift`, when the model's block and the generated file disagree; the build of the component, when both name a symbol that is gone. |
 | The C++ half of `subject-conformance` | Nothing; its pattern opens on `"` and closes on `'`, so it matched no C++ in ORE Studio. The models and the data-quality seed are still checked. |
 | `model-sql-types` (codec `model_sql_types`) | `codegen/drift` on the generated `*_create.sql`. At `545cafca45` 1,307 of 1,470 create scripts are generated, and every one of the 577 a model claims is among them. |
+| `model-drift`'s unknown profile and conflicting profiles (rules `model_drift/unknown_profile`, `model_drift/profile_conflict`) | `codegen`'s model loader, which stops `compass-ng check` with exit 2 and `unknown profile '<slug>'` or `<model>: conflicting profiles on '<feature>'`. |
 
 ## Fixes to make in ORE Studio
 

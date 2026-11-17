@@ -31,10 +31,10 @@ namespace compass::crosscheck::codecs {
  * A profile is projects/modeling/variability_<slug>.org of #+type: profile;
  * its * Assignments table fixes feature values. A model directly under
  * projects/<component>/modeling/ binds by its profile property, read with
- * every other property of every drawer. Rules: unknown_profile,
- * contradicted, profile_conflict, unset_required for a feature fixed as
- * required, self_contradicting for a feature stated with two values, and
- * no_profiles. The script's KNOWN_MODEL_DRIFT entry is a finding, excused
+ * every other property of every drawer. Rules: contradicted, unset_required
+ * for a feature fixed as required, self_contradicting for a feature stated
+ * with two values, and no_profiles. An unknown profile and two profiles
+ * that disagree are not reported: codegen's model loader refuses both. The script's KNOWN_MODEL_DRIFT entry is a finding, excused
  * by an inline exception in the model.
  */
 extern const compass::codec::types::descriptor model_drift;

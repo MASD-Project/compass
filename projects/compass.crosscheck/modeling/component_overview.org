@@ -51,6 +51,10 @@ ported:
   disagree only as =codegen/drift=. The gate compares a model with the
   first table its create script makes, and no ORE Studio model has a
   hand-written create script, so it had nothing else to compare.
+- The =unknown_profile= and =profile_conflict= rules of =model-drift=. The
+  model loader of =codegen= refuses a model that binds a profile that does
+  not exist, or two profiles that disagree, and the refusal stops the
+  check.
 
 * Inputs
 
@@ -126,9 +130,8 @@ ported:
 - *=model_drift=.* =model-drift= (=check_model_drift.py=). The profiles of
   =projects/modeling/variability_*.org= fix features in their =*
   Assignments= table; a model binds by its =profile= property and states
-  features in any drawer. Rules =unknown_profile=, =contradicted=,
-  =profile_conflict=, =unset_required=, =self_contradicting= and
-  =no_profiles=. The script's =KNOWN_MODEL_DRIFT= entry no longer fires at
+  features in any drawer. Rules =contradicted=, =unset_required=,
+  =self_contradicting= and =no_profiles=. The script's =KNOWN_MODEL_DRIFT= entry no longer fires at
   this commit; one that did would be an inline exception in its model.
 - *=template_sections=.* =template-sections=
   (=check_template_sections.py=). Rule =chained_tags=: a line of a

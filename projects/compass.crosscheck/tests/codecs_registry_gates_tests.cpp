@@ -138,10 +138,7 @@ TEST_CASE("a model may not contradict the profile it binds to",
             "states has_pagination twice with different values (C++ / "
             "Presentation=true; C++ / Other=false)",
             "profile 'uuid-lookup' requires parent_entity_singular to be "
-            "set, model states none",
-            "profiles 'uuid-lookup' and 'paged' disagree on has_pagination "
-            "(false vs true)",
-            "binds to unknown profile 'nope'"});
+            "set, model states none"});
 }
 
 TEST_CASE("a line chaining the tags of a section that spans lines is "
