@@ -134,3 +134,44 @@ TEST_CASE("ORE Studio's six types are the default",
     CHECK(tests::places(r.findings) == places{
         {"projects/ores.a/include/ores.a/x.hpp", 1}});
 }
+
+TEST_CASE("the default defines the session context in its own header, so "
+    "ORE Studio's unit_of_work.hpp, which takes its declaration and "
+    "constructs a transaction in a function template, is not reported",
+    "[codecs][forward_declarable_includes]") {
+    const auto r = tests::run(codecs::forward_declarable_includes, {
+        {"projects/ores.database/include/ores.database/pq/unit_of_work.hpp",
+         "#include \"ores.database/pq/pool.hpp\"\n"
+         "#include \"ores.database/pq/session_context_fwd.hpp\"\n"
+         "#include \"ores.database/pq/transaction.hpp\"\n"
+         "#include <type_traits>\n"
+         "#include <utility>\n"
+         "namespace ores::database::pq {\n"
+         "template <typename Work>\n"
+         "auto transact(pool& p, const session_context& context, "
+         "Work&& work)\n"
+         "    -> std::invoke_result_t<Work, transaction&> {\n"
+         "    auto lease = p.acquire();\n"
+         "    transaction tx(lease.get(), context);\n"
+         "    try {\n"
+         "        if constexpr (std::is_void_v<std::invoke_result_t<Work, "
+         "transaction&>>) {\n"
+         "            std::forward<Work>(work)(tx);\n"
+         "            tx.commit();\n"
+         "        } else {\n"
+         "            auto out = std::forward<Work>(work)(tx);\n"
+         "            tx.commit();\n"
+         "            return out;\n"
+         "        }\n"
+         "    } catch (...) {\n"
+         "        tx.rollback();\n"
+         "        throw;\n"
+         "    }\n"
+         "}\n"
+         "}\n"},
+        {"projects/ores.a/include/ores.a/names.hpp",
+         "#include \"ores.database/pq/session_context.hpp\"\n"
+         "void f(const ores::database::pq::session_context& c);\n"}});
+    CHECK(tests::places(r.findings) == places{
+        {"projects/ores.a/include/ores.a/names.hpp", 1}});
+}
