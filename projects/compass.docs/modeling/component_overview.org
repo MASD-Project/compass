@@ -41,11 +41,13 @@ finished, is not ported:
   compiled into compass, two sources of one fact. A level change is
   reviewed in the skill page's diff. A skill the table lacks, or an entry
   with no skill, still stops =skill_levels=, whose refusal names each.
-- The =missing_section= rule of =component-docs=. It is
-  =required_sections/missing_section=: the =component= type's contract
-  requires the same six sections, and =required_sections= reads them from
-  the type registry. A repository that turns =required_sections= off has
-  no section check on its component overviews.
+- The =missing_section= rule of =component-docs=. For a page of
+  =#+type: component= it is =required_sections/missing_section=: the
+  type's contract requires the same six sections, and =required_sections=
+  reads them from the type registry. ORE Studio's 128 overviews are of
+  =#+type: ores.codegen.component=, which its contract directory does not
+  define, so =required_sections= does not check them, on or off, and
+  nothing checks their sections until that type has a contract.
 - The =react_tree= and =no_discovery= rules of =prototypes=. They guarded
   the move of the prototypes out of the React tree, finished on
   2026-10-06. =no_discovery= looked for the string
