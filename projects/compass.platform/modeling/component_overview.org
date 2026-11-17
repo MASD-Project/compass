@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :platform:filesystem:component:
 #+created: 2026-11-16
-#+updated: 2026-11-16
+#+updated: 2026-11-17
 
 This page is the component overview for =compass.platform=, a simple component
 in the foundation layer of the
@@ -24,9 +24,10 @@ which runs a program in a given directory, optionally with a file as standard
 input, and returns its exit code and standard output; git and the formatters
 run through it. =text= holds what the ports of ORE Studio's Python gates
 share: =regex=, regular expressions with Python's =re= syntax and Unicode
-classes over UTF-8 bytes, through PCRE2 with JIT; and =decoding=, how
+classes over UTF-8 bytes, through PCRE2 with JIT; =decoding=, how
 =read_text()= turns bytes into text (strict, ignoring or replacing invalid
-UTF-8, and universal newlines). It supports Linux and POSIX only.
+UTF-8, and universal newlines); and =xml=, an XML document read into the
+element tree Python's =xml.etree.ElementTree= builds. It supports Linux and POSIX only.
 
 * Inputs
 
@@ -46,6 +47,11 @@ UTF-8, and universal newlines). It supports Linux and POSIX only.
   which matches nothing. A pattern that does not compile throws
   =std::invalid_argument=. Matching allocates nothing: each thread keeps its
   match data and a JIT stack that grows to 64 MiB.
+- =xml_document=: =parse= gives the root element, or nothing where
+  =ET.fromstring= raises. Each element holds its tag, attributes in order,
+  text, tail and children, as ElementTree's TreeBuilder fills them; =find=,
+  =find_all=, =find_text= and =iter= follow =find=, =findall= with a path
+  of tag names, =findtext= and =iter=.
 
 * Entry points
 
@@ -56,6 +62,7 @@ UTF-8, and universal newlines). It supports Linux and POSIX only.
 | =tests/filesystem_mapped_file_tests.cpp=              | Catch2 tests.         |
 | =include/compass.platform/text/regex.hpp=             | Public type.          |
 | =include/compass.platform/text/decoding.hpp=          | Public functions.     |
+| =include/compass.platform/text/xml.hpp=               | Public type.          |
 
 | Target                   | Kind                                      |
 |--------------------------+-------------------------------------------|
@@ -66,6 +73,9 @@ UTF-8, and universal newlines). It supports Linux and POSIX only.
 
 - The C++23 standard library and POSIX (=open=, =fstat=, =mmap=, =munmap=).
 - PCRE2 (8-bit, with JIT), for =text::regex=.
+- expat, for =text::xml_document=. ElementTree runs on expat, so the text
+  of CDATA, references and line ends is what the ported scripts read; a
+  DOM library such as pugixml keeps CDATA as separate nodes.
 - Catch2, for the tests only.
 
 * See also

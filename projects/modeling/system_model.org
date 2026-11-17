@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :modeling:architecture:system_model:masd:
 #+created: 2026-10-27
-#+updated: 2026-11-16
+#+updated: 2026-11-17
 
 compass-ng follows the ORE Studio system model: components grouped into layers,
 with one invariant --- *a layer depends only on layers below it*. In MASD terms
@@ -42,7 +42,7 @@ No compass-ng dependency. Generic, reusable code.
 
 | Component          | Role                                                    |
 |--------------------+---------------------------------------------------------|
-| =compass.platform= | OS abstraction: memory-mapped files, child processes; Python-compatible regular expressions and text decoding. |
+| =compass.platform= | OS abstraction: memory-mapped files, child processes; Python-compatible regular expressions, text decoding and ElementTree-shaped XML. |
 
 * Infrastructure layer
 | Component       | Role                                                                                                                       |
@@ -103,7 +103,10 @@ generation code directly, reading the checkout from disk. It depends on
 runs in; =compass.cli= adds that codec to the ones it runs. Its
 =component_files= codec, the port of ORE Studio's =cmake-sources=
 generator, renders two templates of the same library and so lives here;
-it uses =compass.platform= for a regular expression.
+it uses =compass.platform= for a regular expression. Its =pending_models=
+codec, the port of =pending-models=, derives a model from a model as
+ores.codegen's =pending_change= does, so it lives here too, and links
+=compass.cpp= privately for the Python text helpers.
 
 =compass.cpp= runs ORE Studio's C++ gates as codecs, from =exported_types=
 to =core_link_edges=, each a port of one gate script. It is in the
@@ -130,7 +133,10 @@ no one language owns these checks, and not part of =compass.model=, which
 loads models and checks nothing. It depends on =compass.codec=,
 =compass.platform= and =compass.cpp=, whose text helpers and C++ blanking
 it shares, and on =compass.codegen= for the template library's graph,
-which one gate reads; =compass.cli= adds its codecs to the ones it runs.
+which one gate reads, and the JSON reader of =compass.model= it brings.
+The generators of ORE Studio data artefacts that read one kind of artefact
+and write another (=ore_renderings_tables=, =script_library_seed=) live
+here too; =compass.cli= adds its codecs to the ones it runs.
 
 =compass.docs= runs the ORE Studio gates that read only org documents and
 plain repository files, such as numbered headings, links org cannot resolve
@@ -142,8 +148,9 @@ language. A gate that judges one page is a document codec, so an edit
 re-runs it for that page alone. It depends on =compass.codec=,
 =compass.platform= and =compass.cpp= for the same text helpers. It also
 holds the ports of the generators that write org documents and recipe
-libraries from org documents (the recipe libraries, the skill tables, the
-structure-note back-links): each is a codec that emits files, so =compass
+libraries from org documents (the recipe libraries and inventories, the
+skill tables and levels, the structure-note back-links, the backlog
+indexes, the physical-space inventories and the trade type coverage): each is a codec that emits files, so =compass
 generate= replaces the script and =compass check='s drift findings replace
 the gate.
 

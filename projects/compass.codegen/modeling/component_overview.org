@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :codegen:mustache:render:component:
 #+created: 2026-11-16
-#+updated: 2026-11-16
+#+updated: 2026-11-17
 
 This page is the component overview for =compass.codegen=, a simple component
 in the domain layer of the
@@ -120,6 +120,13 @@ the codec, set in the checkout's =.compass.org=.
   relative. It writes all 202 lists of ORE Studio =545cafca45= as the
   script does; the listing is the checkout's, so a file deleted from disk
   but still in the index is listed until =git rm=.
+- *=pending_models=.* ORE Studio's =pending-models= generator
+  (=derive_pending_models.py=, =codegen.pending_change=), off by default.
+  For each model under =projects/*/modeling/ores.*.org= whose first Flags
+  section sets =:gated:= or =:pending_change:= true, it writes
+  =ores.<component>.<singular>_change.org= beside it as the script derives
+  it, its =:ID:= the uuid5 =ops::uuid5= gives. A model the script refuses
+  stops the codec there, as it stops the script.
 
 | Outputs at ORE Studio =5ce3cd7e6c=    | Identical | Of    |
 |---------------------------------------+-----------+-------|
@@ -151,6 +158,7 @@ reading the contexts.
 | =include/compass.codegen/ops/generate.hpp=            | The reader, the plan and its rendering.     |
 | =include/compass.codegen/codecs/codegen.hpp=          | The codec, its settings and formatters.     |
 | =include/compass.codegen/codecs/component_files.hpp=  | The component_files.cmake lists.            |
+| =include/compass.codegen/codecs/pending_models.hpp=   | The pending-change models.                  |
 | =tests/data/mustache_spec/=                           | The Mustache spec v1.4.3, MIT licence.      |
 
 | Target                  | Kind                                      |
@@ -177,6 +185,8 @@ either with the oracle, output by output and template by template.
   through, the file table it emits, the formatter type and =find_program=.
 - =compass.ingest=, for the tests only: the codec's tests parse a small
   checkout.
+- =compass.cpp=, privately, for the Python text helpers =pending_models=
+  uses.
 - The C++23 standard library.
 - Catch2, for the tests only. The tests run the required files of the
   Mustache spec, expecting pystache's output for the three cases

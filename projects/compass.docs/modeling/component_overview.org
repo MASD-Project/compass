@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :docs:gates:checks:component:
 #+created: 2026-11-16
-#+updated: 2026-11-16
+#+updated: 2026-11-17
 
 This page is the component overview for =compass.docs=, a simple component
 in the domain layer of the
@@ -152,6 +152,38 @@ They are off by default.
   its end, unless it links the note already; notes go in ID order, so a
   page two notes name gains both lines. It writes the 417 pages of ORE
   Studio as they are committed.
+- *=skill_levels=.* The inventory half of =skill-levels=
+  (=apply_skill_levels.py=): the region between its markers in
+  =doc/llm/skills/skill_systems_levels.org=, the count of skills each
+  System sees by the script's =LEVELS= table, copied into the codec. A
+  skill the table lacks, or an entry with no skill, writes nothing.
+- *=skill_level_tags=.* The page half of =skill-levels=, as a check: each
+  skill whose =#+level:= is not the table's, each skill the table lacks
+  and each entry with no skill, reported as the script's =--check= does.
+  The script writes the level into the page, but =skill_recipes= and
+  =structure_notes= also write skill pages and an output has one
+  producer, so this half reports.
+- *=recipe_inventories=.* =recipe-inventories=
+  (=regenerate_shell_recipe_inventory.py= and
+  =regenerate_http_recipe_inventory.py=): =doc/recipes/shell/shell.org=,
+  its head and prose kept and each link list rebuilt from the recipes
+  under it, and =doc/recipes/http/generated_recipes.org=, rewritten whole
+  from the recipes one directory under it. Recipes are walked in pathlib's
+  order, by component, and titles compared as =str.lower()= compares
+  ASCII.
+- *=backlog_indexes=.* =backlog-indexes= (=regenerate_backlog_indexes.py=):
+  the index page of each of the four backlog buckets, its table padded in
+  characters, not bytes. The committed =inbox.org= of ORE Studio
+  =545cafca45= is stale: it lacks a capture filed on 2026-11-16, which the
+  script and the codec both add.
+- *=physical_inventory=.* =physical-inventory=
+  (=regenerate_physical_space_inventories.py=): the child tables of the
+  physical-space pages in the template library.
+- *=trade_type_coverage=.* =trade-type-coverage=
+  (=generate_trade_type_coverage.py --write=): the generated block of
+  =doc/knowledge/domain/ore_trade_type_coverage.org= from ORE's mined
+  trade types, the catalogue, the recorded trades and the coverage
+  story's tasks; nothing is written where the script refuses.
 
 A generator that edits pages emits every page it may edit, edited or not:
 the sink removes a file a complete codec wrote before and no longer emits,
@@ -170,6 +202,7 @@ reading the file they write.
 | =include/compass.docs/codecs/catalogue.hpp=  | The codecs this component ships.                             |
 | =include/compass.docs/codecs/<gate>.hpp=     | One header for each codec, named after it.                   |
 | =include/compass.docs/ops/regions.hpp=       | Replacing a generated region between two markers.            |
+| =include/compass.docs/ops/skills.hpp=        | The skill directories under =doc/llm/skills=.                 |
 | =tests/test_tree.hpp=                        | Runs one codec over a checkout held in memory, pages parsed; =generate= returns the files it writes. |
 
 | Target               | Kind                                      |

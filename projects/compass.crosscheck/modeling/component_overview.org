@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :gates:checks:models:component:
 #+created: 2026-11-16
-#+updated: 2026-11-16
+#+updated: 2026-11-17
 
 This page is the component overview for =compass.crosscheck=, a simple
 component in the domain layer of the
@@ -154,6 +154,20 @@ exception where it stands.
   (=table_columns=, =projector_switch=, =views=, =index_mapping=). A source
   that lost the shape the script reads is one =unreadable_source=
   finding, and nothing else is reported, as the script stops there.
+
+Two generators of ORE Studio's data artefacts are file codecs here,
+because each reads one kind of artefact and writes another:
+
+- *=ore_renderings_tables=.* =ore-renderings-tables=
+  (=generate_renderings_tables.py=): the reader's code tables,
+  =conventions_renderings.hpp=, from =ore_renderings.json=, read with
+  =compass.model='s JSON reader. The script's =--check= also fails on a
+  code table stated in =conventions_fields.cpp=; that verdict is on a
+  source, not an output, and is not ported.
+- *=script_library_seed=.* =script-library-seed=
+  (=generate_script_library.py=): =trading_script_library_populate.sql=
+  from ORE's =scriptlibrary.xml=, read with =compass.platform='s XML
+  reader: each script and variant, and the inputs mined from the code.
 
 Where a script reads a file with a strict UTF-8 decode and would stop on a
 file that is not UTF-8, these codecs read it with invalid bytes replaced,
