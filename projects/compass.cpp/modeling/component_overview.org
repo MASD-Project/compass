@@ -20,22 +20,39 @@ script that read the whole tree on every run; here each is a corpus codec
 that reads the files of the checkout through its view, so the runtime
 records every file it read and a run in which none of them changed reuses
 the findings without reading anything. The gates that read every C++ file
-(=portable_stop=, =enum_attributes=, =unique_type_names=,
-=unity_collisions=, =exported_types=, =forward_declarable_includes=,
-=stream_coverage= and =handler_registrars=) are scans: each file is mapped
-to a fact once per content ID and a run after an edit maps only the edited
-file, then reduces the stored facts with it. =stream_coverage= keeps the
-text of a file that names a stream call, a subject or a string constant,
-and of any other file only the names it calls, so it reads the rest only
-as callers of a function whose parameter names a service.
+(=portable_stop=, =unique_type_names=, =unity_collisions=,
+=exported_types=, =forward_declarable_includes=, =stream_coverage= and
+=handler_registrars=) are scans: each file is mapped to a fact once per
+content ID and a run after an edit maps only the edited file, then reduces
+the stored facts with it. A fact holds what the gate decides from, not the
+file, so an edit that changes none of it leaves the fact as it was and the
+reduce is not called. =stream_coverage= keeps, of a file that names a
+stream call, a subject or a string constant, its constants, subject
+members, arrays and stream calls with their arguments, and of every file
+the names it calls; it reads a file only as a caller of a function whose
+parameter names a service. =forward_declarable_includes= decides each
+header in its map, from the types of its option.
 
-The scanners are ports, not parsers. Each reproduces the rules of one
-script, including what the script gets wrong, because the acceptance of the
-port is the same verdict on the same commit. The first three work on bytes
-with hand-written scanners: a byte of 0x80 or more counts as a word
-character, as Python counts the letters of a multi-byte character, and the
-non-ASCII spaces Python's =\s= also matches are not spaces. The later ones
-take the scripts' regular expressions verbatim through
+The C++ gates read code through one lexer, =ops::lex=: the source, byte
+for byte, with its comments and literals blanked. It knows raw strings
+with delimiters and encoding prefixes, a quote inside a number as a digit
+separator, line splices, and the lines an =#if 0=, or an =#elif= or
+=#else= after a taken =#if 1=, excludes. =ops::model_of= reads the live
+code of one file into its model: the include directives, the macro
+definitions, the declarations at namespace scope (scope, name, kind,
+linkage specifiers, the macro between a class key and its name, and a
+function's parameters), the class and enum heads at any scope, and the
+names the code writes, joined by =::=. A gate asks for the parts it reads;
+the includes and macros come from the directives alone, and the rest walk
+the tokens. =ops::without_comments= gives the code with its literals put
+back, for the shell gates, which match what a literal holds.
+
+The model is not a parser: it reads declarations at namespace scope and
+skips every body, which is what the gates need. The other scanners are
+ports. Each reproduces the rules of one script, because the acceptance of
+the port is the same verdict on the same commit. =stream_coverage=,
+=route_auth=, =bff_list_requests=, the registrar gates and
+=xml_family_census= take the scripts' regular expressions verbatim through
 =compass.platform='s =text::regex=, which has Python's syntax and Unicode
 classes, and read a file as Python's =read_text()= does, with its decoding
 errors and line ends (=text::decoding=). tree-sitter is not used: it was
@@ -74,22 +91,22 @@ keeps in its =.compass.org=.
   =projects/<component>/<part>/include= in pathlib order; =..= goes up only
   from a directory that exists, as the operating system resolves it. Rule
   =uncompiled_exported_type=: a header under the library's =include/=, not
-  marked =AUTO-GENERATED FILE=, declares =class MACRO name= or =struct MACRO
-  name= at the start of a line, and no translation unit reaches it. One
-  finding per header, at its first such declaration. The codec depends on
-  the listing of every path of the checkout, because an include may resolve
-  anywhere.
-- *=enum_attributes=.* ORE Studio's =enum-attributes= gate
-  (=build/scripts/check_enum_export_attributes.py=). It reads every =.hpp=,
-  =.h=, =.cpp=, =.ipp= and =.cc= file under =projects/= with its comments and
-  literals blanked (=ops::erase_comments_and_literals=; a quote in a number,
-  such as =1'000=, separates digits and opens no literal). A visibility macro is
-  =BOOST_SYMBOL_EXPORT=, =BOOST_SYMBOL_IMPORT=, or a macro one of those files
+  marked =AUTO-GENERATED FILE=, has a class or struct head =class MACRO
+  name= or =struct MACRO name=, attributes allowed before the macro, and no
+  translation unit reaches it. One finding per header, at the line of its
+  first such head. Includes resolve among the C++ files the codec scans, so
+  the codec depends on their listings, not on every path of the checkout.
+  The same pass is ORE Studio's =enum-attributes= gate
+  (=build/scripts/check_enum_export_attributes.py=), so that the export
+  macros are read once. A visibility macro is =BOOST_SYMBOL_EXPORT=,
+  =BOOST_SYMBOL_IMPORT=, or an object-like macro a scanned file
   =#define=s with a body holding one of them, =__declspec(dllimport)=,
   =__declspec(dllexport)= or =__attribute__((visibility=. Rule
-  =visibility_macro_on_enum=: an enum declaration, =enum=, an optional
-  =class= or =struct=, a visibility macro, a name and =:=, ={= or =;=, not
-  after =using=. One finding per declaration, at its keyword.
+  =visibility_macro_on_enum=: an enum head, =enum=, an optional =class= or
+  =struct=, a visibility macro, a name and =:=, ={= or =;=, not after
+  =using=. One finding per head, at its keyword. Before this pass it was
+  the =enum_attributes= codec, and the rule was
+  =enum_attributes/visibility_macro_on_enum=.
 - *=test_case_reachability=.* ORE Studio's =reachability= gate
   (=projects/ores.codegen/scripts/check_test_case_reachability.py=). It
   is a scan whose fact is the number of cases a test source declares. It
@@ -97,9 +114,9 @@ keeps in its =.compass.org=.
   fragment suffix (=.cpp=, =.cc=, =.cxx=, =.c++=, =.hpp=, =.h=, =.hxx=,
   =.ipp=, =.inc=, in any case) under a =tests= directory or whose stem ends
   in =_tests=, outside any =node_modules=, =venv=, =.venv=, =build= or
-  =external= directory (=ops::is_test_source=). =ops::scan_source= removes
-  the backslash-newline splices, blanks comments and string, raw string and
-  character literals (a quote after a digit separates digits), and reads the
+  =external= directory (=ops::is_test_source=). =ops::scan_source= reads
+  the code =ops::lex= gives, with the backslash-newline splices joined, and
+  the
   logical lines: =#if=, =#ifdef= and =#ifndef= open a block, =#endif= closes
   one, and a Catch2 test macro, or a name the file's own =#define= binds to
   one, followed by =(= declares a case. Rule =case_in_conditional=: a case
@@ -118,23 +135,35 @@ keeps in its =.compass.org=.
   named namespace, and =cmake/unity_exclusions.cmake=, a build input that
   stays, keeps at most one of them out of the unity build. Rule
   =missing_recorded_file=: the exclusions name a file that does not exist.
-  Comments and literals are blanked first, raw strings with or without a
-  delimiter among them.
+  The names are the model's declarations at namespace scope
+  (=ops::internal_names=): a function or variable in an anonymous
+  namespace, =static=, or =const= or =constexpr= and not =inline=, however
+  many lines it spans. A function's name carries its parameter types, so
+  overloads a unity build compiles do not collide.
 - *=portable_stop=.* =portable-stop=
   (=projects/ores.codegen/scripts/check_portable_stop_types.py=). Rule
   =stop_type_outside_platform=: a line outside =ores.platform= names
-  =std::jthread=, =stop_token=, =stop_source= or =stop_callback=, or
-  includes =<stop_token>=, comments and strings aside.
+  =std::jthread=, =stop_token=, =stop_source= or =stop_callback=, as the
+  model's names spell them (=std :: jthread= too), or includes
+  =<stop_token>=, comments, literals and =#if 0= aside. A file whose bytes
+  hold none of the four names is not lexed.
 - *=unique_type_names=.* =unique-type-names=
   (=build/scripts/check_unique_type_names.py=). Rule =type_defined_twice=:
-  two headers that can meet in one binary define the same qualified class or
-  struct.
+  two headers that can meet in one binary define the same qualified class,
+  struct, union or scoped enum, as the model's namespace-scope declarations
+  give them (=ops::defined_types=).
 - *=forward_declarable_includes=.* =forward-declarable-includes=
   (=build/scripts/check_forward_declarable_includes.py=). Rule
   =includes_definition_it_only_names=: a header includes the defining
-  header of a type of the =list= option only to name it. Rule
-  =bad_type_list=: the list is malformed or empty. The script's baseline
-  is replaced by inline exceptions.
+  header of a type of the =types= option only to name it, decided in the
+  map step from the header's lexed code, literals and include lines
+  blanked. The option holds the types of
+  =build/scripts/forward_declarable_types.list= at =545cafca45= as its
+  default, each =name;key;defining header;forwarding header or -=,
+  comma-separated; the file itself is not read. A header that names no
+  defining header is not lexed. Rule =bad_type_list=: the option is
+  malformed or empty, reported on =.compass.org=. The script's baseline is
+  replaced by inline exceptions.
 - *=handler_registrars=, =event_registrars=, =history_registrars=.* The
   three registrar composition gates
   (=check_handler_registrar_composition.py=,
@@ -149,6 +178,7 @@ keeps in its =.compass.org=.
   a menu is built once, by one file, from its name alone; a unit is
   registered once; every generated command unit is registered. A root
   command is =root_menu.Insert("name"=, on one line or across several.
+  They read =ops::without_comments=, so a call in a comment is not one.
 - *=route_auth=.* =route-auth= (=check_route_auth_declarations.py=). Rule
   =route_without_auth=: an =add_route= of =ores.http= whose builder chain,
   followed through =auto= locals, states no authentication position. Rule
@@ -161,8 +191,10 @@ keeps in its =.compass.org=.
   prettier; the codec lays out each array as prettier does at the width
   =.prettierrc.yaml= sets, which reproduces the committed table.
 - *=translation_unit_budget=.* =translation-unit-budget=. Rule
-  =over_budget=: a unit that includes =conventions_family_pack.hpp= names
-  more convention families than one or its recorded ceiling. Rule
+  =over_budget=: a unit with an =#include= of
+  =conventions_family_pack.hpp= names more convention families than one or
+  its recorded ceiling, counted as the distinct =domain::family= names its
+  model writes. Rule
   =below_ceiling=: a ceiling above what its unit names. The ceilings are an
   option, since each holds a number an exception cannot.
 - *=xml_family_census=.* =xml-family-census=
@@ -189,11 +221,12 @@ keeps in its =.compass.org=.
 |---------------------------------------------------------+---------------------------------------------------------------|
 | =include/compass.cpp/codecs/catalogue.hpp=              | The codecs this component ships, and its code hash.           |
 | =include/compass.cpp/codecs/exported_types.hpp=         | The =exported_types= codec.                                   |
-| =include/compass.cpp/codecs/enum_attributes.hpp=        | The =enum_attributes= codec.                                  |
 | =include/compass.cpp/codecs/test_case_reachability.hpp= | The =test_case_reachability= codec.                           |
-| =include/compass.cpp/ops/exported_types.hpp=            | Export macros, quoted includes and exported types.            |
-| =include/compass.cpp/ops/enum_attributes.hpp=           | Erasing, visibility macros and enum sites.                    |
-| =include/compass.cpp/ops/test_case_reachability.hpp=    | Test sources and their cases; blanking comments and literals. |
+| =include/compass.cpp/ops/lexer.hpp=                     | The one C++ lexer: code with comments and literals blanked.   |
+| =include/compass.cpp/ops/source_model.hpp=              | A file's includes, macros, declarations, heads and names.     |
+| =include/compass.cpp/ops/declarations.hpp=              | The types and file-local names the ODR gates read.            |
+| =include/compass.cpp/ops/exported_types.hpp=            | Export macros, quoted includes, exported types, enum sites.   |
+| =include/compass.cpp/ops/test_case_reachability.hpp=    | Test sources and their cases.                                 |
 | =include/compass.cpp/ops/paths.hpp=                     | pathlib's suffixes, order and glob, and which files exist.    |
 | =include/compass.cpp/ops/glob.hpp=                      | The files of a view a pathlib glob lists, in its order.       |
 | =include/compass.cpp/ops/text.hpp=                      | Python's spaces, word characters and lines over bytes.        |

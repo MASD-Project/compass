@@ -29,9 +29,10 @@ namespace compass::cpp::codecs {
  * define the same file-local name.
  *
  * Reads every .cpp under projects/ores.*, outside build and node_modules,
- * with comments and literals blanked, and collects each name with internal
- * linkage at namespace scope: in an anonymous namespace, static, or a
- * const or constexpr variable that is not inline. Rule
+ * through the declaration model, and collects each name with internal
+ * linkage at namespace scope: in an anonymous namespace, static, or const
+ * or constexpr and not inline. A function's name carries its parameter
+ * types, since overloads that differ in them do not collide. Rule
  * unrecorded_collision: two sources of one target, the directory whose
  * CMakeLists.txt is nearest, define the same name in the same named
  * namespace, and cmake/unity_exclusions.cmake keeps at most one of them

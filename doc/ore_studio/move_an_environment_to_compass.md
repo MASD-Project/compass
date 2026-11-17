@@ -232,6 +232,31 @@ replaced in this step.
    - `populate_refs` has a new rule, `unread_function`: a function a lookup
      involves must be named `*_fn`, because the check reads only those
      calls. Every ORE Studio function is.
+
+   The C++ gates also read code through one lexer, which knows raw
+   strings, digit separators, splices and `#if 0`, and they agree with
+   their scripts at `545cafca45`. Three of them check more than their
+   script, which may surface findings on a later tree:
+   - `unique_type_names` and `exported_types` see a definition whose head
+     carries an attribute, as in `class [[nodiscard]] ORES_NATS_EXPORT
+     subscription`.
+   - `unity_collisions` sees a declaration across lines, such as a return
+     type on the line above the name, and a function template. It keys a
+     function by its parameter types, so overloads a unity build compiles
+     are not reported, and it reads a source that is not UTF-8.
+   - `portable_stop` sees code after a character literal such as `'"'`,
+     and `std :: jthread`.
+   Two gates changed shape:
+   - The enum-attributes gate is part of `exported_types`, which reads the
+     export macros once for both. Its rule is
+     `exported_types/visibility_macro_on_enum`; there is no
+     `enum_attributes` codec, so drop its row from `.compass.org`.
+   - `forward_declarable_includes` no longer reads
+     `build/scripts/forward_declarable_types.list`. Its `types` option holds
+     the list, defaulting to the six types the file held at `545cafca45`,
+     each `name;key;defining header;forwarding header or -`,
+     comma-separated. When the file changes, set the option to match, or
+     delete the file and keep the list in `.compass.org`.
    Some gates and rules have no codec because
    another check covers them; see "Gates compass dropped" below. Compare
    their verdict with the check that covers them.

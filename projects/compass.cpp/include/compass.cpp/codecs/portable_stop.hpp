@@ -30,10 +30,11 @@ namespace compass::cpp::codecs {
  *
  * Reads every C++ source and fragment under projects/, outside
  * ores.platform and the node_modules, venv, .venv, build and external
- * directories, decoded with invalid bytes dropped and its comments and
- * string literals blanked. Rule stop_type_outside_platform: a line names
+ * directories, through the lexer: comments, literals and code an #if 0
+ * excludes aside. Rule stop_type_outside_platform: a line names
  * std::jthread, std::stop_token, std::stop_source or std::stop_callback,
- * or includes <stop_token>; Apple's libc++ has none of them.
+ * spaces around :: allowed, or includes <stop_token>; Apple's libc++ has
+ * none of them.
  */
 extern const compass::codec::types::descriptor portable_stop;
 
