@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/rethink-the-remaining-generator-gates
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -41,9 +41,18 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- For each of the six gates, read the generator and what consumes its output,
+  and write down what it is trying to achieve: the invariant it protects and
+  the artefact it produces.
+- Judge whether the gate makes sense as it is: whether the artefact needs to
+  be committed, whether the check duplicates another gate or a codec compass
+  already has, and where the Python's output rests on accidents (object
+  identity, dict order, directory walk order, comprehension-built tables).
+- Design the compass version for the intent, not the script: a fixed,
+  documented order; one pass over the data shared with gates that read the
+  same inputs; and the cheapest representation of the check.
+- Record each decision in an evidence file, port the gates kept, and list
+  the changes the intended order makes to ORE Studio's committed files.
 
 * Measurements
 

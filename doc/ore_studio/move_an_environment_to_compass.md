@@ -146,6 +146,8 @@ replaced in this step.
        index.
      - `route_inventory`: 19 rows with stale "Where" line numbers. The script's
        own `--check` ignores that column.
+     - `er_diagram`: `ores_schema.dq_datasets.puml` predates a reworded
+       table description in `dq_dataset_bundles_create.sql`.
      - Two orphan headers,
        `refdata.api/generators/curve_volatility_parametric_smile{,_parameter}_generator.hpp`,
        left by a model rename. compass does not write them, so it does not
@@ -199,10 +201,10 @@ Only after step 2 shows agreement:
     `xml-benchmark-recorded` (needs files at commits named in `history.tsv`),
     `format`, `no-committed-credentials` (reads the git-ignored `.env`), and
     the `--self-test` steps;
-  - being ported now: `conventions-dataset`, `ore-parameters-seed`,
-    `file-types-seed`, `conventions-coverage`, `xml-bindings-drift`,
-    `er-diagram`, `ore-element-map`, `ore-parameter-value-sets`,
-    `parameter-value-sets-only` and `lint`;
+  - being redesigned rather than copied: `xml-bindings-drift`,
+    `file-types-seed`, `ore-parameters-seed`, `ore-element-map`,
+    `ore-parameter-value-sets` and `parameter-value-sets-only`. Until compass
+    covers them, keep their scripts;
   - always kept: build, database and test gates (31 of them), and
     `site-page`.
 
