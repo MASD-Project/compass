@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <array>
 #include <optional>
+#include <set>
 #include <span>
 #include <string>
 #include <unordered_map>
@@ -30,6 +31,7 @@
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.codec/types/fact.hpp"
 #include "compass.cpp/ops/exported_types.hpp"
+#include "compass.cpp/ops/lexer.hpp"
 #include "compass.cpp/ops/paths.hpp"
 
 namespace compass::cpp::codecs {
@@ -38,20 +40,28 @@ namespace {
 
 namespace ct = compass::codec::types;
 
-constexpr std::array<ct::rule, 1> rules{{
+constexpr std::array<ct::rule, 2> rules{{
     {"uncompiled_exported_type",
         "No library exports a type that none of its translation units "
-        "compiles."}}};
+        "compiles."},
+    {"visibility_macro_on_enum",
+        "No symbol visibility or DLL storage macro decorates an enum."}}};
+
+constexpr ct::rule_id uncompiled{0};
+constexpr ct::rule_id decorated_enum{1};
 
 /**
  * @brief The fact of a file: its quoted includes, the export macro it
- * defines when it is a library's export header, and the types it exports
- * with any macro.
+ * defines when it is a library's export header, the types it exports
+ * with any macro, the visibility macros it defines, and each enum an
+ * identifier stands before.
  */
 struct file_fact {
     std::vector<std::string_view> includes;
     std::optional<std::string_view> macro;
     std::vector<ops::exported_type> types;
+    std::vector<std::string_view> visibility_macros;
+    std::vector<ops::enum_site> enums;
 };
 
 file_fact read_fact(std::string_view fact) {
@@ -61,62 +71,78 @@ file_fact read_fact(std::string_view fact) {
         out.includes.push_back(r.text());
     if (r.number() != 0)
         out.macro = r.text();
-    while (!r.done()) {
+    for (auto n = r.number(); n > 0; --n) {
         ops::exported_type t;
         t.macro = r.text();
         t.name = r.text();
         t.offset = r.number();
         out.types.push_back(t);
     }
+    for (auto n = r.number(); n > 0; --n)
+        out.visibility_macros.push_back(r.text());
+    while (!r.done()) {
+        ops::enum_site e;
+        e.offset = r.number();
+        e.macro = r.text();
+        e.source = r.text();
+        out.enums.push_back(e);
+    }
     return out;
 }
 
-bool is_export_header(std::string_view path);
+bool is_export_header(std::string_view path) {
+    const auto parts = ops::components_of(path);
+    return parts.size() == 6 && parts[0] == "projects" &&
+        parts[3] == "include" && parts[5] == "export.hpp";
+}
 
 void map(std::string_view path, std::string_view bytes,
     const ct::option_values&, ct::file_scan& out) {
+    const auto lexed = ops::lex(bytes);
+    const auto model = ops::model_of(bytes, lexed);
     ct::fact_writer w(out.fact);
-    const auto includes = ops::quoted_includes(bytes);
+    const auto includes = ops::quoted_includes(model);
     w.number(static_cast<std::uint32_t>(includes.size()));
     for (const auto i : includes)
         w.text(i);
-    const auto macro = is_export_header(path) ? ops::export_macro(bytes)
-        : std::nullopt;
+    const auto macro = is_export_header(path)
+        ? ops::export_macro(lexed, model) : std::nullopt;
     w.number(macro ? 1 : 0);
     if (macro)
         w.text(*macro);
-    if (path.ends_with(".hpp")) {
-        for (const auto& t : ops::exported_types(bytes))
-            w.text(t.macro).text(t.name).number(t.offset);
-    }
+    const auto types = path.ends_with(".hpp")
+        ? ops::exported_types(bytes, model)
+        : std::vector<ops::exported_type>{};
+    w.number(static_cast<std::uint32_t>(types.size()));
+    for (const auto& t : types)
+        w.text(t.macro).text(t.name).number(t.offset);
+    const auto macros = ops::visibility_macros(model);
+    w.number(static_cast<std::uint32_t>(macros.size()));
+    for (const auto m : macros)
+        w.text(m);
+    for (const auto& e : ops::macro_enum_sites(lexed, model))
+        w.number(e.offset).text(e.macro).text(e.source);
 }
 
 /**
- * @brief The files the #include "..." lines of each file reach, resolved
- * once per file whichever library's walk reaches it, from the facts of the
- * files scanned and by reading any other.
+ * @brief The files the #include "..." lines of each scanned file reach,
+ * resolved once per file whichever library's walk reaches it.
  */
 class include_graph final {
 public:
-    include_graph(const ct::corpus_view& v, const ops::file_set& files,
-        std::vector<std::string> roots,
+    include_graph(const ops::file_set& files, std::vector<std::string> roots,
         const std::unordered_map<std::string_view, file_fact>& facts)
-        : view_(v), files_(files), roots_(std::move(roots)), facts_(facts) {}
+        : files_(files), roots_(std::move(roots)), facts_(facts) {}
 
     const std::vector<std::string>& targets(const std::string& path) {
         if (const auto it = targets_.find(path); it != targets_.end())
             return it->second;
         auto& out = targets_[path];
-        std::string text;
-        std::vector<std::string_view> names;
-        if (const auto it = facts_.find(path); it != facts_.end()) {
-            names = it->second.includes;
-        } else {
-            text = view_.read_file(path).value_or("");
-            names = ops::quoted_includes(text);
-        }
+        const auto it = facts_.find(path);
+        if (it == facts_.end())
+            return out;
         const auto dir = ops::parent_of(path);
-        for (const auto name : names) {
+        for (const auto name : it->second.includes) {
             auto found = files_.find(dir, name);
             if (!found)
                 found = under_roots(name);
@@ -141,7 +167,6 @@ private:
         return rooted_.emplace(key, std::move(found)).first->second;
     }
 
-    const ct::corpus_view& view_;
     const ops::file_set& files_;
     std::vector<std::string> roots_;
     const std::unordered_map<std::string_view, file_fact>& facts_;
@@ -168,12 +193,6 @@ std::vector<std::string> include_roots(
     return out;
 }
 
-bool is_export_header(std::string_view path) {
-    const auto parts = ops::components_of(path);
-    return parts.size() == 6 && parts[0] == "projects" &&
-        parts[3] == "include" && parts[5] == "export.hpp";
-}
-
 std::vector<std::string_view> under(const std::vector<std::string_view>& all,
     std::string_view prefix, std::string_view suffix) {
     std::vector<std::string_view> out;
@@ -197,14 +216,16 @@ std::vector<std::string_view> scanned(const ct::corpus_view& v) {
     return out;
 }
 
-void reduce(std::span<const ct::scanned_file> scanned_files,
-    const ct::corpus_view& v, ct::diagnostic_table& out) {
-    std::unordered_map<std::string_view, file_fact> facts;
-    for (const auto& f : scanned_files)
-        facts.emplace(f.path, read_fact(f.fact));
-    const auto all = v.list_files("");
+/**
+ * @brief Reports each header of a library that exports a type with the
+ * library's macro and that no .cpp under the library's src/ reaches.
+ * @p all is every scanned path, sorted.
+ */
+void report_uncompiled(const std::vector<std::string_view>& all,
+    const std::unordered_map<std::string_view, file_fact>& facts,
+    ct::diagnostic_table& out) {
     const ops::file_set files(all);
-    include_graph graph(v, files, include_roots(all), facts);
+    include_graph graph(files, include_roots(all), facts);
 
     std::vector<std::string_view> export_headers;
     for (const auto p : under(all, "projects/", "/export.hpp")) {
@@ -270,7 +291,7 @@ void reduce(std::span<const ct::scanned_file> scanned_files,
             const auto at = types.front().offset;
             out.add({.document = compass::org::types::document_id::none(),
                 .range = {at, at},
-                .rule = ct::rule_id{0},
+                .rule = uncompiled,
                 .level = ct::severity::error,
                 .message = "exports " + names + " with " +
                     std::string(*macro) + ", and no translation unit of "
@@ -283,13 +304,58 @@ void reduce(std::span<const ct::scanned_file> scanned_files,
     }
 }
 
+/**
+ * @brief Reports each enum whose identifier before its name is a
+ * visibility macro: one of Boost's, or one a scanned file defines.
+ */
+void report_decorated_enums(std::span<const ct::scanned_file> scanned_files,
+    const std::unordered_map<std::string_view, file_fact>& facts,
+    ct::diagnostic_table& out) {
+    std::set<std::string_view> macros{"BOOST_SYMBOL_EXPORT",
+        "BOOST_SYMBOL_IMPORT"};
+    for (const auto& [path, fact] : facts)
+        macros.insert(fact.visibility_macros.begin(),
+            fact.visibility_macros.end());
+    for (const auto& f : scanned_files) {
+        for (const auto& e : facts.at(f.path).enums) {
+            if (!macros.contains(e.macro))
+                continue;
+            out.add({.document = compass::org::types::document_id::none(),
+                .range = {e.offset, e.offset},
+                .rule = decorated_enum,
+                .level = ct::severity::error,
+                .message = "the visibility macro " + std::string(e.macro) +
+                    " decorates an enum, and the attribute does not apply "
+                    "to one: " + std::string(e.source),
+                .fix = "drop the macro; an enum needs no export attribute "
+                    "to cross a binary boundary",
+                .file = f.path});
+        }
+    }
+}
+
+void reduce(std::span<const ct::scanned_file> scanned_files,
+    const ct::corpus_view&, ct::diagnostic_table& out) {
+    std::unordered_map<std::string_view, file_fact> facts;
+    std::vector<std::string_view> all;
+    all.reserve(scanned_files.size());
+    for (const auto& f : scanned_files) {
+        facts.emplace(f.path, read_fact(f.fact));
+        all.push_back(f.path);
+    }
+    std::ranges::sort(all);
+    report_uncompiled(all, facts, out);
+    report_decorated_enums(scanned_files, facts, out);
+}
+
 }
 
 const ct::descriptor exported_types{
     .name = "exported_types",
-    .version = 2,
+    .version = 3,
     .summary = "Reports each header whose library exports a type that no "
-        "translation unit of the library compiles.",
+        "translation unit of the library compiles, and each enum a "
+        "visibility macro decorates.",
     .reads = ct::inputs::of_types({}),
     .options = {},
     .rules = rules,

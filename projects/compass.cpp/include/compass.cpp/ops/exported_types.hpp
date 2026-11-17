@@ -22,36 +22,35 @@
 
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
+#include "compass.cpp/ops/source_model.hpp"
 
 /**
- * @brief The rules of ORE Studio's check_exported_types_are_compiled.py
- * over the text of one file.
+ * @brief What one source says about the Windows export macros: the facts
+ * of ORE Studio's check_exported_types_are_compiled.py and
+ * check_enum_export_attributes.py, read from its model.
  */
 namespace compass::cpp::ops {
 
 /**
  * @brief The export macro an export.hpp defines: the first
- * "#define ORES_..._EXPORT BOOST_SYMBOL..." at the start of a line, when
- * the header also has an "#ifdef ORES_..._LIBRARY" guard; nothing
- * otherwise.
+ * "#define ORES_..._EXPORT BOOST_SYMBOL...", when the header also has an
+ * "#ifdef ORES_..._LIBRARY" guard; nothing otherwise.
  */
-[[nodiscard]] std::optional<std::string_view> export_macro(
-    std::string_view header);
+[[nodiscard]] std::optional<std::string_view> export_macro(const lexed& l,
+    const source_model& m);
 
 /**
- * @brief Every name of an #include "name" directive of @p text, in
- * order: not one in a comment or a literal, nor one in a branch of an #if
- * a condition of 0 excludes, or that follows a branch a condition of 1
- * takes. Any other condition may hold, so its branches count.
+ * @brief The names of the #include "name" directives of @p m, in order.
  */
 [[nodiscard]] std::vector<std::string_view> quoted_includes(
-    std::string_view text);
+    const source_model& m);
 
 /**
- * @brief One class or struct a header exports with a macro.
- * offset is where its line starts.
+ * @brief One class or struct a header exports with a macro. offset is
+ * where the line of its name starts.
  */
 struct exported_type {
     std::string_view name;
@@ -60,19 +59,41 @@ struct exported_type {
 };
 
 /**
- * @brief The types @p header declares as "class MACRO name" or
- * "struct MACRO name" at the start of a line, for @p macro; none for a
- * header that says AUTO-GENERATED FILE.
+ * @brief The classes and structs @p m declares at namespace scope with an
+ * ORES_..._EXPORT macro, each with its macro; none for a @p source that
+ * says AUTO-GENERATED FILE.
  */
 [[nodiscard]] std::vector<exported_type> exported_types(
-    std::string_view header, std::string_view macro);
+    std::string_view source, const source_model& m);
 
 /**
- * @brief The types @p header declares as exported_types finds them, for
- * every ORES_..._EXPORT macro at once, each with its macro.
+ * @brief True when @p body names a symbol visibility or DLL storage
+ * attribute: BOOST_SYMBOL_EXPORT, BOOST_SYMBOL_IMPORT,
+ * __declspec(dllimport), __declspec(dllexport) or
+ * __attribute__((visibility.
  */
-[[nodiscard]] std::vector<exported_type> exported_types(
-    std::string_view header);
+[[nodiscard]] bool names_visibility_attribute(std::string_view body) noexcept;
+
+/**
+ * @brief The object-like macros @p m defines whose body names a
+ * visibility attribute.
+ */
+[[nodiscard]] std::vector<std::string_view> visibility_macros(
+    const source_model& m);
+
+/**
+ * @brief An enum declared with an identifier between its key and its
+ * name: where its keyword is, that identifier, which decorates it when it
+ * is a visibility macro, and the stripped line of code it is on.
+ */
+struct enum_site {
+    std::uint32_t offset = 0;
+    std::string_view macro;
+    std::string_view source;
+};
+
+[[nodiscard]] std::vector<enum_site> macro_enum_sites(const lexed& l,
+    const source_model& m);
 
 }
 

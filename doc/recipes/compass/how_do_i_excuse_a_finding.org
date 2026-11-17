@@ -28,7 +28,7 @@ create table zz_valid (x int); -- compass:except(sql_hygiene/not_re_runnable) ex
 #+end_src
 
 #+begin_src cpp
-// compass:except(enum_attributes/visibility_macro_on_enum) expires=2027-06-30 approver=marco reason=the macro is removed with the old ABI
+// compass:except(exported_types/visibility_macro_on_enum) expires=2027-06-30 approver=marco reason=the macro is removed with the old ABI
 enum class BOOST_SYMBOL_EXPORT colour { red };
 #+end_src
 
