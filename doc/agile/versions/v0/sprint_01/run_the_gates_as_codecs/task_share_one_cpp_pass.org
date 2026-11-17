@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/share-one-cpp-pass
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -35,13 +35,17 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Acceptance
 
--
+- One C++ lexer replaces the six comment and literal blankers, and one per-file fact (includes as directives, namespace-scope declarations, enums and their macros, identifiers named) serves the C++ gates.
+- Every C++ gate gives the same findings on ORE Studio as before, except where a copied blanker was wrong, each change stated.
+- exported_types and enum_attributes run as one pass; forward_declarable_includes decides in its map step; stream_coverage keeps declarations, not whole files.
+- A C++ header edit in the hook costs at least 300 ms less than today, and the cold check's C++ time falls, measured at a stated load.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Follow section 3 of =evidence/gate_review/plan.md= and =cpp.md= beside it.
+- Start from test_case_reachability's lexer, which the review found the best
+  of the six; build the per-file fact as a scan fact; move each gate onto it
+  one at a time, comparing findings on the ORE copy after each.
 
 * Measurements
 
