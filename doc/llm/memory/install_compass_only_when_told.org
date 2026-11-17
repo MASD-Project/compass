@@ -22,6 +22,12 @@ change the binary under .local unless solid dirac is aware of the change and
 ready to take it." A new build can change verdicts, rule names and store
 formats under an environment that is mid-way through integrating compass.
 
+*Update, 2026-11-17:* the product owner said "coordinate with solid dirac as
+required, I will leave you on autonomous mode". Installs are now agreed with
+the ORE Studio environment running the pilot (=ores_dev_solid_dirac=): it asks
+when it is ready, and that request, with the verdict changes sent first,
+authorises the install. Any other install still needs the product owner.
+
 *How to apply:* After merging a change, report what an install would bring
 (the commit, verdict changes, renamed rules, store format changes) and wait.
 Install only on an explicit instruction, then report the new =compass
