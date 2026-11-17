@@ -1,0 +1,115 @@
+:PROPERTIES:
+:ID: 6462BCC8-0BD3-4FD3-8058-A0D5F11825F9
+:END:
+#+title: Task: Share one SQL pass
+#+description: Replace the SQL gates' separate regex parsers with one SQL lexer and one table, call and include model that every SQL gate reads, and make populate_refs a scan.
+#+type: task
+#+level: s1
+#+filetags: :run_the_gates_as_codecs:sprint_01:v0:
+#+owner: marco
+#+branch: feature/share-one-sql-pass
+#+pr: https://github.com/MASD-Project/compass/pull/59
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-11-17
+#+updated: 2026-11-17
+#+environment:
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+(Describe what user-visible-or-internal change this task produces.)
+
+* Status
+
+| Field        | Value                                  |
+|--------------+----------------------------------------|
+| State        | DONE                              |
+| Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
+| Now          | Nothing. |
+| Waiting on   | Nothing.                               |
+| Next         | Nothing. |
+| Last touched | 2026-11-17                               |
+
+* Acceptance
+
+- One SQL lexer and one per-file model (tables, columns, keys, policies, functions and their calls, includes) serve every SQL gate: sql_hygiene, sql_reachability, populate_refs, rls_widenings, rls_coverage, handler_permissions, entity_writes' SQL half and er_diagram.
+- Every SQL gate gives the same findings on ORE Studio as before, except where a copied regex was wrong, each such change stated.
+- populate_refs is a scan, and checks that a definition runs before its use in sql_reachability's include order.
+- A SQL edit in the hook costs at least 300 ms less than today on the ORE copy, measured at a stated load.
+
+* Plan
+
+- Follow section 3 of =evidence/gate_review/plan.md= and the SQL part of
+  =evidence/gate_review/sql_codegen_codec.md= and =crosscheck.md=.
+- Start from sql_hygiene's lexer and =er_model_of=; build the per-file model
+  as a scan fact; move each gate onto it one at a time, comparing findings on
+  the ORE copy after each.
+
+* Measurements
+
+Every number this task claims about a tree, with the command that produced it
+and the commit it was measured at. A number without both is not a measurement,
+because a clean-up record describes a tree and trunk moves under a branch: a
+consumer count, a gate's component count and a suite's size all change with no
+code changing, and the reader of a bare number cannot tell which tree it came
+from. Where the raw output matters, put it in an =evidence/= file beside the
+task and name that file in the Command column.
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+| Hook, edit to a create script | 1,448-1,530 ms before, 850-939 ms after, load about 47 (agent) | =hook_compare.sh= | 02a5019 |
+| Hook, edit to a populate script | 683-736 ms before, 225-239 ms after, load about 47 (agent) | =hook_compare.sh= | 02a5019 |
+| Hook, planted SQL violation | 0.20 s at load 41 | =compass hook= | 02a5019 |
+| Facts, model vs old regexes, 3,468 files | includes, tables, RLS enables, party policies, populate functions and lookup calls identical | =harness/compare.cpp= | 02a5019 |
+| SQL-gate findings on ORE | 150 identical; +1 rls_coverage on =ores_mq_queues_tbl= | =compass check= | 02a5019 |
+| Warm ORE check | 4.05 s at load 41; 243 findings | =compass check= | 02a5019 |
+| ctest | 15 of 15 suites pass | =ctest --preset linux-clang-release= | 02a5019 |
+
+* Notes
+
+* Test Scenarios
+
+Manual QA scenarios (scaffolded via =compass add test_scenario=)
+that verify this task. Link
+new ones here as they're created; the scenario doc itself links back
+via its "Verifies task" field.
+
+| Scenario | State | Notes |
+|----------+-------+-------|
+|          |       |       |
+
+* PRs
+
+| PR | Title |
+|----+-------|
+| [[https://github.com/MASD-Project/compass/pull/59][#59]] | [sql] Share one SQL lexer and model across the SQL gates |
+
+* Review
+
+| # | Comment summary | File | Decision | Notes |
+|---+-----------------+------+----------+-------|
+|   |                 |      |          |       |
+
+* Result
+
+One SQL lexer (=ops::lex=) and one per-file model (=ops::model_of=:
+statements, includes in order, tables, columns, keys, indexes, RLS, policies,
+functions with their writes and =*_fn= calls) serve sql_hygiene,
+sql_reachability, populate_refs, rls_widenings, rls_coverage,
+handler_permissions and entity_writes' SQL half; =ops::walk_includes= gives
+psql's run order. populate_refs is a scan and checks that a definition runs
+before its use: ORE Studio is in order today, and reversing two includes gives
+105 findings the old gate missed. No rule was renamed; the new
+=populate_refs/unread_function= enforces the =*_fn= naming the facts rely on.
+
+The one new finding on ORE Studio, =ores_mq_queues_tbl= under
+missing_party_isolation, is real: the old column regex, like the Python one,
+skipped a line with a comment after its comma.
+
+er_diagram keeps its own parse, because its diagrams must stay byte-identical
+to the Python's; its quadratic loop is fixed (331 to 88 ms). The gates remain
+separate codecs, so a cold run still lexes each file once per gate; one fact
+shared across codecs needs runtime support.

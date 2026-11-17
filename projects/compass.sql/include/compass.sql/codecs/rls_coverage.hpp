@@ -29,14 +29,15 @@ namespace compass::sql::codecs {
  * RLS_001 and RLS_002 of plantuml_er_parse_sql.py's
  * validate_rls_policies, which the gate runs with --strict.
  *
- * Every table the create scripts define, as er_model_of reads them, that
- * has a tenant_id column needs an ALTER TABLE ... ENABLE ROW LEVEL
- * SECURITY in some *_create.sql (rule missing_rls, RLS_001), and one that
- * also has a party_id column needs a CREATE POLICY ... AS RESTRICTIVE
- * that names party_id before its semicolon (rule
- * missing_party_isolation, RLS_002). Both are found by the script's
- * regular expressions over the whole of every script, comments included.
- * The ignore file (option ignore_file) is read as the script reads it:
+ * A scan of every *_create.sql: the fact of a script is the tables it
+ * creates with their columns, the tables it enables row-level security
+ * on and those a restrictive policy naming party_id is on, all read
+ * through ops::model_of, so comments and literals state none of them.
+ * Every table that has a tenant_id column needs an ALTER TABLE ... ENABLE
+ * ROW LEVEL SECURITY in some *_create.sql (rule missing_rls, RLS_001),
+ * and one that also has a party_id column needs a CREATE POLICY ... AS
+ * RESTRICTIVE that names party_id (rule missing_party_isolation,
+ * RLS_002). The ignore file (option ignore_file) is read as the script reads it:
  * each line "<code pattern> <table pattern>", with fnmatch's *, ? and
  * [...], excuses the findings of that code on those tables. Each finding
  * is on the line that creates the table, in the script that last defines

@@ -55,3 +55,32 @@ TEST_CASE("a policy that admits the system tenant to every row is "
         {"projects/ores.sql/create/a/policies.sql", 3},
         {"projects/ores.sql/create/a/policies.sql", 7}});
 }
+
+TEST_CASE("a policy on a quoted table is read, and one in a block comment "
+    "or a literal is not", "[codecs][rls_widenings]") {
+    auto t = tree();
+    t["projects/ores.sql/create/a/quoted.sql"] =
+        "/* create policy c on t6 using (ores_iam_current_tenant_id_fn() = "
+        "ores_utility_system_tenant_id_fn()); */\n"
+        "select 'create policy s on t7 using "
+        "(ores_iam_current_tenant_id_fn() = "
+        "ores_utility_system_tenant_id_fn());';\n"
+        "create policy q on \"t8\" using (\n"
+        "  ores_iam_current_tenant_id_fn() = "
+        "ores_utility_system_tenant_id_fn());\n";
+    const auto r = tests::run(codecs::rls_widenings, t);
+    CHECK(tests::places(r.findings) == places{
+        {"projects/ores.sql/create/a/policies.sql", 3},
+        {"projects/ores.sql/create/a/policies.sql", 7},
+        {"projects/ores.sql/create/a/quoted.sql", 3}});
+}
+
+TEST_CASE("a run after an edit finds what a full run finds",
+    "[codecs][rls_widenings]") {
+    auto fixed = tree();
+    fixed["projects/ores.sql/create/a/policies.sql"] =
+        "create policy own_rows on t1 using (true);\n";
+    const auto r = tests::run_after_edit(codecs::rls_widenings, tree(),
+        fixed);
+    CHECK(r.findings.empty());
+}

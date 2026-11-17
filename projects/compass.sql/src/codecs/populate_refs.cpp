@@ -21,33 +21,40 @@
 
 #include <algorithm>
 #include <array>
-#include <cctype>
 #include <map>
 #include <optional>
 #include <set>
-#include <stdexcept>
+#include <span>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
-#include "compass.platform/text/decoding.hpp"
-#include "compass.platform/text/regex.hpp"
+#include "compass.codec/types/fact.hpp"
+#include "compass.sql/ops/includes.hpp"
 #include "compass.sql/ops/scripts.hpp"
+#include "compass.sql/ops/sql_model.hpp"
 
 namespace compass::sql::codecs {
 
 namespace {
 
 namespace ct = compass::codec::types;
-namespace pt = compass::platform::text;
 
 constexpr std::array<std::string_view, 1> unresolved_reference_sources{
     "7B477025-132E-4B20-80B4-D8C9420880B8"};
 
-constexpr std::array<ct::rule, 2> rules{{
+constexpr std::uint32_t unresolved_reference = 0;
+constexpr std::uint32_t unbalanced_parentheses = 1;
+constexpr std::uint32_t unread_function = 2;
+
+constexpr std::array<ct::rule, 3> rules{{
     {"unresolved_reference", "Every name a populate script looks up is "
-        "one a populate script defines.", unresolved_reference_sources},
+        "one a populate script that runs before it defines.",
+        unresolved_reference_sources},
     {"unbalanced_parentheses", "Every call and definition the check reads "
-        "closes its parentheses."}}};
+        "closes its parentheses."},
+    {"unread_function", "Every function a populate lookup involves is "
+        "named *_fn, as the check reads only those calls."}}};
 
 constexpr std::string_view create_dir = "projects/ores.sql/create/";
 constexpr std::string_view populate_dir = "projects/ores.sql/populate/";
@@ -55,203 +62,114 @@ constexpr std::string_view populate_dir = "projects/ores.sql/populate/";
 const std::set<std::string, std::less<>> non_identifying{"tenant_id",
     "valid_from", "valid_to"};
 
-struct unbalanced : std::runtime_error {
-    std::size_t at;
-    explicit unbalanced(std::size_t a)
-        : std::runtime_error("unbalanced parentheses"), at(a) {}
-};
+void add(ct::diagnostic_table& out, std::string_view file,
+    std::uint32_t offset, std::uint32_t rule, const std::string& message,
+    std::string_view fix) {
+    out.add({.document = compass::org::types::document_id::none(),
+        .range = {offset, offset},
+        .rule = ct::rule_id{rule},
+        .level = ct::severity::error,
+        .message = message,
+        .fix = fix,
+        .file = file});
+}
+
+std::vector<std::string_view> scanned(const ct::corpus_view& v) {
+    auto paths = v.list_files(std::string(ops::sql_root) + "/", ".sql");
+    std::ranges::sort(paths, ops::component_less);
+    return paths;
+}
 
 /**
- * @brief The text inside the parentheses opened at @p open, and the
- * position after the closing one.
+ * @brief The fact of a file: its includes; for a create script, each
+ * function with its parameters, guards and inserts; for a populate
+ * script, each call with a literal argument.
  */
-std::pair<std::string_view, std::size_t> read_balanced(std::string_view text,
-    std::size_t open) {
-    int depth = 0;
-    std::optional<char> quote;
-    for (std::size_t i = open; i < text.size(); ++i) {
-        const char ch = text[i];
-        if (quote) {
-            if (ch == *quote) {
-                if (i + 1 < text.size() && text[i + 1] == *quote) {
-                    ++i;
-                    continue;
-                }
-                quote.reset();
-            }
-            continue;
+void map(std::string_view path, std::string_view bytes,
+    const ct::option_values&, ct::file_scan& out) {
+    const bool create = path.starts_with(create_dir);
+    const bool populate = path.starts_with(populate_dir);
+    const auto tokens = ops::lex(bytes);
+    ct::fact_writer fact(out.fact);
+    if (!create && !populate) {
+        ops::write_includes(fact, ops::includes_of(bytes, tokens));
+        fact.number(0).number(0);
+        return;
+    }
+    const auto model = ops::model_of(bytes, tokens);
+    ops::write_includes(fact, model.includes);
+    for (const auto& u : model.unbalanced) {
+        if (u.call ? populate : create)
+            add(out.findings, path, u.offset, unbalanced_parentheses,
+                u.call ? "a call does not close its parentheses"
+                       : "a function's parameters do not close",
+                "close the parentheses");
+    }
+    static const std::vector<ops::sql_function> no_functions;
+    static const std::vector<ops::sql_call> no_calls;
+    const auto& functions = create ? model.functions : no_functions;
+    const auto& calls = populate ? model.calls : no_calls;
+    fact.number(static_cast<std::uint32_t>(functions.size()));
+    for (const auto& f : functions) {
+        fact.text(f.name).number(f.offset)
+            .number(static_cast<std::uint32_t>(f.parameters.size()));
+        for (const auto& p : f.parameters)
+            fact.text(p);
+        fact.number(static_cast<std::uint32_t>(f.guards.size()));
+        for (const auto& g : f.guards) {
+            fact.text(g.table).number(
+                static_cast<std::uint32_t>(g.columns.size()));
+            for (const auto& [column, param] : g.columns)
+                fact.text(column).text(param);
         }
-        if (ch == '\'' || ch == '"') {
-            quote = ch;
-        } else if (ch == '(') {
-            ++depth;
-        } else if (ch == ')') {
-            if (--depth == 0)
-                return {text.substr(open + 1, i - open - 1), i + 1};
+        fact.number(static_cast<std::uint32_t>(f.inserts.size()));
+        for (const auto& in : f.inserts) {
+            fact.text(in.table).number(
+                static_cast<std::uint32_t>(in.values.size()));
+            for (const auto& [column, value] : in.values)
+                fact.text(column).text(value);
         }
     }
-    throw unbalanced(open);
-}
-
-std::string lower(std::string_view s) {
-    std::string out(s);
-    std::ranges::transform(out, out.begin(), [](unsigned char c) {
-        return static_cast<char>(c < 0x80 ? std::tolower(c) : c);
-    });
-    return out;
-}
-
-std::optional<std::string> literal_value(std::string_view argument) {
-    if (argument.size() < 2 || !argument.starts_with('\'') ||
-        !argument.ends_with('\''))
-        return std::nullopt;
-    std::string out;
-    const auto inner = argument.substr(1, argument.size() - 2);
-    for (std::size_t i = 0; i < inner.size(); ++i) {
-        out.push_back(inner[i]);
-        if (inner[i] == '\'' && i + 1 < inner.size() && inner[i + 1] == '\'')
-            ++i;
-    }
-    return out;
-}
-
-struct function {
-    std::vector<std::string> params;
-    std::string_view body;
-};
-
-using pairs_t = std::vector<std::pair<std::string, std::string>>;
-
-struct guard {
-    std::string table;
-    pairs_t pairs;
-};
-
-using insert_map =
-    std::map<std::string, std::map<std::string, std::string>, std::less<>>;
-
-/**
- * @brief Function name to parameters and body, in the order each name is
- * first defined; a later definition replaces the earlier one.
- */
-std::vector<std::pair<std::string, function>> parse_functions(
-    std::string_view text) {
-    static const pt::regex function_re(
-        R"(create\s+or\s+replace\s+function\s+(\w+)\s*\()",
-        {.ignorecase = true});
-    static const pt::regex body_tag_re(R"(\bas\s+(\$[A-Za-z_]*\$))",
-        {.ignorecase = true});
-    std::vector<std::pair<std::string, function>> out;
-    for (const auto& m : function_re.find_all(text)) {
-        auto name = lower(m.group(1));
-        const auto [params_text, after] = read_balanced(text, m.end() - 1);
-        std::vector<std::string> params;
-        for (const auto& p : ops::split_top(params_text)) {
-            if (ops::strip(p).empty())
-                continue;
-            params.push_back(lower(ops::first_word(p)));
+    fact.number(static_cast<std::uint32_t>(calls.size()));
+    for (const auto& c : calls) {
+        fact.text(c.function).number(c.offset)
+            .number(static_cast<std::uint32_t>(c.arguments.size()));
+        for (const auto& a : c.arguments) {
+            fact.number(a ? 1 : 0);
+            if (a)
+                fact.text(*a);
         }
-        const auto tag = body_tag_re.search(text, after);
-        if (!tag)
-            continue;
-        const auto end = text.find(tag->group(1), tag->end());
-        if (end == std::string_view::npos)
-            continue;
-        function f{std::move(params),
-            text.substr(tag->end(), end - tag->end())};
-        const auto it = std::ranges::find_if(out,
-            [&](const auto& e) { return e.first == name; });
-        if (it == out.end())
-            out.emplace_back(std::move(name), std::move(f));
-        else
-            it->second = std::move(f);
     }
-    return out;
 }
-
-std::vector<guard> parse_guards(std::string_view body) {
-    static const pt::regex raise_re(
-        R"(raise\s+exception\s+'(?:[^']|'')*not\s+found)",
-        {.ignorecase = true});
-    static const pt::regex select_re(
-        R"(\bselect\b.*?\bfrom\s+(\w+)\s+where\b(.*?);)",
-        {.dotall = true, .ignorecase = true});
-    static const pt::regex column_param_re(R"((\w+)\s*=\s*(p_\w+))",
-        {.ignorecase = true});
-    std::vector<guard> out;
-    for (const auto& r : raise_re.find_all(body)) {
-        const auto selects = select_re.find_all(body.substr(0, r.start()));
-        if (selects.empty())
-            continue;
-        const auto& last = selects.back();
-        guard g{lower(last.group(1)), {}};
-        for (const auto& cp : column_param_re.find_all(last.group(2))) {
-            auto column = lower(cp.group(1));
-            if (!non_identifying.contains(column))
-                g.pairs.emplace_back(std::move(column), lower(cp.group(2)));
-        }
-        if (!g.pairs.empty())
-            out.push_back(std::move(g));
-    }
-    return out;
-}
-
-insert_map parse_inserts(std::string_view body) {
-    static const pt::regex insert_re(R"(insert\s+into\s+(\w+)\s*\()",
-        {.ignorecase = true});
-    static const pt::regex values_re(R"(\s*values\s*\()",
-        {.ignorecase = true});
-    insert_map out;
-    for (const auto& m : insert_re.find_all(body)) {
-        const auto table = lower(m.group(1));
-        const auto [columns_text, after] = read_balanced(body, m.end() - 1);
-        const auto v = values_re.match(body, after);
-        if (!v)
-            continue;
-        const auto values_text = read_balanced(body, v->end() - 1).first;
-        const auto columns = ops::split_top(columns_text);
-        const auto values = ops::split_top(values_text);
-        if (columns.size() != values.size())
-            continue;
-        auto& row = out[table];
-        for (std::size_t i = 0; i < columns.size(); ++i)
-            row[lower(ops::strip(columns[i]))] = std::string(values[i]);
-    }
-    return out;
-}
-
-struct call {
-    std::string_view path;
-    std::string function;
-    std::vector<std::string> arguments;
-    std::uint32_t line;
-    std::uint32_t offset;
-};
 
 using values_t = std::vector<std::string>;
 
-std::vector<std::pair<values_t, const call*>> call_tuples(
-    const std::vector<call>& calls, std::string_view name,
+struct function {
+    std::string_view path;
+    std::uint32_t offset = 0;
+    std::vector<std::string> params;
+    std::vector<ops::sql_guard> guards;
+    std::map<std::string, std::map<std::string, std::string>, std::less<>>
+        inserts;
+};
+
+struct call {
+    std::string_view path;
+    std::uint32_t offset = 0;
+    std::vector<std::optional<std::string>> arguments;
+};
+
+/**
+ * @brief The literal values of @p c at @p positions, or nothing when one
+ * is missing or not a literal.
+ */
+std::optional<values_t> values_at(const call& c,
     const std::vector<std::size_t>& positions) {
-    std::vector<std::pair<values_t, const call*>> out;
-    for (const auto& c : calls) {
-        if (c.function != name)
-            continue;
-        if (std::ranges::any_of(positions,
-                [&](auto p) { return p >= c.arguments.size(); }))
-            continue;
-        values_t values;
-        bool literal = true;
-        for (const auto p : positions) {
-            auto v = literal_value(c.arguments[p]);
-            if (!v) {
-                literal = false;
-                break;
-            }
-            values.push_back(std::move(*v));
-        }
-        if (literal)
-            out.emplace_back(std::move(values), &c);
+    values_t out;
+    for (const auto p : positions) {
+        if (p >= c.arguments.size() || !c.arguments[p])
+            return std::nullopt;
+        out.push_back(*c.arguments[p]);
     }
     return out;
 }
@@ -266,109 +184,111 @@ std::string join(const std::vector<std::string>& items) {
     return out;
 }
 
-void add(ct::diagnostic_table& out, std::string_view file,
-    std::uint32_t offset, std::uint32_t rule, const std::string& message,
-    std::string_view fix) {
-    out.add({.document = compass::org::types::document_id::none(),
-        .range = {offset, offset},
-        .rule = ct::rule_id{rule},
-        .level = ct::severity::error,
-        .message = message,
-        .fix = fix,
-        .file = file});
+std::string lower(std::string_view s) {
+    return ops::lowered(s);
 }
 
-std::vector<std::string_view> sql_files(const ct::corpus_view& v,
-    std::string_view dir) {
-    auto paths = v.list_files(dir, ".sql");
-    std::ranges::sort(paths, ops::component_less);
-    return paths;
-}
-
-void check(const ct::corpus_view& v, ct::diagnostic_table& out) {
-    std::string create_text;
-    std::vector<std::pair<std::string_view, std::size_t>> starts;
-    for (const auto p : sql_files(v, create_dir)) {
-        if (!starts.empty())
-            create_text.push_back('\n');
-        starts.emplace_back(p, create_text.size());
-        create_text += ops::blank_comments(
-            pt::universal_newlines(v.read_file(p).value_or("")));
-    }
+void reduce(std::span<const ct::scanned_file> files,
+    const ct::corpus_view& v, ct::diagnostic_table& out) {
+    std::unordered_map<std::string_view, std::vector<ops::sql_include>>
+        includes;
     std::vector<std::pair<std::string, function>> functions;
-    try {
-        functions = parse_functions(create_text);
-    } catch (const unbalanced& e) {
-        auto it = std::ranges::upper_bound(starts, e.at, {},
-            [](const auto& s) { return s.second; });
-        --it;
-        add(out, it->first, static_cast<std::uint32_t>(e.at - it->second), 1,
-            "a function's parameters do not close", "close the parentheses");
-        return;
+    std::map<std::string, std::vector<call>, std::less<>> calls;
+    std::vector<std::string_view> roots;
+    for (const auto& f : files) {
+        ct::fact_reader fact(f.fact);
+        includes.emplace(f.path, ops::read_includes(fact));
+        if (f.path.find('/', ops::sql_root.size() + 1) ==
+            std::string_view::npos)
+            roots.push_back(f.path);
+        for (auto n = fact.number(); n > 0; --n) {
+            std::string name(fact.text());
+            function fn{f.path, fact.number(), {}, {}, {}};
+            fn.params.resize(fact.number());
+            for (auto& p : fn.params)
+                p = fact.text();
+            fn.guards.resize(fact.number());
+            for (auto& g : fn.guards) {
+                g.table = fact.text();
+                g.columns.resize(fact.number());
+                for (auto& [column, param] : g.columns) {
+                    column = fact.text();
+                    param = fact.text();
+                }
+            }
+            for (auto inserts = fact.number(); inserts > 0; --inserts) {
+                auto& row = fn.inserts[std::string(fact.text())];
+                for (auto values = fact.number(); values > 0; --values) {
+                    std::string column(fact.text());
+                    row[column] = fact.text();
+                }
+            }
+            const auto it = std::ranges::find_if(functions,
+                [&](const auto& e) { return e.first == name; });
+            if (it == functions.end())
+                functions.emplace_back(std::move(name), std::move(fn));
+            else
+                it->second = std::move(fn);
+        }
+        for (auto n = fact.number(); n > 0; --n) {
+            std::string name(fact.text());
+            call c{f.path, fact.number(), {}};
+            c.arguments.resize(fact.number());
+            for (auto& a : c.arguments) {
+                if (fact.number() == 1)
+                    a = std::string(fact.text());
+            }
+            calls[name].push_back(std::move(c));
+        }
     }
     if (functions.empty()) {
-        add(out, create_dir.substr(0, create_dir.size() - 1), 0, 1,
+        add(out, create_dir.substr(0, create_dir.size() - 1), 0,
+            unbalanced_parentheses,
             "no function definitions found under the create scripts",
             "point the check at the schema's create scripts");
         return;
     }
 
-    std::map<std::string, std::vector<guard>, std::less<>> guards;
-    std::map<std::string, insert_map, std::less<>> inserts;
+    const auto walk = ops::walk_includes(roots,
+        [&](std::string_view p) {
+            const auto it = includes.find(p);
+            return it == includes.end() ? std::vector<ops::sql_include>{}
+                                        : it->second;
+        },
+        [&](std::string_view p) { return v.file_exists(p); });
+
+    std::map<std::string, std::vector<ops::sql_guard>, std::less<>> guards;
     std::set<std::string, std::less<>> guarded_tables;
     for (const auto& [name, f] : functions) {
-        guards[name] = parse_guards(f.body);
-        inserts[name] = parse_inserts(f.body);
-        for (const auto& g : guards[name])
+        auto& kept = guards[name];
+        for (const auto& g : f.guards) {
+            ops::sql_guard k{g.table, {}};
+            for (const auto& pair : g.columns) {
+                if (!non_identifying.contains(pair.first))
+                    k.columns.push_back(pair);
+            }
+            if (!k.columns.empty())
+                kept.push_back(std::move(k));
+        }
+        for (const auto& g : kept)
             guarded_tables.insert(g.table);
     }
-    std::vector<std::string> interesting;
-    for (const auto& [name, found] : guards) {
-        const auto writes_guarded = std::ranges::any_of(inserts[name],
+    for (const auto& [name, f] : functions) {
+        const auto writes_guarded = std::ranges::any_of(f.inserts,
             [&](const auto& t) { return guarded_tables.contains(t.first); });
-        if (!found.empty() || writes_guarded)
-            interesting.push_back(name);
+        if ((guards[name].empty() && !writes_guarded) || name.ends_with("_fn"))
+            continue;
+        add(out, f.path, f.offset, unread_function, "function " + name +
+            " takes part in a populate lookup, but the check reads only "
+            "the calls of functions named *_fn",
+            "rename the function to end in _fn");
     }
 
-    std::vector<call> calls;
-    if (!interesting.empty()) {
-        auto names = interesting;
-        std::ranges::stable_sort(names, [](const auto& a, const auto& b) {
-            return a.size() > b.size();
-        });
-        std::string alternation;
-        for (const auto& n : names) {
-            if (!alternation.empty())
-                alternation += '|';
-            alternation += pt::escape(n);
-        }
-        const pt::regex call_re(R"(\b()" + alternation + R"()\s*\()",
-            {.ignorecase = true});
-        for (const auto p : sql_files(v, populate_dir)) {
-            const auto bytes = v.read_file(p).value_or("");
-            const auto text = ops::blank_comments(
-                pt::universal_newlines(bytes));
-            for (const auto& m : call_re.find_all(text)) {
-                std::string_view arguments;
-                try {
-                    arguments = read_balanced(text, m.end() - 1).first;
-                } catch (const unbalanced&) {
-                    add(out, p, static_cast<std::uint32_t>(m.start()), 1,
-                        "a call does not close its parentheses",
-                        "close the parentheses");
-                    return;
-                }
-                std::vector<std::string> args;
-                for (const auto a : ops::split_top(arguments))
-                    args.emplace_back(ops::strip(a));
-                const auto line = static_cast<std::uint32_t>(std::count(
-                    text.begin(), text.begin() + static_cast<long>(m.start()),
-                    '\n') + 1);
-                calls.push_back({p, lower(m.group(1)), std::move(args), line,
-                    ops::offset_of_line(bytes, line)});
-            }
-        }
-    }
+    const std::vector<call> no_calls;
+    const auto calls_of = [&](std::string_view name) -> const auto& {
+        const auto it = calls.find(name);
+        return it == calls.end() ? no_calls : it->second;
+    };
 
     std::map<std::pair<std::string, std::vector<std::string>>,
         std::vector<std::pair<std::string, std::vector<std::size_t>>>>
@@ -378,25 +298,24 @@ void check(const ct::corpus_view& v, ct::diagnostic_table& out) {
     for (const auto& [name, f] : sorted) {
         for (const auto& g : guards[name]) {
             std::vector<std::size_t> reference_positions;
-            for (const auto& [column, param] : g.pairs) {
+            for (const auto& [column, param] : g.columns) {
                 const auto it = std::ranges::find(f.params, param);
                 if (it != f.params.end())
                     reference_positions.push_back(
                         static_cast<std::size_t>(it - f.params.begin()));
             }
-            if (reference_positions.size() != g.pairs.size())
+            if (reference_positions.size() != g.columns.size())
                 continue;
             std::vector<std::string> columns;
-            for (const auto& pair : g.pairs)
+            for (const auto& pair : g.columns)
                 columns.push_back(pair.first);
 
             const auto key = std::make_pair(g.table, columns);
             if (!defining_cache.contains(key)) {
                 auto& found = defining_cache[key];
                 for (const auto& [candidate, cf] : functions) {
-                    const auto& by_table = inserts[candidate];
-                    const auto row = by_table.find(g.table);
-                    if (row == by_table.end() || row->second.empty())
+                    const auto row = cf.inserts.find(g.table);
+                    if (row == cf.inserts.end() || row->second.empty())
                         continue;
                     std::vector<std::size_t> positions;
                     bool all = true;
@@ -406,9 +325,8 @@ void check(const ct::corpus_view& v, ct::diagnostic_table& out) {
                             all = false;
                             break;
                         }
-                        const auto expression = lower(e->second);
                         const auto it = std::ranges::find(cf.params,
-                            expression);
+                            lower(e->second));
                         if (it == cf.params.end()) {
                             all = false;
                             break;
@@ -421,25 +339,47 @@ void check(const ct::corpus_view& v, ct::diagnostic_table& out) {
                 }
             }
 
-            std::set<values_t> definitions;
+            // Each value set defined, with the earliest point psql runs a
+            // definition of it, when an entry point reaches one.
+            std::map<values_t, std::optional<ops::run_point>> definitions;
             for (const auto& [candidate, positions] : defining_cache[key]) {
-                for (auto& [values, c] :
-                    call_tuples(calls, candidate, positions))
-                    definitions.insert(std::move(values));
+                for (const auto& c : calls_of(candidate)) {
+                    auto values = values_at(c, positions);
+                    if (!values)
+                        continue;
+                    const auto at = walk.when(c.path, c.offset);
+                    auto [it, added] = definitions.try_emplace(
+                        std::move(*values), at);
+                    if (!added && at && (!it->second || *at < *it->second))
+                        it->second = at;
+                }
             }
 
             std::vector<std::string> params;
-            for (const auto& pair : g.pairs)
+            for (const auto& pair : g.columns)
                 params.push_back(pair.second);
-            for (const auto& [values, c] :
-                call_tuples(calls, name, reference_positions)) {
-                if (definitions.contains(values))
+            const auto head = name + "(" + join(params) + ") looks up " +
+                g.table + " (" + join(columns) + ")";
+            const std::string_view fix = "define the row in a populate "
+                "script that runs before this one, or correct the name";
+            for (const auto& c : calls_of(name)) {
+                const auto values = values_at(c, reference_positions);
+                if (!values)
                     continue;
-                add(out, c->path, c->offset, 0, name + "(" + join(params) +
-                    ") looks up " + g.table + " (" + join(columns) +
-                    ") but no populate script defines (" + join(values) +
-                    ")", "define the row in a populate script that runs "
-                    "before this one, or correct the name");
+                const auto d = definitions.find(*values);
+                if (d == definitions.end()) {
+                    add(out, c.path, c.offset, unresolved_reference, head +
+                        " but no populate script defines (" + join(*values) +
+                        ")", fix);
+                    continue;
+                }
+                const auto used = walk.when(c.path, c.offset);
+                if (!used || (d->second && *d->second < *used))
+                    continue;
+                add(out, c.path, c.offset, unresolved_reference, head +
+                    " but (" + join(*values) + ") is defined only by a "
+                    "populate call that psql runs after this one, or that "
+                    "no entry point reaches", fix);
             }
         }
     }
@@ -449,13 +389,13 @@ void check(const ct::corpus_view& v, ct::diagnostic_table& out) {
 
 const ct::descriptor populate_refs{
     .name = "populate_refs",
-    .version = 1,
+    .version = 2,
     .summary = "Reports each populate call that looks up a name no "
-        "populate script defines.",
+        "populate script that runs before it defines.",
     .reads = ct::inputs::of_types({}),
     .options = {},
     .rules = rules,
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::diagnostic_table>{check}};
+    .run = ct::scan_function{scanned, map, reduce}};
 
 }

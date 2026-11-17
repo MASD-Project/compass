@@ -75,7 +75,10 @@ ported:
 - *=entity_writes=.* =entity-writes= (=check_entity_table_writes.py=). Rule
   =sql_writer=: a function under =projects/ores.sql/create/= whose body
   inserts into, updates or deletes from an =ores_..._tbl= table, but the
-  purge. Rule =cpp_writer=: a hand-written C++ file that writes such a table
+  purge. The functions and what they write are =compass.sql='s model of
+  the file (=ops::model_of=): the body is the function's dollar body,
+  whatever its tag, read from code and from the SQL of the literals it
+  executes, never from comments. Rule =cpp_writer=: a hand-written C++ file that writes such a table
   and is not the repository of every table it writes. The 136 writers of
   the script's baseline are findings, one per function or file.
 - *=money_decimal_columns=.* =money-decimal-columns=

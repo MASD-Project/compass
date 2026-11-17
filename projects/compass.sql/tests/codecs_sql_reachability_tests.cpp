@@ -77,3 +77,16 @@ TEST_CASE("an edit that drops an include leaves its target unreachable, "
     CHECK(tests::run_after_edit(codecs::sql_reachability, dropped, tree())
         .findings.size() == 3);
 }
+
+TEST_CASE("an include in a comment or a literal reaches nothing",
+    "[codecs][sql_reachability]") {
+    auto t = tree();
+    t["projects/ores.sql/create/create.sql"] =
+        "\\ir tables/a.sql\n"
+        "\\i create/tables/b.sql\n"
+        "/*\n\\ir tables/orphan.sql\n*/\n"
+        "select '\n\\ir tables/orphan.sql\n';\n";
+    CHECK(tests::places(tests::run(codecs::sql_reachability, t).findings) ==
+        places{{"projects/ores.sql", 0},
+            {"projects/ores.sql/create/tables/orphan.sql", 1}});
+}

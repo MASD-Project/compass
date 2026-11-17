@@ -26,16 +26,19 @@ namespace compass::sql::codecs {
 
 /**
  * @brief ORE Studio's populate-refs gate: every name a populate script
- * looks up is one a populate script defines.
+ * looks up is one a populate script that psql runs before it defines.
  *
- * Reads the create scripts under projects/ores.sql/create for each
- * function, its parameters, the mandatory lookups its body guards with a
- * raise of not found, and the rows it inserts; then the populate scripts
- * under projects/ores.sql/populate for every call to a function that looks
- * a name up or writes a row another looks up. Rule unresolved_reference: a
- * call passes literal names to a lookup that no call to a defining
- * function passes. Rule unbalanced_parentheses: a definition or call the
- * check reads does not close.
+ * A scan of every .sql under projects/ores.sql. The fact of a file is its
+ * includes; for a create script, each function with its parameters, the
+ * mandatory lookups its body guards with a raise of not found, and the
+ * rows it inserts; for a populate script, each call of a *_fn with a
+ * literal argument. The reduce joins them, in the order
+ * ops::walk_includes gives. Rule unresolved_reference: a call passes
+ * literal names to a lookup that no call to a defining function passes,
+ * or that only calls psql runs later pass. Rule unbalanced_parentheses: a
+ * definition or call the check reads does not close. Rule
+ * unread_function: a function a lookup involves is not named *_fn, so its
+ * calls are not read.
  */
 extern const compass::codec::types::descriptor populate_refs;
 

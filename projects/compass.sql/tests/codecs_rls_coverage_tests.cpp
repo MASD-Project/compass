@@ -98,3 +98,31 @@ TEST_CASE("without the ignore file every gap is reported",
         {"projects/ores.sql/create/refdata/refdata_types_create.sql", 3},
         {"projects/ores.sql/create/trading/trading_cash_create.sql", 1}});
 }
+
+TEST_CASE("a column with a comment after its comma is a column, and a "
+    "statement in a comment states nothing", "[codecs][rls_coverage]") {
+    auto t = tree();
+    t[std::string(root) + "mq/mq_queues_create.sql"] =
+        "create table if not exists ores_mq_queues_tbl (\n"
+        "    id uuid not null,\n"
+        "    tenant_id   uuid,   -- NULL for system scope\n"
+        "    party_id    uuid    -- NULL for tenant scope\n"
+        ");\n"
+        "-- alter table ores_mq_queues_tbl enable row level security;\n";
+    const auto r = tests::run(codecs::rls_coverage, t);
+    CHECK(tests::places(r.findings) == places{
+        {"projects/ores.sql/create/mq/mq_queues_create.sql", 1},
+        {"projects/ores.sql/create/mq/mq_queues_create.sql", 1},
+        {"projects/ores.sql/create/refdata/refdata_types_create.sql", 3},
+        {"projects/ores.sql/create/trading/trading_cash_create.sql", 1}});
+}
+
+TEST_CASE("a run after an edit to one script finds what a full run finds",
+    "[codecs][rls_coverage]") {
+    auto fixed = tree();
+    fixed[std::string(root) + "refdata/refdata_types_create.sql"] +=
+        "alter table ores_refdata_types_tbl enable row level security;\n";
+    const auto r = tests::run_after_edit(codecs::rls_coverage, tree(), fixed);
+    CHECK(tests::places(r.findings) == places{
+        {"projects/ores.sql/create/trading/trading_cash_create.sql", 1}});
+}

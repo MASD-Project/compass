@@ -217,7 +217,22 @@ replaced in this step.
    `component_files`; `er-diagram` is two codecs, `er_diagram` for the
    diagrams and `rls_coverage` for the row-level security checks its
    `--strict` fails on (RLS_001 and RLS_002, read with the same
-   `validation_ignore.txt`). Some gates and rules have no codec because
+   `validation_ignore.txt`). The SQL gates read code through one lexer, so
+   a statement in a comment or a literal no longer counts. One
+   disagreement with the scripts is expected at `545cafca45`, and
+   `populate_refs` checks two things its script does not:
+   - `rls_coverage` reports `ores_mq_queues_tbl` under RLS_002 and the
+     script does not. The script drops a column whose line has a comment
+     after its comma, so it never saw the table's `tenant_id` and
+     `party_id`. Add a restrictive party policy, or list the table under
+     RLS_002 in `validation_ignore.txt` with its reason.
+   - `populate_refs` also checks order: a lookup is resolved only by a
+     definition psql runs before it, following the `\ir` includes from the
+     root scripts. ORE Studio is in order today; the script never checked.
+   - `populate_refs` has a new rule, `unread_function`: a function a lookup
+     involves must be named `*_fn`, because the check reads only those
+     calls. Every ORE Studio function is.
+   Some gates and rules have no codec because
    another check covers them; see "Gates compass dropped" below. Compare
    their verdict with the check that covers them.
 3. Time both. Record wall time, the load average and whether compass was warm.

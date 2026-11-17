@@ -63,6 +63,10 @@ One compass check command runs every ORE Studio gate that needs no build in seco
 | [[id:3BDAD06A-FFDC-4E8A-8890-72C25071239A][Fix the pilot's findings]] | DONE | 2026-11-17 | 2026-11-17 | Fix the defects ORE Studio's compass-ng pilot found in ores_dev_solid_dirac: the install name, er-diagram's RLS validation, configuration at a past commit, the hook's old findings, the guide, and a guard for hand edits regenerate would delete. |
 | [[id:FEAB1CC1-5F10-4EB3-9DD3-C6366F341B4D][Install compass-ng beside the Python compass]] | DONE | 2026-11-17 | 2026-11-17 | Install the shared binary as compass-ng, so ORE Studio's Python compass keeps its name, and bring the ORE Studio guide up to date with the pilot's findings. |
 | [[id:0A4718C5-0278-4670-B7B0-72CDAABE8D1C][Drop the redundant gates]] | DONE | 2026-11-17 | 2026-11-17 | Remove the gates and rules the gate review found redundant or dead, as the product owner decided. |
+| [[id:6462BCC8-0BD3-4FD3-8058-A0D5F11825F9][Share one SQL pass]] | DONE | 2026-11-17 | 2026-11-17 | Replace the SQL gates' separate regex parsers with one SQL lexer and one table, call and include model that every SQL gate reads, and make populate_refs a scan. |
+| [[id:DAFC0050-BA23-43F7-97DA-8C3BC819CDC3][Share one C++ pass]] | BACKLOG | | | Replace the C++ gates' separate comment blankers and scans with one C++ lexer and per-file facts that every C++ gate reads. |
+| [[id:BF5D53B7-95EF-4632-97D2-05774E4020C4][Share passes over org documents]] | BACKLOG | | | Move the org gates from regexes onto compass's parsed tables, with one per-page codec and one ID-link graph pass. |
+| [[id:FA2071BD-7E67-4632-A4EB-40C7B40D537A][Run model rules over loaded models]] | BACKLOG | | | Replace the gates that regex raw model files with one per-model rules codec over the models compass already loads. |
 
 * Decisions
 

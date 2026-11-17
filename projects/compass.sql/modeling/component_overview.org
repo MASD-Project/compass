@@ -20,23 +20,70 @@ the domain layer of the
 =sql-reachability=, =rls-widenings=, =handler-permissions= and
 =curve-parameter-paths=. Each script reread its files on every run; a codec
 reads them through its view, so a run in which none of them changed reuses
-its findings without reading any. =sql_hygiene= and =sql_reachability=
-are scans: a file's findings, or its =\i= and =\ir= lines, are kept per
-content ID, so a run after an edit reads the edited file alone.
+its findings without reading any. Every gate but =curve_parameter_paths=
+is a scan: what a file says is kept per content ID as its findings and its
+/fact/, so a run after an edit reads the edited file alone and joins the
+stored facts.
 
-The gates after =sql_hygiene= take their scripts' regular expressions
-verbatim through =compass.platform='s =text::regex=; =ops::scripts= holds
-the helpers they share: comment blanking, top-level splitting and pathlib's
-order.
+Every SQL gate reads its files through one lexer and one model.
+=ops::lex= tokenises a file once, as PostgreSQL does where the gates need
+it; =ops::model_of= reads the file's statements from the tokens, and each
+gate keeps in its fact the part of the model it needs. A rule over the
+model reads code only: a comment or a literal states no table, policy,
+include or call. The gates were first ported regular expression for
+regular expression; where the model reads a file differently, the
+regular expression was wrong, and each such case is listed with its
+codec below. =ops::scripts= keeps pathlib's order and the helpers
+=er_model_of= and =curve_parameter_paths= use.
 
-The scanner is a port, not a parser: it reproduces the script's rules,
-including what they get wrong, such as reporting =create  table  if not
-exists= with two spaces before =if=, because the acceptance of the port is
-the same verdict on the same commit. It works on bytes: a byte of 0x80 or
-more counts as a word character, and the non-ASCII spaces Python's =\s=
-matches are not spaces. tree-sitter is not used: its SQL grammar does not
-read psql scripts (see
+The lexer works on bytes: a byte of 0x80 or more counts as a word
+character, and the non-ASCII spaces Python's =\s= matches are not spaces.
+tree-sitter is not used: its SQL grammar does not read psql scripts (see
 [[id:E2DCD7CE-4CFC-47D8-A65D-E05A4CA48EB6][Measure tree-sitter parsing]]).
+
+The gates are separate codecs, so a cold run still reads and lexes a file
+once per gate that scans it: a fact belongs to the codec that made it.
+Sharing one fact between codecs needs the runtime support of the
+[[id:F51A1EEB-55D4-4AC4-8119-360BF85EB570][Combine gates that read the same data]]
+task.
+
+* SQL model
+
+- *Lexer.* =ops::lex= returns the tokens of a text without the spaces
+  between them: words, quoted names, ='...'= literals with =''=, dollar
+  bodies from =$tag$= to the same tag, =--= and nested =/* */= comments,
+  psql meta-commands from a backslash that starts a line to the end of
+  it, and single-byte symbols. It also says where the outermost block
+  comment still open at the end begins. A body is lexed again when a gate
+  reads inside it, with meta-commands off.
+- *Model.* =ops::model_of= splits the code tokens into statements at each
+  =;= and meta-command, at the top level and in every dollar body, and
+  reads from them, lower-cased and without schema or quotes:
+  - the includes, =\i=, =\ir=, =\include= and =\include_relative=, in
+    order (=ops::includes_of= gives them alone);
+  - each =create table= with its columns, their types and its primary key;
+  - each =create index= with its name, table, the text between its
+    parentheses and whether it says =if not exists=;
+  - the tables that =alter table= enables row-level security on;
+  - each =create policy= with its table, whether it is restrictive, names
+    =party_id= or compares the current tenant with the system tenant;
+  - each =create function= with its parameters, and from its body the
+    lookups it guards (a =select ... from T where col = p_x= followed by a
+    =raise exception= whose message says =not found=), the rows it inserts
+    and the =ores_*_tbl= tables it writes, in code or in the SQL of the
+    literals it executes;
+  - each call of a function named =*_fn= with at least one literal
+    argument, and the value of each argument that is one literal;
+  - each call or function whose parentheses do not close.
+  DDL inside a PL/pgSQL body is read where its keyword stands, after
+  =begin= or =then=.
+- *Includes.* =ops::walk_includes= walks the includes depth first in
+  include order from the scripts directly under =projects/ores.sql= and
+  the four entry points nothing includes, as psql runs them. It reports
+  each include and entry point that names no file, and numbers the runs
+  of each file between its includes, so =when= says which of two
+  statements psql runs first. A file psql reaches twice runs where it is
+  first reached; both branches of a =\if= count.
 
 The codecs are off by default, and =codecs::catalogue= lists them.
 
@@ -54,64 +101,77 @@ The codecs are off by default, and =codecs::catalogue= lists them.
     dollar-quoted bodies and both quote styles hide the markers. The finding
     is at the outermost comment still open.
   - =duplicate_index=: =create [unique] index if not exists= appears more
-    than once with the same name, table and columns, compared lower-cased
-    with the columns' spaces collapsed. The finding is at the first.
+    than once with the same name, table and columns, as the model reads
+    them. The finding is at the first.
   - =comment_splits_literals=: a comment stands between two string literals,
     which PostgreSQL joins only across whitespace; dollar-quoted bodies are
     scanned too. The finding is at the comment.
-  - =not_re_runnable=: in the text with comments, literals and bodies
-    masked (=ops::mask_non_code=), =create table=, =sequence=, =extension=,
-    =schema= or =materialized view= without =if not exists=; =create
-    trigger=, =rule=, =view=, =function= or =procedure= without =or
-    replace=; =create index= without =if not exists=; =create policy= with
-    no =drop policy if exists= of the same name and table in the file; and
-    =create type= or =domain= with no =drop ... if exists= of the same name.
+  - =not_re_runnable=: in the top-level code tokens, =create table=,
+    =sequence=, =extension=, =schema= or =materialized view= without =if
+    not exists=; =create trigger=, =rule=, =view=, =function= or
+    =procedure= without =or replace=; =create index= without =if not
+    exists=; =create policy= with no =drop policy if exists= of the same
+    name and table in the file; and =create type= or =domain= with no
+    =drop ... if exists= of the same name.
   A message holds no count: the script's depth of an open comment and the
-  number of times an index is created are left out.
+  number of times an index is created are left out. The script's regular
+  expressions reported =create  table  if not exists= with two spaces
+  before =if= and =create index if  not exists=, and counted an index in
+  a comment toward a duplicate; the tokens do not.
 
 - *=populate_refs=.* =populate-refs=
-  (=projects/ores.codegen/scripts/check_populate_references.py=). Rule
-  =unresolved_reference=: a populate call passes literal names to a function
-  whose body raises =not found= on a lookup, and no populate call to a
-  function that inserts that row passes the same names. Rule
+  (=projects/ores.codegen/scripts/check_populate_references.py=). A scan
+  of every =.sql= under =projects/ores.sql=: a create script's fact is
+  its functions with their guards and inserts, a populate script's its
+  =*_fn= calls with literal arguments, and every file's its includes.
+  Rule =unresolved_reference=: a populate call passes literal names to a
+  function whose body raises =not found= on a lookup, and no populate call
+  to a function that inserts that row passes the same names, or only
+  calls that psql runs after it do, in the order =ops::walk_includes=
+  gives; the script never checked the order its fix text names. A call in
+  a file no entry point reaches is not checked for order. Rule
   =unbalanced_parentheses=: a definition or call the check reads does not
-  close, where the script stops with a traceback.
+  close, where the script stops with a traceback; the codec reports it and
+  goes on. Rule =unread_function=: a function a lookup involves is not
+  named =*_fn=, so the facts hold none of its calls. The script built a
+  regular expression of the names the create scripts define to find the
+  calls; every one is named =*_fn=, so the facts need no create script.
 - *=sql_reachability=.* =sql-reachability= (=check_sql_reachability.py=).
-  Rule =unreachable_file=: a file under =create=, =populate= or =drop= that
-  no =\i= or =\ir= walk from the root scripts and the four declared entry
-  points reaches. Rule =missing_include=: an include or entry point names
-  no file.
+  A scan whose fact is a file's includes. Rule =unreachable_file=: a file
+  under =create=, =populate= or =drop= that =ops::walk_includes= does not
+  reach. Rule =missing_include=: an include or entry point names no file.
+  The script's regular expression also followed an =\i= in a block
+  comment or a literal.
 - *=rls_widenings=.* =rls-widenings=
-  (=check_rls_system_tenant_widenings.py=). Rule =system_tenant_widening=:
-  a =create policy= under =create= compares the current tenant with the
-  system tenant. The script's table of excused policies is replaced by
-  inline exceptions on their =create policy= lines.
+  (=check_rls_system_tenant_widenings.py=). A scan with no reduce. Rule
+  =system_tenant_widening=: a =create policy= under =create= compares the
+  current tenant with the system tenant. The script's table of excused
+  policies is replaced by inline exceptions on their =create policy=
+  lines. The script's regular expression skipped a policy on a quoted
+  table name and read one in a block comment.
 - *=rls_coverage=.* The row-level security half of =er-diagram=
-  (=plantuml_er_parse_sql.py --strict=, =validate_rls_policies=). Rule
-  =missing_rls= (RLS_001): a table the create scripts define, as
-  =ops::er_model_of= reads them, has a =tenant_id= column and no script
-  under =create= holds =ALTER TABLE <it> ENABLE ROW LEVEL SECURITY=. Rule
+  (=plantuml_er_parse_sql.py --strict=, =validate_rls_policies=). A scan
+  of every =*_create.sql=. Rule =missing_rls= (RLS_001): a table the
+  create scripts define has a =tenant_id= column and no script under
+  =create= enables row-level security on it. Rule
   =missing_party_isolation= (RLS_002): it also has =party_id= and no
-  =CREATE POLICY ... ON <it>= reaches =AS RESTRICTIVE= and then =party_id=
-  before a semicolon. Both use the script's regular expressions over every
-  =*_create.sql=, comments included. The script's ignore file
+  restrictive policy on it names =party_id=. The script's ignore file
   (=projects/ores.sql/utility/validation_ignore.txt=, option
   =ignore_file=) is read as the script reads it: a line names a code and
   a table pattern, matched as =fnmatch= matches them. A finding is on the
-  line that creates the table, in the script that defines it last.
-  RLS_003, the reachability of each =*_rls_policies_create.sql= from
-  =rls/rls_create.sql=, is not ported. On an export of ORE Studio at
-  =67803175ce= the codec and =plantuml_er_parse_sql.py --strict= agree:
-  both report RLS_001 and RLS_002 for the four trading tables
-  =ores_trading_cash_position_instruments_tbl=,
-  =ores_trading_equity_pairwise_var_swap_instruments_tbl=,
-  =ores_trading_fx_asian_option_instruments_tbl= and
-  =ores_trading_fx_pairwise_variance_swap_instruments_tbl=, and nothing
-  else.
+  line that creates the table, in the script that defines it last, in
+  pathlib's order. RLS_003, the reachability of each
+  =*_rls_policies_create.sql= from =rls/rls_create.sql=, is not ported.
+  The script reads columns line by line and drops a line with a comment
+  after its comma; the model does not, so on ORE Studio at =545cafca45=
+  the codec reports one table the script does not: =ores_mq_queues_tbl=,
+  whose =tenant_id= and =party_id= carry such comments, under RLS_002.
 - *=handler_permissions=.* =handler-permissions=
-  (=check_handler_permissions.py=). Rule =unseeded_permission=: a handler of
-  a component of the =components= option checks a code the =seeds= script
-  does not seed.
+  (=check_handler_permissions.py=). A scan of the seeds script and the
+  handlers. Rule =unseeded_permission=: a handler of a component of the
+  =components= option checks a code the =seeds= script does not seed. A
+  seed is a string literal of the script's code, in a dollar body too,
+  that has the shape of a code; the script also took one in a comment.
 - *=curve_parameter_paths=.* =curve-parameter-paths=
   (=projects/ores.sql/utility/check_curve_parameter_paths.py=). Rule
   =undeclared_path=: a quoted =/CurveConfiguration/= path of the artefact
@@ -134,18 +194,26 @@ The codecs are off by default, and =codecs::catalogue= lists them.
   with the script's labels. The script's tables, its component prefixes,
   the columns it takes as keys by name and the styles, are parameters
   (=ops::er_conventions=), because the caller reads them from the script's
-  source. The parser's convention warnings are not ported.
+  source. The parser's convention warnings are not ported. It keeps its
+  regular expressions rather than the shared model, because the diagram
+  it feeds is committed and must stay byte for byte what the script
+  draws, quirks included: it drops a column whose line has a comment
+  after its comma. On ORE Studio's 1,470 create scripts it takes about
+  90 ms.
 
 * Entry points
 
-| Path                                         | Role                                                 |
-|----------------------------------------------+------------------------------------------------------|
-| =include/compass.sql/codecs/sql_hygiene.hpp= | The =sql_hygiene= codec.                             |
-| =include/compass.sql/ops/hygiene.hpp=        | The four rules over the text of one file.            |
-| =include/compass.sql/ops/scripts.hpp=        | The helpers the SQL gate scripts share.              |
-| =include/compass.sql/ops/er_model.hpp=       | The entity-relationship model of the create scripts. |
-| =include/compass.sql/codecs/catalogue.hpp=   | The codecs this component ships, and its code hash.  |
-| =include/compass.sql/codecs/<gate>.hpp=      | One header for each other codec.                     |
+| Path                                         | Role                                                    |
+|----------------------------------------------+---------------------------------------------------------|
+| =include/compass.sql/ops/lexer.hpp=          | The one SQL lexer.                                      |
+| =include/compass.sql/ops/sql_model.hpp=      | The model of one SQL file, read from its tokens.        |
+| =include/compass.sql/ops/includes.hpp=       | The include walk and psql's order of runs.              |
+| =include/compass.sql/codecs/sql_hygiene.hpp= | The =sql_hygiene= codec.                                |
+| =include/compass.sql/ops/hygiene.hpp=        | The four rules over the tokens and model of one file.   |
+| =include/compass.sql/ops/scripts.hpp=        | Pathlib's order and the helpers of the regex readers.   |
+| =include/compass.sql/ops/er_model.hpp=       | The entity-relationship model of the create scripts.    |
+| =include/compass.sql/codecs/catalogue.hpp=   | The codecs this component ships, and its code hash.     |
+| =include/compass.sql/codecs/<gate>.hpp=      | One header for each other codec.                        |
 
 | Target              | Kind                                      |
 |---------------------+-------------------------------------------|

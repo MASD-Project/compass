@@ -57,3 +57,28 @@ TEST_CASE("a code a handler checks and no seed defines is reported",
          "book_handler.hpp", 2},
         {"projects/ores.refdata/core/src/messaging/rate_handler.cpp", 2}});
 }
+
+TEST_CASE("a seed in a comment seeds nothing, and one in a dollar body "
+    "does", "[codecs][handler_permissions]") {
+    auto t = tree();
+    t["projects/ores.sql/populate/iam/iam_permissions_populate.sql"] =
+        "do $$ begin perform upsert('refdata::books:read'); end $$;\n"
+        "-- select upsert('refdata::books:write');\n"
+        "/* select upsert('refdata::fx:read'); */\n"
+        "select upsert('refdata::rates:write');\n";
+    const auto r = tests::run(codecs::handler_permissions, t);
+    CHECK(tests::places(r.findings) == places{
+        {"projects/ores.refdata/core/include/ores.refdata/messaging/"
+         "book_handler.hpp", 2},
+        {"projects/ores.refdata/core/src/messaging/rate_handler.cpp", 2}});
+}
+
+TEST_CASE("an edit to the seeds finds what a full run finds",
+    "[codecs][handler_permissions]") {
+    auto seeded = tree();
+    seeded["projects/ores.sql/populate/iam/iam_permissions_populate.sql"] +=
+        "select upsert('refdata::books:write');\n"
+        "select upsert('refdata::fx:read');\n";
+    CHECK(tests::run_after_edit(codecs::handler_permissions, tree(), seeded)
+        .findings.empty());
+}

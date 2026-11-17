@@ -28,6 +28,8 @@
 #include "compass.codec/ops/registry.hpp"
 #include "compass.codec/ops/run.hpp"
 #include "compass.sql/ops/hygiene.hpp"
+#include "compass.sql/ops/lexer.hpp"
+#include "compass.sql/ops/sql_model.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 
 namespace {
@@ -139,23 +141,25 @@ TEST_CASE("an unchanged tree reuses the findings and an edit runs again",
 
 TEST_CASE("comments nest, and quotes, line comments and dollar bodies hide "
     "comment markers", "[ops][sql_hygiene]") {
-    CHECK(ops::unterminated_comment("/* a /* b */ c */").depth == 0);
-    const auto open = ops::unterminated_comment("x;\n/* a /* b */ c");
-    CHECK(open.depth == 1);
-    CHECK(open.offset == 3);
-    CHECK(ops::unterminated_comment("'/*' -- /*\n$f$ /* $f$ \"/*\"")
-        .depth == 0);
-    CHECK(ops::unterminated_comment("'it''s /*'").depth == 0);
+    CHECK(ops::lex("/* a /* b */ c */").open_depth == 0);
+    const auto open = ops::lex("x;\n/* a /* b */ c");
+    CHECK(open.open_depth == 1);
+    CHECK(open.open_offset == 3);
+    CHECK(ops::lex("'/*' -- /*\n$f$ /* $f$ \"/*\"").open_depth == 0);
+    CHECK(ops::lex("'it''s /*'").open_depth == 0);
 }
 
 TEST_CASE("a duplicate index is the same name, table and columns, "
-    "whatever the case and spacing", "[ops][sql_hygiene]") {
-    const auto d = ops::duplicate_indexes(
+    "whatever the case and spacing, in code only", "[ops][sql_hygiene]") {
+    const auto d = ops::duplicate_indexes(ops::model_of(
         "create unique index if not exists x on \"t\" (a);\n"
         "CREATE UNIQUE INDEX IF NOT EXISTS X\n  ON t ( a );\n"
         "create index if not exists x on t (a);\n"
         "create index if not exists y on u (b);\n"
-        "create index if not exists yon u (b);\n");
+        "create index if not exists yon u (b);\n"
+        "-- create index if not exists z on v (c);\n"
+        "create index if not exists z on v (c);\n"
+        "create index if not exists y on public.u using btree (b);\n"));
     REQUIRE(d.size() == 2);
     CHECK(d[0].name == "x");
     CHECK(d[0].table == "t");
@@ -168,22 +172,17 @@ TEST_CASE("a duplicate index is the same name, table and columns, "
 
 TEST_CASE("a comment between two literals splits them, in dollar bodies "
     "too", "[ops][sql_hygiene]") {
-    CHECK(ops::split_concatenations("select 'a' /* c */ 'b';") ==
-        std::vector<std::uint32_t>{11});
-    CHECK(ops::split_concatenations("select 'a' -- c\n 'b';") ==
-        std::vector<std::uint32_t>{11});
-    CHECK(ops::split_concatenations("select 'a'\n 'b' /* c */;").empty());
-    CHECK(ops::split_concatenations("$$ x 'a' /* c */ 'b' $$") ==
-        std::vector<std::uint32_t>{9});
+    const auto split = [](std::string_view text) {
+        return ops::split_concatenations(text, ops::lex(text));
+    };
+    CHECK(split("select 'a' /* c */ 'b';") == std::vector<std::uint32_t>{11});
+    CHECK(split("select 'a' -- c\n 'b';") == std::vector<std::uint32_t>{11});
+    CHECK(split("select 'a'\n 'b' /* c */;").empty());
+    CHECK(split("select 'a' /* c */ x 'b';").empty());
+    CHECK(split("$$ x 'a' /* c */ 'b' $$") == std::vector<std::uint32_t>{9});
 }
 
-TEST_CASE("masking blanks comments, strings and bodies and keeps quoted "
-    "names and newlines", "[ops][sql_hygiene]") {
-    CHECK(ops::mask_non_code("a /* b\nc */ 'd''e' \"f'g\" $q$h$q$ -- i\nj")
-        == "a     \n            \"f'g\"             \nj");
-}
-
-TEST_CASE("DDL that cannot run twice is found in masked text only",
+TEST_CASE("DDL that cannot run twice is found in code only",
     "[ops][sql_hygiene]") {
     const std::string_view text =
         "create table t (x int);\n"
@@ -198,18 +197,18 @@ TEST_CASE("DDL that cannot run twice is found in masked text only",
         "drop policy if exists p on t;\ncreate policy p on t;\n"
         "create policy \"Q\" on t;\n"
         "drop type if exists k;\ncreate type k as enum ('a');\n"
-        "create Domain d as int;\n";
-    const auto found = ops::not_re_runnables(text);
+        "create Domain d as int;\n"
+        "create index if  not exists l on t (x);\n";
+    const auto found = ops::not_re_runnables(text, ops::lex(text));
     std::vector<std::string> why;
     for (const auto& f : found)
         why.push_back(f.why);
     CHECK(why == std::vector<std::string>{
         "create table without `if not exists`",
-        "create table without `if not exists`",
         "create trigger without `or replace`",
         "create index without `if not exists`",
         "create policy \"Q\" with no `drop policy if exists`",
         "create Domain d with no `drop ... if exists`"});
-    CHECK(offsets(found) == std::vector<std::uint32_t>{0, 62, 197, 235, 371,
+    CHECK(offsets(found) == std::vector<std::uint32_t>{0, 197, 235, 371,
         447});
 }
