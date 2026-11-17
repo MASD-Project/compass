@@ -26,11 +26,11 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-17                               |
 
 * Acceptance
@@ -63,7 +63,12 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Store files on the ORE copy | 166,836 before, 8 after (one pack, a lock, records) | =find .git/compass \| wc -l= | 9dacbe1 |
+| Store on disk | 1,471 MB before, 898 MB after (agent); 1.3 GB after more runs | =du= | 9dacbe1 |
+| Warm check with packs | 4.5-5.8 s at load 52-66 against 4.6-5.6 s before (agent) | =compass check= | 9dacbe1 |
+| Concurrency | 6 writers, 2 readers and a collector on one store: 6,000 results intact over 40 runs | =io_pack_store_tests= | 9dacbe1 |
+| rls_coverage at ORE 67803175ce | the same 8 warnings as =plantuml_er_parse_sql.py --strict= | export comparison | 435dbd0 |
+| ctest | 15 of 15 suites pass | =ctest --preset linux-clang-release= | 9dacbe1 |
 
 * Notes
 
@@ -108,3 +113,29 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- *D8.* The store packs objects, manifests and results into append-only
+  =.cpk= packs, each with its index at the end, published by one rename. Each
+  writer appends to its own temporary file, so writers share nothing; a
+  geometric repack under =flock= keeps the pack count logarithmic, and =gc=
+  rewrites the packs to drop unreferenced entries. A store in the old layout
+  is read as cold, and =gc= deletes it. =--version= shows =store layout 2,
+  packs 1=.
+- *D1.* =rls_coverage= in =compass.sql= reports =missing_rls= and
+  =missing_party_isolation= as the Python gate's =--strict= does, honouring
+  =validation_ignore.txt=; on ORE Studio =67803175ce= it reports the same
+  eight warnings on the four trading tables.
+- *D3.* =--commit= on a commit without =.compass.org= warns and uses the
+  working tree's.
+- *D5.* =compass hook= reports only findings the last check's record lacks;
+  =--all-findings= restores every finding.
+- *D6.* =generate= warns when a rewrite removes three or more lines its own
+  output lacks from a file someone edited.
+
+An install changes for the pilot: the first check is cold, =compass-ng gc=
+deletes the old store's files, =rls_coverage= must be enabled to replace the
+Python er-diagram gate, and the hook stops blocking on old findings.
+
+Decisions to revisit: formatted results are named by no record, so a gc an
+hour after the last check drops them and the next check reformats (about 50
+s on ORE); RLS_003 is not ported; packs are not fsynced.

@@ -53,7 +53,10 @@ compass does not export HTML yet. Keep the Emacs site export and the
 There is one compass, shared by every environment on the machine. Scripts run
 it as `compass-ng`, from the PATH. It is not called `compass`, because ORE
 Studio's Python tool (`./compass.sh`, `ores.compass`) answers to that name
-until it is retired; both tools work side by side. `~/.local/bin/compass-ng` is a link to the
+until it is retired; both tools work side by side. ORE Studio runs its
+Python tool as `./compass.sh`, so wherever ORE Studio's docs say
+`compass <verb>` they mean `./compass.sh <verb>`; no bare `compass` is on the
+PATH. `~/.local/bin/compass-ng` is a link to the
 installed binary, `~/.local/opt/compass/compass`, which has its build manifest,
 `compass.manifest`, beside it.
 
