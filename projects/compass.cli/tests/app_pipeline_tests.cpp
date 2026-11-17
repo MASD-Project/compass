@@ -25,8 +25,9 @@
 #include "compass.cli/app/steps.hpp"
 #include "compass.cli/io/listing.hpp"
 #include "compass.codec/ops/parallel_for.hpp"
-#include "compass.store/ops/blob_hash.hpp"
+#include "compass.store/io/id_resolver.hpp"
 #include "compass.store/io/location.hpp"
+#include "compass.store/ops/blob_hash.hpp"
 #include "scoped_git_repo.hpp"
 
 namespace {
@@ -137,6 +138,14 @@ TEST_CASE("every listed file answers the content ID of its own bytes, "
     CHECK(files.content_of("other/unlisted.txt") ==
         compass::store::ops::blob_id_of("Not listed.\n"));
     CHECK_FALSE(files.content_of("src/missing.cpp"));
+
+    (void)app::write_worktree_index(f);
+    const compass::store::io::id_resolver next(repo.checkout());
+    const auto& kept = next.worktree_index();
+    const auto row = std::ranges::find(kept.paths, "src/new.cpp");
+    REQUIRE(row != kept.paths.end());
+    CHECK(kept.ids[static_cast<std::size_t>(row - kept.paths.begin())] ==
+        id_of("src/new.cpp"));
 }
 
 TEST_CASE("a setting nobody declared fails the run and writes no output",

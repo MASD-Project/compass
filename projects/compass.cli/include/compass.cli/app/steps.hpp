@@ -23,6 +23,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -91,6 +93,22 @@ struct commit_source {
  * checkout mapped in sources, or a blob of the commit held in blobs. Both
  * live as long as the files, since the corpus points into them.
  */
+/**
+ * @brief The content IDs of the listed files of a checkout, each resolved
+ * at most once, on whichever thread asks first, as many codecs ask for the
+ * ID of one file and each answer is an lstat or a hash. paths is in byte
+ * order; ids holds a row's ID once it is resolved, or nothing when the
+ * file could not be read.
+ */
+struct listed_ids {
+    explicit listed_ids(std::vector<std::string_view> p)
+        : paths(std::move(p)), once(paths.size()), ids(paths.size()) {}
+
+    std::vector<std::string_view> paths;
+    std::vector<std::once_flag> once;
+    std::vector<std::optional<store::io::resolved_id>> ids;
+};
+
 struct corpus_files {
     std::filesystem::path checkout;
     std::filesystem::path objects;
@@ -105,6 +123,7 @@ struct corpus_files {
     std::vector<std::vector<std::byte>> encoded;
     std::vector<org::types::tables_view> tables;
     std::vector<std::string> errors;
+    std::shared_ptr<listed_ids> listed;
 };
 
 /**
@@ -138,11 +157,12 @@ void list(listing& l, const commit_source& c);
  * @brief The files of @p l as the codecs read them: for a checkout,
  * content IDs from the resolver of @p f and bytes from disk; for a
  * commit, the IDs its trees record and the bytes of its blobs, read only
- * when asked for.
+ * when asked for. For a checkout, the IDs are resolved once each and
+ * kept in @p f's listed.
  * @pre resolve has run on @p f. @p f and @p l outlive the result.
  */
 [[nodiscard]] codec::types::checkout_files checkout_files_of(
-    const corpus_files& f, const listing& l);
+    corpus_files& f, const listing& l);
 
 /**
  * @brief The type registry the contract pages document_type_*.org under
@@ -228,8 +248,9 @@ void load(corpus_files& f, unsigned threads);
 std::uint64_t store_objects(const corpus_files& f);
 
 /**
- * @brief Replaces the worktree index with the rows that loaded, and
- * returns how many entries it holds.
+ * @brief Replaces the worktree index with the rows that loaded and the
+ * listed files whose IDs were resolved without git's index, and returns
+ * how many entries it holds.
  *
  * @throws std::filesystem::filesystem_error when it cannot be written.
  */
