@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <optional>
 #include <span>
 #include <stdexcept>
 #include <tuple>
@@ -239,8 +240,8 @@ std::uint32_t end_of_unit(const auto& firsts, std::uint32_t u,
                                  : static_cast<std::uint32_t>(total);
 }
 
-void encode_unit(std::string& out, const types::dependency_record& record,
-    types::record_unit_id unit) {
+void encode_unit(std::string& out, std::string& contents,
+    const types::dependency_record& record, types::record_unit_id unit) {
     const auto u = unit.value;
     put_text(out, record.codecs[unit]);
     put(out, record.versions[unit]);
@@ -265,9 +266,11 @@ void encode_unit(std::string& out, const types::dependency_record& record,
     put(out, file_end - file_begin);
     for (auto f = file_begin; f < file_end; ++f) {
         const types::file_id file{f};
+        const auto content = record.files.contents[file];
         put_text(out, record.files.paths[file]);
         put(out, record.file_hashes[file]);
-        put_text(out, record.files.contents[file]);
+        put(out, static_cast<std::uint64_t>(content.size()));
+        contents += content;
     }
 
     put(out, record.diagnostic_counts[unit]);
@@ -277,7 +280,15 @@ void encode_unit(std::string& out, const types::dependency_record& record,
     put(out, record.results[unit]);
 }
 
-void decode_unit(reader& r, types::dependency_record& record) {
+/**
+ * @brief Appends the unit whose head @p r reads to @p record, with the
+ * contents of its files taken in order from @p contents and checked
+ * against their blob IDs, or left empty without them. Returns the size of
+ * each file.
+ */
+std::vector<std::uint64_t> decode_unit(reader& r,
+    types::dependency_record& record,
+    std::optional<std::string_view> contents) {
     record.codecs.add(r.text());
     record.versions.values.push_back(r.u32());
     record.configurations.values.push_back(r.id());
@@ -300,17 +311,33 @@ void decode_unit(reader& r, types::dependency_record& record) {
     record.file_firsts.values.push_back(
         {static_cast<std::uint32_t>(record.files.size())});
     const auto files = r.u32();
+    std::vector<std::uint64_t> sizes;
+    std::uint64_t at = 0;
     for (std::uint32_t f = 0; f < files; ++f) {
         const auto path = r.text();
-        record.file_hashes.values.push_back(r.id());
-        record.files.add(path, r.text());
+        const auto hash = r.id();
+        const auto size = sizes.emplace_back(r.u64());
+        std::string_view content;
+        if (contents) {
+            if (contents->size() - at < size)
+                reject("an output runs past its unit's contents");
+            content = contents->substr(at, size);
+            if (compass::store::ops::blob_id_of(content) != hash)
+                reject("an output's blob ID does not match");
+            at += size;
+        }
+        record.file_hashes.values.push_back(hash);
+        record.files.add(path, content);
     }
+    if (contents && at != contents->size())
+        reject("bytes after a unit's contents");
 
     record.diagnostic_counts.values.push_back(r.u32());
     record.diagnostic_hashes.values.push_back(r.id());
     record.diagnostics.add(r.text());
     record.manifests.values.push_back(r.id());
     record.results.values.push_back(r.id());
+    return sizes;
 }
 
 /**
@@ -370,12 +397,15 @@ std::vector<posting> postings_of(const types::dependency_record& record) {
 }
 
 void encode_index(std::string& out, const types::dependency_record& record,
-    std::span<const std::uint64_t> offsets, std::string_view units) {
+    std::span<const std::uint64_t> offsets,
+    std::span<const std::uint64_t> content_offsets, std::string_view heads) {
     for (const auto offset : offsets)
         put(out, offset);
     for (std::size_t u = 0; u + 1 < offsets.size(); ++u)
-        put(out, sha1(units.substr(offsets[u] - header_size,
+        put(out, sha1(heads.substr(offsets[u] - header_size,
             offsets[u + 1] - offsets[u])));
+    for (const auto offset : content_offsets)
+        put(out, offset);
 
     const auto postings = postings_of(record);
     std::uint32_t subjects = 0;
@@ -428,21 +458,31 @@ std::vector<std::string_view> diagnostic_paths(std::string_view bytes) {
 }
 
 std::string encode_dependency_record(const types::dependency_record& record) {
-    std::string units;
+    std::string heads;
+    std::string contents;
     std::vector<std::uint64_t> offsets;
+    std::vector<std::uint64_t> content_offsets;
     offsets.reserve(record.size() + 1);
+    content_offsets.reserve(record.size() + 1);
     for (std::uint32_t u = 0; u < record.size(); ++u) {
-        offsets.push_back(header_size + units.size());
-        encode_unit(units, record, types::record_unit_id{u});
+        offsets.push_back(heads.size());
+        content_offsets.push_back(contents.size());
+        encode_unit(heads, contents, record, types::record_unit_id{u});
     }
-    offsets.push_back(header_size + units.size());
+    offsets.push_back(heads.size());
+    content_offsets.push_back(contents.size());
+    for (auto& o : offsets)
+        o += header_size;
+    for (auto& o : content_offsets)
+        o += header_size + heads.size();
 
     std::string out(magic);
     put(out, dependency_record_version);
     put(out, static_cast<std::uint32_t>(record.size()));
-    out += units;
+    out += heads;
+    out += contents;
     const auto index_offset = out.size();
-    encode_index(out, record, offsets, units);
+    encode_index(out, record, offsets, content_offsets, heads);
     const auto digest = sha1(std::string(out.substr(0, header_size)) +
         out.substr(index_offset));
     put(out, static_cast<std::uint64_t>(index_offset));
@@ -482,9 +522,14 @@ types::unit_index decode_unit_index(std::string_view header,
         index.offsets.push_back(r.u64());
     for (std::uint32_t u = 0; u < units; ++u)
         index.hashes.values.push_back(r.id());
+    index.content_offsets.reserve(units + 1);
+    for (std::uint32_t u = 0; u <= units; ++u)
+        index.content_offsets.push_back(r.u64());
     if (index.offsets.front() != header_size ||
-        index.offsets.back() != layout.index_offset ||
-        !std::ranges::is_sorted(index.offsets))
+        index.offsets.back() != index.content_offsets.front() ||
+        index.content_offsets.back() != layout.index_offset ||
+        !std::ranges::is_sorted(index.offsets) ||
+        !std::ranges::is_sorted(index.content_offsets))
         reject("the unit offsets do not tile the record");
     const auto subjects = r.u32();
     for (std::uint32_t s = 0; s < subjects; ++s) {
@@ -508,14 +553,16 @@ types::unit_index decode_unit_index(std::string_view header,
     return index;
 }
 
-void decode_record_unit(std::string_view bytes, const blob_id& hash,
-    types::dependency_record& to) {
-    if (sha1(bytes) != hash)
+std::vector<std::uint64_t> decode_record_unit(std::string_view head,
+    const blob_id& hash, types::dependency_record& to,
+    std::optional<std::string_view> contents) {
+    if (sha1(head) != hash)
         reject("a unit checksum does not match");
-    reader r(bytes);
-    decode_unit(r, to);
+    reader r(head);
+    auto sizes = decode_unit(r, to, contents);
     if (!r.done())
         reject("bytes after a unit");
+    return sizes;
 }
 
 types::dependency_record decode_dependency_record(std::string_view bytes) {
@@ -531,7 +578,9 @@ types::dependency_record decode_dependency_record(std::string_view bytes) {
     for (std::uint32_t u = 0; u < index.size(); ++u)
         decode_record_unit(bytes.substr(index.offsets[u],
             index.offsets[u + 1] - index.offsets[u]),
-            index.hashes.values[u], record);
+            index.hashes.values[u], record,
+            bytes.substr(index.content_offsets[u],
+                index.content_offsets[u + 1] - index.content_offsets[u]));
     return record;
 }
 
@@ -559,24 +608,26 @@ std::span<const types::record_unit_id> units_of(const types::unit_index& index,
 }
 
 std::vector<types::record_unit_id> units_touching(
-    const types::unit_index& index, std::string_view path, bool document,
-    std::span<const std::string_view> ids) {
+    const types::unit_index& index, const edited_file& file) {
     using types::subject_kind;
     std::vector<types::record_unit_id> out;
     const auto add = [&](subject_kind kind, std::string_view key) {
         const auto units = units_of(index, kind, key);
         out.insert(out.end(), units.begin(), units.end());
     };
+    const auto path = file.path;
     add(subject_kind::reads, path);
-    add(subject_kind::output, path);
     add(subject_kind::finding, path);
-    if (document) {
+    if (file.output)
+        add(subject_kind::output, *file.output);
+    if (file.document) {
         add(subject_kind::type_set, {});
-        for (const auto id : ids)
+        for (const auto id : file.ids)
             add(subject_kind::id, id);
     }
     const auto& kinds = index.kinds.values;
-    const auto first = std::ranges::lower_bound(kinds, subject_kind::listing);
+    const auto first = file.created
+        ? std::ranges::lower_bound(kinds, subject_kind::listing) : kinds.end();
     for (auto it = first; it != kinds.end() && *it == subject_kind::listing;
          ++it) {
         const types::subject_id s{

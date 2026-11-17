@@ -54,17 +54,19 @@ inline constexpr subject_kind last_subject_kind = subject_kind::finding;
 /**
  * @brief Where each unit of a dependency record file is, and which units
  * each subject names, so one unit can be read and checked alone.
- * The bytes of unit u run from offsets[u] up to offsets[u + 1]; offsets
- * has one more row than there are units, the end of the last one.
- * hashes[u] is the SHA-1 of those bytes. Subjects are sorted by kind,
- * then by key in byte order, each once; the units of subject s are
- * units[unit_firsts[s]] up to unit_firsts of the next subject, or the
- * end, in ascending order.
+ * The head of unit u runs from offsets[u] up to offsets[u + 1], and
+ * hashes[u] is the SHA-1 of its bytes; the contents of its files run from
+ * content_offsets[u] up to content_offsets[u + 1]. Both offset lists have
+ * one more row than there are units, the end of the last. Subjects are
+ * sorted by kind, then by key in byte order, each once; the units of
+ * subject s are units[unit_firsts[s]] up to unit_firsts of the next
+ * subject, or the end, in ascending order.
  */
 struct unit_index {
     std::vector<std::uint64_t> offsets;
     compass::org::types::column<record_unit_id,
         compass::store::types::blob_id> hashes;
+    std::vector<std::uint64_t> content_offsets;
     compass::org::types::column<subject_id, subject_kind> kinds;
     text_column<subject_id> keys;
     compass::org::types::column<subject_id, std::uint32_t> unit_firsts;

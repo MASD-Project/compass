@@ -22,6 +22,7 @@
 #include <filesystem>
 #include <fstream>
 #include <map>
+#include <ranges>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -202,11 +203,13 @@ std::set<std::string> ran(const types::run_result& after) {
  * @p path, which holds @p ids, by codec and document.
  */
 std::set<std::string> touched(const types::dependency_record& before,
-    std::string_view path, std::vector<std::string_view> ids = {}) {
+    std::string_view path, std::vector<std::string_view> ids = {},
+    bool created = false) {
     const auto index = index_of(ops::encode_dependency_record(before));
     std::set<std::string> out;
-    for (const auto u : ops::units_touching(index, path,
-             path.ends_with(".org"), ids))
+    const ops::edited_file file{.path = path, .output = path,
+        .document = path.ends_with(".org"), .created = created, .ids = ids};
+    for (const auto u : ops::units_touching(index, file))
         out.insert(name_of(before, u));
     return out;
 }
@@ -230,7 +233,8 @@ void check_edit(const sources& docs, const sources& plain,
     std::set<std::string> recorded;
     for (std::uint32_t u = 0; u < first.record.size(); ++u)
         recorded.insert(name_of(first.record, {u}));
-    const auto named = touched(first.record, path, ids);
+    const auto named = touched(first.record, path, ids,
+        !docs.contains(path) && !plain.contains(path));
     for (const auto& unit : ran(second)) {
         INFO("edit to " << path << " ran " << unit);
         CHECK((!recorded.contains(unit) || named.contains(unit)));
@@ -270,12 +274,55 @@ TEST_CASE("every unit decodes alone through the index to what the whole "
     const auto index = index_of(bytes);
     REQUIRE(index.size() == record.size());
 
+    const std::string_view all(bytes);
     types::dependency_record one_by_one;
-    for (std::uint32_t u = 0; u < index.size(); ++u)
-        ops::decode_record_unit(std::string_view(bytes).substr(
-            index.offsets[u], index.offsets[u + 1] - index.offsets[u]),
-            index.hashes.values[u], one_by_one);
+    types::dependency_record heads;
+    for (std::uint32_t u = 0; u < index.size(); ++u) {
+        const auto head = all.substr(index.offsets[u],
+            index.offsets[u + 1] - index.offsets[u]);
+        ops::decode_record_unit(head, index.hashes.values[u], one_by_one,
+            all.substr(index.content_offsets[u],
+                index.content_offsets[u + 1] - index.content_offsets[u]));
+        ops::decode_record_unit(head, index.hashes.values[u], heads);
+    }
     CHECK(ops::encode_dependency_record(one_by_one) == bytes);
+
+    REQUIRE(heads.files.size() == record.files.size());
+    REQUIRE(heads.files.size() != 0);
+    for (std::uint32_t f = 0; f < heads.files.size(); ++f) {
+        const types::file_id file{f};
+        CHECK(heads.files.paths[file] == record.files.paths[file]);
+        CHECK(heads.file_hashes[file] == record.file_hashes[file]);
+        CHECK(heads.files.contents[file].empty());
+    }
+    CHECK(heads.diagnostics.bytes == record.diagnostics.bytes);
+    CHECK(heads.input_keys.bytes == record.input_keys.bytes);
+}
+
+TEST_CASE("a damaged output fails its own read and the whole record",
+    "[ops][unit_index]") {
+    const checkout c(documents(), files());
+    const auto record = c.run({}).record;
+    auto bytes = ops::encode_dependency_record(record);
+    auto index = index_of(bytes);
+    const auto producer = std::ranges::find_if(std::views::iota(0u,
+        static_cast<std::uint32_t>(index.size())), [&](std::uint32_t u) {
+            return index.content_offsets[u + 1] > index.content_offsets[u];
+        });
+    REQUIRE(*producer < index.size());
+    const types::record_unit_id unit{*producer};
+    const scoped_file f;
+    f.write(bytes);
+    const auto intact = io::read_recorded_file(f.path(), index, unit, 0);
+    REQUIRE(intact);
+    CHECK(*intact == record.files.contents[record.file_firsts[unit]]);
+    CHECK_FALSE(io::read_recorded_file(f.path(), index, unit, 1));
+
+    bytes[index.content_offsets[unit.value]] ^= 0x01;
+    f.write(bytes);
+    CHECK_FALSE(io::read_recorded_file(f.path(), index, unit, 0));
+    CHECK_THROWS_WITH(ops::decode_dependency_record(bytes),
+        ContainsSubstring("blob ID"));
 }
 
 TEST_CASE("a damaged unit fails alone and the whole record is rejected",

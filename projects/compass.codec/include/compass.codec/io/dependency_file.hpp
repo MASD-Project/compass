@@ -22,6 +22,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <span>
 #include <string>
 #include "compass.codec/types/dependency_record.hpp"
@@ -87,15 +88,25 @@ struct loaded_index {
 [[nodiscard]] loaded_index read_unit_index(const std::filesystem::path& path);
 
 /**
- * @brief The record holding @p units of the record at @p path, in the
- * order given, each read alone and checked against the SHA-1 @p index
- * holds for it. The problem is not empty, and the record is, when a unit
- * cannot be read or does not match, as when the file was replaced since
- * the index was read.
+ * @brief The record holding the heads of @p units of the record at
+ * @p path, in the order given, each read alone and checked against the
+ * SHA-1 @p index holds for it: their inputs, findings and the paths and
+ * blob IDs of their files, whose contents are left empty. The problem is
+ * not empty, and the record is, when a head cannot be read or does not
+ * match, as when the file was replaced since the index was read.
  */
 [[nodiscard]] loaded_record read_record_units(
     const std::filesystem::path& path, const types::unit_index& index,
     std::span<const types::record_unit_id> units);
+
+/**
+ * @brief The contents of file @p file of unit @p unit of the record at
+ * @p path, checked against its blob ID, or nothing when it cannot be read
+ * or does not match.
+ */
+[[nodiscard]] std::optional<std::string> read_recorded_file(
+    const std::filesystem::path& path, const types::unit_index& index,
+    types::record_unit_id unit, std::uint32_t file);
 
 }
 

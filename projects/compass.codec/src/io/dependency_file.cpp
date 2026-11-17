@@ -29,6 +29,7 @@
 #include <string>
 #include "compass.codec/ops/dependencies.hpp"
 #include "compass.store/io/object_file.hpp"
+#include "compass.store/ops/blob_hash.hpp"
 
 namespace compass::codec::io {
 
@@ -113,6 +114,34 @@ loaded_record read_record_units(const std::filesystem::path& path,
         r.problem = e.what();
     }
     return r;
+}
+
+std::optional<std::string> read_recorded_file(
+    const std::filesystem::path& path, const types::unit_index& index,
+    types::record_unit_id unit, std::uint32_t file) {
+    std::ifstream in(path, std::ios::binary);
+    try {
+        if (!in)
+            return std::nullopt;
+        const auto u = unit.value;
+        const auto head = read_at(in, index.offsets[u],
+            index.offsets[u + 1] - index.offsets[u]);
+        types::dependency_record scratch;
+        const auto sizes = ops::decode_record_unit(head, index.hashes[unit],
+            scratch);
+        if (file >= sizes.size())
+            return std::nullopt;
+        std::uint64_t at = index.content_offsets[u];
+        for (std::uint32_t f = 0; f < file; ++f)
+            at += sizes[f];
+        auto bytes = read_at(in, at, sizes[file]);
+        if (store::ops::blob_id_of(bytes) !=
+            scratch.file_hashes[types::file_id{file}])
+            return std::nullopt;
+        return bytes;
+    } catch (const std::runtime_error&) {
+        return std::nullopt;
+    }
 }
 
 bool write_dependency_file(const std::filesystem::path& path,

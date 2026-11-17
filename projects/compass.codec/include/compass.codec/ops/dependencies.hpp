@@ -22,6 +22,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -102,25 +103,28 @@ inline constexpr std::uint32_t dependency_record_version = 5;
  * @brief The bytes of the dependency record file.
  * All integers are little-endian and a string is its length and its
  * bytes. A 16-byte header comes first: the magic "CMPSDEP\n", the version
- * and the unit count. The units follow, end to end, each with its codec
- * name, version, configuration hash, document path, inputs (kind, key,
- * found, value), files (path, blob ID, content), findings (count, hash,
- * encoded bytes) and the keys of its manifest and result objects. Then
- * the unit index: the offset of each unit and of the end of the last,
- * the SHA-1 of each unit's bytes, and the subjects, each a kind, a key
- * and the units it names. A 28-byte footer ends the file: the offset of
- * the index and the SHA-1 of the header followed by the index. So the
- * index and any one unit can be read and checked without the rest.
+ * and the unit count. The heads of the units follow, end to end, each
+ * with its codec name, version, configuration hash, document path, inputs
+ * (kind, key, found, value), files (path, blob ID, size), findings
+ * (count, hash, encoded bytes) and the keys of its manifest and result
+ * objects. Then the contents of the files, unit by unit and file by file.
+ * Then the unit index: the offset of each head and of the end of the
+ * last, the SHA-1 of each head, the offset of each unit's contents and of
+ * their end, and the subjects, each a kind, a key and the units it
+ * names. A 28-byte footer ends the file: the offset of the index and the
+ * SHA-1 of the header followed by the index. So the index, a unit's head
+ * and any one file can be read and checked without the rest: a head by
+ * its SHA-1, a file by its blob ID.
  */
 [[nodiscard]] std::string encode_dependency_record(
     const types::dependency_record& record);
 
 /**
- * @brief The dependency record held by @p bytes, every unit checked
- * against its SHA-1.
+ * @brief The dependency record held by @p bytes, every head checked
+ * against its SHA-1 and every file against its blob ID.
  * @throws std::runtime_error naming the defect when the magic, the version,
- * the index's SHA-1 or a unit's is not the expected one, an input or a
- * subject has an unknown kind, or a field runs past its end.
+ * the index's SHA-1, a head's or a file's is not the expected one, an
+ * input or a subject has an unknown kind, or a field runs past its end.
  */
 [[nodiscard]] types::dependency_record decode_dependency_record(
     std::string_view bytes);
@@ -162,13 +166,17 @@ inline constexpr std::size_t record_footer_size = 28;
     std::string_view section, const record_layout& layout);
 
 /**
- * @brief Appends the unit whose bytes are @p bytes to @p to.
- * @throws std::runtime_error when the SHA-1 of @p bytes is not @p hash or
- * they are not one unit.
+ * @brief Appends the unit whose head is @p head to @p to, with the
+ * contents of its files taken from @p contents, the unit's contents, or
+ * left empty without them, and returns the size of each of its files.
+ * @throws std::runtime_error when the SHA-1 of @p head is not @p hash,
+ * the bytes are not one head, or a file of @p contents does not have its
+ * blob ID.
  */
-void decode_record_unit(std::string_view bytes,
+std::vector<std::uint64_t> decode_record_unit(std::string_view head,
     const compass::store::types::blob_id& hash,
-    types::dependency_record& to);
+    types::dependency_record& to,
+    std::optional<std::string_view> contents = std::nullopt);
 
 /**
  * @brief The units @p index links to the subject of kind @p kind and key
@@ -179,18 +187,31 @@ void decode_record_unit(std::string_view bytes,
     std::string_view key);
 
 /**
- * @brief The units of @p index whose result an edit to the file at
- * @p path of the checkout may change, or that report on it: those that
- * read it, produced it or have a finding on it, or list a pattern it
- * matches; and, when @p document, those that depend on the whole set of
- * documents and those that looked up one of @p ids, the ID properties
- * the file holds now. Ascending, each once. A unit that read the type
- * registry is not among them unless otherwise named: an edit to a
- * contract page changes what every unit sees.
+ * @brief A file of the checkout as an edit leaves it: its path, relative
+ * to the checkout, and, when it lies under the output root, relative to
+ * that root; whether it is a document, whether the edit may have created
+ * it, and the ID properties it holds.
+ */
+struct edited_file {
+    std::string_view path;
+    std::optional<std::string_view> output;
+    bool document = false;
+    bool created = true;
+    std::span<const std::string_view> ids;
+};
+
+/**
+ * @brief The units of @p index whose result an edit to @p file may change,
+ * or that report on it: those that read it, produced it or have a finding
+ * on it, or, when it may be new, list a pattern it matches; and, for a
+ * document, those that
+ * depend on the whole set of documents and those that looked up one of
+ * its IDs. Ascending, each once. A unit that read the type registry is
+ * not among them unless otherwise named: an edit to a contract page
+ * changes what every unit sees.
  */
 [[nodiscard]] std::vector<types::record_unit_id> units_touching(
-    const types::unit_index& index, std::string_view path, bool document,
-    std::span<const std::string_view> ids);
+    const types::unit_index& index, const edited_file& file);
 
 }
 
