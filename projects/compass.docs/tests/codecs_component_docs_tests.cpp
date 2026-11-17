@@ -48,8 +48,8 @@ TEST_CASE("a complete component, simple or composite, passes",
     CHECK(tests::run(codecs::component_docs, t).empty());
 }
 
-TEST_CASE("each gap of a component's documentation is reported, as the "
-    "script's patterns find it",
+TEST_CASE("each gap of a component's documentation is reported, as org "
+    "parses the overview and the pages",
     "[codecs][component_docs]") {
     const files t{
         {"projects/ores.a/modeling/component_overview.org",
@@ -65,11 +65,13 @@ TEST_CASE("each gap of a component's documentation is reported, as the "
         {"projects/ores.b.extra/modeling/component_overview.org", complete},
         {"projects/ores.b.extra/modeling/e.puml", ""},
         {"doc/page.org",
-         "Use `[[nodiscard]]` here, `=[[ok]]=` there, `[[id:x]]` too.\n"
+         "Use `[[nodiscard]]` here, `=[[glued]]=` there, `a =[[ok]]= b`, "
+         "`[[id:x]]` too.\n"
          "#+begin_src cpp\n`[[maybe_unused]]`\n#+end_src\n"}};
     CHECK(tests::messages(tests::run(codecs::component_docs, t)) ==
         std::vector<std::string>{
             "ores.a: no :ID: UUID in :PROPERTIES: block",
+            "ores.a: #+description: missing or empty",
             "ores.a: missing section(s): Outputs, Entry points, "
             "Dependencies, See also",
             "ores.a: no .puml file in modeling/",
@@ -80,7 +82,10 @@ TEST_CASE("each gap of a component's documentation is reported, as the "
             "into that component as a sub-component or rename it",
             "org parses nodiscard inside backticks as a link, and the site "
             "export aborts on the unresolved target; use =...= or a src "
-            "block: `[[nodiscard]]`"});
+            "block: `[[nodiscard]]`",
+            "org parses glued inside backticks as a link, and the site "
+            "export aborts on the unresolved target; use =...= or a src "
+            "block: `=[[glued]]=`"});
 }
 
 TEST_CASE("the exceptions file excuses one rule for one component",

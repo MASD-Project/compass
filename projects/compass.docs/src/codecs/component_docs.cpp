@@ -20,6 +20,8 @@
 #include "compass.docs/codecs/component_docs.hpp"
 
 #include <algorithm>
+#include <cctype>
+#include <optional>
 #include <array>
 #include <set>
 #include <string>
@@ -29,6 +31,8 @@
 #include "compass.cpp/ops/paths.hpp"
 #include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
+#include "compass.docs/ops/org_text.hpp"
+#include "compass.org/ops/document_fields.hpp"
 #include "compass.platform/text/decoding.hpp"
 #include "compass.platform/text/regex.hpp"
 
@@ -38,6 +42,9 @@ namespace {
 
 namespace ct = compass::codec::types;
 namespace co = compass::cpp::ops;
+namespace dop = compass::docs::ops;
+namespace oo = compass::org::ops;
+namespace ot = compass::org::types;
 namespace pt = compass::platform::text;
 
 enum rule : std::uint32_t {
@@ -114,35 +121,54 @@ std::set<std::pair<std::string, std::string>> load_exceptions(
     return out;
 }
 
+bool has_section(const ct::document& d, std::string_view title) {
+    const auto& h = d.tables.headings;
+    for (std::uint32_t i = 0; i < h.size(); ++i) {
+        const ot::heading_id id{i};
+        if (h.levels[id] == 1 && oo::trimmed(d.source, h.titles[id])
+                .of(d.source) == title)
+            return true;
+    }
+    return false;
+}
+
+bool is_component_type(std::string_view type) {
+    std::string lowered(dop::first_word(type));
+    std::ranges::transform(lowered, lowered.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    return lowered == "component" || lowered == "ores.codegen.component";
+}
+
+/**
+ * @brief Checks the overview under @p modeling from its parsed tables:
+ * its :ID: property, its first #+type: and #+description: keywords and
+ * its level-1 sections; one the corpus lacks has none of them.
+ */
 void check_overview(const ct::corpus_view& v, const std::string& modeling,
     const std::string& owner, std::vector<violation>& out) {
-    static const pt::regex id(R"(:ID:\s+\S+)");
-    static const pt::regex type(R"(#\+type:\s*(?:ores\.codegen\.)?component)",
-        {.ignorecase = true});
-    static const pt::regex description(R"(#\+description:\s*(.+))");
     const auto overview = modeling + "/component_overview.org";
-    const auto bytes = v.read_file(overview).value_or("");
-    if (!pt::is_utf8(bytes)) {
+    const auto d = v.find_path(overview);
+    if (d && !pt::is_utf8(d->source)) {
         out.push_back({missing_description, owner, overview, 0, owner +
             ": the overview is not UTF-8, so it cannot be read"});
         return;
     }
-    const auto text = pt::universal_newlines(bytes);
-    if (!id.search(text))
+    const auto id = d ? oo::find_document_property(d->tables, "ID")
+                      : ot::property_id::none();
+    if (id.is_none() || oo::trimmed(d->source,
+            d->tables.properties.values[id]).empty())
         out.push_back({missing_id, owner, overview, 0,
             owner + ": no :ID: UUID in :PROPERTIES: block"});
-    if (!type.search(text))
+    if (!d || !is_component_type(dop::keyword_value(*d, "type")))
         out.push_back({missing_type, owner, overview, 0, owner +
             ": #+type: component (or ores.codegen.component) not found"});
-    const auto m = description.search(text);
-    if (!m || co::strip(m->group(1)).empty())
+    if (!d || dop::keyword_value(*d, "description").empty())
         out.push_back({missing_description, owner, overview, 0,
             owner + ": #+description: missing or empty"});
     std::string missing;
     for (const auto s : sections) {
-        const pt::regex heading(R"(^\*\s+)" + pt::escape(s) + R"(\s*$)",
-            {.multiline = true});
-        if (!heading.search(text))
+        if (!d || !has_section(*d, s))
             missing += (missing.empty() ? "" : ", ") + std::string(s);
     }
     if (!missing.empty())
@@ -249,21 +275,6 @@ void check_components(const ct::corpus_view& v,
     }
 }
 
-std::vector<std::string> bare_link_targets(std::string_view text) {
-    static const pt::regex link(R"(\[\[([^\]]+)\]\])");
-    std::vector<std::string> out;
-    for (const auto& m : link.find_all(text)) {
-        auto target = m.group(1);
-        target = target.substr(0, target.find("]["));
-        target = co::strip(target);
-        if (target.contains(':') || target.contains('.') ||
-            target.starts_with('*'))
-            continue;
-        out.emplace_back(target);
-    }
-    return out;
-}
-
 /**
  * @brief The pages under doc/, which the backtick rule reads.
  */
@@ -272,55 +283,64 @@ std::vector<std::string_view> pages(const ct::corpus_view& v) {
 }
 
 /**
+ * @brief The raw target of @p l when the export would resolve it as a
+ * fuzzy link: a bare link with no colon, dot or leading star.
+ */
+std::optional<std::string_view> fuzzy_target(std::string_view source,
+    const dop::bracket_link& l) {
+    if (!l.label.empty())
+        return std::nullopt;
+    auto raw = source.substr(l.begin + 2);
+    raw = co::strip(raw.substr(0, raw.find(']')));
+    if (raw.contains(':') || raw.contains('.') || raw.starts_with('*'))
+        return std::nullopt;
+    return raw;
+}
+
+/**
  * @brief Makes the fact of a page: the byte and the message of each
- * bracket link inside a backtick span, in order. The findings are the
+ * backtick span that holds a bare fuzzy link, as org parses links, so a
+ * link in a block or a verbatim span is not one. The findings are the
  * reduce step's, since the exceptions file may excuse a page.
  */
-void map_page(std::string_view, std::string_view source,
-    const ct::option_values&, ct::file_scan& out) {
+void map_page(const ct::document& d, const ct::option_values&,
+    ct::file_scan& out) {
     static const pt::regex span(R"(`([^`\n]*)`)");
-    static const pt::regex inline_verbatim(R"(=[^=\n]+=|~[^~\n]+~)");
-    static const pt::regex verbatim_begin(R"(^#\+(begin_(?:src|example))\b)",
-        {.ignorecase = true});
-    static const pt::regex verbatim_end(R"(^#\+end_(?:src|example)\b)",
-        {.ignorecase = true});
     ct::fact_writer fact(out.fact);
-    const auto text = pt::universal_newlines(
-        pt::decode_replacing(source));
-    bool in_verbatim = false;
-    std::uint32_t number = 0;
-    for (const auto line : co::split_lines(text)) {
-        ++number;
-        const auto stripped = co::strip(line);
-        if (verbatim_begin.match(stripped)) {
-            in_verbatim = true;
+    const auto source = d.source;
+    std::uint32_t open = 0;
+    std::string_view open_span;
+    std::string joined;
+    const auto flush = [&] {
+        if (joined.empty())
+            return;
+        fact.number(open);
+        fact.text("org parses " + joined + " inside backticks as a link, "
+            "and the site export aborts on the unresolved target; use "
+            "=...= or a src block: " + std::string(open_span));
+        joined.clear();
+    };
+    for (const auto& l : dop::bracket_links(d)) {
+        const auto target = fuzzy_target(source, l);
+        if (!target)
             continue;
-        }
-        if (verbatim_end.match(stripped)) {
-            in_verbatim = false;
-            continue;
-        }
-        if (in_verbatim)
-            continue;
-        for (const auto& m : span.find_all(line)) {
-            std::string content(m.group(1));
-            for (const auto& s : inline_verbatim.find_all(m.group(1))) {
-                for (auto k = s.start(); k < s.end(); ++k)
-                    content[k] = '\0';
-            }
-            const auto targets = bare_link_targets(content);
-            if (targets.empty())
+        const auto line = dop::line_start(source, l.begin);
+        const auto rest = source.substr(line);
+        const auto text = rest.substr(0, rest.find('\n'));
+        const auto at = l.begin - line;
+        for (const auto& m : span.find_all(text)) {
+            if (m.start() >= at || m.end() <= at)
                 continue;
-            std::string joined;
-            for (const auto& t : targets)
-                joined += (joined.empty() ? "" : ",") + t;
-            fact.number(co::offset_of_line(source, number));
-            fact.text("org parses " + joined + " inside backticks as a "
-                "link, and the site export aborts on the unresolved "
-                "target; use =...= or a src block: " +
-                std::string(m.group()));
+            if (open != line || open_span.data() != m.group().data()) {
+                flush();
+                open = line;
+                open_span = m.group();
+            }
+            joined += (joined.empty() ? "" : ",") + std::string(*target);
+            break;
         }
     }
+    flush();
 }
 
 /**
@@ -356,13 +376,14 @@ void reduce(std::span<const ct::scanned_file> scanned,
 
 const ct::descriptor component_docs{
     .name = "component_docs",
-    .version = 2,
+    .version = 3,
     .summary = "Reports each component without a complete overview and "
         "diagram, and each link inside backticks under doc/.",
-    .reads = ct::inputs::of_types({}),
+    .reads = ct::inputs::every_document(),
     .options = options,
     .rules = rules,
     .enabled_by_default = false,
-    .run = ct::scan_function{pages, map_page, reduce}};
+    .run = ct::scan_function{.files = pages, .reduce = reduce,
+        .map_document = map_page}};
 
 }
