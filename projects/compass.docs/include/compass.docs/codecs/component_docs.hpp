@@ -33,8 +33,8 @@ namespace compass::docs::codecs {
  * judged on its own modeling/; each part is judged on its modeling/, or,
  * with none, only when it has include/ and src/. An overview needs an
  * :ID:, #+type: component and a #+description:, and its modeling/ a .puml.
- * The script's section check is not ported: required_sections checks the
- * sections of a page of #+type: component from that type's contract. A top-level name may not extend another's. A page
+ * The script's section check is not ported: required_sections reads the
+ * component type's sections from its contract. A top-level name may not extend another's. A page
  * under doc/ may not hold a bare bracket link inside one backtick span,
  * outside src and example blocks. The exceptions option names the file of
  * CODE component lines that excuse a rule for one component.
