@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :codec:pipeline:gates:component:
 #+created: 2026-11-16
-#+updated: 2026-11-16
+#+updated: 2026-11-17
 
 This page is the component overview for =compass.codec=, a simple component in
 the domain layer of the
@@ -106,11 +106,36 @@ others is in its descriptor, so adding a codec adds a row to a list.
   whether it names a document or a file.
 - *Record file.* =io::dependency_file_path= is =compass/deps= under the
   checkout's own git directory, beside the worktree index, so each worktree
-  keeps its own. =ops::encode_dependency_record= lays it out little-endian:
-  magic =CMPSDEP\n=, version, unit count, each unit, then the SHA-1 of all of
-  it. =io::read_dependency_file= reads a missing file as an empty record and
-  a damaged one, or one of another version, as an empty record with the
-  reason, so every unit runs. =io::write_dependency_file= writes through a
+  keeps its own. =ops::encode_dependency_record= lays out version 5
+  little-endian: a 16-byte header (magic =CMPSDEP\n=, version, unit count);
+  the head of each unit (its codec, version, configuration hash, document,
+  inputs, the path, blob ID and size of each output, its findings and its
+  cache keys); the contents of every output, unit by unit; the unit index;
+  and a 28-byte footer with the offset of the index and the SHA-1 of the
+  header and the index. The index (=types::unit_index=) holds the offset
+  and SHA-1 of each head, the offset of each unit's contents, and the
+  subjects: per kind and key, the units that name it. The kinds are a path
+  a unit reads (a document, a file or an existence test), an ID it looked
+  up, a listing pattern, the type set, the type registry, an output path
+  and a path a finding names. A full read checks every head against its
+  SHA-1 and every output against its blob ID, so the record is hashed once,
+  as before. =io::read_dependency_file= reads a missing file as an empty
+  record and a damaged one, or one of another version, as an empty record
+  with the reason, so every unit runs.
+- *Reading one unit.* =io::read_unit_index= reads the header, the footer and
+  the index and nothing else: about 11 MB and 60 ms on ORE Studio, whose
+  record is 268 MB. =ops::units_touching= names the units an edit to one
+  file may change, given an =ops::edited_file=: those that read it, report
+  on it or produced it (looked up by its path under the output root), those
+  that list a pattern it matches when it may be new, and for a document,
+  those that enumerate documents or looked up an ID it holds. A lookup by
+  ID that found a document also read its path, so a document whose ID
+  changes is found by path. =io::read_record_units= reads the heads of those
+  units alone, each checked against its SHA-1, with the contents of their
+  outputs left empty; =io::read_recorded_file= reads one output, checked
+  against its blob ID. Codegen's unit is 193 MB with its outputs and about
+  2 MB as a head. A file replaced since the index was read fails the
+  checks, and the caller says so. =io::write_dependency_file= writes through a
   temporary file and a rename, and only when the bytes differ from the
   file's. A run whose previous record stood in for every unit, and held no
   other, sets =same_record=, and a host need not encode or write it.
@@ -135,8 +160,11 @@ others is in its descriptor, so adding a codec adds a row to a list.
   order, so the result is the same on any thread count. =types::run_result=
   holds, per codec, the documents given, the units run, skipped and cached,
   the files, the diagnostics and the time summed over threads, the record
-  of the run and =fresh=, the units of the record that were called. An exception from a codec is rethrown after every thread has
-  stopped.
+  of the run and =fresh=, the units of the record that were called. An
+  exception from a codec is rethrown after every thread has stopped. Given
+  an =ops::unit_filter=, a run takes only the units it allows: the others
+  are neither called, reused nor recorded, and a codec with no unit taken
+  costs nothing, so the edit hook runs the few units an edit touches.
 - *Selection.* Given the previous record, =ops::run= calls a unit only when
   it is new, its codec's version or configuration hash changed, or one of
   its inputs has another answer now: a document's content ID changed, an ID

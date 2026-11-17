@@ -2,7 +2,7 @@
 :ID: 45FA67C9-60BC-420D-BB66-8A272CB1106C
 :END:
 #+title: compass.cli
-#+description: The compass executable and the library behind it: one function per command (generate, diff, check, gc, config) that runs the pipeline over a checkout and returns a result, the command-line parser, the reader of the repository's .compass.org, and the report that prints each result with its exit status.
+#+description: The compass executable and the library behind it: one function per command (generate, diff, check, gc, config, hook) that runs the pipeline over a checkout and returns a result, the command-line parser, the reader of the repository's .compass.org, and the report that prints each result with its exit status.
 #+type: component
 #+level: cross
 #+filetags: :cli:application:pipeline:component:
@@ -38,6 +38,7 @@ thing with what the codecs produced:
 | =check --ratchet= | Only the diagnostics the merge base of HEAD and a base lacks.            | Store and records, as =check=.                    |
 | =check --today=   | The same diagnostics, with exception expiry judged as of another date.  | As =check=.                                       |
 | =gc=              | Removes old unreferenced objects and action objects from the store.      | Removes files from the store, unless =--dry-run=. |
+| =hook=            | Checks the one file a Claude Code PostToolUse payload on standard input names, running only the units that read or report on it. | Nothing.                                          |
 | =config=          | Prints every path and codec setting in effect, and where it came from.   | Nothing.                                          |
 
 The library holds the pipeline and prints nothing. =app/steps.hpp=
@@ -142,6 +143,69 @@ exit status, so the tests drive the executable's behaviour without spawning
 it. =main= only hands =app::run= the arguments, the working directory and
 the standard streams.
 
+=hook= is =app::hook=, the edit hook; the
+[[id:388AD0F9-D5B5-4FC2-8722-9F88655BA5EC][How do I check edits as Claude
+Code makes them?]] recipe has the settings that install it. =app::run=
+reads the payload from its input stream; =io::parse_hook_payload= takes
+=tool_input.file_path=, against =cwd= when relative, and whether the edit
+may have created the file (Edit and MultiEdit never do; Write says
+=create= or =update=). =io::checkout_of= finds the checkout as the nearest
+directory above the file with a =.git=, so =-C= is not used, and its
+=.compass.org= configures the run.
+
+The hook reads the unit index of the dependency record and asks
+=codec::ops::units_touching= for the units an edit to the file may change
+or that report on it. None, for a file that is not a document, ends the
+hook silently there: about 70 ms on ORE Studio for a file no codec reads.
+Otherwise it lists the checkout, reads the heads of those units alone, and
+loads the documents only when one of their codecs may read documents. It
+runs only those units, and for a document every document unit of it, from
+their heads and the result cache, through =ops::run='s unit filter, so a
+unit whose inputs the edit did not change is reused, not called. It
+reports:
+
+- every finding of those units on the file, which is every finding a full
+  check reports on it, since a unit with a finding on the file is one the
+  index names;
+- their findings on other files that their recorded findings lack, matched
+  by path, rule and message as ratchet mode matches;
+- the drift of each output whose blob ID differs from the recorded one, or
+  that is the edited file, and of each recorded output the run no longer
+  generates. Only those outputs are formatted and compared with the disk;
+  a reused unit's output contents are not read, except the edited file's.
+
+Valid inline exceptions excuse findings as =check= excuses them, reading
+only the edited file and the files with findings; the exception findings
+reported are those of the edited file. The hook writes nothing and exits
+0 whatever happens. A missing record (with a =.compass.org=), a damaged
+or replaced one, a configuration or load error, an edit to =.compass.org=
+or a contract page, and any exception become a note in
+=additionalContext=, so the agent is told the file went unchecked and is
+never blocked. =io::write_hook= writes the JSON. The record is taken to
+describe the checkout before the edit: a finding an earlier unchecked edit
+caused on another file is reported as new until =compass check= rewrites
+the record.
+
+On a copy of ORE Studio at 545cafca45, with codegen and the ported gates
+enabled, a warm hook spent about 60 ms reading the 11 MB index, 170 ms
+listing the checkout with git, 80 ms opening git's index for content IDs
+and 50 ms loading the documents when needed. What remains is the units it
+runs: org documents run =component_docs= (about 0.4 s) and
+=structure_notes= again, a CMakeLists.txt only =core_link_edges=. An edit
+to a C++ or SQL file runs the gates that scan every such file again, each
+1.5 to 2.5 s, and an edit to a model or template runs =codegen= (about
+2.5 s), so those edits take 3 to 5 s. A Write that creates a file also
+runs every unit whose listing the file joins, such as =exported_types=,
+about 3 s. Those gates are corpus units over the whole tree; only
+splitting them into per-file units would bring such an edit under a
+second.
+
+Over 23 single-file edits of that copy (SQL, C++, org documents, a model,
+templates, CMake files, a recipe, a skill page, unrelated files, a
+dropped include and three new files), the hook's findings were exactly
+those of a full check on the edited file plus those the full check gained
+on other files.
+
 * Inputs
 
 - The command line. One argument is the command; options may come before
@@ -154,10 +218,10 @@ the standard streams.
 | =--out <dir>=                   | =#+output:=, else =build/output/compass= | The output root, relative to the checkout.      |
 | =-j <n>=                        | one per core                             | Threads.                                        |
 | =--set <codec>.<key>=<value>=   | the file, else the codecs' own           | A codec setting; repeatable, the last one wins. |
-| =--timings=                     | no                                       | =generate=, =diff=, =check=: print each step's time and what each codec ran or reused. |
+| =--timings=                     | no                                       | =generate=, =diff=, =check=, =hook=: print each step's time and what each codec ran or reused, and how long its units ran. |
 | =--commit <rev>=                | the files on disk                        | =check= only: check the commit =<rev>= names, as =git rev-parse <rev>^{commit}= resolves it, with that commit's =.compass.org=. The output root and meta directory must be under the checkout. |
 | =--ratchet [<base>]=            | the upstream, else =origin/main=         | =check= only: fail only on findings the merge base of HEAD and =<base>= lacks. The next argument is the base unless it starts with =-= or names a command; =--ratchet=<base>= always takes one. Not with =--commit=. |
-| =--today <YYYY-MM-DD>=          | today in UTC                             | =check= only: the date the expiry of inline exceptions is judged against, for the checkout, a commit and both sides of a ratchet. |
+| =--today <YYYY-MM-DD>=          | today in UTC                             | =check= and =hook=: the date the expiry of inline exceptions is judged against, for the checkout, a commit and both sides of a ratchet. |
 | =--dry-run=, =--cap=, =--grace= | no, 0 bytes, 3600 s                      | =gc= only.                                      |
 | =--help=, =-h=, =--version=     |                                          | Print and exit 0, whatever else is there.       |
 
@@ -255,7 +319,8 @@ range, 1-based, the column counted in bytes. The rule is written as
 | =include/compass.cli/ops/ratchet.hpp=            | =split_new= and =exact_renames=: the pure matching of ratchet mode.                |
 | =include/compass.cli/app/steps.hpp=              | One function per step of the pipeline.                                             |
 | =include/compass.cli/app/pipeline.hpp=           | One function per command, composed of the steps.                                   |
-| =include/compass.cli/io/report.hpp=              | Printing each result.                                                              |
+| =include/compass.cli/io/report.hpp=              | Printing each result, and the hook's JSON.                                         |
+| =include/compass.cli/io/hook_payload.hpp=        | The file a PostToolUse payload names, and the checkout that holds it.              |
 | =include/compass.cli/app/application.hpp=        | =app::run= and the exit statuses.                                                  |
 | =src/main.cpp=                                   | The executable.                                                                    |
 | =tests/end_to_end.sh=                            | The built executable over a fresh repository, then configured by a =.compass.org=. |
@@ -276,6 +341,7 @@ range, 1-based, the column counted in bytes. The rule is written as
 - =compass.sql= for the SQL gates.
 - =compass.crosscheck= for the cross-artefact gates.
 - =compass.docs= for the document gates.
+- =compass.model= for its JSON reader, which reads the hook's payload.
 - =compass.ingest= for the parser and the type registry builder.
 - =compass.store= for IDs, the store, collection and the git object
   reader.
