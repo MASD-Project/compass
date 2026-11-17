@@ -168,6 +168,40 @@ because each reads one kind of artefact and writes another:
   (=generate_script_library.py=): =trading_script_library_populate.sql=
   from ORE's =scriptlibrary.xml=, read with =compass.platform='s XML
   reader: each script and variant, and the inputs mined from the code.
+- *=curve_sections_wiring= and =curve_column_guards=.*
+  =curve-sections-wiring= and =curve-column-guards=
+  (=generate_curve_section_parameters.py=,
+  =generate_curve_column_guards.py=): the curve screen's column wiring
+  and the curve part validators, and the curve column map, its value
+  guard and the guard's drop. Both read one wiring, =ops::curve=, the
+  port of the script's reading of =curve_configuration_projection.cpp=
+  and =curveconfig.xsd=.
+- *=convention_kind_terms=.* =convention-kind-terms=
+  (=generate_convention_kind_terms.py=): the convention kind terms seed
+  and the term validation triggers, from the =ores.ore= conventions
+  mapper. On ORE 545cafca45 the script and the codec both write nothing,
+  because =conventions_fx_projection.cpp= reads =r.id=, which the
+  script's =NOT_A_COLUMN= does not exempt.
+- *=route_inventory=.* =route-inventory= (=route_inventory.py --write=):
+  =http_route_inventory.org=, every route the BFF and =ores.http=
+  register, decided by =route_classification.py= and paired by
+  =route_pairing.py=. The script's other =--check= verdicts judge sources
+  and are not ported.
+- *=ore_output_catalogue=.* =ore-output-catalogue=
+  (=generate_output_catalogue.py=): the output catalogue data and the
+  output formats page, from the output samples ORE ships, read with
+  Python's =csv= rules. Its data files go through clang-format, the
+  codec's formatter, which its =clang_format= option names.
+
+These generators keep their tables in Python modules, and the codecs read
+those tables through =ops::python_assignment= rather than copying them, so
+an edit to a table is seen. The reader takes the literals the modules are
+written in: strings with their prefixes, f-strings and sums of strings and
+names, tuples, lists, sets and dicts (tuple keys too), and calls with
+positional and keyword arguments. =ops::resolved= substitutes a module's
+string constants for its names. Where a script stops without writing,
+because a problem is reported or a table cannot be read, the codec writes
+nothing, so its drift findings are silent where the gate would fail.
 
 Where a script reads a file with a strict UTF-8 decode and would stop on a
 file that is not UTF-8, these codecs read it with invalid bytes replaced,
@@ -180,7 +214,8 @@ except =subject_conformance=, which reports such a model.
 | =include/compass.crosscheck/codecs/catalogue.hpp=      | The codecs this component ships.                        |
 | =include/compass.crosscheck/codecs/<gate>.hpp=         | One header for each codec, named after it.              |
 | =include/compass.crosscheck/ops/words.hpp=             | Python's lower, split and run of spaces over bytes.     |
-| =include/compass.crosscheck/ops/python_literals.hpp=   | A module-level Python literal: strings, tuples, dicts, calls. |
+| =include/compass.crosscheck/ops/python_literals.hpp=   | A module-level Python literal: strings, tuples, sets, dicts, calls; its names resolved. |
+| =include/compass.crosscheck/ops/curve_wiring.hpp=      | The curve wiring the two curve generators write from.   |
 | =include/compass.crosscheck/codecs/registry_gates.hpp= | =http_areas=, =route_units= and =registry_exceptions=. |
 | =tests/test_checkout.hpp=                              | Runs one codec over a checkout of files held in memory. |
 

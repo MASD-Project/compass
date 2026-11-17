@@ -135,8 +135,10 @@ loads models and checks nothing. It depends on =compass.codec=,
 it shares, and on =compass.codegen= for the template library's graph,
 which one gate reads, and the JSON reader of =compass.model= it brings.
 The generators of ORE Studio data artefacts that read one kind of artefact
-and write another (=ore_renderings_tables=, =script_library_seed=) live
-here too; =compass.cli= adds its codecs to the ones it runs.
+and write another (=ore_renderings_tables=, =script_library_seed=, the
+curve wiring and column guards, the convention kind terms, the HTTP route
+inventory and the ORE output catalogue) live here too, reading the tables
+their scripts keep in Python modules from those modules; =compass.cli= adds its codecs to the ones it runs.
 
 =compass.docs= runs the ORE Studio gates that read only org documents and
 plain repository files, such as numbered headings, links org cannot resolve
