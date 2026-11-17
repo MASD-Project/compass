@@ -25,7 +25,6 @@ add_library(${lib_target_name}
     codecs/heading_numbers.cpp
     codecs/lint.cpp
     codecs/org_links.cpp
-    codecs/pattern_uses.cpp
     codecs/physical_inventory.cpp
     codecs/prototypes.cpp
     codecs/recipe_inventories.cpp

@@ -23,9 +23,9 @@ add_executable(${tests_target_name}
     codecs_backlog_indexes_tests.cpp
     codecs_component_docs_tests.cpp
     codecs_heading_numbers_tests.cpp
+    codecs_lint_graph_tests.cpp
     codecs_lint_tests.cpp
     codecs_org_links_tests.cpp
-    codecs_pattern_uses_tests.cpp
     codecs_physical_inventory_tests.cpp
     codecs_recipe_inventories_tests.cpp
     codecs_recipe_libraries_tests.cpp

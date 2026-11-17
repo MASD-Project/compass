@@ -21,7 +21,9 @@
 
 #include <algorithm>
 #include <array>
+#include <map>
 #include <optional>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -46,10 +48,14 @@ namespace pt = compass::platform::text;
 
 enum rule : std::uint32_t {
     bad_filetag, unclosed_marker, marker_without_writer, malformed_link,
-    dangling_link, durable_link
+    dangling_link, durable_link, pattern_unknown_use, pattern_one_way,
+    pattern_not_a_pattern, pattern_shared_id
 };
 
-constexpr std::array<ct::rule, 6> rules{{
+constexpr std::array<std::string_view, 1> named_patterns_sources{
+    "470D4571-47A4-4AEF-9A93-2B4DE0279C1E"};
+
+constexpr std::array<ct::rule, 10> rules{{
     {"bad_filetag", "Every tag of a page's first #+filetags: is "
         "lowercase: a letter, then letters, digits, _, . or -."},
     {"unclosed_marker", "Every '# BEGIN generated X' comment has a "
@@ -59,7 +65,15 @@ constexpr std::array<ct::rule, 6> rules{{
     {"malformed_link", "An id link whose target has a hyphen is a UUID."},
     {"dangling_link", "Every id link names the :ID: of some page."},
     {"durable_link", "A page under doc/llm, doc/meta, doc/knowledge or "
-        "doc/recipes links no agile page."}}};
+        "doc/recipes links no agile page."},
+    {"pattern_unknown_use", "Every page a service architecture pattern "
+        "lists under In ORE Studio exists."},
+    {"pattern_one_way", "A pattern and each of its uses link each other: "
+        "the use links the pattern, and the pattern lists the use.",
+        named_patterns_sources},
+    {"pattern_not_a_pattern", "A page lists only service architecture "
+        "patterns under Patterns used.", named_patterns_sources},
+    {"pattern_shared_id", "No two pages of a pattern link share an ID."}}};
 
 constexpr std::array<ct::option, 1> options{{
     {"strict_links", "false", "true reports durable_link, which the gate "
@@ -75,6 +89,9 @@ constexpr std::array<std::string_view, 8> agile_types{"story", "task",
     "sprint", "design", "capture", "version", "plan", "retrospective"};
 constexpr std::array<std::string_view, 4> durable_dirs{"doc/llm/",
     "doc/meta/", "doc/knowledge/", "doc/recipes/"};
+constexpr std::string_view pattern_type = "service_architecture_pattern";
+constexpr std::array<std::string_view, 3> pattern_exempt{"doc/plans/",
+    "doc/knowledge/external/", "doc/agile/"};
 
 template <std::size_t N>
 bool holds(const std::array<std::string_view, N>& set, std::string_view s) {
@@ -107,6 +124,18 @@ bool is_linted(std::string_view path) {
             return false;
     }
     return true;
+}
+
+/**
+ * @brief The pages the pattern rules read: UTF-8 pages under doc/ or
+ * projects/ outside a build or vcpkg directory.
+ */
+bool in_patterns(const dop::page& p) {
+    if (!p.utf8 || p.ids.empty() || (!p.path.starts_with("doc/") &&
+            !p.path.starts_with("projects/")))
+        return false;
+    const std::string rooted = "/" + std::string(p.path);
+    return !rooted.contains("/build/") && !rooted.contains("/vcpkg/");
 }
 
 bool is_uuid(std::string_view s) {
@@ -317,6 +346,119 @@ void report_lint(const std::vector<dop::page>& all, const ct::corpus_view& v,
     }
 }
 
+/**
+ * @brief The targets, in upper case, of the links of @p p in its first
+ * level-1 section titled @p title, or of all its links when @p title is
+ * empty.
+ */
+std::vector<std::string> targets(const dop::page& p,
+    std::string_view title = {}) {
+    std::uint32_t section = dop::no_section;
+    if (!title.empty()) {
+        const auto it = std::ranges::find(p.sections, title);
+        if (it == p.sections.end())
+            return {};
+        section = static_cast<std::uint32_t>(it - p.sections.begin());
+    }
+    std::vector<std::string> out;
+    for (const auto& l : p.links) {
+        if (title.empty() || l.section == section)
+            out.push_back(dop::upper(l.target));
+    }
+    return out;
+}
+
+/**
+ * @brief The pattern rules: a service architecture pattern and each of
+ * its uses link each other, a use lists only patterns, and the pages of
+ * a pattern link have IDs of their own.
+ */
+void report_patterns(const std::vector<dop::page>& all,
+    ct::diagnostic_table& out) {
+    std::map<std::string_view, const dop::page*> docs;
+    std::map<std::string_view, std::vector<std::string_view>> duplicates;
+    for (const auto& p : all) {
+        if (!in_patterns(p))
+            continue;
+        const auto key = p.ids.front();
+        if (const auto it = docs.find(key); it != docs.end()) {
+            auto& shared = duplicates[key];
+            if (shared.empty())
+                shared.push_back(it->second->path);
+            shared.push_back(p.path);
+        }
+        docs[key] = &p;
+    }
+    std::set<std::string_view> patterns;
+    for (const auto& [id, p] : docs) {
+        if (p->type == pattern_type)
+            patterns.insert(id);
+    }
+    std::set<std::string_view> involved = patterns;
+    const auto contains = [](const std::vector<std::string>& ids,
+        std::string_view id) {
+        return std::ranges::find(ids, id) != ids.end();
+    };
+    for (const auto pid : patterns) {
+        const auto* p = docs.at(pid);
+        for (const auto& uid : targets(*p, "In ORE Studio")) {
+            const auto use = docs.find(uid);
+            if (use == docs.end()) {
+                co::report(out, p->path, 0, pattern_unknown_use,
+                    std::string(p->path) + " lists id " + uid + " under In "
+                    "ORE Studio, which no page has", "Link a page that "
+                    "exists, or drop the row.");
+                continue;
+            }
+            involved.insert(use->first);
+            if (patterns.contains(use->first) ||
+                under(pattern_exempt, use->second->path))
+                continue;
+            if (!contains(targets(*use->second), pid))
+                co::report(out, use->second->path, 0, pattern_one_way,
+                    std::string(use->second->path) + " is a use listed by " +
+                    std::string(p->path) + " but does not link the pattern "
+                    "back", "List the pattern under the use's Patterns "
+                    "used.");
+        }
+    }
+    for (const auto& [did, d] : docs) {
+        if (under(pattern_exempt, d->path) || patterns.contains(did))
+            continue;
+        const auto used = targets(*d, "Patterns used");
+        if (!used.empty())
+            involved.insert(did);
+        for (const auto& pid : used) {
+            if (!patterns.contains(pid)) {
+                const auto target = docs.find(pid);
+                co::report(out, d->path, 0, pattern_not_a_pattern,
+                    std::string(d->path) + " lists " + (target == docs.end()
+                        ? pid : std::string(target->second->path)) +
+                    " under Patterns used, which is not a service "
+                    "architecture pattern", "List only service architecture "
+                    "patterns there.");
+                continue;
+            }
+            const auto* p = docs.at(pid);
+            if (!contains(targets(*p, "In ORE Studio"), did))
+                co::report(out, d->path, 0, pattern_one_way,
+                    std::string(d->path) + " uses " + std::string(p->path) +
+                    ", which does not list it under In ORE Studio", "Add the "
+                    "use to the pattern's In ORE Studio section.");
+        }
+    }
+    for (const auto& [did, paths] : duplicates) {
+        if (!involved.contains(did))
+            continue;
+        std::string listed;
+        for (const auto p : paths)
+            listed += (listed.empty() ? "" : ", ") + std::string(p);
+        co::report(out, paths.front(), 0, pattern_shared_id, "id " +
+            std::string(did) + " is shared by " + listed, "Give each page "
+            "an ID of its own.");
+    }
+}
+
 void reduce(std::span<const ct::scanned_file> scanned,
     const ct::corpus_view& v, ct::diagnostic_table& out) {
     std::vector<dop::page> all;
@@ -324,15 +466,17 @@ void reduce(std::span<const ct::scanned_file> scanned,
     for (const auto& f : scanned)
         all.push_back(dop::page_of(f.path, f.fact));
     report_lint(all, v, out);
+    report_patterns(all, out);
 }
 
 }
 
 const ct::descriptor lint{
     .name = "lint",
-    .version = 2,
+    .version = 3,
     .summary = "Reports each malformed filetag, generated marker and id link "
-        "of the org pages, as compass lint does.",
+        "of the org pages, as compass lint does, and each service "
+        "architecture pattern and use that do not link each other.",
     .reads = ct::inputs::of_types({}),
     .options = options,
     .rules = rules,
