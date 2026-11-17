@@ -33,6 +33,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${COMPASS_PUBLISH_DIRECTORY}/bin)
 
 find_package(Catch2 3 CONFIG REQUIRED)
 find_package(Threads REQUIRED)
+find_package(expat CONFIG REQUIRED)
 find_package(pcre2 CONFIG REQUIRED COMPONENTS 8BIT)
 find_package(ZLIB REQUIRED)
 find_package(unofficial-tree-sitter CONFIG REQUIRED)
