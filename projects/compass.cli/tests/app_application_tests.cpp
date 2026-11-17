@@ -209,7 +209,9 @@ TEST_CASE("config prints every value with where it came from",
         "document_index.path = index.tsv (.compass.org:8)\n"
         "required_sections.enabled = false (command line)\n"
         "tangle.enabled = false (default)\n"
+        "tangle.directory =  (default)\n"
         "tangle_check.enabled = false (default)\n"
+        "tangle_check.directory =  (default)\n"
         "codegen.enabled = false (default)\n"
         "codegen.library =  (default)\n"
         "codegen.convention_component =  (default)\n"
@@ -217,7 +219,10 @@ TEST_CASE("config prints every value with where it came from",
         "codegen.clang_format =  (default)\n"
         "codegen.clang_format_style =  (default)\n"
         "codegen.prettier =  (default)\n"
-        "codegen.prettier_style =  (default)\n" + gate_defaults());
+        "codegen.prettier_style =  (default)\n"
+        "component_files.enabled = false (default)\n"
+        "component_files.library = projects/ores.codegen/library (default)\n"
+        "component_files.year =  (default)\n" + gate_defaults());
 }
 
 TEST_CASE("an error in the configuration file exits 2 naming the line and "
