@@ -27,8 +27,11 @@
 #include <string>
 #include <string_view>
 #include <vector>
-#include "compass.codec/types/file_table.hpp"
+#include "compass.codec/types/descriptor.hpp"
+#include "compass.codegen/ops/facts.hpp"
 #include "compass.codegen/types/compiled_template.hpp"
+#include "compass.codegen/types/entity_registry.hpp"
+#include "compass.codegen/types/physical_space.hpp"
 #include "compass.model/ops/load.hpp"
 #include "compass.model/types/model_tables.hpp"
 
@@ -97,6 +100,45 @@ struct generation_plan {
 };
 
 /**
+ * @brief What the generation of every model shares, read once: the
+ * settings, the library's licence and modeline texts, the physical-space
+ * graph, the two registries read from every model of the checkout, and
+ * the compiled templates.
+ *
+ * models lists, in the order resolve_targets visits them, the models
+ * regenerate --all generates whose types compass builds contexts for.
+ * facts holds what a model's generation may depend on besides the
+ * documents and files it reads itself: library_fact, graph_fact, one
+ * fact per template (template_fact) and those of the registries
+ * (publish_facts).
+ */
+struct generation {
+    generation_settings settings;
+    std::string licence;
+    std::string modeline;
+    types::physical_space graph;
+    types::checkout_registry registry;
+    types::entity_registry entities;
+    template_map templates;
+    std::vector<std::string> models;
+    std::vector<fact> facts;
+};
+
+/**
+ * @brief The fact that is the library's licence and modeline texts and
+ * the copyright year, and the fact that is every node of the
+ * physical-space graph.
+ */
+inline constexpr std::string_view library_fact = "library";
+inline constexpr std::string_view graph_fact = "graph";
+
+/**
+ * @brief The name of the fact that is the bytes of the template whose
+ * file is named @p name.
+ */
+[[nodiscard]] std::string template_fact(std::string_view name);
+
+/**
  * @brief Compiles the .mustache files of the templates/ directory of the
  * library @p s names.
  * @throws std::runtime_error when a listed template cannot be read.
@@ -105,13 +147,20 @@ struct generation_plan {
     const generation_settings& s);
 
 /**
- * @brief Plans into @p plan the outputs of the models regenerate --all
- * visits whose types compass builds contexts for, each with its context,
- * in the order resolve_targets lists them. An output that a later model
- * names again is rendered from the later context, as the later write wins
- * on disk.
- * @throws std::runtime_error when the library's catalogue or data files
- * cannot be read, or the convention component is not in the catalogue.
+ * @brief Reads what every model's generation shares.
+ * @throws std::runtime_error when the library's catalogue, data files or
+ * templates cannot be read, or the convention component is not in the
+ * catalogue.
+ */
+[[nodiscard]] generation prepare_generation(const checkout_reader& reader,
+    const generation_settings& s);
+
+/**
+ * @brief Plans into @p plan the outputs of every model of
+ * prepare_generation, each with its context, in order. An output that a
+ * later model names again is rendered from the later context, as the
+ * later write wins on disk.
+ * @throws std::runtime_error as prepare_generation does.
  */
 void plan_generation(generation_plan& plan, const checkout_reader& reader,
     const generation_settings& s);
@@ -124,13 +173,25 @@ void render_planned(std::string& text, const template_map& templates,
     const generation_plan& plan, const planned_output& output);
 
 /**
- * @brief Plans, compiles and renders every output, adding each to
- * @p out.
- * @throws std::runtime_error naming the models that failed to load, and
- * as plan_generation and render_planned do.
+ * @brief Generates the outputs of the model at @p model, one of
+ * @p g's models, into @p out, in the order its units name them. It reads
+ * the model and what the model reads through @p reader, and tells
+ * @p out each fact of @p g it depended on: the library and the graph,
+ * the templates of its outputs, and the elements of the registries it
+ * looked up.
+ *
+ * When @p out says the only inputs that changed since the model's last
+ * generation are templates, the outputs of the other templates are kept
+ * as they were and their contexts are not built.
+ *
+ * @p cache spares parsing what several models read; one cache serves the
+ * models generated on one thread.
+ * @throws std::runtime_error when the model does not load or an output
+ * needs a template the library does not have.
  */
-void generate(compass::codec::types::file_table& out,
-    const checkout_reader& reader, const generation_settings& s);
+void generate_model(const generation& g, std::string_view model,
+    const checkout_reader& reader, compass::model::ops::load_cache& cache,
+    compass::codec::types::part_sink& out);
 
 }
 

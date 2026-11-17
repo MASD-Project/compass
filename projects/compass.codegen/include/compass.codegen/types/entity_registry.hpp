@@ -27,6 +27,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include "compass.codegen/types/recorded.hpp"
 #include "compass.model/ops/typescript.hpp"
 
 namespace compass::codegen::types {
@@ -151,20 +152,42 @@ struct convention_family {
  * (_shell_command_units). shell_local_units maps each component whose
  * shell part opts into the command registrar to the local units it names
  * (shell_command_surface).
+ *
+ * Every collection is recorded, so a model's generation depends on the
+ * elements it looked up and not on the rest: a copy shares the elements,
+ * and record_to says where the copy notes what is read of it. The name of
+ * each collection is the name of its facts.
  */
 struct entity_registry {
-    std::map<std::string, table_owner, std::less<>> tables;
-    std::map<std::string, std::vector<trade_type_route>, std::less<>>
-        trade_type_routes;
-    compass::model::ops::custom_types custom_types;
-    std::set<std::string, std::less<>> economic_field_groups;
-    std::map<std::string, model_directory, std::less<>> directories;
+    recorded<std::map<std::string, table_owner, std::less<>>> tables{
+        "table"};
+    recorded<std::map<std::string, std::vector<trade_type_route>,
+        std::less<>>> trade_type_routes{"trade_type_routes"};
+    recorded<compass::model::ops::custom_types> custom_types{
+        "custom_types"};
+    recorded<std::set<std::string, std::less<>>> economic_field_groups{
+        "economic_field_group"};
+    recorded<std::map<std::string, model_directory, std::less<>>>
+        directories{"directory"};
     std::function<bool(std::string_view)> header_exists =
         [](std::string_view) { return false; };
-    std::vector<convention_family> convention_families;
-    std::map<std::string, std::set<std::string>, std::less<>> shell_units;
-    std::map<std::string, std::vector<std::string>, std::less<>>
-        shell_local_units;
+    recorded<std::vector<convention_family>> convention_families{
+        "convention_families"};
+    recorded<std::map<std::string, std::set<std::string>, std::less<>>>
+        shell_units{"shell_units"};
+    recorded<std::map<std::string, std::vector<std::string>, std::less<>>>
+        shell_local_units{"shell_local_units"};
+
+    void record_to(fact_reads* reads) noexcept {
+        tables.record_to(reads);
+        trade_type_routes.record_to(reads);
+        custom_types.record_to(reads);
+        economic_field_groups.record_to(reads);
+        directories.record_to(reads);
+        convention_families.record_to(reads);
+        shell_units.record_to(reads);
+        shell_local_units.record_to(reads);
+    }
 };
 
 }

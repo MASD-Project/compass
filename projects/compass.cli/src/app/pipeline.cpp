@@ -785,7 +785,7 @@ std::vector<types::finding> hook_drift(pipeline& p, const types::options& o,
             ? previous.file_firsts[unit.next()].value
             : static_cast<std::uint32_t>(previous.files.size());
         for (auto f = first; f < end; ++f)
-            recorded.emplace(joined(previous.codecs[unit],
+            recorded.insert_or_assign(joined(previous.codecs[unit],
                 previous.files.paths[ct::file_id{f}]),
                 recorded_file{previous.file_hashes[ct::file_id{f}],
                     units[u], f - first});
@@ -799,17 +799,32 @@ std::vector<types::finding> hook_drift(pipeline& p, const types::options& o,
     changed.files.resize(p.codecs.size());
     std::unordered_set<std::string> generated;
     const auto& run = p.run.record;
+    const auto files_end = [&](std::uint32_t u) {
+        return u + 1 < run.size()
+            ? run.file_firsts[ct::record_unit_id{u + 1}].value
+            : static_cast<std::uint32_t>(run.files.size());
+    };
+    // A path two parts of a staged codec emit is the later part's, in the
+    // record above and in the run alike.
+    std::unordered_map<std::string, std::uint32_t> last;
+    for (std::uint32_t u = 0; u < run.size(); ++u) {
+        const ct::record_unit_id unit{u};
+        for (auto f = run.file_firsts[unit].value; f < files_end(u); ++f)
+            last.insert_or_assign(joined(run.codecs[unit],
+                run.files.paths[ct::file_id{f}]), f);
+    }
     for (std::uint32_t u = 0; u < run.size(); ++u) {
         const ct::record_unit_id unit{u};
         const auto codec = std::ranges::find(p.codecs.codecs, run.codecs[unit],
             &ct::descriptor::name) - p.codecs.codecs.begin();
-        const auto end = u + 1 < run.size()
-            ? run.file_firsts[unit.next()].value
-            : static_cast<std::uint32_t>(run.files.size());
-        for (auto f = run.file_firsts[unit].value; f < end; ++f) {
+        const bool staged = ct::unit_of(p.codecs.codecs[
+            static_cast<std::size_t>(codec)]) == ct::unit::staged;
+        for (auto f = run.file_firsts[unit].value; f < files_end(u); ++f) {
             const ct::file_id id{f};
             const auto file = run.files.paths[id];
             auto key = joined(run.codecs[unit], file);
+            if (staged && last.find(key)->second != f)
+                continue;
             const auto it = recorded.find(key);
             generated.insert(key);
             const bool same = it != recorded.end() &&

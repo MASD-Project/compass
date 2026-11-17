@@ -53,6 +53,7 @@ add_library(${lib_target_name}
     ops/entity_wire.cpp
     ops/family_context.cpp
     ops/field_group_context.cpp
+    ops/facts.cpp
     ops/generate.cpp
     ops/junction_context.cpp
     ops/manifest.cpp

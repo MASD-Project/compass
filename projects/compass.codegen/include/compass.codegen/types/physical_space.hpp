@@ -25,6 +25,7 @@
 #include <string>
 #include <tuple>
 #include <vector>
+#include "compass.codegen/types/recorded.hpp"
 
 namespace compass::codegen::types {
 
@@ -93,13 +94,22 @@ struct physical_space {
  * components, as _plural_owners reads them. shell_registrars maps the
  * components whose shell part opts into the command registrar to the
  * local units it names (shell_command_surface).
+ *
+ * Every collection is recorded, as those of the entity registry are.
  */
 struct checkout_registry {
-    std::set<std::tuple<std::string, std::string, std::string>>
-        protocol_owners;
-    std::map<std::string, std::set<std::string>, std::less<>> plural_owners;
-    std::map<std::string, std::vector<std::string>, std::less<>>
-        shell_registrars;
+    recorded<std::set<std::tuple<std::string, std::string, std::string>>>
+        protocol_owners{"protocol_owner"};
+    recorded<std::map<std::string, std::set<std::string>, std::less<>>>
+        plural_owners{"plural_owners"};
+    recorded<std::map<std::string, std::vector<std::string>, std::less<>>>
+        shell_registrars{"shell_registrars"};
+
+    void record_to(fact_reads* reads) noexcept {
+        protocol_owners.record_to(reads);
+        plural_owners.record_to(reads);
+        shell_registrars.record_to(reads);
+    }
 };
 
 }

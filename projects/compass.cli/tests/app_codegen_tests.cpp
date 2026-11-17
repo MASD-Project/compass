@@ -112,11 +112,11 @@ TEST_CASE("generate writes the codegen outputs as the configured formatter "
     REQUIRE(r.status == 0);
     CHECK(scoped_git_repo::read_file(header(repo)) ==
         "// formatted\nint a;\n");
-    CHECK_THAT(r.err, ContainsSubstring("compass: codec codegen: 1 run, 0 "
+    CHECK_THAT(r.err, ContainsSubstring("compass: codec codegen: 2 run, 0 "
         "from the record, 0 from the cache; format 0 stored, 1 formatted"));
 }
 
-TEST_CASE("a second generate reuses the codegen unit and its formatted "
+TEST_CASE("a second generate reuses the codegen units and its formatted "
     "output, and an unread file changes nothing", "[app][codegen]") {
     scoped_git_repo repo;
     set_up(repo);
@@ -130,7 +130,7 @@ TEST_CASE("a second generate reuses the codegen unit and its formatted "
     CHECK(again.status == 0);
     CHECK_THAT(again.out, StartsWith("0 written, "));
     CHECK_THAT(again.err, ContainsSubstring("compass: codec codegen: 0 run, "
-        "1 from the record, 0 from the cache; format 1 stored, 0 formatted"));
+        "2 from the record, 0 from the cache; format 1 stored, 0 formatted"));
 }
 
 TEST_CASE("editing a template runs codegen again and diff shows the "
@@ -144,7 +144,7 @@ TEST_CASE("editing a template runs codegen again and diff shows the "
 
     CHECK(diffed.status == 1);
     CHECK_THAT(diffed.out, ContainsSubstring("-int a;\n+long a;\n"));
-    CHECK_THAT(diffed.err, ContainsSubstring("compass: codec codegen: 1 run"));
+    CHECK_THAT(diffed.err, ContainsSubstring("compass: codec codegen: 2 run"));
 }
 
 TEST_CASE("a codegen formatter that cannot be found fails the command",

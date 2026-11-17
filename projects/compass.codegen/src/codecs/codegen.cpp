@@ -22,7 +22,9 @@
 #include <array>
 #include <charconv>
 #include <chrono>
+#include <memory>
 #include <optional>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -105,8 +107,24 @@ std::optional<ct::formatter> configured(const ct::option_values& o,
     return f;
 }
 
-void run(const ct::corpus_view& v, ct::file_table& out) {
-    ops::generate(out, reader_of(v), settings_of(v.options()));
+std::shared_ptr<const void> prepare(const ct::corpus_view& v,
+    ct::stage& out) {
+    auto g = std::make_shared<ops::generation>(ops::prepare_generation(
+        reader_of(v), settings_of(v.options())));
+    out.parts = g->models;
+    out.facts = g->facts;
+    return g;
+}
+
+void run(const void* state, std::span<const std::string_view> models,
+    const ct::corpus_view& v, ct::part_sink& out) {
+    const auto& g = *static_cast<const ops::generation*>(state);
+    const auto reader = reader_of(v);
+    compass::model::ops::load_cache cache;
+    for (const auto model : models) {
+        out.begin(model);
+        ops::generate_model(g, model, reader, cache, out);
+    }
 }
 
 }
@@ -169,13 +187,13 @@ ops::checkout_reader reader_of(const ct::corpus_view& v) {
 
 const ct::descriptor codegen{
     .name = "codegen",
-    .version = 1,
+    .version = 2,
     .summary = "Generates what ores.codegen's regenerate --all writes.",
     .reads = ct::inputs::every_document(),
     .options = options,
     .rules = {},
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{run},
+    .run = ct::staged_function{prepare, run},
     .formatters = formatters_of};
 
 }

@@ -32,6 +32,7 @@
 #include "compass.codegen/ops/context.hpp"
 #include "compass.codegen/ops/entity_context.hpp"
 #include "compass.codegen/ops/entity_registry.hpp"
+#include "compass.codegen/ops/facts.hpp"
 #include "compass.codegen/ops/manifest.hpp"
 #include "compass.codegen/ops/model_contexts.hpp"
 #include "compass.codegen/ops/output.hpp"
@@ -70,16 +71,17 @@ std::string_view directory_of(std::string_view path) {
 }
 
 /**
- * @brief The .org paths of the checkout and the parsed documents among
- * them, each looked up once.
+ * @brief The .org paths of the checkout, listed when first asked for, and
+ * the parsed documents among them, each looked up once.
  */
 class documents final {
 public:
-    explicit documents(const checkout_reader& reader)
-        : reader_(reader), org_(reader.list("projects/", ".org")) {}
+    explicit documents(const checkout_reader& reader) : reader_(reader) {}
 
-    [[nodiscard]] const std::vector<std::string_view>& org() const noexcept {
-        return org_;
+    [[nodiscard]] const std::vector<std::string_view>& org() {
+        if (!org_)
+            org_ = reader_.list("projects/", ".org");
+        return *org_;
     }
 
     [[nodiscard]] std::optional<mops::document> get(std::string_view path) {
@@ -103,7 +105,7 @@ public:
 
 private:
     const checkout_reader& reader_;
-    std::vector<std::string_view> org_;
+    std::optional<std::vector<std::string_view>> org_;
     std::unordered_map<std::string, std::optional<mops::document>> found_;
 };
 
@@ -118,10 +120,11 @@ bool is_model_candidate(std::string_view path) {
 
 /**
  * @brief The physical-space graph of the library's ores.*.org nodes, read
- * in file-name order as load_graph reads them.
+ * in file-name order as load_graph reads them, with the name and the
+ * bytes of each node appended to @p read.
  */
 types::physical_space load_graph(const checkout_reader& reader,
-    const std::string& templates) {
+    const std::string& templates, std::string& read) {
     std::vector<std::string> names;
     std::vector<std::string> texts;
     for (const auto path : reader.list(templates + "/ores.", ".org")) {
@@ -131,8 +134,13 @@ types::physical_space load_graph(const checkout_reader& reader,
         texts.push_back(read_or_throw(reader, path));
     }
     std::vector<node_document> nodes;
-    for (std::size_t i = 0; i < names.size(); ++i)
+    for (std::size_t i = 0; i < names.size(); ++i) {
         nodes.push_back({names[i], texts[i]});
+        read += names[i];
+        read.push_back('\0');
+        read += texts[i];
+        read.push_back('\0');
+    }
     return load_physical_space(nodes);
 }
 
@@ -157,11 +165,12 @@ types::checkout_registry load_registry(documents& docs) {
  * in path order as _entity_org_by_table scans them, a later claim of a
  * table winning, each loaded into tables of its own; the routes of the
  * trade type catalogues there; the convention families of the modeling
- * directory @p conventions; and the custom-type registry.
+ * directory @p conventions; and the custom-type registry. header_exists
+ * is left for each model's generation to set, since it reads the
+ * checkout.
  */
 types::entity_registry load_entity_registry(documents& docs,
-    const checkout_reader& reader, std::string_view conventions,
-    mops::load_cache& cache) {
+    std::string_view conventions, mops::load_cache& cache) {
     using parts = std::pair<std::string_view, std::string_view>;
     std::vector<std::pair<parts, std::string_view>> paths;
     constexpr std::string_view projects = "projects/";
@@ -223,13 +232,12 @@ types::entity_registry load_entity_registry(documents& docs,
             continue;
         if (const auto doc = docs.get(path)) {
             if (auto f = convention_family_of(path, doc->source))
-                registry.convention_families.push_back(std::move(*f));
+                registry.convention_families.edit().push_back(
+                    std::move(*f));
         }
     }
-    std::ranges::sort(registry.convention_families, {},
+    std::ranges::sort(registry.convention_families.edit(), {},
         &types::convention_family::key);
-
-    registry.header_exists = reader.exists;
 
     constexpr std::string_view group_suffix = "_field_group.org";
     for (const auto path : docs.org()) {
@@ -250,7 +258,7 @@ types::entity_registry load_entity_registry(documents& docs,
         if (!values::truthy(t, group, "has_economic_fields"))
             continue;
         const auto name = file_name(path);
-        registry.economic_field_groups.emplace(
+        registry.economic_field_groups.edit().emplace(
             name.substr(0, name.size() - group_suffix.size()));
     }
     return registry;
@@ -467,28 +475,185 @@ std::string_view modeling_dir_of(
 
 }
 
-template_map compile_templates(const checkout_reader& reader,
-    const generation_settings& s) {
+namespace {
+
+/**
+ * @brief One output of a model: what to render it from, or kept when it
+ * is to stay as the model's last generation left it, with no context.
+ */
+struct model_row {
+    planned_output output;
+    bool kept = false;
+};
+
+/**
+ * @brief The outputs of one model, each path once, in the order its
+ * units first name them; context says whether a context was built, and
+ * error why the model did not load.
+ */
+struct model_plan {
+    std::vector<model_row> rows;
+    bool context = false;
+    std::string error;
+};
+
+/**
+ * @brief Whether the outputs of a template are to be rendered; an empty
+ * function renders every template.
+ */
+using template_filter = std::function<bool(std::string_view name)>;
+
+/**
+ * @brief Plans the outputs of the model at @p path with the values of
+ * @p b, reading @p registry and @p entities, which record what is read
+ * of them. A unit whose template @p wanted refuses is planned as kept.
+ */
+model_plan plan_model(mops::builder& b, value_id library,
+    const generation& g, const types::checkout_registry& registry,
+    const types::entity_registry& entities, std::string_view path,
+    const checkout_reader& reader, mops::load_cache& cache,
+    const template_filter& wanted) {
+    model_plan out;
+    documents docs(reader);
+    const auto doc = docs.get(path);
+    if (!doc)
+        return out;
+    const auto type = mops::model_type_of(mops::declared_type(*doc));
+    const auto known = std::ranges::find_if(context_types,
+        [&](const context_type& c) { return type && c.type == *type; });
+    if (known == std::end(context_types))
+        return out;
+    const auto type_name = known->name;
+    const auto& find = docs.finder();
+    const auto id = mops::load_model(b, *doc, *type, find, docs.lister(),
+        cache, &out.error);
+    if (!out.error.empty()) {
+        out.error = std::string(path) + ": " + out.error;
+        return out;
+    }
+    const auto root = b.tables().models.roots[id];
+    mops::outline outline;
+    const auto read = drawer_properties(*doc, outline, find, cache);
+    const auto& properties = read.properties;
+    const auto units = model_units(g.graph, registry, type_name, b.tables(),
+        root, path, properties);
+    if (units.empty())
+        return out;
+    const auto stem = std::filesystem::path(path).stem().string();
+    constexpr std::string_view wire_codec_addresses[] = {
+        "ores.cpp.wire-codec.codec_header",
+        "ores.cpp.wire-codec.codec_impl",
+        "ores.cpp.wire-codec.protocol_codec_impl"};
+    constexpr std::string_view protocol_addresses[] = {"ores.cpp.protocol"};
+    const types::entity_site site{std::string(path),
+        facet_enabled(properties, "ores.cpp.wire-codec",
+            wire_codec_addresses, false),
+        facet_enabled(properties, "ores.cpp.protocol", protocol_addresses,
+            true),
+        protocol_owned(registry, b.tables(),
+            values::member(b.tables(), root, type_name), path)};
+    const auto members = *type == model_type::family
+        ? family_members_of(path, docs, b, cache) : family_members{};
+    const auto groups = *type == model_type::trade_type_catalogue
+        ? field_group_models_of(path, docs, b, cache)
+        : field_group_models{};
+    const auto [context, prepared] = build_context(b, *type, library,
+        root, stem, type_name, entities, site, members, groups);
+    out.context = true;
+    std::unordered_map<std::string, std::size_t> rows;
+    for (const auto& u : units) {
+        model_row row{{u.output, u.template_name, value_id::none(),
+            type_name}, wanted && !wanted(u.template_name)};
+        if (!row.kept) {
+            const auto variant = template_context(b, context, stem,
+                type_name, u.template_name, entities, site, prepared);
+            row.output.context = variant.is_none() ? context : variant;
+        }
+        const auto [at, added] = rows.try_emplace(u.output,
+            out.rows.size());
+        if (added)
+            out.rows.push_back(std::move(row));
+        else
+            out.rows[at->second] = std::move(row);
+    }
+    return out;
+}
+
+/**
+ * @brief Compiles the templates of the library @p s names, adding the
+ * fact of each to @p facts when given.
+ */
+template_map read_templates(const checkout_reader& reader,
+    const generation_settings& s, std::vector<fact>* facts) {
     const auto dir = s.library + "/templates/";
     template_map templates;
     for (const auto path : reader.list(dir, ".mustache")) {
         if (path.find('/', dir.size()) != std::string_view::npos)
             continue;
-        templates.emplace(std::string(file_name(path)),
-            compile(read_or_throw(reader, path)));
+        const auto bytes = read_or_throw(reader, path);
+        if (facts != nullptr)
+            facts->push_back(fact_of(template_fact(file_name(path)), bytes));
+        templates.emplace(std::string(file_name(path)), compile(bytes));
     }
     return templates;
 }
 
-void plan_generation(generation_plan& plan, const checkout_reader& reader,
+const types::compiled_template& template_of(const template_map& templates,
+    const planned_output& output) {
+    const auto it = templates.find(output.template_name);
+    if (it == templates.end())
+        throw std::runtime_error("codegen: " + output.output +
+            " needs the template " + output.template_name +
+            ", which the library does not have");
+    return it->second;
+}
+
+/**
+ * @brief The templates among the inputs of a model that changed since its
+ * last generation, when nothing else changed; nothing when there is no
+ * last generation or another input changed, so every output is rendered.
+ */
+std::optional<std::set<std::string_view>> changed_templates(
+    const compass::codec::types::part_sink& out) {
+    const auto changed = out.changed();
+    if (!changed)
+        return std::nullopt;
+    const auto prefix = template_fact({});
+    std::set<std::string_view> names;
+    for (const auto& c : *changed) {
+        if (c.kind != compass::codec::types::input_kind::fact ||
+            !c.key.starts_with(prefix))
+            return std::nullopt;
+        names.insert(c.key.substr(prefix.size()));
+    }
+    return names;
+}
+
+}
+
+std::string template_fact(std::string_view name) {
+    return types::fact_name("template", name);
+}
+
+template_map compile_templates(const checkout_reader& reader,
     const generation_settings& s) {
-    mops::builder b(plan.tables);
-    const auto library = library_values(b,
-        read_or_throw(reader, s.library + "/data/licence-GPL-v3.txt"),
-        read_or_throw(reader, s.library + "/data/modeline.org"), s.year);
-    const auto graph = load_graph(reader, s.library + "/templates");
+    return read_templates(reader, s, nullptr);
+}
+
+generation prepare_generation(const checkout_reader& reader,
+    const generation_settings& s) {
+    generation g;
+    g.settings = s;
+    g.licence = read_or_throw(reader, s.library + "/data/licence-GPL-v3.txt");
+    g.modeline = read_or_throw(reader, s.library + "/data/modeline.org");
+    g.facts.push_back(fact_of(std::string(library_fact), g.licence +
+        std::string(1, '\0') + g.modeline + std::string(1, '\0') +
+        std::to_string(s.year)));
+    std::string nodes;
+    g.graph = load_graph(reader, s.library + "/templates", nodes);
+    g.facts.push_back(fact_of(std::string(graph_fact), nodes));
     documents docs(reader);
-    const auto registry = load_registry(docs);
+    g.registry = load_registry(docs);
 
     const auto catalogue = read_component_catalogue(
         read_or_throw(reader, s.library + "/component_catalogue.org"));
@@ -500,13 +665,10 @@ void plan_generation(generation_plan& plan, const checkout_reader& reader,
         });
 
     mops::load_cache cache;
-    auto entities = load_entity_registry(docs, reader,
+    g.entities = load_entity_registry(docs,
         modeling_dir_of(catalogue, s.convention_component), cache);
-    entities.shell_units = shell_units(docs, cache);
-    entities.shell_local_units = registry.shell_registrars;
-    const auto& find = docs.finder();
-    mops::outline outline;
-    std::unordered_map<std::string, std::size_t> rows;
+    g.entities.shell_units = shell_units(docs, cache);
+    g.entities.shell_local_units = g.registry.shell_registrars.unrecorded();
     for (const auto path : docs.org()) {
         if (!regenerated.contains(path))
             continue;
@@ -514,94 +676,97 @@ void plan_generation(generation_plan& plan, const checkout_reader& reader,
         if (!doc)
             continue;
         const auto type = mops::model_type_of(mops::declared_type(*doc));
-        const auto known = std::ranges::find_if(context_types,
-            [&](const context_type& c) { return type && c.type == *type; });
-        if (known == std::end(context_types))
-            continue;
-        const auto type_name = known->name;
-        std::string error;
-        const auto id = mops::load_model(b, *doc, *type, find, docs.lister(),
-            cache, &error);
-        if (!error.empty()) {
-            plan.messages.push_back(std::string(path) + ": " + error);
+        if (std::ranges::any_of(context_types, [&](const context_type& c) {
+                return type && c.type == *type;
+            }))
+            g.models.emplace_back(path);
+    }
+    g.templates = read_templates(reader, s, &g.facts);
+    publish_facts(g.facts, g.entities);
+    publish_facts(g.facts, g.registry);
+    return g;
+}
+
+void plan_generation(generation_plan& plan, const checkout_reader& reader,
+    const generation_settings& s) {
+    const auto g = prepare_generation(reader, s);
+    mops::builder b(plan.tables);
+    const auto library = library_values(b, g.licence, g.modeline, s.year);
+    auto entities = g.entities;
+    entities.header_exists = reader.exists;
+    mops::load_cache cache;
+    std::unordered_map<std::string, std::size_t> rows;
+    for (const auto& model : g.models) {
+        auto m = plan_model(b, library, g, g.registry, entities, model,
+            reader, cache, {});
+        if (!m.error.empty()) {
+            plan.messages.push_back(std::move(m.error));
             continue;
         }
-        const auto root = b.tables().models.roots[id];
-        const auto read = drawer_properties(*doc, outline, find, cache);
-        const auto& properties = read.properties;
-        const auto units = model_units(graph, registry, type_name, b.tables(),
-            root, path, properties);
-        if (units.empty())
-            continue;
-        const auto stem = std::filesystem::path(path).stem().string();
-        constexpr std::string_view wire_codec_addresses[] = {
-            "ores.cpp.wire-codec.codec_header",
-            "ores.cpp.wire-codec.codec_impl",
-            "ores.cpp.wire-codec.protocol_codec_impl"};
-        constexpr std::string_view protocol_addresses[] = {"ores.cpp.protocol"};
-        const types::entity_site site{std::string(path),
-            facet_enabled(properties, "ores.cpp.wire-codec",
-                wire_codec_addresses, false),
-            facet_enabled(properties, "ores.cpp.protocol", protocol_addresses,
-                true),
-            protocol_owned(registry, b.tables(),
-                values::member(b.tables(), root, type_name), path)};
-        const auto members = *type == model_type::family
-            ? family_members_of(path, docs, b, cache) : family_members{};
-        const auto groups = *type == model_type::trade_type_catalogue
-            ? field_group_models_of(path, docs, b, cache)
-            : field_group_models{};
-        const auto [context, prepared] = build_context(b, *type, library,
-            root, stem, type_name, entities, site, members, groups);
-        ++plan.contexts;
-        for (const auto& u : units) {
-            const auto variant = template_context(b, context, stem, type_name,
-                u.template_name, entities, site, prepared);
-            planned_output row{u.output, u.template_name,
-                variant.is_none() ? context : variant, type_name};
-            const auto [at, added] = rows.try_emplace(u.output,
+        if (m.context)
+            ++plan.contexts;
+        for (auto& row : m.rows) {
+            const auto [at, added] = rows.try_emplace(row.output.output,
                 plan.outputs.size());
             if (added)
-                plan.outputs.push_back(std::move(row));
+                plan.outputs.push_back(std::move(row.output));
             else
-                plan.outputs[at->second] = std::move(row);
+                plan.outputs[at->second] = std::move(row.output);
         }
     }
 }
 
 void render_planned(std::string& text, const template_map& templates,
     const generation_plan& plan, const planned_output& output) {
-    const auto it = templates.find(output.template_name);
-    if (it == templates.end())
-        throw std::runtime_error("codegen: " + output.output +
-            " needs the template " + output.template_name +
-            ", which the library does not have");
-    render_output(text, output.template_name, it->second, plan.tables,
-        output.context);
+    render_output(text, output.template_name, template_of(templates, output),
+        plan.tables, output.context);
 }
 
-void generate(compass::codec::types::file_table& out,
-    const checkout_reader& reader, const generation_settings& s) {
+void generate_model(const generation& g, std::string_view model,
+    const checkout_reader& reader, mops::load_cache& cache,
+    compass::codec::types::part_sink& out) {
+    types::fact_reads reads;
+    auto entities = g.entities;
+    entities.record_to(&reads);
+    entities.header_exists = reader.exists;
+    auto registry = g.registry;
+    registry.record_to(&reads);
+    out.read(library_fact);
+    out.read(graph_fact);
+
+    const auto again = changed_templates(out);
+    const template_filter wanted = again
+        ? template_filter([&](std::string_view name) {
+              return again->contains(name);
+          })
+        : template_filter{};
     generation_plan plan;
-    plan_generation(plan, reader, s);
-    if (!plan.messages.empty()) {
-        std::string what = "codegen: " + std::to_string(plan.messages.size()) +
-            " models did not load:";
-        for (const auto& m : plan.messages)
-            what += "\n  " + m;
-        throw std::runtime_error(what);
+    mops::builder b(plan.tables);
+    const auto library = library_values(b, g.licence, g.modeline,
+        g.settings.year);
+    const auto planned = plan_model(b, library, g, registry, entities, model,
+        reader, cache, wanted);
+    if (!planned.error.empty())
+        throw std::runtime_error("codegen: a model did not load: " +
+            planned.error);
+    std::string text;
+    for (const auto& row : planned.rows) {
+        out.read(template_fact(row.output.template_name));
+        if (row.kept) {
+            if (!out.keep(row.output.output))
+                throw std::runtime_error("codegen: the last generation of " +
+                    std::string(model) + " did not write " +
+                    row.output.output);
+            continue;
+        }
+        text.clear();
+        render_output(text, row.output.template_name,
+            template_of(g.templates, row.output), plan.tables,
+            row.output.context);
+        out.add(row.output.output, text);
     }
-    const auto templates = compile_templates(reader, s);
-    // Each output renders from the plan and the templates alone, so they
-    // render on every core and are added in plan order.
-    std::vector<std::string> texts(plan.outputs.size());
-    compass::codec::ops::parallel_for(plan.outputs.size(),
-        std::max(1u, std::thread::hardware_concurrency()),
-        [&](std::size_t i) {
-            render_planned(texts[i], templates, plan, plan.outputs[i]);
-        });
-    for (std::size_t i = 0; i < plan.outputs.size(); ++i)
-        out.add(plan.outputs[i].output, texts[i]);
+    for (const auto& name : reads.names())
+        out.read(name);
 }
 
 }

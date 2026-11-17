@@ -24,10 +24,15 @@
 #include <filesystem>
 #include <fstream>
 #include <map>
+#include <set>
 #include <stdexcept>
 #include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 #include <unistd.h>
 #include <catch2/catch_test_macros.hpp>
+#include "compass.codec/ops/outputs.hpp"
 #include "compass.codec/ops/registry.hpp"
 #include "compass.codec/ops/run.hpp"
 #include "compass.ingest/meta/type_registry_builder.hpp"
@@ -135,16 +140,71 @@ struct outcome {
     std::string text;
 };
 
+std::vector<std::pair<std::string, std::string>> rows_of(
+    const ct::file_table& t) {
+    std::vector<std::pair<std::string, std::string>> out;
+    for (std::uint32_t f = 0; f < t.size(); ++f)
+        out.emplace_back(t.paths[{f}], t.contents[{f}]);
+    return out;
+}
+
+/**
+ * @brief Runs codegen over @p all from @p previous, and checks that its
+ * files are those of a run from nothing, which generates every model.
+ */
 outcome run(const files& all, const ct::dependency_record& previous = {}) {
     const checkout c(all);
     const std::array codecs{codegen::codecs::codegen};
     const auto r = codec::ops::make_registry(codecs, c.types(), settings());
     REQUIRE(r.problems.empty());
     auto result = codec::ops::run(r, c.corpus(), c.types(), 1, previous);
+    const auto whole = codec::ops::run(r, c.corpus(), c.types(), 1);
+    CHECK(rows_of(result.files[0]) == rows_of(whole.files[0]));
     std::string text;
     if (result.files[0].size() == 1)
         text = result.files[0].contents[{0}];
     return {std::move(result), text};
+}
+
+/**
+ * @brief The models of @p r that were generated, by path, and "" when
+ * what they share was read again.
+ */
+std::set<std::string> generated(const ct::run_result& r) {
+    std::set<std::string> out;
+    for (const auto u : r.fresh)
+        out.emplace(r.record.documents[u]);
+    return out;
+}
+
+constexpr std::string_view model_a =
+    "projects/ores.a/modeling/component_overview.org";
+
+/**
+ * @brief library() with a second archetype of the component, whose
+ * template lists the convention families, and an entity model of the
+ * convention component that declares one. The catalogue leaves entity
+ * models out of generation, so the entity is read for the registry alone.
+ */
+files library_with_family() {
+    auto all = library();
+    all["lib/component_catalogue.org"] =
+        "* Components\n\n| name | modeling_dir | exclude_org_types |\n"
+        "|------+--------------+-------------------|\n"
+        "| a | projects/ores.a/modeling | entity |\n";
+    all["lib/templates/ores.cmake.component.families.org"] =
+        "#+title: ores.cmake.component.families\n#+type: archetype\n"
+        "#+facet: ores.cmake.component\n#+component_kind: flat\n"
+        "#+output: projects/{component_dir}/families.ts\n"
+        "#+begin_src mustache :tangle "
+        "ts_convention_family_registry.ts.mustache\n#+end_src\n";
+    all["lib/templates/ts_convention_family_registry.ts.mustache"] =
+        "{{#convention_registry.families}}{{key}};"
+        "{{/convention_registry.families}}\n";
+    all["projects/ores.a/modeling/ores.a.swap.org"] =
+        "#+title: Swap\n#+type: ores.codegen.entity\n"
+        "#+convention_family: swaps\n#+entity_singular: swap\n";
+    return all;
 }
 
 /**
@@ -223,30 +283,84 @@ TEST_CASE("the codegen codec runs again for a model or template edit and "
     other["src/main.cpp"] += "// more\n";
     const auto unrelated = run(other, first.run.record);
     CHECK(unrelated.run.ran == counts{0});
-    CHECK(unrelated.run.skipped == counts{1});
+    CHECK(unrelated.run.skipped == counts{2});
 
     auto model = library();
     model["projects/ores.a/modeling/component_overview.org"] =
         "#+title: ores.a\n#+type: ores.codegen.component\n#+name: a\n"
         "#+full_name: ores.b\n#+brief: A\n#+component_kind: flat\n";
     const auto remodelled = run(model, first.run.record);
-    CHECK(remodelled.run.ran == counts{1});
+    CHECK(generated(remodelled.run) ==
+        std::set<std::string>{"", std::string(model_a)});
     CHECK(remodelled.text.find("project(ores.b)") != std::string::npos);
 
     auto edited = library();
     edited["lib/templates/root.mustache"] = "name({{component.name}})\n";
     const auto retemplated = run(edited, first.run.record);
-    CHECK(retemplated.run.ran == counts{1});
+    CHECK(generated(retemplated.run) ==
+        std::set<std::string>{"", std::string(model_a)});
     CHECK(retemplated.text.find("name(a)") != std::string::npos);
 }
 
-TEST_CASE("the codegen codec runs again when a model appears in a "
-    "modeling directory", "[codegen][codec]") {
+TEST_CASE("a document that appears in a modeling directory is read for "
+    "what the models share, and generates no model it changes nothing for",
+    "[codegen][codec]") {
     const auto first = run(library());
     auto added = library();
     added["projects/ores.a/modeling/notes.org"] = "#+title: More\n";
 
-    CHECK(run(added, first.run.record).run.ran == counts{1});
+    CHECK(generated(run(added, first.run.record).run) ==
+        std::set<std::string>{""});
+}
+
+TEST_CASE("a model is generated again when a model it never read changes "
+    "an element of the registry it looked up", "[codegen][codec]") {
+    const auto first = run(library_with_family());
+    REQUIRE(rows_of(first.run.files[0])[0] ==
+        std::pair<std::string, std::string>{"projects/ores.a/families.ts",
+            "swaps;\n"});
+    auto all = library_with_family();
+    auto& entity = all["projects/ores.a/modeling/ores.a.swap.org"];
+    entity.replace(entity.find("swaps"), 5, "basis");
+
+    const auto second = run(all, first.run.record);
+
+    CHECK(generated(second.run) ==
+        std::set<std::string>{"", std::string(model_a)});
+    CHECK(rows_of(second.run.files[0])[0].second == "basis;\n");
+}
+
+TEST_CASE("a model is not generated again when a model of the registry "
+    "changes nothing it looked up", "[codegen][codec]") {
+    const auto first = run(library_with_family());
+    auto all = library_with_family();
+    all["projects/ores.a/modeling/ores.a.swap.org"] += "A note.\n";
+
+    const auto second = run(all, first.run.record);
+
+    CHECK(generated(second.run) == std::set<std::string>{""});
+    CHECK(second.run.skipped == counts{1});
+}
+
+TEST_CASE("a template edit renders that template's outputs again and "
+    "keeps the model's others", "[codegen][codec]") {
+    const auto first = run(library_with_family());
+    auto all = library_with_family();
+    all["lib/templates/root.mustache"] = "name({{component.name}})\n";
+
+    const auto second = run(all, first.run.record);
+
+    CHECK(generated(second.run) ==
+        std::set<std::string>{"", std::string(model_a)});
+    CHECK(rows_of(second.run.files[0]) ==
+        std::vector<std::pair<std::string, std::string>>{
+            {"projects/ores.a/families.ts", "swaps;\n"},
+            {"projects/ores.a/CMakeLists.txt", "name(a)\n"}});
+
+    auto& entity = all["projects/ores.a/modeling/ores.a.swap.org"];
+    entity.replace(entity.find("swaps"), 5, "basis");
+    const auto third = run(all, second.run.record);
+    CHECK(rows_of(third.run.files[0])[0].second == "basis;\n");
 }
 
 TEST_CASE("an output two models name is written once, from the later",
@@ -270,6 +384,19 @@ TEST_CASE("an output two models name is written once, from the later",
 
     REQUIRE(r.run.files[0].size() == 1);
     CHECK(r.text.find("project(ores.b)") != std::string::npos);
+
+    const checkout c(all);
+    const std::array codecs{codegen::codecs::codegen};
+    const auto registry = codec::ops::make_registry(codecs, c.types(),
+        settings());
+    const auto outputs = codec::ops::outputs_of(registry, r.run);
+    REQUIRE(outputs.size() == 1);
+    CHECK(codec::ops::check_outputs(outputs).empty());
+
+    all["projects/ores.a/modeling/component_overview.org"] += "A note.\n";
+    const auto edited = run(all, r.run.record);
+    REQUIRE(edited.run.files[0].size() == 1);
+    CHECK(edited.text.find("project(ores.b)") != std::string::npos);
 }
 
 TEST_CASE("the codegen codec needs its library and convention component",
