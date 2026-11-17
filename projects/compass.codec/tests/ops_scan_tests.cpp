@@ -380,3 +380,193 @@ TEST_CASE("a file that comes or goes is reduced again", "[ops][scan]") {
 
     CHECK(run(files, cache, first.record).reduces == 1);
 }
+
+namespace {
+
+std::atomic<int> pages_mapped{0};
+
+constexpr std::array<types::rule, 2> heading_rules{{
+    {"bad_heading", "No heading is titled bad."},
+    {"heading_twice", "No two pages share a heading."}}};
+
+std::vector<std::string_view> org_pages(const types::corpus_view& v) {
+    return v.list_files("doc/", ".org");
+}
+
+/**
+ * @brief Reports each heading titled bad, from the parsed headings, and
+ * makes the fact the page's heading titles, one per line.
+ */
+void map_headings(const types::document& d, const types::option_values&,
+    types::file_scan& out) {
+    ++pages_mapped;
+    const auto& t = d.tables;
+    for (std::uint32_t i = 0; i < t.headings.size(); ++i) {
+        const compass::org::types::heading_id h{i};
+        const auto title = t.headings.titles[h].of(d.source);
+        const auto begin = t.elements.ranges[t.headings.elements[h]].begin;
+        if (title == "bad")
+            out.findings.add({.document = d.row, .range = {begin, begin},
+                .rule = types::rule_id{0}, .level = types::severity::error,
+                .message = "a bad heading", .fix = "rename it"});
+        out.fact += std::string(title) + "\n";
+    }
+}
+
+/**
+ * @brief Reports, on the later page, each heading title an earlier page
+ * has.
+ */
+void reduce_headings(std::span<const types::scanned_file> files,
+    const types::corpus_view&, types::diagnostic_table& out) {
+    ++reduced;
+    std::map<std::string, std::string_view> first;
+    for (const auto& f : files) {
+        auto fact = f.fact;
+        while (!fact.empty()) {
+            const auto end = fact.find('\n');
+            const std::string title(fact.substr(0, end));
+            fact.remove_prefix(end + 1);
+            const auto [it, added] = first.try_emplace(title, f.path);
+            if (added)
+                continue;
+            out.add({.document = compass::org::types::document_id::none(),
+                .range = {0, 0}, .rule = types::rule_id{1},
+                .level = types::severity::error,
+                .message = title + " is also a heading of " +
+                    std::string(it->second),
+                .fix = "rename one", .file = f.path});
+        }
+    }
+}
+
+constexpr types::descriptor headings{.name = "headings", .version = 1,
+    .summary = "", .reads = types::inputs::of_types({}), .options = {},
+    .rules = heading_rules, .enabled_by_default = true,
+    .run = types::scan_function{.files = org_pages,
+        .reduce = reduce_headings, .map_document = map_headings}};
+
+/**
+ * @brief A corpus whose .org files are parsed documents, and whose
+ * checkout holds every file.
+ */
+class org_checkout final {
+public:
+    explicit org_checkout(const sources& all)
+        : bytes_(all.begin(), all.end()) {
+        for (const auto& [path, source] : bytes_) {
+            files_.paths.push_back(path);
+            if (path.ends_with(".org"))
+                corpus_.add(path, source);
+        }
+        files_.content_of = [this](std::string_view path) {
+            return std::optional(compass::store::ops::blob_id_of(
+                bytes_.find(path)->second));
+        };
+        files_.read = [this](std::string_view path) {
+            return std::optional(bytes_.find(path)->second);
+        };
+        view_ = corpus_.corpus();
+        view_.files = &files_;
+    }
+    org_checkout(const org_checkout&) = delete;
+    org_checkout& operator=(const org_checkout&) = delete;
+
+    [[nodiscard]] const types::corpus& corpus() const { return view_; }
+    [[nodiscard]] const auto& types() const { return corpus_.types(); }
+
+private:
+    tests::test_corpus corpus_;
+    std::map<std::string, std::string, std::less<>> bytes_;
+    types::checkout_files files_;
+    types::corpus view_;
+};
+
+/**
+ * @brief Each finding as its path, rule, offset and message, in order.
+ */
+std::vector<std::string> findings_of(const types::diagnostic_table& t,
+    const types::corpus& c) {
+    std::vector<std::string> out;
+    for (std::uint32_t i = 0; i < t.size(); ++i) {
+        const types::diagnostic_id d{i};
+        const auto document = t.documents[d];
+        out.push_back(std::string(document.is_none() ? t.files[d]
+                : c.paths[document.value]) + " " +
+            std::to_string(t.rules[d].value) + " " +
+            std::to_string(t.ranges[d].begin) + " " +
+            std::string(t.messages[d]));
+    }
+    return out;
+}
+
+outcome run_headings(const sources& all, const scoped_cache& cache,
+    const types::dependency_record& previous = {}) {
+    const org_checkout c(all);
+    const std::array<types::descriptor, 1> codecs{headings};
+    const auto r = ops::make_registry(codecs, c.types(), {});
+    pages_mapped = 0;
+    reduced = 0;
+    auto result = ops::run(r, c.corpus(), c.types(), 2, previous,
+        io::action_source_of(cache.root()));
+    const auto maps = pages_mapped.load();
+    const auto reduces = reduced.load();
+    (void)io::store_actions(cache.root(), result.record, result.fresh, 2,
+        result.scans);
+    const auto plain_run = ops::run(r, c.corpus(), c.types(), 2);
+    const auto findings = findings_of(result.diagnostics[0], c.corpus());
+    CHECK(findings == findings_of(plain_run.diagnostics[0], c.corpus()));
+    return {findings, maps, reduces, std::move(result.record)};
+}
+
+sources pages() {
+    return {{"doc/a.org", "* bad\n* alpha\n"},
+            {"doc/b.org", "* beta\n"},
+            {"doc/c.org", "text\n* gamma\n"},
+            {"doc/notes.txt", "* alpha\n"}};
+}
+
+}
+
+TEST_CASE("a scan of documents maps each page from its parsed tables and "
+    "reports its findings on the document", "[ops][scan]") {
+    scoped_cache cache;
+    auto files = pages();
+    files["doc/c.org"] += "* beta\n";
+
+    const auto r = run_headings(files, cache);
+
+    CHECK(r.maps == 3);
+    CHECK(r.findings == std::vector<std::string>{
+        "doc/a.org 0 0 a bad heading",
+        "doc/c.org 1 0 beta is also a heading of doc/b.org"});
+}
+
+TEST_CASE("after an edit a scan of documents maps only the edited page, "
+    "and reduces only when its fact changed", "[ops][scan]") {
+    scoped_cache cache;
+    const auto first = run_headings(pages(), cache);
+    REQUIRE(first.maps == 3);
+    auto files = pages();
+    files["doc/c.org"] = "more text\n* gamma\n";
+
+    const auto second = run_headings(files, cache, first.record);
+
+    CHECK(second.maps == 1);
+    CHECK(second.reduces == 0);
+    CHECK(second.findings == std::vector<std::string>{
+        "doc/a.org 0 0 a bad heading"});
+
+    files["doc/c.org"] = "* alpha\n* bad\n";
+    const auto third = run_headings(files, cache, second.record);
+    CHECK(third.maps == 1);
+    CHECK(third.reduces == 1);
+    CHECK(third.findings == std::vector<std::string>{
+        "doc/a.org 0 0 a bad heading", "doc/c.org 0 8 a bad heading",
+        "doc/c.org 1 0 alpha is also a heading of doc/a.org",
+        "doc/c.org 1 0 bad is also a heading of doc/a.org"});
+
+    const auto fourth = run_headings(files, cache, third.record);
+    CHECK(fourth.maps == 0);
+    CHECK(fourth.findings == third.findings);
+}

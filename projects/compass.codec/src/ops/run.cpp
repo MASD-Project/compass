@@ -306,6 +306,46 @@ void add_reads(types::read_log& to, const types::read_log& from) {
 }
 
 /**
+ * @brief Maps the file at @p path with the map step of @p f and returns
+ * the content ID of the bytes it read, or nothing when it could not be
+ * read.
+ */
+std::optional<blob_id> map_file(const types::scan_function& f,
+    const types::corpus_view& view, std::string_view path,
+    types::file_scan& made) {
+    const auto bytes = view.read_file(path);
+    f.map(path, bytes ? std::string_view(*bytes) : std::string_view{},
+        view.options(), made);
+    if (!bytes)
+        return std::nullopt;
+    return store::ops::blob_id_of(*bytes);
+}
+
+/**
+ * @brief Maps the document at @p path with the map_document step of @p f
+ * and returns its content ID, a file input of @p log as reading it would
+ * be. A path that is no document is read, and gets an empty fact.
+ */
+std::optional<blob_id> map_document(const types::scan_function& f,
+    const types::corpus_view& view, const scan_context& s,
+    std::string_view path, types::read_log& log, types::file_scan& made) {
+    const auto it = s.index.paths.find(path);
+    if (it == s.index.paths.end()) {
+        const auto bytes = view.read_file(path);
+        if (!bytes)
+            return std::nullopt;
+        return store::ops::blob_id_of(*bytes);
+    }
+    const auto row = it->second;
+    const auto& c = s.c;
+    log.add(types::input_kind::file, path, c.contents[row.value]);
+    f.map_document({row, c.paths[row.value], c.contents[row.value],
+        c.types[row.value], c.sources[row.value], c.tables[row.value]},
+        view.options(), made);
+    return c.contents[row.value];
+}
+
+/**
  * @brief Calls the scan @p f through @p view, mapping again only the files
  * whose content ID differs from the one the scan table in the result
  * object @p seed holds for them, and returns the scan table of the call.
@@ -351,10 +391,10 @@ std::string run_scan(const types::scan_function& f, types::corpus_view& view,
             files.push_back({path, it->second.fact});
             continue;
         }
-        const auto bytes = view.read_file(path);
         types::file_scan made;
-        f.map(path, bytes ? std::string_view(*bytes) : std::string_view{},
-            view.options(), made);
+        const auto content = f.map_document != nullptr
+            ? map_document(f, view, s, path, log, made)
+            : map_file(f, view, path, made);
         facts[i] = std::move(made.fact);
         findings[i] = encode_diagnostics(s.c, made.findings, 0,
             static_cast<std::uint32_t>(made.findings.size()));
@@ -362,12 +402,12 @@ std::string run_scan(const types::scan_function& f, types::corpus_view& view,
         files.push_back({path, facts[i]});
         // A file that cannot be read has no entry, so it is mapped again
         // and the reduce step is called.
-        unread = unread || !bytes;
-        if (!bytes)
+        unread = unread || !content;
+        if (!content)
             continue;
         mapped.push_back(entries.size());
-        entries.emplace_back(path, scan_entry{store::ops::blob_id_of(*bytes),
-            facts[i], findings[i], false});
+        entries.emplace_back(path, scan_entry{*content, facts[i],
+            findings[i], false});
     }
 
     std::string reduced;
