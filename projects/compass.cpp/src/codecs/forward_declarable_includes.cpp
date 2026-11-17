@@ -60,7 +60,8 @@ constexpr std::array<ct::option, 1> options{{
         "ores::database::pq::pool;class;ores.database/pq/pool.hpp;-,"
         "ores::database::pq::result;class;ores.database/pq/result.hpp;-,"
         "ores::database::pq::session_context;struct;"
-        "ores.database/pq/transaction.hpp;-,"
+        "ores.database/pq/session_context.hpp;"
+        "ores.database/pq/session_context_fwd.hpp,"
         "ores::database::pq::transaction;class;"
         "ores.database/pq/transaction.hpp;-",
         "The types a header may name without their definition, "
@@ -414,7 +415,7 @@ void reduce(std::span<const ct::scanned_file>, const ct::corpus_view& v,
 
 const ct::descriptor forward_declarable_includes{
     .name = "forward_declarable_includes",
-    .version = 3,
+    .version = 4,
     .summary = "Reports each header that includes the definition of a "
         "listed type it only names.",
     .reads = ct::inputs::of_types({}),

@@ -158,9 +158,10 @@ keeps in its =.compass.org=.
   header of a type of the =types= option only to name it, decided in the
   map step from the header's lexed code, literals and include lines
   blanked. The option holds the types of
-  =build/scripts/forward_declarable_types.list= at =545cafca45= as its
+  =build/scripts/forward_declarable_types.list= at =f8b71f178a= as its
   default, each =name;key;defining header;forwarding header or -=,
-  comma-separated; the file itself is not read. A header that names no
+  comma-separated; the file itself is not read, so a tree whose list
+  differs sets the option. A header that names no
   defining header is not lexed. Rule =bad_type_list=: the option is
   malformed or empty, reported on =.compass.org=. The script's baseline is
   replaced by inline exceptions.
