@@ -22,11 +22,13 @@
 #include <algorithm>
 #include <array>
 #include <set>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.codec/types/fact.hpp"
 #include "compass.cpp/ops/paths.hpp"
 #include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/test_case_reachability.hpp"
@@ -216,31 +218,82 @@ bool is_header(std::string_view path) {
         parts.end() - 1;
 }
 
-void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
+std::vector<std::string_view> scanned(const ct::corpus_view& v) {
+    auto out = v.list_files("projects/", ".org");
+    std::erase_if(out, [](auto p) { return !is_model(p); });
+    std::ranges::sort(out, co::component_less);
+    auto headers = v.list_files("projects/", ".hpp");
+    std::erase_if(headers, [](auto p) { return !is_header(p); });
+    out.insert(out.end(), headers.begin(), headers.end());
+    return out;
+}
+
+constexpr std::uint32_t model_fact = 0;
+constexpr std::uint32_t header_fact = 1;
+
+/**
+ * @brief The fact of a model: each :implements block, its offset, name
+ * and body. The fact of a header: each scope it declares something in,
+ * with the identifiers it declares there.
+ */
+void map(std::string_view path, std::string_view bytes,
+    const ct::option_values&, ct::file_scan& out) {
     static const pt::regex paste(
         R"(^#\+begin_src\s+cpp[^\n]*:implements[^\n]*\n(?P<body>.*?)^#\+end_src)",
         {.dotall = true, .multiline = true});
     static const pt::regex block_name(R"(:name\s+(\S+))");
-    static const pt::regex qualified(
-        R"(\bores(?:[_a-z0-9]*)?(?:::[A-Za-z_]\w*)+)");
-
-    auto models = v.list_files("projects/", ".org");
-    std::erase_if(models, [](auto p) { return !is_model(p); });
-    std::ranges::sort(models, co::component_less);
-    std::vector<block> blocks;
-    for (const auto path : models) {
-        const auto bytes = v.read_file(path).value_or("");
-        const auto text = pt::universal_newlines(pt::decode_replacing(bytes));
+    ct::fact_writer fact(out.fact);
+    const auto text = pt::universal_newlines(pt::decode_replacing(bytes));
+    if (path.ends_with(".org")) {
+        fact.number(model_fact);
         if (text.find(":implements") == std::string::npos)
-            continue;
+            return;
         for (const auto& m : paste.find_all(text)) {
             const auto header = std::string_view(text).substr(m.start(),
                 m.start("body") - m.start());
             const auto named = block_name.search(header);
-            blocks.push_back({path, co::offset_of_line(bytes,
-                    co::line_of(text, m.start())),
-                named ? std::string(named->group(1)) : "(unnamed)",
-                std::string(m.group("body"))});
+            fact.number(co::offset_of_line(bytes,
+                    co::line_of(text, m.start())))
+                .text(named ? named->group(1) : "(unnamed)")
+                .text(m.group("body"));
+        }
+        return;
+    }
+    fact.number(header_fact);
+    symbol_table table;
+    declared_symbols(text, table);
+    for (const auto& [scope, identifiers] : table) {
+        if (identifiers.empty())
+            continue;
+        fact.text(scope).number(static_cast<std::uint32_t>(
+            identifiers.size()));
+        for (const auto& i : identifiers)
+            fact.text(i);
+    }
+}
+
+/**
+ * @brief Reads the blocks of the models, then looks the names they hold up
+ * in the scopes the headers declare, reading only the scopes those names
+ * are in.
+ */
+void reduce(std::span<const ct::scanned_file> files, const ct::corpus_view&,
+    ct::diagnostic_table& out) {
+    static const pt::regex qualified(
+        R"(\bores(?:[_a-z0-9]*)?(?:::[A-Za-z_]\w*)+)");
+    std::vector<block> blocks;
+    std::vector<std::string_view> headers;
+    for (const auto& f : files) {
+        ct::fact_reader fact(f.fact);
+        if (fact.number() == header_fact) {
+            headers.push_back(f.fact);
+            continue;
+        }
+        while (!fact.done()) {
+            const auto offset = fact.number();
+            std::string name(fact.text());
+            blocks.push_back({f.path, offset, std::move(name),
+                std::string(fact.text())});
         }
     }
     if (blocks.empty()) {
@@ -249,27 +302,43 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
             "the check reads the org files under projects/<component>/modeling/");
         return;
     }
-
-    auto headers = v.list_files("projects/", ".hpp");
-    std::erase_if(headers, [](auto p) { return !is_header(p); });
     if (headers.empty()) {
         co::report(out, "projects", 0, nothing_read,
             "no header found under an include directory of projects/",
             "the check reads every .hpp under an include directory");
         return;
     }
+
+    std::vector<std::set<std::string>> names_of(blocks.size());
+    symbol_table wanted;
+    for (std::size_t b = 0; b < blocks.size(); ++b) {
+        for (const auto& m : qualified.find_all(blocks[b].body))
+            names_of[b].emplace(m.group());
+        for (const auto& name : names_of[b]) {
+            const auto sep = name.rfind("::");
+            scope_in(wanted, std::string_view(name).substr(0, sep));
+        }
+    }
     symbol_table table;
-    for (const auto path : headers) {
-        const auto bytes = v.read_file(path).value_or("");
-        declared_symbols(pt::universal_newlines(pt::decode_replacing(bytes)),
-            table);
+    for (const auto h : headers) {
+        ct::fact_reader fact(h);
+        (void)fact.number();
+        while (!fact.done()) {
+            const auto scope = fact.text();
+            const auto count = fact.number();
+            const bool kept = wanted.contains(scope);
+            auto* in = kept ? &scope_in(table, scope) : nullptr;
+            for (auto i = count; i > 0; --i) {
+                const auto identifier = fact.text();
+                if (in != nullptr)
+                    add(*in, identifier);
+            }
+        }
     }
 
     bool any_name = false;
-    for (const auto& b : blocks) {
-        std::set<std::string> names;
-        for (const auto& m : qualified.find_all(b.body))
-            names.emplace(m.group());
+    for (std::size_t b = 0; b < blocks.size(); ++b) {
+        const auto& names = names_of[b];
         any_name = any_name || !names.empty();
         for (const auto& name : names) {
             const auto sep = name.rfind("::");
@@ -278,10 +347,10 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
             if (const auto it = table.find(scope);
                 it != table.end() && it->second.contains(identifier))
                 continue;
-            co::report(out, b.model, b.offset, unresolved_name,
-                "block " + b.name + ": " + name + " names nothing: no "
-                "namespace or type " + std::string(scope) + " declares " +
-                std::string(identifier),
+            co::report(out, blocks[b].model, blocks[b].offset,
+                unresolved_name, "block " + blocks[b].name + ": " + name +
+                " names nothing: no namespace or type " + std::string(scope) +
+                " declares " + std::string(identifier),
                 "Point the block at the symbol's new home, or restore the "
                 "symbol; a pasted block is compiled only when its component "
                 "is regenerated.");
@@ -298,13 +367,13 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
 
 const ct::descriptor paste_blocks{
     .name = "paste_blocks",
-    .version = 1,
+    .version = 2,
     .summary = "Reports each ores:: name a model's pasted C++ block names "
         "that no header declares.",
     .reads = ct::inputs::of_types({}),
     .options = {},
     .rules = rules,
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::diagnostic_table>{run}};
+    .run = ct::scan_function{scanned, map, reduce}};
 
 }

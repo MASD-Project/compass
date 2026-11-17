@@ -108,3 +108,17 @@ TEST_CASE("no declared subject is a finding, not a pass",
     REQUIRE(r.findings.size() == 1);
     CHECK(std::get<0>(r.findings[0]) == "projects");
 }
+
+TEST_CASE("an edit that drops the only declared subject is a finding, and "
+    "one that brings it back clears it", "[codecs][subject_conformance]") {
+    const files declared{{"projects/ores.a/modeling/ores.a.b.org",
+        ":subject: a.v1.books.get\n"}};
+    const files none{{"projects/ores.a/modeling/ores.a.b.org", "* Nothing\n"}};
+
+    CHECK(messages(tests::run_after_edit(codecs::subject_conformance,
+        declared, none)) == std::vector<std::string>{"projects:0: no "
+            ":subject: declaration found; the scan is not reading the "
+            "models"});
+    CHECK(tests::run_after_edit(codecs::subject_conformance, none, declared)
+        .findings.empty());
+}

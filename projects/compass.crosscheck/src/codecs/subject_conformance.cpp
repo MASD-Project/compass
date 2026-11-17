@@ -23,10 +23,12 @@
 #include <array>
 #include <format>
 #include <set>
+#include <span>
 #include <string>
 #include <tuple>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.codec/types/fact.hpp"
 #include "compass.cpp/ops/paths.hpp"
 #include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
@@ -134,97 +136,117 @@ std::pair<bool, std::string> classify(std::string_view subject) {
  * @brief A subject and where it is: the file, its 1-based line and the
  * bytes of the file.
  */
-struct site {
-    std::string_view path;
-    std::uint32_t line;
-    std::string subject;
-};
-
 bool is_model(std::string_view path) {
     const auto parts = co::components_of(path);
     return parts.size() == 4 && parts[2] == "modeling" &&
         path.ends_with(".org");
 }
 
-void declared(const ct::corpus_view& v, std::vector<site>& out,
-    ct::diagnostic_table& problems) {
+constexpr std::string_view dq =
+    "projects/ores.sql/populate/dq/dq_artefact_types_populate.sql";
+
+/**
+ * @brief The models, then the .hpp and the .cpp files, each group in
+ * component order, then the data-quality seed when there is one, as
+ * subjects are listed in that order.
+ */
+std::vector<std::string_view> scanned(const ct::corpus_view& v) {
+    auto out = v.list_files("projects/", ".org");
+    std::erase_if(out, [](auto p) { return !is_model(p); });
+    std::ranges::sort(out, co::component_less);
+    for (const auto suffix : {".hpp", ".cpp"}) {
+        auto paths = v.list_files("projects/", suffix);
+        std::ranges::sort(paths, co::component_less);
+        out.insert(out.end(), paths.begin(), paths.end());
+    }
+    if (v.file_exists(dq))
+        out.push_back(dq);
+    return out;
+}
+
+/**
+ * @brief The fact of a file: 1 for a model, then each subject it declares
+ * or spells with its line and the offset of that line.
+ */
+void map(std::string_view path, std::string_view bytes,
+    const ct::option_values&, ct::file_scan& out) {
     static const pt::regex line_pattern(R"(^\s*:subject:\s*(\S+)\s*$)");
-    auto models = v.list_files("projects/", ".org");
-    std::erase_if(models, [](auto p) { return !is_model(p); });
-    std::ranges::sort(models, co::component_less);
-    for (const auto path : models) {
-        const auto bytes = v.read_file(path).value_or("");
+    static const pt::regex constant(
+        R"(\w*subject\w*\s*=\s*\n?\s*\"([^\"]+)\')");
+    static const pt::regex seeded(
+        R"(\'([a-z_]+\.[a-z0-9_]+\.[a-z0-9_.]+)\')");
+    ct::fact_writer fact(out.fact);
+    if (is_model(path)) {
+        fact.number(1);
         if (!pt::is_utf8(bytes)) {
-            co::report(problems, path, 0, unreadable_model,
+            co::report(out.findings, path, 0, unreadable_model,
                 "the model is not UTF-8, so its subjects cannot be read",
                 "save the model as UTF-8");
-            continue;
+            return;
         }
         const auto text = pt::universal_newlines(bytes);
         std::uint32_t number = 0;
         for (const auto line : co::split_lines(text)) {
             ++number;
             if (const auto m = line_pattern.match(line))
-                out.push_back({path, number, std::string(m->group(1))});
+                fact.number(co::offset_of_line(bytes, number))
+                    .text(m->group(1));
         }
+        return;
+    }
+    fact.number(0);
+    const auto& pattern = path == dq ? seeded : constant;
+    if (bytes.find(path == dq ? "'" : "subject") == std::string_view::npos)
+        return;
+    const auto text = pt::universal_newlines(pt::decode_replacing(bytes));
+    std::set<std::pair<std::uint32_t, std::string>> seen;
+    for (const auto& m : pattern.find_all(text)) {
+        std::string subject(m.group(1));
+        if (subject.ends_with('.') || subject.contains('>') ||
+            subject.contains('*')) {
+            while (subject.ends_with('.'))
+                subject.pop_back();
+        }
+        if (subject.empty())
+            continue;
+        const auto line = co::line_of(text, m.start());
+        if (seen.emplace(line, subject).second)
+            fact.number(co::offset_of_line(bytes, line))
+                .text(subject);
     }
 }
 
-void written(const ct::corpus_view& v, std::vector<site>& out) {
-    static const pt::regex constant(
-        R"(\w*subject\w*\s*=\s*\n?\s*\"([^\"]+)\')");
-    static const pt::regex seeded(
-        R"(\'([a-z_]+\.[a-z0-9_]+\.[a-z0-9_.]+)\')");
-    constexpr std::string_view dq =
-        "projects/ores.sql/populate/dq/dq_artefact_types_populate.sql";
+struct site {
+    std::string_view path;
+    std::uint32_t offset;
+    std::string_view subject;
+};
 
-    std::set<std::tuple<std::string_view, std::uint32_t, std::string>> seen;
-    const auto scan = [&](std::string_view path, const pt::regex& pattern,
-        std::string_view needle) {
-        const auto bytes = v.read_file(path);
-        if (!bytes || bytes->find(needle) == std::string::npos)
-            return;
-        const auto text = pt::universal_newlines(pt::decode_replacing(*bytes));
-        for (const auto& m : pattern.find_all(text)) {
-            std::string subject(m.group(1));
-            if (subject.ends_with('.') || subject.contains('>') ||
-                subject.contains('*')) {
-                while (subject.ends_with('.'))
-                    subject.pop_back();
-            }
-            if (subject.empty())
-                continue;
-            const auto line = co::line_of(text, m.start());
-            if (seen.emplace(path, line, subject).second)
-                out.push_back({path, line, subject});
+void reduce(std::span<const ct::scanned_file> files, const ct::corpus_view&,
+    ct::diagnostic_table& out) {
+    std::vector<site> declared;
+    std::vector<site> written;
+    for (const auto& f : files) {
+        ct::fact_reader fact(f.fact);
+        auto& to = fact.number() == 1 ? declared : written;
+        while (!fact.done()) {
+            const auto offset = fact.number();
+            to.push_back({f.path, offset, fact.text()});
         }
-    };
-    for (const auto suffix : {".hpp", ".cpp"}) {
-        auto paths = v.list_files("projects/", suffix);
-        std::ranges::sort(paths, co::component_less);
-        for (const auto path : paths)
-            scan(path, constant, "subject");
     }
-    scan(dq, seeded, "'");
-}
-
-void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
-    std::vector<site> subjects;
-    declared(v, subjects, out);
-    if (subjects.empty()) {
+    if (declared.empty()) {
         co::report(out, "projects", 0, no_declaration,
             "no :subject: declaration found; the scan is not reading the "
             "models", "the check reads projects/<component>/modeling/*.org");
         return;
     }
-    written(v, subjects);
-    for (const auto& s : subjects) {
+    declared.insert(declared.end(), written.begin(), written.end());
+    for (const auto& s : declared) {
         const auto [ok, reason] = classify(s.subject);
         if (ok)
             continue;
-        const auto bytes = v.read_file(s.path).value_or("");
-        co::report(out, s.path, co::offset_of_line(bytes, s.line),
-            outside_protocol, s.subject + ": " + reason,
+        co::report(out, s.path, s.offset, outside_protocol,
+            std::string(s.subject) + ": " + reason,
             "A subject is {component}.v1.{resource}.{verb} with a verb from "
             "the closed set of eight, {component}.v1.events.{collection}."
             "{action}, or {component}.v1.ops.{operation}; see "
@@ -236,13 +258,13 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
 
 const ct::descriptor subject_conformance{
     .name = "subject_conformance",
-    .version = 1,
+    .version = 2,
     .summary = "Reports each NATS subject a model declares or a writing "
         "site spells outside the entity protocol.",
     .reads = ct::inputs::of_types({}),
     .options = {},
     .rules = rules,
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::diagnostic_table>{run}};
+    .run = ct::scan_function{scanned, map, reduce}};
 
 }

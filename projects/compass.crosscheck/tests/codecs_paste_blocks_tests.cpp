@@ -109,3 +109,22 @@ TEST_CASE("a tree with no block to read is a finding, not a pass",
     CHECK(std::get<2>(tests::run(codecs::paste_blocks, t).findings.at(0))
         .starts_with("no qualified name found"));
 }
+
+TEST_CASE("an edit that renames a declared type reports the block that "
+    "names it, and renaming it back clears it", "[codecs][paste_blocks]") {
+    const auto before = tree(
+        "#+begin_src cpp :implements handler :name use\n"
+        "ores::workflow::api::step_runner r;\n"
+        "#+end_src\n");
+    auto after = before;
+    after["projects/ores.workflow/include/ores.workflow/api/step.hpp"] =
+        "namespace ores::workflow::api { class runner {}; }\n";
+
+    CHECK(messages(tests::run_after_edit(codecs::paste_blocks, before,
+        after)) == std::vector<std::string>{
+            "projects/ores.refdata/modeling/ores.refdata.currency.org:4: "
+            "block use: ores::workflow::api::step_runner names nothing: no "
+            "namespace or type ores::workflow::api declares step_runner"});
+    CHECK(tests::run_after_edit(codecs::paste_blocks, after, before)
+        .findings.empty());
+}
