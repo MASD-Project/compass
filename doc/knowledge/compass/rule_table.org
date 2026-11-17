@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-163 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 57 are cited by no rule.
+173 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 57 are cited by no rule.
 
 ** Rules
 
@@ -99,6 +99,16 @@ memories no rule cites are the candidates for the next checks.
 | =open_reads= | stale_allow | Every subject Authorised reads allow-lists is defined by a protocol header. |  |
 | =open_reads= | no_allow_list | Authorised reads has its allow-list section. |  |
 | =org_links= | colon_link | No link's raw target begins with a colon, which no link type does. |  |
+| =parameter_value_sets= | unresolved | The value set curation resolves: every file reads, and no generator stops on it. |  |
+| =parameter_value_sets= | unlinked_parameter | Every parameter a screen draws names a value set, by a curated link. |  |
+| =parameter_value_sets= | clash | A convention, curve or engine run settings set or link does not restate one another source holds, and names a set that exists. |  |
+| =parameter_value_sets= | unknown_set | Every link names a set the curation states. |  |
+| =parameter_value_sets= | unnamed_set | Every set is named by a link, or generated for a leaf. |  |
+| =parameter_value_sets= | impossible_set | A set states only a rule its own kind can hold. |  |
+| =parameter_value_sets= | unruled_leaf | Every leaf of the element map names an authority for its rule, beyond the count UNREAD_ALLOWED permits. |  |
+| =parameter_value_sets= | override_column | No pair setting table, model or reader states a per-pair control the value set states. |  |
+| =parameter_value_sets= | value_check | No engine settings part states a value as a column check. |  |
+| =parameter_value_sets= | missing_file | Every file the override rules guard exists. |  |
 | =paste_blocks= | unresolved_name | Every ores:: name a model's :implements block pastes is declared by some header under an include directory. |  |
 | =paste_blocks= | nothing_read | The tree has an :implements block, a header and a qualified name in a block to check. |  |
 | =pattern_uses= | unknown_use | Every page a pattern lists under In ORE Studio exists. |  |

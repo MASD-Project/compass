@@ -146,6 +146,8 @@ replaced in this step.
        index.
      - `route_inventory`: 19 rows with stale "Where" line numbers. The script's
        own `--check` ignores that column.
+     - `er_diagram`: `ores_schema.dq_datasets.puml` predates a reworded
+       table description in `dq_dataset_bundles_create.sql`.
      - Two orphan headers,
        `refdata.api/generators/curve_volatility_parametric_smile{,_parameter}_generator.hpp`,
        left by a model rename. compass does not write them, so it does not
@@ -199,10 +201,12 @@ Only after step 2 shows agreement:
     `xml-benchmark-recorded` (needs files at commits named in `history.tsv`),
     `format`, `no-committed-credentials` (reads the git-ignored `.env`), and
     the `--self-test` steps;
-  - being ported now: `conventions-dataset`, `ore-parameters-seed`,
-    `file-types-seed`, `conventions-coverage`, `xml-bindings-drift`,
-    `er-diagram`, `ore-element-map`, `ore-parameter-value-sets`,
-    `parameter-value-sets-only` and `lint`;
+  - kept in Python for now: `xml-bindings-drift`, `file-types-seed` and
+    `ore-parameters-seed` (see "Fixes to make in ORE Studio" below);
+  - `ore-element-map`, `ore-parameter-value-sets` and
+    `parameter-value-sets-only` are one compass model: the `ore_value_sets`
+    codec writes their three seeds and `parameter_value_sets` reports their
+    rules. They need the `r.id` fix below before either side passes;
   - always kept: build, database and test gates (31 of them), and
     `site-page`.
 
@@ -217,6 +221,35 @@ Only after step 2 shows agreement:
   covers the former.
 - **CI.** Leave CI on the Python gates for now. CI cannot use a binary on this
   machine; it needs a published compass release first.
+
+## Fixes to make in ORE Studio
+
+compass's review of the gates it did not copy found defects in ORE Studio
+itself. Fix them in ORE Studio as ordinary work:
+
+- **`r.id` in the value-set code.** At `545cafca45` the value-set generators
+  stop on `r.id` in `conventions_fx_projection.cpp`, which breaks four SQL
+  generators and the three value-set gates. Adding `("CURRENCY_PAIR", "r",
+  "id")` to `NOT_A_COLUMN` makes them pass, and with it compass's
+  `ore_value_sets` writes the committed seeds byte for byte. Decide whether
+  that exemption or a source fix is right.
+- **xml-bindings-drift runs everything twice.** Its second, determinism run
+  proves nothing: the output follows the schema's document order and no output
+  loop runs over a set. Dropping it halves the gate. Most of what remains is
+  clang-format (2.2 s for `portfolio.cpp` alone).
+- **file-types-seed depends on the locale and on directory order.** Its
+  manifest digest uses the order `sort -z` gives, so under `LC_ALL=C` the gate
+  fails on a clean tree; use byte order. Separately,
+  `scenarioGeneration.scenarioOutputFile` is a three-way tie broken by
+  `os.walk` order; curate it as `stress_scenarios.csv` rather than relying on
+  either order. The vendored manifests' `tree_sha256` values change once when
+  the digest moves to byte order.
+- **ore-parameters-seed keeps its texts in Python.** About 7,800 lines of
+  text and logic; it stays a Python gate until those texts move into data
+  files compass can read.
+
+The full reasoning for each is in the compass repository's
+`doc/agile/versions/v0/sprint_01/run_the_gates_as_codecs/evidence/remaining_generator_gates.org`.
 
 ## Step 5: the edit hook (optional, per environment)
 

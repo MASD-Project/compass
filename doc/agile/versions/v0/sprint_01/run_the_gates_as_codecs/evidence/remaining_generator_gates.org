@@ -1,0 +1,403 @@
+:PROPERTIES:
+:ID: 9BF8E18C-EB46-4C08-B060-9C1165D2646E
+:END:
+#+title: Investigation: the remaining generator gates
+#+description: For each of the six ORE Studio generator gates left in Python at 545cafca45, what it protects, whether it should stay a gate, which parts of its output rest on accidents, how compass does it, and what that changes in ORE Studio's committed files.
+#+type: investigation
+#+level: s1
+#+filetags: :gates:codecs:run_the_gates_as_codecs:sprint_01:v0:
+#+created: 2026-11-17
+#+updated: 2026-11-17
+
+A point-in-time record, written while the story that commissioned it was open, of an [[id:A7F8D9E2-3C4B-4A5D-B67C-8E9F0A1B2C3D][investigation]] into the six generator gates [[id:9CBCFC60-6AA4-40A7-A6B3-7DB43ED18A42][Classify the gates]] left in Python. It is evidence for the [[id:E2B7B4B6-3097-4FFA-9EE1-E0ABDA80ECE4][Rethink the remaining generator gates]] task and was written on 2026-11-17.
+
+It is a snapshot, not a description of the system. It builds on the rows of
+these gates in [[id:AFF665C4-739C-4BDB-93BD-9D547351AE4F][Investigation: ORE Studio gate classification]].
+
+* Context
+
+Six of ORE Studio's generator gates were left in Python by
+[[id:9CBCFC60-6AA4-40A7-A6B3-7DB43ED18A42][Classify the gates]] and the large generator port, because their output
+seemed to rest on Python accidents: object identity, dict order, directory
+walk order and the locale. The question here is not how to copy them but
+what each protects, whether it should stay a gate, and the cheapest correct
+way for compass to hold the same invariant.
+
+* Methodology
+
+- Source: a =git archive= export of ORE Studio =545cafca45= in a scratch
+  directory. Every original ran there, or on a copy where it writes, with
+  =python3 -I=. No ORE Studio worktree was changed.
+- The three value set gates stop on =conventions_fx_projection.cpp= reading
+  =r.id=, which =NOT_A_COLUMN= of =generate_convention_kind_terms.py= does not
+  exempt. Every comparison of them adds =("CURRENCY_PAIR", "r", "id")= to it,
+  in the Python copy and in the compass checkout alike. With it the three
+  pass: 249 sets and 996 links, 477 leaves over 479 columns, 266 drawn
+  parameters.
+- Compass ran from this branch's release build over the git copy of the same
+  commit, one codec enabled at a time.
+- A finding that a Python behaviour is an accident was tested, not argued:
+  the script was patched in a copy to do the intended thing, rerun, and its
+  output diffed with the committed file.
+- *The machine was loaded.* It has 8 cores and the 1-minute load average was
+  about 22 while the timings below were taken, because other agents were
+  building. Python and compass ran under the same load.
+
+* Paths taken
+
+Each gate in turn: its intent, the verdict on it, what it did not do well,
+the compass design, the result, and the changes to ORE Studio's committed
+files.
+
+** ore-parameter-value-sets, ore-element-map, parameter-value-sets-only
+
+*** Intent
+
+The value set tables are the one source of a parameter's control and rule:
+which values a screen offers, which the write path accepts, and the form a
+configuration holds. =generate_value_sets.py= writes the seed of those tables
+from the curation (the guide's sets, the code's sets over them, two reviewed
+files, then the sets the convention terms, the curve leaves and the engine
+run settings imply). =generate_ore_element_map.py= writes the map from each
+ORE leaf a projection column carries to the set that governs it, which the
+convention and curve guard triggers read. =check_parameter_value_sets.py=
+fails when a drawn parameter has no set, a set states a rule its kind cannot
+hold, or a per-pair control comes back to a table, a model or a reader.
+
+The invariant: every parameter a screen draws and every leaf a column holds
+has exactly one stated rule, and the seeds the database loads are that rule.
+
+*** Verdict: merge
+
+The three are one fact read three times. Each process resolved the whole
+curation on its own: the map imports =generate_value_sets.resolved()=, and
+the check calls =load=, =resolve= and the three =add_= steps again. They also
+judged the same sets twice with two different rule lists: =validate()= in the
+generator and =set_problems()= in the check, with different messages for the
+same defect (an unknown kind, an unregistered catalogue, an enumerated set
+with no values, a link to an unknown set, a set nobody names). The seeds must
+stay committed: =reporting_populate.sql= loads them, and a database built from
+a checkout needs no Python.
+
+*** What was not done well
+
+- *Three resolutions of one curation*, about 1.9 s of Python under this load
+  for one answer.
+- *Two lists of set rules*, so a defect is reported twice with two messages,
+  and a rule only one list holds (a floor above its ceiling, a duplicate
+  value, a regular expression with no pattern) does not stop the seed that
+  carries it.
+- *The element map reread =curve_terms.json= (370 KB) for every leaf*:
+  =set_of_leaf= opens and parses the file per call, which is why the map took
+  1.2 s.
+- *=setup_value_sets.problems()= cannot fire* on its control checks:
+  =curation._groups()= raises on the same conditions first. Its one live rule,
+  an unnamed set, is reported again by =validate()=.
+- *The engine run settings read every curation file.* =curation.CURATED=
+  loads and checks all twelve files to read one, so a defect in
+  =templates.json= stopped the value set seed.
+- *=resolve()= builds =by_name= and never reads it.*
+- *The schema walk looks one level too deep.* =ore_schema_types._elements=
+  calls itself on a nested =sequence=, =choice= or =all=, which collects the
+  containers inside that one, not its elements. Patched in a copy, the fix
+  changes no seed at 545cafca45: no leaf the map reaches sits below such a
+  nesting. It would have the first time one did.
+- *Output order is not an accident here.* Every table is sorted by code
+  before it is written, and the orders that survive (a parser's map, a
+  rendering table, a schema enumeration) are the source file's own order.
+  =curve_value_sets.data()= iterates a =set=, but only to fill a dict that is
+  sorted later. The leaf rules iterate the convention elements in file order
+  where =data()= sorts them; compass sorts both, and no address is reached
+  twice, so nothing changes.
+
+*** Design
+
+One model, =ops::value_sets::evaluate=, read through the corpus view:
+
+- the curation files, the convention and curve terms and the renderings as
+  JSON, with a reader that keeps an int apart from a float
+  (=ops::json_value=), because the seed writes =str()= of a bound;
+- the policy tables of =convention_value_sets.py=, =curve_value_sets.py=,
+  =ore_aliases.py=, =ore_schema_types.py= and =generate_ore_element_map.py=
+  as the literals they are (=ops::module_table=), so an edit to a table is
+  seen. =OWN_SETS= of the curve module states one pattern by calling the
+  schema reader, which no literal expresses; those eight sets are in the
+  codec, with =PERIOD_PATTERN= read from the module;
+- every schema under =external/ore/xsd= once (=ops::ore_schema=), with the
+  walk fixed;
+- the curve family columns and the convention kind terms from the same
+  functions their own codecs use (=ops::curve_columns=,
+  =ops::convention_terms=), moved out of those codecs for it;
+- of the curation directory, =engine-settings-groups.json= only.
+
+The result holds the model, one sorted list of problems, each under a rule,
+the drawn parameters and the element map. Two codecs read it:
+
+- =ore_value_sets= writes the value set seed, the element map and its columns
+  seed. A codec emits files or findings, not both, so the three generator
+  outputs are one files codec: one pass where Python made two.
+- =parameter_value_sets= reports =unresolved= (a generator would raise; the
+  reason is in the message), =unlinked_parameter=, =clash=, =unknown_set=,
+  =unnamed_set=, =impossible_set= (the union of the two set rule lists, the
+  canonical value rules included), =unruled_leaf= (a leaf past
+  =UNREAD_ALLOWED= that names no authority, which the map script fails on),
+  =override_column=, =value_check= and =missing_file=.
+
+=ore_value_sets= writes nothing while the model has any problem, so the seed
+never carries a set a rule rejects; =parameter_value_sets= says why. That is
+stricter than the generator, which wrote a seed with a floor above its
+ceiling.
+
+Both codecs resolve the model, so a cold run resolves it twice, once per
+codec, about 90 ms each. Sharing one resolution between two codecs needs the
+runtime's support for a shared prepare step, which
+[[id:F51A1EEB-55D4-4AC4-8119-360BF85EB570][Combine gates that read the same data]] owns. A
+warm run resolves nothing: neither codec runs when none of the files it
+recorded changed.
+
+*** Result
+
+- *Byte for byte.* With the =r.id= exemption, =compass generate= with
+  =ore_value_sets= writes
+  =reporting_ore_parameter_value_sets_populate.sql=,
+  =reporting_ore_parameter_vocabularies_populate.sql= and
+  =reporting_ore_element_map_columns_populate.sql= identical to the committed
+  files, which the scripts reproduce. =parameter_value_sets= reports nothing.
+- *At 545cafca45 as it is*, the scripts stop with a traceback;
+  =parameter_value_sets= reports one =unresolved= finding that names the
+  convention kind terms, and =ore_value_sets= writes nothing.
+- *Plants.* Each was applied to the Python copy and to the compass checkout:
+
+| Plant | Python | compass |
+|-------+--------+---------|
+| A label of =value-sets-code.json= | generate fails: seed differs | =ore_value_sets/drift= on the seed |
+| The same label in =value-sets.json=, which the code set overrides | all pass | nothing |
+| A reason of =ore_parameter_vocabularies.json= | map fails: map differs | =ore_value_sets/drift= on the map |
+| =EngineParameters\vert{}Accuracy= unlinked | all three fail on it | =unlinked_parameter= on it |
+| =check (depth >= 0)= in the fixings create script | check fails, line 239 | =value_check=, line 239 |
+| =setup.gzip_compression_level= floor 10 over ceiling 9 | check fails; generate fails on drift | =impossible_set=; no seed written |
+
+- *Time.* Python, three runs each: generate 0.40 to 0.42 s, the map 1.18 to
+  1.24 s, the check 0.27 to 0.32 s, so 1.9 s for the three. Compass, cold:
+  =ore_value_sets= 85 to 98 ms and =parameter_value_sets= 57 to 100 ms of
+  codec time, run side by side; warm: 0 ms, both taken from the record. The
+  cold cost is reading and parsing about 0.9 MB of JSON and the schemas; that
+  is a guess, not a profile.
+
+*** Changes to ORE's committed files
+
+None. The intended order is the order the scripts already write.
+
+** xml-bindings-drift
+
+*** Intent
+
+=generate_xml_bindings.py= turns thirteen ORE document families into C++
+records and codec tables (1.5 MB under =ores.ore.core/xml/generated=), from
+=external/ore/xsd= and an exact-decimal list on the command line of
+=regenerate_xml_bindings.sh=. The gate regenerates twice into temporary roots,
+with =PYTHONHASHSEED= 1 and 999, requires the two to be equal, then compares
+with the committed files, both ways. It protects two things: the codec tables
+cannot disagree with ORE's schema, and the generator is deterministic.
+
+*** Verdict: keep the drift check, replace the determinism run
+
+The drift half is a real invariant and stays. The bindings are compiled by
+every build of =ores.ore=, so generating them at build time would put Python
+and clang-format in the build; committing them is the cheaper place for the
+cost.
+
+The determinism half checks something the code already guarantees. Its
+output order is the schema's document order throughout: dicts filled in
+traversal order, groups keyed by =frozenset= but iterated in insertion
+order, and no output loop over a =set=. The =id()= keys are identity, not
+order: =inline_name=, =inline_enum= and =CHOICE_CHILDREN= map a node to what
+the generator decided about it, and =clone_with_identity= keeps every
+=deepcopy= alive in =schema.clones=, so no id is reused. Running everything a
+second time with another hash seed doubles the gate's cost to prove what no
+line of the generator can break.
+
+*** What was not done well
+
+- *The second run.* Measured here, one regeneration takes 4.2 s; the gate
+  runs two.
+- *Formatting is the cost.* clang-format of =portfolio.cpp= alone is 2.2 s;
+  the generator itself is 0.4 s for the largest family. Every run formats
+  every file again, changed or not.
+
+There is no output accident to fix: the committed files are what one run
+writes (diffed, identical).
+
+*** Design
+
+A compass files codec that ports the generator, its output through the
+codec formatter of =compass.codec=: a formatted form is cached by the blob ID
+of the raw bytes, so a run whose raw output did not change starts no
+clang-format, and a run whose inputs did not change does not run at all. The
+determinism run goes: a C++ port with ordered containers has nothing to vary.
+
+Until the port, ORE can halve the gate by dropping the second run.
+
+*** Result
+
+Not ported in this task. The port is the 1,369 lines of schema logic
+(substitution groups, model groups, inline and recursive types, arenas) for a
+gate whose inputs change only when ORE is re-vendored or the generator is
+edited. In a compass check it would cost nothing on almost every run.
+
+*** Changes to ORE's committed files
+
+None.
+
+** file-types-seed
+
+*** Intent
+
+=generate_file_types_populate.py= writes four seeds: the file types an ORE run
+names (164, each with its canonical file name, from the guide's examples or
+else the most common name across the 416 sample run documents), the ORE file
+categories and files from =ore_files.py=, and the ORE file versions: the full
+text of every vendored schema, checked first against the tree digest of
+=external/ore/xsd/manifest.json=. The invariant: a seeded name is the name
+ORE's guide or its samples use, and a seeded schema is the vendored one.
+
+*** Verdict: keep, after two defects are fixed in ORE
+
+The gate is cheap (0.25 s) and protects a real fact. Both of its order
+dependencies are defects, not choices, and both were confirmed:
+
+- *The digest follows the locale.* The script orders the schema names with
+  =sort -z=, as =update_ore_samples.sh= did when it wrote the manifest. Under
+  =en_GB.UTF-8= =ore_types.xsd= sorts before =ore.xsd=; in byte order it
+  sorts after. Run with =LC_ALL=C=, the gate fails on a clean tree: "the tree
+  digest is b78317a6ffc7…, the manifest states 83c989291bfc…". ORE Studio
+  already has this as an inbox item,
+  =vendored_ore_manifest_digest_depends_on_the_locale.org=.
+- *A tie decides a canonical name.* =os.walk= visits directories in the
+  order the file system returns them. Three samples name the
+  =scenarioGeneration= analytic's =scenarioOutputFile= once each
+  (=stress_scenarios.csv=, =scenarios.csv=, and a third), and
+  =Counter.most_common= breaks the tie by first sight, so the walk order picks
+  the name. Patched to walk in byte order, the script fails: it picks a name
+  with no description, and two =scenarioCorrSimulation= types lose theirs.
+  Patched to break ties by name, it writes a seed in which the stress test
+  pipeline is relinked (below). Neither order is the intent: a tie is a
+  decision nobody made, and the seed should state it.
+
+*** Design
+
+- Order every walk and listing by bytes, and the digest with it.
+- A tie among the plain names of a file type with no guide example is a
+  finding, not a pick: the name is curated, as =WRITERS= already curates
+  which analytic writes a file.
+- The versions seed copies 668 KB of schema text that is already in the
+  tree. It is a candidate for generating at load time, but the loader is SQL
+  run by =psql=, so that is ORE's call and not a gate change.
+- Shares its schema reading with the value set model's =ops::ore_schema=;
+  the sample walk is its own.
+
+*** Result
+
+Not ported in this task. =ore_files.py= builds =FILES= with function calls in
+a comprehension and a loop, so it is code, not a literal compass can read,
+and the description modules are about 1,850 lines of text. The decisions
+above are what a port needs first.
+
+*** Changes to ORE's committed files
+
+- =external/ore/xsd/manifest.json=: =tree_sha256= becomes
+  =b78317a6ffc748e26005480109c96cbbf5ca479a3a0d6a4074d408c3b005fbb4=, the
+  byte-order digest of the same files, once =update_ore_samples.sh= sorts
+  with =LC_ALL=C=. The other vendored manifests that script writes change the
+  same way; they were not computed here.
+- =reporting_file_types_populate.sql=: unchanged, provided the name of
+  =scenarioGeneration.scenarioOutputFile= is curated as
+  =stress_scenarios.csv=, the name the committed seed holds. If it is decided
+  by name order instead, six rows change: that type takes =scenarios.csv= and
+  the =historical_scenarios= ORE file; =simulation.scenarioFile= and the
+  =historicalScenarioFile= of =correlation=, =historicalSimulationVar= and
+  =xva= become intermediate files it produces, the first two of those also
+  defaults;
+  =stress.scenarioFile= loses its producer and becomes a data file.
+
+** ore-parameters-seed
+
+*** Intent
+
+=generate_ore_parameters_dataset.py= writes the DQ datasets
+=ore.parameter_value_domains= and =ore.parameters=: the label, help,
+description, default, format and releases of every ORE leaf a screen shows
+(1.6 MB of SQL), from six row modules and their description packages. Each
+parameter's id is a uuid5 of its schema and XPath, so a moved leaf is a new
+parameter. The gate fails when a parameter has no text or the seed differs.
+
+*** Verdict: keep in Python until its texts are data
+
+The seed must stay committed: a publication loads it into tenants. The gate
+is cheap (0.25 s) and runs only when one of its 24 paths changes. What makes
+it expensive to port is that its source of truth is Python: about 7,800 lines
+of row modules, catalogues and release logic, much of it prose in dicts. A
+port would copy the logic and keep reading the prose from Python, two homes
+for one fact. The right move is in ORE: move the texts to data files, as the
+pricing curation already is, and then the rendering is a small codec.
+
+It overlaps the value set model on its convention and curve rows, which read
+the same =convention_terms.json= and =curve_terms.json=; a port should hang
+off that model, not reread them.
+
+*** Result
+
+Not ported. No output accident was found: rows are ordered by the row
+modules, and ids are content-derived.
+
+*** Changes to ORE's committed files
+
+None.
+
+* Conclusions
+
+| Gate | Verdict | Compass | Changes to ORE's committed files |
+|------+---------+---------+----------------------------------|
+| ore-parameter-value-sets | merge | =ore_value_sets= | None. |
+| ore-element-map | merge | =ore_value_sets= | None. |
+| parameter-value-sets-only | merge | =parameter_value_sets= | None. |
+| xml-bindings-drift | keep, replace the determinism run | not ported | None from compass; ORE can drop its second run. |
+| file-types-seed | keep, fix two defects first | not ported | =external/ore/xsd/manifest.json= =tree_sha256=; one curated name. |
+| ore-parameters-seed | keep in Python until its texts are data | not ported | None. |
+
+The three value set gates read one curation and are now one model, resolved
+once per codec run, with two codecs on it: one writes the three seeds, one
+reports every rule. The other three are decided here and not ported: their
+reasons are in their sections.
+
+* Recommendations
+
+For ORE Studio:
+
+- Exempt =r.id= in =NOT_A_COLUMN= of =generate_convention_kind_terms.py=;
+  until then the value set gates stop at 545cafca45.
+- Drop the second, other-seed run of =check_xml_bindings_drift.py=.
+- Sort with =LC_ALL=C= in =update_ore_samples.sh= and regenerate the
+  manifests once; walk the samples in byte order; curate the name of
+  =scenarioGeneration.scenarioOutputFile=.
+- Move the parameter texts and the value set policy tables to data files.
+
+For compass, decisions to revisit:
+
+- *Policy tables in Python modules.* The value set codecs read the modules'
+  literals, which keeps one home while the scripts exist. If the scripts go,
+  those tables belong with the rest of the curation, in JSON.
+- *Curve =OWN_SETS= is stated in C++*, the one table the literal reader cannot
+  read. An edit to it in Python is not seen until the codec is changed.
+- *Stricter than the generator.* =ore_value_sets= writes nothing when any set
+  rule fails, including the rules only the check had.
+- *Each codec resolves the model.* Twice per cold run until the runtime can
+  share a prepare step between two codecs.
+
+* See also
+
+- [[id:AFF665C4-739C-4BDB-93BD-9D547351AE4F][Investigation: ORE Studio gate classification]]
+  --- the rows of these six gates and their baseline times.
+- [[id:4663A0BD-D73A-4C9F-9956-411BCE5E76A8][compass.crosscheck]] --- the value set codecs.
+- [[id:F51A1EEB-55D4-4AC4-8119-360BF85EB570][Combine gates that read the same data]]
+  --- sharing one resolution between codecs.
