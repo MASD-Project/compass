@@ -106,7 +106,7 @@ std::vector<rule_row> rules_of(std::span<const types::descriptor> catalogue) {
     for (const auto& d : catalogue) {
         if (types::output_of(d) == types::output_kind::files)
             files = true;
-        else
+        if (!d.rules.empty())
             codecs.push_back(&d);
     }
     std::ranges::stable_sort(codecs, {}, &types::descriptor::name);

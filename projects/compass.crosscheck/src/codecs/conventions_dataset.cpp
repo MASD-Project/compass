@@ -803,7 +803,7 @@ std::string text_of_file(std::string_view bytes) {
     return pt::universal_newlines(pt::decode_replacing(bytes));
 }
 
-void run(const ct::corpus_view& v, ct::file_table& out) {
+void run(const ct::corpus_view& v, ct::file_output& out) {
     const std::string script(v.option("script"));
     const auto slash = script.rfind('/');
     const auto here = slash == std::string::npos ? std::string()
@@ -896,7 +896,7 @@ void run(const ct::corpus_view& v, ct::file_table& out) {
             }
         }
         sql += "end $$;\n";
-        out.add(std::string(v.option("output")), sql);
+        out.files.add(std::string(v.option("output")), sql);
     } catch (const stop&) {
     } catch (const ops::csv_error&) {
     }
@@ -913,6 +913,6 @@ const ct::descriptor conventions_dataset{
     .options = options,
     .rules = {},
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{run}};
+    .run = ct::corpus_function<ct::file_output>{run}};
 
 }

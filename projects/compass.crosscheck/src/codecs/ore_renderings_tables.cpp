@@ -75,7 +75,7 @@ std::string quote(std::string_view text) {
     return out + "\"";
 }
 
-void renderings(const ct::corpus_view& v, ct::file_table& out) {
+void renderings(const ct::corpus_view& v, ct::file_output& out) {
     const auto json = v.read_file(renderings_path);
     if (!json)
         return;
@@ -106,7 +106,7 @@ void renderings(const ct::corpus_view& v, ct::file_table& out) {
         text += "\n};\n";
     }
     text += "\n}\n\n#endif\n";
-    out.add(header_path, text);
+    out.files.add(header_path, text);
 }
 
 }
@@ -119,6 +119,6 @@ const ct::descriptor ore_renderings_tables{
     .options = {},
     .rules = {},
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{renderings}};
+    .run = ct::corpus_function<ct::file_output>{renderings}};
 
 }

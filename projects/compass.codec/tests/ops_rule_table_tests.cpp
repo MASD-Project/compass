@@ -65,10 +65,12 @@ constexpr std::array<types::rule, 2> history_rules{{
     {"wide|table", "A pipe | in a statement stays in its cell."}}};
 constexpr std::array<types::rule, 1> layout_rules{{
     {"missing_section", "A document has its sections.", guide_sources}}};
+constexpr std::array<types::rule, 1> pages_rules{{
+    {"refused", "Every page is written from a source it can read."}}};
 
 void no_diagnostics(const types::document&, const types::corpus_view&,
     types::diagnostic_table&) {}
-void no_files(const types::corpus_view&, types::file_table&) {}
+void no_files(const types::corpus_view&, types::file_output&) {}
 
 types::descriptor checker(std::string_view name,
     std::span<const types::rule> rules) {
@@ -83,13 +85,13 @@ const types::descriptor history = checker("history", history_rules);
 const types::descriptor layout = checker("layout", layout_rules);
 const types::descriptor pages{.name = "pages", .version = 1,
     .summary = "Writes pages.", .reads = types::inputs::every_typed_document(),
-    .options = {}, .rules = {}, .enabled_by_default = true,
-    .run = types::corpus_function<types::file_table>{no_files}};
+    .options = {}, .rules = pages_rules, .enabled_by_default = true,
+    .run = types::corpus_function<types::file_output>{no_files}};
 
 const std::array catalogue{history, pages, layout};
 
-void render(const types::corpus_view& v, types::file_table& out) {
-    out.add(v.option("path"), ops::rule_table(catalogue, v));
+void render(const types::corpus_view& v, types::file_output& out) {
+    out.files.add(v.option("path"), ops::rule_table(catalogue, v));
 }
 
 const types::descriptor table{.name = "rule_table", .version = 1,
@@ -97,7 +99,7 @@ const types::descriptor table{.name = "rule_table", .version = 1,
     .reads = types::inputs::every_typed_document(),
     .options = ops::rule_table_options, .rules = {},
     .enabled_by_default = true,
-    .run = types::corpus_function<types::file_table>{render}};
+    .run = types::corpus_function<types::file_output>{render}};
 
 tests::test_corpus memories() {
     tests::test_corpus t({memory_contract, knowledge_contract});
@@ -146,8 +148,12 @@ TEST_CASE("the rule table lists each rule with its codec, statement and the "
         "date. |"));
     CHECK_THAT(text, ContainsSubstring(
         "| /each files codec/ | drift | Every file a codec generates"));
+    CHECK_THAT(text, ContainsSubstring(
+        "| =pages= | refused | Every page is written from a source it can "
+        "read. |  |\n"));
     CHECK(text.find("| =history= | amended") <
         text.find("| =layout= | missing_section"));
+    CHECK(text.find("| =layout=") < text.find("| =pages= | refused"));
     CHECK(text.find("| =layout=") < text.find("| =exception= | malformed"));
 }
 
@@ -159,7 +165,7 @@ TEST_CASE("the rule table lists the memories no rule cites, by path",
     CHECK(section == "** Unenforced memories\n\n"
         "- =doc/llm/memory/a_untitled.org=\n"
         "- [[id:" + std::string(push_id) + "][Do not push automatically]]\n");
-    CHECK_THAT(text, ContainsSubstring("8 rules, 7 of which cite a memory or "
+    CHECK_THAT(text, ContainsSubstring("9 rules, 7 of which cite a memory or "
         "a document that states them. Of the 3 memories of this repository, "
         "2 are cited by no rule."));
 }

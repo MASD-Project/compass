@@ -516,12 +516,12 @@ std::string seed(const std::vector<script>& scripts) {
             "tenant_id, script_name, sequence_number");
 }
 
-void library_seed(const ct::corpus_view& v, ct::file_table& out) {
+void library_seed(const ct::corpus_view& v, ct::file_output& out) {
     const auto text = v.read_file(library_path);
     if (!text)
         return;
     try {
-        out.add(seed_path, seed(load(*text)));
+        out.files.add(seed_path, seed(load(*text)));
     } catch (const stopped&) {
         return;
     }
@@ -537,6 +537,6 @@ const ct::descriptor script_library_seed{
     .options = {},
     .rules = {},
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{library_seed}};
+    .run = ct::corpus_function<ct::file_output>{library_seed}};
 
 }

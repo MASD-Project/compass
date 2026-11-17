@@ -212,16 +212,16 @@ std::string render_drop(const std::map<std::string, std::string>& tables) {
         "ores_refdata_validate_curve_values_fn();\n";
 }
 
-void run(const ct::corpus_view& v, ct::file_table& out) {
+void run(const ct::corpus_view& v, ct::file_output& out) {
     const auto found = ops::curve_columns(v);
     if (!found)
         return;
     std::map<std::string, std::string> tables;
     for (const auto& c : *found)
         tables.insert_or_assign(c.table, c.entity);
-    out.add(map_path, render_map(*found));
-    out.add(guard_path, render_guard(tables));
-    out.add(drop_path, render_drop(tables));
+    out.files.add(map_path, render_map(*found));
+    out.files.add(guard_path, render_guard(tables));
+    out.files.add(drop_path, render_drop(tables));
 }
 
 }
@@ -235,6 +235,6 @@ const ct::descriptor curve_column_guards{
     .options = {},
     .rules = {},
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{run}};
+    .run = ct::corpus_function<ct::file_output>{run}};
 
 }

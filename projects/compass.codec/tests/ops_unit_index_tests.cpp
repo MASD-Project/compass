@@ -79,11 +79,11 @@ void follow_links(const types::document& d, const types::corpus_view& corpus,
 /**
  * @brief Emits one file listing the path of every task.
  */
-void list_tasks(const types::corpus_view& corpus, types::file_table& out) {
+void list_tasks(const types::corpus_view& corpus, types::file_output& out) {
     std::string text;
     for (std::size_t i = 0; i < corpus.size(); ++i)
         text += std::string(corpus[i].path) + "\n";
-    out.add("tasks.txt", text);
+    out.files.add("tasks.txt", text);
 }
 
 /**
@@ -112,7 +112,7 @@ const std::array<types::descriptor, 5> all_codecs{codecs::document_index,
     types::descriptor{.name = "task_list", .version = 1, .summary = "",
         .reads = types::inputs::of_types(tasks), .options = {},
         .rules = {}, .enabled_by_default = true,
-        .run = types::corpus_function<types::file_table>{list_tasks}},
+        .run = types::corpus_function<types::file_output>{list_tasks}},
     types::descriptor{.name = "long_files", .version = 1, .summary = "",
         .reads = types::inputs::of_types({}), .options = {},
         .rules = file_rules, .enabled_by_default = true,

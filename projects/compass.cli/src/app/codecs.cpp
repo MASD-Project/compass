@@ -34,8 +34,8 @@ namespace compass::cli::app {
 namespace {
 
 void rule_table(const codec::types::corpus_view& v,
-    codec::types::file_table& out) {
-    out.add(v.option("path"), codec::ops::rule_table(codecs(), v));
+    codec::types::file_output& out) {
+    out.files.add(v.option("path"), codec::ops::rule_table(codecs(), v));
 }
 
 }
@@ -65,7 +65,7 @@ std::span<const codec::types::descriptor> codecs() noexcept {
             .options = codec::ops::rule_table_options,
             .rules = {},
             .enabled_by_default = false,
-            .run = codec::types::corpus_function<codec::types::file_table>{
+            .run = codec::types::corpus_function<codec::types::file_output>{
                 rule_table}});
         return out;
     }();

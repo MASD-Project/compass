@@ -230,7 +230,7 @@ std::string inventory(const std::vector<std::string>& names) {
     return ops::join_lines(lines);
 }
 
-void write_inventory(const ct::corpus_view& v, ct::file_table& out) {
+void write_inventory(const ct::corpus_view& v, ct::file_output& out) {
     const auto names = ops::skill_names(v);
     if (!complete(names))
         return;
@@ -244,7 +244,7 @@ void write_inventory(const ct::corpus_view& v, ct::file_table& out) {
         fresh = ops::replace_region(*text, old_inventory_begin, inventory_end,
             block, ops::replace::every);
     if (fresh)
-        out.add(levels_doc, *fresh);
+        out.files.add(levels_doc, *fresh);
 }
 
 }
@@ -298,7 +298,7 @@ const ct::descriptor skill_levels{
     .options = {},
     .rules = {},
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{write_inventory}};
+    .run = ct::corpus_function<ct::file_output>{write_inventory}};
 
 const ct::descriptor skill_level_tags{
     .name = "skill_level_tags",

@@ -63,7 +63,7 @@ std::string_view id_of(const types::document& d) {
         d.source);
 }
 
-void run(const types::corpus_view& corpus, types::file_table& out) {
+void run(const types::corpus_view& corpus, types::file_output& out) {
     std::vector<std::size_t> order(corpus.size());
     std::iota(order.begin(), order.end(), std::size_t{0});
     std::ranges::sort(order, {},
@@ -77,7 +77,7 @@ void run(const types::corpus_view& corpus, types::file_table& out) {
         add_field(text, keyword(d, "type"), '\t');
         add_field(text, d.path, '\n');
     }
-    out.add(corpus.option(path_option), text);
+    out.files.add(corpus.option(path_option), text);
 }
 
 }
@@ -90,6 +90,6 @@ const types::descriptor document_index{
     .options = options,
     .rules = {},
     .enabled_by_default = true,
-    .run = types::corpus_function<types::file_table>{run}};
+    .run = types::corpus_function<types::file_output>{run}};
 
 }

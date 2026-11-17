@@ -586,7 +586,7 @@ std::string derive(const ct::corpus_view& v, std::string_view path,
     return out;
 }
 
-void derive_all(const ct::corpus_view& v, ct::file_table& out) {
+void derive_all(const ct::corpus_view& v, ct::file_output& out) {
     auto models = v.list_files("projects/", ".org");
     std::erase_if(models, [](std::string_view p) {
         return !co::glob_matches("projects/*/modeling/ores.*.org", p);
@@ -603,7 +603,7 @@ void derive_all(const ct::corpus_view& v, ct::file_table& out) {
                 singular = keyword(front, "name_singular");
             const auto target = std::string(co::parent_of(path)) + "/ores." +
                 keyword(front, "component") + "." + singular + "_change.org";
-            out.add(target, derive(v, path, text));
+            out.files.add(target, derive(v, path, text));
         }
     } catch (const refused&) {
         return;
@@ -620,6 +620,6 @@ const ct::descriptor pending_models{
     .options = {},
     .rules = {},
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{derive_all}};
+    .run = ct::corpus_function<ct::file_output>{derive_all}};
 
 }

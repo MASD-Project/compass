@@ -108,7 +108,7 @@ std::optional<std::array<std::string, 3>> skill_meta(
         std::string(co::strip(t->group(1))), desc};
 }
 
-void catalogue(const ct::corpus_view& v, ct::file_table& out) {
+void catalogue(const ct::corpus_view& v, ct::file_output& out) {
     const auto text = v.read_file(catalogue_path);
     if (!text)
         return;
@@ -143,7 +143,7 @@ void catalogue(const ct::corpus_view& v, ct::file_table& out) {
     parts.emplace_back(catalogue_end);
     if (const auto fresh = ops::replace_region(*text, catalogue_begin,
             catalogue_end, ops::join_lines(parts), ops::replace::first))
-        out.add(catalogue_path, *fresh);
+        out.files.add(catalogue_path, *fresh);
 }
 
 constexpr std::string_view tables_script =
@@ -294,7 +294,7 @@ std::string show_table(std::string_view compass) {
     return ops::join_lines(lines);
 }
 
-void type_tables(const ct::corpus_view& v, ct::file_table& out) {
+void type_tables(const ct::corpus_view& v, ct::file_output& out) {
     const auto compass = v.read_file(compass_py);
     if (!compass)
         return;
@@ -317,7 +317,7 @@ void type_tables(const ct::corpus_view& v, ct::file_table& out) {
             return;
         if (const auto fresh = ops::replace_region(*text, t.begin, t.end,
                 t.block, ops::replace::every))
-            out.add(t.path, *fresh);
+            out.files.add(t.path, *fresh);
     }
 }
 
@@ -403,7 +403,7 @@ std::optional<std::pair<std::string, std::string>> recipe_line(
         std::string(link.why) + "."};
 }
 
-void recipes(const ct::corpus_view& v, ct::file_table& out) {
+void recipes(const ct::corpus_view& v, ct::file_output& out) {
     static const pt::regex section(R"(^\* Recipes\s*$(.*?)(?=^\* ))",
         {.dotall = true, .multiline = true});
     for (const auto& owner : owners) {
@@ -442,7 +442,7 @@ void recipes(const ct::corpus_view& v, ct::file_table& out) {
         if (!recipes_found)
             continue;
         if (added.empty()) {
-            out.add(path, *text);
+            out.files.add(path, *text);
             continue;
         }
         auto existing = std::string_view(body);
@@ -453,7 +453,7 @@ void recipes(const ct::corpus_view& v, ct::file_table& out) {
         const auto fresh_body = existing.empty()
             ? "\n\n" + added + "\n\n"
             : "\n\n" + std::string(existing) + "\n" + added + "\n\n";
-        out.add(path, text->substr(0, start) + fresh_body + text->substr(end));
+        out.files.add(path, text->substr(0, start) + fresh_body + text->substr(end));
     }
 }
 
@@ -467,7 +467,7 @@ const ct::descriptor skill_catalogue{
     .options = {},
     .rules = {},
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{catalogue}};
+    .run = ct::corpus_function<ct::file_output>{catalogue}};
 
 const ct::descriptor skill_type_tables{
     .name = "skill_type_tables",
@@ -478,7 +478,7 @@ const ct::descriptor skill_type_tables{
     .options = {},
     .rules = {},
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{type_tables}};
+    .run = ct::corpus_function<ct::file_output>{type_tables}};
 
 const ct::descriptor skill_recipes{
     .name = "skill_recipes",
@@ -489,6 +489,6 @@ const ct::descriptor skill_recipes{
     .options = {},
     .rules = {},
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{recipes}};
+    .run = ct::corpus_function<ct::file_output>{recipes}};
 
 }

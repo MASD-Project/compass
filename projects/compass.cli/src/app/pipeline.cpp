@@ -884,7 +884,12 @@ std::vector<types::finding> hook_drift(pipeline& p, const types::options& o,
         const auto codec = key.substr(0, key.find('\0'));
         const auto file = key.substr(codec.size() + 1);
         planned.emplace(file.substr(0, file.size() - 1));
-        if (!std::ranges::contains(outputs.complete, codec))
+        const auto c = static_cast<std::size_t>(std::ranges::find(
+            p.codecs.codecs, codec, &ct::descriptor::name) -
+            p.codecs.codecs.begin());
+        const bool refused = c < p.codecs.size() &&
+            codec::ops::refused(p.codecs, p.run, c);
+        if (!refused && !std::ranges::contains(outputs.complete, codec))
             outputs.complete.emplace_back(codec);
     }
 

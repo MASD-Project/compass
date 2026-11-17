@@ -368,7 +368,7 @@ std::vector<std::string> counts(const std::vector<row>& rows,
             "same product."};
 }
 
-void coverage(const ct::corpus_view& v, ct::file_table& out) {
+void coverage(const ct::corpus_view& v, ct::file_output& out) {
     try {
         const auto rows = mined_rows(v.read_file(mined_path).value_or(""));
         const auto catalogue_text = v.read_file(catalogue_path).value_or("");
@@ -409,7 +409,7 @@ void coverage(const ct::corpus_view& v, ct::file_table& out) {
         const auto head = text->substr(0, text->find(begin_marker));
         const auto tail = text->substr(text->find(end_marker) +
             end_marker.size());
-        out.add(document_path, head + joined(block, "\n") + tail);
+        out.files.add(document_path, head + joined(block, "\n") + tail);
     } catch (const stopped&) {
         return;
     }
@@ -426,6 +426,6 @@ const ct::descriptor trade_type_coverage{
     .options = {},
     .rules = {},
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{coverage}};
+    .run = ct::corpus_function<ct::file_output>{coverage}};
 
 }

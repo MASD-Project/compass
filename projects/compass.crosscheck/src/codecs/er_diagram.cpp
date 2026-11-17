@@ -198,7 +198,7 @@ std::string rendered(const compass::codegen::types::compiled_template& t,
     return out;
 }
 
-void run(const ct::corpus_view& v, ct::file_table& out) {
+void run(const ct::corpus_view& v, ct::file_output& out) {
     const auto parser = v.read_file(v.option("parser"));
     const auto group_source = v.read_file(v.option("template"));
     const auto index_source = v.read_file(v.option("index_template"));
@@ -278,7 +278,7 @@ void run(const ct::corpus_view& v, ct::file_table& out) {
             note += (note.empty() ? "" : "\n") + std::string("- ") +
                 std::string(table) + " (" + std::string(owner) + ")";
         b.set(o, "external_note", note);
-        out.add(directory + group_file(p.name), rendered(group, c, o));
+        out.files.add(directory + group_file(p.name), rendered(group, c, o));
     }
 
     contexts c;
@@ -298,7 +298,7 @@ void run(const ct::corpus_view& v, ct::file_table& out) {
     b.set_integer(o, "total_tables", static_cast<std::int64_t>(total));
     b.set_integer(o, "package_count", static_cast<std::int64_t>(
         model.packages.size()));
-    out.add(output, rendered(index, c, o));
+    out.files.add(output, rendered(index, c, o));
 }
 
 }
@@ -312,6 +312,6 @@ const ct::descriptor er_diagram{
     .options = options,
     .rules = {},
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{run}};
+    .run = ct::corpus_function<ct::file_output>{run}};
 
 }

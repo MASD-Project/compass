@@ -95,11 +95,18 @@ private:
 
 }
 
+bool refused(const types::registry& r, const types::run_result& result,
+    std::size_t codec) {
+    return types::output_of(r.codecs[codec]) == types::output_kind::files &&
+        codec < result.diagnostics.size() &&
+        result.diagnostics[codec].size() != 0;
+}
+
 types::output_set outputs_of(const types::registry& r,
     const types::run_result& result) {
     types::output_set out;
     for (std::size_t c = 0; c < r.size(); ++c) {
-        if (r.enabled[c] != 0)
+        if (r.enabled[c] != 0 && !refused(r, result, c))
             out.complete.emplace_back(r.codecs[c].name);
     }
     const auto formatted = [&](std::size_t c) {

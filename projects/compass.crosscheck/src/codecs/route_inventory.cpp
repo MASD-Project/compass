@@ -606,7 +606,7 @@ std::string rstrip(std::string_view s) {
     return std::string(s);
 }
 
-void run(const ct::corpus_view& v, ct::file_table& out) {
+void run(const ct::corpus_view& v, ct::file_output& out) {
     try {
         const auto t = read_tables(v);
         const auto found = routes(v);
@@ -633,7 +633,7 @@ void run(const ct::corpus_view& v, ct::file_table& out) {
                 "= | " + r.server + " | " + r.where + " | " + note + " |");
         }
         lines.emplace_back();
-        out.add(inventory_path, joined(lines, "\n"));
+        out.files.add(inventory_path, joined(lines, "\n"));
     } catch (const stop&) {
     }
 }
@@ -649,6 +649,6 @@ const ct::descriptor route_inventory{
     .options = {},
     .rules = {},
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{run}};
+    .run = ct::corpus_function<ct::file_output>{run}};
 
 }

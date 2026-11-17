@@ -150,7 +150,7 @@ std::size_t count_of(const group& g, std::string_view key) {
     return it == g.end() ? 0 : it->second.size();
 }
 
-void inventories(const ct::corpus_view& v, ct::file_table& out) {
+void inventories(const ct::corpus_view& v, ct::file_output& out) {
     std::vector<node> docs;
     for (const auto path : v.list_files(templates_dir, ".org")) {
         if (path.find('/', templates_dir.size()) == std::string_view::npos)
@@ -225,7 +225,7 @@ void inventories(const ct::corpus_view& v, ct::file_table& out) {
     }
     for (const auto& d : docs)
         if (const auto it = texts.find(&d); it != texts.end())
-            out.add(d.path, it->second);
+            out.files.add(d.path, it->second);
 }
 
 }
@@ -238,6 +238,6 @@ const ct::descriptor physical_inventory{
     .options = {},
     .rules = {},
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{inventories}};
+    .run = ct::corpus_function<ct::file_output>{inventories}};
 
 }

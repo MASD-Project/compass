@@ -45,9 +45,9 @@ constexpr std::array<types::rule, 1> probe_rules{{{"seen", ""}}};
  * @brief Emits one empty file per visible document, named by the prefix
  * option and the path of the document.
  */
-void list_corpus(const types::corpus_view& corpus, types::file_table& out) {
+void list_corpus(const types::corpus_view& corpus, types::file_output& out) {
     for (std::size_t i = 0; i < corpus.size(); ++i) {
-        out.add(std::string(corpus.option("prefix")) +
+        out.files.add(std::string(corpus.option("prefix")) +
             std::string(corpus[i].path), "");
     }
 }
@@ -61,7 +61,7 @@ void list_document(const types::document& d, const types::corpus_view&,
     out.add({d.row, {}, {0}, types::severity::warning, d.path, ""});
 }
 
-void fail(const types::corpus_view&, types::file_table&) {
+void fail(const types::corpus_view&, types::file_output&) {
     throw std::runtime_error("the codec was called");
 }
 
@@ -69,7 +69,7 @@ types::descriptor corpus_probe(types::inputs reads) {
     return {.name = "corpus_probe", .version = 1, .summary = "",
         .reads = reads, .options = prefix_option, .rules = {},
         .enabled_by_default = true,
-        .run = types::corpus_function<types::file_table>{list_corpus}};
+        .run = types::corpus_function<types::file_output>{list_corpus}};
 }
 
 types::descriptor document_probe(types::inputs reads) {
@@ -84,7 +84,7 @@ types::descriptor failing() {
     return {.name = "failing", .version = 1, .summary = "",
         .reads = types::inputs::every_document(), .options = {},
         .rules = {}, .enabled_by_default = true,
-        .run = types::corpus_function<types::file_table>{fail}};
+        .run = types::corpus_function<types::file_output>{fail}};
 }
 
 template <typename Handle, typename Offset>

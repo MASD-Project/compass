@@ -35,7 +35,7 @@ using namespace compass::codec;
 namespace ot = compass::org::types;
 using Catch::Matchers::ContainsSubstring;
 
-void no_files(const types::corpus_view&, types::file_table&) {}
+void no_files(const types::corpus_view&, types::file_output&) {}
 void no_findings(const types::document&, const types::corpus_view&,
     types::diagnostic_table&) {}
 
@@ -47,7 +47,7 @@ constexpr std::array<types::option, 2> two_options{{
 types::descriptor files_codec(std::string_view name, types::inputs reads) {
     return {.name = name, .version = 1, .summary = "", .reads = reads,
         .options = two_options, .rules = {}, .enabled_by_default = true,
-        .run = types::corpus_function<types::file_table>{no_files}};
+        .run = types::corpus_function<types::file_output>{no_files}};
 }
 
 std::vector<std::string> values(const types::registry& r, types::codec_id c) {

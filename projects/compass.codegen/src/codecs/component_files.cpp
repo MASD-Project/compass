@@ -79,7 +79,7 @@ void list_under(const ct::corpus_view& v, mops::builder& b,
         b.append(list, path.substr(directory.size()));
 }
 
-void run(const ct::corpus_view& v, ct::file_table& out) {
+void run(const ct::corpus_view& v, ct::file_output& out) {
     static const pt::regex full_name(R"(^#\+full_name:\s*(\S+)\s*$)",
         {.multiline = true});
     std::map<std::string, std::string, std::less<>> models;
@@ -128,7 +128,7 @@ void run(const ct::corpus_view& v, ct::file_table& out) {
             std::string text;
             ops::render_output(text, u.template_name, u.compiled, tables,
                 context);
-            out.add(directory + "component_files.cmake", text);
+            out.files.add(directory + "component_files.cmake", text);
         }
     }
 }
@@ -144,6 +144,6 @@ const ct::descriptor component_files{
     .options = options,
     .rules = {},
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{run}};
+    .run = ct::corpus_function<ct::file_output>{run}};
 
 }

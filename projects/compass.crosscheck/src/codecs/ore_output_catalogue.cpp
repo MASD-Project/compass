@@ -782,7 +782,7 @@ std::string page(const std::vector<row>& catalogue, const tables& t,
     return joined(out, "\n");
 }
 
-void run(const ct::corpus_view& v, ct::file_table& out) {
+void run(const ct::corpus_view& v, ct::file_output& out) {
     try {
         const auto t = read_tables(read(v, script_path));
         const auto files = ore_files(read(v, files_path));
@@ -814,9 +814,9 @@ void run(const ct::corpus_view& v, ct::file_table& out) {
             docs.insert_or_assign(e.key, std::pair{pair[0], pair[1]});
         }
         const auto formats_page = page(catalogue, t, docs);
-        out.add(data_path, render(catalogue));
-        out.add(data_hpp_path, data_hpp);
-        out.add(page_path, formats_page);
+        out.files.add(data_path, render(catalogue));
+        out.files.add(data_hpp_path, data_hpp);
+        out.files.add(page_path, formats_page);
     } catch (const stop&) {
     } catch (const ops::csv_error&) {
     }
@@ -857,7 +857,7 @@ const ct::descriptor ore_output_catalogue{
     .options = options,
     .rules = {},
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{run},
+    .run = ct::corpus_function<ct::file_output>{run},
     .formatters = formatters_of};
 
 }

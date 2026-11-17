@@ -207,7 +207,7 @@ std::string_view strip_newlines(std::string_view text) {
     return text;
 }
 
-void shell(const ct::corpus_view& v, ct::file_table& out) {
+void shell(const ct::corpus_view& v, ct::file_output& out) {
     static const pt::regex category_re(R"(:recipe:shell:([^:]+):)");
     const auto current = v.read_file(shell_index);
     if (!current || has_conflict(*current))
@@ -293,7 +293,7 @@ void shell(const ct::corpus_view& v, ct::file_table& out) {
         (text += i > 0 ? "\n\n" : "") += blocks[i];
     while (text.ends_with('\n'))
         text.pop_back();
-    out.add(shell_index, text + "\n");
+    out.files.add(shell_index, text + "\n");
 }
 
 constexpr std::string_view http_root = "doc/recipes/http/";
@@ -320,7 +320,7 @@ any note beside a link, are hand-written and are kept.
 The hand-written recipes that predate the facet are catalogued separately in
 =doc/recipes/http/http.org=.)";
 
-void http(const ct::corpus_view& v, ct::file_table& out) {
+void http(const ct::corpus_view& v, ct::file_output& out) {
     static const pt::regex category_re(R"(:recipe:http:([^:]+):)");
     const auto current = v.read_file(http_index).value_or("");
     if (has_conflict(current))
@@ -386,10 +386,10 @@ void http(const ct::corpus_view& v, ct::file_table& out) {
     }
     while (text.ends_with('\n'))
         text.pop_back();
-    out.add(http_index, text + "\n");
+    out.files.add(http_index, text + "\n");
 }
 
-void inventories(const ct::corpus_view& v, ct::file_table& out) {
+void inventories(const ct::corpus_view& v, ct::file_output& out) {
     shell(v, out);
     http(v, out);
 }
@@ -404,6 +404,6 @@ const ct::descriptor recipe_inventories{
     .options = {},
     .rules = {},
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{inventories}};
+    .run = ct::corpus_function<ct::file_output>{inventories}};
 
 }

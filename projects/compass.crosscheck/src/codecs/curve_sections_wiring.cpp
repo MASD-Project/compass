@@ -398,7 +398,7 @@ std::string render_sql(const std::vector<cw::segment_kind>& kinds,
     return out;
 }
 
-void run(const ct::corpus_view& v, ct::file_table& out) {
+void run(const ct::corpus_view& v, ct::file_output& out) {
     const auto projection = v.read_file(cw::projection_path);
     const auto schema = v.read_file(cw::schema_path);
     if (!projection || !schema)
@@ -414,8 +414,8 @@ void run(const ct::corpus_view& v, ct::file_table& out) {
         cw::default_curve_types(*projection);
     if (!problems.empty())
         return;
-    out.add(module_path, render(wired->sections));
-    out.add(sql_path, render_sql(kinds, default_types));
+    out.files.add(module_path, render(wired->sections));
+    out.files.add(sql_path, render_sql(kinds, default_types));
 }
 
 }
@@ -429,6 +429,6 @@ const ct::descriptor curve_sections_wiring{
     .options = {},
     .rules = {},
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{run}};
+    .run = ct::corpus_function<ct::file_output>{run}};
 
 }

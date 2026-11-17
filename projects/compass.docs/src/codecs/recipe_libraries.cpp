@@ -224,7 +224,7 @@ std::string resolve(std::string_view directory, std::string_view raw) {
 }
 
 void generate(const ct::document& d, const ct::corpus_view& v,
-    ct::file_table& out, const library_style& s) {
+    ct::file_output& out, const library_style& s) {
     const auto source = v.option("source");
     if (!d.path.starts_with(std::string(source) + "/") ||
         !d.path.ends_with(".org"))
@@ -245,7 +245,7 @@ void generate(const ct::document& d, const ct::corpus_view& v,
             {.language = s.language, .default_target = target,
                 .inert_variables = true});
         for (const auto& t : tangled.targets)
-            out.add(t.path, finish(t.content, d.path, text, s,
+            out.files.add(t.path, finish(t.content, d.path, text, s,
                 std::nullopt));
         return;
     }
@@ -263,18 +263,18 @@ void generate(const ct::document& d, const ct::corpus_view& v,
         if (t == tangled.targets.end())
             continue;
         done.push_back(produced);
-        out.add(join(folder, file_name(raw)), finish(t->content, d.path,
+        out.files.add(join(folder, file_name(raw)), finish(t->content, d.path,
             text, s, section_title(text, s, raw)));
     }
 }
 
 void shell(const ct::document& d, const ct::corpus_view& v,
-    ct::file_table& out) {
+    ct::file_output& out) {
     generate(d, v, out, shell_style);
 }
 
 void http(const ct::document& d, const ct::corpus_view& v,
-    ct::file_table& out) {
+    ct::file_output& out) {
     generate(d, v, out, http_style);
 }
 
@@ -301,7 +301,7 @@ const ct::descriptor shell_recipe_library{
     .options = shell_options,
     .rules = {},
     .enabled_by_default = false,
-    .run = ct::document_function<ct::file_table>{shell}};
+    .run = ct::document_function<ct::file_output>{shell}};
 
 const ct::descriptor http_recipe_library{
     .name = "http_recipe_library",
@@ -311,6 +311,6 @@ const ct::descriptor http_recipe_library{
     .options = http_options,
     .rules = {},
     .enabled_by_default = false,
-    .run = ct::document_function<ct::file_table>{http}};
+    .run = ct::document_function<ct::file_output>{http}};
 
 }

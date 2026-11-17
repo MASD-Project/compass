@@ -39,15 +39,15 @@ namespace co = compass::cpp::ops;
 namespace pt = compass::platform::text;
 namespace vs = compass::crosscheck::ops::value_sets;
 
-void write(const ct::corpus_view& v, ct::file_table& out) {
+void write(const ct::corpus_view& v, ct::file_output& out) {
     const auto r = vs::evaluate(v);
     if (r.stopped || !r.problems.empty())
         return;
-    out.add(vs::seed_path, vs::render_seed(r.data));
+    out.files.add(vs::seed_path, vs::render_seed(r.data));
     if (!r.rows || !r.columns)
         return;
-    out.add(vs::columns_path, vs::render_columns(*r.columns));
-    out.add(vs::map_path, vs::render_map(*r.rows));
+    out.files.add(vs::columns_path, vs::render_columns(*r.columns));
+    out.files.add(vs::map_path, vs::render_map(*r.rows));
 }
 
 constexpr std::array<ct::rule, 10> rules{{
@@ -216,7 +216,7 @@ const ct::descriptor ore_value_sets{
     .options = {},
     .rules = {},
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_table>{write}};
+    .run = ct::corpus_function<ct::file_output>{write}};
 
 const ct::descriptor parameter_value_sets{
     .name = "parameter_value_sets",
