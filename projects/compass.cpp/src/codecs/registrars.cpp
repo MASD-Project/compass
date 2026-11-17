@@ -31,6 +31,7 @@
 #include "compass.codec/types/fact.hpp"
 #include "compass.cpp/ops/paths.hpp"
 #include "compass.cpp/ops/report.hpp"
+#include "compass.cpp/ops/test_case_reachability.hpp"
 #include "compass.platform/text/decoding.hpp"
 #include "compass.platform/text/regex.hpp"
 
@@ -101,7 +102,8 @@ void check_composed(const ct::corpus_view& v, ct::diagnostic_table& out,
             "add " + composition + " and call each registrar from it");
         return;
     }
-    const auto composed = names_in(declaration, *text);
+    const auto composed = names_in(declaration,
+        ops::blank_comments_and_literals(*text));
     for (const auto& [entity, r] : wanted) {
         if (composed.contains(entity))
             continue;
@@ -192,7 +194,8 @@ void map_handlers(std::string_view, std::string_view bytes,
     else
         fact.text({}).number(0);
     const auto text = pt::decode_ignoring(bytes);
-    const auto called = names_in(handler_declaration(), text);
+    const auto called = names_in(handler_declaration(),
+        ops::blank_comments_and_literals(text));
     fact.number(static_cast<std::uint32_t>(called.size()));
     for (const auto& n : called)
         fact.text(n);

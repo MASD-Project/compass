@@ -88,6 +88,33 @@ TEST_CASE("a component with history registrars and no composition file is "
          "z_history_provider_registrar.hpp", 1}});
 }
 
+TEST_CASE("a registrar call that is commented out does not count",
+    "[codecs][handler_registrars][event_registrars]") {
+    auto all = tree();
+    all["projects/ores.dq/core/src/messaging/registrar.cpp"] =
+        "void all() { /* register_a_handlers(r); */ }\n"
+        "void by_hand() { subscribe(get_b_request::nats_subject); }\n";
+    all["projects/ores.dq/service/src/messaging/event_registrar.cpp"] =
+        "void all() { register_x_event_mapping(e); }\n"
+        "// register_y_event_mapping(e);\n";
+    CHECK(tests::places(tests::run(codecs::handler_registrars, all)
+        .findings) == places{
+        {"projects/ores.dq/core/include/ores.dq/messaging/a_registrar.hpp",
+         1},
+        {"projects/ores.dq/core/include/ores.dq/messaging/c_registrar.hpp",
+         1}});
+    CHECK(tests::places(tests::run(codecs::event_registrars, all)
+        .findings) == places{
+        {"projects/ores.dq/service/include/ores.dq/y_event_registrar.hpp",
+         1}});
+
+    all["projects/ores.dq/core/src/messaging/registrar.cpp"] =
+        "void all() { /* x */ register_a_handlers(r); }\n"
+        "void by_hand() { subscribe(get_b_request::nats_subject); }\n";
+    CHECK(tests::places(tests::run(codecs::handler_registrars, all)
+        .findings).size() == 1);
+}
+
 TEST_CASE("an edit that drops a registrar call reports the registrar, and "
     "one that adds it back clears it", "[codecs][handler_registrars]") {
     auto dropped = tree();

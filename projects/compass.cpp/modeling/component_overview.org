@@ -67,7 +67,9 @@ keeps in its =.compass.org=.
   =ORES_..._EXPORT= macro as =BOOST_SYMBOL...= at the start of a line and has
   an =#ifdef ORES_..._LIBRARY= guard, and that has a =src/= directory. Its
   translation units are the =.cpp= files under =src/=. A file reaches every
-  file its =#include "..."= lines name, comments included, resolved first
+  file its =#include "..."= directives name (=ops::quoted_includes=), not
+  one in a comment, a literal or a branch an =#if 0= or an earlier =#if 1=
+  excludes; a condition it cannot decide counts both ways. Each is resolved first
   against the file's own directory and then against every
   =projects/<component>/<part>/include= in pathlib order; =..= goes up only
   from a directory that exists, as the operating system resolves it. Rule
@@ -80,7 +82,8 @@ keeps in its =.compass.org=.
 - *=enum_attributes=.* ORE Studio's =enum-attributes= gate
   (=build/scripts/check_enum_export_attributes.py=). It reads every =.hpp=,
   =.h=, =.cpp=, =.ipp= and =.cc= file under =projects/= with its comments and
-  literals blanked (=ops::erase_comments_and_literals=). A visibility macro is
+  literals blanked (=ops::erase_comments_and_literals=; a quote in a number,
+  such as =1'000=, separates digits and opens no literal). A visibility macro is
   =BOOST_SYMBOL_EXPORT=, =BOOST_SYMBOL_IMPORT=, or a macro one of those files
   =#define=s with a body holding one of them, =__declspec(dllimport)=,
   =__declspec(dllexport)= or =__attribute__((visibility=. Rule
@@ -115,6 +118,8 @@ keeps in its =.compass.org=.
   named namespace, and =cmake/unity_exclusions.cmake=, a build input that
   stays, keeps at most one of them out of the unity build. Rule
   =missing_recorded_file=: the exclusions name a file that does not exist.
+  Comments and literals are blanked first, raw strings with or without a
+  delimiter among them.
 - *=portable_stop=.* =portable-stop=
   (=projects/ores.codegen/scripts/check_portable_stop_types.py=). Rule
   =stop_type_outside_platform=: a line outside =ores.platform= names
@@ -136,12 +141,14 @@ keeps in its =.compass.org=.
   =check_event_registrar_composition.py=,
   =check_history_registrar_composition.py=): every generated registrar of
   the named components is called from its composition file, or, for a
-  handler registrar, its subjects are answered by hand.
+  handler registrar, its subjects are answered by hand. A call in a
+  comment is not a call.
 - *=shell_command_units=, =shell_menus=, =shell_command_composition=.* The
   shell gates (=check_shell_command_units.py=,
   =check_shell_menu_collisions.py=, =check_shell_command_composition.py=):
   a menu is built once, by one file, from its name alone; a unit is
-  registered once; every generated command unit is registered.
+  registered once; every generated command unit is registered. A root
+  command is =root_menu.Insert("name"=, on one line or across several.
 - *=route_auth=.* =route-auth= (=check_route_auth_declarations.py=). Rule
   =route_without_auth=: an =add_route= of =ores.http= whose builder chain,
   followed through =auto= locals, states no authentication position. Rule

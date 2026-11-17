@@ -81,12 +81,31 @@ TEST_CASE("an exported header is compiled when a .cpp reaches it through "
     CHECK(tests::run(codecs::exported_types, all).findings.empty());
 }
 
-TEST_CASE("an include in a comment counts, and a relative one resolves "
-    "against the including file", "[codecs][exported_types]") {
+TEST_CASE("an include in a comment, a string or an #if 0 block does not "
+    "count, and a relative one resolves against the including file",
+    "[codecs][exported_types]") {
     auto all = library();
-    all["projects/ores.a/api/src/compiled.cpp"] +=
-        "// #include \"../include/ores.a.api/orphan.hpp\"\n";
-    CHECK(tests::run(codecs::exported_types, all).findings.empty());
+    for (const auto* dead : {
+             "// #include \"ores.a.api/orphan.hpp\"\n",
+             "/*\n#include \"ores.a.api/orphan.hpp\"\n*/\n",
+             "const char* s = \"#include \\\"ores.a.api/orphan.hpp\\\"\";\n",
+             "#if 0\n#include \"ores.a.api/orphan.hpp\"\n#endif\n",
+             "#if 0\n#if X\n#endif\n#elif 0\n"
+             "#include \"ores.a.api/orphan.hpp\"\n#endif\n"}) {
+        CAPTURE(dead);
+        auto with = all;
+        with["projects/ores.a/api/src/compiled.cpp"] += dead;
+        CHECK(tests::run(codecs::exported_types, with).findings.size() == 1);
+    }
+    for (const auto* live : {
+             "#if 0\n#else\n#include \"ores.a.api/orphan.hpp\"\n#endif\n",
+             "#if 1\n#include \"ores.a.api/orphan.hpp\"\n#endif\n",
+             "  #  include \"ores.a.api/orphan.hpp\" // why\n"}) {
+        CAPTURE(live);
+        auto with = all;
+        with["projects/ores.a/api/src/compiled.cpp"] += live;
+        CHECK(tests::run(codecs::exported_types, with).findings.empty());
+    }
 
     all["projects/ores.a/api/src/compiled.cpp"] =
         "#include \"ores.a.api/compiled.hpp\"\n"
@@ -145,12 +164,12 @@ TEST_CASE("the export macro needs its define at a line start and a "
         "ORES_A_EXPORT");
 }
 
-TEST_CASE("quoted includes are read anywhere and angle includes are not",
-    "[ops][exported_types]") {
+TEST_CASE("quoted includes are read from directives, and angle includes "
+    "and includes in comments are not", "[ops][exported_types]") {
     CHECK(ops::quoted_includes(
         "#include \"a.hpp\"\n/* # include  \"b.hpp\" */\n#include <c.hpp>\n"
         "#include \"\"\n#include\"d.hpp\"\n") ==
-        std::vector<std::string_view>{"a.hpp", "b.hpp"});
+        std::vector<std::string_view>{"a.hpp", "d.hpp"});
 }
 
 TEST_CASE("an exported type is a class or struct the macro decorates at "
