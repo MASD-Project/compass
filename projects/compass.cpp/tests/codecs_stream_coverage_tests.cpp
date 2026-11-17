@@ -72,6 +72,29 @@ TEST_CASE("each declaration the server would refuse or the check cannot "
         {"projects/ores.a/src/service.cpp", 9}});
 }
 
+TEST_CASE("the fact of a file is what it declares, so an edit that "
+    "declares nothing new leaves it as it was", "[codecs][stream_coverage]") {
+    namespace ct = compass::codec::types;
+    const auto& scan = std::get<ct::scan_function>(
+        codecs::stream_coverage.run);
+    const auto fact_of = [&](std::string_view path, std::string_view bytes) {
+        ct::file_scan out;
+        scan.map(path, bytes, {}, out);
+        return out.fact;
+    };
+    const std::string header = "projects/ores.a/include/ores.a/subjects.hpp";
+    const auto subjects = tree().at(header);
+    CHECK(fact_of(header, "// a note\n" + subjects + "// another\n") ==
+        fact_of(header, subjects));
+    CHECK(fact_of(header, subjects + "constexpr auto extra = \"a.x\";\n") !=
+        fact_of(header, subjects));
+
+    const std::string service = "projects/ores.a/src/service.cpp";
+    const auto source = tree().at(service);
+    CHECK(fact_of(service, source + "// a note\n") ==
+        fact_of(service, source));
+}
+
 TEST_CASE("a service named by a parameter is resolved through a caller "
     "that names no stream, before and after an edit to the caller",
     "[codecs][stream_coverage]") {
