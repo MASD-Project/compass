@@ -62,6 +62,7 @@ One compass check command runs every ORE Studio gate that needs no build in seco
 | [[id:6839A678-0C5B-4BE3-9146-33E7634C9203][Fix the gate correctness defects]] | DONE | 2026-11-17 | 2026-11-17 | Fix the correctness defects the gate review found: generators that pass silently when they cannot produce their output, the licence year taken from the clock, and Python bugs the ports copied. |
 | [[id:3BDAD06A-FFDC-4E8A-8890-72C25071239A][Fix the pilot's findings]] | DONE | 2026-11-17 | 2026-11-17 | Fix the defects ORE Studio's compass-ng pilot found in ores_dev_solid_dirac: the install name, er-diagram's RLS validation, configuration at a past commit, the hook's old findings, the guide, and a guard for hand edits regenerate would delete. |
 | [[id:FEAB1CC1-5F10-4EB3-9DD3-C6366F341B4D][Install compass-ng beside the Python compass]] | DONE | 2026-11-17 | 2026-11-17 | Install the shared binary as compass-ng, so ORE Studio's Python compass keeps its name, and bring the ORE Studio guide up to date with the pilot's findings. |
+| [[id:0A4718C5-0278-4670-B7B0-72CDAABE8D1C][Drop the redundant gates]] | STARTED | 2026-11-17 | | Remove the gates and rules the gate review found redundant or dead, as the product owner decided. |
 
 * Decisions
 
