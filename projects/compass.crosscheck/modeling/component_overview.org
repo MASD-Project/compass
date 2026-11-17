@@ -283,23 +283,23 @@ except =subject_conformance=, which reports such a model.
 
 * Entry points
 
-| Path                                                   | Role                                                    |
-|--------------------------------------------------------+---------------------------------------------------------|
-| =include/compass.crosscheck/codecs/catalogue.hpp=      | The codecs this component ships.                        |
-| =include/compass.crosscheck/codecs/<gate>.hpp=         | One header for each codec, named after it.              |
-| =include/compass.crosscheck/ops/words.hpp=             | Python's lower, split, run of spaces and its words joined. |
-| =include/compass.crosscheck/ops/python_literals.hpp=   | A module-level Python literal: strings, tuples, sets, dicts, calls; its names resolved. |
-| =include/compass.crosscheck/ops/curve_wiring.hpp=      | The curve wiring the two curve generators write from.   |
-| =include/compass.crosscheck/ops/csv.hpp=               | Python's =csv.reader= with the excel dialect and a delimiter. |
-| =include/compass.crosscheck/ops/python_numbers.hpp=    | =str(int())= and =repr(float())=.                        |
-| =include/compass.crosscheck/ops/md5.hpp=               | =hashlib.md5= as hex, a key some scripts use.           |
-| =include/compass.crosscheck/codecs/registry_gates.hpp= | =http_areas=, =route_units= and =registry_exceptions=. |
-| =include/compass.crosscheck/codecs/value_sets.hpp=     | =ore_value_sets= and =parameter_value_sets=.            |
-| =include/compass.crosscheck/ops/value_sets.hpp=        | The resolved value sets, the element map and the seeds. |
-| =include/compass.crosscheck/ops/ore_schema.hpp=        | The types ORE's schemas declare for a leaf.             |
-| =include/compass.crosscheck/ops/json_value.hpp=        | JSON and module literals as Python holds them.          |
-| =include/compass.crosscheck/ops/projection_columns.hpp= | The curve family columns and the convention kind terms. |
-| =tests/test_checkout.hpp=                              | Runs one codec over a checkout of files held in memory. |
+| Path                                                    | Role                                                                                    |
+|---------------------------------------------------------+-----------------------------------------------------------------------------------------|
+| =include/compass.crosscheck/codecs/catalogue.hpp=       | The codecs this component ships, and its code hash.                                     |
+| =include/compass.crosscheck/codecs/<gate>.hpp=          | One header for each codec, named after it.                                              |
+| =include/compass.crosscheck/ops/words.hpp=              | Python's lower, split, run of spaces and its words joined.                              |
+| =include/compass.crosscheck/ops/python_literals.hpp=    | A module-level Python literal: strings, tuples, sets, dicts, calls; its names resolved. |
+| =include/compass.crosscheck/ops/curve_wiring.hpp=       | The curve wiring the two curve generators write from.                                   |
+| =include/compass.crosscheck/ops/csv.hpp=                | Python's =csv.reader= with the excel dialect and a delimiter.                           |
+| =include/compass.crosscheck/ops/python_numbers.hpp=     | =str(int())= and =repr(float())=.                                                       |
+| =include/compass.crosscheck/ops/md5.hpp=                | =hashlib.md5= as hex, a key some scripts use.                                           |
+| =include/compass.crosscheck/codecs/registry_gates.hpp=  | =http_areas=, =route_units= and =registry_exceptions=.                                  |
+| =include/compass.crosscheck/codecs/value_sets.hpp=      | =ore_value_sets= and =parameter_value_sets=.                                            |
+| =include/compass.crosscheck/ops/value_sets.hpp=         | The resolved value sets, the element map and the seeds.                                 |
+| =include/compass.crosscheck/ops/ore_schema.hpp=         | The types ORE's schemas declare for a leaf.                                             |
+| =include/compass.crosscheck/ops/json_value.hpp=         | JSON and module literals as Python holds them.                                          |
+| =include/compass.crosscheck/ops/projection_columns.hpp= | The curve family columns and the convention kind terms.                                 |
+| =tests/test_checkout.hpp=                               | Runs one codec over a checkout of files held in memory.                                 |
 
 | Target                     | Kind                                      |
 |----------------------------+-------------------------------------------|

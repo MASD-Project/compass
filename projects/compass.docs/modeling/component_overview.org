@@ -219,13 +219,13 @@ reading the file they write.
 
 * Entry points
 
-| Path                                         | Role                                                         |
-|----------------------------------------------+--------------------------------------------------------------|
-| =include/compass.docs/codecs/catalogue.hpp=  | The codecs this component ships.                             |
-| =include/compass.docs/codecs/<gate>.hpp=     | One header for each codec, named after it.                   |
-| =include/compass.docs/ops/regions.hpp=       | Replacing a generated region between two markers.            |
-| =include/compass.docs/ops/skills.hpp=        | The skill directories under =doc/llm/skills=.                 |
-| =tests/test_tree.hpp=                        | Runs one codec over a checkout held in memory, pages parsed; =generate= returns the files it writes. |
+| Path                                        | Role                                                                                                 |
+|---------------------------------------------+------------------------------------------------------------------------------------------------------|
+| =include/compass.docs/codecs/catalogue.hpp= | The codecs this component ships, and its code hash.                                                  |
+| =include/compass.docs/codecs/<gate>.hpp=    | One header for each codec, named after it.                                                           |
+| =include/compass.docs/ops/regions.hpp=      | Replacing a generated region between two markers.                                                    |
+| =include/compass.docs/ops/skills.hpp=       | The skill directories under =doc/llm/skills=.                                                        |
+| =tests/test_tree.hpp=                       | Runs one codec over a checkout held in memory, pages parsed; =generate= returns the files it writes. |
 
 | Target               | Kind                                      |
 |----------------------+-------------------------------------------|

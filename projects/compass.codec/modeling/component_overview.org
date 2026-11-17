@@ -60,10 +60,13 @@ others is in its descriptor, so adding a codec adds a row to a list.
 
 * Outputs
 
-- *Descriptor.* =types::descriptor= holds the name, the version, a summary,
-  the documents the codec reads, its options with their defaults, the rules it
-  enforces, whether it runs by default, and its function. The version is
-  bumped by hand when some input would give a different output. The function
+- *Descriptor.* =types::descriptor= holds the name, the version, the code
+  hash, a summary, the documents the codec reads, its options with their
+  defaults, the rules it enforces, whether it runs by default, and its
+  function. The version is bumped by hand to discard every stored result of
+  the codec. The code hash names the code that computes the codec, so a
+  build that changes that code replays none of the results an older build
+  stored, with no bump; see /Code hash/ below. The function
   is one of four types, and its type is the only statement of two facts: a
   =document_function= is called once per document and a =corpus_function=
   once over all of them, and each emits a =file_table= or a
@@ -179,7 +182,8 @@ others is in its descriptor, so adding a codec adds a row to a list.
 - *Dependency record.* =types::dependency_record= has one row per unit: one
   call of a document codec, for one document, or the call of a corpus codec.
   A unit is keyed by codec name and document path, and carries the codec's
-  version, the SHA-1 of its option values (=ops::configuration_hash=), its
+  version, the SHA-1 of its code hash and option values
+  (=ops::configuration_hash=), its
   inputs (kind, key, found, value), its outputs (each file with its path,
   blob ID and bytes, or the count, SHA-1 and encoded bytes of its findings)
   and the keys of its manifest and result in the result cache.
@@ -270,7 +274,8 @@ others is in its descriptor, so adding a codec adds a row to a list.
   the cache before it is called, in two levels, as ccache's direct mode
   does, so a unit never runs only to learn its inputs.
   =ops::manifest_key= is computed before the run: the format version, the
-  codec's name, version and configuration hash, and the unit's identity, its
+  codec's name, version and configuration hash, which holds its code hash,
+  and the unit's identity, its
   document's path and content ID, or an empty path and an all-zero ID for a
   corpus unit, whose reads are known only from its input sets. The manifest (=types::action_manifest=) under that key
   lists up to =ops::manifest_capacity= (8) input sets, newest first, each
@@ -293,6 +298,30 @@ others is in its descriptor, so adding a codec adds a row to a list.
   and the manifest with the unit's set put first. The record names both keys
   of every unit, which is what keeps them through the store's collection;
   =io::action_keys= reads them from a worktree's record for the collector.
+- *Code hash.* Every stored result, in the record and in the cache, is keyed
+  by the code that computed it, so every environment can share one store
+  through one installed compass and never replay what an older build
+  stored. A component that defines codecs calls =compass_code_hash= in its
+  =src/CMakeLists.txt=, and its =catalogue()= stamps each of its descriptors
+  with its =code_hash()=. On every build =cmake/generate_code_hash.cmake=
+  computes the SHA-256 of: every file under =include/= and =src/= of the
+  component and of each component it links, directly or not, named by its
+  path in the checkout; the bytes of each third-party library it links
+  (PCRE2, expat, zlib), so a vcpkg upgrade counts; and the compiler's
+  identity and version. Which components and libraries are hashed follows
+  =target_link_libraries=, walked when the build is configured. The hash
+  is written to a source compiled only into that component, through a
+  temporary copied only when its content changes, so a build after a commit
+  that touches none of those inputs recompiles and relinks nothing, and an
+  edit to one component changes the keys of its codecs and of the
+  components that link it, and of no other. =code_hash.cpp.inputs= beside
+  the generated source lists what was hashed. The granularity is the
+  component: a codec's own file and its includes would be finer, but a
+  codec calls the operations of its component and the components below
+  it, so its true inputs are a link closure, not an include closure. The
+  hand-set version stays, to discard a codec's results deliberately. Not
+  covered: the shared C++ and C runtime libraries, which an OS upgrade can
+  replace under an unchanged binary.
 - *Format cache.* =io::format_files= formats a =types::file_table= with the
   =types::formatter= its extension selects (an external program, its
   arguments, its passes and its style file) and returns the table formatted,
@@ -452,40 +481,40 @@ others is in its descriptor, so adding a codec adds a row to a list.
 
 * Entry points
 
-| Path                                           | Role                                              |
-|------------------------------------------------+---------------------------------------------------|
-| =include/compass.codec/types/descriptor.hpp=   | =descriptor=, =inputs=, =option=, =rule=, the function types, =stage= and =part_sink=. |
-| =include/compass.codec/types/corpus.hpp=       | The corpus a host fills.                          |
-| =include/compass.codec/types/checkout_files.hpp= | Every file of the checkout, for file inputs.    |
-| =include/compass.codec/types/corpus_view.hpp=  | =document=, =read_log= and =corpus_view=.         |
-| =include/compass.codec/types/corpus_index.hpp= | Documents by path and by ID.                      |
-| =include/compass.codec/types/dependency_record.hpp= | What each unit read and produced.            |
-| =include/compass.codec/types/file_table.hpp=   | The files a codec emits.                          |
-| =include/compass.codec/types/diagnostic_table.hpp= | The findings a codec emits.                   |
-| =include/compass.codec/types/text_column.hpp=  | A column of byte strings.                         |
-| =include/compass.codec/types/configuration.hpp= | The settings and the =enabled= key.              |
-| =include/compass.codec/types/registry.hpp=     | The resolved codecs.                              |
-| =include/compass.codec/ops/registry.hpp=       | =make_registry=, =reads= and =option_values=.     |
-| =include/compass.codec/ops/run.hpp=            | =run= and =document_type=.                        |
-| =include/compass.codec/ops/rule_table.hpp=     | =rules_of=, =rule_table= and its version.         |
-| =include/compass.codec/ops/dependencies.hpp=   | Hashes, the corpus index and the record encoding. |
-| =include/compass.codec/io/dependency_file.hpp= | Where the record lives; reading and writing it.   |
-| =include/compass.codec/types/action_manifest.hpp= | A manifest's input sets and =action_source=.   |
-| =include/compass.codec/ops/action_cache.hpp=   | The two keys and the manifest and result encodings. |
-| =include/compass.codec/io/action_cache.hpp=    | Reading the cache, storing fresh units, the keys a record names. |
-| =include/compass.codec/ops/parallel_for.hpp=   | The work loop the runner and the cache writer share. |
-| =include/compass.codec/types/output_set.hpp=   | The files a run asks to have on disk.             |
-| =include/compass.codec/types/written_outputs.hpp= | What the sink wrote under a root.              |
-| =include/compass.codec/ops/outputs.hpp=        | =outputs_of=, =check_outputs= and the record encoding. |
-| =include/compass.codec/io/output_sink.hpp=     | The plan, its apply and diff, =write_outputs= and the written-outputs file. |
-| =include/compass.codec/ops/unified_diff.hpp=   | =unified_diff= of two texts.                      |
-| =include/compass.codec/types/exception.hpp=    | An exception comment, a malformed one, those of a file. |
-| =include/compass.codec/ops/exceptions.hpp=     | =parse_exceptions=, =excuse=, =status_of= and =parse_date=. |
-| =include/compass.codec/io/unmarked_file.hpp=   | The record of contents with no exception marker. |
-| =include/compass.codec/ops/tangle.hpp=         | =tangle= of a document and =tangle_body= of a block. |
-| =include/compass.codec/codecs/catalogue.hpp=   | The codecs this component ships.                  |
-| =include/compass.codec/codecs/*.hpp=           | One header per codec.                             |
-| =tests/test_corpus.hpp=                        | A parsed corpus and a type registry for tests.    |
+| Path                                                | Role                                                                                   |
+|-----------------------------------------------------+----------------------------------------------------------------------------------------|
+| =include/compass.codec/types/descriptor.hpp=        | =descriptor=, =inputs=, =option=, =rule=, the function types, =stage= and =part_sink=. |
+| =include/compass.codec/types/corpus.hpp=            | The corpus a host fills.                                                               |
+| =include/compass.codec/types/checkout_files.hpp=    | Every file of the checkout, for file inputs.                                           |
+| =include/compass.codec/types/corpus_view.hpp=       | =document=, =read_log= and =corpus_view=.                                              |
+| =include/compass.codec/types/corpus_index.hpp=      | Documents by path and by ID.                                                           |
+| =include/compass.codec/types/dependency_record.hpp= | What each unit read and produced.                                                      |
+| =include/compass.codec/types/file_table.hpp=        | The files a codec emits.                                                               |
+| =include/compass.codec/types/diagnostic_table.hpp=  | The findings a codec emits.                                                            |
+| =include/compass.codec/types/text_column.hpp=       | A column of byte strings.                                                              |
+| =include/compass.codec/types/configuration.hpp=     | The settings and the =enabled= key.                                                    |
+| =include/compass.codec/types/registry.hpp=          | The resolved codecs.                                                                   |
+| =include/compass.codec/ops/registry.hpp=            | =make_registry=, =reads= and =option_values=.                                          |
+| =include/compass.codec/ops/run.hpp=                 | =run= and =document_type=.                                                             |
+| =include/compass.codec/ops/rule_table.hpp=          | =rules_of=, =rule_table= and its version.                                              |
+| =include/compass.codec/ops/dependencies.hpp=        | Hashes, the corpus index and the record encoding.                                      |
+| =include/compass.codec/io/dependency_file.hpp=      | Where the record lives; reading and writing it.                                        |
+| =include/compass.codec/types/action_manifest.hpp=   | A manifest's input sets and =action_source=.                                           |
+| =include/compass.codec/ops/action_cache.hpp=        | The two keys and the manifest and result encodings.                                    |
+| =include/compass.codec/io/action_cache.hpp=         | Reading the cache, storing fresh units, the keys a record names.                       |
+| =include/compass.codec/ops/parallel_for.hpp=        | The work loop the runner and the cache writer share.                                   |
+| =include/compass.codec/types/output_set.hpp=        | The files a run asks to have on disk.                                                  |
+| =include/compass.codec/types/written_outputs.hpp=   | What the sink wrote under a root.                                                      |
+| =include/compass.codec/ops/outputs.hpp=             | =outputs_of=, =check_outputs= and the record encoding.                                 |
+| =include/compass.codec/io/output_sink.hpp=          | The plan, its apply and diff, =write_outputs= and the written-outputs file.            |
+| =include/compass.codec/ops/unified_diff.hpp=        | =unified_diff= of two texts.                                                           |
+| =include/compass.codec/types/exception.hpp=         | An exception comment, a malformed one, those of a file.                                |
+| =include/compass.codec/ops/exceptions.hpp=          | =parse_exceptions=, =excuse=, =status_of= and =parse_date=.                            |
+| =include/compass.codec/io/unmarked_file.hpp=        | The record of contents with no exception marker.                                       |
+| =include/compass.codec/ops/tangle.hpp=              | =tangle= of a document and =tangle_body= of a block.                                   |
+| =include/compass.codec/codecs/catalogue.hpp=        | The codecs this component ships, and its code hash.                                    |
+| =include/compass.codec/codecs/*.hpp=                | One header per codec.                                                                  |
+| =tests/test_corpus.hpp=                             | A parsed corpus and a type registry for tests.                                         |
 
 | Target                | Kind                                      |
 |-----------------------+-------------------------------------------|
