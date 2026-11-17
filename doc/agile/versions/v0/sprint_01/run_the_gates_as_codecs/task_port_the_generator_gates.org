@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/port-the-generator-gates
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -40,9 +40,19 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- The gates, from the [[id:AFF665C4-739C-4BDB-93BD-9D547351AE4F][gate classification]], plus parameter-value-sets-only and
+  conventions-coverage moved here by the earlier ports: each regenerates an
+  artefact and compares it with the committed file.
+- Port each generator as a codec that emits its artefact, so =compass
+  check='s drift findings replace the gate and =compass generate= replaces
+  the script. Tangling reuses the =tangle= codec, which already matches Emacs
+  on the templates.
+- Check each output byte-identical to the original generator's output on ORE
+  Studio 545cafca45, as it is and after a planted source change, and explain
+  any difference from the committed file.
+- Measure the warm =compass check= with every ported gate on a quiet machine
+  against the story's 10 s budget; if it is over, cut the dependency record's
+  read cost.
 
 * Measurements
 

@@ -52,7 +52,7 @@ One compass check command runs every ORE Studio gate that needs no build in seco
 | [[id:E1748BC4-CD84-400D-BCFB-B2F3420815ED][Generate the rule table]] | BACKLOG | | | Generate the table of rules and their enforcing checks from check metadata, and list memories with no check. |
 | [[id:D2AB717A-2B88-4677-98E5-2EEF4E7C204A][Port the C++ and SQL gates]] | DONE | 2026-11-16 | 2026-11-16 | Port the 25 port-class gates that read C++, CMake and SQL sources as compass check codecs, each with its original's verdict. |
 | [[id:07AA6F7B-2DB0-4E46-A1EF-E01BAD47ED07][Port the org and cross-artefact gates]] | DONE | 2026-11-16 | 2026-11-17 | Port the 28 port-class gates that read org documents, models and several artefact kinds as compass check codecs, each with its original's verdict. |
-| [[id:171A5BB7-C816-4996-A325-03D6F0E0DEF2][Port the generator gates]] | BACKLOG | | | Port the 29 gates that regenerate a non-codegen artefact and compare it, as compass codecs checked by diff mode. |
+| [[id:171A5BB7-C816-4996-A325-03D6F0E0DEF2][Port the generator gates]] | STARTED | 2026-11-17 | | Port the 29 gates that regenerate a non-codegen artefact and compare it, as compass codecs checked by diff mode. |
 
 * Decisions
 
