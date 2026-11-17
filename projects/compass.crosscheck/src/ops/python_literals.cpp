@@ -266,6 +266,17 @@ private:
         while (!at_end() && (co::is_identifier(text_[i_]) ||
                 text_[i_] == '.'))
             v.text.push_back(text_[i_++]);
+        if (v.text == "lambda") {
+            while (!at_end() && text_[i_] != ':' && text_[i_] != '\n')
+                ++i_;
+            if (!eat(':'))
+                return std::nullopt;
+            auto body = value();
+            if (!body)
+                return std::nullopt;
+            v.items.push_back(std::move(*body));
+            return v;
+        }
         if (!eat('('))
             return v;
         v.what = python_value::kind::call;

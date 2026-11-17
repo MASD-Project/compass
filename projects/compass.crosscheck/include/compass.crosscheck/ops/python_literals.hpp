@@ -40,8 +40,9 @@ struct python_entry;
 /**
  * @brief A literal: a string (adjacent literals joined, raw ones kept as
  * written), an f-string template, a number as written, a name, a tuple,
- * list or set, a dict, or a call. A call's positional arguments are its items and its keyword
- * arguments its entries. An f-string's text is its template, with the
+ * list or set, a dict, or a call. A call's positional arguments are its
+ * items and its keyword arguments its entries. A lambda is the name lambda
+ * whose one item is its body. An f-string's text is its template, with the
  * braces of any plain literal joined to it doubled; resolved() formats it.
  */
 struct python_value {
