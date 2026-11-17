@@ -73,6 +73,19 @@ void write_configuration(std::ostream& out, const types::configuration& c,
     const std::filesystem::path& checkout);
 
 /**
+ * @brief Writes what Claude Code reads from a PostToolUse hook to @p out,
+ * as one JSON object, or nothing when there is nothing to say.
+ * With a note: {"hookSpecificOutput": {"hookEventName": "PostToolUse",
+ * "additionalContext": "compass hook: <note>"}}, which adds the note to
+ * the agent's context and blocks nothing. With findings:
+ * {"decision": "block", "reason": "<count and file>\n<findings>"}, which
+ * shows the agent each finding as write_check writes it, next to the
+ * result of the edit. The problems of the run go to @p err.
+ */
+void write_hook(std::ostream& out, std::ostream& err,
+    const types::hook_result& r);
+
+/**
  * @brief Writes to @p err the time of each step of @p s, one per line,
  * then, per codec, how many units it ran, took from the record and took
  * from the result cache, and what formatting its files did.

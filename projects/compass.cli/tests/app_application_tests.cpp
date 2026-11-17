@@ -83,10 +83,11 @@ struct outcome {
 outcome run(std::vector<std::string> args,
     const std::filesystem::path& working_directory = "/") {
     const std::vector<std::string_view> views(args.begin(), args.end());
+    std::istringstream in;
     std::ostringstream out;
     std::ostringstream err;
     const auto status =
-        compass::cli::app::run(views, working_directory, out, err);
+        compass::cli::app::run(views, working_directory, in, out, err);
     return {status, out.str(), err.str()};
 }
 

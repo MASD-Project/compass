@@ -26,22 +26,29 @@
 #include <fstream>
 #include <iterator>
 #include <optional>
+#include <ranges>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <tuple>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 #include "compass.cli/app/steps.hpp"
 #include "compass.cli/app/codecs.hpp"
+#include "compass.cli/config/repository_file.hpp"
 #include "compass.cli/io/listing.hpp"
 #include "compass.cli/ops/ratchet.hpp"
+#include "compass.codec/io/dependency_file.hpp"
 #include "compass.codec/io/format_cache.hpp"
 #include "compass.codec/io/unmarked_file.hpp"
+#include "compass.codec/ops/dependencies.hpp"
 #include "compass.codec/ops/exceptions.hpp"
 #include "compass.codec/ops/outputs.hpp"
 #include "compass.codec/ops/parallel_for.hpp"
 #include "compass.codec/ops/registry.hpp"
+#include "compass.org/ops/document_fields.hpp"
 #include "compass.store/io/git_objects.hpp"
 #include "compass.store/io/location.hpp"
 #include "compass.store/ops/blob_hash.hpp"
@@ -65,6 +72,7 @@ double since(std::chrono::steady_clock::time_point start) {
  */
 struct pipeline {
     std::optional<commit_source> commit;
+    org::types::type_registry types;
     listing listed;
     corpus_files files;
     ct::checkout_files checkout;
@@ -100,22 +108,20 @@ std::filesystem::path in_commit(const std::filesystem::path& path,
 }
 
 /**
- * @brief Lists, loads and runs the codecs over the checkout of @p o, or
- * the commit it names, into @p p. Reads the checkout or git's objects,
- * the store, the dependency record and the result cache, and writes
+ * @brief Lists the files of the checkout of @p o, or of the commit it
+ * names, into @p p, and builds the type and codec registries. Writes
  * nothing.
  */
-void evaluate(pipeline& p, const types::options& o) {
-    const auto start = std::chrono::steady_clock::now();
-    auto& s = p.summary;
-    const auto common = store::io::git_common_dir(o.checkout);
+void list_files(pipeline& p, const types::options& o) {
     if (o.commit)
-        p.timed("tree", [&] { p.commit.emplace(common, *o.commit); });
+        p.timed("tree", [&] {
+            p.commit.emplace(store::io::git_common_dir(o.checkout),
+                *o.commit);
+        });
     const commit_source* commit = p.commit ? &*p.commit : nullptr;
 
-    org::types::type_registry type_registry;
     p.timed("types", [&] {
-        type_registry = commit
+        p.types = commit
             ? build_type_registry(*commit, in_commit(o.meta, o.checkout))
             : build_type_registry(o.meta);
     });
@@ -126,9 +132,23 @@ void evaluate(pipeline& p, const types::options& o) {
         else
             list(p.listed, o.checkout);
     });
-    const auto& documents = p.listed.documents;
-    p.files = open_files(o.checkout, store::io::objects_dir(common),
-        documents, commit);
+    p.codecs = codec::ops::make_registry(codecs(), p.types, o.settings);
+    p.summary.problems = p.codecs.problems;
+}
+
+/**
+ * @brief Resolves and loads the documents listed in @p p, or none when
+ * not @p with_documents, into its corpus, which sees every listed file.
+ * Reads the checkout or git's objects and the store, and writes nothing.
+ */
+void load_files(pipeline& p, const types::options& o,
+    bool with_documents = true) {
+    auto& s = p.summary;
+    const auto documents = with_documents ? p.listed.documents
+                                          : std::vector<std::string_view>{};
+    p.files = open_files(o.checkout,
+        store::io::objects_dir(store::io::git_common_dir(o.checkout)),
+        documents, p.commit ? &*p.commit : nullptr);
     s.files = documents.size();
     p.timed("resolve", [&] { resolve(p.files, o.threads); });
     p.timed("load", [&] { load(p.files, o.threads); });
@@ -141,26 +161,46 @@ void evaluate(pipeline& p, const types::options& o) {
             ++(p.files.mapped[row] ? s.loaded : s.parsed);
     }
     p.checkout = checkout_files_of(p.files, p.listed);
-    p.corpus = corpus_of(p.files, type_registry);
+    p.corpus = corpus_of(p.files, p.types);
     p.corpus.files = &p.checkout;
     s.documents = p.corpus.size();
+}
 
-    p.codecs = codec::ops::make_registry(codecs(),
-        type_registry, o.settings);
-    s.problems = p.codecs.problems;
-    codec::io::loaded_record previous;
-    p.timed("record", [&] { previous = read_dependency_record(o.checkout); });
+/**
+ * @brief Runs the codecs of @p p from @p previous and the result cache,
+ * the units @p only takes when given, and records what each codec ran.
+ */
+void run_units(pipeline& p, const types::options& o,
+    const ct::dependency_record& previous,
+    const codec::ops::unit_filter& only = {}) {
+    auto& s = p.summary;
     p.timed("codecs", [&] {
-        p.run = run_codecs(p.codecs, p.corpus, type_registry, o.threads,
-            previous.record, o.checkout);
+        p.run = run_codecs(p.codecs, p.corpus, p.types, o.threads, previous,
+            o.checkout, only);
     });
     for (std::size_t c = 0; c < p.codecs.size(); ++c)
         s.codecs.emplace_back(p.codecs.codecs[c].name);
     s.ran = p.run.ran;
     s.skipped = p.run.skipped;
     s.cached = p.run.cached;
+    s.codec_ms = p.run.ms;
     s.formats.resize(p.codecs.size());
-    s.ms = since(start);
+}
+
+/**
+ * @brief Lists, loads and runs the codecs over the checkout of @p o, or
+ * the commit it names, into @p p. Reads the checkout or git's objects,
+ * the store, the dependency record and the result cache, and writes
+ * nothing.
+ */
+void evaluate(pipeline& p, const types::options& o) {
+    const auto start = std::chrono::steady_clock::now();
+    list_files(p, o);
+    load_files(p, o);
+    codec::io::loaded_record previous;
+    p.timed("record", [&] { previous = read_dependency_record(o.checkout); });
+    run_units(p, o, previous.record);
+    p.summary.ms = since(start);
 }
 
 /**
@@ -402,6 +442,45 @@ types::diff_result diff(const types::options& o) {
 }
 
 /**
+ * @brief Adds to @p out one finding per diagnostic of the run of @p p,
+ * located in the bytes of its document or file.
+ */
+void add_findings(const pipeline& p, std::vector<types::finding>& out) {
+    for (std::size_t c = 0; c < p.codecs.size(); ++c) {
+        const auto& d = p.codecs.codecs[c];
+        const auto& t = p.run.diagnostics[c];
+        for (std::uint32_t i = 0; i < t.size(); ++i) {
+            const ct::diagnostic_id id{i};
+            const auto document = t.documents[id];
+            std::string_view path;
+            std::string_view source;
+            std::optional<std::string> file;
+            if (document.is_none()) {
+                path = t.files[id];
+                file = p.checkout.read(path);
+                if (file)
+                    source = *file;
+            } else {
+                path = p.corpus.paths[document.value];
+                source = p.corpus.sources[document.value];
+            }
+            const auto [line, column] =
+                position_of(source, t.ranges[id].begin);
+            out.push_back({
+                .path = std::string(path),
+                .line = line,
+                .column = column,
+                .rule = std::string(d.name) + "/" +
+                    std::string(d.rules[t.rules[id].value].name),
+                .level = t.levels[id],
+                .message = std::string(t.messages[id]),
+                .fix = std::string(t.fixes[id]),
+                .drift = {}});
+        }
+    }
+}
+
+/**
  * @brief A file whose exception comments check reads: its path, its
  * content ID when known and, for a document, its bytes.
  */
@@ -555,38 +634,7 @@ types::check_result check(const types::options& o) {
             r.findings = drift_of(planned.plan, o.output_root, o.checkout);
         });
     }
-    for (std::size_t c = 0; c < p.codecs.size(); ++c) {
-        const auto& d = p.codecs.codecs[c];
-        const auto& t = p.run.diagnostics[c];
-        for (std::uint32_t i = 0; i < t.size(); ++i) {
-            const ct::diagnostic_id id{i};
-            const auto document = t.documents[id];
-            std::string_view path;
-            std::string_view source;
-            std::optional<std::string> file;
-            if (document.is_none()) {
-                path = t.files[id];
-                file = p.checkout.read(path);
-                if (file)
-                    source = *file;
-            } else {
-                path = p.corpus.paths[document.value];
-                source = p.corpus.sources[document.value];
-            }
-            const auto [line, column] =
-                position_of(source, t.ranges[id].begin);
-            r.findings.push_back({
-                .path = std::string(path),
-                .line = line,
-                .column = column,
-                .rule = std::string(d.name) + "/" +
-                    std::string(d.rules[t.rules[id].value].name),
-                .level = t.levels[id],
-                .message = std::string(t.messages[id]),
-                .fix = std::string(t.fixes[id]),
-                .drift = {}});
-        }
-    }
+    add_findings(p, r.findings);
     if (!p.summary.failed())
         p.timed("exceptions", [&] {
             excuse_findings(p, o, r);
@@ -597,6 +645,413 @@ types::check_result check(const types::options& o) {
     });
     r.ms = since(start);
     return r;
+}
+
+namespace {
+
+std::string joined(std::string_view a, std::string_view b,
+    std::string_view c = {}) {
+    std::string out(a);
+    out.push_back('\0');
+    out += b;
+    out.push_back('\0');
+    out += c;
+    return out;
+}
+
+/**
+ * @brief How many findings of the units of @p record name each path, rule
+ * and message, read with the corpus and codecs of @p p.
+ */
+std::unordered_map<std::string, std::size_t> recorded_findings(
+    const pipeline& p, const ct::dependency_record& record) {
+    std::unordered_map<std::string, std::size_t> out;
+    const auto index = codec::ops::index_corpus(p.corpus);
+    for (std::uint32_t u = 0; u < record.size(); ++u) {
+        const ct::record_unit_id unit{u};
+        const auto codec = std::ranges::find(p.codecs.codecs,
+            record.codecs[unit], &ct::descriptor::name);
+        ct::diagnostic_table t;
+        if (codec == p.codecs.codecs.end() ||
+            !codec::ops::decode_diagnostics(record.diagnostics[unit], index,
+                &t))
+            continue;
+        for (std::uint32_t i = 0; i < t.size(); ++i) {
+            const ct::diagnostic_id id{i};
+            const auto rule = t.rules[id].value;
+            if (rule >= codec->rules.size())
+                continue;
+            const auto document = t.documents[id];
+            const auto path = document.is_none() ? t.files[id]
+                : p.corpus.paths[document.value];
+            ++out[joined(path, std::string(codec->name) + "/" +
+                std::string(codec->rules[rule].name), t.messages[id])];
+        }
+    }
+    return out;
+}
+
+/**
+ * @brief The ID property of the document at @p path in the corpus of
+ * @p p, or none.
+ */
+std::vector<std::string_view> ids_of(const pipeline& p,
+    std::string_view path) {
+    const auto& c = p.corpus;
+    const auto it = std::ranges::find(c.paths, path);
+    if (it == c.paths.end())
+        return {};
+    const auto row = static_cast<std::size_t>(it - c.paths.begin());
+    const auto& tables = c.tables[row];
+    const auto property = org::ops::find_document_property(tables, "ID");
+    if (property.is_none())
+        return {};
+    const auto source = c.sources[row];
+    const auto id = org::ops::trimmed(source,
+        tables.properties.values[property]).of(source);
+    if (id.empty())
+        return {};
+    return {id};
+}
+
+/**
+ * @brief Whether codec @p c of @p r may read any document.
+ */
+bool reads_documents(const ct::registry& r, std::size_t c) {
+    const auto flags = std::span(r.reads).subspan(c * r.type_slots,
+        r.type_slots);
+    return std::ranges::any_of(flags, [](std::uint8_t f) { return f != 0; });
+}
+
+/**
+ * @brief The heads of the units of @p record at @p path, or a note saying
+ * why they could not be read.
+ */
+struct unit_heads {
+    codec::io::loaded_record loaded;
+    std::unordered_set<std::string> names;
+};
+
+unit_heads read_heads(const std::filesystem::path& path,
+    const codec::io::loaded_index& index,
+    std::span<const ct::record_unit_id> units) {
+    unit_heads r;
+    r.loaded = codec::io::read_record_units(path, index.index, units);
+    const auto& record = r.loaded.record;
+    for (std::uint32_t u = 0; u < record.size(); ++u)
+        r.names.insert(joined(record.codecs[{u}], record.documents[{u}]));
+    return r;
+}
+
+/**
+ * @brief The drift of the outputs of the run of @p p an edit to the file
+ * at @p path may have changed: each output whose blob ID differs from the
+ * one @p previous recorded for it or that is that file, and each output
+ * @p previous recorded that the run no longer generates. @p units are the
+ * units of the record file at @p record that @p previous holds the heads
+ * of, in order. Only those outputs are formatted and compared with the
+ * disk, and only the contents of the edited file are read from the
+ * record, when a reused unit produced it.
+ */
+std::vector<types::finding> hook_drift(pipeline& p, const types::options& o,
+    const std::filesystem::path& record, const codec::io::loaded_index& index,
+    std::span<const ct::record_unit_id> units,
+    const ct::dependency_record& previous, std::string_view path) {
+    struct recorded_file {
+        store::types::blob_id hash;
+        ct::record_unit_id unit;
+        std::uint32_t file = 0;
+    };
+    std::unordered_map<std::string, recorded_file> recorded;
+    for (std::uint32_t u = 0; u < previous.size(); ++u) {
+        const ct::record_unit_id unit{u};
+        const auto first = previous.file_firsts[unit].value;
+        const auto end = u + 1 < previous.size()
+            ? previous.file_firsts[unit.next()].value
+            : static_cast<std::uint32_t>(previous.files.size());
+        for (auto f = first; f < end; ++f)
+            recorded.emplace(joined(previous.codecs[unit],
+                previous.files.paths[ct::file_id{f}]),
+                recorded_file{previous.file_hashes[ct::file_id{f}],
+                    units[u], f - first});
+    }
+
+    const auto in_checkout = [&](std::string_view output) {
+        return (o.output_root / output).lexically_relative(o.checkout)
+            .generic_string();
+    };
+    ct::run_result changed;
+    changed.files.resize(p.codecs.size());
+    std::unordered_set<std::string> generated;
+    const auto& run = p.run.record;
+    for (std::uint32_t u = 0; u < run.size(); ++u) {
+        const ct::record_unit_id unit{u};
+        const auto codec = std::ranges::find(p.codecs.codecs, run.codecs[unit],
+            &ct::descriptor::name) - p.codecs.codecs.begin();
+        const auto end = u + 1 < run.size()
+            ? run.file_firsts[unit.next()].value
+            : static_cast<std::uint32_t>(run.files.size());
+        for (auto f = run.file_firsts[unit].value; f < end; ++f) {
+            const ct::file_id id{f};
+            const auto file = run.files.paths[id];
+            auto key = joined(run.codecs[unit], file);
+            const auto it = recorded.find(key);
+            generated.insert(key);
+            const bool same = it != recorded.end() &&
+                it->second.hash == run.file_hashes[id];
+            if (same && in_checkout(file) != path)
+                continue;
+            std::optional<std::string> bytes;
+            auto content = run.files.contents[id];
+            if (same && content.empty() && run.file_hashes[id] !=
+                    store::ops::blob_id_of("")) {
+                bytes = codec::io::read_recorded_file(record, index.index,
+                    it->second.unit, it->second.file);
+                if (!bytes)
+                    throw std::runtime_error("the record lost the contents "
+                        "of " + std::string(file));
+                content = *bytes;
+            }
+            changed.files[static_cast<std::size_t>(codec)].add(file, content);
+        }
+    }
+    p.summary.formats = codec::io::format_outputs(p.codecs, changed,
+        o.checkout, store::io::git_common_dir(o.checkout), o.threads);
+
+    ct::output_set outputs;
+    std::unordered_set<std::string> planned;
+    for (std::size_t c = 0; c < p.codecs.size(); ++c) {
+        const auto& files = changed.files[c];
+        const auto& ids = changed.formatted_ids[c];
+        for (std::uint32_t f = 0; f < files.size(); ++f) {
+            const ct::file_id id{f};
+            const auto content = files.contents[id];
+            outputs.add(p.codecs.codecs[c].name, files.paths[id], content,
+                ids ? (*ids)[f] : store::ops::blob_id_of(content));
+            planned.emplace(files.paths[id]);
+        }
+    }
+    for (const auto& entry : recorded) {
+        const auto& key = entry.first;
+        if (generated.contains(key))
+            continue;
+        const auto codec = key.substr(0, key.find('\0'));
+        const auto file = key.substr(codec.size() + 1);
+        planned.emplace(file.substr(0, file.size() - 1));
+        if (!std::ranges::contains(outputs.complete, codec))
+            outputs.complete.emplace_back(codec);
+    }
+
+    planned_outputs plan;
+    plan.previous = codec::io::read_written_outputs(
+        codec::io::written_outputs_path(store::io::git_dir(o.checkout)));
+    auto& written = plan.previous.record;
+    ct::written_outputs kept;
+    kept.root = written.root;
+    kept.written = written.written;
+    for (std::size_t i = 0; i < written.size(); ++i) {
+        if (!planned.contains(written.paths[i]))
+            continue;
+        kept.paths.push_back(written.paths[i]);
+        kept.codecs.push_back(written.codecs[i]);
+        kept.hashes.push_back(written.hashes[i]);
+        kept.stats.push_back(written.stats[i]);
+    }
+    written = std::move(kept);
+    plan.outputs = std::move(outputs);
+    plan.plan = codec::io::plan_outputs(o.output_root, plan.outputs, written);
+    for (const auto& problem : plan.plan.problems)
+        p.summary.errors.push_back("output: " + problem);
+    return drift_of(plan.plan, o.output_root, o.checkout);
+}
+
+/**
+ * @brief Drops each of @p findings a valid exception covers as of @p o's
+ * today, counting it in @p excused, and adds the findings about the
+ * exceptions of the file at @p path. Only that file and the files of
+ * @p findings are read.
+ */
+void excuse_hook_findings(const pipeline& p, const types::options& o,
+    std::string_view path, std::vector<types::finding>& findings,
+    std::size_t& excused) {
+    std::vector<std::string_view> paths{path};
+    for (const auto& f : findings)
+        paths.push_back(f.path);
+    std::ranges::sort(paths);
+    paths.erase(std::unique(paths.begin(), paths.end()), paths.end());
+
+    std::vector<ct::file_exceptions> files;
+    for (const auto file : paths) {
+        std::optional<std::string> bytes;
+        std::optional<std::string_view> text;
+        if (const auto it = std::ranges::find(p.corpus.paths, file);
+            it != p.corpus.paths.end())
+            text = p.corpus.sources[static_cast<std::size_t>(
+                it - p.corpus.paths.begin())];
+        else if ((bytes = p.checkout.read(file)))
+            text = *bytes;
+        if (!text ||
+            text->find(codec::ops::exception_marker) == std::string::npos)
+            continue;
+        auto e = codec::ops::parse_exceptions(file, *text);
+        if (!e.exceptions.empty() || !e.malformed.empty())
+            files.push_back(std::move(e));
+    }
+
+    std::vector<codec::ops::finding_site> sites;
+    sites.reserve(findings.size());
+    for (const auto& f : findings)
+        sites.push_back({f.path, f.line, f.rule});
+    auto e = codec::ops::excuse(sites, files, p.codecs, o.today);
+    std::vector<types::finding> kept;
+    for (std::size_t i = 0; i < findings.size(); ++i) {
+        if (e.excused[i])
+            ++excused;
+        else
+            kept.push_back(std::move(findings[i]));
+    }
+    for (auto& f : e.findings) {
+        if (f.path != path)
+            continue;
+        kept.push_back({.path = std::move(f.path),
+            .line = f.line,
+            .column = 1,
+            .rule = std::move(f.rule),
+            .level = codec::types::severity::error,
+            .message = std::move(f.message),
+            .fix = std::move(f.fix),
+            .drift = {}});
+    }
+    findings = std::move(kept);
+}
+
+bool is_contract_page(const std::filesystem::path& file,
+    const types::options& o) {
+    const auto name = file.filename().string();
+    return (o.checkout / file).parent_path().lexically_normal() ==
+            o.meta.lexically_normal() &&
+        name.starts_with("document_type_") && name.ends_with(".org");
+}
+
+}
+
+types::hook_result hook(const types::options& o, const std::string& path,
+    bool created) {
+    const auto start = std::chrono::steady_clock::now();
+    types::hook_result r;
+    r.path = path;
+    pipeline p;
+    const auto done = [&] {
+        r.run = std::move(p.summary);
+        r.ms = since(start);
+        return std::move(r);
+    };
+    if (path == config::repository_file_name ||
+        is_contract_page(path, o)) {
+        r.note = path + " changes what every codec sees; run compass check";
+        return done();
+    }
+
+    const auto record = codec::io::dependency_file_path(
+        store::io::git_dir(o.checkout));
+    codec::io::loaded_index index;
+    p.timed("index", [&] { index = codec::io::read_unit_index(record); });
+    if (index.missing) {
+        if (std::filesystem::exists(o.checkout /
+                config::repository_file_name))
+            r.note = "no dependency record yet; run compass check once";
+        return done();
+    }
+    if (!index.problem.empty()) {
+        r.note = "the dependency record cannot be used (" + index.problem +
+            "); run compass check";
+        return done();
+    }
+
+    const auto relative_out = (o.checkout / path).lexically_relative(
+        o.output_root).generic_string();
+    codec::ops::edited_file edited{.path = path, .output = {},
+        .document = path.ends_with(".org"), .created = created, .ids = {}};
+    if (!relative_out.empty() && !relative_out.starts_with(".."))
+        edited.output = relative_out;
+    auto touched = codec::ops::units_touching(index.index, edited);
+    if (touched.empty() && !edited.document)
+        return done();
+
+    list_files(p, o);
+    if (!std::ranges::binary_search(p.listed.files, path))
+        return done();
+    unit_heads heads;
+    const auto read = [&] {
+        p.timed("record", [&] { heads = read_heads(record, index, touched); });
+        if (!heads.loaded.problem.empty())
+            r.note = "the dependency record changed while it was read (" +
+                heads.loaded.problem + "); run compass check";
+        return heads.loaded.problem.empty();
+    };
+    if (!read())
+        return done();
+    auto with_documents = edited.document;
+    const auto& units = heads.loaded.record;
+    for (std::uint32_t u = 0; u < units.size() && !with_documents; ++u) {
+        const auto codec = std::ranges::find(p.codecs.codecs,
+            units.codecs[{u}], &ct::descriptor::name);
+        with_documents = codec != p.codecs.codecs.end() &&
+            reads_documents(p.codecs,
+                static_cast<std::size_t>(codec - p.codecs.codecs.begin()));
+    }
+    load_files(p, o, with_documents);
+    if (p.summary.failed()) {
+        r.note = "the checkout did not load (" +
+            (p.summary.errors.empty() ? p.summary.problems.front()
+                                      : p.summary.errors.front()) +
+            "); run compass check";
+        return done();
+    }
+    const auto ids = ids_of(p, path);
+    if (edited.document && !ids.empty()) {
+        edited.ids = ids;
+        auto more = codec::ops::units_touching(index.index, edited);
+        if (more != touched) {
+            touched = std::move(more);
+            if (!read())
+                return done();
+        }
+    }
+
+    run_units(p, o, heads.loaded.record, [&](ct::codec_id c,
+        std::string_view document) {
+        return (edited.document && document == path) ||
+            heads.names.contains(joined(p.codecs.codecs[c.value].name,
+                document));
+    });
+    r.checked = true;
+
+    std::vector<types::finding> found;
+    add_findings(p, found);
+    auto old = recorded_findings(p, heads.loaded.record);
+    for (auto& f : found) {
+        if (f.path != path) {
+            const auto it = old.find(joined(f.path, f.rule, f.message));
+            if (it != old.end() && it->second != 0) {
+                --it->second;
+                continue;
+            }
+        }
+        r.findings.push_back(std::move(f));
+    }
+    p.timed("plan", [&] {
+        for (auto& f : hook_drift(p, o, record, index, touched,
+                 heads.loaded.record, path))
+            r.findings.push_back(std::move(f));
+    });
+    p.timed("exceptions", [&] {
+        excuse_hook_findings(p, o, path, r.findings, r.excused);
+    });
+    std::ranges::stable_sort(r.findings, {}, [](const types::finding& f) {
+        return std::tie(f.path, f.line, f.column);
+    });
+    return done();
 }
 
 types::ratchet_result ratchet(const types::options& o,

@@ -35,7 +35,7 @@ namespace compass::cli::types {
 /**
  * @brief The commands of the compass executable.
  */
-enum class command : std::uint8_t { generate, diff, check, gc, config };
+enum class command : std::uint8_t { generate, diff, check, gc, config, hook };
 
 /**
  * @brief What the command line asked for, before the configuration file

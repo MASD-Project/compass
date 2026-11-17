@@ -21,12 +21,16 @@
 
 #include <chrono>
 #include <exception>
+#include <expected>
+#include <iterator>
+#include <string>
 #include <thread>
 #include <variant>
 #include "compass.cli/app/pipeline.hpp"
 #include "compass.cli/config/arguments.hpp"
 #include "compass.cli/config/precedence.hpp"
 #include "compass.cli/config/repository_file.hpp"
+#include "compass.cli/io/hook_payload.hpp"
 #include "compass.cli/io/listing.hpp"
 #include "compass.cli/io/report.hpp"
 #include "compass.store/io/git_objects.hpp"
@@ -85,8 +89,13 @@ int run_ratchet(const types::options& o, std::string_view base,
     return r.split.fresh.empty() ? exit_success : exit_findings;
 }
 
-int run_command(const types::invocation& i, std::ostream& out,
-    std::ostream& err) {
+/**
+ * @brief The settings and paths in effect for the checkout of @p i: its
+ * configuration file, or the one at its commit, then the command line.
+ * @return the problems, when either cannot be read or applied.
+ */
+std::expected<types::options, std::vector<std::string>> options_of(
+    const types::invocation& i, types::configuration& c) {
     std::optional<store::types::object_id> commit;
     if (!i.revision.empty())
         commit = io::resolve_commit(i.checkout, i.revision);
@@ -95,18 +104,13 @@ int run_command(const types::invocation& i, std::ostream& out,
               store::io::git_objects_dir(
                   store::io::git_common_dir(i.checkout))), *commit)
         : config::read_repository_file(i.checkout);
-    if (!file) {
-        err << "compass: " << file.error() << "\n";
-        return exit_failure;
-    }
-    const auto c = config::resolve(codecs(), i.checkout,
+    if (!file)
+        return std::unexpected(std::vector<std::string>{file.error()});
+    c = config::resolve(codecs(), i.checkout,
         i.checkout / config::repository_file_name, *file, i.command_line);
-    if (!c.problems.empty()) {
-        for (const auto& p : c.problems)
-            err << "compass: " << p << "\n";
-        return exit_failure;
-    }
-    const types::options o{.which = i.which,
+    if (!c.problems.empty())
+        return std::unexpected(c.problems);
+    return types::options{.which = i.which,
         .checkout = i.checkout,
         .commit = commit,
         .meta = c.meta.value,
@@ -117,6 +121,57 @@ int run_command(const types::invocation& i, std::ostream& out,
                 std::chrono::system_clock::now())}),
         .settings = config::settings_of(c),
         .collection = i.collection};
+}
+
+/**
+ * @brief Checks the file the PostToolUse payload on @p in names, in the
+ * checkout that holds it, and always succeeds.
+ */
+int run_hook(types::invocation i, std::istream& in, std::ostream& out,
+    std::ostream& err) {
+    types::hook_result r;
+    try {
+        const std::string payload(std::istreambuf_iterator<char>(in), {});
+        const auto p = io::parse_hook_payload(payload);
+        if (!p) {
+            r.note = p.error();
+            io::write_hook(out, err, r);
+            return exit_success;
+        }
+        const auto checkout = io::checkout_of(p->file);
+        if (!checkout)
+            return exit_success;
+        i.checkout = *checkout;
+        types::configuration c;
+        const auto o = options_of(i, c);
+        if (!o) {
+            r.note = o.error().front();
+            io::write_hook(out, err, r);
+            return exit_success;
+        }
+        r = hook(*o, p->file.lexically_relative(*checkout).generic_string(),
+            p->created);
+        io::write_hook(out, err, r);
+        if (i.timings)
+            io::write_timings(err, r.run);
+    } catch (const std::exception& e) {
+        r.findings.clear();
+        r.note = std::string("failed (") + e.what() + "); nothing was checked";
+        io::write_hook(out, err, r);
+    }
+    return exit_success;
+}
+
+int run_command(const types::invocation& i, std::ostream& out,
+    std::ostream& err) {
+    types::configuration c;
+    const auto resolved = options_of(i, c);
+    if (!resolved) {
+        for (const auto& p : resolved.error())
+            err << "compass: " << p << "\n";
+        return exit_failure;
+    }
+    const auto& o = *resolved;
     switch (o.which) {
     case types::command::generate:
         return run_generate(o, i.timings, out, err);
@@ -131,6 +186,8 @@ int run_command(const types::invocation& i, std::ostream& out,
     case types::command::config:
         io::write_configuration(out, c, o.checkout);
         return exit_success;
+    case types::command::hook:
+        break;
     }
     return exit_failure;
 }
@@ -138,8 +195,8 @@ int run_command(const types::invocation& i, std::ostream& out,
 }
 
 int run(std::span<const std::string_view> args,
-    const std::filesystem::path& working_directory, std::ostream& out,
-    std::ostream& err) {
+    const std::filesystem::path& working_directory, std::istream& in,
+    std::ostream& out, std::ostream& err) {
     const auto parsed = config::parse_arguments(args, working_directory,
         std::thread::hardware_concurrency());
     if (std::holds_alternative<config::show_help>(parsed)) {
@@ -154,8 +211,11 @@ int run(std::span<const std::string_view> args,
         err << "compass: " << e->message << "\n\n" << config::help_text();
         return exit_failure;
     }
+    const auto& invocation = std::get<types::invocation>(parsed);
+    if (invocation.which == types::command::hook)
+        return run_hook(invocation, in, out, err);
     try {
-        return run_command(std::get<types::invocation>(parsed), out, err);
+        return run_command(invocation, out, err);
     } catch (const std::exception& e) {
         err << "compass: " << e.what() << "\n";
         return exit_failure;

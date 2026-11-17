@@ -21,6 +21,7 @@
 #define COMPASS_CLI_APP_APPLICATION_HPP
 
 #include <filesystem>
+#include <istream>
 #include <ostream>
 #include <span>
 #include <string_view>
@@ -38,8 +39,8 @@ inline constexpr int exit_failure = 2;
 
 /**
  * @brief Runs the command line @p args, the arguments after the program
- * name, from @p working_directory, writing to @p out and @p err, and
- * returns the exit status.
+ * name, from @p working_directory, reading @p in, writing to @p out and
+ * @p err, and returns the exit status.
  *
  * Every command reads the configuration file of the checkout and applies
  * the codec defaults, the file and the command line in that order. Bad
@@ -48,10 +49,17 @@ inline constexpr int exit_failure = 2;
  * exception
  * a command throws is printed to @p err as "compass: <what>" and is a
  * failure.
+ *
+ * hook is the exception: it reads a Claude Code PostToolUse payload from
+ * @p in, checks the file it names in the checkout that holds it, whatever
+ * -C says, and always exits with success, so an edit is never blocked by
+ * compass failing. A payload it cannot read, a configuration error or a
+ * failure becomes a note to the agent; a file in no checkout, one no
+ * codec reads, or one with no findings prints nothing.
  */
 [[nodiscard]] int run(std::span<const std::string_view> args,
-    const std::filesystem::path& working_directory, std::ostream& out,
-    std::ostream& err);
+    const std::filesystem::path& working_directory, std::istream& in,
+    std::ostream& out, std::ostream& err);
 
 }
 

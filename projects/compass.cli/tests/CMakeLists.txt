@@ -24,6 +24,7 @@ add_executable(${tests_target_name}
     app_codegen_tests.cpp
     app_commit_tests.cpp
     app_exceptions_tests.cpp
+    app_hook_tests.cpp
     app_pipeline_tests.cpp
     app_ratchet_tests.cpp
     config_arguments_tests.cpp

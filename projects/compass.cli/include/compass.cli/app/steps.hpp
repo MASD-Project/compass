@@ -30,6 +30,7 @@
 #include "compass.codec/io/action_cache.hpp"
 #include "compass.codec/io/dependency_file.hpp"
 #include "compass.codec/io/output_sink.hpp"
+#include "compass.codec/ops/run.hpp"
 #include "compass.codec/types/checkout_files.hpp"
 #include "compass.codec/types/corpus.hpp"
 #include "compass.codec/types/output_set.hpp"
@@ -209,13 +210,14 @@ void load(corpus_files& f, unsigned threads);
 /**
  * @brief Runs @p codecs over @p corpus on up to @p threads threads,
  * starting from @p previous and the result cache of the repository of
- * @p checkout. Writes nothing.
+ * @p checkout, only the units @p only takes when given. Writes nothing.
  */
 [[nodiscard]] codec::types::run_result run_codecs(
     const codec::types::registry& codecs, const codec::types::corpus& corpus,
     const org::types::type_registry& types, unsigned threads,
     const codec::types::dependency_record& previous,
-    const std::filesystem::path& checkout);
+    const std::filesystem::path& checkout,
+    const codec::ops::unit_filter& only = {});
 
 /**
  * @brief Writes the object of every row that loaded by parsing to the

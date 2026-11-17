@@ -45,6 +45,8 @@ constexpr std::string_view help =
     "  gc              remove old unreferenced objects from the store\n"
     "  config          print each codec setting and path, and where it came "
     "from\n"
+    "  hook            check the file a Claude Code PostToolUse payload on "
+    "standard input names\n"
     "\n"
     "options:\n"
     "  -C <dir>                    the checkout (default: the current "
@@ -56,14 +58,14 @@ constexpr std::string_view help =
     "  -j <n>                      threads (default: one per core)\n"
     "  --set <codec>.<key>=<value> set a codec option over .compass.org; "
     "repeatable\n"
-    "  --timings                   generate, diff, check: print each step's "
+    "  --timings                   generate, diff, check, hook: print each step's "
     "time and what each codec ran or reused\n"
     "  --commit <rev>              check: check this commit, read from git's "
     "objects, not the files on disk\n"
     "  --ratchet [<base>]          check: fail only on diagnostics the merge "
     "base of HEAD and <base> lacks (default: the upstream, else "
     "origin/main)\n"
-    "  --today <YYYY-MM-DD>        check: judge the expiry of exceptions "
+    "  --today <YYYY-MM-DD>        check, hook: judge the expiry of exceptions "
     "as of this date (default: today in UTC)\n"
     "  --dry-run                   gc: remove nothing, report what would go\n"
     "  --cap <bytes>               gc: the size the store comes down to "
@@ -90,6 +92,8 @@ std::optional<types::command> command_named(std::string_view name) {
         return types::command::gc;
     if (name == "config")
         return types::command::config;
+    if (name == "hook")
+        return types::command::hook;
     return std::nullopt;
 }
 
@@ -227,8 +231,9 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
         return usage_error{"--commit applies to check only"};
     if (o.ratchet && *which != types::command::check)
         return usage_error{"--ratchet applies to check only"};
-    if (o.today && *which != types::command::check)
-        return usage_error{"--today applies to check only"};
+    if (o.today && *which != types::command::check &&
+        *which != types::command::hook)
+        return usage_error{"--today applies to check and hook only"};
     if (o.ratchet && !o.revision.empty())
         return usage_error{"--ratchet and --commit cannot be combined"};
     o.which = *which;
