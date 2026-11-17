@@ -724,8 +724,9 @@ bool reads_documents(const ct::registry& r, std::size_t c) {
 }
 
 /**
- * @brief The heads of the units of @p record at @p path, or a note saying
- * why they could not be read.
+ * @brief The heads of some units of a dependency record, with why they
+ * could not be read in loaded's problem, and each unit's codec and
+ * document joined.
  */
 struct unit_heads {
     codec::io::loaded_record loaded;
