@@ -59,3 +59,21 @@ TEST_CASE("a file nothing includes, an include of nothing and a missing "
         {"projects/ores.sql/create/create.sql", 3},
         {"projects/ores.sql/create/tables/orphan.sql", 1}});
 }
+
+TEST_CASE("an edit that drops an include leaves its target unreachable, "
+    "and one that restores it reaches it again",
+    "[codecs][sql_reachability]") {
+    auto dropped = tree();
+    dropped["projects/ores.sql/create/create.sql"] =
+        "\\ir tables/a.sql\n"
+        "\\ir tables/gone.sql\n";
+
+    CHECK(tests::places(tests::run_after_edit(codecs::sql_reachability,
+        tree(), dropped).findings) == places{
+            {"projects/ores.sql", 0},
+            {"projects/ores.sql/create/create.sql", 2},
+            {"projects/ores.sql/create/tables/b.sql", 1},
+            {"projects/ores.sql/create/tables/orphan.sql", 1}});
+    CHECK(tests::run_after_edit(codecs::sql_reachability, dropped, tree())
+        .findings.size() == 3);
+}

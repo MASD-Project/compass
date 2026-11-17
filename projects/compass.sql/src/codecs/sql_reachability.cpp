@@ -23,9 +23,12 @@
 #include <array>
 #include <optional>
 #include <set>
+#include <span>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.codec/types/fact.hpp"
 #include "compass.platform/text/decoding.hpp"
 #include "compass.platform/text/regex.hpp"
 #include "compass.sql/ops/scripts.hpp"
@@ -100,14 +103,39 @@ void add(ct::diagnostic_table& out, std::string_view file,
         .file = file});
 }
 
-void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
+std::vector<std::string_view> scanned(const ct::corpus_view& v) {
+    return v.list_files(std::string(sql_root) + "/", ".sql");
+}
+
+/**
+ * @brief The fact of a file: each \i or \ir line, whether it is \ir, the
+ * path it names and the offset of its backslash.
+ */
+void includes_of(std::string_view bytes, std::string& out) {
     static const pt::regex include_re(R"(^\s*\\(i(?:r)?)\s+(\S+))",
         {.multiline = true});
+    const auto text = pt::decode_ignoring(bytes);
+    ct::fact_writer fact(out);
+    for (const auto& m : include_re.find_all(text))
+        fact.number(m.group(1) == "ir" ? 1 : 0).text(m.group(2))
+            .number(static_cast<std::uint32_t>(m.start(1) - 1));
+}
+
+void map(std::string_view, std::string_view bytes, const ct::option_values&,
+    ct::file_scan& out) {
+    includes_of(bytes, out.fact);
+}
+
+void reduce(std::span<const ct::scanned_file> files,
+    const ct::corpus_view& v, ct::diagnostic_table& out) {
+    std::unordered_map<std::string_view, std::string_view> facts;
+    for (const auto& f : files)
+        facts.emplace(f.path, f.fact);
     const std::string root(sql_root);
     std::vector<std::string> stack;
-    for (const auto p : v.list_files(root + "/", ".sql")) {
-        if (p.find('/', root.size() + 1) == std::string_view::npos)
-            stack.emplace_back(p);
+    for (const auto& f : files) {
+        if (f.path.find('/', root.size() + 1) == std::string_view::npos)
+            stack.emplace_back(f.path);
     }
     std::ranges::sort(stack, ops::component_less);
     const std::string_view fix = "include the file from its tree's "
@@ -122,25 +150,35 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
                 "name, or drop it");
     }
     std::set<std::string, std::less<>> seen;
+    std::string read;
     while (!stack.empty()) {
         auto path = std::move(stack.back());
         stack.pop_back();
         if (seen.contains(path))
             continue;
-        const auto text = pt::decode_ignoring(v.read_file(path).value_or(""));
+        std::string_view fact;
+        if (const auto it = facts.find(path); it != facts.end()) {
+            fact = it->second;
+        } else {
+            read.clear();
+            includes_of(v.read_file(path).value_or(""), read);
+            fact = read;
+        }
         const auto dir = path.substr(0, path.rfind('/'));
-        for (const auto& m : include_re.find_all(text)) {
-            const auto entry = m.group(2);
-            const auto target = join(m.group(1) == "ir"
-                ? std::string_view(dir) : sql_root, entry);
+        ct::fact_reader includes(fact);
+        while (!includes.done()) {
+            const bool relative = includes.number() == 1;
+            const auto entry = includes.text();
+            const auto at = includes.number();
+            const auto target = join(relative ? std::string_view(dir)
+                : sql_root, entry);
             if (target && v.file_exists(*target)) {
                 stack.push_back(*target);
                 continue;
             }
-            add(out, path, static_cast<std::uint32_t>(m.start(1) - 1), 1,
-                "includes " + std::string(entry) + ", which does not exist; "
-                "psql aborts the build on it", "correct the path or add the "
-                "file");
+            add(out, path, at, 1, "includes " + std::string(entry) +
+                ", which does not exist; psql aborts the build on it",
+                "correct the path or add the file");
         }
         seen.insert(std::move(path));
     }
@@ -158,13 +196,13 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
 
 const ct::descriptor sql_reachability{
     .name = "sql_reachability",
-    .version = 1,
+    .version = 2,
     .summary = "Reports each SQL file no schema entry point reaches and "
         "each include that names no file.",
     .reads = ct::inputs::of_types({}),
     .options = {},
     .rules = rules,
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::diagnostic_table>{run}};
+    .run = ct::scan_function{scanned, map, reduce}};
 
 }
