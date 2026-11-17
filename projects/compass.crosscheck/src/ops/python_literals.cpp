@@ -35,7 +35,39 @@ class reader final {
 public:
     explicit reader(std::string_view text) : text_(text) {}
 
+    /**
+     * @brief A literal, or a sum of strings and names, which is read as
+     * the f-string template that formats to it.
+     */
     std::optional<python_value> value() {
+        auto first = primary();
+        if (!first || !eat('+'))
+            return first;
+        python_value sum;
+        sum.what = python_value::kind::format;
+        const auto append = [&](const python_value& operand) {
+            if (operand.what == python_value::kind::name)
+                sum.text += "{" + operand.text + "}";
+            else if (operand.what == python_value::kind::string)
+                sum.text += doubled(operand.text);
+            else if (operand.what == python_value::kind::format)
+                sum.text += operand.text;
+            else
+                return false;
+            return true;
+        };
+        if (!append(*first))
+            return std::nullopt;
+        do {
+            const auto operand = primary();
+            if (!operand || !append(*operand))
+                return std::nullopt;
+        } while (eat('+'));
+        return sum;
+    }
+
+private:
+    std::optional<python_value> primary() {
         skip();
         if (at_end())
             return std::nullopt;
@@ -49,7 +81,6 @@ public:
         return std::nullopt;
     }
 
-private:
     bool at_end() const noexcept { return i_ >= text_.size(); }
 
     void skip() {
@@ -179,7 +210,14 @@ private:
             auto item = value();
             if (!item)
                 return std::nullopt;
-            if (open == '{') {
+            // A brace whose first item is not followed by a colon is a set,
+            // read as a sequence.
+            if (open == '{' && v.entries.empty() && v.items.empty()) {
+                skip();
+                if (at_end() || text_[i_] != ':')
+                    v.what = python_value::kind::sequence;
+            }
+            if (v.what == python_value::kind::dict) {
                 const bool tuple = item->what == python_value::kind::sequence;
                 if ((item->what != python_value::kind::string && !tuple) ||
                     !eat(':'))
