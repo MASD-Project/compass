@@ -186,7 +186,7 @@ memories no rule cites are the candidates for the next checks.
 | =stream_coverage= | uncovered_subject | Every durable subject is matched by a stream. | =05B6C7D8-E9F0-4A1B-8C3D-4E5F60718293= |
 | =stream_coverage= | many_streams | No durable subject is matched by two streams. |  |
 | =stream_coverage= | unensured_stream | A consumer names a stream something ensures, whose filters cover its subject. | =C0B3C6F4-62DC-4DEA-966D-A84108AAB9AE=, =F4A5B6C7-D8E9-4F0A-9B2C-3D4E5F607182=, =05B6C7D8-E9F0-4A1B-8C3D-4E5F60718293= |
-| =subject_conformance= | outside_protocol | Every NATS subject a model declares or a writing site spells is inside the entity protocol. |  |
+| =subject_conformance= | outside_protocol | Every NATS subject a model declares or the data-quality seed spells is inside the entity protocol. |  |
 | =subject_conformance= | no_declaration | Some model declares a :subject:. |  |
 | =subject_conformance= | unreadable_model | Every model is UTF-8, which the script's strict read needs. |  |
 | =tangle_check= | unsupported_header_argument | A tangled block sets nothing whose effect on the bytes tangling does not reproduce. |  |

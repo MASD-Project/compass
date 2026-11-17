@@ -48,8 +48,8 @@ constexpr std::uint32_t no_declaration = 1;
 constexpr std::uint32_t unreadable_model = 2;
 
 constexpr std::array<ct::rule, 3> rules{{
-    {"outside_protocol", "Every NATS subject a model declares or a writing "
-        "site spells is inside the entity protocol."},
+    {"outside_protocol", "Every NATS subject a model declares or the "
+        "data-quality seed spells is inside the entity protocol."},
     {"no_declaration", "Some model declares a :subject:."},
     {"unreadable_model", "Every model is UTF-8, which the script's strict "
         "read needs."}}};
@@ -146,19 +146,13 @@ constexpr std::string_view dq =
     "projects/ores.sql/populate/dq/dq_artefact_types_populate.sql";
 
 /**
- * @brief The models, then the .hpp and the .cpp files, each group in
- * component order, then the data-quality seed when there is one, as
- * subjects are listed in that order.
+ * @brief The models in component order, then the data-quality seed when
+ * there is one, as subjects are listed in that order.
  */
 std::vector<std::string_view> scanned(const ct::corpus_view& v) {
     auto out = v.list_files("projects/", ".org");
     std::erase_if(out, [](auto p) { return !is_model(p); });
     std::ranges::sort(out, co::component_less);
-    for (const auto suffix : {".hpp", ".cpp"}) {
-        auto paths = v.list_files("projects/", suffix);
-        std::ranges::sort(paths, co::component_less);
-        out.insert(out.end(), paths.begin(), paths.end());
-    }
     if (v.file_exists(dq))
         out.push_back(dq);
     return out;
@@ -171,8 +165,6 @@ std::vector<std::string_view> scanned(const ct::corpus_view& v) {
 void map(std::string_view path, std::string_view bytes,
     const ct::option_values&, ct::file_scan& out) {
     static const pt::regex line_pattern(R"(^\s*:subject:\s*(\S+)\s*$)");
-    static const pt::regex constant(
-        R"(\w*subject\w*\s*=\s*\n?\s*\"([^\"]+)\')");
     static const pt::regex seeded(
         R"(\'([a-z_]+\.[a-z0-9_]+\.[a-z0-9_.]+)\')");
     ct::fact_writer fact(out.fact);
@@ -195,12 +187,11 @@ void map(std::string_view path, std::string_view bytes,
         return;
     }
     fact.number(0);
-    const auto& pattern = path == dq ? seeded : constant;
-    if (bytes.find(path == dq ? "'" : "subject") == std::string_view::npos)
+    if (bytes.find('\'') == std::string_view::npos)
         return;
     const auto text = pt::universal_newlines(pt::decode_replacing(bytes));
     std::set<std::pair<std::uint32_t, std::string>> seen;
-    for (const auto& m : pattern.find_all(text)) {
+    for (const auto& m : seeded.find_all(text)) {
         std::string subject(m.group(1));
         if (subject.ends_with('.') || subject.contains('>') ||
             subject.contains('*')) {
@@ -258,9 +249,9 @@ void reduce(std::span<const ct::scanned_file> files, const ct::corpus_view&,
 
 const ct::descriptor subject_conformance{
     .name = "subject_conformance",
-    .version = 2,
-    .summary = "Reports each NATS subject a model declares or a writing "
-        "site spells outside the entity protocol.",
+    .version = 3,
+    .summary = "Reports each NATS subject a model declares or the "
+        "data-quality seed spells outside the entity protocol.",
     .reads = ct::inputs::of_types({}),
     .options = {},
     .rules = rules,

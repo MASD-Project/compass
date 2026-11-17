@@ -38,11 +38,15 @@ A script's baseline of known violations is not ported. Each finding it
 excused is a finding here, and the tree excuses it with an inline
 exception where it stands.
 
-A gate whose verdict another check already gives is not ported:
+A gate or rule that another check covers, or that never fires, is not
+ported:
 
 - =paste-blocks=. A pasted block that disagrees with the generated file it
   lands in is =codegen/drift=. One that agrees with it but names a symbol
   that is gone fails the build of that component.
+- The C++ half of =subject-conformance=. Its pattern opens on a double
+  quote and closes on a single one, so it matches nothing in compilable
+  code.
 
 * Inputs
 
@@ -54,11 +58,10 @@ A gate whose verdict another check already gives is not ported:
 - *=subject_conformance=.* =subject-conformance=
   (=check_subject_conformance.py=). Rule =outside_protocol=: a =:subject:=
   line of an org file directly under =projects/<component>/modeling/=, or a
-  subject written at one of the script's two sites, that is not
+  quoted subject of the data-quality artefact type seed, that is not
   =component.v1.resource.verb= with a verb of the closed set or
   =list_by_...=, =component.v1.ops.operation= or
-  =component.v1.events.collection.action=. The C++ site's pattern ends at
-  a single quote, as the script's does, so it reads almost nothing. Rule
+  =component.v1.events.collection.action=. Rule
   =no_declaration=: no model declares a subject. Rule =unreadable_model=: a
   model that is not UTF-8, which the script fails on.
 - *=entity_writes=.* =entity-writes= (=check_entity_table_writes.py=). Rule

@@ -290,6 +290,7 @@ remove it too.
 | Gate or rule | What covers it |
 |---|---|
 | `paste-blocks` (codec `paste_blocks`) | `codegen/drift`, when the model's block and the generated file disagree; the build of the component, when both name a symbol that is gone. |
+| The C++ half of `subject-conformance` | Nothing; its pattern opens on `"` and closes on `'`, so it matched no C++ in ORE Studio. The models and the data-quality seed are still checked. |
 
 ## Fixes to make in ORE Studio
 
