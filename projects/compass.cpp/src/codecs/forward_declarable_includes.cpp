@@ -26,6 +26,7 @@
 #include <set>
 #include <span>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.codec/types/fact.hpp"
@@ -140,26 +141,39 @@ std::string strip_comments(std::string_view text) {
     return out;
 }
 
+/**
+ * @brief The regex of @p pattern, compiled once per thread. The patterns
+ * are built from the listed types, so the reduce step asks for the same
+ * ones for every header that includes a type's defining header.
+ */
+const pt::regex& compiled(const std::string& pattern) {
+    thread_local std::unordered_map<std::string, pt::regex> cache;
+    const auto it = cache.find(pattern);
+    if (it != cache.end())
+        return it->second;
+    return cache.emplace(pattern, pt::regex(pattern)).first->second;
+}
+
 bool opens_namespace(const declarable& d, std::string_view text) {
     const auto ns = std::string(d.name_space());
-    if (pt::regex(R"(\busing\s+namespace\s+)" + pt::escape(ns) + R"(\s*;)")
+    if (compiled(R"(\busing\s+namespace\s+)" + pt::escape(ns) + R"(\s*;)")
             .search(text))
         return true;
-    if (pt::regex(R"(\bnamespace\s+)" + pt::escape(ns) + R"(\b[^;]*\{)")
+    if (compiled(R"(\bnamespace\s+)" + pt::escape(ns) + R"(\b[^;]*\{)")
             .search(text))
         return true;
     const auto last = ns.rfind("::");
     if (last == std::string::npos)
         return false;
-    return pt::regex(R"(\bnamespace\s+)" + pt::escape(ns.substr(0, last)) +
+    return compiled(R"(\bnamespace\s+)" + pt::escape(ns.substr(0, last)) +
                R"(\b[^;]*\{)").search(text) &&
-        pt::regex(R"(\bnamespace\s+)" + pt::escape(ns.substr(last + 2)) +
+        compiled(R"(\bnamespace\s+)" + pt::escape(ns.substr(last + 2)) +
             R"(\b)").search(text);
 }
 
 bool binds_short_name(const declarable& d, std::string_view text) {
     const auto s = pt::escape(d.short_name());
-    return pt::regex(R"(\busing\s+)" + s + R"(\s*=\s*(?:\w+::)*)" + s +
+    return compiled(R"(\busing\s+)" + s + R"(\s*=\s*(?:\w+::)*)" + s +
         R"(\s*;)").search(text).has_value();
 }
 
@@ -220,11 +234,12 @@ std::set<std::string> bound_names(const declarable& d,
     qualifiers.emplace_back();
     for (const auto& q : qualifiers) {
         const auto spelling = pt::escape(q) + pt::escape(d.short_name());
-        const pt::regex parameter(R"((?<![\w:])(?:const\s+)?)" + spelling +
+        const auto& parameter = compiled(
+            R"((?<![\w:])(?:const\s+)?)" + spelling +
             R"(\s*(?:const\s*)?[&*]+\s*(?:const\s+)?([A-Za-z_]\w*))");
         for (const auto& m : parameter.find_all(text))
             names.emplace(m.group(1));
-        const pt::regex member(
+        const auto& member = compiled(
             R"(\b(?:shared_ptr|weak_ptr|unique_ptr)\s*<\s*)" + spelling +
             R"(\s*>\s*([A-Za-z_]\w*))");
         for (const auto& m : member.find_all(text))
@@ -235,7 +250,7 @@ std::set<std::string> bound_names(const declarable& d,
 
 bool dereferences(std::string_view text, const std::set<std::string>& names) {
     return std::ranges::any_of(names, [&](const auto& n) {
-        return pt::regex(R"(\b)" + pt::escape(n) + R"(\s*(?:\.|->))")
+        return compiled(R"(\b)" + pt::escape(n) + R"(\s*(?:\.|->))")
             .search(text).has_value();
     });
 }
@@ -244,13 +259,14 @@ std::optional<verdict> scan(const declarable& d, std::string_view text) {
     std::set<verdict> verdicts;
     const auto short_name = pt::escape(d.short_name());
     for (const auto& q : d.qualifiers()) {
-        const pt::regex use(R"((?<![\w:]))" + pt::escape(q) + short_name +
-            R"((?![\w]))");
+        const auto& use = compiled(R"((?<![\w:]))" + pt::escape(q) +
+            short_name + R"((?![\w]))");
         for (const auto& m : use.find_all(text))
             verdicts.insert(classify(text, m.start(), m.end()));
     }
     if (opens_namespace(d, text) || binds_short_name(d, text)) {
-        const pt::regex use(R"((?<![\w:]))" + short_name + R"((?![\w]))");
+        const auto& use = compiled(R"((?<![\w:]))" + short_name +
+            R"((?![\w]))");
         for (const auto& m : use.find_all(text))
             verdicts.insert(classify(text, m.start(), m.end()));
     }
