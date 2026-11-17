@@ -19,20 +19,17 @@
  */
 #include "compass.sql/codecs/rls_widenings.hpp"
 
-#include <algorithm>
 #include <array>
 #include <string>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
-#include "compass.platform/text/regex.hpp"
-#include "compass.sql/ops/scripts.hpp"
+#include "compass.sql/ops/sql_model.hpp"
 
 namespace compass::sql::codecs {
 
 namespace {
 
 namespace ct = compass::codec::types;
-namespace pt = compass::platform::text;
 
 constexpr std::array<std::string_view, 3> system_tenant_widening_sources{
     "C3D570EF-468D-427D-B355-30C0443BCDDF",
@@ -46,37 +43,25 @@ constexpr std::array<ct::rule, 1> rules{{
 
 constexpr std::string_view create_dir = "projects/ores.sql/create/";
 
-void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
-    static const pt::regex comment(R"(--[^\n]*)");
-    static const pt::regex policy(R"(create\s+policy\s+(\w+)\s+on\s+(\w+)(.*?);)",
-        {.dotall = true, .ignorecase = true});
-    static const pt::regex widening(
-        R"(ores_iam_current_tenant_id_fn\(\)\s*=\s*ores_utility_system_tenant_id_fn\(\))"
-        R"(|ores_utility_system_tenant_id_fn\(\)\s*=\s*ores_iam_current_tenant_id_fn\(\))",
-        {.ignorecase = true});
-    for (const auto p : v.list_files(create_dir, ".sql")) {
-        const auto text = v.read_file(p).value_or("");
-        // Blanked rather than removed, so offsets hold; the policies and
-        // their bodies match as they do once the comments are gone.
-        const auto sql = comment.substitute(text, [](const auto& m) {
-            return std::string(m.group().size(), ' ');
-        });
-        for (const auto& m : policy.find_all(sql)) {
-            if (!widening.search(m.group(3)))
-                continue;
-            out.add({.document = compass::org::types::document_id::none(),
-                .range = {static_cast<std::uint32_t>(m.start()),
-                    static_cast<std::uint32_t>(m.start())},
-                .rule = ct::rule_id{0},
-                .level = ct::severity::error,
-                .message = "policy " + std::string(m.group(1)) + " on " +
-                    std::string(m.group(2)) + " lets a system-tenant "
-                    "session see every tenant, which hands one tenant's "
-                    "rows to another",
-                .fix = "act inside the tenant, or except the policy inline "
-                    "with its reason",
-                .file = p});
-        }
+std::vector<std::string_view> scanned(const ct::corpus_view& v) {
+    return v.list_files(create_dir, ".sql");
+}
+
+void map(std::string_view path, std::string_view bytes,
+    const ct::option_values&, ct::file_scan& out) {
+    for (const auto& p : ops::model_of(bytes).policies) {
+        if (!p.widens_to_system_tenant)
+            continue;
+        out.findings.add({.document = compass::org::types::document_id::none(),
+            .range = {p.offset, p.offset},
+            .rule = ct::rule_id{0},
+            .level = ct::severity::error,
+            .message = "policy " + p.name + " on " + p.table + " lets a "
+                "system-tenant session see every tenant, which hands one "
+                "tenant's rows to another",
+            .fix = "act inside the tenant, or except the policy inline "
+                "with its reason",
+            .file = path});
     }
 }
 
@@ -84,13 +69,13 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
 
 const ct::descriptor rls_widenings{
     .name = "rls_widenings",
-    .version = 1,
+    .version = 2,
     .summary = "Reports each row-level security policy that admits the "
         "system tenant to every tenant's rows.",
     .reads = ct::inputs::of_types({}),
     .options = {},
     .rules = rules,
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::diagnostic_table>{run}};
+    .run = ct::scan_function{scanned, map, nullptr}};
 
 }

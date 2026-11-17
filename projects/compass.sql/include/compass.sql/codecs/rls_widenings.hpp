@@ -28,8 +28,9 @@ namespace compass::sql::codecs {
  * @brief ORE Studio's rls-widenings gate: no row-level security policy
  * widens the system tenant.
  *
- * Reads every .sql under projects/ores.sql/create with its -- comments
- * blanked. Rule system_tenant_widening: a create policy whose body
+ * A scan with no reduce: each .sql under projects/ores.sql/create is read
+ * through ops::model_of, so comments and literals hide a policy. Rule
+ * system_tenant_widening: a create policy whose body
  * compares ores_iam_current_tenant_id_fn() with
  * ores_utility_system_tenant_id_fn(), so a system-tenant session sees
  * every tenant. The script's table of excused policies is not read: each
