@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/add-the-edit-hook
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ A Claude Code hook that checks the changed files after each edit.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,14 @@ A Claude Code hook that checks the changed files after each edit.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Add =compass hook=: it reads Claude Code's =PostToolUse= payload on stdin,
+  takes the edited file, and runs only the checks whose recorded inputs
+  include that file, reporting the findings on it back to the agent.
+- A full warm check of ORE Studio takes 6 to 8 s, about 1.4 s of it reading
+  the dependency record, so the hook needs an index from file to the codec
+  units that read it, read without loading the whole record.
+- Document the hook settings in a recipe. Installing the hook into this
+  repository's or ORE Studio's Claude Code settings is a separate decision.
 
 * Measurements
 
