@@ -55,9 +55,10 @@ namespace compass::store::io {
     std::span<const std::filesystem::path> git_dirs);
 
 /**
- * @brief The objects and temporary files under @p objects_dir, with their
- * size and modification time, in no particular order. A missing directory
- * holds none.
+ * @brief The files of the first layout of the store under @p objects_dir,
+ * a fan-out directory of objects or of action objects, with their size and
+ * modification time, in no particular order. A missing directory holds
+ * none.
  */
 [[nodiscard]] types::stored_objects list_objects(
     const std::filesystem::path& objects_dir);
@@ -74,21 +75,24 @@ using action_roots = std::function<std::vector<types::blob_id>(
  * @brief Collects the store of the repository @p checkout belongs to.
  *
  * Reads the indexes of every worktree and the action keys @p roots gives
- * for each, lists @p objects_dir and the action directories of the git
- * common directory, chooses the victims with ops::plan_collection over all
- * of them, so one cap and one grace period cover objects and action
- * objects, the cutoff being now less the grace period, and unlinks each
- * unless this is a dry run. A victim whose size
- * or modification time changed since it was listed is left alone, as is
- * one already gone. A process that has an object mapped keeps its mapping,
- * and a run that looks up a removed object parses its source again.
+ * for each, and opens every pack. The entries the plan keeps go into one
+ * new pack and the old packs are removed, unless this is a dry run or
+ * there is one pack and nothing to drop. ops::plan_collection chooses the
+ * victims over every entry, an object being live when an index names its
+ * ID and an action object when a record names its key, so one cap and one
+ * grace period cover both; the age of an entry is when it was first
+ * written. Entries a later one hides are dropped whatever their age.
+ * Temporary files and packs that do not parse are removed once older than
+ * the grace period, and the directories of the first layout of the store
+ * are removed whole. The lock of the packs directory is held throughout,
+ * so no repack runs at the same time; writers are not held up, and a pack
+ * published during the collection is left as it is.
  *
  * @throws std::runtime_error when @p checkout is not a git checkout or an
  * index cannot be read, before anything is removed.
  */
 [[nodiscard]] types::collection_result collect(
     const std::filesystem::path& checkout,
-    const std::filesystem::path& objects_dir,
     const types::collection_options& options, const action_roots& roots);
 
 }

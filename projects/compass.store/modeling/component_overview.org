@@ -2,7 +2,7 @@
 :ID: EB285F25-4AF8-482D-B679-C650DA718CF6
 :END:
 #+title: compass.store
-#+description: The content-addressed store every worktree of a repository shares: git blob IDs as keys, taken from git's index when git would call a file clean, else from a per-worktree index of the files compass hashed, else hashed; object paths under the git common directory, action objects named by a key their writer computes, writes that land whole or not at all, and collection of the objects and action objects no worktree refers to; and a reader of git's own object database, loose and packed, so a commit is read with no checkout.
+#+description: The content-addressed store every worktree of a repository shares: git blob IDs as keys, taken from git's index when git would call a file clean, else from a per-worktree index of the files compass hashed, else hashed; objects and action objects in append-only packs under the git common directory, each published whole by one writer with no lock, merged geometrically so the file count stays logarithmic, and collected by rewriting them without the entries no worktree refers to; and a reader of git's own object database, loose and packed, so a commit is read with no checkout.
 #+type: component
 #+level: cross
 #+filetags: :store:cache:worktrees:component:
@@ -19,8 +19,10 @@ the infrastructure layer of the
 content it was computed from. The key is the ID git gives that content, so a
 file with the same bytes has the same key in every worktree and its parse is
 done once per repository. The store is a cache: deleting it loses speed and
-nothing else. Collection keeps it bounded: an object no worktree refers to
-is removed, oldest first, once the store passes its cap.
+nothing else. It is a handful of files whatever it holds: every object and
+action object is an entry of a pack, and packs are merged as they are
+written. Collection keeps it bounded: an entry no worktree refers to is
+dropped, oldest first, once the store passes its cap.
 
 Most keys cost nothing to find. Git's index already holds the ID of every
 clean tracked file, so the store reads the index. A file whose index ID it
@@ -32,8 +34,9 @@ holds. The bytes of a parsed org document are laid out by
 [[id:44C128E0-BCF3-4574-B171-BF5E72325085][compass.org]], in
 =io/object.hpp=, which also checks them when they are mapped back. A caller
 joins the two: it hashes a source, asks =compass.org= to encode the tables,
-and hands the bytes to =write_object=; later it maps the file with
-=compass.platform= and asks =compass.org= to decode it.
+and adds the bytes to a =pack_writer=; later it finds them through a
+=pack_reader=, which maps the packs with =compass.platform=, and asks
+=compass.org= to decode them.
 
 * Inputs
 
@@ -44,13 +47,16 @@ and hands the bytes to =write_object=; later it maps the file with
   directory is read, and written when the caller asks.
 - The bytes of an object, to write.
 - The key and body of an action object, to write or read.
+- The packs under the git common directory, mapped by a reader, appended
+  to by a writer, merged and rewritten under the lock of the packs
+  directory.
 - For a commit: git's object database under the git common directory, its
   pack files, their indexes, its loose objects and the databases its
   =info/alternates= names, read, never written.
 - For collection: the git directory of every worktree, read from the common
   directory; the git index and worktree index of each, read, never written;
-  for each, the action keys a caller-supplied function says it names; the
-  objects and action directories, listed; a size cap and a grace period.
+  for each, the action keys a caller-supplied function says it names;
+  every pack; a size cap and a grace period.
 
 * Outputs
 
@@ -124,32 +130,75 @@ and hands the bytes to =write_object=; later it maps the file with
   wins, and the entries of the other are hashed again on the next run.
 - *Location.* =io::git_common_dir= resolves the git directory every worktree
   shares, reading =.git= and =commondir= as git writes them, with no git
-  process. =io::objects_dir= is =compass/objects= under it. =io::object_path=
-  is =<first two hex digits>/<other 38>= under that, the layout of git's loose
-  objects.
-- *Writes.* =io::write_object= writes to a temporary file in the directory of
-  the object and renames it into place; the worktree index is written the
-  same way. A reader sees the old object, the new
-  one or none. Concurrent writers of one object all succeed and leave one
-  file. Nothing is synced to disk; an object a crash cut short fails the
-  checks of its decoder and is written again.
-- *Reads.* An object is read by mapping its file with =mapped_file=. A missing
-  file is a miss.
-- *Action objects.* An action object is named by a key its writer computes
-  from what an action depends on, not by the hash of its bytes, so the store
-  cannot check it against its name. =types::action_kind= has two kinds, each
-  in its own directory under the git common directory: =compass/manifests=
-  and =compass/results= (=io::actions_dir=), laid out as objects are.
-  =ops::encode_action= frames a body with the magic =CMPSACT\n= and a SHA-1
-  of the key, the magic and the body, so an object damaged, cut short, or
-  copied under another key fails =ops::decode_action=. =io::write_action=
-  writes through =write_object=; =io::read_action= returns the body, or
-  nothing for a missing or damaged object, which its caller treats as a
-  miss. What a body holds is the writer's: =compass.codec= keeps its result
-  cache here.
-- *Leftovers.* A crash between write and rename leaves a file whose name
-  starts with =tmp_=. Nothing reads it, and collection removes it once it is
-  older than the grace period.
+  process. =io::packs_dir= is =compass/packs= under it. The first layout
+  of the store, a file per object, manifest and result under
+  =compass/objects=, =compass/manifests= and =compass/results=
+  (=io::legacy_store_dirs=), is read by nothing; collection removes it.
+- *Entries.* An entry is an object, keyed by the blob ID of its source, or
+  an action object of either kind (=types::entry_kind=: =object=,
+  =manifest=, =result=), keyed by the key its writer computed. An action
+  object is named by a key its writer computes from what an action
+  depends on, not by the hash of its bytes, so the store cannot check it
+  against its name. =ops::encode_action= frames a body with the magic
+  =CMPSACT\n= and a SHA-1 of the key, the magic and the body, so an
+  object damaged, cut short, or copied under another key fails
+  =ops::decode_action=. What a body holds is the writer's: =compass.codec=
+  keeps its result cache here. An object is checked by its decoder, as
+  before; the store checks neither.
+- *Packs.* A pack (=ops/pack.hpp=) is one file,
+  =pack-<16 hex digits of the time><16 random hex digits>.cpk=: a 16-byte
+  header (magic =CMPSPAK\n=, version =ops::pack_version=), the entries,
+  each at a multiple of 8 bytes so a mapped object is as aligned as a
+  mapped file, then the index: a fan-out table of 256 counts by the first
+  byte of the key, one 48-byte row per entry in order of key then kind
+  (key, kind, offset, size, and the time the entry was first written), and
+  a 32-byte footer naming the index and the entry count, ending
+  =CMPSEND\n=. Integers are little-endian. =ops::parse_pack= checks the
+  header, the footer, the fan-out table, the order of the rows and that
+  every entry lies inside the pack, in one pass over the index; it reads
+  no entry. =ops::find_entry= finds a key through the fan-out table and a
+  binary search. Of two entries of one kind and key in one pack, the index
+  keeps the later written.
+- *Writes.* =io::pack_writer= appends each entry to a temporary file
+  =tmp_<random>= in the packs directory as it is added, from any number of
+  threads, and =publish= writes the index and renames the file to its
+  pack name. A pack is seen whole or not at all, and no writer shares a
+  file with another, so writers in any number of processes and worktrees
+  need no lock. A writer destroyed unpublished removes its file. Nothing
+  is synced to disk; a pack a crash cut short does not parse and is
+  skipped, and an entry a crash damaged fails its decoder and is written
+  again. A run writes one pack per batch: the objects it parsed, the
+  results and manifests of the units it ran, the formatted files it
+  formatted.
+- *Repacking.* After each publish =io::repack= merges the smallest packs
+  into one, as git's geometric repack does: =ops::packs_to_merge= takes
+  the fewest smallest packs such that every pack left is at least twice
+  the size of all the smaller ones together. So the store holds a number
+  of packs logarithmic in its size, and each byte is copied a logarithmic
+  number of times. Merging and collection take the lock of the packs
+  directory, =lock=, with =flock=, so the kernel releases it when its
+  holder dies; a repack that finds it held gives up at once and the next
+  publish tries again. A merge publishes its pack before it removes the
+  ones it merged, and keeps each entry's written time.
+- *Reads.* =io::pack_reader= maps every pack that parses
+  (=io::open_packs=). It lists the directory until two listings in a row
+  agree and no listed pack vanished before it was opened, opening each
+  name once, so a reader racing a merge holds either the merged packs or
+  the merge's pack. After a thousand listings under constant change it
+  keeps what it holds, and an entry it lacks is a miss. A pack published
+  after opening is not seen; a pack removed after opening stays readable,
+  since its mapping outlives the unlink. =find= returns the bytes of an
+  entry, valid while the reader lives; any number of threads share a
+  reader. Of a manifest, which a writer rewrites under the same key, the
+  copy written last is read, whichever pack holds it; of an object or a
+  result, whose key names its content, the first found.
+  =read_action= decodes an action object, and when a damaged copy hides a
+  sound one in another pack, it reads the sound one; a missing or damaged
+  object is a miss, which its caller treats as such.
+- *Leftovers.* A crash between the first entry and the rename leaves a
+  file whose name starts with =tmp_=. Nothing reads it, and collection
+  removes it once it is older than the grace period, as it removes a pack
+  that does not parse.
 - *Collection.* An object is live when a worktree of the repository refers
   to its ID, as git decides reachability; access times are never read, so
   loading an object writes nothing. =io::worktree_git_dirs= lists the git
@@ -161,47 +210,37 @@ and hands the bytes to =write_object=; later it maps the file with
   stage. An action object is live while a worktree names its key:
   =io::collect= asks its =action_roots= function for the keys of each
   worktree, since the record that names them belongs to the component that
-  wrote them. =io::list_objects= stats each object and temporary file, of
-  the objects directory and of both action directories, and the plan treats
-  them as one store under one cap and grace period.
-  =ops::plan_collection= keeps the live objects and any file modified within
-  the grace period, an hour by default, so a run in progress never loses an
-  object it just wrote; it takes the other objects oldest first by
-  modification time while the store is over its cap, and every old
-  temporary file. =io::collect= runs the four and unlinks each victim whose
-  size and modification time are still the ones listed; a dry run unlinks
-  nothing.
-- *Git objects.* =io::git_objects= reads git's object database with no git
-  process, so a commit can be read without a checkout. Opening it maps
-  every version 2 pack index and its pack, its own and those of its
-  alternates; =read= finds an ID in the indexes, then among the loose
-  objects, and returns the object's type and bytes, or nothing when no
-  database holds it. A pack entry that is a delta is applied to its base,
-  following offset deltas and reference deltas, whose base may be in
-  another pack or loose, down to a whole object. Every intermediate base
-  goes into a cache of 4,096 slots and at most 96 MB shared by every
-  thread, as git's delta base cache does, so the objects of one chain do
-  not inflate it again. zlib inflates every stream, and an object's size
-  must be the one its header or delta records; objects are not hashed
-  against their IDs. A damaged stream, a delta that does not apply, a
-  reference delta whose base is missing and a chain longer than 10,000
-  throw, naming the object. A pack written after opening is not seen.
-  The formats are parsed by the pure functions of =ops/git_object.hpp=:
-  =parse_pack_index=, =find_offset=, =parse_pack_entry=, =inflate=,
-  =apply_delta=, =parse_loose_object=, =parse_tree= and =tree_of_commit=.
-  A blob's object ID is its blob ID, so a blob of a commit has the key its
-  parse is stored under in every worktree.
-- *Commits.* =io::list_commit= reads a commit and every tree under it
-  into =types::commit_files=: path, mode and ID of each file, symbolic
-  link and submodule, in byte order of the path, as =git ls-tree -r=
-  lists them. =io::read_commit_file= reads one file of a commit, reading
-  only the trees on its path. Neither reads a blob it is not asked for.
+  wrote them. =io::collect= holds the lock, opens every pack and lists
+  each entry with the time it was first written; an entry a later one of
+  the same kind and key hides is superseded and always dropped.
+  =ops::plan_collection= keeps the live entries and any written within
+  the grace period, an hour by default, so a run in progress never loses
+  an entry it just wrote; it takes the others oldest first by written
+  time while the store is over its cap, and every old temporary file.
+  Unless this is a dry run, the entries kept go into one new pack and the
+  old packs are removed; a store of one pack with nothing to drop is left
+  as it is. A pack a writer publishes during the collection is not
+  touched. The directories of the first layout are removed whole.
 - *Collection is safe to run at any time.* An index that exists and cannot
   be read, split, damaged or of another version, stops the collection before
   anything is removed, since the IDs it holds cannot be kept. A process that
-  has an object mapped keeps its mapping after the unlink. A run that looks
-  up a removed object finds it missing, parses the source again and writes
+  has a pack mapped keeps its mapping after the unlink. A run that looks
+  up a dropped object finds it missing, parses the source again and writes
   the object back, so collection costs speed and never correctness.
+- *Many writers at once.* The test =many processes writing, reading,
+  repacking and collecting one store at once= forks six writers, each
+  publishing 25 packs of 41 results and a manifest and reading back
+  everything it wrote after each publish, two readers that check every
+  entry they find, and a collector rewriting the store in a loop. Every
+  one of the 6,000 results is read back whole, no temporary file is left,
+  and after a repack the store holds at most 12 packs. Removing the merged
+  packs before publishing the merge loses entries in it every time.
+- *The first layout.* A store in the first layout is not read: an
+  install of this layout starts cold. The new build changes the code hash
+  of every codec, so its results would miss anyway, and only the parsed
+  objects, about half a second of parsing on ORE Studio, could be reused;
+  converting them is not worth the code. =compass gc= removes the old
+  directories, and until then they cost files and nothing else.
 
 SHA-1 is implemented here, in about a hundred lines, rather than taken from
 OpenSSL. The store hashes only files whose ID git's index does not already
@@ -209,6 +248,24 @@ hold, so the speed of an accelerated SHA-1 buys little, and OpenSSL would be
 the largest dependency of the build for one function. The same SHA-1 checks
 the trailing checksum of the index; on ORE Studio's 9 MB index that is about
 29 ms of the 65 ms it takes to build a resolver.
+
+On a copy of ORE Studio at =545cafca45= (10,929 org documents), with the
+store and records cleared, =compass check= with every gate enabled, on 8
+cores at load 52 to 66, left this in =compass/=:
+
+| Layout | Files | Bytes (apparent) | Bytes on disk | Cold | Warm (3 runs) | Hook |
+|--------+-------+------------------+---------------+------+---------------+------|
+| one file each (=68833c3=) | 166,836 | 889 MB | 1,471 MB | 64.4 s | 4.6, 5.4, 5.6 s | 0.43 to 0.66 s |
+| packs | 6 (one pack, its lock and four records) | 898 MB | 898 MB | 68.0 s | 4.5, 5.1, 5.8 s | 0.56 to 0.75 s |
+
+The packs hold 620 MB, the 166,832 entries the files held. The files'
+apparent size was 612 MB, but each took at least one 4 KiB block, so they
+took 1,194 MB on disk. The cold run is mostly clang-format; the times
+differ by less than the noise of a machine at that load. A warm check read
+all 10,929 objects from the pack, and its findings were the cold run's.
+=compass gc= then took 1.3 s and removed nothing; with =--grace 0= it
+dropped 22,959 entries (180 MB) that no record names, the formatted files,
+and the next check formatted them again in 50 s.
 
 On ORE Studio's live worktree (60,047 tracked files),
 =compass-bench ids --repeat 5 --verify 500= took 57,283 IDs (95.4%) from
@@ -259,11 +316,13 @@ was shared, so the numbers are indicative.
 |--------------------------------------------------+-----------------------------------------------------------------------------------|
 | =include/compass.store/types/blob_id.hpp=        | =blob_id=: the key of the store.                                                  |
 | =include/compass.store/ops/blob_hash.hpp=        | =blob_id_of= and =to_hex=.                                                        |
-| =include/compass.store/io/location.hpp=          | =git_dir=, =git_common_dir=, =objects_dir=, =worktree_index_path=, =object_path=. |
-| =include/compass.store/io/object_file.hpp=       | =write_object=.                                                                   |
+| =include/compass.store/io/location.hpp=          | =git_dir=, =git_common_dir=, =packs_dir=, =legacy_store_dirs=, =worktree_index_path=. |
+| =include/compass.store/io/object_file.hpp=       | =write_object=: a file written whole by rename.                                   |
 | =include/compass.store/types/action_kind.hpp=    | =action_kind=: manifest or result.                                                |
+| =include/compass.store/types/pack.hpp=           | =entry_kind=, =pack_entry=.                                                       |
+| =include/compass.store/ops/pack.hpp=             | The pack format, =packs_to_merge=, =store_layout_version=.                        |
+| =include/compass.store/io/pack_store.hpp=        | =pack_reader=, =pack_writer=, =pack_lock=, =open_packs=, =rewrite_packs=, =repack=. |
 | =include/compass.store/ops/action_object.hpp=    | =encode_action=, =decode_action=.                                                 |
-| =include/compass.store/io/action_file.hpp=       | =read_action=, =write_action=.                                                    |
 | =include/compass.store/types/git_index.hpp=      | =git_index=, =stat_data=, =index_time=.                                           |
 | =include/compass.store/ops/git_index.hpp=        | =parse_git_index=, =is_regular_file=, =is_unchanged=, =is_clean=.                 |
 | =include/compass.store/types/git_settings.hpp=   | =git_config=, =attribute_rules=.                                                  |
@@ -285,7 +344,9 @@ was shared, so the numbers are indicative.
 | =tests/ops_git_settings_tests.cpp=               | Configuration, attribute rules and patterns.                                      |
 | =tests/io_id_resolver_tests.cpp=                 | Real repositories; IDs checked against =git hash-object=.                         |
 | =tests/io_worktree_index_tests.cpp=              | Reuse with no read, changes, racy entries, damage, pruning, linked worktrees.     |
-| =tests/io_collection_tests.cpp=                  | Linked and deleted worktrees, worktree indexes, cap, grace, order, dry runs, action objects. |
+| =tests/io_collection_tests.cpp=                  | Linked and deleted worktrees, worktree indexes, cap, grace, order, dry runs, action objects, superseded manifests, the first layout. |
+| =tests/ops_pack_tests.cpp=                       | Lookups across fan-out buckets, damaged packs, the geometric merge.               |
+| =tests/io_pack_store_tests.cpp=                  | Publication, temporary files, merges, damaged copies, the lock, many processes at once. |
 | =tests/ops_git_object_tests.cpp=                 | Deltas, trees, commits, zlib streams and pack entry headers, well formed and not. |
 | =tests/io_git_objects_tests.cpp=                 | Loose and packed objects, deep offset and reference delta chains, alternates, missing and damaged objects; checked against =git cat-file=. |
 
@@ -300,8 +361,8 @@ was shared, so the numbers are indicative.
 - =compass.platform=, the foundation layer, for =mapped_file=: the git
   object reader maps packs, their indexes and loose objects.
 - zlib, from its vcpkg port, to inflate git's objects.
-- POSIX (=open=, =fstat=, =lstat=, =read=, =unlink=, =clock_gettime=), and
-  Linux's =CLOCK_REALTIME_COARSE=.
+- POSIX (=open=, =fstat=, =lstat=, =read=, =write=, =rename=, =unlink=,
+  =flock=, =clock_gettime=), and Linux's =CLOCK_REALTIME_COARSE=.
 - Catch2 and the =git= command, for the tests only. The store itself starts
   no git process.
 

@@ -77,7 +77,7 @@ types::warm_run run_once(const std::filesystem::path& checkout,
 
     for (std::size_t row = 0; row < paths.size(); ++row) {
         if (files.errors[row].empty()) {
-            if (files.mapped[row])
+            if (files.loaded[row] != 0)
                 ++run.loaded;
             continue;
         }

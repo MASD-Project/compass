@@ -38,7 +38,6 @@
 #include "compass.org/io/object.hpp"
 #include "compass.store/io/collection.hpp"
 #include "compass.store/io/location.hpp"
-#include "compass.store/io/object_file.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 #include "compass.store/ops/git_index.hpp"
 
@@ -74,23 +73,14 @@ void for_each_row(corpus_files& f, unsigned threads, Row row_of) {
 }
 
 /**
- * @brief The tables of the object at @p path, mapped into @p slot, or
- * nothing when it is missing, does not decode or fails its checksum.
+ * @brief The tables of the object @p bytes, or nothing when they do not
+ * decode under @p key or fail their checksum.
  */
-std::optional<ot::tables_view> map_object(std::optional<mapped_file>& slot,
-    const std::filesystem::path& path,
+std::optional<ot::tables_view> object_of(std::span<const std::byte> bytes,
     const compass::org::io::object_key& key) {
-    try {
-        slot.emplace(path);
-    } catch (const std::system_error&) {
-        return std::nullopt;
-    }
-    const auto bytes = slot->bytes();
     const auto view = compass::org::io::decode(bytes, key);
-    if (!view || !compass::org::io::checksum_matches(bytes)) {
-        slot.reset();
+    if (!view || !compass::org::io::checksum_matches(bytes))
         return std::nullopt;
-    }
     return *view;
 }
 
@@ -114,8 +104,11 @@ void load_row(corpus_files& f, std::size_t row, ot::tables& scratch) {
     const auto text = f.texts[row] = text_of(f, row);
     const compass::org::io::object_key key{
         f.resolved[row].id.bytes, ingest::org::parser_version};
-    auto view = map_object(f.mapped[row],
-        store::io::object_path(f.objects, f.resolved[row].id), key);
+    std::optional<ot::tables_view> view;
+    if (const auto bytes = f.store->find(store::types::entry_kind::object,
+            f.resolved[row].id))
+        view = object_of(*bytes, key);
+    f.loaded[row] = view ? 1 : 0;
     if (!view) {
         ingest::org::parse(text, scratch);
         auto& bytes = f.encoded[row];
@@ -297,11 +290,12 @@ ot::type_registry build_type_registry(const commit_source& c,
 }
 
 corpus_files open_files(const std::filesystem::path& checkout,
-    const std::filesystem::path& objects,
+    const std::filesystem::path& packs,
     std::vector<std::string_view> paths, const commit_source* commit) {
     corpus_files f;
     f.checkout = checkout;
-    f.objects = objects;
+    f.packs = packs;
+    f.store.emplace(packs);
     f.commit = commit;
     f.paths = std::move(paths);
     const auto count = f.paths.size();
@@ -309,7 +303,7 @@ corpus_files open_files(const std::filesystem::path& checkout,
     f.sources.resize(count);
     f.blobs.resize(count);
     f.texts.resize(count);
-    f.mapped.resize(count);
+    f.loaded.resize(count);
     f.encoded.resize(count);
     f.tables.resize(count);
     f.errors.resize(count);
@@ -374,15 +368,16 @@ codec::types::run_result run_codecs(const codec::types::registry& codecs,
 }
 
 std::uint64_t store_objects(const corpus_files& f) {
+    store::io::pack_writer writes(f.packs);
     std::uint64_t written = 0;
     for (std::size_t row = 0; row < f.paths.size(); ++row) {
         if (!f.errors[row].empty() || f.encoded[row].empty())
             continue;
-        store::io::write_object(
-            store::io::object_path(f.objects, f.resolved[row].id),
+        writes.add(store::types::entry_kind::object, f.resolved[row].id,
             f.encoded[row]);
         ++written;
     }
+    writes.publish();
     return written;
 }
 
@@ -434,8 +429,12 @@ sink_outcome write_outputs(const std::filesystem::path& checkout,
         codec::io::written_outputs_path(store::io::git_dir(checkout));
     const auto previous = codec::io::read_written_outputs(record_path);
     r.record_problem = previous.problem;
-    r.sink = codec::io::write_outputs(root, codec::ops::outputs_of(codecs, run),
+    const auto outputs = codec::ops::outputs_of(codecs, run);
+    const auto plan = codec::io::plan_outputs(root, outputs,
         previous.record);
+    if (plan.problems.empty())
+        r.hand_edits = codec::io::find_hand_edits(plan, previous.record);
+    r.sink = codec::io::apply_outputs(plan);
     if (r.sink.problems.empty())
         r.record_written =
             codec::io::write_written_outputs(record_path, r.sink.record);
@@ -452,10 +451,8 @@ void plan_outputs(planned_outputs& p, const std::filesystem::path& checkout,
 }
 
 store::types::collection_result collect(const std::filesystem::path& checkout,
-    const std::filesystem::path& objects,
     const store::types::collection_options& options) {
-    return store::io::collect(checkout, objects, options,
-        codec::io::action_keys);
+    return store::io::collect(checkout, options, codec::io::action_keys);
 }
 
 }

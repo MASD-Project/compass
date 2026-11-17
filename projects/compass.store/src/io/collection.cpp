@@ -24,6 +24,7 @@
 #include <fstream>
 #include <iterator>
 #include <optional>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -33,6 +34,8 @@
 #include <unistd.h>
 #include "compass.store/io/git_files.hpp"
 #include "compass.store/io/location.hpp"
+#include "compass.store/io/pack_store.hpp"
+#include "compass.store/ops/blob_hash.hpp"
 #include "compass.store/ops/collection.hpp"
 #include "compass.store/ops/worktree_index.hpp"
 
@@ -127,15 +130,71 @@ bool remove_unchanged(const std::filesystem::path& file,
     return ::unlink(file.c_str()) == 0;
 }
 
-void append(types::stored_objects& to, const types::stored_objects& from,
-    std::string_view prefix) {
-    for (std::size_t row = 0; row < from.size(); ++row) {
-        to.names.push_back(std::string(prefix) + from.names[row]);
-        to.ids.push_back(from.ids[row]);
-        to.temporary.push_back(from.temporary[row]);
-        to.sizes.push_back(from.sizes[row]);
-        to.mtimes.push_back(from.mtimes[row]);
+/**
+ * @brief Where an entry of the listing is: its pack and its row.
+ */
+struct place {
+    std::size_t pack = 0;
+    std::uint64_t row = 0;
+    types::entry_kind kind = types::entry_kind::object;
+};
+
+/**
+ * @brief The entries of a set of packs: those a later entry of the same
+ * kind and key does not hide, as rows of stored with where each is, and
+ * those it does.
+ */
+struct entry_listing {
+    types::stored_objects stored;
+    std::vector<place> places;
+    std::vector<types::pack_entry> superseded;
+};
+
+std::string_view kind_name(types::entry_kind k) noexcept {
+    switch (k) {
+    case types::entry_kind::object: return "object/";
+    case types::entry_kind::manifest: return "manifest/";
+    case types::entry_kind::result: return "result/";
     }
+    return "";
+}
+
+entry_listing list_entries(std::span<const open_pack> packs) {
+    struct row {
+        types::pack_entry entry;
+        place at;
+    };
+    std::vector<row> rows;
+    for (std::size_t p = 0; p < packs.size(); ++p) {
+        for (std::uint64_t i = 0; i < packs[p].view.count; ++i) {
+            const auto e = ops::entry_at(packs[p].view, i);
+            rows.push_back({e, {p, i, e.kind}});
+        }
+    }
+    std::ranges::sort(rows, [](const row& a, const row& b) {
+        if (a.entry.key != b.entry.key)
+            return a.entry.key < b.entry.key;
+        if (a.entry.kind != b.entry.kind)
+            return a.entry.kind < b.entry.kind;
+        return a.entry.written > b.entry.written;
+    });
+    entry_listing out;
+    for (std::size_t i = 0; i < rows.size(); ++i) {
+        const auto& e = rows[i].entry;
+        if (i != 0 && rows[i - 1].entry.key == e.key &&
+            rows[i - 1].entry.kind == e.kind) {
+            out.superseded.push_back(e);
+            continue;
+        }
+        out.stored.names.push_back(std::string(kind_name(e.kind)) +
+            ops::to_hex(e.key));
+        out.stored.ids.push_back(e.key);
+        out.stored.temporary.push_back(0);
+        out.stored.sizes.push_back(e.size);
+        out.stored.mtimes.push_back(e.written);
+        out.places.push_back(rows[i].at);
+    }
+    return out;
 }
 
 }
@@ -197,7 +256,6 @@ types::stored_objects list_objects(const std::filesystem::path& objects_dir) {
 }
 
 types::collection_result collect(const std::filesystem::path& checkout,
-    const std::filesystem::path& objects_dir,
     const types::collection_options& options, const action_roots& roots) {
     types::collection_result r;
 
@@ -223,39 +281,93 @@ types::collection_result collect(const std::filesystem::path& checkout,
     r.live_ms = since(start);
 
     start = std::chrono::steady_clock::now();
-    auto objects = list_objects(objects_dir);
-    const auto object_rows = objects.size();
-    const auto compass_dir = common / "compass";
-    for (const auto kind : {types::action_kind::manifest,
-             types::action_kind::result}) {
-        const auto dir = actions_dir(common, kind);
-        const auto prefix = dir.filename().string() + "/";
-        append(objects, list_objects(dir), prefix);
+    const auto dir = packs_dir(common);
+    std::optional<pack_lock> lock;
+    if (!options.dry_run)
+        lock.emplace(dir, true);
+    std::vector<std::filesystem::path> rejected;
+    const auto packs = open_packs(dir, &rejected);
+    r.packs = packs.size();
+    auto listed = list_entries(packs);
+    auto& stored = listed.stored;
+    for (std::size_t row = 0; row < listed.superseded.size(); ++row)
+        r.superseded.add(listed.superseded[row].size);
+    const auto entry_rows = stored.size();
+    for (std::size_t row = 0; row < entry_rows; ++row) {
+        if (listed.places[row].kind == types::entry_kind::object)
+            continue;
+        r.actions.add(stored.sizes[row]);
+        if (std::ranges::binary_search(keys, stored.ids[row]))
+            r.live_actions.add(stored.sizes[row]);
     }
-    for (auto row = object_rows; row < objects.size(); ++row) {
-        r.actions.add(objects.sizes[row]);
-        if (objects.temporary[row] == 0 &&
-            std::ranges::binary_search(keys, objects.ids[row]))
-            r.live_actions.add(objects.sizes[row]);
+    std::vector<std::filesystem::path> files;
+    std::error_code ignored;
+    for (const auto& entry : std::filesystem::directory_iterator(dir,
+             ignored)) {
+        const auto name = entry.path().filename().string();
+        if (name.starts_with(temporary_prefix) ||
+            std::ranges::contains(rejected, entry.path()))
+            files.push_back(entry.path());
+    }
+    for (const auto& file : files) {
+        const auto st = regular_file_status(file);
+        if (!st)
+            continue;
+        stored.names.push_back(file.filename().string());
+        stored.ids.push_back({});
+        stored.temporary.push_back(1);
+        stored.sizes.push_back(static_cast<std::uint64_t>(st->st_size));
+        stored.mtimes.push_back(to_ns(st->st_mtim));
+    }
+    std::vector<types::stored_objects> legacy;
+    for (const auto& d : legacy_store_dirs(common)) {
+        legacy.push_back(list_objects(d));
+        for (const auto size : legacy.back().sizes)
+            r.legacy.add(size);
     }
     r.list_ms = since(start);
 
     start = std::chrono::steady_clock::now();
     const auto grace = std::chrono::duration_cast<std::chrono::nanoseconds>(
         options.grace).count();
-    r.plan = ops::plan_collection(objects, live, options.cap, now() - grace);
+    r.plan = ops::plan_collection(stored, live, options.cap, now() - grace);
     for (const auto row : r.plan.victim_rows)
-        r.victims.push_back(objects.names[row]);
+        r.victims.push_back(stored.names[row]);
     r.plan_ms = since(start);
 
     start = std::chrono::steady_clock::now();
+    r.packs_after = r.packs;
     if (!options.dry_run) {
-        for (const auto row : r.plan.victim_rows) {
-            const auto& base = row < object_rows ? objects_dir : compass_dir;
-            if (remove_unchanged(base / objects.names[row],
-                    objects.sizes[row], objects.mtimes[row]))
-                r.removed.add(objects.sizes[row]);
+        std::vector<std::vector<std::uint8_t>> keep;
+        for (const auto& p : packs)
+            keep.emplace_back(p.view.count, std::uint8_t{0});
+        for (std::size_t row = 0; row < entry_rows; ++row) {
+            const auto& at = listed.places[row];
+            keep[at.pack][at.row] = 1;
         }
+        bool dropped = !listed.superseded.empty();
+        for (const auto row : r.plan.victim_rows) {
+            if (row < entry_rows) {
+                const auto& at = listed.places[row];
+                keep[at.pack][at.row] = 0;
+                dropped = true;
+            } else if (remove_unchanged(dir / stored.names[row],
+                           stored.sizes[row], stored.mtimes[row])) {
+                r.removed.add(stored.sizes[row]);
+            }
+        }
+        if (dropped || packs.size() > 1) {
+            const auto written = rewrite_packs(dir, packs, keep);
+            r.packs_after = written ? 1 : 0;
+            r.removed.objects += r.superseded.objects;
+            r.removed.bytes += r.superseded.bytes;
+            for (const auto row : r.plan.victim_rows) {
+                if (row < entry_rows)
+                    r.removed.add(stored.sizes[row]);
+            }
+        }
+        for (const auto& d : legacy_store_dirs(common))
+            std::filesystem::remove_all(d, ignored);
     }
     r.remove_ms = since(start);
     return r;

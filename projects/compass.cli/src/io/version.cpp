@@ -29,6 +29,7 @@
 #include "compass.codec/ops/dependencies.hpp"
 #include "compass.codec/ops/format_cache.hpp"
 #include "compass.codec/ops/outputs.hpp"
+#include "compass.store/ops/pack.hpp"
 #include "compass.store/ops/worktree_index.hpp"
 
 namespace compass::cli::io {
@@ -123,7 +124,9 @@ std::string version_text(const std::filesystem::path& executable) {
     r += "built: " + or_unknown(built) + "\n";
     r += "installed: " +
         (facts ? (f.installed.empty() ? "no" : f.installed) : "unknown") + "\n";
-    r += "store formats: dependency records " +
+    r += "store formats: store layout " +
+        std::to_string(store::ops::store_layout_version) + ", packs " +
+        std::to_string(store::ops::pack_version) + ", dependency records " +
         std::to_string(codec::ops::dependency_record_version) + ", actions " +
         std::to_string(codec::ops::action_format_version) +
         ", written outputs " +

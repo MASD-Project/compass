@@ -22,6 +22,8 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <optional>
+#include <span>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -34,7 +36,7 @@
 #include "compass.org/io/dump.hpp"
 #include "compass.org/io/object.hpp"
 #include "compass.platform/filesystem/mapped_file.hpp"
-#include "compass.store/io/location.hpp"
+#include "compass.store/io/pack_store.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 
 namespace {
@@ -74,7 +76,7 @@ public:
     }
 
     std::filesystem::path checkout() const { return root_ / "checkout"; }
-    std::filesystem::path objects() const { return root_ / "objects"; }
+    std::filesystem::path packs() const { return root_ / "packs"; }
 
 private:
     std::filesystem::path root_;
@@ -91,6 +93,12 @@ std::size_t files_under(const std::filesystem::path& directory) {
 constexpr std::string_view heading = "* H\ntext *b* [[id:x]]\n";
 constexpr std::string_view listing = "#+title: t\n\n- item\n";
 
+std::optional<std::span<const std::byte>> object_in(
+    const store::io::pack_reader& r, std::string_view content) {
+    return r.find(store::types::entry_kind::object,
+        store::ops::blob_id_of(content));
+}
+
 }
 
 TEST_CASE("store stage writes one object per distinct org content",
@@ -103,7 +111,7 @@ TEST_CASE("store stage writes one object per distinct org content",
     repo.track_all();
 
     const auto result = ops::run_store_stage(repo.checkout(), repo.list(),
-        repo.objects(), 2, 3);
+        repo.packs(), 2, 3);
 
     CHECK(result.cold.files == 3);
     CHECK(result.cold.bytes == 2 * heading.size() + listing.size());
@@ -115,15 +123,13 @@ TEST_CASE("store stage writes one object per distinct org content",
     CHECK(result.rejected == 0);
     CHECK(result.mismatches == 0);
     CHECK_FALSE(io::failed(result));
-    CHECK(files_under(repo.objects()) == 2);
-    const auto a = store::io::object_path(repo.objects(),
-        store::ops::blob_id_of(heading));
-    const auto b = store::io::object_path(repo.objects(),
-        store::ops::blob_id_of(listing));
-    REQUIRE(std::filesystem::is_regular_file(a));
-    REQUIRE(std::filesystem::is_regular_file(b));
-    CHECK(result.object_bytes ==
-        std::filesystem::file_size(a) + std::filesystem::file_size(b));
+    CHECK(files_under(repo.packs()) == 1);
+    const store::io::pack_reader r(repo.packs());
+    const auto a = object_in(r, heading);
+    const auto b = object_in(r, listing);
+    REQUIRE(a);
+    REQUIRE(b);
+    CHECK(result.object_bytes == a->size() + b->size());
 }
 
 TEST_CASE("store stage leaves objects that load as the parse of their source",
@@ -133,16 +139,17 @@ TEST_CASE("store stage leaves objects that load as the parse of their source",
     repo.track_all();
 
     const auto result = ops::run_store_stage(repo.checkout(), repo.list(),
-        repo.objects(), 1, 1);
+        repo.packs(), 1, 1);
 
     REQUIRE(result.cold.files == 1);
     const auto id = store::ops::blob_id_of(heading);
-    const compass::platform::filesystem::mapped_file object(
-        store::io::object_path(repo.objects(), id));
-    const auto loaded = compass::org::io::decode(object.bytes(),
+    const store::io::pack_reader r(repo.packs());
+    const auto object = object_in(r, heading);
+    REQUIRE(object);
+    const auto loaded = compass::org::io::decode(*object,
         {id.bytes, compass::ingest::org::parser_version});
     REQUIRE(loaded.has_value());
-    CHECK(compass::org::io::checksum_matches(object.bytes()));
+    CHECK(compass::org::io::checksum_matches(*object));
     compass::org::types::tables tables;
     compass::ingest::org::parse(heading, tables);
     std::ostringstream parsed;
@@ -154,22 +161,26 @@ TEST_CASE("store stage leaves objects that load as the parse of their source",
     CHECK(loaded->links.size() == 1);
 }
 
-TEST_CASE("store stage replaces an object that is not the parse of its key",
-    "[ops][store_stage]") {
+TEST_CASE("store stage reads its own object over one that is not the parse "
+    "of its key", "[ops][store_stage]") {
     scoped_git_repo repo;
     repo.write("a.org", heading);
     repo.track_all();
-    const auto path = store::io::object_path(repo.objects(),
-        store::ops::blob_id_of(heading));
-    std::filesystem::create_directories(path.parent_path());
-    std::ofstream(path) << "left by a build that crashed";
+    {
+        const std::string damaged = "left by a build that crashed";
+        store::io::pack_writer w(repo.packs());
+        w.add(store::types::entry_kind::object,
+            store::ops::blob_id_of(heading), std::as_bytes(std::span(damaged)),
+            1);
+        REQUIRE(w.publish_only());
+    }
 
     const auto result = ops::run_store_stage(repo.checkout(), repo.list(),
-        repo.objects(), 1, 1);
+        repo.packs(), 1, 1);
 
     CHECK(result.rejected == 0);
     CHECK(result.mismatches == 0);
-    CHECK(files_under(repo.objects()) == 1);
+    CHECK(files_under(repo.packs()) == 2);
 }
 
 TEST_CASE("store stage counts a deleted but listed file as an error",
@@ -182,7 +193,7 @@ TEST_CASE("store stage counts a deleted but listed file as an error",
     std::filesystem::remove(repo.checkout() / "gone.org");
 
     const auto result = ops::run_store_stage(repo.checkout(), table,
-        repo.objects(), 1, 2);
+        repo.packs(), 1, 2);
 
     CHECK(result.cold.files == 1);
     CHECK(result.cold.errors == 1);

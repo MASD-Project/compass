@@ -45,7 +45,7 @@ thing with what the codecs produced:
 | =check --commit=  | The same diagnostics at a commit, read from git's objects with no checkout. | Store and result cache only.                   |
 | =check --ratchet= | Only the diagnostics the merge base of HEAD and a base lacks.            | Store and records, as =check=.                    |
 | =check --today=   | The same diagnostics, with exception expiry judged as of another date.  | As =check=.                                       |
-| =gc=              | Removes old unreferenced objects and action objects from the store.      | Removes files from the store, unless =--dry-run=. |
+| =gc=              | Drops old unreferenced objects and action objects from the store, rewriting its packs into one, and removes the first layout of the store. | Rewrites the packs, unless =--dry-run=. |
 | =hook=            | Checks the one file a Claude Code PostToolUse payload on standard input names, running only the units that read or report on it. | Nothing.                                          |
 | =config=          | Prints every path and codec setting in effect, and where it came from.   | Nothing.                                          |
 
@@ -175,17 +175,28 @@ taken, so a model that code generation lists for the first time is
 generated. The run is told the edited path, whose inputs are checked
 first. It reports:
 
-- every finding of those units on the file, which is every finding a full
-  check reports on it, since a unit with a finding on the file is one the
-  index names;
+- their findings on the file that their recorded findings lack, matched by
+  path, rule and message as ratchet mode matches when lines moved, each
+  recorded finding matching one; with =--all-findings=, every finding of
+  those units on the file, which is every finding a full check reports on
+  it, since a unit with a finding on the file is one the index names;
 - their findings on other files that their recorded findings lack, matched
-  by path, rule and message as ratchet mode matches;
+  the same way;
 - the drift of each output whose blob ID differs from the recorded one, or
   that is the edited file, and of each recorded output the run no longer
   generates. Only those outputs are formatted and compared with the disk;
   a reused unit's output contents are not read, except the edited file's.
   A path two parts of a staged codec emit is compared as the later
   part's.
+
+Reporting only new findings is the default because the hook answers
+whether this edit broke something, and an agent blocked on what the file
+already held learns nothing it can act on: ORE Studio's tree held about
+200 baseline entries, and every edit to a file holding one blocked. The
+old findings are counted, not lost: the hook says how many the last check
+recorded on the file and that =compass check= lists them, in
+=additionalContext= when nothing is new, so it does not block, and after
+the new findings when something is.
 
 Valid inline exceptions excuse findings as =check= excuses them, reading
 only the edited file and the files with findings; the exception findings
@@ -287,17 +298,18 @@ record again, and 0.8 s reading it.
 | =-j <n>=                        | one per core                             | Threads.                                        |
 | =--set <codec>.<key>=<value>=   | the file, else the codecs' own           | A codec setting; repeatable, the last one wins. |
 | =--timings=                     | no                                       | =generate=, =diff=, =check=, =hook=: print each step's time and what each codec ran or reused, and how long its units ran. |
-| =--commit <rev>=                | the files on disk                        | =check= only: check the commit =<rev>= names, as =git rev-parse <rev>^{commit}= resolves it, with that commit's =.compass.org=. The output root and meta directory must be under the checkout. |
+| =--commit <rev>=                | the files on disk                        | =check= only: check the commit =<rev>= names, as =git rev-parse <rev>^{commit}= resolves it, with that commit's =.compass.org=, or, when the commit has none, the working tree's, with a warning on standard error. The output root and meta directory must be under the checkout. |
 | =--ratchet [<base>]=            | the upstream, else =origin/main=         | =check= only: fail only on findings the merge base of HEAD and =<base>= lacks. The next argument is the base unless it starts with =-= or names a command; =--ratchet=<base>= always takes one. Not with =--commit=. |
 | =--today <YYYY-MM-DD>=          | today in UTC                             | =check= and =hook=: the date the expiry of inline exceptions is judged against, for the checkout, a commit and both sides of a ratchet. |
+| =--all-findings=                | no                                       | =hook= only: report every finding on the edited file, not only those the last check did not record. |
 | =--dry-run=, =--cap=, =--grace= | no, 0 bytes, 3600 s                      | =gc= only.                                      |
 | =--help=, =-h=, =--version=     |                                          | Print and exit 0, whatever else is there.       |
 
 =--version= prints one fact per line: the release; the full and short commit;
 whether its tree was dirty; the branch; the commit's committer time; the build
 time; the install time; and the store formats the binary reads and writes (the
-dependency record, action, written outputs, format cache and worktree index
-versions). The commit facts come from =compass.manifest=, a =key=value= file
+store layout, 2 for packs, the pack, dependency record, action, written
+outputs, format cache and worktree index versions). The commit facts come from =compass.manifest=, a =key=value= file
 the =compass.cli.version= target writes beside the binary on every build
 through =cmake/generate_version.cmake=; the binary finds it beside its own
 resolved path, so a link to the binary works. The build time is the binary's
@@ -364,11 +376,17 @@ the name keeps it apart from ORE Studio's Python =compass=.
   path. =check --ratchet= prints only the new diagnostics, in the same
   form, then one line with their count, the excused count, the merge base
   and the renamed files followed. =gc= prints
-  what it removed, or would remove, and the size of the store. =config=
+  the entries and files it removed, or would remove, the size of the store
+  and its packs before and after, and the files of the first layout it
+  removed. =config=
   prints one line per path and codec setting, as
   =<key> = <value> (<source>)=, the source being =default=,
   =.compass.org:<line>= or =command line=.
-- Standard error: the summary of =diff=; with =--timings=, one line per
+- Standard error: for =generate=, one warning per file whose rewrite
+  deleted what may be code written by hand
+  (=compass: warning: <path>:<line>: generate deleted <n> lines its output
+  lacks, from "<first line>"; ...=), as =codec::io::find_hand_edits= finds
+  them before the write; the summary of =diff=; with =--timings=, one line per
   step (=tree= for a commit, =types=, =list=, =resolve=, =load=, =record=,
   =codecs=, =format=, =persist=, =write= or =plan=, =exceptions=) with its wall time,
   and one line per codec

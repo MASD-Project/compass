@@ -27,16 +27,17 @@
 namespace compass::bench::ops {
 
 /**
- * @brief Stores every .org file of the table as an object under @p objects
- * and loads it back, on @p threads threads.
+ * @brief Stores every .org file of the table as an object in a pack of
+ * @p packs and loads it back, on @p threads threads.
  *
  * Three runs are timed, @p repetitions times each:
  *
  * - cold: map each source, compute its blob ID, parse it, encode the tables
- *   and write the object. The objects this run wrote are removed before each
- *   repetition, outside the timing, so every repetition writes them all.
- * - warm map: build the path of each object from its blob ID, map it and
- *   decode it, which checks the header and reads no column.
+ *   and add the object to a pack, then publish the pack. The pack the
+ *   previous repetition published is removed before each, outside the
+ *   timing, so every repetition writes them all.
+ * - warm map: open the packs, find each object by its blob ID and decode
+ *   it, which checks the header and reads no column.
  * - warm verify: the same, then check the checksum, which reads every byte
  *   of every column.
  *
@@ -53,7 +54,7 @@ namespace compass::bench::ops {
  */
 [[nodiscard]] types::store_result run_store_stage(
     const std::filesystem::path& checkout, const types::file_table& table,
-    const std::filesystem::path& objects, unsigned threads,
+    const std::filesystem::path& packs, unsigned threads,
     unsigned repetitions);
 
 }

@@ -34,7 +34,11 @@ mattered):
   are new since the merge base. The base defaults to the upstream, else
   `origin/main`.
 - **Past commits.** `compass-ng check --commit <rev>` checks any commit straight
-  from git's object store, without a checkout.
+  from git's object store, without a checkout, with that commit's
+  `.compass.org`. A commit that has none is checked with the working tree's,
+  and compass says so on standard error
+  (`compass: warning: the commit <rev> has no .compass.org; using the working
+  tree's`); it never falls back to the defaults.
 - **Inline exceptions.** A comment excuses one finding:
   `compass:except(<codec>/<rule>) expires=<YYYY-MM-DD> approver=<name> reason=<text>`.
   Expired, incomplete, malformed and stale exceptions are findings themselves.
@@ -49,7 +53,10 @@ compass does not export HTML yet. Keep the Emacs site export and the
 There is one compass, shared by every environment on the machine. Scripts run
 it as `compass-ng`, from the PATH. It is not called `compass`, because ORE
 Studio's Python tool (`./compass.sh`, `ores.compass`) answers to that name
-until it is retired; both tools work side by side. `~/.local/bin/compass-ng` is a link to the
+until it is retired; both tools work side by side. ORE Studio runs its
+Python tool as `./compass.sh`, so wherever ORE Studio's docs say
+`compass <verb>` they mean `./compass.sh <verb>`; no bare `compass` is on the
+PATH. `~/.local/bin/compass-ng` is a link to the
 installed binary, `~/.local/opt/compass/compass`, which has its build manifest,
 `compass.manifest`, beside it.
 
@@ -63,7 +70,7 @@ installed binary, `~/.local/opt/compass/compass`, which has its build manifest,
   committed: 2026-11-17T09:31:48Z
   built: 2026-11-17T09:46:18Z
   installed: 2026-11-17T10:02:11Z
-  store formats: dependency records 6, actions 5, written outputs 1, format cache 1, worktree index 1
+  store formats: store layout 2, packs 1, dependency records 6, actions 5, written outputs 1, format cache 1, worktree index 1
   ```
 
   These are the release, the full and short commit the build was made from,
@@ -83,13 +90,31 @@ installed binary, `~/.local/opt/compass/compass`, which has its build manifest,
 - To see which codecs the installed build knows, run `compass-ng config`: any unknown codec
   named in `.compass.org` is an error that lists the known ones.
 - compass keeps its store under the repository's git common directory
-  (`<common dir>/compass/`), shared by every `ores_dev_*` worktree. Per-worktree
-  records live under each worktree's git directory.
+  (`<common dir>/compass/packs/`), shared by every `ores_dev_*` worktree.
+  Per-worktree records live under each worktree's git directory.
+- The store is a handful of pack files, not a file per object and result.
+  Every run that computes something adds one pack, and small packs are
+  merged into bigger ones as they are written, so the count stays near the
+  logarithm of the store's size. A cold check of ORE Studio leaves one pack
+  of about 620 MB beside four records. Any number of worktrees, checks and
+  hooks may use the store at once: each writer publishes its own pack with
+  an atomic rename, and only merging and `gc` take a lock.
 - When a new binary changes the record format, the first run after it runs
   everything once (cold). That is expected. Compare the `store formats` line
   of the two builds' `--version` to see whether it will happen.
-- Run `compass-ng gc` now and then. The store grows quickly: on a scratch copy of
-  ORE Studio it reached 12 GB before a gc brought it to 2.8 GB.
+- **Store layout 2.** A build whose `store formats` line starts `store
+  layout 2` does not read the old layout of one file per object, manifest
+  and result (`compass/objects`, `compass/manifests`, `compass/results`).
+  Its first check is cold, which every new build is anyway, since a new
+  build changes the key of every stored result. Run `compass-ng gc` once
+  after the install: it removes the old directories, about 189,000 files
+  in a store a day old.
+- Run `compass-ng gc` now and then. It keeps every entry a worktree's index
+  or record names and everything written in the last hour, and rewrites
+  the rest of the store into one pack without the entries nothing names.
+  Formatted files are among those: a `gc` more than an hour after the last
+  check drops them, and the next check runs clang-format and prettier again
+  (about 50 s on ORE Studio).
 
 ## Step 1: add `.compass.org`
 
@@ -149,7 +174,11 @@ replaced in this step.
      hand edit: `market_fixing_repository.cpp` has a hand-written
      `read_latest_for_series` that `compass-ng generate` deletes, as
      `ores.codegen` would. Move such code into a template or a hand-written
-     file before regenerating.
+     file before regenerating. `compass-ng generate` now warns when it
+     deletes three or more lines its output lacks from a file compass did
+     not write last (`compass: warning: <path>:<line>: generate deleted <n>
+     lines its output lacks, from "<first line>"`); it still writes, so
+     restore the lines from git and move them.
      - 24 codegen outputs. 22 were not regenerated after the system-tenant
        shared-read change (the 7 script entities' `*_create.sql`,
        `eventing/*_event.hpp` and `repository/*_repository.cpp`, and
@@ -185,7 +214,10 @@ replaced in this step.
    drift gates (`component-drift`, `drift-sweep`) are `codegen/drift`;
    `reachability` is `test_case_reachability`; the tangle gates are `tangle`
    and `shell_recipe_library` and `http_recipe_library`; `cmake-sources` is
-   `component_files`.
+   `component_files`; `er-diagram` is two codecs, `er_diagram` for the
+   diagrams and `rls_coverage` for the row-level security checks its
+   `--strict` fails on (RLS_001 and RLS_002, read with the same
+   `validation_ignore.txt`).
 3. Time both. Record wall time, the load average and whether compass was warm.
 4. Write the result into an ORE Studio task: each disagreement, its cause, and
    whether compass or the script is right. Send compass bugs back to the
@@ -231,9 +263,10 @@ Only after step 2 shows agreement:
   The compass repository's gate classification
   (`doc/agile/versions/v0/sprint_01/run_the_gates_as_codecs/evidence/gate_classification.org`)
   lists every gate and its class.
-- **Ratchet.** The merge base is checked with its own `.compass.org`, so the
-  ratchet is meaningful only once `.compass.org` is on the base branch; merge
-  it before switching any gate to ratchet mode. For pull requests,
+- **Ratchet.** Both sides of the ratchet are checked with the working
+  tree's `.compass.org`, so the base is judged by the rules HEAD is judged
+  by, whether or not the base has a `.compass.org` of its own. For pull
+  requests,
   `compass-ng check --ratchet origin/main` is the
   gate: it fails only on new findings.
 - **Regeneration.** Replace `regenerate --all` with `compass-ng generate`. Keep
@@ -299,10 +332,13 @@ What the hook does:
   and returns a `block` decision with the findings. That shows them to the
   agent; it does not undo the edit.
 - It fails open, with a note, on any internal error.
-- It reports every finding on the edited file, including ones that were
-  there before the edit. Until the baselines become inline exceptions (step
-  3), an edit to a file with a baseline entry blocks every time, so install
-  the hook only after step 3.
+- It reports only findings that are new since the last `compass-ng check`:
+  a finding the record of that check holds, on the edited file or another,
+  does not block, even when the edit moved its line. The hook says how many
+  old findings it left out, and `compass-ng check` lists them. So the hook
+  can go in before the baselines become inline exceptions (step 3). To see
+  every finding on the edited file instead, use
+  `compass-ng hook --all-findings`.
 - It writes nothing, so it trusts the record of the last `compass-ng check`. Run
   a full `compass-ng check` after pulls and rebases.
 - Warm times at load 2 to 4: most edits take 0.2 to 0.9 s, and a new model

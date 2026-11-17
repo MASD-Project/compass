@@ -104,6 +104,8 @@ std::string join(const std::vector<std::string>& lines, std::string_view by) {
  */
 struct parsed_table {
     std::string name;
+    std::string path;
+    std::uint32_t line = 0;
     std::string component;
     std::string entity;
     std::string classification;
@@ -298,12 +300,15 @@ struct parser {
         return out;
     }
 
-    void extract_tables(std::string_view content) {
+    void extract_tables(std::string_view content, std::string_view path) {
         static const pt::regex table(std::string(table_head) +
             R"re(\s*\((.*?)\);)re", {.dotall = true, .ignorecase = true});
         for (const auto& m : table.find_all(content)) {
             parsed_table t;
             t.name = m.group(1);
+            t.path = path;
+            t.line = static_cast<std::uint32_t>(1 + std::ranges::count(
+                content.substr(0, m.start()), '\n'));
             t.component = component_of(t.name);
             t.entity = t.name;
             for (const auto& c : conventions.components) {
@@ -385,7 +390,7 @@ struct parser {
         std::set<std::string, std::less<>> before_here;
         for (const auto& t : tables)
             before_here.insert(t.name);
-        extract_tables(s.text);
+        extract_tables(s.text, s.path);
         std::vector<std::string> parsed_here;
         for (const auto& t : tables) {
             if (!before_here.contains(t.name))
@@ -639,6 +644,12 @@ er_model er_model_of(std::span<const er_script> scripts,
     p.mark_columns();
     er_model out;
     out.relationships = p.relationships();
+    for (const auto& t : p.tables) {
+        er_defined_table d{t.name, t.path, t.line, {}};
+        for (const auto& c : t.columns)
+            d.columns.push_back(c.name);
+        out.tables.push_back(std::move(d));
+    }
 
     std::vector<std::pair<package_head, std::vector<er_table>>> packages;
     const auto package = [&](const package_head& head) -> auto& {

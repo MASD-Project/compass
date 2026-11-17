@@ -135,6 +135,30 @@ TEST_CASE("a hand edit makes diff exit 1 with its diff and gen restore it",
     CHECK(run_on(repo, "diff").status == 0);
 }
 
+TEST_CASE("generate warns when it deletes lines written into a file it owns, "
+    "and only then", "[app][application]") {
+    scoped_git_repo repo;
+    REQUIRE(run_on(repo, "gen").status == 0);
+    const auto index = repo.output_root() / "doc" / "document_index.tsv";
+    const auto generated = scoped_git_repo::read_file(index);
+    scoped_git_repo::write_file(index, generated +
+        "X-1\tWritten by hand\ttask\tdoc/x.org\n"
+        "X-2\tWritten by hand too\ttask\tdoc/y.org\n"
+        "X-3\tAnd a third\ttask\tdoc/z.org\n");
+
+    const auto restored = run_on(repo, "gen");
+    CHECK(restored.status == 0);
+    CHECK_THAT(restored.err, ContainsSubstring("compass: warning: "
+        "doc/document_index.tsv:") && ContainsSubstring("generate deleted 3 "
+        "lines its output lacks, from \"X-1\tWritten by hand\ttask\t"
+        "doc/x.org\""));
+    CHECK(scoped_git_repo::read_file(index) == generated);
+
+    CHECK(run_on(repo, "gen").err.empty());
+    scoped_git_repo::write_file(index, "edited by hand\n");
+    CHECK(run_on(repo, "gen").err.empty());
+}
+
 TEST_CASE("check reports a missing section with path, position and fix and "
     "exits 1, then 0 once the section is there", "[app][application]") {
     scoped_git_repo repo;

@@ -36,8 +36,8 @@
 #include "compass.codec/ops/run.hpp"
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.org/ops/document_fields.hpp"
-#include "compass.store/io/action_file.hpp"
 #include "compass.store/io/location.hpp"
+#include "compass.store/io/pack_store.hpp"
 #include "test_corpus.hpp"
 
 namespace {
@@ -116,14 +116,20 @@ public:
 
     [[nodiscard]] const std::filesystem::path& root() const { return root_; }
 
-    [[nodiscard]] std::vector<std::filesystem::path> files(
-        compass::store::types::action_kind kind) const {
-        std::vector<std::filesystem::path> out;
-        const auto dir = compass::store::io::actions_dir(root_, kind);
-        for (const auto& e :
-            std::filesystem::recursive_directory_iterator(dir)) {
-            if (e.is_regular_file())
-                out.push_back(e.path());
+    /**
+     * @brief Where each stored action object of @p kind is: its pack and
+     * the offset of its bytes.
+     */
+    [[nodiscard]] std::vector<std::pair<std::filesystem::path,
+        std::uint64_t>> entries(compass::store::types::action_kind kind) const {
+        namespace store = compass::store;
+        std::vector<std::pair<std::filesystem::path, std::uint64_t>> out;
+        for (const auto& p : store::io::open_packs(store::io::packs_dir(root_))) {
+            for (std::uint64_t row = 0; row < p.view.count; ++row) {
+                const auto e = store::ops::entry_at(p.view, row);
+                if (e.kind == store::types::entry_kind_of(kind))
+                    out.emplace_back(p.path, e.offset);
+            }
         }
         return out;
     }
@@ -183,9 +189,10 @@ outcome run(const scoped_cache& cache, const sources& docs,
         ops::encode_dependency_record(result.record)};
 }
 
-void damage(const std::filesystem::path& file) {
-    std::fstream f(file, std::ios::binary | std::ios::in | std::ios::out);
-    f.seekp(12);
+void damage(const std::pair<std::filesystem::path, std::uint64_t>& entry) {
+    std::fstream f(entry.first, std::ios::binary | std::ios::in |
+        std::ios::out);
+    f.seekp(static_cast<std::streamoff>(entry.second + 12));
     f.put('!');
 }
 
@@ -311,15 +318,15 @@ TEST_CASE("a damaged result or manifest is ignored and its unit runs",
     using compass::store::types::action_kind;
     scoped_cache cache;
     (void)run(cache, base());
-    for (const auto& file : cache.files(action_kind::result))
-        damage(file);
+    for (const auto& entry : cache.entries(action_kind::result))
+        damage(entry);
 
     const auto results_damaged = run(cache, base());
     CHECK(results_damaged.ran == counts{1, 4});
     CHECK(run(cache, base()).ran == counts{0, 0});
 
-    for (const auto& file : cache.files(action_kind::manifest))
-        damage(file);
+    for (const auto& entry : cache.entries(action_kind::manifest))
+        damage(entry);
     const auto manifests_damaged = run(cache, base());
     CHECK(manifests_damaged.ran == counts{1, 4});
     CHECK(run(cache, base()).ran == counts{0, 0});
@@ -343,15 +350,16 @@ TEST_CASE("the record names the manifest and result of every unit",
     types::dependency_record record;
     (void)run(cache, base(), {}, {}, 1, &record);
 
-    const auto manifests = cache.files(
+    const auto manifests = cache.entries(
         compass::store::types::action_kind::manifest);
-    const auto results = cache.files(
+    const auto results = cache.entries(
         compass::store::types::action_kind::result);
     CHECK(manifests.size() == 5);
     CHECK(results.size() == 5);
+    const compass::store::io::pack_reader store(
+        compass::store::io::packs_dir(cache.root()));
     for (std::uint32_t u = 0; u < record.size(); ++u) {
-        CHECK(compass::store::io::read_action(compass::store::io::actions_dir(
-            cache.root(), compass::store::types::action_kind::result),
+        CHECK(store.read_action(compass::store::types::action_kind::result,
             record.results[{u}]));
     }
 }

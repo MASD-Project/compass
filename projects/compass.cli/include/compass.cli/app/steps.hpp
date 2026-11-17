@@ -43,6 +43,7 @@
 #include "compass.platform/filesystem/mapped_file.hpp"
 #include "compass.store/io/git_objects.hpp"
 #include "compass.store/io/id_resolver.hpp"
+#include "compass.store/io/pack_store.hpp"
 #include "compass.store/types/collection.hpp"
 #include "compass.store/types/git_object.hpp"
 
@@ -83,13 +84,14 @@ struct commit_source {
  * @brief The org files of a checkout or of a commit, one row per path,
  * and what resolving and loading them found.
  *
- * paths views strings the caller keeps alive. objects is the store the
- * objects are mapped from and written to. commit, when set, is the commit
+ * paths views strings the caller keeps alive. packs is the directory of
+ * the store's packs, which store reads and store_objects writes to.
+ * commit, when set, is the commit
  * the rows are read from instead of the checkout: their IDs are the ones
  * its trees record, their bytes its blobs, and there is no resolver. A
  * row whose error is not empty did not load and is left out of everything
- * after. A row loaded from the store has its object in mapped; a row
- * parsed instead has it in encoded, which tables points into, and which
+ * after. A row loaded from the store has loaded set and its object in a
+ * pack store maps; a row parsed instead has it in encoded, which tables points into, and which
  * store_objects writes. texts views each row's bytes: a file of the
  * checkout mapped in sources, or a blob of the commit held in blobs. Both
  * live as long as the files, since the corpus points into them.
@@ -112,7 +114,8 @@ struct listed_ids {
 
 struct corpus_files {
     std::filesystem::path checkout;
-    std::filesystem::path objects;
+    std::filesystem::path packs;
+    std::optional<store::io::pack_reader> store;
     const commit_source* commit = nullptr;
     std::vector<std::string_view> paths;
     std::optional<store::io::id_resolver> resolver;
@@ -120,7 +123,7 @@ struct corpus_files {
     std::vector<std::optional<platform::filesystem::mapped_file>> sources;
     std::vector<std::string> blobs;
     std::vector<std::string_view> texts;
-    std::vector<std::optional<platform::filesystem::mapped_file>> mapped;
+    std::vector<std::uint8_t> loaded;
     std::vector<std::vector<std::byte>> encoded;
     std::vector<org::types::tables_view> tables;
     std::vector<std::string> errors;
@@ -195,11 +198,11 @@ void list(listing& l, const commit_source& c);
 
 /**
  * @brief Rows for @p paths of @p checkout, or of @p commit when it is not
- * null, with nothing resolved or loaded, whose objects live under
- * @p objects.
+ * null, with nothing resolved or loaded, whose objects live in the packs
+ * of @p packs, opened as they are now.
  */
 [[nodiscard]] corpus_files open_files(const std::filesystem::path& checkout,
-    const std::filesystem::path& objects,
+    const std::filesystem::path& packs,
     std::vector<std::string_view> paths,
     const commit_source* commit = nullptr);
 
@@ -213,7 +216,7 @@ void resolve(corpus_files& f, unsigned threads);
 
 /**
  * @brief Loads every resolved row on up to @p threads threads: maps its
- * source, or reads its blob from the commit, and maps its object from the
+ * source, or reads its blob from the commit, and takes its object from the
  * store or, when it is missing or rejected, parses the source into an
  * object held in memory. Writes nothing. A file that cannot be read gets
  * an error.
@@ -249,7 +252,7 @@ void load(corpus_files& f, unsigned threads);
 
 /**
  * @brief Writes the object of every row that loaded by parsing to the
- * store, and returns how many were written.
+ * store, in one pack, and returns how many were written.
  *
  * @throws std::system_error when an object cannot be written.
  */
@@ -280,12 +283,14 @@ bool write_dependency_record(const std::filesystem::path& checkout,
     const codec::types::run_result& run);
 
 /**
- * @brief What writing the outputs did: sink, why the written-outputs
+ * @brief What writing the outputs did: sink, the files whose rewrite
+ * deleted what may be code written by hand, why the written-outputs
  * record read was not used when it was not, and whether the record was
  * rewritten.
  */
 struct sink_outcome {
     codec::io::sink_result sink;
+    std::vector<codec::io::hand_edit> hand_edits;
     std::string record_problem;
     bool record_written = false;
 };
@@ -326,7 +331,7 @@ void plan_outputs(planned_outputs& p, const std::filesystem::path& checkout,
     const codec::types::run_result& run);
 
 /**
- * @brief Collects the store at @p objects of the repository @p checkout
+ * @brief Collects the store of the repository @p checkout
  * belongs to, keeping every object a worktree's index names and every
  * action object a worktree's dependency record names.
  *
@@ -335,7 +340,6 @@ void plan_outputs(planned_outputs& p, const std::filesystem::path& checkout,
  */
 [[nodiscard]] store::types::collection_result collect(
     const std::filesystem::path& checkout,
-    const std::filesystem::path& objects,
     const store::types::collection_options& options);
 
 }

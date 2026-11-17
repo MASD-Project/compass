@@ -27,6 +27,7 @@
 #include "compass.codec/ops/parallel_for.hpp"
 #include "compass.store/io/id_resolver.hpp"
 #include "compass.store/io/location.hpp"
+#include "compass.store/io/pack_store.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 #include "scoped_git_repo.hpp"
 
@@ -116,7 +117,7 @@ TEST_CASE("every listed file answers the content ID of its own bytes, "
     app::list(l, repo.checkout());
     std::erase(l.files, "other/unlisted.txt");
     auto f = app::open_files(repo.checkout(),
-        compass::store::io::objects_dir(
+        compass::store::io::packs_dir(
             compass::store::io::git_common_dir(repo.checkout())), {});
     app::resolve(f, 1);
     const auto files = app::checkout_files_of(f, l);
@@ -170,7 +171,7 @@ TEST_CASE("gc with --dry-run removes nothing that a real gc removes",
     repo.write("readme.org", "Edited once.\n");
     (void)app::check(options_of(repo));
     repo.write("readme.org", "Edited twice.\n");
-    (void)app::check(options_of(repo));
+    const auto last = app::check(options_of(repo));
     auto o = options_of(repo);
     o.collection.grace = std::chrono::seconds(0);
     o.collection.dry_run = true;
@@ -185,7 +186,34 @@ TEST_CASE("gc with --dry-run removes nothing that a real gc removes",
     o.collection.dry_run = false;
     const auto real = app::gc(o);
     CHECK(real.collection.removed.objects ==
-        dry.collection.plan.victims.objects);
-    CHECK(files_under(store) ==
-        before - real.collection.removed.objects);
+        dry.collection.plan.victims.objects +
+            dry.collection.superseded.objects);
+    CHECK(real.collection.packs_after == 1);
+    CHECK(app::gc(o).collection.removed.objects == 0);
+    CHECK(app::check(options_of(repo)).findings.size() ==
+        last.findings.size());
+}
+
+TEST_CASE("checks leave the store a handful of files, not one per object "
+    "or result", "[app][pipeline]") {
+    scoped_git_repo repo;
+    const auto store =
+        compass::store::io::git_common_dir(repo.checkout()) / "compass";
+    for (int i = 0; i < 20; ++i) {
+        repo.write("doc/note_" + std::to_string(i) + ".org",
+            "#+title: Note " + std::to_string(i) + "\n");
+        (void)app::check(options_of(repo));
+    }
+    const auto packs = compass::store::io::packs_dir(
+        compass::store::io::git_common_dir(repo.checkout()));
+    std::size_t pack_files = 0;
+    for (const auto& e : std::filesystem::directory_iterator(packs))
+        pack_files += compass::store::io::is_pack_name(
+            e.path().filename().string()) ? 1 : 0;
+    CHECK(pack_files <= 8);
+    CHECK(files_under(packs) <= pack_files + 1);
+    CHECK(files_under(store) <= 16);
+    for (const auto& d : compass::store::io::legacy_store_dirs(
+             compass::store::io::git_common_dir(repo.checkout())))
+        CHECK_FALSE(std::filesystem::exists(d));
 }

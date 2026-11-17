@@ -25,6 +25,8 @@
 #include <fstream>
 #include <iterator>
 #include <map>
+#include <optional>
+#include <utility>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -35,8 +37,9 @@
 #include "compass.bench/ops/listing.hpp"
 #include "compass.codec/io/dependency_file.hpp"
 #include "compass.codec/ops/dependencies.hpp"
-#include "compass.store/io/action_file.hpp"
 #include "compass.store/io/location.hpp"
+#include "compass.store/io/pack_store.hpp"
+#include "compass.store/ops/action_object.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 #include "scoped_git_repo.hpp"
 
@@ -95,23 +98,35 @@ public:
         const auto table = ops::build_file_table(checkout,
             ops::parse_listing(ops::git_ls_files(checkout)));
         return ops::run_codecs_stage(checkout, table,
-            checkout / "doc" / "meta", repo_.objects(), settings, 2, 1, out);
+            checkout / "doc" / "meta", repo_.packs(), settings, 2, 1, out);
     }
 
     [[nodiscard]] std::filesystem::path out(const std::string& name) const {
         return repo_.checkout().parent_path() / name;
     }
 
-    [[nodiscard]] std::vector<std::filesystem::path> action_files(
-        action_kind kind) const {
-        std::vector<std::filesystem::path> files;
-        const auto dir = compass::store::io::actions_dir(common(), kind);
-        for (const auto& e :
-            std::filesystem::recursive_directory_iterator(dir)) {
-            if (e.is_regular_file())
-                files.push_back(e.path());
+    /**
+     * @brief Where each stored action object of @p kind is: its pack and
+     * the offset of its bytes.
+     */
+    [[nodiscard]] std::vector<std::pair<std::filesystem::path,
+        std::uint64_t>> action_entries(action_kind kind) const {
+        namespace store = compass::store;
+        std::vector<std::pair<std::filesystem::path, std::uint64_t>> out;
+        for (const auto& p : store::io::open_packs(repo_.packs())) {
+            for (std::uint64_t row = 0; row < p.view.count; ++row) {
+                const auto e = store::ops::entry_at(p.view, row);
+                if (e.kind == store::types::entry_kind_of(kind))
+                    out.emplace_back(p.path, e.offset);
+            }
         }
-        return files;
+        return out;
+    }
+
+    [[nodiscard]] std::optional<std::string> action(action_kind kind,
+        const compass::store::types::blob_id& key) const {
+        return compass::store::io::pack_reader(repo_.packs()).read_action(
+            kind, key);
     }
 
 private:
@@ -134,15 +149,6 @@ std::string record_of(const types::codecs_result& r) {
     return compass::codec::ops::encode_dependency_record(r.last.record);
 }
 
-void age_all(const std::filesystem::path& dir) {
-    for (const auto& e : std::filesystem::recursive_directory_iterator(dir)) {
-        if (e.is_regular_file())
-            std::filesystem::last_write_time(e.path(),
-                std::filesystem::file_time_type::clock::now() -
-                    std::chrono::hours(2));
-    }
-}
-
 }
 
 TEST_CASE("a second worktree on the same commit runs no unit and writes "
@@ -160,7 +166,7 @@ TEST_CASE("a second worktree on the same commit runs no unit and writes "
     CHECK(contents(w.out("out2")) == contents(w.out("out1")));
     CHECK(record_of(second) == record_of(first));
     std::ostringstream os;
-    io::write_codecs_report(os, second, {}, w.repo().objects());
+    io::write_codecs_report(os, second, {}, w.repo().packs());
     CHECK_THAT(os.str(), ContainsSubstring("cached") &&
         ContainsSubstring("stored 0 results"));
 }
@@ -203,10 +209,10 @@ TEST_CASE("damaged action objects are ignored and their units run",
     two_worktrees w;
     const auto first = w.run(w.first(), w.out("out1"));
     for (const auto kind : {action_kind::manifest, action_kind::result}) {
-        for (const auto& file : w.action_files(kind)) {
-            std::fstream f(file,
+        for (const auto& [pack, offset] : w.action_entries(kind)) {
+            std::fstream f(pack,
                 std::ios::binary | std::ios::in | std::ios::out);
-            f.seekp(9);
+            f.seekp(static_cast<std::streamoff>(offset + 9));
             f.put('!');
         }
     }
@@ -228,12 +234,14 @@ TEST_CASE("collection keeps the action objects any worktree's record names "
     const auto second = w.run(w.second(), w.out("out2"));
     REQUIRE(second.last.ran == counts{1, 1, 0, 0});
     const auto orphan = compass::store::ops::blob_id_of("orphan");
-    compass::store::io::write_action(compass::store::io::actions_dir(
-        w.common(), action_kind::result), orphan, "unnamed");
-    age_all(w.common() / "compass");
+    {
+        compass::store::io::pack_writer writes(w.repo().packs());
+        writes.add_action(action_kind::result, orphan, "unnamed");
+        (void)writes.publish_only();
+    }
 
-    const auto r = ops::run_gc_stage(w.first(), w.repo().objects(),
-        {0, std::chrono::hours(1), false});
+    const auto r = ops::run_gc_stage(w.first(),
+        {0, std::chrono::seconds(0), false});
 
     CHECK(r.worktrees.size() == 2);
     for (const auto& checkout : {w.first(), w.second()}) {
@@ -242,19 +250,15 @@ TEST_CASE("collection keeps the action objects any worktree's record names "
                 compass::store::io::git_dir(checkout)));
         REQUIRE(loaded.record.size() == 3);
         for (std::uint32_t u = 0; u < loaded.record.size(); ++u) {
-            CHECK(compass::store::io::read_action(
-                compass::store::io::actions_dir(w.common(),
-                    action_kind::manifest), loaded.record.manifests[{u}]));
-            CHECK(compass::store::io::read_action(
-                compass::store::io::actions_dir(w.common(),
-                    action_kind::result), loaded.record.results[{u}]));
+            CHECK(w.action(action_kind::manifest,
+                loaded.record.manifests[{u}]));
+            CHECK(w.action(action_kind::result, loaded.record.results[{u}]));
         }
     }
-    CHECK_FALSE(compass::store::io::read_action(
-        compass::store::io::actions_dir(w.common(), action_kind::result),
-        orphan));
-    CHECK(r.removed.objects == 1);
+    CHECK_FALSE(w.action(action_kind::result, orphan));
+    CHECK(r.plan.victims.objects == 1);
+    CHECK(r.removed.objects == 1 + r.superseded.objects);
     std::ostringstream os;
-    io::write_gc_report(os, r, {}, w.repo().objects());
+    io::write_gc_report(os, r, {}, w.repo().packs());
     CHECK_THAT(os.str(), ContainsSubstring("action objects"));
 }

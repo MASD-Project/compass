@@ -76,13 +76,16 @@ struct run_summary {
 
 /**
  * @brief What compass generate did: sink counts what writing the outputs
- * under root did, and its problems why nothing could be written. ms is
+ * under root did, and its problems why nothing could be written.
+ * hand_edits are the files whose rewrite deleted what may be code
+ * written by hand, which generate warns of. ms is
  * the wall time of the whole command.
  */
 struct generate_result {
     run_summary run;
     std::filesystem::path root;
     codec::io::sink_result sink;
+    std::vector<codec::io::hand_edit> hand_edits;
     double ms = 0;
 };
 
@@ -142,8 +145,10 @@ struct check_result {
  * path is the file, relative to the checkout. checked is false when no
  * codec reads or reports on it, so nothing ran. findings are those on the
  * file and those the edit caused on other files, less the excused ones,
- * sorted as check sorts them. note, when not empty, says why the hook
- * could not check the file; it then has no findings.
+ * sorted as check sorts them. old counts the findings on the file that
+ * the last check recorded, which are left out unless all were asked for.
+ * note, when not empty, says why the hook could not check the file; it
+ * then has no findings.
  */
 struct hook_result {
     run_summary run;
@@ -151,6 +156,7 @@ struct hook_result {
     bool checked = false;
     std::vector<finding> findings;
     std::size_t excused = 0;
+    std::size_t old = 0;
     std::string note;
     double ms = 0;
 };
@@ -200,10 +206,11 @@ struct ratchet_result {
 };
 
 /**
- * @brief What compass gc found and removed in the store at objects.
+ * @brief What compass gc found and removed in the store whose packs are in
+ * packs.
  */
 struct gc_result {
-    std::filesystem::path objects;
+    std::filesystem::path packs;
     store::types::collection_options options;
     store::types::collection_result collection;
 };

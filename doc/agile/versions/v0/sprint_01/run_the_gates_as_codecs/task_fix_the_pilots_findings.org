@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/fix-the-pilots-findings
+#+pr: https://github.com/MASD-Project/compass/pull/57
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-17
@@ -26,15 +26,16 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-17                               |
 
 * Acceptance
 
+- D8: the store holds a bounded number of files, packing results and objects instead of one file each; a store that held 188,697 files after one day of pilot runs holds a few hundred, and =gc= reclaims space without growing the count.
 - D1: =er_diagram= runs the RLS validation the Python gate runs with =--strict= and reports the four trading tables without row level security at ORE Studio =67803175ce=.
 - D3: a =--commit= or =--ratchet= run on a commit without =.compass.org= warns and uses the working tree's configuration, never silent defaults.
 - D5: the hook can report only findings new since the last check, so an edit to a file with old findings does not block on them.
@@ -43,9 +44,12 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- D8 first: pack the store. Results, manifests and parsed objects go into
+  append-only pack files with an index, as git does, written atomically and
+  safe for concurrent writers across worktrees; gc rewrites packs to drop
+  unreferenced entries. Measure file count, bytes and warm and cold times on
+  the ORE copy before and after.
+- Then D1, D3, D5 and D6, each with a test that fails first.
 
 * Measurements
 
@@ -59,7 +63,12 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Store files on the ORE copy | 166,836 before, 8 after (one pack, a lock, records) | =find .git/compass \| wc -l= | 9dacbe1 |
+| Store on disk | 1,471 MB before, 898 MB after (agent); 1.3 GB after more runs | =du= | 9dacbe1 |
+| Warm check with packs | 4.5-5.8 s at load 52-66 against 4.6-5.6 s before (agent) | =compass check= | 9dacbe1 |
+| Concurrency | 6 writers, 2 readers and a collector on one store: 6,000 results intact over 40 runs | =io_pack_store_tests= | 9dacbe1 |
+| rls_coverage at ORE 67803175ce | the same 8 warnings as =plantuml_er_parse_sql.py --strict= | export comparison | 435dbd0 |
+| ctest | 15 of 15 suites pass | =ctest --preset linux-clang-release= | 9dacbe1 |
 
 * Notes
 
@@ -71,6 +80,11 @@ The pilot's report, from =ores_dev_solid_dirac= on ORE Studio main
   Python is right. The value-set gates wait on the =r.id= fix.
 - Planted violations: compass caught 10 of 10 in 8.7 to 10.4 s; Python caught
   10 of 10 in 9 min 56 s.
+- D8, the store's file count: after one day of pilot runs (about six checks
+  and one diff over two trees) ORE Studio's store held 188,697 files, 858 MB
+  of data and 1.5 GB on disk; =gc --dry-run= removed nothing. One cold run
+  on the scratch copy alone wrote 161,029 files; earlier the scratch store
+  reached 465,000 files and exhausted /tmp's inodes for every session.
 - Performance: the 75 ported gates take 1,844 s in Python; =compass check=
   took 66.5 s cold (44 s clang-format) and 4.7 s warm. portable_stop and
   stream_coverage took about 8 s each cold.
@@ -90,7 +104,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/57][#57]] | [store] Fix the pilot's findings: packed store, RLS check and more |
 
 * Review
 
@@ -99,3 +113,29 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- *D8.* The store packs objects, manifests and results into append-only
+  =.cpk= packs, each with its index at the end, published by one rename. Each
+  writer appends to its own temporary file, so writers share nothing; a
+  geometric repack under =flock= keeps the pack count logarithmic, and =gc=
+  rewrites the packs to drop unreferenced entries. A store in the old layout
+  is read as cold, and =gc= deletes it. =--version= shows =store layout 2,
+  packs 1=.
+- *D1.* =rls_coverage= in =compass.sql= reports =missing_rls= and
+  =missing_party_isolation= as the Python gate's =--strict= does, honouring
+  =validation_ignore.txt=; on ORE Studio =67803175ce= it reports the same
+  eight warnings on the four trading tables.
+- *D3.* =--commit= on a commit without =.compass.org= warns and uses the
+  working tree's.
+- *D5.* =compass hook= reports only findings the last check's record lacks;
+  =--all-findings= restores every finding.
+- *D6.* =generate= warns when a rewrite removes three or more lines its own
+  output lacks from a file someone edited.
+
+An install changes for the pilot: the first check is cold, =compass-ng gc=
+deletes the old store's files, =rls_coverage= must be enabled to replace the
+Python er-diagram gate, and the hook stops blocking on old findings.
+
+Decisions to revisit: formatted results are named by no record, so a gc an
+hour after the last check drops them and the next check reformats (about 50
+s on ORE); RLS_003 is not ported; packs are not fsynced.

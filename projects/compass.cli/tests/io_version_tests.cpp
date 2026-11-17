@@ -31,6 +31,7 @@
 #include "compass.codec/ops/dependencies.hpp"
 #include "compass.codec/ops/format_cache.hpp"
 #include "compass.codec/ops/outputs.hpp"
+#include "compass.store/ops/pack.hpp"
 #include "compass.store/ops/worktree_index.hpp"
 
 namespace {
@@ -180,7 +181,9 @@ TEST_CASE("version_text prints the store formats compiled in",
     scoped_bin bin;
 
     CHECK_THAT(version_text(bin.executable()),
-        ContainsSubstring("\nstore formats: dependency records " +
+        ContainsSubstring("\nstore formats: store layout " +
+            n(store::store_layout_version) + ", packs " +
+            n(store::pack_version) + ", dependency records " +
             n(codec::dependency_record_version) + ", actions " +
             n(codec::action_format_version) + ", written outputs " +
             n(codec::written_outputs_version) + ", format cache " +

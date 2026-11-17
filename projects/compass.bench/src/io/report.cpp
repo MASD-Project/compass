@@ -861,6 +861,10 @@ void write_gc_report(std::ostream& os,
     row("removed", result.removed);
     row("action objects", result.actions);
     row("  named", result.live_actions);
+    row("superseded", result.superseded);
+    row("old layout", result.legacy);
+    os << std::format("packs: {} before, {} after\n", result.packs,
+        result.packs_after);
 
     const auto gone = options.dry_run ? plan.victims.bytes
                                       : result.removed.bytes;

@@ -33,8 +33,8 @@ namespace compass::codec::io {
 
 /**
  * @brief The result cache of the repository whose git common directory is
- * @p git_common_dir, as ops::run reads it: the action objects under its
- * compass/manifests and compass/results.
+ * @p git_common_dir, as ops::run reads it: the action objects of the packs
+ * under its compass/packs, as they are when the source is made.
  */
 [[nodiscard]] types::action_source action_source_of(
     const std::filesystem::path& git_common_dir);
@@ -62,9 +62,10 @@ struct action_writes {
  * run is replaced. A manifest is read, given the set and written back;
  * one that does not load is replaced by a manifest of the one set. Two
  * worktrees that write one manifest at once can lose one of their sets,
- * which costs one more run of that unit, never a wrong result.
+ * which costs one more run of that unit, never a wrong result. Everything
+ * goes into one pack, published when all is written.
  *
- * @throws std::filesystem::filesystem_error when a write fails.
+ * @throws std::system_error when a write fails.
  */
 action_writes store_actions(const std::filesystem::path& git_common_dir,
     const types::dependency_record& record,

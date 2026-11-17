@@ -31,12 +31,14 @@
 namespace compass::store::types {
 
 /**
- * @brief The files of a store, as parallel columns, one row per file.
+ * @brief What a store holds, as parallel columns, one row each: the entries
+ * of its packs and the files beside them that are not packs.
  *
- * name is the path under the objects directory, as "ab/<38 hex>" for an
- * object. A temporary file a crashed write left behind has temporary set
- * to 1 and a zero ID. mtime is the modification time in nanoseconds since
- * the epoch. Files of any other name are not listed.
+ * name is "object/<hex>", "manifest/<hex>" or "result/<hex>" for an entry,
+ * and the file name for anything else: a temporary file a crashed write
+ * left behind or a pack that does not parse, which has temporary set to 1
+ * and a zero ID. mtime is when an entry was first written, or a file's
+ * modification time, in nanoseconds since the epoch.
  */
 struct stored_objects {
     std::vector<std::string> names;
@@ -98,10 +100,12 @@ struct collection_options {
  * the distinct IDs they refer to, and live_keys the distinct action keys
  * their records name. actions and live_actions count the action objects
  * stored and those a record names; the plan counts them with the objects.
- * victims names the files chosen, oldest first, objects relative to the
- * objects directory and action objects as "manifests/..." or "results/...",
- * and removed counts those actually unlinked: none in a dry run, and fewer
- * when a file went or changed under the collection.
+ * superseded counts the entries a later one of the same kind and key
+ * hides, which nothing reads and every collection drops. victims names
+ * what the plan chose, oldest first, and removed counts the entries and
+ * files actually dropped: none in a dry run. packs and packs_after count
+ * the packs before and after; legacy counts the files of the first layout
+ * of the store, which a collection removes whole.
  */
 struct collection_result {
     std::vector<std::filesystem::path> worktrees;
@@ -110,8 +114,12 @@ struct collection_result {
     object_tally actions;
     object_tally live_actions;
     collection_plan plan;
+    object_tally superseded;
     std::vector<std::string> victims;
     object_tally removed;
+    std::uint64_t packs = 0;
+    std::uint64_t packs_after = 0;
+    object_tally legacy;
     double worktrees_ms = 0;
     double live_ms = 0;
     double list_ms = 0;

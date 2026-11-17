@@ -361,7 +361,7 @@ int run_types(const options& o) {
 
 std::filesystem::path objects_of(const options& o) {
     return o.store.empty()
-        ? compass::store::io::objects_dir(
+        ? compass::store::io::packs_dir(
             compass::store::io::git_common_dir(o.checkout))
         : o.store;
 }
@@ -413,7 +413,7 @@ int run_codecs_diff(const options& o) {
 int run_gc(const options& o) {
     const auto objects = objects_of(o);
     const auto result =
-        ops::run_gc_stage(o.checkout, objects, o.collection);
+        ops::run_gc_stage(o.checkout, o.collection);
     io::write_gc_report(std::cout, result, o.collection, objects);
     return 0;
 }

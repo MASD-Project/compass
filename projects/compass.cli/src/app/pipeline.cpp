@@ -173,7 +173,7 @@ void load_files(pipeline& p, const types::options& o,
     const auto documents = with_documents ? p.listed.documents
                                           : std::vector<std::string_view>{};
     p.files = open_files(o.checkout,
-        store::io::objects_dir(store::io::git_common_dir(o.checkout)),
+        store::io::packs_dir(store::io::git_common_dir(o.checkout)),
         documents, p.commit ? &*p.commit : nullptr);
     s.files = documents.size();
     p.timed("resolve", [&] { resolve(p.files, o.threads); });
@@ -184,7 +184,7 @@ void load_files(pipeline& p, const types::options& o,
             s.errors.push_back(std::string(documents[row]) + ": " +
                 p.files.errors[row]);
         else
-            ++(p.files.mapped[row] ? s.loaded : s.parsed);
+            ++(p.files.loaded[row] != 0 ? s.loaded : s.parsed);
     }
     p.checkout = checkout_files_of(p.files, p.listed);
     p.corpus = corpus_of(p.files, p.types);
@@ -442,8 +442,10 @@ types::generate_result generate(const types::options& o) {
     persist(p, o.threads);
     if (!p.summary.failed()) {
         p.timed("write", [&] {
-            r.sink = write_outputs(o.checkout, o.output_root, p.codecs,
-                p.run).sink;
+            auto written = write_outputs(o.checkout, o.output_root, p.codecs,
+                p.run);
+            r.sink = std::move(written.sink);
+            r.hand_edits = std::move(written.hand_edits);
         });
     }
     r.run = p.summary;
@@ -1094,10 +1096,11 @@ types::hook_result hook(const types::options& o, const std::string& path,
     add_findings(p, found);
     auto old = recorded_findings(p, heads.loaded.record);
     for (auto& f : found) {
-        if (f.path != path) {
+        if (f.path != path || !o.all_findings) {
             const auto it = old.find(joined(f.path, f.rule, f.message));
             if (it != old.end() && it->second != 0) {
                 --it->second;
+                r.old += f.path == path ? 1 : 0;
                 continue;
             }
         }
@@ -1139,9 +1142,9 @@ types::ratchet_result ratchet(const types::options& o,
 
 types::gc_result gc(const types::options& o) {
     types::gc_result r;
-    r.objects = store::io::objects_dir(store::io::git_common_dir(o.checkout));
+    r.packs = store::io::packs_dir(store::io::git_common_dir(o.checkout));
     r.options = o.collection;
-    r.collection = collect(o.checkout, r.objects, o.collection);
+    r.collection = collect(o.checkout, o.collection);
     return r;
 }
 

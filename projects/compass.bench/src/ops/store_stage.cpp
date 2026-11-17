@@ -20,8 +20,11 @@
 #include "compass.bench/ops/store_stage.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
+#include <span>
 #include <sstream>
 #include <string>
 #include <system_error>
@@ -34,7 +37,7 @@
 #include "compass.org/types/tables.hpp"
 #include "compass.platform/filesystem/mapped_file.hpp"
 #include "compass.store/io/location.hpp"
-#include "compass.store/io/object_file.hpp"
+#include "compass.store/io/pack_store.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 #include "compass.store/types/blob_id.hpp"
 
@@ -55,7 +58,7 @@ enum class warm { map, verify };
 struct corpus {
     const std::filesystem::path& checkout;
     const types::file_table& table;
-    const std::filesystem::path& objects;
+    const std::filesystem::path& packs;
     std::vector<std::uint32_t> ids;
     std::vector<store::types::blob_id> blobs;
     std::vector<std::uint64_t> object_sizes;
@@ -63,10 +66,6 @@ struct corpus {
 
     [[nodiscard]] std::filesystem::path source(std::uint32_t row) const {
         return checkout / table.paths[ids[row]];
-    }
-
-    [[nodiscard]] std::filesystem::path object(std::uint32_t row) const {
-        return store::io::object_path(objects, blobs[row]);
     }
 
     [[nodiscard]] compass::org::io::object_key key(std::uint32_t row) const {
@@ -89,7 +88,8 @@ struct tally {
     }
 };
 
-tally store_range(corpus& c, types::file_range range) {
+tally store_range(corpus& c, store::io::pack_writer& writes,
+    types::file_range range) {
     tally t;
     ot::tables tables;
     std::vector<std::byte> bytes;
@@ -100,7 +100,7 @@ tally store_range(corpus& c, types::file_range range) {
             c.blobs[row] = store::ops::blob_id_of(file.text());
             ingest::org::parse(file.text(), tables);
             compass::org::io::encode(ot::view(tables), c.key(row), bytes);
-            store::io::write_object(c.object(row), bytes);
+            writes.add(store::types::entry_kind::object, c.blobs[row], bytes);
             c.object_sizes[row] = bytes.size();
             c.stored[row] = 1;
             t.bytes += file.size();
@@ -112,19 +112,30 @@ tally store_range(corpus& c, types::file_range range) {
     return t;
 }
 
-tally load_range(const corpus& c, types::file_range range, warm how) {
+std::span<const std::byte> object_of(const store::io::pack_reader& store,
+    const corpus& c, std::uint32_t row) {
+    const auto bytes = store.find(store::types::entry_kind::object,
+        c.blobs[row]);
+    if (!bytes)
+        throw std::system_error(
+            std::make_error_code(std::errc::no_such_file_or_directory),
+            "no object for " + c.table.paths[c.ids[row]]);
+    return *bytes;
+}
+
+tally load_range(const store::io::pack_reader& store, const corpus& c,
+    types::file_range range, warm how) {
     tally t;
     for (auto row = range.begin; row < range.end; ++row) {
         if (c.stored[row] == 0)
             continue;
         try {
-            const mapped_file file(c.object(row));
-            const auto loaded =
-                compass::org::io::decode(file.bytes(), c.key(row));
+            const auto object = object_of(store, c, row);
+            const auto loaded = compass::org::io::decode(object, c.key(row));
             const bool good = loaded.has_value() && (how == warm::map ||
-                compass::org::io::checksum_matches(file.bytes()));
+                compass::org::io::checksum_matches(object));
             t.rejected += good ? 0 : 1;
-            t.bytes += file.size();
+            t.bytes += object.size();
             ++t.files;
         } catch (const std::system_error& e) {
             t.error(e);
@@ -134,7 +145,8 @@ tally load_range(const corpus& c, types::file_range range, warm how) {
     return t;
 }
 
-tally compare_range(const corpus& c, types::file_range range) {
+tally compare_range(const store::io::pack_reader& store, const corpus& c,
+    types::file_range range) {
     tally t;
     ot::tables tables;
     for (auto row = range.begin; row < range.end; ++row) {
@@ -143,12 +155,11 @@ tally compare_range(const corpus& c, types::file_range range) {
         bool same = false;
         try {
             const mapped_file source(c.source(row));
-            const mapped_file object(c.object(row));
+            const auto object = object_of(store, c, row);
             ingest::org::parse(source.text(), tables);
             std::ostringstream parsed;
             compass::org::io::dump(parsed, source.text(), ot::view(tables));
-            const auto loaded =
-                compass::org::io::decode(object.bytes(), c.key(row));
+            const auto loaded = compass::org::io::decode(object, c.key(row));
             if (loaded) {
                 std::ostringstream mapped;
                 compass::org::io::dump(mapped, source.text(), *loaded);
@@ -161,14 +172,6 @@ tally compare_range(const corpus& c, types::file_range range) {
             t.first_mismatch = c.table.paths[c.ids[row]];
     }
     return t;
-}
-
-void remove_objects(const corpus& c) {
-    for (std::uint32_t row = 0; row < c.ids.size(); ++row) {
-        std::error_code ignored;
-        if (c.stored[row] != 0)
-            std::filesystem::remove(c.object(row), ignored);
-    }
 }
 
 void count_objects(const corpus& c, types::store_result& r) {
@@ -189,11 +192,11 @@ void count_objects(const corpus& c, types::store_result& r) {
 }
 
 types::store_result run_store_stage(const std::filesystem::path& checkout,
-    const types::file_table& table, const std::filesystem::path& objects,
+    const types::file_table& table, const std::filesystem::path& packs,
     unsigned threads, unsigned repetitions) {
     types::store_result r;
     r.cold.name = "cold";
-    corpus c{checkout, table, objects, {}, {}, {}, {}};
+    corpus c{checkout, table, packs, {}, {}, {}, {}};
     std::vector<std::uint64_t> sizes;
     for (std::uint32_t id = 0; id < table.size(); ++id) {
         if (table.extensions[table.extension_ids[id]] == ".org") {
@@ -206,11 +209,19 @@ types::store_result run_store_stage(const std::filesystem::path& checkout,
     c.stored.assign(c.ids.size(), 0);
     const auto ranges = balance_ranges(sizes, threads);
 
+    std::optional<std::filesystem::path> written;
     for (unsigned rep = 0; rep < repetitions; ++rep) {
-        remove_objects(c);
+        if (written)
+            std::filesystem::remove(*written);
+        store::io::pack_writer writes(packs);
         const auto [ms, tallies] = run_ranges(ranges,
-            [&](types::file_range range) { return store_range(c, range); });
-        r.cold.wall_ms.push_back(ms);
+            [&](types::file_range range) {
+                return store_range(c, writes, range);
+            });
+        const auto start = std::chrono::steady_clock::now();
+        written = writes.publish_only();
+        r.cold.wall_ms.push_back(ms + std::chrono::duration<double,
+            std::milli>(std::chrono::steady_clock::now() - start).count());
         r.cold.files = r.cold.bytes = r.cold.errors = 0;
         r.cold.first_error.clear();
         for (const auto& t : tallies) {
@@ -225,19 +236,27 @@ types::store_result run_store_stage(const std::filesystem::path& checkout,
 
     for (const auto how : {warm::map, warm::verify}) {
         for (unsigned rep = 0; rep < repetitions; ++rep) {
+            const auto start = std::chrono::steady_clock::now();
+            const store::io::pack_reader store(packs);
+            const auto opened = std::chrono::duration<double, std::milli>(
+                std::chrono::steady_clock::now() - start).count();
             const auto [ms, tallies] = run_ranges(ranges,
                 [&](types::file_range range) {
-                    return load_range(c, range, how);
+                    return load_range(store, c, range, how);
                 });
-            (how == warm::map ? r.map_ms : r.verify_ms).push_back(ms);
+            (how == warm::map ? r.map_ms : r.verify_ms).push_back(
+                opened + ms);
             r.rejected = 0;
             for (const auto& t : tallies)
                 r.rejected += t.rejected;
         }
     }
 
+    const store::io::pack_reader store(packs);
     const auto [ms, tallies] = run_ranges(ranges,
-        [&](types::file_range range) { return compare_range(c, range); });
+        [&](types::file_range range) {
+            return compare_range(store, c, range);
+        });
     for (const auto& t : tallies) {
         r.mismatches += t.mismatches;
         if (r.first_mismatch.empty())

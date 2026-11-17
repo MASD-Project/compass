@@ -169,6 +169,37 @@ TEST_CASE("the hook reports what check reports on the edited file",
         expected(before, findings_of(check(repo).out), "sql/a.sql"));
 }
 
+TEST_CASE("an edit to a file with recorded findings does not block on them, "
+    "only on new ones", "[app][hook]") {
+    scoped_git_repo repo;
+    setup(repo);
+    repo.write("sql/a.sql", "create table t (x int);\n");
+    REQUIRE(std::ranges::contains(findings_of(check(repo).out),
+        "sql/a.sql:1:sql_hygiene/not_re_runnable"));
+
+    repo.write("sql/a.sql", "-- a comment above\ncreate table t (x int);\n");
+    const auto unchanged = hook(repo, "sql/a.sql");
+    CHECK(unchanged.status == 0);
+    CHECK_THAT(unchanged.out, !ContainsSubstring("\"decision\""));
+    CHECK_THAT(unchanged.out, ContainsSubstring("no new findings; 1 finding "
+        "the last check recorded on sql/a.sql is not shown"));
+
+    repo.write("sql/a.sql", "-- a comment above\ncreate table t (x int);\n"
+        "create table u (x int);\n");
+    const auto added = hook(repo, "sql/a.sql");
+    CHECK(findings_of(added.out) == lines{
+        "sql/a.sql:3:sql_hygiene/not_re_runnable"});
+    CHECK_THAT(added.out, ContainsSubstring("1 finding the last check "
+        "recorded on sql/a.sql is not shown"));
+
+    const auto all = run({"hook", "-j", "2", "--today", std::string(today),
+        "--all-findings"}, payload((repo.checkout() / "sql/a.sql").string(),
+        "/"));
+    CHECK(findings_of(all.out) == lines{
+        "sql/a.sql:2:sql_hygiene/not_re_runnable",
+        "sql/a.sql:3:sql_hygiene/not_re_runnable"});
+}
+
 TEST_CASE("an edit that leaves another file unreachable reports that file "
     "and not what other files already had", "[app][hook]") {
     scoped_git_repo repo;

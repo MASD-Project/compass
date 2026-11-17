@@ -46,7 +46,8 @@ enum class command : std::uint8_t { generate, diff, check, gc, config, hook };
  * the time of each step and what each codec ran or reused. revision is
  * the --commit of check as written, or empty. ratchet, when set, is the
  * base of check --ratchet as written, empty for the default. today is
- * the --today of check, when given.
+ * the --today of check, when given. all_findings is the --all-findings of
+ * hook.
  */
 struct invocation {
     command which = command::generate;
@@ -56,6 +57,7 @@ struct invocation {
     std::optional<std::chrono::year_month_day> today;
     unsigned threads = 1;
     bool timings = false;
+    bool all_findings = false;
     layer command_line;
     store::types::collection_options collection;
 };
@@ -72,7 +74,8 @@ struct invocation {
  * commit, and the checkout only locates the repository, its store, and
  * the programs and style files of formatters. today is the date check
  * judges the expiry of exceptions against, for a commit as for the
- * checkout.
+ * checkout. all_findings makes hook report every finding on the edited
+ * file, not only those the last check did not record.
  */
 struct options {
     command which = command::generate;
@@ -84,6 +87,7 @@ struct options {
     std::chrono::year_month_day today;
     codec::types::configuration settings;
     store::types::collection_options collection;
+    bool all_findings = false;
 };
 
 }

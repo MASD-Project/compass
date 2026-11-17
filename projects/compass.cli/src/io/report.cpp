@@ -109,14 +109,24 @@ void write_hook(std::ostream& out, std::ostream& err,
             json_string("compass hook: " + r.note));
         return;
     }
-    if (r.findings.empty())
+    const auto old = r.old == 0 ? std::string() : std::format("{} finding{} "
+        "the last check recorded on {} {} not shown; compass check lists "
+        "them", r.old, r.old == 1 ? "" : "s", r.path,
+        r.old == 1 ? "is" : "are");
+    if (r.findings.empty()) {
+        if (!old.empty())
+            out << std::format("{{\"hookSpecificOutput\": {{\"hookEventName\": "
+                "\"PostToolUse\", \"additionalContext\": {}}}}}\n",
+                json_string("compass hook: no new findings; " + old));
         return;
+    }
     std::ostringstream lines;
     write_findings(lines, r.findings);
     const auto count = r.findings.size();
     const auto reason = std::format("compass found {} finding{} on or "
-        "caused by the edit to {}{}:\n{}", count, count == 1 ? "" : "s",
-        r.path, excused_note(r.excused), lines.str());
+        "caused by the edit to {}{}{}:\n{}", count, count == 1 ? "" : "s",
+        r.path, excused_note(r.excused), old.empty() ? "" : "; " + old,
+        lines.str());
     out << std::format("{{\"decision\": \"block\", \"reason\": {}}}\n",
         json_string(reason));
 }
@@ -130,6 +140,13 @@ void write_generate(std::ostream& out, std::ostream& err,
     const types::generate_result& r) {
     write_problems(err, r.run);
     write_lines(err, "output: ", r.sink.problems);
+    for (const auto& h : r.hand_edits)
+        err << std::format("compass: warning: {}:{}: generate deleted {} "
+                           "line{} its output lacks, from \"{}\"; if they "
+                           "were written by hand, restore them from git "
+                           "and move them into a template or a hand-written "
+                           "file\n", h.path, h.block.line, h.block.lines,
+            h.block.lines == 1 ? "" : "s", h.block.first);
     const auto& s = r.sink;
     out << std::format("{} written, {} unchanged, {} restored, {} removed, "
                        "{} kept under {} ({})\n", s.written, s.unchanged,
@@ -216,16 +233,29 @@ void write_gc(std::ostream& out, const types::gc_result& r) {
     const auto& plan = c.plan;
     const auto ms = c.worktrees_ms + c.live_ms + c.list_ms + c.plan_ms +
         c.remove_ms;
+    const auto dropped = plan.victims.objects + c.superseded.objects;
+    const auto dropped_bytes = plan.victims.bytes + c.superseded.bytes;
     if (r.options.dry_run) {
-        out << std::format("would remove {} files, {} bytes; store {} bytes "
-                           "in {} files ({:.1f} ms)\n", plan.victims.objects,
-            plan.victims.bytes, plan.stored.bytes, plan.stored.objects, ms);
+        out << std::format("would remove {} entries and files, {} bytes; "
+                           "store {} bytes in {} entries, {} packs",
+            dropped, dropped_bytes, plan.stored.bytes + c.superseded.bytes,
+            plan.stored.objects + c.superseded.objects, c.packs);
+        if (c.legacy.objects != 0)
+            out << std::format("; would remove the old layout, {} files, {} "
+                               "bytes", c.legacy.objects, c.legacy.bytes);
+        out << std::format(" ({:.1f} ms)\n", ms);
         return;
     }
-    out << std::format("removed {} files, {} bytes; store {} bytes in {} "
-                       "files ({:.1f} ms)\n", c.removed.objects,
-        c.removed.bytes, plan.stored.bytes - c.removed.bytes,
-        plan.stored.objects - c.removed.objects, ms);
+    out << std::format("removed {} entries and files, {} bytes; store {} "
+                       "bytes in {} entries, {} packs (was {})",
+        c.removed.objects, c.removed.bytes,
+        plan.stored.bytes + c.superseded.bytes - c.removed.bytes,
+        plan.stored.objects + c.superseded.objects - c.removed.objects,
+        c.packs_after, c.packs);
+    if (c.legacy.objects != 0)
+        out << std::format("; removed the old layout, {} files, {} bytes",
+            c.legacy.objects, c.legacy.bytes);
+    out << std::format(" ({:.1f} ms)\n", ms);
 }
 
 }

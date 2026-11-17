@@ -52,9 +52,10 @@ others is in its descriptor, so adding a codec adds a row to a list.
   takes =true= or =false=. Any other key must be an option the codec declares.
 - The dependency record of the previous run, if any: =<git dir>/compass/deps=
   of the checkout, read by =io::read_dependency_file=.
-- The result cache of the repository, if any: the action objects under
-  =<git common dir>/compass/manifests= and =compass/results=, read through
-  the =types::action_source= that =io::action_source_of= returns.
+- The result cache of the repository, if any: the action objects in the
+  packs under =<git common dir>/compass/packs=, read through the
+  =types::action_source= that =io::action_source_of= returns, which maps
+  the packs once when it is made.
 - To write outputs: an absolute output root and the record of what the sink
   wrote last time, =<git dir>/compass/outputs= of the checkout, read by
   =io::read_written_outputs=.
@@ -307,7 +308,9 @@ others is in its descriptor, so adding a codec adds a row to a list.
   that does not load, or whose findings name a document the corpus lacks, is
   a miss and the unit is called. =ops::run= only reads the cache;
   =io::store_actions= writes, for the units in =fresh=, the result object
-  and the manifest with the unit's set put first. The record names both keys
+  and the manifest with the unit's set put first, all in one pack it
+  publishes when every unit is written. =io::format_files= puts the
+  formatted files it formatted in a pack of their own. The record names both keys
   of every unit, which is what keeps them through the store's collection;
   =io::action_keys= reads them from a worktree's record for the collector.
 - *Code hash.* Every stored result, in the record and in the cache, is keyed
@@ -400,6 +403,20 @@ others is in its descriptor, so adding a codec adds a row to a list.
   finds a shortest edit script with Myers' O(ND) algorithm in linear space,
   in process. A text with a NUL byte in its first 8000 bytes is binary, as
   git decides it, and gets git's one-line notice.
+- *Hand edits.* =io::find_hand_edits= names each file a plan writes or
+  restores that may hold code written by hand which the write deletes.
+  It reads only a file that is on disk and is not what compass last wrote
+  there, by the record the plan was made from, so a file compass wrote and
+  nobody touched costs nothing. =ops::dropped_hand_lines= judges one file:
+  it diffs it against the new output with no context, and weighs each hunk
+  by the non-blank lines it removes that the output holds nowhere, less
+  the non-blank lines it adds, all trimmed of white space. A hunk weighing
+  =ops::dropped_block_minimum= (3) or more is reported, the heaviest with
+  its first counted line: a function written into a generated file is
+  dropped whole and weighs its length, while a block a template change
+  rewrites with as many lines of its own, a move and a reindent weigh
+  nothing. Two lines, or a rewrite that shrinks a block by two, are not
+  reported; that is the price of not warning on every template change.
 - *Written-outputs record.* =types::written_outputs= holds the absolute root
   and, sorted by path, each file's codec, blob ID and stat data after the
   write. A record of another root is ignored. Its =written= time is the start

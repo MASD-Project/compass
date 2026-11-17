@@ -59,8 +59,8 @@ TEST_CASE("a linked worktree shares the common directory of its repository",
     git(main, "worktree add -q '" + linked.string() + "'");
 
     CHECK(io::git_common_dir(linked) == main / ".git");
-    CHECK(io::objects_dir(io::git_common_dir(linked)) ==
-        io::objects_dir(io::git_common_dir(main)));
+    CHECK(io::packs_dir(io::git_common_dir(linked)) ==
+        io::packs_dir(io::git_common_dir(main)));
 }
 
 TEST_CASE("a relative gitdir and commondir resolve against their files",
@@ -92,12 +92,10 @@ TEST_CASE("a directory that is not a checkout has no common directory",
         std::runtime_error);
 }
 
-TEST_CASE("an object lives under the first two digits of its ID",
-    "[io][location]") {
-    const auto id = ops::blob_id_of("hello\n");
-
-    CHECK(io::object_path("/repo/.git/compass/objects", id) ==
-        "/repo/.git/compass/objects/ce/"
-        "013625030ba8dba906f756967f9e9ca394464a");
-    CHECK(io::objects_dir("/repo/.git") == "/repo/.git/compass/objects");
+TEST_CASE("the packs and the first layout of the store live under the "
+    "common directory", "[io][location]") {
+    CHECK(io::packs_dir("/repo/.git") == "/repo/.git/compass/packs");
+    CHECK(io::legacy_store_dirs("/repo/.git") ==
+        std::vector<std::filesystem::path>{"/repo/.git/compass/objects",
+            "/repo/.git/compass/manifests", "/repo/.git/compass/results"});
 }

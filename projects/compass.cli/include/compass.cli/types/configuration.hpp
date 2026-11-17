@@ -98,7 +98,9 @@ struct codec_configuration {
  * file is the configuration file the file origins point into. output and
  * meta are absolute. codecs has one row per codec of the catalogue, in
  * catalogue order. problems names each setting that matches no codec or
- * no option; any problem fails the command.
+ * no option; any problem fails the command. warnings says where the
+ * configuration came from when it is not where the command looked first,
+ * and fails nothing.
  */
 struct configuration {
     std::filesystem::path file;
@@ -106,6 +108,7 @@ struct configuration {
     sourced_path meta;
     std::vector<codec_configuration> codecs;
     std::vector<std::string> problems;
+    std::vector<std::string> warnings;
 };
 
 }

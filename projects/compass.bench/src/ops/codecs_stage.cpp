@@ -141,7 +141,7 @@ void evaluate(evaluation& e, const std::filesystem::path& checkout,
     r.load_ms = since(start);
     for (std::size_t row = 0; row < f.paths.size(); ++row) {
         if (f.errors[row].empty()) {
-            ++(f.mapped[row] ? r.loaded : r.parsed);
+            ++(f.loaded[row] != 0 ? r.loaded : r.parsed);
         } else if (r.errors++ == 0) {
             r.first_error = std::string(f.paths[row]) + ": " + f.errors[row];
         }

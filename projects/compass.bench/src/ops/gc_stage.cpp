@@ -25,9 +25,8 @@ namespace compass::bench::ops {
 
 store::types::collection_result run_gc_stage(
     const std::filesystem::path& checkout,
-    const std::filesystem::path& objects,
     const store::types::collection_options& options) {
-    return cli::app::collect(checkout, objects, options);
+    return cli::app::collect(checkout, options);
 }
 
 }

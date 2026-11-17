@@ -59,7 +59,7 @@ branch: main
 committed: 2026-11-17T09:31:48Z
 built: 2026-11-17T09:46:18Z
 installed: 2026-11-17T10:02:11Z
-store formats: dependency records 6, actions 5, written outputs 1, format cache 1, worktree index 1
+store formats: store layout 2, packs 1, dependency records 6, actions 5, written outputs 1, format cache 1, worktree index 1
 #+end_example
 
    - =compass= :: the release.

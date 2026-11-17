@@ -26,6 +26,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include "compass.codec/ops/hand_edits.hpp"
 #include "compass.codec/types/output_set.hpp"
 #include "compass.codec/types/written_outputs.hpp"
 
@@ -202,6 +203,24 @@ struct sink_result {
  * be read.
  */
 [[nodiscard]] std::string diff_outputs(const output_plan& plan);
+
+/**
+ * @brief A file a plan rewrites and the block of it the rewrite deletes.
+ */
+struct hand_edit {
+    std::string path;
+    ops::dropped_block block;
+};
+
+/**
+ * @brief Each file @p plan writes or restores that may hold code written
+ * by hand which the write deletes, as ops::dropped_hand_lines judges it.
+ * Only a file that is on disk and is not what compass last wrote there,
+ * by @p previous, the record the plan was made from, is read: one compass
+ * wrote and nobody touched holds nothing a person wrote.
+ */
+[[nodiscard]] std::vector<hand_edit> find_hand_edits(const output_plan& plan,
+    const types::written_outputs& previous);
 
 }
 

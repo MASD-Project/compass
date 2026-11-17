@@ -35,8 +35,8 @@
 #include "compass.codec/ops/parallel_for.hpp"
 #include "compass.codec/ops/registry.hpp"
 #include "compass.platform/process/run_program.hpp"
-#include "compass.store/io/action_file.hpp"
 #include "compass.store/io/location.hpp"
+#include "compass.store/io/pack_store.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 
 namespace compass::codec::io {
@@ -44,6 +44,8 @@ namespace compass::codec::io {
 namespace {
 
 using compass::store::types::blob_id;
+
+constexpr auto result = compass::store::types::action_kind::result;
 
 struct key_hash {
     std::size_t operator()(const blob_id& id) const noexcept {
@@ -99,14 +101,15 @@ private:
  * @brief The version @p program reports, read from the store when this
  * very program file reported it before, else by running it.
  */
-std::string program_version(const std::filesystem::path& results,
-    const std::filesystem::path& program, std::atomic<std::uint64_t>& runs) {
+std::string program_version(const store::io::pack_reader& store,
+    store::io::pack_writer& writes, const std::filesystem::path& program,
+    std::atomic<std::uint64_t>& runs) {
     const auto resolved = std::filesystem::canonical(program);
     const auto mtime = std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::filesystem::last_write_time(resolved).time_since_epoch()).count();
     const auto key = ops::program_key(resolved.string(),
         std::filesystem::file_size(resolved), mtime);
-    if (auto version = store::io::read_action(results, key))
+    if (auto version = store.read_action(result, key))
         return std::move(*version);
     ++runs;
     auto r = platform::process::run_program(
@@ -114,16 +117,17 @@ std::string program_version(const std::filesystem::path& results,
     if (r.exit_code != 0)
         throw std::runtime_error(program.string() + " --version exited with " +
             std::to_string(r.exit_code));
-    store::io::write_action(results, key, r.output);
+    writes.add_action(result, key, r.output);
     return std::move(r.output);
 }
 
-blob_id formatter_key(const std::filesystem::path& results,
-    const types::formatter& f, std::atomic<std::uint64_t>& runs) {
+blob_id formatter_key(const store::io::pack_reader& store,
+    store::io::pack_writer& writes, const types::formatter& f,
+    std::atomic<std::uint64_t>& runs) {
     const auto style = f.style.empty()
         ? store::ops::blob_id_of({}) : store::ops::blob_id_of(read_file(f.style));
-    return ops::formatter_key(f, program_version(results, f.program, runs),
-        style);
+    return ops::formatter_key(f, program_version(store, writes, f.program,
+        runs), style);
 }
 
 /**
@@ -132,7 +136,7 @@ blob_id formatter_key(const std::filesystem::path& results,
  * share a path go under directories of their own, numbered by occurrence,
  * so each keeps its file name and none overwrites another.
  */
-void format_misses(const std::filesystem::path& results,
+void format_misses(store::io::pack_writer& writes,
     const types::formatter& f, const types::file_table& raw,
     const std::vector<std::size_t>& rows, const std::vector<blob_id>& keys,
     std::vector<std::string>& texts, unsigned threads,
@@ -166,7 +170,7 @@ void format_misses(const std::filesystem::path& results,
         for (auto i = first; i < last; ++i) {
             const auto row = rows[i];
             texts[row] = read_file(dir.path() / files[i]);
-            store::io::write_action(results, keys[row], texts[row]);
+            writes.add_action(result, keys[row], texts[row]);
         }
     });
 }
@@ -203,8 +207,9 @@ formatted_files format_files(const std::filesystem::path& git_common_dir,
     std::span<const types::formatter> formatters,
     const types::file_table& raw, unsigned threads) {
     const auto start = std::chrono::steady_clock::now();
-    const auto results = store::io::actions_dir(git_common_dir,
-        store::types::action_kind::result);
+    const auto packs = store::io::packs_dir(git_common_dir);
+    const store::io::pack_reader store(packs);
+    store::io::pack_writer writes(packs);
     std::atomic<std::uint64_t> runs{0};
 
     const auto n = raw.size();
@@ -214,7 +219,7 @@ formatted_files format_files(const std::filesystem::path& git_common_dir,
         chosen[i] = ops::formatter_of(formatters,
             raw.paths[types::file_id{static_cast<std::uint32_t>(i)}]);
         if (chosen[i] && !formatter_keys[*chosen[i]])
-            formatter_keys[*chosen[i]] = formatter_key(results,
+            formatter_keys[*chosen[i]] = formatter_key(store, writes,
                 formatters[*chosen[i]], runs);
     }
 
@@ -227,7 +232,7 @@ formatted_files format_files(const std::filesystem::path& git_common_dir,
             return;
         keys[i] = ops::formatted_key(*formatter_keys[*chosen[i]],
             raw.paths[id], store::ops::blob_id_of(raw.contents[id]));
-        if (auto body = store::io::read_action(results, keys[i])) {
+        if (auto body = store.read_action(result, keys[i])) {
             texts[i] = std::move(*body);
             found[i] = 1;
         }
@@ -253,7 +258,7 @@ formatted_files format_files(const std::filesystem::path& git_common_dir,
     }
     for (std::size_t f = 0; f < formatters.size(); ++f) {
         if (!misses[f].empty())
-            format_misses(results, formatters[f], raw, misses[f], keys, texts,
+            format_misses(writes, formatters[f], raw, misses[f], keys, texts,
                 threads, runs);
     }
     for (const auto& [row, source] : copies)
@@ -269,6 +274,7 @@ formatted_files format_files(const std::filesystem::path& git_common_dir,
         out.ids[i] = store::ops::blob_id_of(
             out.files.contents[types::file_id{static_cast<std::uint32_t>(i)}]);
     });
+    writes.publish();
     out.stats.runs = runs;
     out.stats.format_ms = std::chrono::duration<double, std::milli>(
         std::chrono::steady_clock::now() - start).count();

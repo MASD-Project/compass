@@ -21,8 +21,7 @@
 #define COMPASS_STORE_IO_LOCATION_HPP
 
 #include <filesystem>
-#include "compass.store/types/action_kind.hpp"
-#include "compass.store/types/blob_id.hpp"
+#include <vector>
 
 namespace compass::store::io {
 
@@ -53,19 +52,19 @@ namespace compass::store::io {
     const std::filesystem::path& checkout);
 
 /**
- * @brief Where the objects of a repository live: compass/objects under its
- * git common directory, so every worktree reads and writes the same store.
+ * @brief Where the packs of a repository live: compass/packs under its git
+ * common directory, so every worktree reads and writes the same store.
  */
-[[nodiscard]] std::filesystem::path objects_dir(
+[[nodiscard]] std::filesystem::path packs_dir(
     const std::filesystem::path& git_common_dir);
 
 /**
- * @brief Where the action objects of kind @p kind live: compass/manifests
- * or compass/results under the git common directory, so every worktree
- * reuses the actions of the others. They are laid out as objects are.
+ * @brief The directories of the first layout of the store, a file per
+ * object, manifest and result: compass/objects, compass/manifests and
+ * compass/results. Nothing reads them; collection removes them.
  */
-[[nodiscard]] std::filesystem::path actions_dir(
-    const std::filesystem::path& git_common_dir, types::action_kind kind);
+[[nodiscard]] std::vector<std::filesystem::path> legacy_store_dirs(
+    const std::filesystem::path& git_common_dir);
 
 /**
  * @brief The worktree index of one checkout: compass/index under its own
@@ -73,14 +72,6 @@ namespace compass::store::io {
  */
 [[nodiscard]] std::filesystem::path worktree_index_path(
     const std::filesystem::path& git_dir);
-
-/**
- * @brief The file of one object, laid out as git lays out loose objects: a
- * directory named by the first two hexadecimal digits of the ID, then a
- * file named by the other 38.
- */
-[[nodiscard]] std::filesystem::path object_path(
-    const std::filesystem::path& objects_dir, const types::blob_id& id);
 
 }
 
