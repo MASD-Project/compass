@@ -28,9 +28,11 @@ namespace compass::sql::codecs {
  * @brief ORE Studio's handler-permissions gate: every handler permission
  * code is seeded.
  *
- * Reads the codes the seeds script passes as literals, then every
- * *_handler.hpp and *_handler.cpp in a messaging directory of each
- * component the components option names. Rule unseeded_permission: a
+ * A scan of the seeds script and every *_handler.hpp and *_handler.cpp
+ * in a messaging directory of each component the components option
+ * names. The fact of the seeds script is each string literal of its code,
+ * read by ops::lex, that has the shape of a code; of a handler, each code
+ * it checks. Rule unseeded_permission: a
  * handler calls has_permission with a code no seed defines; a code built
  * as a literal followed by + is a prefix that any seed starting with it
  * satisfies.
