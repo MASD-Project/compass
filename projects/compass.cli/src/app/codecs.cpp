@@ -21,6 +21,8 @@
 
 #include <vector>
 #include "compass.codec/codecs/catalogue.hpp"
+#include "compass.codec/ops/rule_table.hpp"
+#include "compass.codec/types/corpus_view.hpp"
 #include "compass.codegen/codecs/codegen.hpp"
 #include "compass.codegen/codecs/component_files.hpp"
 #include "compass.codegen/codecs/pending_models.hpp"
@@ -30,6 +32,15 @@
 #include "compass.sql/codecs/catalogue.hpp"
 
 namespace compass::cli::app {
+
+namespace {
+
+void rule_table(const codec::types::corpus_view& v,
+    codec::types::file_table& out) {
+    out.add(v.option("path"), codec::ops::rule_table(codecs(), v));
+}
+
+}
 
 std::span<const codec::types::descriptor> codecs() noexcept {
     static const auto all = [] {
@@ -47,6 +58,17 @@ std::span<const codec::types::descriptor> codecs() noexcept {
             out.push_back(d);
         for (const auto& d : docs::codecs::catalogue())
             out.push_back(d);
+        out.push_back({
+            .name = "rule_table",
+            .version = codec::ops::rule_table_version(out),
+            .summary = "Writes the page of every rule, the memories and "
+                       "documents it cites, and the memories no rule cites.",
+            .reads = codec::types::inputs::every_typed_document(),
+            .options = codec::ops::rule_table_options,
+            .rules = {},
+            .enabled_by_default = false,
+            .run = codec::types::corpus_function<codec::types::file_table>{
+                rule_table}});
         return out;
     }();
     return all;

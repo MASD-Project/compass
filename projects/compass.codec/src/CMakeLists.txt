@@ -35,6 +35,7 @@ add_library(${lib_target_name}
     ops/format_cache.cpp
     ops/outputs.cpp
     ops/registry.cpp
+    ops/rule_table.cpp
     ops/run.cpp
     ops/tangle.cpp
     ops/unified_diff.cpp)

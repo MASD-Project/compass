@@ -20,14 +20,37 @@
 #include <array>
 #include <cstddef>
 #include <set>
+#include <utility>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_string.hpp>
+#include "compass.cli/app/application.hpp"
 #include "compass.cli/app/codecs.hpp"
 #include "compass.codec/ops/exceptions.hpp"
+#include "scoped_git_repo.hpp"
 
 namespace {
+
+using Catch::Matchers::ContainsSubstring;
+using Catch::Matchers::StartsWith;
+
+/**
+ * @brief The exit status and standard output of compass run with @p args
+ * on the checkout of @p repo.
+ */
+std::pair<int, std::string> run(const compass::cli::tests::scoped_git_repo&
+    repo, std::vector<std::string> args) {
+    args.insert(args.begin() + 1, {"-C", repo.checkout().string()});
+    const std::vector<std::string_view> views(args.begin(), args.end());
+    std::istringstream in;
+    std::ostringstream out;
+    std::ostringstream err;
+    const auto status = compass::cli::app::run(views, "/", in, out, err);
+    return {status, out.str()};
+}
 
 using namespace compass;
 namespace ct = codec::types;
@@ -111,4 +134,38 @@ TEST_CASE("the check of a rule's metadata refuses a malformed citation",
             " twice"});
     CHECK(defects_of("c", unfinished) ==
         std::vector<std::string>{"c/r: the statement is not one sentence"});
+}
+
+TEST_CASE("the rule_table codec writes the page under the checkout and "
+    "check reports it once a memory changes", "[app][codecs]") {
+    compass::cli::tests::scoped_git_repo repo;
+    repo.write("doc/meta/document_type_memory.org",
+        "#+title: Document type: memory\n#+type: meta\n\n* Contract\n\n"
+        "- Folder :: =doc/llm/memory/=\n- Level :: =cross=\n");
+    repo.write("doc/llm/memory/no_numbers.org",
+        ":PROPERTIES:\n:ID: 177EDB1C-6241-45AA-81B1-46C4B9D6329D\n:END:\n"
+        "#+title: Do not number org headings\n#+type: memory\n");
+    repo.write(".compass.org", "#+output: .\n* Codecs\n"
+        "| document_index | no | |\n| required_sections | no | |\n"
+        "| rule_table | yes | path=doc/rules.org |\n");
+
+    REQUIRE(run(repo, {"gen"}).first == 0);
+    const auto page = compass::cli::tests::scoped_git_repo::read_file(
+        repo.checkout() / "doc" / "rules.org");
+    CHECK_THAT(page, ContainsSubstring(
+        "| =heading_numbers= | numbered_heading | No org heading carries its "
+        "own number. | [[id:177EDB1C-6241-45AA-81B1-46C4B9D6329D][Do not "
+        "number org headings]] |\n"));
+    CHECK_THAT(page, ContainsSubstring(
+        "Of the 1 memories of this repository, 0 are cited by no rule."));
+    CHECK(run(repo, {"check"}).first == 0);
+
+    repo.write("doc/llm/memory/no_push.org",
+        ":PROPERTIES:\n:ID: 40003D46-DAEB-41DF-B4EE-947E223A8B8F\n:END:\n"
+        "#+title: Do not push automatically\n#+type: memory\n");
+    const auto [status, out] = run(repo, {"check"});
+    CHECK(status == 1);
+    CHECK_THAT(out, StartsWith("doc/rules.org:"));
+    CHECK_THAT(out, ContainsSubstring(": rule_table/drift: the file differs "
+        "from what rule_table generates"));
 }

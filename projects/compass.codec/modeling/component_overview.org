@@ -70,6 +70,28 @@ others is in its descriptor, so adding a codec adds a row to a list.
   =diagnostic_table=. A =scan_function= is a corpus function of
   diagnostics in two steps (see /Scan/). =unit_of= and =output_of= read
   both facts back.
+- *Rules.* =types::rule= is one rule a diagnostics codec enforces: its
+  name, unique within the codec, so that =codec/rule= names it in a finding
+  and in an inline exception; a one-line statement of what it enforces;
+  and =enforces=, the =:ID:= of each memory or document that states the
+  rule in prose, as uppercase UUIDs, empty when none does. The rules the
+  runtime reports without a codec declaring them are constants beside
+  =ops::excuse=: =ops::exception_rules=, under =ops::exception_codec=, and
+  =ops::drift_rule=, which every files codec declares. The descriptors
+  are the one source of this metadata, and the rule table is generated
+  from it.
+- *Rule table.* =ops::rules_of= lists every rule of a catalogue: the
+  rules of the diagnostics codecs by codec name, each codec's in the
+  order it declares them, then the exception rules, then drift once for
+  all files codecs. =ops::rule_table= renders them as an org knowledge
+  page, one table row per rule with its codec, name, statement and a link
+  to each page it cites (the bare ID when the corpus lacks that page),
+  then the documents of type =memory= that no rule cites, by path. The
+  page states its counts: rules, rules that cite a page, memories and
+  memories no rule cites. =ops::rule_table_version= hashes the format and
+  every row, so a codec built on it reruns whenever a rule, a statement
+  or a citation changes. The host binds the renderer to its catalogue
+  as the =rule_table= codec.
 - *Scan.* =types::scan_function= splits a gate that reads many files into
   =files=, which lists through the view the paths to map, =map=, which
   turns one file's path, bytes and the codec's options into its findings
@@ -396,6 +418,7 @@ others is in its descriptor, so adding a codec adds a row to a list.
 | =include/compass.codec/types/registry.hpp=     | The resolved codecs.                              |
 | =include/compass.codec/ops/registry.hpp=       | =make_registry=, =reads= and =option_values=.     |
 | =include/compass.codec/ops/run.hpp=            | =run= and =document_type=.                        |
+| =include/compass.codec/ops/rule_table.hpp=     | =rules_of=, =rule_table= and its version.         |
 | =include/compass.codec/ops/dependencies.hpp=   | Hashes, the corpus index and the record encoding. |
 | =include/compass.codec/io/dependency_file.hpp= | Where the record lives; reading and writing it.   |
 | =include/compass.codec/types/action_manifest.hpp= | A manifest's input sets and =action_source=.   |

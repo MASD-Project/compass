@@ -27,7 +27,8 @@ namespace compass::cli::app {
 
 /**
  * @brief Every codec the compass executable knows: those compass.codec
- * ships, then code generation.
+ * ships, code generation, the C++, SQL, cross-artefact and document
+ * gates, and last rule_table, the page of the rules of all the others.
  */
 [[nodiscard]] std::span<const codec::types::descriptor> codecs() noexcept;
 
