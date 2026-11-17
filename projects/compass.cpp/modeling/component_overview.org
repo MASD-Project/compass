@@ -19,7 +19,15 @@ the domain layer of the
 script that read the whole tree on every run; here each is a corpus codec
 that reads the files of the checkout through its view, so the runtime
 records every file it read and a run in which none of them changed reuses
-the findings without reading anything.
+the findings without reading anything. The gates that read every C++ file
+(=portable_stop=, =enum_attributes=, =unique_type_names=,
+=unity_collisions=, =exported_types=, =forward_declarable_includes=,
+=stream_coverage= and =handler_registrars=) are scans: each file is mapped
+to a fact once per content ID and a run after an edit maps only the edited
+file, then reduces the stored facts with it. =stream_coverage= keeps the
+text of a file that names a stream call, a subject or a string constant,
+and of any other file only the names it calls, so it reads the rest only
+as callers of a function whose parameter names a service.
 
 The scanners are ports, not parsers. Each reproduces the rules of one
 script, including what the script gets wrong, because the acceptance of the

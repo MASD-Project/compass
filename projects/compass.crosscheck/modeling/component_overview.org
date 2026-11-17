@@ -21,6 +21,9 @@ the SQL that creates its table, the generated output and the model it came
 from. Each gate was a Python script that read the tree on every run; here
 each is a corpus codec that reads the files of the checkout through its
 view, so a run in which none of them changed reuses the findings.
+=entity_writes=, =paste_blocks= and =subject_conformance= are scans: each
+file's writers, :implements blocks or declared identifiers, or subjects
+are kept per content ID, so a run after an edit maps the edited file alone.
 
 The ports follow their scripts rule for rule, including the regular
 expressions and the order of their tests, because the acceptance of a port

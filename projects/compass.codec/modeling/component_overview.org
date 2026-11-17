@@ -67,7 +67,30 @@ others is in its descriptor, so adding a codec adds a row to a list.
   is one of four types, and its type is the only statement of two facts: a
   =document_function= is called once per document and a =corpus_function=
   once over all of them, and each emits a =file_table= or a
-  =diagnostic_table=. =unit_of= and =output_of= read both facts back.
+  =diagnostic_table=. A =scan_function= is a corpus function of
+  diagnostics in two steps (see /Scan/). =unit_of= and =output_of= read
+  both facts back.
+- *Scan.* =types::scan_function= splits a gate that reads many files into
+  =files=, which lists through the view the paths to map, =map=, which
+  turns one file's path, bytes and the codec's options into its findings
+  on that file and a /fact/ (=types::file_scan=), and =reduce=, optional,
+  which reads every fact (=types::scanned_file=), in the order =files=
+  gave, and may read more through the view. =map= reads nothing else, so
+  its result depends on those alone. The findings of a call are those of
+  the maps, file by file, then the reduce's. A scan is one corpus unit
+  with the same inputs as before: a listing per pattern and a =file= input
+  per file. When the unit is called, =ops::run= starts from the /scan
+  table/ in the result object its previous record row names, under the
+  same version and options: per file the content ID it mapped, its fact
+  and its encoded findings (=ops::put_scan_entry=, =ops::decode_scan=). A
+  file whose content ID is unchanged is taken from the table, as a =file=
+  input with that ID, without being read; any other is read and mapped.
+  The new table goes into the unit's result object, carried by
+  =run_result::scans= row for row with =fresh=. An edit to one file so
+  maps one file, and the reduce combines the stored facts with it.
+  =types::fact_writer= and =fact_reader= encode a fact's fields. A codec
+  that becomes a scan, or whose fact changes shape, bumps its version, so
+  its next run stores a table.
 - *Inputs of a codec.* =types::inputs= is a list of =#+type:= values, every
   registered type, or every document including those with no registered type.
 - *View.* =types::corpus_view= is all a codec can read. It numbers the
@@ -191,7 +214,10 @@ others is in its descriptor, so adding a codec adds a row to a list.
   by kind and key. The result (=ops::action_result=) holds the unit's files
   and its encoded findings. Its outputs go into the run's result and its
   row into the record exactly as a call's would, so a run from the cache
-  returns what a run with no cache does, byte for byte. A manifest or result
+  returns what a run with no cache does, byte for byte. Format 4 ends the
+  result with the unit's scan table, empty for a unit that is not a scan.
+  A unit with 256 files or more hashes them on the run's threads as the
+  record is assembled. A manifest or result
   that does not load, or whose findings name a document the corpus lacks, is
   a miss and the unit is called. =ops::run= only reads the cache;
   =io::store_actions= writes, for the units in =fresh=, the result object

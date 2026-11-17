@@ -96,11 +96,23 @@ echo '{"tool_name": "Edit", "cwd": "'"$PWD"'", "tool_input": {"file_path": "sql/
   | build/output/linux-clang-release/publish/bin/compass hook --timings
 #+end_src
 
-On ORE Studio, warm, an edit to a CMakeLists.txt or a file no codec reads
-returns in well under a second, and an org document in about one second.
-An edit to C++, SQL, a codegen model or a template takes 3 to 5 seconds,
-because the gates that scan every C++ or SQL file, and codegen, run whole
-again; [[id:45FA67C9-60BC-420D-BB66-8A272CB1106C][compass.cli]] has the
+On ORE Studio, warm, at a load of 7 to 9 on eight cores, an edit takes:
+
+| Edit                            | Hook      |
+|---------------------------------+-----------|
+| A file no codec reads           | 60 ms     |
+| A CMakeLists.txt                | 260 ms    |
+| An org document or a skill page | 0.9 s     |
+| A SQL file                      | 1.1-1.2 s |
+| A C++ header or source          | 1.4-1.6 s |
+| A codegen template              | 2.2-2.3 s |
+| A codegen model                 | 2.6-2.8 s |
+| A new SQL file                  | 2.0-2.1 s |
+
+The gates that read every C++ or SQL file map the edited file alone and
+reduce the stored facts with it; codegen still plans every model again for
+an edit to a model or template.
+[[id:45FA67C9-60BC-420D-BB66-8A272CB1106C][compass.cli]] has the
 breakdown.
 
 * Script

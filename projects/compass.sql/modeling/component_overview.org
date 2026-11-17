@@ -20,7 +20,9 @@ the domain layer of the
 =sql-reachability=, =rls-widenings=, =handler-permissions= and
 =curve-parameter-paths=. Each script reread its files on every run; a codec
 reads them through its view, so a run in which none of them changed reuses
-its findings without reading any.
+its findings without reading any. =sql_hygiene= and =sql_reachability=
+are scans: a file's findings, or its =\i= and =\ir= lines, are kept per
+content ID, so a run after an edit reads the edited file alone.
 
 The gates after =sql_hygiene= take their scripts' regular expressions
 verbatim through =compass.platform='s =text::regex=; =ops::scripts= holds

@@ -47,13 +47,13 @@ exposes it as one function per step, so a caller can time each:
 | Step                                       | Does                                                                          |
 |--------------------------------------------+-------------------------------------------------------------------------------|
 | =list=                                     | Every file of the checkout, and its org files but =.compass.org=.             |
-| =checkout_files_of=                        | The files as the codecs read them: IDs from the resolver, bytes from disk.   |
+| =checkout_files_of=                        | The files as the codecs read them: IDs resolved once each, bytes from disk.   |
 | =build_type_registry=                      | The type registry of the contract pages.                                      |
 | =open_files=, =resolve=                    | One row per file, and its ID from git's index, the worktree index or hashing. |
 | =load=                                     | Each object mapped from the store, or the file parsed into memory.            |
 | =corpus_of=                                | The rows that loaded, typed, as the corpus the codecs read.                   |
 | =read_dependency_record=, =run_codecs=     | The codecs run from the dependency record and the result cache.               |
-| =store_objects=, =write_worktree_index=    | The parsed objects and the worktree index written.                            |
+| =store_objects=, =write_worktree_index=    | The parsed objects and the worktree index, with every listed file hashed.     |
 | =store_results=, =write_dependency_record= | The result cache and the dependency record written.                           |
 | =write_outputs=, =plan_outputs=            | The outputs written, or planned for a diff.                                   |
 | =collect=                                  | The store collected.                                                          |
@@ -186,25 +186,47 @@ describe the checkout before the edit: a finding an earlier unchecked edit
 caused on another file is reported as new until =compass check= rewrites
 the record.
 
-On a copy of ORE Studio at 545cafca45, with codegen and the ported gates
-enabled, a warm hook spent about 60 ms reading the 11 MB index, 170 ms
-listing the checkout with git, 80 ms opening git's index for content IDs
-and 50 ms loading the documents when needed. What remains is the units it
-runs: org documents run =component_docs= (about 0.4 s) and
-=structure_notes= again, a CMakeLists.txt only =core_link_edges=. An edit
-to a C++ or SQL file runs the gates that scan every such file again, each
-1.5 to 2.5 s, and an edit to a model or template runs =codegen= (about
-2.5 s), so those edits take 3 to 5 s. A Write that creates a file also
-runs every unit whose listing the file joins, such as =exported_types=,
-about 3 s. Those gates are corpus units over the whole tree; only
-splitting them into per-file units would bring such an edit under a
-second.
+A check writes =compass/listing= beside the dependency record: each file
+of the listing, whether it is a document, and a SHA-1 trailer
+(=io::write_listing_file=), rewritten only when it changed. Unless the
+payload says the file may be new, the hook lists the checkout from it
+(=io::read_listing_file=) instead of starting git; a missing or damaged
+record, or an edited file it lacks, falls back to =git ls-files=. Content
+IDs are resolved once per run (=app::listed_ids=), and a check keeps every
+listed file it hashed in the worktree index, so a file under an attributes
+rule is not hashed again.
 
-Over 23 single-file edits of that copy (SQL, C++, org documents, a model,
+On a copy of ORE Studio at 545cafca45, with codegen and the ported gates
+enabled, a warm hook spends about 60 ms reading the 11 MB index, 20 to 30
+ms listing from the record, 80 to 100 ms opening git's index for content
+IDs and 50 to 140 ms loading the documents when needed. The gates that
+read every C++ or SQL file are scans (see compass.codec), so an edit runs
+them again over the stored facts and the one changed file: an edit to a
+C++ file runs each in 70 to 650 ms instead of 1.5 to 4.5 s. Codegen is
+still one unit that plans every model: an edit to a model or a template
+runs it whole, about 2 s, with the outputs rendered on every core.
+
+| Edit                            | Before (load)           | After (load 7 to 9) |
+|---------------------------------+-------------------------+---------------------|
+| A file no codec reads           | 66 ms (20)              | 60 ms               |
+| A CMakeLists.txt                | 390 ms (18)             | 260 ms              |
+| An org document or a skill page | 1.2 to 1.5 s (14 to 25) | 0.9 s               |
+| A SQL file                      | 2.9 to 3.4 s (3 to 6)   | 1.1 to 1.2 s        |
+| A C++ header or source          | 4 to 6 s (7 to 23)      | 1.4 to 1.6 s        |
+| A second definition of a type   |                         | 0.8 to 0.9 s        |
+| A registrar call removed        |                         | 0.8 s               |
+| A codegen template              | 4.6 to 4.8 s (21)       | 2.2 to 2.3 s        |
+| A codegen model                 | 5.0 to 5.4 s (14 to 25) | 2.6 to 2.8 s        |
+| A new SQL file (Write, create)  | 2.9 to 6.1 s (15 to 18) | 2.0 to 2.1 s        |
+
+Over 27 single-file edits of that copy (SQL, C++, org documents, a model,
 templates, CMake files, a recipe, a skill page, unrelated files, a
-dropped include and three new files), the hook's findings were exactly
-those of a full check on the edited file plus those the full check gained
-on other files.
+dropped include and three new files, plus a second definition of a type
+name, a dropped include that leaves a file unreachable, a removed
+registrar call and an edit to a field group model other models read), the
+hook's findings were exactly those of a full check on the edited file
+plus those the full check gained on other files. A full warm check took
+4.3 s at load 7.
 
 * Inputs
 
