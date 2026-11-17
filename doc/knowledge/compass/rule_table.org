@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-151 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 57 are cited by no rule.
+157 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 57 are cited by no rule.
 
 ** Rules
 
@@ -64,6 +64,12 @@ memories no rule cites are the candidates for the next checks.
 | =history_registrars= | missing_composition | A checked component that generates registrars has its composition file. | =B5492D6C-7C18-4723-BA47-232AEAA13314= |
 | =http_areas= | unpublished_area | Every #+http_area: a model declares is a published area. |  |
 | =http_areas= | unreadable_areas | The route classification module states AREAS and NO_AREA as literals. |  |
+| =lint= | bad_filetag | Every tag of a page's first #+filetags: line is lowercase: a letter, then letters, digits, _, . or -. |  |
+| =lint= | unclosed_marker | Every '# BEGIN generated X' has a matching '# END generated X' on its own line. |  |
+| =lint= | marker_without_writer | A '# BEGIN generated X (script)' marker names a script that exists and writes the page. |  |
+| =lint= | malformed_link | An id link whose target has a hyphen is a UUID. |  |
+| =lint= | dangling_link | Every id link names the :ID: of some page. |  |
+| =lint= | durable_link | A page under doc/llm, doc/meta, doc/knowledge or doc/recipes links no agile page. |  |
 | =marketdata_identity_columns= | table_columns | The identity table holds the context columns, the identity fields and the index columns, and nothing else. |  |
 | =marketdata_identity_columns= | projector_switch | The projector's switch names every field, places each identity field in its own column and no coordinate. |  |
 | =marketdata_identity_columns= | views | Each asset class with series has one view exposing the context, its identity fields and its instrument types. |  |
