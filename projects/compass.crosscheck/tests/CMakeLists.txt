@@ -28,6 +28,7 @@ add_executable(${tests_target_name}
     codecs_paste_blocks_tests.cpp
     codecs_protocol_twins_tests.cpp
     codecs_registry_gates_tests.cpp
+    codecs_script_library_seed_tests.cpp
     codecs_subject_conformance_tests.cpp)
 
 target_link_libraries(${tests_target_name}

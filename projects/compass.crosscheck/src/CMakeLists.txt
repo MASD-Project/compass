@@ -32,6 +32,7 @@ add_library(${lib_target_name}
     codecs/paste_blocks.cpp
     codecs/protocol_twins.cpp
     codecs/registry_gates.cpp
+    codecs/script_library_seed.cpp
     codecs/subject_conformance.cpp
     codecs/template_sections.cpp
     ops/python_literals.cpp
