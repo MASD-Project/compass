@@ -39,13 +39,13 @@ struct python_entry;
 
 /**
  * @brief A literal: a string (adjacent literals joined, raw ones kept as
- * written), an f-string template, a name, a tuple, list or set, a dict, or
- * a call. A call's positional arguments are its items and its keyword
+ * written), an f-string template, a number as written, a name, a tuple,
+ * list or set, a dict, or a call. A call's positional arguments are its items and its keyword
  * arguments its entries. An f-string's text is its template, with the
  * braces of any plain literal joined to it doubled; resolved() formats it.
  */
 struct python_value {
-    enum class kind { string, format, name, sequence, dict, call };
+    enum class kind { string, format, number, name, sequence, dict, call };
     kind what = kind::string;
     std::string text;
     std::vector<python_value> items;
