@@ -46,6 +46,11 @@ finished, is not ported:
   requires the same six sections, and =required_sections= reads them from
   the type registry. A repository that turns =required_sections= off has
   no section check on its component overviews.
+- The =react_tree= and =no_discovery= rules of =prototypes=. They guarded
+  the move of the prototypes out of the React tree, finished on
+  2026-10-06. =no_discovery= looked for the string
+  =ores-deploy-prototypes= anywhere in the site build, so the function's
+  own definition passed it with the call removed.
 
 * Inputs
 
@@ -114,9 +119,8 @@ finished, is not ported:
 - *=prototypes=.* =prototypes= (=check_prototype_inventory.py=). The
   prototypes under =doc/prototypes/<group>/<name>/=, the group pages and
   the top page agree; each review directory has its index and each row its
-  review cell; the site build deploys what it finds; the files the
-  =trades= and =conventions= groups share by copy, which the script lists
-  in code, are identical; the retired React prototype tree is gone.
+  review cell; the files the =trades= and =conventions= groups share by
+  copy, which the script lists in code, are identical.
 - *=rule_identifiers=.* =rule-identifiers= (=check_rule_identifiers.py=).
   The two UX pages key the bullets of the level-two sections the script
   lists in code, each with one identifier of the page's code; the screen

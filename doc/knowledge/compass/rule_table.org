@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-181 rules, 44 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
+179 rules, 42 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
 
 ** Rules
 
@@ -130,9 +130,7 @@ memories no rule cites are the candidates for the next checks.
 | =prototypes= | missing_group | Every group the top page links has a page. | =D913FE21-6CF6-439A-89CF-6A1928AFA094= |
 | =prototypes= | review_without_index | A review directory lists its screens on an index.html. |  |
 | =prototypes= | review_cell | A prototype's row links its review, or says none in its review cell. |  |
-| =prototypes= | no_discovery | The site build deploys the prototypes it finds. | [[id:708C2462-C1F8-455B-B091-9D9690FEEAAB][Keep journey prototypes on main]] |
 | =prototypes= | copy_differs | The copies of a file a group shares are identical, save one that may add rules after the shared text. |  |
-| =prototypes= | react_tree | The retired React prototype tree is gone. | [[id:708C2462-C1F8-455B-B091-9D9690FEEAAB][Keep journey prototypes on main]], =D913FE21-6CF6-439A-89CF-6A1928AFA094= |
 | =recipe_inventories= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =registry_exceptions= | bad_exception | Each accepted exception of the component registry names a listed component, a checklist item the standard defines once, a reason, who accepted it and an ISO date. | =E22B9A3C-DF20-4EC3-8BEC-C193E1560745=, =7B477025-132E-4B20-80B4-D8C9420880B8= |
 | =registry_exceptions= | unreadable_registry | The registry and the standard state their tables in a form this check reads. |  |

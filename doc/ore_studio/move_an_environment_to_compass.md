@@ -296,6 +296,7 @@ remove it too.
 | `link_skill_recipes.py --check` (codec `skill_recipes`) | `lint/dangling_link`, for a recipe link that no longer resolves. The links were applied once and are in the skill pages; removing one is a reviewed change, not a finding. |
 | `apply_skill_levels.py --check` (codec `skill_level_tags`) | `skill_levels/refused`, for a skill the level table lacks or an entry with no skill; the refusal names each. A skill page whose `#+level:` differs from the table is no longer reported; review a level change in the page's diff. |
 | `component-docs`'s `MISSING_SECTION` (rule `component_docs/missing_section`) | `required_sections/missing_section`, which reads the six sections from `doc/meta/document_type_component.org`. Step 1 keeps `required_sections` off, so until ORE Studio turns it on nothing checks the sections of a component overview. The `MISSING_SECTION` line of `docs_exceptions.txt` no longer excuses anything. |
+| `prototypes`' React tree and site discovery checks (rules `prototypes/react_tree`, `prototypes/no_discovery`) | Nothing; they guarded the prototype move finished on 2026-10-06. |
 
 ## Fixes to make in ORE Studio
 
