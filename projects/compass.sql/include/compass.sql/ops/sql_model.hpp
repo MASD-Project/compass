@@ -155,6 +155,13 @@ struct sql_file {
 };
 
 /**
+ * @brief The includes of @p text, lexed as @p tokens: what model_of gives
+ * as its includes, without reading anything else.
+ */
+[[nodiscard]] std::vector<sql_include> includes_of(std::string_view text,
+    const lexed& tokens);
+
+/**
  * @brief The model of @p text, lexed as @p tokens.
  */
 [[nodiscard]] sql_file model_of(std::string_view text, const lexed& tokens);

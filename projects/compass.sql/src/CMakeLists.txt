@@ -29,6 +29,7 @@ add_library(${lib_target_name}
     codecs/sql_reachability.cpp
     ops/er_model.cpp
     ops/hygiene.cpp
+    ops/includes.cpp
     ops/lexer.cpp
     ops/scripts.cpp
     ops/sql_model.cpp)

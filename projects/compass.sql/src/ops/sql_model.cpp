@@ -69,6 +69,34 @@ std::string collapsed(std::string_view text) {
     return lowered(out);
 }
 
+/**
+ * @brief The include the meta-command @p meta states, if it is one.
+ */
+std::optional<sql_include> include_of(std::string_view meta,
+    std::uint32_t offset) {
+    auto line = meta.substr(1);
+    std::size_t end = 0;
+    while (end < line.size() && !is_space(line[end]))
+        ++end;
+    const auto command = line.substr(0, end);
+    const bool relative = command == "ir" || command == "include_relative";
+    if (!relative && command != "i" && command != "include")
+        return std::nullopt;
+    line.remove_prefix(end);
+    std::size_t from = 0;
+    while (from < line.size() && is_space(line[from]))
+        ++from;
+    if (from == 0 || from == line.size())
+        return std::nullopt;
+    auto to = from;
+    while (to < line.size() && !is_space(line[to]))
+        ++to;
+    auto path = line.substr(from, to - from);
+    if (path.size() >= 2 && path.front() == '\'' && path.back() == '\'')
+        path = path.substr(1, path.size() - 2);
+    return sql_include{relative, std::string(path), offset};
+}
+
 struct walker {
     std::string_view text;
     sql_file& out;
@@ -164,31 +192,6 @@ struct walker {
             return {};
         const auto from = s.front().offset;
         return text.substr(from, s.back().offset + s.back().size - from);
-    }
-
-    void include(const token& t) {
-        auto line = of(t).substr(1);
-        std::size_t end = 0;
-        while (end < line.size() && !is_space(line[end]))
-            ++end;
-        const auto command = line.substr(0, end);
-        const bool relative = command == "ir" ||
-            command == "include_relative";
-        if (!relative && command != "i" && command != "include")
-            return;
-        line.remove_prefix(end);
-        std::size_t from = 0;
-        while (from < line.size() && is_space(line[from]))
-            ++from;
-        if (from == 0 || from == line.size())
-            return;
-        auto to = from;
-        while (to < line.size() && !is_space(line[to]))
-            ++to;
-        auto path = line.substr(from, to - from);
-        if (path.size() >= 2 && path.front() == '\'' && path.back() == '\'')
-            path = path.substr(1, path.size() - 2);
-        out.includes.push_back({relative, std::string(path), t.offset});
     }
 
     void calls(tokens_t s) {
@@ -536,7 +539,8 @@ struct walker {
                 continue;
             if (t.kind == token_kind::meta) {
                 flush();
-                include(t);
+                if (auto in = include_of(of(t), t.offset))
+                    out.includes.push_back(std::move(*in));
                 continue;
             }
             if (t.kind == token_kind::symbol && text[t.offset] == ';') {
@@ -549,6 +553,18 @@ struct walker {
     }
 };
 
+}
+
+std::vector<sql_include> includes_of(std::string_view text,
+    const lexed& tokens) {
+    std::vector<sql_include> out;
+    for (const auto& t : tokens.tokens) {
+        if (t.kind != token_kind::meta)
+            continue;
+        if (auto in = include_of(text_of(text, t), t.offset))
+            out.push_back(std::move(*in));
+    }
+    return out;
 }
 
 sql_file model_of(std::string_view text, const lexed& tokens) {

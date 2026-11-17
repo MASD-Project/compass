@@ -28,6 +28,7 @@ add_executable(${tests_target_name}
     codecs_sql_hygiene_tests.cpp
     codecs_sql_reachability_tests.cpp
     ops_er_model_tests.cpp
+    ops_includes_tests.cpp
     ops_sql_model_tests.cpp)
 
 target_link_libraries(${tests_target_name}
