@@ -294,6 +294,7 @@ remove it too.
 | `model-sql-types` (codec `model_sql_types`) | `codegen/drift` on the generated `*_create.sql`. At `545cafca45` 1,307 of 1,470 create scripts are generated, and every one of the 577 a model claims is among them. |
 | `model-drift`'s unknown profile and conflicting profiles (rules `model_drift/unknown_profile`, `model_drift/profile_conflict`) | `codegen`'s model loader, which stops `compass-ng check` with exit 2 and `unknown profile '<slug>'` or `<model>: conflicting profiles on '<feature>'`. |
 | `link_skill_recipes.py --check` (codec `skill_recipes`) | `lint/dangling_link`, for a recipe link that no longer resolves. The links were applied once and are in the skill pages; removing one is a reviewed change, not a finding. |
+| `apply_skill_levels.py --check` (codec `skill_level_tags`) | `skill_levels/refused`, for a skill the level table lacks or an entry with no skill; the refusal names each. A skill page whose `#+level:` differs from the table is no longer reported; review a level change in the page's diff. |
 
 ## Fixes to make in ORE Studio
 

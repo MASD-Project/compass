@@ -57,21 +57,10 @@ extern const compass::codec::types::descriptor skill_type_tables;
  * (apply_skill_levels.py): the generated region of
  * doc/llm/skills/skill_systems_levels.org, the count of skills each
  * System sees by the script's table. A skill missing from the table, or a
- * table entry with no skill, writes nothing, where the script stops; an
- * inventory without its markers is not written.
+ * table entry with no skill, writes nothing, where the script stops, and
+ * the refusal names each; an inventory without its markers is not written.
  */
 extern const compass::codec::types::descriptor skill_levels;
-
-/**
- * @brief The page half of apply_skill_levels.py, as the verdict its
- * --check gives: each skill whose #+level: is not the table's, each skill
- * the table lacks and each table entry with no skill.
- *
- * The script writes the level into the page. That page is also written by
- * structure_notes, and an output has one producer, so this half reports
- * instead of writing.
- */
-extern const compass::codec::types::descriptor skill_level_tags;
 
 /**
  * @brief The table skill_levels applies: each skill and the System it

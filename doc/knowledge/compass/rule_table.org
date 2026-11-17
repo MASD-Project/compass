@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-185 rules, 45 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
+182 rules, 45 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
 
 ** Rules
 
@@ -161,9 +161,6 @@ memories no rule cites are the candidates for the next checks.
 | =shell_menus= | root_name_collides | No two units own one root name. |  |
 | =shell_recipe_provenance= | orphan_recipe | Every shell recipe names, in its GENERATED header, the document it was tangled from, and that document exists. |  |
 | =skill_catalogue= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
-| =skill_level_tags= | level_differs | Every skill carries the level the script's table gives it. |  |
-| =skill_level_tags= | untabled_skill | Every skill has a level in the script's table. |  |
-| =skill_level_tags= | missing_skill | Every skill the script's table names exists. |  |
 | =skill_levels= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =skill_namespace= | outside_namespace | Every skill under doc/llm/skills is named compass-... |  |
 | =skill_type_tables= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |

@@ -21,8 +21,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cstdint>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -31,7 +29,6 @@
 #include "compass.cpp/ops/report.hpp"
 #include "compass.docs/ops/regions.hpp"
 #include "compass.docs/ops/skills.hpp"
-#include "compass.platform/text/regex.hpp"
 
 namespace compass::docs::codecs {
 
@@ -39,7 +36,6 @@ namespace {
 
 namespace ct = compass::codec::types;
 namespace co = compass::cpp::ops;
-namespace pt = compass::platform::text;
 
 using level_entry = std::pair<std::string_view, std::string_view>;
 
@@ -176,31 +172,27 @@ bool in_scope(std::string_view name, std::string_view level) {
     return declared == level || declared == "cross";
 }
 
-constexpr std::string_view levels_script = "build/scripts/apply_skill_levels.py";
-constexpr std::string_view levels_fix =
-    "Run python3 build/scripts/apply_skill_levels.py.";
-
 /**
- * @brief The level a skill page declares, as current_level reads it, and
- * the offset of its line; nothing when it declares none.
+ * @brief Each skill the table lacks and each table entry with no skill, as
+ * one sentence; empty when the table and the skills agree.
  */
-std::optional<std::pair<std::string, std::uint32_t>> current_level(
-    std::string_view text) {
-    static const pt::regex current(R"(^#\+level:\s*(\S+)\s*$)",
-        {.multiline = true});
-    const auto m = current.search(text);
-    if (!m)
-        return std::nullopt;
-    return std::pair{std::string(m->group(1)),
-        static_cast<std::uint32_t>(m->start())};
-}
-
-bool complete(const std::vector<std::string>& names) {
-    return std::ranges::all_of(names,
-        [](const std::string& n) { return !level_of(n).empty(); }) &&
-        std::ranges::all_of(levels, [&](const level_entry& l) {
-            return std::ranges::binary_search(names, l.first);
-        });
+std::string differences(const std::vector<std::string>& names) {
+    std::string untabled;
+    for (const auto& n : names) {
+        if (level_of(n).empty())
+            untabled += (untabled.empty() ? "" : ", ") + n;
+    }
+    std::string missing;
+    for (const auto& [name, level] : levels) {
+        if (!std::ranges::binary_search(names, name))
+            missing += (missing.empty() ? "" : ", ") + std::string(name);
+    }
+    std::string out;
+    if (!untabled.empty())
+        out = "no level for " + untabled;
+    if (!missing.empty())
+        out += (out.empty() ? "" : "; ") + ("no skill for " + missing);
+    return out;
 }
 
 std::string inventory(const std::vector<std::string>& names) {
@@ -232,9 +224,11 @@ std::string inventory(const std::vector<std::string>& names) {
 
 void write_inventory(const ct::corpus_view& v, ct::file_output& out) {
     const auto names = ops::skill_names(v);
-    if (!complete(names)) {
-        co::refuse(out, levels_doc, "the level table and the skills differ",
-            "Correct what skill_level_tags reports.");
+    if (const auto differ = differences(names); !differ.empty()) {
+        co::refuse(out, levels_doc, "the level table and the skills "
+            "differ: " + differ, "Add each new skill to LEVELS in "
+            "build/scripts/apply_skill_levels.py and to the level table of "
+            "compass.docs, or remove the entry of a skill that is gone.");
         return;
     }
     const auto text = v.read_file(levels_doc);
@@ -259,42 +253,6 @@ void write_inventory(const ct::corpus_view& v, ct::file_output& out) {
 
 }
 
-constexpr std::array<ct::rule, 3> level_rules{{
-    {"level_differs", "Every skill carries the level the script's table "
-        "gives it."},
-    {"untabled_skill", "Every skill has a level in the script's table."},
-    {"missing_skill", "Every skill the script's table names exists."}}};
-
-void check_levels(const ct::corpus_view& v, ct::diagnostic_table& out) {
-    const auto names = ops::skill_names(v);
-    if (!complete(names)) {
-        for (const auto& n : names)
-            if (level_of(n).empty())
-                co::report(out, std::string(ops::skills_dir) + n +
-                    "/SKILL.org", 0, 1, "no level for " + n, levels_fix);
-        for (const auto& [name, level] : levels)
-            if (!std::ranges::binary_search(names, name))
-                co::report(out, levels_script, 0, 2, "table names a skill "
-                    "that does not exist: " + std::string(name),
-                    "Remove it from LEVELS in " + std::string(levels_script) +
-                    ".");
-        return;
-    }
-    for (const auto& name : names) {
-        const auto path = std::string(ops::skills_dir) + name + "/SKILL.org";
-        const auto text = v.read_file(path);
-        if (!text)
-            continue;
-        const auto want = level_of(name);
-        const auto current = current_level(*text);
-        if (current && current->first == want)
-            continue;
-        co::report(out, path, current ? current->second : 0, 0,
-            name + ": level is " + (current ? current->first : "None") +
-            ", table says " + std::string(want), levels_fix);
-    }
-}
-
 std::span<const std::pair<std::string_view, std::string_view>>
 skill_level_table() noexcept {
     return levels;
@@ -302,23 +260,12 @@ skill_level_table() noexcept {
 
 const ct::descriptor skill_levels{
     .name = "skill_levels",
-    .version = 2,
+    .version = 3,
     .summary = "Writes the inventory of what each System sees.",
     .reads = ct::inputs::of_types({}),
     .options = {},
     .rules = co::refusal_rules,
     .enabled_by_default = false,
     .run = ct::corpus_function<ct::file_output>{write_inventory}};
-
-const ct::descriptor skill_level_tags{
-    .name = "skill_level_tags",
-    .version = 1,
-    .summary = "Reports each skill whose level is not the one the table "
-        "gives it.",
-    .reads = ct::inputs::of_types({}),
-    .options = {},
-    .rules = level_rules,
-    .enabled_by_default = false,
-    .run = ct::corpus_function<ct::diagnostic_table>{check_levels}};
 
 }

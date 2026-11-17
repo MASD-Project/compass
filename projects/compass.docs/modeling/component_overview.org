@@ -36,6 +36,11 @@ finished, is not ported:
   skill-to-recipe links once; the links are in the skill pages now, and
   =lint/dangling_link= reports one that no longer resolves. A link someone
   removes is a change reviewed in the skill page's diff.
+- The page half of =skill-levels= (=apply_skill_levels.py --check=). It
+  compared each skill page's =#+level:= with a copy of the script's table
+  compiled into compass, two sources of one fact. A level change is
+  reviewed in the skill page's diff. A skill the table lacks, or an entry
+  with no skill, still stops =skill_levels=, whose refusal names each.
 
 * Inputs
 
@@ -186,13 +191,7 @@ They are off by default.
   =doc/llm/skills/skill_systems_levels.org=, the count of skills each
   System sees by the script's =LEVELS= table, copied into the codec. A
   skill the table lacks, or an entry with no skill, writes nothing and is
-  refused.
-- *=skill_level_tags=.* The page half of =skill-levels=, as a check: each
-  skill whose =#+level:= is not the table's, each skill the table lacks
-  and each entry with no skill, reported as the script's =--check= does.
-  The script writes the level into the page, but =structure_notes= also
-  writes skill pages and an output has one producer, so this half
-  reports.
+  refused, the refusal naming each.
 - *=recipe_inventories=.* =recipe-inventories=
   (=regenerate_shell_recipe_inventory.py= and
   =regenerate_http_recipe_inventory.py=): =doc/recipes/shell/shell.org=,

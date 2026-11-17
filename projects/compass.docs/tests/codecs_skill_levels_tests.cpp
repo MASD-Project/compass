@@ -52,21 +52,6 @@ tests::files full_tree() {
 
 }
 
-TEST_CASE("a skill whose level is not the table's is reported on its level "
-    "line, and one with none at its start", "[codecs][skill_level_tags]") {
-    auto all = full_tree();
-    all[skill_path("compass-pr-merge")] = "#+title: x\n#+level: s5\n";
-    all[skill_path("compass-doc-find")] =
-        "#+title: x\n#+export_exclude_tags: noexport\n\n* Body\n";
-    const auto found = tests::run(codecs::skill_level_tags, all);
-
-    CHECK(found == std::vector<tests::finding>{
-        {skill_path("compass-doc-find"), 1,
-            "compass-doc-find: level is None, table says cross"},
-        {skill_path("compass-pr-merge"), 2,
-            "compass-pr-merge: level is s5, table says s1"}});
-}
-
 TEST_CASE("the inventory counts each System's slice, the auditor's by its "
     "read-only verbs", "[codecs][skill_levels]") {
     const auto out = tests::generate(codecs::skill_levels, full_tree());
@@ -81,12 +66,14 @@ TEST_CASE("the inventory counts each System's slice, the auditor's by its "
     CHECK(text.find("\n15 skills are tagged =cross=") != std::string::npos);
 }
 
-TEST_CASE("a skill the table lacks writes no inventory and is reported",
-    "[codecs][skill_levels][skill_level_tags]") {
+TEST_CASE("a skill the table lacks and an entry with no skill write no "
+    "inventory and are named in the refusal", "[codecs][skill_levels]") {
     auto all = full_tree();
     all[skill_path("compass-new-skill")] = "#+level: s1\n";
+    all.erase(skill_path("compass-pr-merge"));
     CHECK(tests::generate(codecs::skill_levels, all).empty());
-    CHECK(tests::run(codecs::skill_level_tags, all) ==
-        std::vector<tests::finding>{{skill_path("compass-new-skill"), 1,
-            "no level for compass-new-skill"}});
+    CHECK(tests::messages(tests::run(codecs::skill_levels, all)) ==
+        std::vector<std::string>{levels_doc + " is not generated: the level "
+            "table and the skills differ: no level for compass-new-skill; "
+            "no skill for compass-pr-merge"});
 }
