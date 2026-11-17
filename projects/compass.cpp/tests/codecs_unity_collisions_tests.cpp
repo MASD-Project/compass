@@ -95,3 +95,16 @@ TEST_CASE("a file that is not UTF-8 is skipped, as read_text() fails on it",
     t["projects/ores.a/src/sub/two.cpp"] += "// \xff\n";
     CHECK(tests::run(codecs::unity_collisions, t).findings.empty());
 }
+
+TEST_CASE("an edit that adds or drops a colliding name changes the findings "
+    "on the other source", "[codecs][unity_collisions]") {
+    auto before = tree();
+    before["projects/ores.a/src/sub/two.cpp"] = "namespace ores::a {}\n";
+
+    CHECK(tests::places(tests::run_after_edit(codecs::unity_collisions,
+        before, tree()).findings) == places{
+            {"projects/ores.a/src/one.cpp", 5},
+            {"projects/ores.a/src/one.cpp", 3}});
+    CHECK(tests::run_after_edit(codecs::unity_collisions, tree(), before)
+        .findings.empty());
+}

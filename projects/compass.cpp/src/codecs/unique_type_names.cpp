@@ -24,9 +24,11 @@
 #include <map>
 #include <optional>
 #include <set>
+#include <span>
 #include <string>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.codec/types/fact.hpp"
 #include "compass.cpp/ops/paths.hpp"
 #include "compass.cpp/ops/report.hpp"
 #include "compass.platform/text/decoding.hpp"
@@ -141,13 +143,33 @@ std::map<std::string, std::uint32_t> defined_types(std::string_view text) {
     return found;
 }
 
-void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
+std::vector<std::string_view> scanned(const ct::corpus_view& v) {
     std::vector<std::string_view> headers;
     for (const auto p : v.list_files("projects/ores.", ".hpp")) {
         if (is_scanned(p))
             headers.push_back(p);
     }
     std::ranges::sort(headers, ops::component_less);
+    return headers;
+}
+
+/**
+ * @brief The fact of a header: each type it defines and its offset, zero
+ * when the text was decoded, as defined_types orders them.
+ */
+void map(std::string_view, std::string_view bytes, const ct::option_values&,
+    ct::file_scan& out) {
+    const bool exact = pt::is_utf8(bytes) &&
+        bytes.find('\r') == std::string_view::npos;
+    const auto text = exact ? std::string(bytes)
+        : pt::universal_newlines(pt::decode_replacing(bytes));
+    ct::fact_writer fact(out.fact);
+    for (const auto& [name, offset] : defined_types(text))
+        fact.text(name).number(exact ? offset : 0);
+}
+
+void reduce(std::span<const ct::scanned_file> headers,
+    const ct::corpus_view&, ct::diagnostic_table& out) {
 
     struct definition {
         std::string_view header;
@@ -156,20 +178,18 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
     // Name, then binary in the order first seen, then its definitions.
     std::map<std::string,
         std::vector<std::pair<std::string, std::vector<definition>>>> defined;
-    for (const auto h : headers) {
-        const auto bytes = v.read_file(h).value_or("");
-        const bool exact = pt::is_utf8(bytes) &&
-            bytes.find('\r') == std::string::npos;
-        const auto text = exact ? bytes
-            : pt::universal_newlines(pt::decode_replacing(bytes));
+    for (const auto& [h, f] : headers) {
         const auto binary = binary_of(h);
-        for (const auto& [name, offset] : defined_types(text)) {
+        ct::fact_reader fact(f);
+        while (!fact.done()) {
+            const std::string name(fact.text());
+            const auto offset = fact.number();
             auto& binaries = defined[name];
             auto it = std::ranges::find_if(binaries,
                 [&](const auto& b) { return b.first == binary; });
             if (it == binaries.end())
                 it = binaries.insert(binaries.end(), {binary, {}});
-            it->second.push_back({h, exact ? offset : 0});
+            it->second.push_back({h, offset});
         }
     }
 
@@ -208,13 +228,13 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
 
 const ct::descriptor unique_type_names{
     .name = "unique_type_names",
-    .version = 1,
+    .version = 2,
     .summary = "Reports each qualified type name two headers define where "
         "both can meet in one binary.",
     .reads = ct::inputs::of_types({}),
     .options = {},
     .rules = rules,
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::diagnostic_table>{run}};
+    .run = ct::scan_function{scanned, map, reduce}};
 
 }

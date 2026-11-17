@@ -166,3 +166,17 @@ TEST_CASE("an exported type is a class or struct the macro decorates at "
     CHECK(types[1].name == "b");
     CHECK(types[1].offset == 27);
 }
+
+TEST_CASE("an edit that includes an exported header from a source, or "
+    "drops the include, changes whether the header is reported",
+    "[codecs][exported_types]") {
+    auto reached = library();
+    reached["projects/ores.a/api/src/compiled.cpp"] +=
+        "#include \"ores.a.api/orphan.hpp\"\n";
+
+    CHECK(tests::run_after_edit(codecs::exported_types, library(), reached)
+        .findings.empty());
+    CHECK(tests::places(tests::run_after_edit(codecs::exported_types,
+        reached, library()).findings) == places{
+            {"projects/ores.a/api/include/ores.a.api/orphan.hpp", 2}});
+}

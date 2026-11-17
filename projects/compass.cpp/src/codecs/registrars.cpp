@@ -23,9 +23,12 @@
 #include <array>
 #include <map>
 #include <set>
+#include <span>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.codec/types/fact.hpp"
 #include "compass.cpp/ops/paths.hpp"
 #include "compass.cpp/ops/report.hpp"
 #include "compass.platform/text/decoding.hpp"
@@ -149,13 +152,94 @@ constexpr std::array<std::string_view, 8> handler_components{"ores.assets",
     "ores.compute", "ores.dq", "ores.marketdata", "ores.scheduler",
     "ores.synthetic", "ores.trading", "ores.variability"};
 
-void run_handlers(const ct::corpus_view& v, ct::diagnostic_table& out) {
-    static const pt::regex declaration(R"(register_(\w+)_handlers\s*\()");
-    static const pt::regex subject(R"((\w+_request)::nats_subject)");
+const pt::regex& handler_declaration() {
+    static const pt::regex r(R"(register_(\w+)_handlers\s*\()");
+    return r;
+}
+
+const pt::regex& handler_subject() {
+    static const pt::regex r(R"((\w+_request)::nats_subject)");
+    return r;
+}
+
+std::vector<std::string_view> handler_files(const ct::corpus_view& v) {
+    std::vector<std::string_view> out;
     for (const auto c : handler_components) {
         const auto root = "projects/" + std::string(c) + "/";
-        const auto entities = registrars_under(v, root + "core/include/",
-            "_registrar.hpp", declaration, "_history_provider_registrar.hpp");
+        for (const auto suffix : {".cpp", ".hpp"}) {
+            const auto paths = v.list_files(root, suffix);
+            out.insert(out.end(), paths.begin(), paths.end());
+        }
+    }
+    return out;
+}
+
+/**
+ * @brief The fact of a file: the entity and offset of the handler
+ * registrar it declares, or an empty entity, then the registrars it calls
+ * and the request subjects it names.
+ */
+void map_handlers(std::string_view, std::string_view bytes,
+    const ct::option_values&, ct::file_scan& out) {
+    ct::fact_writer fact(out.fact);
+    if (const auto m = handler_declaration().search(bytes))
+        fact.text(m->group(1))
+            .number(static_cast<std::uint32_t>(m->start()));
+    else
+        fact.text({}).number(0);
+    const auto text = pt::decode_ignoring(bytes);
+    const auto called = names_in(handler_declaration(), text);
+    fact.number(static_cast<std::uint32_t>(called.size()));
+    for (const auto& n : called)
+        fact.text(n);
+    for (const auto& n : names_in(handler_subject(), text))
+        fact.text(n);
+}
+
+struct handler_fact {
+    std::string_view entity;
+    std::uint32_t offset = 0;
+    std::vector<std::string> called;
+    std::set<std::string> subjects;
+};
+
+handler_fact read_handler_fact(std::string_view f) {
+    ct::fact_reader r(f);
+    handler_fact out;
+    out.entity = r.text();
+    out.offset = r.number();
+    for (auto n = r.number(); n > 0; --n)
+        out.called.emplace_back(r.text());
+    while (!r.done())
+        out.subjects.emplace(r.text());
+    return out;
+}
+
+void reduce_handlers(std::span<const ct::scanned_file> files,
+    const ct::corpus_view& v, ct::diagnostic_table& out) {
+    std::unordered_map<std::string_view, std::string_view> facts;
+    for (const auto& f : files)
+        facts.emplace(f.path, f.fact);
+    const auto fact_of = [&](std::string_view path) {
+        const auto it = facts.find(path);
+        return read_handler_fact(it == facts.end() ? std::string_view{}
+            : it->second);
+    };
+    for (const auto c : handler_components) {
+        const auto root = "projects/" + std::string(c) + "/";
+        auto headers = v.list_files(root + "core/include/",
+            "_registrar.hpp");
+        std::ranges::sort(headers, ops::component_less);
+        std::map<std::string, registrar> entities;
+        for (const auto h : headers) {
+            if (h.ends_with("_history_provider_registrar.hpp"))
+                continue;
+            const auto f = fact_of(h);
+            if (!f.entity.empty()) {
+                const std::string entity(f.entity);
+                entities[entity] = {entity, h, f.offset};
+            }
+        }
         if (entities.empty())
             continue;
         std::set<std::string> called;
@@ -166,21 +250,20 @@ void run_handlers(const ct::corpus_view& v, ct::diagnostic_table& out) {
                 const auto parts = ops::components_of(p);
                 if (std::ranges::find(parts, "tests") != parts.end())
                     continue;
-                const auto text = pt::decode_ignoring(
-                    v.read_file(p).value_or(""));
+                auto f = fact_of(p);
                 const auto stem = ops::stem_of(p);
                 std::string own;
                 if (stem.ends_with("_registrar"))
                     own = stem.substr(0, stem.size() - 10);
                 const bool is_own = stem.ends_with("_registrar");
                 if (is_own && ops::suffix_of(p) == ".cpp")
-                    subscribes[own] = names_in(subject, text);
-                for (const auto& n : names_in(declaration, text)) {
+                    subscribes[own] = f.subjects;
+                for (const auto& n : f.called) {
                     if (!is_own || n != own)
                         called.insert(n);
                 }
                 if (!is_own)
-                    named.merge(names_in(subject, text));
+                    named.merge(f.subjects);
             }
         }
         for (const auto& [entity, r] : entities) {
@@ -225,13 +308,14 @@ const ct::descriptor history_registrars{
 
 const ct::descriptor handler_registrars{
     .name = "handler_registrars",
-    .version = 1,
+    .version = 2,
     .summary = "Reports each generated handler registrar that nothing calls "
         "and whose subjects nothing else subscribes.",
     .reads = ct::inputs::of_types({}),
     .options = {},
     .rules = handler_rules,
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::diagnostic_table>{run_handlers}};
+    .run = ct::scan_function{handler_files, map_handlers,
+        reduce_handlers}};
 
 }

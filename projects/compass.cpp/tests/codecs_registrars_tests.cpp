@@ -87,3 +87,19 @@ TEST_CASE("a component with history registrars and no composition file is "
         {"projects/ores.refdata/core/include/ores.refdata/messaging/"
          "z_history_provider_registrar.hpp", 1}});
 }
+
+TEST_CASE("an edit that drops a registrar call reports the registrar, and "
+    "one that adds it back clears it", "[codecs][handler_registrars]") {
+    auto dropped = tree();
+    dropped["projects/ores.dq/core/src/messaging/registrar.cpp"] =
+        "void by_hand() { subscribe(get_b_request::nats_subject); }\n";
+
+    CHECK(tests::places(tests::run_after_edit(codecs::handler_registrars,
+        tree(), dropped).findings) == places{
+            {"projects/ores.dq/core/include/ores.dq/messaging/a_registrar.hpp",
+             1},
+            {"projects/ores.dq/core/include/ores.dq/messaging/c_registrar.hpp",
+             1}});
+    CHECK(tests::run_after_edit(codecs::handler_registrars, dropped, tree())
+        .findings.size() == 1);
+}

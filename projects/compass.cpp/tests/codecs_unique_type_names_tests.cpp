@@ -66,3 +66,19 @@ TEST_CASE("a name two headers that can meet define is reported once",
         {"projects/ores.a/include/ores.a/one.hpp", 2},
         {"projects/ores.e/tests/one.hpp", 1}});
 }
+
+TEST_CASE("an edit that defines a second type of one name is reported "
+    "on the first, and one that renames it clears it",
+    "[codecs][unique_type_names]") {
+    auto before = tree();
+    before["projects/ores.b/include/ores.b/two.hpp"] = "namespace x {}\n";
+    const auto after = tree();
+
+    CHECK(tests::places(tests::run_after_edit(codecs::unique_type_names,
+        before, after).findings) == places{
+            {"projects/ores.a/include/ores.a/one.hpp", 2},
+            {"projects/ores.e/tests/one.hpp", 1}});
+    CHECK(tests::places(tests::run_after_edit(codecs::unique_type_names,
+        after, before).findings) == places{
+            {"projects/ores.e/tests/one.hpp", 1}});
+}
