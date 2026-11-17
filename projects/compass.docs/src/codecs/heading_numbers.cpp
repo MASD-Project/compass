@@ -26,13 +26,13 @@
 #include "compass.cpp/ops/paths.hpp"
 #include "compass.cpp/ops/text.hpp"
 #include "compass.platform/text/decoding.hpp"
-#include "compass.platform/text/regex.hpp"
 
 namespace compass::docs::codecs {
 
 namespace {
 
 namespace ct = compass::codec::types;
+namespace ot = compass::org::types;
 namespace pt = compass::platform::text;
 
 constexpr std::array<std::string_view, 1> numbered_heading_sources{
@@ -56,16 +56,34 @@ bool is_searched(std::string_view path) {
         });
 }
 
+/**
+ * @brief True when @p title starts with a number such as 2.1. or 3),
+ * then a space and more text.
+ */
+bool is_numbered(std::string_view title) {
+    std::size_t i = 0;
+    for (;;) {
+        const auto digits = i;
+        while (i < title.size() && title[i] >= '0' && title[i] <= '9')
+            ++i;
+        if (i == digits)
+            return false;
+        if (i + 1 < title.size() && title[i] == '.' &&
+            title[i + 1] >= '0' && title[i + 1] <= '9') {
+            ++i;
+            continue;
+        }
+        break;
+    }
+    if (i >= title.size() || (title[i] != '.' && title[i] != ')'))
+        return false;
+    const auto rest = title.substr(i + 1);
+    return !rest.empty() && compass::cpp::ops::is_space(rest.front()) &&
+        !compass::cpp::ops::strip(rest).empty();
+}
+
 void run(const ct::document& d, const ct::corpus_view&,
     ct::diagnostic_table& out) {
-    static const pt::regex heading(
-        R"(^(\*+ )(?:\d+(?:\.\d+)*)[.)]\s+(\S.*?)(\r\n|\r|\n)?$)");
-    static const pt::regex block_start(
-        R"(^\s*#\+begin_(src|example|quote|export|comment)\b)",
-        {.ignorecase = true});
-    static const pt::regex block_end(
-        R"(#\+end_(src|example|quote|export|comment)\b)",
-        {.ignorecase = true});
     if (!is_searched(d.path))
         return;
     if (!pt::is_utf8(d.source)) {
@@ -74,17 +92,12 @@ void run(const ct::document& d, const ct::corpus_view&,
             "Save the document as UTF-8."});
         return;
     }
-    std::int64_t depth = 0;
-    for (const auto text :
-        compass::cpp::ops::split_lines_keeping_ends(d.source)) {
-        const auto begin = static_cast<std::uint32_t>(text.data() -
-            d.source.data());
-        const auto starts = block_start.match(text) ? 1 : 0;
-        const auto ends = static_cast<std::int64_t>(
-            block_end.find_all(text).size());
-        depth = std::max<std::int64_t>(0, depth + starts - ends);
-        if (depth != 0 || !heading.match(text))
+    const auto& t = d.tables;
+    for (std::uint32_t i = 0; i < t.headings.size(); ++i) {
+        const ot::heading_id h{i};
+        if (!is_numbered(t.headings.titles[h].of(d.source)))
             continue;
+        const auto begin = t.elements.ranges[t.headings.elements[h]].begin;
         out.add({d.row, {begin, begin}, ct::rule_id{0},
             ct::severity::error, "the heading carries its own number",
             "Remove the number: the exporter numbers headings, and a "
@@ -97,7 +110,7 @@ void run(const ct::document& d, const ct::corpus_view&,
 
 const ct::descriptor heading_numbers{
     .name = "heading_numbers",
-    .version = 1,
+    .version = 2,
     .summary = "Reports each org heading under doc/ and projects/ that "
         "carries its own number.",
     .reads = ct::inputs::every_document(),
