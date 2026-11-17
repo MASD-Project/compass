@@ -26,11 +26,11 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-17                               |
 
 * Acceptance
@@ -60,7 +60,13 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Hook, edit to a create script | 1,448-1,530 ms before, 850-939 ms after, load about 47 (agent) | =hook_compare.sh= | 02a5019 |
+| Hook, edit to a populate script | 683-736 ms before, 225-239 ms after, load about 47 (agent) | =hook_compare.sh= | 02a5019 |
+| Hook, planted SQL violation | 0.20 s at load 41 | =compass hook= | 02a5019 |
+| Facts, model vs old regexes, 3,468 files | includes, tables, RLS enables, party policies, populate functions and lookup calls identical | =harness/compare.cpp= | 02a5019 |
+| SQL-gate findings on ORE | 150 identical; +1 rls_coverage on =ores_mq_queues_tbl= | =compass check= | 02a5019 |
+| Warm ORE check | 4.05 s at load 41; 243 findings | =compass check= | 02a5019 |
+| ctest | 15 of 15 suites pass | =ctest --preset linux-clang-release= | 02a5019 |
 
 * Notes
 
@@ -88,3 +94,22 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+One SQL lexer (=ops::lex=) and one per-file model (=ops::model_of=:
+statements, includes in order, tables, columns, keys, indexes, RLS, policies,
+functions with their writes and =*_fn= calls) serve sql_hygiene,
+sql_reachability, populate_refs, rls_widenings, rls_coverage,
+handler_permissions and entity_writes' SQL half; =ops::walk_includes= gives
+psql's run order. populate_refs is a scan and checks that a definition runs
+before its use: ORE Studio is in order today, and reversing two includes gives
+105 findings the old gate missed. No rule was renamed; the new
+=populate_refs/unread_function= enforces the =*_fn= naming the facts rely on.
+
+The one new finding on ORE Studio, =ores_mq_queues_tbl= under
+missing_party_isolation, is real: the old column regex, like the Python one,
+skipped a line with a comment after its comma.
+
+er_diagram keeps its own parse, because its diagrams must stay byte-identical
+to the Python's; its quadratic loop is fixed (331 to 88 ms). The gates remain
+separate codecs, so a cold run still lexes each file once per gate; one fact
+shared across codecs needs runtime support.
