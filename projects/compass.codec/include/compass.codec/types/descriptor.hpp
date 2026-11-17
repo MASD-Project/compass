@@ -105,17 +105,6 @@ template <typename Output>
 using corpus_function = void (*)(const corpus_view&, Output&);
 
 /**
- * @brief The function of a codec. Its type says what one call works on, a
- * document or the corpus, and what it emits, files or diagnostics.
- *
- * A function reads only through its arguments and writes only to its
- * output table, so calls may run on any thread, in any order.
- */
-using codec_function = std::variant<document_function<file_table>,
-    document_function<diagnostic_table>, corpus_function<file_table>,
-    corpus_function<diagnostic_table>>;
-
-/**
  * @brief The value of each option of a codec, in the order its descriptor
  * declares them.
  */
@@ -137,6 +126,57 @@ struct option_values {
             std::string(key));
     }
 };
+
+/**
+ * @brief What the map step of a scan made of one file: the findings on
+ * that file, and the fact the reduce step reads, in bytes the codec
+ * chooses.
+ */
+struct file_scan {
+    diagnostic_table findings;
+    std::string fact;
+};
+
+/**
+ * @brief One file a scan mapped, as its reduce step sees it.
+ */
+struct scanned_file {
+    std::string_view path;
+    std::string_view fact;
+};
+
+/**
+ * @brief A corpus codec of diagnostics split into a map over files and a
+ * reduce over what the map made of them, so that a run maps again only
+ * the files whose content changed.
+ *
+ * files lists, through the view, the paths to map, each once. map is
+ * called with each path, the file's bytes (empty when it cannot be read)
+ * and the codec's options; it reads nothing else, so its result depends on
+ * those alone, and its findings are on that file. reduce, when not null,
+ * is called once with every file in the order files gave them and may
+ * read more through the view. The findings of the call are those of the
+ * map steps, file by file, then those of reduce.
+ */
+struct scan_function {
+    std::vector<std::string_view> (*files)(const corpus_view&) = nullptr;
+    void (*map)(std::string_view path, std::string_view bytes,
+        const option_values& options, file_scan& out) = nullptr;
+    void (*reduce)(std::span<const scanned_file> files,
+        const corpus_view& view, diagnostic_table& out) = nullptr;
+};
+
+/**
+ * @brief The function of a codec. Its type says what one call works on, a
+ * document or the corpus, and what it emits, files or diagnostics. A scan
+ * is a corpus function of diagnostics.
+ *
+ * A function reads only through its arguments and writes only to its
+ * output table, so calls may run on any thread, in any order.
+ */
+using codec_function = std::variant<document_function<file_table>,
+    document_function<diagnostic_table>, corpus_function<file_table>,
+    corpus_function<diagnostic_table>, scan_function>;
 
 /**
  * @brief The formatters the files of a codec go through before they are

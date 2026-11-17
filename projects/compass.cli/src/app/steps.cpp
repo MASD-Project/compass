@@ -398,7 +398,7 @@ std::size_t write_worktree_index(const corpus_files& f) {
 codec::io::action_writes store_results(const std::filesystem::path& checkout,
     const codec::types::run_result& run, unsigned threads) {
     return codec::io::store_actions(store::io::git_common_dir(checkout),
-        run.record, run.fresh, threads);
+        run.record, run.fresh, threads, run.scans);
 }
 
 bool write_dependency_record(const std::filesystem::path& checkout,

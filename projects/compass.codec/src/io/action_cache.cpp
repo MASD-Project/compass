@@ -48,7 +48,8 @@ types::action_source action_source_of(
 
 action_writes store_actions(const std::filesystem::path& git_common_dir,
     const types::dependency_record& record,
-    std::span<const types::record_unit_id> fresh, unsigned threads) {
+    std::span<const types::record_unit_id> fresh, unsigned threads,
+    std::span<const std::string> scans) {
     const auto manifests = store::io::actions_dir(git_common_dir,
         action_kind::manifest);
     const auto results = store::io::actions_dir(git_common_dir,
@@ -59,7 +60,8 @@ action_writes store_actions(const std::filesystem::path& git_common_dir,
     std::atomic<std::uint64_t> bytes{0};
     ops::parallel_for(fresh.size(), threads, [&](std::size_t i) {
         const auto u = fresh[i];
-        const auto result = ops::encode_result(record, u);
+        const auto result = ops::encode_result(record, u,
+            scans.empty() ? std::string_view{} : std::string_view(scans[i]));
         store::io::write_action(results, record.results[u], result);
         ++results_written;
         bytes += result.size();
