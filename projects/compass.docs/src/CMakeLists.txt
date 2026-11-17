@@ -25,6 +25,7 @@ add_library(${lib_target_name}
     codecs/org_links.cpp
     codecs/pattern_uses.cpp
     codecs/prototypes.cpp
+    codecs/recipe_libraries.cpp
     codecs/rule_identifiers.cpp
     codecs/tree_gates.cpp)
 

@@ -25,16 +25,17 @@
 #include "compass.docs/codecs/org_links.hpp"
 #include "compass.docs/codecs/pattern_uses.hpp"
 #include "compass.docs/codecs/prototypes.hpp"
+#include "compass.docs/codecs/recipe_libraries.hpp"
 #include "compass.docs/codecs/rule_identifiers.hpp"
 #include "compass.docs/codecs/tree_gates.hpp"
 
 namespace compass::docs::codecs {
 
 std::span<const compass::codec::types::descriptor> catalogue() noexcept {
-    static const std::array<compass::codec::types::descriptor, 9> all{
-        component_docs, heading_numbers, no_pr_triggers, org_links,
-        pattern_uses, prototypes, rule_identifiers, shell_recipe_provenance,
-        skill_namespace};
+    static const std::array<compass::codec::types::descriptor, 11> all{
+        component_docs, heading_numbers, http_recipe_library, no_pr_triggers,
+        org_links, pattern_uses, prototypes, rule_identifiers,
+        shell_recipe_library, shell_recipe_provenance, skill_namespace};
     return all;
 }
 

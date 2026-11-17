@@ -24,6 +24,7 @@ add_executable(${tests_target_name}
     codecs_heading_numbers_tests.cpp
     codecs_org_links_tests.cpp
     codecs_pattern_uses_tests.cpp
+    codecs_recipe_libraries_tests.cpp
     codecs_tree_gates_tests.cpp)
 
 target_link_libraries(${tests_target_name}

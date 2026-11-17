@@ -101,6 +101,31 @@ the parsed tables.
   or a page that has none yet. The pages and their section codes are the
   script's own table, kept in the codec.
 
+Generators. Each of these writes the artefact an ORE Studio generator
+writes, so =compass generate= replaces the script and =compass check='s
+drift findings replace the gate that regenerated it and ran =git diff=.
+They are off by default.
+
+- *=shell_recipe_library=.* =tangle-shell=
+  (=projects/ores.lisp/src/ores-build-recipe-scripts.el=). A document
+  codec over the recipes under =doc/recipes/shell=. Through
+  =ops::tangle= with the language =ores-shell=: a recipe whose blocks name
+  targets gives one script per target, named by its file name; any other
+  recipe with an =ores-shell= block tangles to =<recipe>.ores=, as
+  =TARGET-FILE=. A script lands in
+  =projects/ores.shell/scripts/library/<category>/=, the category from the
+  =:recipe:shell:<category>:= filetag or =general=, loses a trailing =exit=
+  line and gains the banner: the section heading, or the title and a
+  description that differs from it, then the =GENERATED from= and
+  =Regenerate with= lines. It writes all 5,015 scripts byte for byte as
+  Emacs 30.2 does.
+- *=http_recipe_library=.* =tangle-http=
+  (=projects/ores.lisp/src/ores-build-http-recipes.el=). The same for the
+  =hurl= blocks under =doc/recipes/http=, into
+  =projects/ores.http/scripts/library=; a recipe that names no target gives
+  nothing, nothing is stripped and the banner carries no description. It
+  writes all 414 files as Emacs does.
+
 * Entry points
 
 | Path                                         | Role                                                         |

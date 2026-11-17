@@ -307,9 +307,18 @@ others is in its descriptor, so adding a codec adds a row to a list.
   =#+header:= line, and =header-args= set by =#+property:= or a property
   drawer are problems. A target with a problem block is not written.
   =build/scripts/tangle_diff.py= compares the files the codec writes with
-  the files Emacs wrote.
+  the files Emacs wrote. =ops::tangle_options= carries what a caller of
+  =org-babel-tangle-file= may pass besides the file: a language, as a
+  =LANG-RE= naming one language does, a default target, as =TARGET-FILE=
+  is, which a block without =:tangle= tangles to, and whether =:var= is
+  inert for the language, in which case a document may set it in
+  =header-args=.
 - *=tangle=.* A document codec over every document that emits the targets
-  of =ops::tangle=. It is off by default. =ops::check_outputs= refuses two
+  of =ops::tangle=. It is off by default. The option =directory= limits it,
+  and =tangle_check=, to the documents directly in one directory, as ORE
+  Studio's =tangle-templates= generator tangles
+  =projects/ores.codegen/library/templates/*.org=; set so, it writes all 171
+  templates byte for byte as Emacs 30.2 does. =ops::check_outputs= refuses two
   documents that tangle to one path, and names the path.
 - *=tangle_check=.* A document codec over every document that reports each
   problem of =ops::tangle=, under the rules =unsupported_header_argument=

@@ -52,11 +52,14 @@ struct tangle_run {
     }
 };
 
-tangle_run run_tangle(const tests::test_corpus& t) {
+tangle_run run_tangle(const tests::test_corpus& t,
+    std::string_view directory = {}) {
     const std::array codecs{codecs::tangle, codecs::tangle_check};
     types::configuration settings;
     settings.set("tangle", "enabled", "true");
     settings.set("tangle_check", "enabled", "true");
+    settings.set("tangle", "directory", directory);
+    settings.set("tangle_check", "directory", directory);
     tangle_run r{ops::make_registry(codecs, t.types(), settings), {}};
     r.result = ops::run(r.registry, t.corpus(), t.types(), 2);
     return r;
@@ -241,4 +244,21 @@ TEST_CASE("common indentation goes as org-remove-indentation removes it",
         "x\n\n   \n            y\n,#not");
     CHECK(ops::tangle_body("  a\n \n") == "a");
     CHECK(ops::tangle_body("\n\n   \n") == "");
+}
+
+TEST_CASE("the directory option tangles only the documents directly in it",
+    "[codecs][tangle]") {
+    tests::test_corpus t;
+    t.add("lib/templates/a.org",
+        "#+begin_src text :tangle a.txt\na\n#+end_src\n");
+    t.add("lib/templates/deeper/b.org",
+        "#+begin_src text :tangle b.txt\nb\n#+end_src\n");
+    t.add("lib/c.org", "#+begin_src text :tangle c.txt :wrap x\nc\n"
+        "#+end_src\n");
+
+    const auto r = run_tangle(t, "lib/templates");
+
+    CHECK(r.files() == std::map<std::string, std::string>{
+        {"lib/templates/a.txt", "a\n"}});
+    CHECK(r.diagnostics().size() == 0);
 }

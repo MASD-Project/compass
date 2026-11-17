@@ -50,9 +50,14 @@ using finding = std::tuple<std::string, std::uint32_t, std::string>;
  * @brief Runs @p codec, enabled with @p settings, over a checkout of
  * @p all, every .org file of it parsed into the corpus with no type.
  */
-inline std::vector<finding> run(
-    const compass::codec::types::descriptor& codec, const files& all,
-    const options& settings = {}) {
+/**
+ * @brief Runs @p codec alone over @p all, the .org files as documents and
+ * every file as the checkout, and hands the result and the corpus to
+ * @p consume.
+ */
+template <typename Consume>
+auto with_run(const compass::codec::types::descriptor& codec,
+    const files& all, const options& settings, Consume consume) {
     namespace ct = compass::codec::types;
     namespace ot = compass::org::types;
     ct::checkout_files checkout;
@@ -86,20 +91,46 @@ inline std::vector<finding> run(
     const std::array<ct::descriptor, 1> codecs{codec};
     const auto registry = compass::codec::ops::make_registry(codecs, types,
         configuration);
-    const auto r = compass::codec::ops::run(registry, corpus, types, 2);
-    std::vector<finding> out;
-    const auto& t = r.diagnostics[0];
-    for (std::uint32_t i = 0; i < t.size(); ++i) {
-        const auto d = t[ct::diagnostic_id{i}];
-        const std::string path = d.document.is_none()
-            ? std::string(d.file)
-            : std::string(corpus.paths[d.document.value]);
-        const auto file = all.find(path);
-        out.emplace_back(path, file == all.end() ? 0
-                : compass::cpp::ops::line_of(file->second, d.range.begin),
-            std::string(d.message));
-    }
-    return out;
+    return consume(compass::codec::ops::run(registry, corpus, types, 2),
+        corpus);
+}
+
+inline std::vector<finding> run(
+    const compass::codec::types::descriptor& codec, const files& all,
+    const options& settings = {}) {
+    namespace ct = compass::codec::types;
+    return with_run(codec, all, settings, [&](const ct::run_result& r,
+        const ct::corpus& corpus) {
+        std::vector<finding> out;
+        const auto& t = r.diagnostics[0];
+        for (std::uint32_t i = 0; i < t.size(); ++i) {
+            const auto d = t[ct::diagnostic_id{i}];
+            const std::string path = d.document.is_none()
+                ? std::string(d.file)
+                : std::string(corpus.paths[d.document.value]);
+            const auto file = all.find(path);
+            out.emplace_back(path, file == all.end() ? 0
+                    : compass::cpp::ops::line_of(file->second, d.range.begin),
+                std::string(d.message));
+        }
+        return out;
+    });
+}
+
+/**
+ * @brief The files @p codec writes over @p all, by path.
+ */
+inline files generate(const compass::codec::types::descriptor& codec,
+    const files& all, const options& settings = {}) {
+    namespace ct = compass::codec::types;
+    return with_run(codec, all, settings, [](const ct::run_result& r,
+        const ct::corpus&) {
+        files out;
+        const auto& f = r.files[0];
+        for (std::uint32_t i = 0; i < f.size(); ++i)
+            out.emplace(f.paths[ct::file_id{i}], f.contents[ct::file_id{i}]);
+        return out;
+    });
 }
 
 /**
