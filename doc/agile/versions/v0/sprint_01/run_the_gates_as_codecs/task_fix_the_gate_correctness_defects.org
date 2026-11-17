@@ -8,7 +8,7 @@
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
 #+branch: feature/fix-the-gate-correctness-defects
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/56
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-17
@@ -84,7 +84,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/56][#56]] | [codec] Fix the gate correctness defects |
 
 * Review
 
