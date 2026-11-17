@@ -26,11 +26,11 @@ Generate the table of rules and their enforcing checks from check metadata, and 
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -59,7 +59,11 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Rules in the table | 151 (146 declared by codecs, 4 =exception/*=, 1 drift); 43 cite a memory or document | =doc/knowledge/compass/rule_table.org= | 4c59e20 |
+| Unenforced memories, this repository | 57 of 61 | rule table page | 4c59e20 |
+| Unenforced memories, ORE Studio copy | 118 of 132 | rule table page on =match/ores= | 4c59e20 |
+| =compass generate= then =check= here | tree unchanged; no =rule_table= finding | =compass generate=, =compass check= | 4c59e20 |
+| ctest | 14 of 14 suites pass | =ctest --preset linux-clang-release= | 4c59e20 |
 
 * Notes
 
@@ -87,3 +91,31 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+Every rule carries its statement and the =:ID:= of the memories or documents
+it enforces, in its codec descriptor. The =rule_table= codec generates
+=doc/knowledge/compass/rule_table.org= from them, with a section of the
+memories no rule cites, so =compass check= reports the page when a rule or a
+memory changes. Unenforced memories are listed, not reported as findings: a
+memory without a check is work not yet done, not a defect in the tree, and
+118 warnings on every ORE check would drown the real findings.
+
+The most checkable unenforced ORE Studio memories, as candidates for the next
+checks: definer functions revoked from public, no reads or writes of another
+component's tables, no migration scripts, no JSON columns, paged lists, no
+forwarding headers, no PR tables in stories, one Result per task, no history
+compare panel, and the reserved dashboard name.
+
+This repository's =.compass.org= changed with it: the output root is the
+checkout, so the page lands where it is committed; =document_index= writes
+under =build/output/=; and =tangle= is off, because the 85 files it wrote
+under =build/output/compass= are used by nothing. =tangle_check= still runs.
+
+Decisions to revisit:
+
+- The table lists every rule compass ships, not only enabled ones, so a memory
+  cited by a disabled gate counts as enforced.
+- Drift is one row for every codec that writes files, so memories about one
+  generator cannot be attached to it.
+- Several memory links are judgement calls, listed in the agent's notes on
+  the PR.
