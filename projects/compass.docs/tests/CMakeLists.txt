@@ -32,7 +32,6 @@ add_executable(${tests_target_name}
     codecs_refusals_tests.cpp
     codecs_skill_levels_tests.cpp
     codecs_skill_tables_tests.cpp
-    codecs_structure_notes_tests.cpp
     codecs_trade_type_coverage_tests.cpp
     codecs_tree_gates_tests.cpp)
 

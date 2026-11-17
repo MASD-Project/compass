@@ -31,7 +31,6 @@
 #include "compass.docs/codecs/recipe_libraries.hpp"
 #include "compass.docs/codecs/rule_identifiers.hpp"
 #include "compass.docs/codecs/skill_tables.hpp"
-#include "compass.docs/codecs/structure_notes.hpp"
 #include "compass.docs/codecs/trade_type_coverage.hpp"
 #include "compass.docs/codecs/tree_gates.hpp"
 
@@ -39,13 +38,13 @@ namespace compass::docs::codecs {
 
 std::span<const compass::codec::types::descriptor> catalogue() noexcept {
     static const auto all = [] {
-        std::array<compass::codec::types::descriptor, 19> out{
+        std::array<compass::codec::types::descriptor, 18> out{
             backlog_indexes, component_docs, heading_numbers,
             http_recipe_library, lint, no_pr_triggers, org_links,
             physical_inventory, prototypes, recipe_inventories,
             rule_identifiers, shell_recipe_library, shell_recipe_provenance,
             skill_catalogue, skill_levels, skill_namespace, skill_type_tables,
-            structure_notes, trade_type_coverage};
+            trade_type_coverage};
         for (auto& d : out)
             d.code = code_hash();
         return out;

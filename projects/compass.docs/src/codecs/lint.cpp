@@ -49,13 +49,13 @@ namespace pt = compass::platform::text;
 enum rule : std::uint32_t {
     bad_filetag, unclosed_marker, marker_without_writer, malformed_link,
     dangling_link, durable_link, pattern_unknown_use, pattern_one_way,
-    pattern_not_a_pattern, pattern_shared_id
+    pattern_not_a_pattern, pattern_shared_id, missing_backlink
 };
 
 constexpr std::array<std::string_view, 1> named_patterns_sources{
     "470D4571-47A4-4AEF-9A93-2B4DE0279C1E"};
 
-constexpr std::array<ct::rule, 10> rules{{
+constexpr std::array<ct::rule, 11> rules{{
     {"bad_filetag", "Every tag of a page's first #+filetags: is "
         "lowercase: a letter, then letters, digits, _, . or -."},
     {"unclosed_marker", "Every '# BEGIN generated X' comment has a "
@@ -73,7 +73,9 @@ constexpr std::array<ct::rule, 10> rules{{
         named_patterns_sources},
     {"pattern_not_a_pattern", "A page lists only service architecture "
         "patterns under Patterns used.", named_patterns_sources},
-    {"pattern_shared_id", "No two pages of a pattern link share an ID."}}};
+    {"pattern_shared_id", "No two pages of a pattern link share an ID."},
+    {"missing_backlink", "Every page a structure note orders links the "
+        "note back."}}};
 
 constexpr std::array<ct::option, 1> options{{
     {"strict_links", "false", "true reports durable_link, which the gate "
@@ -136,6 +138,15 @@ bool in_patterns(const dop::page& p) {
         return false;
     const std::string rooted = "/" + std::string(p.path);
     return !rooted.contains("/build/") && !rooted.contains("/vcpkg/");
+}
+
+/**
+ * @brief The pages the structure notes order: UTF-8 pages under doc/ or
+ * projects/modeling/.
+ */
+bool in_clusters(const dop::page& p) {
+    return p.utf8 && !p.ids.empty() && (p.path.starts_with("doc/") ||
+        p.path.starts_with("projects/modeling/"));
 }
 
 bool is_uuid(std::string_view s) {
@@ -459,6 +470,59 @@ void report_patterns(const std::vector<dop::page>& all,
     }
 }
 
+/**
+ * @brief The structure note rule: each page a note orders, in its
+ * sections before What this cluster does not cover and See also, links
+ * the note back, unless it is a note itself. Notes are taken in ID order.
+ */
+void report_backlinks(const std::vector<dop::page>& all,
+    ct::diagnostic_table& out) {
+    std::map<std::string_view, const dop::page*> docs;
+    for (const auto& p : all) {
+        if (in_clusters(p))
+            docs.insert_or_assign(p.ids.front(), &p);
+    }
+    std::set<std::string_view> hubs;
+    for (const auto& [id, p] : docs) {
+        if (p->structure_note)
+            hubs.insert(id);
+    }
+    for (const auto hub_id : hubs) {
+        const auto* hub = docs.at(hub_id);
+        std::vector<std::pair<std::string_view, bool>> cluster;
+        for (const auto& l : hub->links) {
+            if (!l.ordering)
+                continue;
+            const auto target = docs.find(dop::upper(l.target));
+            if (target == docs.end() || target->first == hub_id ||
+                std::ranges::contains(cluster, target->first,
+                    &std::pair<std::string_view, bool>::first))
+                continue;
+            cluster.emplace_back(target->first, !l.aside);
+        }
+        std::ranges::stable_partition(cluster,
+            &std::pair<std::string_view, bool>::second);
+        for (const auto& [target, ordered] : cluster) {
+            if (hubs.contains(target))
+                continue;
+            const auto* page = docs.at(target);
+            if (std::ranges::contains(targets(*page), hub_id))
+                continue;
+            const std::string_view why = ordered
+                ? "the structure note that orders this cluster, and where "
+                  "to read this page in it."
+                : "the structure note for this cluster; this page sits "
+                  "alongside its sequence rather than in it.";
+            co::report(out, page->path, page->see_also, missing_backlink,
+                std::string(page->path) + " is in the cluster of the "
+                "structure note " + std::string(hub->path) + " but does "
+                "not link it back", "Add \"- [[id:" + std::string(hub_id) +
+                "][" + std::string(hub->title) + "]] \xe2\x80\x94 " +
+                std::string(why) + "\" to the page's See also section.");
+        }
+    }
+}
+
 void reduce(std::span<const ct::scanned_file> scanned,
     const ct::corpus_view& v, ct::diagnostic_table& out) {
     std::vector<dop::page> all;
@@ -467,16 +531,18 @@ void reduce(std::span<const ct::scanned_file> scanned,
         all.push_back(dop::page_of(f.path, f.fact));
     report_lint(all, v, out);
     report_patterns(all, out);
+    report_backlinks(all, out);
 }
 
 }
 
 const ct::descriptor lint{
     .name = "lint",
-    .version = 3,
+    .version = 4,
     .summary = "Reports each malformed filetag, generated marker and id link "
-        "of the org pages, as compass lint does, and each service "
-        "architecture pattern and use that do not link each other.",
+        "of the org pages, as compass lint does, each pattern and use that "
+        "do not link each other, and each page a structure note orders "
+        "that does not link it back.",
     .reads = ct::inputs::of_types({}),
     .options = options,
     .rules = rules,

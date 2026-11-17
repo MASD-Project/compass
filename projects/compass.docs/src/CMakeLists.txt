@@ -32,7 +32,6 @@ add_library(${lib_target_name}
     codecs/rule_identifiers.cpp
     codecs/skill_levels.cpp
     codecs/skill_tables.cpp
-    codecs/structure_notes.cpp
     codecs/trade_type_coverage.cpp
     codecs/tree_gates.cpp
     ops/link_graph.cpp
