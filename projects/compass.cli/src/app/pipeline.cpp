@@ -1075,9 +1075,13 @@ types::hook_result hook(const types::options& o, const std::string& path,
 
     run_units(p, o, heads.loaded.record, [&](ct::codec_id c,
         std::string_view document) {
+        const auto& codec = p.codecs.codecs[c.value];
+        // A staged codec whose prepare step is taken may list a part the
+        // record lacks, which is taken too.
         return (edited.document && document == path) ||
-            heads.names.contains(joined(p.codecs.codecs[c.value].name,
-                document));
+            heads.names.contains(joined(codec.name, document)) ||
+            (ct::unit_of(codec) == ct::unit::staged &&
+                heads.names.contains(joined(codec.name, {})));
     }, path);
     r.checked = true;
 
