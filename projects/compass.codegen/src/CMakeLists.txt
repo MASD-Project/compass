@@ -20,6 +20,8 @@ set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
     codecs/codegen.cpp
+    codecs/component_files.cpp
+    codecs/pending_models.cpp
     ops/compile.cpp
     ops/context.cpp
     ops/entity_codecs.cpp
@@ -72,4 +74,6 @@ target_link_libraries(${lib_target_name}
         compass.codec.lib
         compass.model.lib
     PRIVATE
+        compass.platform.lib
+        compass.cpp.lib
         compass.store.lib)

@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :cli:application:pipeline:component:
 #+created: 2026-11-16
-#+updated: 2026-11-16
+#+updated: 2026-11-17
 
 This page is the component overview for =compass.cli=, a simple component
 in the application layer of the
@@ -190,9 +190,11 @@ the standard streams.
   and the command exits 2.
 - The checkout: every tracked file and every untracked one no ignore
   rule covers, as =git ls-files --cached --others --exclude-standard= lists
-  them. Its org files but =.compass.org= are the corpus; a tracked org
-  file deleted from the worktree is not in it. Every file is visible to
-  the codecs' file reads, listings and existence tests. The configuration file is not a document, so an edit
+  them, less the tracked files deleted from the worktree, which
+  =-t --deleted= marks in the same call, so a codec lists what a script
+  globbing the disk finds. Its org files but =.compass.org= are the
+  corpus. Every file is visible to the codecs' file reads, listings and
+  existence tests. The configuration file is not a document, so an edit
   to it re-runs exactly the codecs whose configuration changed, through
   the configuration hash in the dependency and cache keys.
 - The store and the result cache under the git common directory, and the

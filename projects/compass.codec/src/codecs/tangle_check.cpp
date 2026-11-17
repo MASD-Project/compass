@@ -38,8 +38,10 @@ types::rule_id rule_of(ops::tangle_fault f) noexcept {
     return types::rule_id{f == ops::tangle_fault::unsupported ? 0u : 1u};
 }
 
-void run(const types::document& d, const types::corpus_view&,
+void run(const types::document& d, const types::corpus_view& v,
     types::diagnostic_table& out) {
+    if (!ops::in_directory(d.path, v.option("directory")))
+        return;
     for (const auto& p : ops::tangle(d).problems)
         out.add({d.row, p.range, rule_of(p.fault), types::severity::error,
             p.message, p.fix});
@@ -49,10 +51,10 @@ void run(const types::document& d, const types::corpus_view&,
 
 const types::descriptor tangle_check{
     .name = "tangle_check",
-    .version = 1,
+    .version = 2,
     .summary = "Reports each source block the tangle codec leaves out.",
     .reads = types::inputs::every_document(),
-    .options = {},
+    .options = ops::tangle_scope,
     .rules = rules,
     .enabled_by_default = false,
     .run = types::document_function<types::diagnostic_table>{run}};

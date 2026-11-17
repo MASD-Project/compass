@@ -20,6 +20,9 @@ set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
     codecs/catalogue.cpp
+    codecs/convention_kind_terms.cpp
+    codecs/curve_column_guards.cpp
+    codecs/curve_sections_wiring.cpp
     codecs/entity_binary_types.cpp
     codecs/entity_writes.cpp
     codecs/generated_column_refs.cpp
@@ -28,11 +31,16 @@ add_library(${lib_target_name}
     codecs/model_sql_types.cpp
     codecs/money_decimal_columns.cpp
     codecs/open_reads.cpp
+    codecs/ore_output_catalogue.cpp
+    codecs/ore_renderings_tables.cpp
     codecs/paste_blocks.cpp
     codecs/protocol_twins.cpp
     codecs/registry_gates.cpp
+    codecs/route_inventory.cpp
+    codecs/script_library_seed.cpp
     codecs/subject_conformance.cpp
     codecs/template_sections.cpp
+    ops/curve_wiring.cpp
     ops/python_literals.cpp
     ops/words.cpp)
 

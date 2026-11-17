@@ -20,11 +20,13 @@
 #ifndef COMPASS_CODEC_OPS_TANGLE_HPP
 #define COMPASS_CODEC_OPS_TANGLE_HPP
 
+#include <array>
 #include <cstdint>
 #include <string>
 #include <string_view>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.codec/types/descriptor.hpp"
 #include "compass.org/types/source_range.hpp"
 
 namespace compass::codec::ops {
@@ -70,8 +72,24 @@ struct tangled_document {
 };
 
 /**
+ * @brief What a caller of org-babel-tangle-file may pass besides the file.
+ *
+ * language keeps only the blocks of that language, as LANG-RE does when it
+ * names one language; empty keeps every language. default_target is
+ * TARGET-FILE, relative to the root of the checkout: a block without
+ * :tangle tangles to it. inert_variables says that :var leaves the bytes
+ * of the chosen language alone, as it does for a language org-babel has no
+ * variable assignments for, so a document may set it in header-args.
+ */
+struct tangle_options {
+    std::string_view language;
+    std::string_view default_target;
+    bool inert_variables = false;
+};
+
+/**
  * @brief Tangles the source blocks of @p d as org-babel-tangle-file does
- * under emacs -Q.
+ * under emacs -Q, given @p options.
  *
  * A source block with a language and a :tangle path is tangled; :tangle no
  * and a block without :tangle are not, nor is a block under a COMMENT
@@ -84,7 +102,8 @@ struct tangled_document {
  * switch, a #+header: line, and header-args set by #+property: or by a
  * property drawer are problems.
  */
-[[nodiscard]] tangled_document tangle(const types::document& d);
+[[nodiscard]] tangled_document tangle(const types::document& d,
+    const tangle_options& options = {});
 
 /**
  * @brief The body a source block contributes to its target, given the text
@@ -98,6 +117,23 @@ struct tangled_document {
  * line ends at both ends are removed.
  */
 [[nodiscard]] std::string tangle_body(std::string_view raw);
+
+/**
+ * @brief True when @p path is a file directly in @p directory, both
+ * relative to the root of the checkout, or when @p directory is empty.
+ */
+[[nodiscard]] bool in_directory(std::string_view path,
+    std::string_view directory) noexcept;
+
+/**
+ * @brief The option of the tangle and tangle_check codecs that limits them
+ * to the documents directly in one directory, as a script that tangles
+ * the files of one directory does.
+ */
+inline constexpr std::array<types::option, 1> tangle_scope{{
+    {"directory", "",
+        "Only the documents directly in this directory, relative to the "
+        "checkout, are tangled; empty tangles every document."}}};
 
 }
 

@@ -340,21 +340,33 @@ bool starts_with_folded(std::string_view text, std::string_view prefix) {
  * @brief The places outside opening lines that set header arguments: a
  * #+property: keyword or a property drawer entry named header-args.
  */
-std::vector<ot::source_range> header_arg_settings(const types::document& d) {
+std::vector<ot::source_range> header_arg_settings(const types::document& d,
+    bool inert_variables) {
+    const auto only_variables = [&](std::string_view arguments) {
+        const auto p = parse_parameters(arguments);
+        return inert_variables && p.switches.empty() &&
+            std::ranges::all_of(p.arguments,
+                [](const argument& a) { return a.name == "var"; });
+    };
     std::vector<ot::source_range> found;
     const auto& keywords = d.tables.keywords;
     for (std::uint32_t k = 0; k < keywords.size(); ++k) {
         const ot::keyword_id id{k};
         const auto value = org::ops::trimmed(d.source, keywords.values[id]);
+        const auto text = value.of(d.source);
+        const auto space = text.find_first_of(" \t");
         if (org::ops::name_text(d.tables, keywords.names[id]) == "property" &&
-            starts_with_folded(value.of(d.source), "header-args"))
+            starts_with_folded(text, "header-args") &&
+            !only_variables(space == std::string_view::npos
+                    ? std::string_view{} : text.substr(space)))
             found.push_back(value);
     }
     const auto& properties = d.tables.properties;
     for (std::uint32_t p = 0; p < properties.size(); ++p) {
         const ot::property_id id{p};
         if (org::ops::name_text(d.tables, properties.names[id])
-                .starts_with("HEADER-ARGS"))
+                .starts_with("HEADER-ARGS") &&
+            !only_variables(properties.values[id].of(d.source)))
             found.push_back(properties.values[id]);
     }
     return found;
@@ -372,7 +384,8 @@ struct pending_target {
 
 class tangler final {
 public:
-    explicit tangler(const types::document& d) : d_(d) {}
+    tangler(const types::document& d, const tangle_options& options)
+        : d_(d), options_(options) {}
 
     tangled_document run() && {
         for (std::uint32_t b = 0; b < d_.tables.blocks.size(); ++b)
@@ -396,11 +409,17 @@ private:
         if (d_.tables.elements.kinds[element] != ot::element_kind::src_block ||
             blocks.names[b].is_none())
             return;
+        if (!options_.language.empty() &&
+            org::ops::name_text(d_.tables, blocks.names[b]) !=
+                options_.language)
+            return;
         const auto range = blocks.parameters[b];
         const auto p = parse_parameters(range.of(d_.source));
         const auto tangle = std::ranges::find(p.arguments, "tangle",
             &argument::name);
-        if (tangle == p.arguments.end() || tangle->value == "no" ||
+        const bool by_default = tangle == p.arguments.end();
+        if ((by_default ? options_.default_target.empty()
+                        : tangle->value == "no") ||
             is_skipped(d_, element))
             return;
         tangles_any_ = true;
@@ -412,9 +431,12 @@ private:
                 std::move(fix)});
             blocked = true;
         };
-        const auto& value = tangle->value;
+        const std::string value = by_default
+            ? std::string(options_.default_target) : tangle->value;
         std::optional<std::string> path;
-        if (std::ranges::count(p.arguments, "tangle", &argument::name) > 1)
+        if (by_default)
+            path = value;
+        else if (std::ranges::count(p.arguments, "tangle", &argument::name) > 1)
             block_problem(tangle_fault::unsupported,
                 "source block sets :tangle more than once",
                 "Keep one :tangle argument on the block.");
@@ -475,7 +497,8 @@ private:
     }
 
     void add_document_settings() {
-        for (const auto range : header_arg_settings(d_)) {
+        for (const auto range :
+            header_arg_settings(d_, options_.inert_variables)) {
             problems_.push_back({range, tangle_fault::unsupported,
                 "document sets header-args, which tangling does not read",
                 "Set the header arguments on each #+begin_src line."});
@@ -485,11 +508,20 @@ private:
     }
 
     const types::document& d_;
+    const tangle_options& options_;
     bool tangles_any_ = false;
     std::vector<pending_target> targets_;
     std::vector<tangle_problem> problems_;
 };
 
+}
+
+bool in_directory(std::string_view path, std::string_view directory) noexcept {
+    if (directory.empty())
+        return true;
+    return path.size() > directory.size() + 1 &&
+        path.starts_with(directory) && path[directory.size()] == '/' &&
+        path.find('/', directory.size() + 1) == std::string_view::npos;
 }
 
 std::string tangle_body(std::string_view raw) {
@@ -499,8 +531,9 @@ std::string tangle_body(std::string_view raw) {
     return std::string(trim(remove_indentation(value)));
 }
 
-tangled_document tangle(const types::document& d) {
-    return tangler(d).run();
+tangled_document tangle(const types::document& d,
+    const tangle_options& options) {
+    return tangler(d, options).run();
 }
 
 }

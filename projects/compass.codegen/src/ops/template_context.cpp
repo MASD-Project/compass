@@ -648,6 +648,11 @@ value_id operation_template_context(builder& b, value_id context,
 std::string recipe_org_id(std::string_view name) {
     constexpr std::array<std::uint8_t, 16> space{0x6F, 0x1D, 0x2C, 0x3A, 0x7E,
         0x4B, 0x4C, 0x58, 0x9A, 0x21, 0x8D, 0x3F, 0x5B, 0x7C, 0x0E, 0x64};
+    return uuid5(space, name);
+}
+
+std::string uuid5(const std::array<std::uint8_t, 16>& space,
+    std::string_view name) {
     std::string data(space.begin(), space.end());
     data += name;
     auto digest = compass::store::ops::sha1_of(data);

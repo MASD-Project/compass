@@ -35,12 +35,44 @@ class reader final {
 public:
     explicit reader(std::string_view text) : text_(text) {}
 
+    /**
+     * @brief A literal, or a sum of strings and names, which is read as
+     * the f-string template that formats to it.
+     */
     std::optional<python_value> value() {
+        auto first = primary();
+        if (!first || !eat('+'))
+            return first;
+        python_value sum;
+        sum.what = python_value::kind::format;
+        const auto append = [&](const python_value& operand) {
+            if (operand.what == python_value::kind::name)
+                sum.text += "{" + operand.text + "}";
+            else if (operand.what == python_value::kind::string)
+                sum.text += doubled(operand.text);
+            else if (operand.what == python_value::kind::format)
+                sum.text += operand.text;
+            else
+                return false;
+            return true;
+        };
+        if (!append(*first))
+            return std::nullopt;
+        do {
+            const auto operand = primary();
+            if (!operand || !append(*operand))
+                return std::nullopt;
+        } while (eat('+'));
+        return sum;
+    }
+
+private:
+    std::optional<python_value> primary() {
         skip();
         if (at_end())
             return std::nullopt;
         const auto c = text_[i_];
-        if (c == '"' || c == '\'')
+        if (c == '"' || c == '\'' || prefix_length() > 0)
             return strings();
         if (c == '(' || c == '[' || c == '{')
             return bracketed(c);
@@ -49,7 +81,6 @@ public:
         return std::nullopt;
     }
 
-private:
     bool at_end() const noexcept { return i_ >= text_.size(); }
 
     void skip() {
@@ -73,7 +104,23 @@ private:
         return true;
     }
 
-    std::optional<std::string> one_string() {
+    /**
+     * @brief The length of the string prefix (r, f, b, u or a pair of
+     * them) at the reader, when a quote follows it; zero otherwise.
+     */
+    std::size_t prefix_length() const {
+        std::size_t n = 0;
+        while (n < 2 && i_ + n < text_.size() &&
+            std::string_view("rRfFbBuU").find(text_[i_ + n]) !=
+                std::string_view::npos)
+            ++n;
+        if (n == 0 || i_ + n >= text_.size() ||
+            (text_[i_ + n] != '"' && text_[i_ + n] != '\''))
+            return 0;
+        return n;
+    }
+
+    std::optional<std::string> one_string(bool raw) {
         const auto quote = text_[i_];
         const bool triple = text_.substr(i_, 3) == std::string(3, quote);
         i_ += triple ? 3 : 1;
@@ -87,11 +134,23 @@ private:
             if (text_[i_] == '\\' && i_ + 1 < text_.size()) {
                 const auto e = text_[i_ + 1];
                 i_ += 2;
+                if (raw) {
+                    out.push_back('\\');
+                    out.push_back(e);
+                    continue;
+                }
                 switch (e) {
                 case 'n': out.push_back('\n'); break;
                 case 't': out.push_back('\t'); break;
+                case 'r': out.push_back('\r'); break;
                 case '\n': break;
-                default: out.push_back(e); break;
+                case '\\':
+                case '\'':
+                case '"': out.push_back(e); break;
+                default:
+                    out.push_back('\\');
+                    out.push_back(e);
+                    break;
                 }
                 continue;
             }
@@ -102,18 +161,42 @@ private:
 
     std::optional<python_value> strings() {
         python_value v;
+        std::string plain;
         for (;;) {
-            const auto s = one_string();
+            const auto prefix = text_.substr(i_, prefix_length());
+            i_ += prefix.size();
+            const auto has = [&](char c) {
+                return prefix.find(c) != std::string_view::npos ||
+                    prefix.find(static_cast<char>(c - 'a' + 'A')) !=
+                    std::string_view::npos;
+            };
+            const auto s = one_string(has('r'));
             if (!s)
                 return std::nullopt;
-            v.text += *s;
+            if (has('f') && v.what != python_value::kind::format) {
+                v.what = python_value::kind::format;
+                v.text = doubled(v.text);
+            }
+            v.text += has('f') || v.what != python_value::kind::format
+                ? *s : doubled(*s);
             const auto saved = i_;
             skip();
-            if (at_end() || (text_[i_] != '"' && text_[i_] != '\'')) {
+            if (at_end() || (text_[i_] != '"' && text_[i_] != '\'' &&
+                    prefix_length() == 0)) {
                 i_ = saved;
                 return v;
             }
         }
+    }
+
+    static std::string doubled(std::string_view s) {
+        std::string out;
+        for (const char c : s) {
+            out.push_back(c);
+            if (c == '{' || c == '}')
+                out.push_back(c);
+        }
+        return out;
     }
 
     std::optional<python_value> bracketed(char open) {
@@ -127,13 +210,25 @@ private:
             auto item = value();
             if (!item)
                 return std::nullopt;
-            if (open == '{') {
-                if (item->what != python_value::kind::string || !eat(':'))
+            // A brace whose first item is not followed by a colon is a set,
+            // read as a sequence.
+            if (open == '{' && v.entries.empty() && v.items.empty()) {
+                skip();
+                if (at_end() || text_[i_] != ':')
+                    v.what = python_value::kind::sequence;
+            }
+            if (v.what == python_value::kind::dict) {
+                const bool tuple = item->what == python_value::kind::sequence;
+                if ((item->what != python_value::kind::string && !tuple) ||
+                    !eat(':'))
                     return std::nullopt;
                 auto entry = value();
                 if (!entry)
                     return std::nullopt;
-                v.entries.push_back({item->text, std::move(*entry)});
+                v.entries.push_back({tuple ? std::string() : item->text,
+                    std::move(*entry),
+                    tuple ? std::move(item->items)
+                          : std::vector<python_value>{}});
             } else {
                 v.items.push_back(std::move(*item));
             }
@@ -161,15 +256,21 @@ private:
         v.what = python_value::kind::call;
         while (!eat(')')) {
             skip();
+            const auto start = i_;
             std::string key;
             while (!at_end() && co::is_identifier(text_[i_]))
                 key.push_back(text_[i_++]);
-            if (key.empty() || !eat('='))
-                return std::nullopt;
+            const bool keyword = !key.empty() && eat('=') &&
+                (at_end() || text_[i_] != '=');
+            if (!keyword)
+                i_ = start;
             auto arg = value();
             if (!arg)
                 return std::nullopt;
-            v.entries.push_back({std::move(key), std::move(*arg)});
+            if (keyword)
+                v.entries.push_back({std::move(key), std::move(*arg), {}});
+            else
+                v.items.push_back(std::move(*arg));
             if (!eat(',') && !eat(')'))
                 return std::nullopt;
             if (text_[i_ - 1] == ')')
@@ -205,6 +306,100 @@ std::optional<python_value> python_assignment(std::string_view source,
         at = end + 1;
     }
     return std::nullopt;
+}
+
+std::map<std::string, std::string, std::less<>> python_string_constants(
+    std::string_view source) {
+    std::map<std::string, std::string, std::less<>> out;
+    for (std::size_t at = 0; at < source.size();) {
+        auto end = source.find('\n', at);
+        end = end == std::string_view::npos ? source.size() : end;
+        const auto line = source.substr(at, end - at);
+        std::size_t n = 0;
+        while (n < line.size() && co::is_identifier(line[n]))
+            ++n;
+        if (n > 0 && !(line[0] >= '0' && line[0] <= '9')) {
+            const auto name = line.substr(0, n);
+            if (const auto v = python_assignment(source.substr(at), name);
+                v && v->what == python_value::kind::string)
+                out.insert_or_assign(std::string(name), v->text);
+        }
+        at = end + 1;
+    }
+    return out;
+}
+
+namespace {
+
+std::optional<std::string> formatted(std::string_view tpl,
+    const std::map<std::string, std::string, std::less<>>& constants) {
+    std::string out;
+    for (std::size_t i = 0; i < tpl.size(); ++i) {
+        const char c = tpl[i];
+        if ((c == '{' || c == '}') && i + 1 < tpl.size() && tpl[i + 1] == c) {
+            out.push_back(c);
+            ++i;
+            continue;
+        }
+        if (c != '{') {
+            out.push_back(c);
+            continue;
+        }
+        const auto close = tpl.find('}', i);
+        if (close == std::string_view::npos)
+            return std::nullopt;
+        const auto found = constants.find(tpl.substr(i + 1, close - i - 1));
+        if (found == constants.end())
+            return std::nullopt;
+        out += found->second;
+        i = close;
+    }
+    return out;
+}
+
+}
+
+std::optional<python_value> resolved(const python_value& v,
+    const std::map<std::string, std::string, std::less<>>& constants) {
+    python_value out;
+    out.what = v.what;
+    out.text = v.text;
+    if (v.what == python_value::kind::name) {
+        if (const auto found = constants.find(v.text);
+            found != constants.end()) {
+            out.what = python_value::kind::string;
+            out.text = found->second;
+        }
+        return out;
+    }
+    if (v.what == python_value::kind::format) {
+        auto text = formatted(v.text, constants);
+        if (!text)
+            return std::nullopt;
+        out.what = python_value::kind::string;
+        out.text = std::move(*text);
+        return out;
+    }
+    for (const auto& item : v.items) {
+        auto r = resolved(item, constants);
+        if (!r)
+            return std::nullopt;
+        out.items.push_back(std::move(*r));
+    }
+    for (const auto& e : v.entries) {
+        auto value = resolved(e.value, constants);
+        if (!value)
+            return std::nullopt;
+        python_entry entry{e.key, std::move(*value), {}};
+        for (const auto& k : e.key_items) {
+            auto r = resolved(k, constants);
+            if (!r)
+                return std::nullopt;
+            entry.key_items.push_back(std::move(*r));
+        }
+        out.entries.push_back(std::move(entry));
+    }
+    return out;
 }
 
 std::optional<std::vector<std::string>> strings_of(const python_value& v) {

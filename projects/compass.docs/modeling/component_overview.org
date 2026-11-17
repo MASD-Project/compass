@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :docs:gates:checks:component:
 #+created: 2026-11-16
-#+updated: 2026-11-16
+#+updated: 2026-11-17
 
 This page is the component overview for =compass.docs=, a simple component
 in the domain layer of the
@@ -101,13 +101,109 @@ the parsed tables.
   or a page that has none yet. The pages and their section codes are the
   script's own table, kept in the codec.
 
+Generators. Each of these writes the artefact an ORE Studio generator
+writes, so =compass generate= replaces the script and =compass check='s
+drift findings replace the gate that regenerated it and ran =git diff=.
+They are off by default.
+
+- *=shell_recipe_library=.* =tangle-shell=
+  (=projects/ores.lisp/src/ores-build-recipe-scripts.el=). A document
+  codec over the recipes under =doc/recipes/shell=. Through
+  =ops::tangle= with the language =ores-shell=: a recipe whose blocks name
+  targets gives one script per target, named by its file name; any other
+  recipe with an =ores-shell= block tangles to =<recipe>.ores=, as
+  =TARGET-FILE=. A script lands in
+  =projects/ores.shell/scripts/library/<category>/=, the category from the
+  =:recipe:shell:<category>:= filetag or =general=, loses a trailing =exit=
+  line and gains the banner: the section heading, or the title and a
+  description that differs from it, then the =GENERATED from= and
+  =Regenerate with= lines. It writes all 5,015 scripts byte for byte as
+  Emacs 30.2 does.
+- *=http_recipe_library=.* =tangle-http=
+  (=projects/ores.lisp/src/ores-build-http-recipes.el=). The same for the
+  =hurl= blocks under =doc/recipes/http=, into
+  =projects/ores.http/scripts/library=; a recipe that names no target gives
+  nothing, nothing is stripped and the banner carries no description. It
+  writes all 414 files as Emacs does.
+- *=skill_catalogue=.* =skill-catalogue= (=generate_skills_catalogue.py=).
+  A corpus codec that rewrites the first region between the script's
+  markers in =doc/llm/skills/claude_code_skills.org=: per domain of the
+  script's table, the skills named =compass-<domain>-...= in name order,
+  each with its =:ID:=, title and description, the description cut to 110
+  characters.
+- *=skill_type_tables=.* =skill-type-tables=
+  (=generate_skill_type_tables.py=). Rewrites every region between its
+  markers in =compass-doc-add= and =compass-doc-show=: the document types
+  read from the =doc_*.org.mustache= templates and from
+  =_STATIC_PARENT= and =_DEFAULTABLE_PARENT= in =compass.py=, and the
+  read-only commands with the help =compass.py= gives each.
+- *=skill_recipes=.* =skill-recipes= (=link_skill_recipes.py=). Writes each
+  skill of the script's table with the recipe links its Recipes section
+  lacks appended; a skill or recipe that does not exist leaves the skill
+  alone, where the script stops.
+- *=structure_notes=.* =structure-notes= (=link_structure_notes.py=). A
+  corpus codec over every page: the UTF-8 pages under =doc/= and
+  =projects/modeling/= with an =:ID:= line, keyed by the ID in upper case.
+  A page tagged =structure_note= is a note; the pages its =id:= links name
+  before its =What this cluster does not cover= and =See also= sections
+  form its cluster, those under a section marked =# aside= set beside its
+  order. Every cluster page that is not a note is written, with a line
+  linking the note added to its =See also= section, or a new section at
+  its end, unless it links the note already; notes go in ID order, so a
+  page two notes name gains both lines. It writes the 417 pages of ORE
+  Studio as they are committed.
+- *=skill_levels=.* The inventory half of =skill-levels=
+  (=apply_skill_levels.py=): the region between its markers in
+  =doc/llm/skills/skill_systems_levels.org=, the count of skills each
+  System sees by the script's =LEVELS= table, copied into the codec. A
+  skill the table lacks, or an entry with no skill, writes nothing.
+- *=skill_level_tags=.* The page half of =skill-levels=, as a check: each
+  skill whose =#+level:= is not the table's, each skill the table lacks
+  and each entry with no skill, reported as the script's =--check= does.
+  The script writes the level into the page, but =skill_recipes= and
+  =structure_notes= also write skill pages and an output has one
+  producer, so this half reports.
+- *=recipe_inventories=.* =recipe-inventories=
+  (=regenerate_shell_recipe_inventory.py= and
+  =regenerate_http_recipe_inventory.py=): =doc/recipes/shell/shell.org=,
+  its head and prose kept and each link list rebuilt from the recipes
+  under it, and =doc/recipes/http/generated_recipes.org=, rewritten whole
+  from the recipes one directory under it. Recipes are walked in pathlib's
+  order, by component, and titles compared as =str.lower()= compares
+  ASCII.
+- *=backlog_indexes=.* =backlog-indexes= (=regenerate_backlog_indexes.py=):
+  the index page of each of the four backlog buckets, its table padded in
+  characters, not bytes. The committed =inbox.org= of ORE Studio
+  =545cafca45= is stale: it lacks a capture filed on 2026-11-16, which the
+  script and the codec both add.
+- *=physical_inventory=.* =physical-inventory=
+  (=regenerate_physical_space_inventories.py=): the child tables of the
+  physical-space pages in the template library.
+- *=trade_type_coverage=.* =trade-type-coverage=
+  (=generate_trade_type_coverage.py --write=): the generated block of
+  =doc/knowledge/domain/ore_trade_type_coverage.org= from ORE's mined
+  trade types, the catalogue, the recorded trades and the coverage
+  story's tasks; nothing is written where the script refuses.
+
+A generator that edits pages emits every page it may edit, edited or not:
+the sink removes a file a complete codec wrote before and no longer emits,
+so a page emitted only while it lacked its link would be deleted once it
+had it.
+
+=ops::replace_region= replaces the first region between two markers, or
+every one, as the scripts do with =re.search= or =re.sub=; the generators
+that keep hand-written text around a generated region emit the whole file,
+reading the file they write.
+
 * Entry points
 
 | Path                                         | Role                                                         |
 |----------------------------------------------+--------------------------------------------------------------|
 | =include/compass.docs/codecs/catalogue.hpp=  | The codecs this component ships.                             |
 | =include/compass.docs/codecs/<gate>.hpp=     | One header for each codec, named after it.                   |
-| =tests/test_tree.hpp=                        | Runs one codec over a checkout held in memory, pages parsed. |
+| =include/compass.docs/ops/regions.hpp=       | Replacing a generated region between two markers.            |
+| =include/compass.docs/ops/skills.hpp=        | The skill directories under =doc/llm/skills=.                 |
+| =tests/test_tree.hpp=                        | Runs one codec over a checkout held in memory, pages parsed; =generate= returns the files it writes. |
 
 | Target               | Kind                                      |
 |----------------------+-------------------------------------------|

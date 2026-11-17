@@ -22,6 +22,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <catch2/catch_test_macros.hpp>
+#include "compass.cli/io/listing.hpp"
 #include "compass.store/io/location.hpp"
 #include "scoped_git_repo.hpp"
 
@@ -88,6 +89,17 @@ TEST_CASE("an untracked org file is checked and a deleted one is not",
     CHECK(r.findings[0].path == "doc/task_b.org");
     CHECK(r.findings[1].path == "doc/task_c.org");
     CHECK(r.findings[2].path == "doc/task_c.org");
+}
+
+TEST_CASE("a tracked file deleted from the worktree is not listed, and an "
+    "untracked one is", "[app][pipeline]") {
+    scoped_git_repo repo;
+    repo.write("src/new.cpp", "int x;\n");
+    std::filesystem::remove(repo.checkout() / "readme.org");
+
+    CHECK(io::list_files(repo.checkout()) == std::vector<std::string>{
+        "doc/meta/document_type_task.org", "doc/task_a.org",
+        "doc/task_b.org", "src/new.cpp"});
 }
 
 TEST_CASE("a setting nobody declared fails the run and writes no output",

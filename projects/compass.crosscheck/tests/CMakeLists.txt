@@ -20,13 +20,19 @@ set(lib_target_name ${name}.lib)
 set(tests_target_name ${name}.tests)
 
 add_executable(${tests_target_name}
+    codecs_convention_kind_terms_tests.cpp
+    codecs_curve_wiring_tests.cpp
     codecs_entity_writes_tests.cpp
     codecs_generated_reads_tests.cpp
     codecs_marketdata_identity_columns_tests.cpp
+    codecs_ore_output_catalogue_tests.cpp
     codecs_model_columns_tests.cpp
+    codecs_ore_renderings_tables_tests.cpp
     codecs_paste_blocks_tests.cpp
     codecs_protocol_twins_tests.cpp
     codecs_registry_gates_tests.cpp
+    codecs_route_inventory_tests.cpp
+    codecs_script_library_seed_tests.cpp
     codecs_subject_conformance_tests.cpp)
 
 target_link_libraries(${tests_target_name}

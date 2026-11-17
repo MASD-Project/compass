@@ -26,8 +26,10 @@ namespace compass::codec::codecs {
 
 namespace {
 
-void run(const types::document& d, const types::corpus_view&,
+void run(const types::document& d, const types::corpus_view& v,
     types::file_table& out) {
+    if (!ops::in_directory(d.path, v.option("directory")))
+        return;
     for (const auto& t : ops::tangle(d).targets)
         out.add(t.path, t.content);
 }
@@ -36,11 +38,11 @@ void run(const types::document& d, const types::corpus_view&,
 
 const types::descriptor tangle{
     .name = "tangle",
-    .version = 1,
+    .version = 2,
     .summary = "Writes the files the source blocks of each document "
         "tangle to, as Emacs does.",
     .reads = types::inputs::every_document(),
-    .options = {},
+    .options = ops::tangle_scope,
     .rules = {},
     .enabled_by_default = false,
     .run = types::document_function<types::file_table>{run}};

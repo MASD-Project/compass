@@ -20,6 +20,7 @@
 #ifndef COMPASS_CROSSCHECK_OPS_PYTHON_LITERALS_HPP
 #define COMPASS_CROSSCHECK_OPS_PYTHON_LITERALS_HPP
 
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -37,11 +38,14 @@ namespace compass::crosscheck::ops {
 struct python_entry;
 
 /**
- * @brief A literal: a string (adjacent literals joined), a name, a tuple,
- * list or set, a dict, or a call with keyword arguments.
+ * @brief A literal: a string (adjacent literals joined, raw ones kept as
+ * written), an f-string template, a name, a tuple, list or set, a dict, or
+ * a call. A call's positional arguments are its items and its keyword
+ * arguments its entries. An f-string's text is its template, with the
+ * braces of any plain literal joined to it doubled; resolved() formats it.
  */
 struct python_value {
-    enum class kind { string, name, sequence, dict, call };
+    enum class kind { string, format, name, sequence, dict, call };
     kind what = kind::string;
     std::string text;
     std::vector<python_value> items;
@@ -49,11 +53,13 @@ struct python_value {
 };
 
 /**
- * @brief A key of a dict or a keyword of a call, and its value.
+ * @brief A key of a dict or a keyword of a call, and its value. A dict key
+ * that is a tuple has its items in key_items and an empty key.
  */
 struct python_entry {
     std::string key;
     python_value value;
+    std::vector<python_value> key_items;
 };
 
 /**
@@ -63,6 +69,22 @@ struct python_entry {
  */
 [[nodiscard]] std::optional<python_value> python_assignment(
     std::string_view source, std::string_view name);
+
+/**
+ * @brief The module-level string constants of @p source: each line that
+ * assigns a plain string literal to a name, by name.
+ */
+[[nodiscard]] std::map<std::string, std::string, std::less<>>
+python_string_constants(std::string_view source);
+
+/**
+ * @brief @p v with every name that is one of @p constants replaced by its
+ * string and every f-string formatted from them; other names, such as
+ * None, are kept. Nothing when an f-string names a field that is not a
+ * constant.
+ */
+[[nodiscard]] std::optional<python_value> resolved(const python_value& v,
+    const std::map<std::string, std::string, std::less<>>& constants);
 
 /**
  * @brief The strings of a sequence of strings; nothing when @p v is not

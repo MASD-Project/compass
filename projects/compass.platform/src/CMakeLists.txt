@@ -22,7 +22,8 @@ add_library(${lib_target_name}
     filesystem/mapped_file.cpp
     process/run_program.cpp
     text/decoding.cpp
-    text/regex.cpp)
+    text/regex.cpp
+    text/xml.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
 
@@ -31,4 +32,5 @@ target_include_directories(${lib_target_name} PUBLIC
 
 target_link_libraries(${lib_target_name}
     PRIVATE
-        PCRE2::8BIT)
+        PCRE2::8BIT
+        expat::expat)

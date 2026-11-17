@@ -19,14 +19,24 @@ set(name "compass.docs")
 set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
+    codecs/backlog_indexes.cpp
     codecs/catalogue.cpp
     codecs/component_docs.cpp
     codecs/heading_numbers.cpp
     codecs/org_links.cpp
     codecs/pattern_uses.cpp
+    codecs/physical_inventory.cpp
     codecs/prototypes.cpp
+    codecs/recipe_inventories.cpp
+    codecs/recipe_libraries.cpp
     codecs/rule_identifiers.cpp
-    codecs/tree_gates.cpp)
+    codecs/skill_levels.cpp
+    codecs/skill_tables.cpp
+    codecs/structure_notes.cpp
+    codecs/trade_type_coverage.cpp
+    codecs/tree_gates.cpp
+    ops/regions.cpp
+    ops/skills.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
 

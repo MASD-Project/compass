@@ -98,6 +98,37 @@ inline outcome run(const compass::codec::types::descriptor& codec,
 }
 
 /**
+ * @brief The files the file codec @p codec, enabled, writes over a checkout
+ * of @p all, by path.
+ */
+inline files generate(const compass::codec::types::descriptor& codec,
+    const files& all) {
+    namespace ct = compass::codec::types;
+    ct::checkout_files checkout;
+    for (const auto& [path, bytes] : all)
+        checkout.paths.push_back(path);
+    checkout.content_of = [&](std::string_view p) {
+        return std::optional(store::ops::blob_id_of(all.find(p)->second));
+    };
+    checkout.read = [&](std::string_view p) {
+        return std::optional(all.find(p)->second);
+    };
+    ct::corpus corpus;
+    corpus.files = &checkout;
+    const compass::org::types::type_registry types;
+    ct::configuration settings;
+    settings.set(codec.name, "enabled", "true");
+    const std::array<ct::descriptor, 1> codecs{codec};
+    const auto r = compass::codec::ops::run(compass::codec::ops::make_registry(
+        codecs, types, settings), corpus, types, 1);
+    files out;
+    const auto& f = r.files[0];
+    for (std::uint32_t i = 0; i < f.size(); ++i)
+        out.emplace(f.paths[ct::file_id{i}], f.contents[ct::file_id{i}]);
+    return out;
+}
+
+/**
  * @brief The message of each of @p findings.
  */
 inline std::vector<std::string> messages_of(const outcome& r) {
