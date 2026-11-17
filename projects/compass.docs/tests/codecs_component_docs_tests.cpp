@@ -94,3 +94,18 @@ TEST_CASE("the exceptions file excuses one rule for one component",
     CHECK(tests::messages(tests::run(codecs::component_docs, t)) ==
         std::vector<std::string>{"ores.b: no .puml file in modeling/"});
 }
+
+TEST_CASE("the exceptions file excuses the backtick links of one page, and "
+    "the pages are reported in path order", "[codecs][component_docs]") {
+    const std::string link = "Use `[[nodiscard]]` here.\n";
+    const files t{
+        {"doc/b/page.org", link},
+        {"doc/a.org", link},
+        {"doc/b.org", link},
+        {"projects/ores.codegen/docs_exceptions.txt",
+         "BACKTICK_LINK doc/b.org\n"}};
+    const auto found = tests::run(codecs::component_docs, t);
+    REQUIRE(found.size() == 2);
+    CHECK(std::get<0>(found[0]) == "doc/a.org");
+    CHECK(std::get<0>(found[1]) == "doc/b/page.org");
+}

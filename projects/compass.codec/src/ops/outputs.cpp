@@ -23,6 +23,10 @@
 #include <cstddef>
 #include <numeric>
 #include <stdexcept>
+#include <string>
+#include <string_view>
+#include <unordered_map>
+#include <vector>
 #include "compass.store/ops/blob_hash.hpp"
 
 namespace compass::codec::ops {
@@ -116,16 +120,37 @@ types::output_set outputs_of(const types::registry& r,
         if (formatted(c))
             skipped.push_back(r.codecs[c].name);
     }
+    std::vector<std::string_view> staged;
+    for (std::size_t c = 0; c < r.size(); ++c) {
+        if (!formatted(c) && unit_of(r.codecs[c]) == types::unit::staged)
+            staged.push_back(r.codecs[c].name);
+    }
     const auto& record = result.record;
+    const auto files_end = [&](std::uint32_t u) {
+        return u + 1 < record.size()
+            ? record.file_firsts[types::record_unit_id{u + 1}].value
+            : static_cast<std::uint32_t>(record.files.size());
+    };
+    // A path two parts of a staged codec emit is the later part's.
+    std::unordered_map<std::string, std::uint32_t> last;
+    for (std::uint32_t u = 0; u < record.size() && !staged.empty(); ++u) {
+        const types::record_unit_id unit{u};
+        if (!std::ranges::contains(staged, record.codecs[unit]))
+            continue;
+        for (auto f = record.file_firsts[unit].value; f < files_end(u); ++f)
+            last.insert_or_assign(std::string(record.codecs[unit]) + '\0' +
+                std::string(record.files.paths[types::file_id{f}]), f);
+    }
     for (std::uint32_t u = 0; u < record.size(); ++u) {
         const types::record_unit_id unit{u};
         if (std::ranges::contains(skipped, record.codecs[unit]))
             continue;
-        const auto end = u + 1 < record.size()
-            ? record.file_firsts[unit.next()].value
-            : static_cast<std::uint32_t>(record.files.size());
-        for (auto f = record.file_firsts[unit].value; f < end; ++f) {
+        const bool parts = std::ranges::contains(staged, record.codecs[unit]);
+        for (auto f = record.file_firsts[unit].value; f < files_end(u); ++f) {
             const types::file_id file{f};
+            if (parts && last.find(std::string(record.codecs[unit]) + '\0' +
+                    std::string(record.files.paths[file]))->second != f)
+                continue;
             out.add(record.codecs[unit], record.files.paths[file],
                 record.files.contents[file], record.file_hashes[file]);
         }

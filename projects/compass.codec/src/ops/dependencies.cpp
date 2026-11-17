@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <optional>
+#include <set>
 #include <span>
 #include <stdexcept>
 #include <tuple>
@@ -355,6 +356,7 @@ std::vector<posting> postings_of(const types::dependency_record& record) {
     using types::input_kind;
     using types::subject_kind;
     std::vector<posting> out;
+    std::set<std::string_view> staged;
     for (std::uint32_t u = 0; u < record.size(); ++u) {
         const types::record_unit_id unit{u};
         const auto input_end = end_of_unit(record.input_firsts, u,
@@ -380,6 +382,10 @@ std::vector<posting> postings_of(const types::dependency_record& record) {
             case input_kind::type_registry:
                 out.push_back({subject_kind::type_registry, {}, u});
                 break;
+            case input_kind::fact:
+                out.push_back({subject_kind::fact, record.codecs[unit], u});
+                staged.insert(record.codecs[unit]);
+                break;
             }
         }
         const auto file_end = end_of_unit(record.file_firsts, u,
@@ -389,6 +395,12 @@ std::vector<posting> postings_of(const types::dependency_record& record) {
                 record.files.paths[types::file_id{f}], u});
         for (const auto path : diagnostic_paths(record.diagnostics[unit]))
             out.push_back({subject_kind::finding, path, u});
+    }
+    for (std::uint32_t u = 0; u < record.size(); ++u) {
+        const types::record_unit_id unit{u};
+        if (record.documents[unit].empty() &&
+            staged.contains(record.codecs[unit]))
+            out.push_back({subject_kind::stage, record.codecs[unit], u});
     }
     std::ranges::sort(out);
     const auto [first, last] = std::ranges::unique(out);
@@ -641,9 +653,33 @@ std::vector<types::record_unit_id> units_touching(
             path.starts_with(prefix) && path.ends_with(suffix))
             add(subject_kind::listing, pattern);
     }
-    std::ranges::sort(out);
-    const auto [from, to] = std::ranges::unique(out);
-    out.erase(from, to);
+    const auto settle = [&] {
+        std::ranges::sort(out);
+        const auto [from, to] = std::ranges::unique(out);
+        out.erase(from, to);
+    };
+    settle();
+
+    // A part is checked against the facts its prepare step published, a
+    // prepare step that runs again may change any of them, and which part
+    // a path two parts emit belongs to is known only with all of them.
+    const auto touched = out;
+    const auto stages = std::ranges::equal_range(kinds, subject_kind::stage);
+    for (auto it = stages.begin(); it != stages.end(); ++it) {
+        const auto codec = index.keys[types::subject_id{
+            static_cast<std::uint32_t>(it - kinds.begin())}];
+        const auto prepare = units_of(index, subject_kind::stage, codec);
+        const auto parts = units_of(index, subject_kind::fact, codec);
+        const auto among = [&](types::record_unit_id u) {
+            return std::ranges::binary_search(touched, u);
+        };
+        if (std::ranges::any_of(prepare, among) ||
+            std::ranges::any_of(parts, among)) {
+            out.insert(out.end(), prepare.begin(), prepare.end());
+            out.insert(out.end(), parts.begin(), parts.end());
+        }
+    }
+    settle();
     return out;
 }
 

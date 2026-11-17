@@ -21,9 +21,12 @@
 
 #include <array>
 #include <set>
+#include <span>
 #include <string>
 #include <utility>
+#include <vector>
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.codec/types/fact.hpp"
 #include "compass.cpp/ops/test_case_reachability.hpp"
 #include "compass.cpp/ops/text.hpp"
 
@@ -96,24 +99,36 @@ void report(std::string_view path, std::string_view text,
     }
 }
 
-void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
-    std::uint64_t sources = 0;
+std::vector<std::string_view> test_sources(const ct::corpus_view& v) {
+    auto paths = v.list_files("projects/");
+    std::erase_if(paths, [](std::string_view path) {
+        return !ops::is_test_source(path);
+    });
+    return paths;
+}
+
+/**
+ * @brief Reports what is wrong with one test source. Its fact is the
+ * number of cases it declares, none when its conditionals cannot be read.
+ */
+void map(std::string_view path, std::string_view text,
+    const ct::option_values&, ct::file_scan& out) {
+    const auto r = ops::scan_source(text);
+    bool readable = true;
+    for (const auto& p : r.problems)
+        readable = readable &&
+            p.kind != ops::reading_problem::raw_string_moves;
+    report(path, text, r, readable, out.findings);
+    ct::fact_writer(out.fact).number(
+        readable ? static_cast<std::uint32_t>(r.declared) : 0);
+}
+
+void reduce(std::span<const ct::scanned_file> sources,
+    const ct::corpus_view&, ct::diagnostic_table& out) {
     std::uint64_t declared = 0;
-    for (const auto path : v.list_files("projects/")) {
-        if (!ops::is_test_source(path))
-            continue;
-        ++sources;
-        const auto text = v.read_file(path).value_or("");
-        const auto r = ops::scan_source(text);
-        bool readable = true;
-        for (const auto& p : r.problems)
-            readable = readable &&
-                p.kind != ops::reading_problem::raw_string_moves;
-        if (readable)
-            declared += r.declared;
-        report(path, text, r, readable, out);
-    }
-    if (sources == 0)
+    for (const auto& s : sources)
+        declared += ct::fact_reader(s.fact).number();
+    if (sources.empty())
         add(out, projects, 0, 3, "no test source is found under projects/",
             "check that the test sources are where the rule looks");
     else if (declared == 0)
@@ -126,13 +141,13 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
 
 const ct::descriptor test_case_reachability{
     .name = "test_case_reachability",
-    .version = 1,
+    .version = 2,
     .summary = "Reports each test case inside a conditional compilation "
         "block and each test source whose conditionals cannot be read.",
     .reads = ct::inputs::of_types({}),
     .options = {},
     .rules = rules,
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::diagnostic_table>{run}};
+    .run = ct::scan_function{test_sources, map, reduce}};
 
 }

@@ -92,11 +92,17 @@ bool is_plain_file(const std::filesystem::path& path) {
 
 }
 
-std::vector<std::string> list_files(const std::filesystem::path& checkout) {
+std::vector<std::string> list_files(const std::filesystem::path& checkout,
+    std::string_view only) {
     // -t tags each path; a tracked file deleted from the worktree is
     // listed once more under R and is dropped, so the listing is the disk.
-    const auto raw = run_git(checkout, {"ls-files", "-z", "-t", "--cached",
-        "--others", "--deleted", "--exclude-standard"});
+    std::vector<std::string> arguments{"ls-files", "-z", "-t", "--cached",
+        "--others", "--deleted", "--exclude-standard"};
+    if (!only.empty()) {
+        arguments.emplace_back("--");
+        arguments.push_back(":(literal)" + std::string(only));
+    }
+    const auto raw = run_git(checkout, arguments);
     std::vector<std::string> out;
     std::vector<std::string_view> deleted;
     for (const auto field : fields_of(raw)) {

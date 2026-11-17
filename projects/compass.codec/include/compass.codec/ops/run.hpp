@@ -82,6 +82,15 @@ using unit_filter = std::function<bool(types::codec_id codec,
  * names the result object, whose outputs stand in for the call. Every
  * other unit is called, through a view that records what it reads. Nothing
  * is written to the cache here; the caller stores the units in fresh.
+ * A scan the previous record holds under the same version and options is
+ * not looked up: its manifest lists every file it maps, several times
+ * over, and mapping the changed files from its scan table costs less than
+ * reading that.
+ *
+ * @p edited, when given, is the path of a file thought to have changed.
+ * The inputs with that key are checked first, so a unit that read it is
+ * known to need calling without checking the inputs before it. It changes
+ * no result.
  *
  * @pre @p r was built against @p types, and the types of @p c are rows of
  * @p types or none.
@@ -91,7 +100,8 @@ using unit_filter = std::function<bool(types::codec_id codec,
 [[nodiscard]] types::run_result run(const types::registry& r,
     const types::corpus& c, const compass::org::types::type_registry& types,
     unsigned threads, const types::dependency_record& previous = {},
-    const types::action_source& cache = {}, const unit_filter& only = {});
+    const types::action_source& cache = {}, const unit_filter& only = {},
+    std::string_view edited = {});
 
 }
 

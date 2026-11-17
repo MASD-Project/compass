@@ -112,10 +112,12 @@ std::filesystem::path in_commit(const std::filesystem::path& path,
  * @brief Lists the files of the checkout of @p o, or of the commit it
  * names, into @p p, and builds the type and codec registries. When
  * @p recorded, a checkout is listed from the listing record the last check
- * wrote, if there is one, without starting git. Writes nothing.
+ * wrote, if there is one, without listing the checkout: @p created, a file
+ * that may be new, is added to it when git lists that one path. Writes
+ * nothing.
  */
 void list_files(pipeline& p, const types::options& o,
-    bool recorded = false) {
+    bool recorded = false, std::string_view created = {}) {
     if (o.commit)
         p.timed("tree", [&] {
             p.commit.emplace(store::io::git_common_dir(o.checkout),
@@ -137,6 +139,19 @@ void list_files(pipeline& p, const types::options& o,
         if (recorded) {
             if (auto r = io::read_listing_file(io::listing_file_path(
                     store::io::git_dir(o.checkout)))) {
+                const auto at = std::ranges::lower_bound(r->files, created);
+                if (!created.empty() &&
+                    (at == r->files.end() || *at != created)) {
+                    const auto one = io::list_files(o.checkout, created);
+                    if (std::ranges::contains(one, created)) {
+                        const bool document = created !=
+                            config::repository_file_name &&
+                            !io::org_files(o.checkout, one).empty();
+                        r->documents.insert(r->documents.begin() +
+                            (at - r->files.begin()), document ? 1 : 0);
+                        r->files.insert(at, std::string(created));
+                    }
+                }
                 list(p.listed, std::move(*r));
                 return;
             }
@@ -179,15 +194,16 @@ void load_files(pipeline& p, const types::options& o,
 
 /**
  * @brief Runs the codecs of @p p from @p previous and the result cache,
- * the units @p only takes when given, and records what each codec ran.
+ * the units @p only takes when given, checking the inputs at @p edited
+ * first, and records what each codec ran.
  */
 void run_units(pipeline& p, const types::options& o,
     const ct::dependency_record& previous,
-    const codec::ops::unit_filter& only = {}) {
+    const codec::ops::unit_filter& only = {}, std::string_view edited = {}) {
     auto& s = p.summary;
     p.timed("codecs", [&] {
         p.run = run_codecs(p.codecs, p.corpus, p.types, o.threads, previous,
-            o.checkout, only);
+            o.checkout, only, edited);
     });
     for (std::size_t c = 0; c < p.codecs.size(); ++c)
         s.codecs.emplace_back(p.codecs.codecs[c].name);
@@ -785,7 +801,7 @@ std::vector<types::finding> hook_drift(pipeline& p, const types::options& o,
             ? previous.file_firsts[unit.next()].value
             : static_cast<std::uint32_t>(previous.files.size());
         for (auto f = first; f < end; ++f)
-            recorded.emplace(joined(previous.codecs[unit],
+            recorded.insert_or_assign(joined(previous.codecs[unit],
                 previous.files.paths[ct::file_id{f}]),
                 recorded_file{previous.file_hashes[ct::file_id{f}],
                     units[u], f - first});
@@ -799,17 +815,32 @@ std::vector<types::finding> hook_drift(pipeline& p, const types::options& o,
     changed.files.resize(p.codecs.size());
     std::unordered_set<std::string> generated;
     const auto& run = p.run.record;
+    const auto files_end = [&](std::uint32_t u) {
+        return u + 1 < run.size()
+            ? run.file_firsts[ct::record_unit_id{u + 1}].value
+            : static_cast<std::uint32_t>(run.files.size());
+    };
+    // A path two parts of a staged codec emit is the later part's, in the
+    // record above and in the run alike.
+    std::unordered_map<std::string, std::uint32_t> last;
+    for (std::uint32_t u = 0; u < run.size(); ++u) {
+        const ct::record_unit_id unit{u};
+        for (auto f = run.file_firsts[unit].value; f < files_end(u); ++f)
+            last.insert_or_assign(joined(run.codecs[unit],
+                run.files.paths[ct::file_id{f}]), f);
+    }
     for (std::uint32_t u = 0; u < run.size(); ++u) {
         const ct::record_unit_id unit{u};
         const auto codec = std::ranges::find(p.codecs.codecs, run.codecs[unit],
             &ct::descriptor::name) - p.codecs.codecs.begin();
-        const auto end = u + 1 < run.size()
-            ? run.file_firsts[unit.next()].value
-            : static_cast<std::uint32_t>(run.files.size());
-        for (auto f = run.file_firsts[unit].value; f < end; ++f) {
+        const bool staged = ct::unit_of(p.codecs.codecs[
+            static_cast<std::size_t>(codec)]) == ct::unit::staged;
+        for (auto f = run.file_firsts[unit].value; f < files_end(u); ++f) {
             const ct::file_id id{f};
             const auto file = run.files.paths[id];
             auto key = joined(run.codecs[unit], file);
+            if (staged && last.find(key)->second != f)
+                continue;
             const auto it = recorded.find(key);
             generated.insert(key);
             const bool same = it != recorded.end() &&
@@ -993,7 +1024,8 @@ types::hook_result hook(const types::options& o, const std::string& path,
     if (touched.empty() && !edited.document)
         return done();
 
-    list_files(p, o, !created);
+    list_files(p, o, true, created ? std::string_view(path)
+        : std::string_view{});
     if (!created && !std::ranges::binary_search(p.listed.files, path)) {
         // A file an unchecked edit created is missing from the record's
         // listing, so the checkout is listed again.
@@ -1043,10 +1075,14 @@ types::hook_result hook(const types::options& o, const std::string& path,
 
     run_units(p, o, heads.loaded.record, [&](ct::codec_id c,
         std::string_view document) {
+        const auto& codec = p.codecs.codecs[c.value];
+        // A staged codec whose prepare step is taken may list a part the
+        // record lacks, which is taken too.
         return (edited.document && document == path) ||
-            heads.names.contains(joined(p.codecs.codecs[c.value].name,
-                document));
-    });
+            heads.names.contains(joined(codec.name, document)) ||
+            (ct::unit_of(codec) == ct::unit::staged &&
+                heads.names.contains(joined(codec.name, {})));
+    }, path);
     r.checked = true;
 
     std::vector<types::finding> found;

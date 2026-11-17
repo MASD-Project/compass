@@ -67,7 +67,10 @@ the parsed tables.
   =modeling/component_overview.org= with an =:ID:=, =#+type: component=, a
   =#+description:= and the six sections, and a =.puml= beside it; no
   top-level name extends another's; no page under =doc/= holds a bare
-  bracket link inside one backtick span. The directories come from the
+  bracket link inside one backtick span. It is a scan over the pages
+  under =doc/=: a page's links are its fact, and the reduce step checks
+  the components and applies the exceptions, so an edit to a page reads
+  that page. The directories come from the
   listing of the checkout, so a directory that holds no tracked file is not
   one. The =exceptions= option names the script's own file of =CODE
   component= lines, which stays as data: it excuses a rule for a

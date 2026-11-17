@@ -43,7 +43,7 @@ namespace compass::codec::ops {
  * @brief The version of the dependency record file this build writes and
  * reads. A file of any other version is not read, so every unit runs.
  */
-inline constexpr std::uint32_t dependency_record_version = 5;
+inline constexpr std::uint32_t dependency_record_version = 6;
 
 /**
  * @brief The row of every document by path and by ID property.
@@ -206,8 +206,11 @@ struct edited_file {
  * on it, or, when it may be new, list a pattern it matches; and, for a
  * document, those that
  * depend on the whole set of documents and those that looked up one of
- * its IDs. Ascending, each once. A unit that read the type registry is
- * not among them unless otherwise named: an edit to a contract page
+ * its IDs. A unit of a staged codec brings every unit of that codec: a
+ * part is checked against the facts its prepare step published, any fact
+ * may change when prepare runs again, and a path two parts emit is the
+ * later part's. Ascending, each once. A unit that read the type registry
+ * is not among them unless otherwise named: an edit to a contract page
  * changes what every unit sees.
  */
 [[nodiscard]] std::vector<types::record_unit_id> units_touching(

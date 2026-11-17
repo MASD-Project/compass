@@ -367,10 +367,10 @@ codec::types::run_result run_codecs(const codec::types::registry& codecs,
     const codec::types::corpus& corpus, const ot::type_registry& types,
     unsigned threads, const codec::types::dependency_record& previous,
     const std::filesystem::path& checkout,
-    const codec::ops::unit_filter& only) {
+    const codec::ops::unit_filter& only, std::string_view edited) {
     return codec::ops::run(codecs, corpus, types, threads, previous,
         codec::io::action_source_of(store::io::git_common_dir(checkout)),
-        only);
+        only, edited);
 }
 
 std::uint64_t store_objects(const corpus_files& f) {

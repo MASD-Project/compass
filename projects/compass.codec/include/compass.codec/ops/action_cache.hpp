@@ -23,11 +23,14 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <utility>
 #include "compass.codec/types/action_manifest.hpp"
 #include "compass.codec/types/dependency_record.hpp"
+#include "compass.codec/types/descriptor.hpp"
 #include "compass.codec/types/file_table.hpp"
 #include "compass.store/types/blob_id.hpp"
 
@@ -38,7 +41,7 @@ namespace compass::codec::ops {
  * every key, so a build that changes a format finds none of the objects of
  * another.
  */
-inline constexpr std::uint32_t action_format_version = 4;
+inline constexpr std::uint32_t action_format_version = 5;
 
 /**
  * @brief How many input sets a manifest keeps. A new set goes first and
@@ -93,7 +96,7 @@ bool add_input_set(types::action_manifest& m,
 /**
  * @brief What a cached unit produced: its files, its findings encoded as
  * encode_diagnostics encodes them and, for a scan, its scan table as
- * put_scan_entry writes it, all pointing into the body decoded.
+ * encode_scan writes it, all pointing into the body decoded.
  */
 struct action_result {
     types::file_table files;
@@ -120,27 +123,56 @@ struct action_result {
 /**
  * @brief What a scan made of one file: the content ID of the bytes it
  * mapped, its fact and its findings, encoded as encode_diagnostics
- * encodes them.
+ * encodes them, and whether the reduce step read the file itself, through
+ * the view, and so depends on more of it than its fact.
  */
 struct scan_entry {
     compass::store::types::blob_id content;
     std::string_view fact;
     std::string_view findings;
+    bool read_by_reduce = false;
 };
 
 /**
- * @brief Appends the entry of the file at @p path to the scan table
- * @p out: its path, content ID, fact and findings.
+ * @brief The scan table of a call: the entry of each file by path, and
+ * the findings of the reduce step, encoded as encode_diagnostics encodes
+ * them. A run that maps a changed file to the fact it had, of a file the
+ * reduce step did not read, reports these findings again without
+ * reducing.
  */
-void put_scan_entry(std::string& out, std::string_view path,
-    const scan_entry& e);
+struct scan_table {
+    std::unordered_map<std::string_view, scan_entry> entries;
+    std::string_view reduce_findings;
+};
 
 /**
- * @brief The entries of the scan table @p bytes by path, pointing into
- * it, or nothing when it is not one put_scan_entry wrote.
+ * @brief The bytes of a scan table of @p entries, each a path and its
+ * entry, in order, and @p reduce_findings.
  */
-[[nodiscard]] std::optional<std::unordered_map<std::string_view, scan_entry>>
-decode_scan(std::string_view bytes);
+[[nodiscard]] std::string encode_scan(
+    std::span<const std::pair<std::string_view, scan_entry>> entries,
+    std::string_view reduce_findings);
+
+/**
+ * @brief The scan table encode_scan wrote as @p bytes, pointing into
+ * them, or nothing when they are not one.
+ */
+[[nodiscard]] std::optional<scan_table> decode_scan(std::string_view bytes);
+
+/**
+ * @brief The bytes of @p s, which the result object of a staged codec's
+ * prepare step keeps where a scan keeps its table, so that a run whose
+ * record stands in for prepare knows the parts and the facts without
+ * calling it.
+ */
+[[nodiscard]] std::string encode_stage(const types::stage& s);
+
+/**
+ * @brief The stage encode_stage wrote as @p bytes, or nothing when they
+ * are not one.
+ */
+[[nodiscard]] std::optional<types::stage> decode_stage(
+    std::string_view bytes);
 
 }
 

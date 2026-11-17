@@ -43,13 +43,17 @@ using subject_id = compass::org::types::handle<struct subject_tag>;
  * the key holds. listing: a listing input has the pattern the key holds.
  * type_set and type_registry: the unit has such an input; the key is
  * empty. output: the unit produced a file at the path the key holds.
- * finding: a finding of the unit names the path the key holds.
+ * finding: a finding of the unit names the path the key holds. fact: the
+ * unit has a fact input; the key is its codec. stage: the unit has an
+ * empty document and its codec is one whose units have fact inputs, so it
+ * is the prepare step that published them; the key is its codec.
  */
 enum class subject_kind : std::uint8_t {
-    reads, id, listing, type_set, type_registry, output, finding
+    reads, id, listing, type_set, type_registry, output, finding, fact,
+    stage
 };
 
-inline constexpr subject_kind last_subject_kind = subject_kind::finding;
+inline constexpr subject_kind last_subject_kind = subject_kind::stage;
 
 /**
  * @brief Where each unit of a dependency record file is, and which units

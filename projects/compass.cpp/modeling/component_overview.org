@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :cpp:gates:checks:component:
 #+created: 2026-11-16
-#+updated: 2026-11-16
+#+updated: 2026-11-17
 
 This page is the component overview for =compass.cpp=, a simple component in
 the domain layer of the
@@ -89,6 +89,7 @@ keeps in its =.compass.org=.
   after =using=. One finding per declaration, at its keyword.
 - *=test_case_reachability=.* ORE Studio's =reachability= gate
   (=projects/ores.codegen/scripts/check_test_case_reachability.py=). It
+  is a scan whose fact is the number of cases a test source declares. It
   reads every test source under =projects/=: a file with a C++ source or
   fragment suffix (=.cpp=, =.cc=, =.cxx=, =.c++=, =.hpp=, =.h=, =.hxx=,
   =.ipp=, =.inc=, in any case) under a =tests= directory or whose stem ends
