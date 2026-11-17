@@ -26,16 +26,16 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-17                               |
 
 * Acceptance
 
-- paste_blocks, skill_recipes and skill_level_tags are gone; subject_conformance keeps only its model half; model_sql_types no longer checks generated create scripts; model_drift drops the two rules the model loader throws; component_docs drops missing_section; prototypes drops react_tree and no_discovery.
+- paste_blocks, skill_recipes and skill_level_tags are gone; subject_conformance keeps only its model half; model_sql_types no longer checks generated create scripts; model_drift drops the two rules the model loader throws; prototypes drops react_tree and no_discovery.
 - For each drop, the evidence that another check covers the case, or that the rule never fires, is recorded; the warm ORE Studio check is measured before and after.
 
 * Plan
@@ -59,7 +59,10 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Findings of the dropped rules on ORE, before the drop | 0 of 242 | =compass check= on the base binary | 2d19ad2 |
+| Plants, one per dropped rule | where meaningful, codegen drift or the loader still catches it; skill_recipes, skill_level_tags and the prototypes rules are no longer reported, as accepted | =drop/plant.py= | e4ab522 |
+| Warm ORE check, base vs new, alternated 5 rounds | 5.69 s vs 5.51 s median at load 19-28; no difference above noise (agent) | =drop/interleave.sh= | e4ab522 |
+| ctest | 15 of 15 suites pass | =ctest --preset linux-clang-release= | 0a08974 |
 
 * Notes
 
@@ -87,3 +90,19 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+Six of the seven approved drops are made: paste_blocks, the C++ half of
+subject_conformance, model_sql_types (whole: every create script a model
+claims is generated, so drift covers them), model_drift's two rules the
+loader throws first, skill_recipes, skill_level_tags, and prototypes'
+react_tree and no_discovery. None of the dropped rules had a finding on ORE
+Studio.
+
+component_docs/missing_section is kept. Its drop was approved as a
+duplicate of required_sections, but that holds only for =#+type: component=,
+and all 128 of ORE Studio's overviews are =#+type: ores.codegen.component=,
+which has no contract; dropping it would leave them with no section check.
+
+An install needs ORE Studio's =.compass.org= to lose the rows for
+skill_recipes, paste_blocks, model_sql_types and skill_level_tags, or every
+run stops; an inline exception naming a dropped rule becomes malformed.
