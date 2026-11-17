@@ -781,21 +781,49 @@ std::string decoded(std::string_view bytes) {
  * names a stream call, a subject member or a string constant, what it
  * declares.
  */
+/**
+ * @brief Each name of @p text that ( follows, after any spaces: the
+ * matches of \b([A-Za-z_]\w*)\s*\(, a byte of a multi-byte character
+ * counting as a word character.
+ */
+std::set<std::string_view> called_names(std::string_view text) {
+    std::set<std::string_view> out;
+    for (std::size_t i = 0; i < text.size();) {
+        const char c = text[i];
+        if (!ops::is_word(c)) {
+            ++i;
+            continue;
+        }
+        auto end = i + 1;
+        while (end < text.size() && ops::is_word(text[end]))
+            ++end;
+        auto start = i;
+        while (start < end && !((text[start] >= 'A' && text[start] <= 'Z') ||
+                   (text[start] >= 'a' && text[start] <= 'z') ||
+                   text[start] == '_'))
+            ++start;
+        if (start == i && ops::skip_spaces(text, end) < text.size() &&
+            text[ops::skip_spaces(text, end)] == '(')
+            out.insert(text.substr(start, end - start));
+        i = end;
+    }
+    return out;
+}
+
 void map(std::string_view path, std::string_view bytes,
     const ct::option_values&, ct::file_scan& out) {
-    static const pt::regex call(R"(\b([A-Za-z_]\w*)\s*\()");
-    const auto text = decoded(bytes);
-    std::set<std::string> called;
-    for (const auto& m : call.find_all(text))
-        called.emplace(m.group(1));
+    const bool named = bytes.find("nats_subject") != std::string::npos ||
+        std::ranges::any_of(stream_calls, [&](std::string_view c) {
+            return bytes.find(c) != std::string::npos; }) ||
+        (bytes.find("constexpr") != std::string::npos &&
+            const_re().search(decoded(bytes)));
+    const auto text = named || !pt::is_utf8(bytes) ? decoded(bytes)
+        : std::string(bytes);
+    const auto called = called_names(text);
     ct::fact_writer w(out.fact);
     w.number(static_cast<std::uint32_t>(called.size()));
-    for (const auto& c : called)
+    for (const auto c : called)
         w.text(c);
-    const bool named = text.find("nats_subject") != std::string::npos ||
-        std::ranges::any_of(stream_calls, [&](std::string_view c) {
-            return text.find(c) != std::string::npos; }) ||
-        const_re().search(text);
     if (named)
         write_declarations(w, read_declarations(path, text, bytes));
 }

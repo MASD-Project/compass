@@ -88,8 +88,11 @@ constexpr std::array<std::string_view, 4> stop_types{"jthread", "stop_token",
  */
 void map(std::string_view path, std::string_view bytes,
     const ct::option_values&, ct::file_scan& out) {
+    if (std::ranges::none_of(stop_types, [&](std::string_view t) {
+            return bytes.find(t) != std::string_view::npos; }))
+        return;
     const auto lexed = ops::lex(bytes);
-    const auto model = ops::model_of(bytes, lexed);
+    const auto model = ops::model_of(bytes, lexed, ops::model_parts::names);
     std::vector<std::pair<std::uint32_t, std::string>> hits;
     for (const auto& n : model.names) {
         const auto parts = ops::components_of_name(n.text);

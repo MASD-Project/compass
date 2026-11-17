@@ -89,7 +89,8 @@ void map(std::string_view, std::string_view bytes, const ct::option_values&,
     const auto lexed = ops::lex(bytes);
     ct::fact_writer fact(out.fact);
     for (const auto& [key, start] :
-         ops::internal_names(ops::model_of(bytes, lexed)))
+         ops::internal_names(ops::model_of(bytes, lexed,
+             ops::model_parts::declarations)))
         fact.text(key.first).text(key.second)
             .number(ops::offset_of_line(bytes, ops::line_of(bytes, start)));
 }

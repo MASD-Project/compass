@@ -104,7 +104,8 @@ void map(std::string_view, std::string_view bytes, const ct::option_values&,
     const auto lexed = ops::lex(bytes);
     ct::fact_writer fact(out.fact);
     for (const auto& [name, offset] :
-         ops::defined_types(ops::model_of(bytes, lexed)))
+         ops::defined_types(ops::model_of(bytes, lexed,
+             ops::model_parts::declarations)))
         fact.text(name).number(offset);
 }
 

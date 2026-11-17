@@ -115,8 +115,11 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
         for (const auto suffix : suffixes) {
             for (const auto p : v.list_files(base, suffix)) {
                 const auto bytes = v.read_file(p).value_or("");
+                if (bytes.find(reflecting_header) == std::string::npos)
+                    continue;
                 const auto lexed = ops::lex(bytes);
-                const auto model = ops::model_of(bytes, lexed);
+                const auto model = ops::model_of(bytes, lexed,
+                    ops::model_parts::names);
                 if (std::ranges::none_of(model.includes, [](const auto& i) {
                         return !i.angled &&
                             i.target.ends_with(reflecting_header); }))

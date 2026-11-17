@@ -191,6 +191,24 @@ TEST_CASE("an extern \"C\" definition does not hide the declaration after "
     CHECK(m.declarations[1].anonymous);
 }
 
+TEST_CASE("a model holds only the parts asked for", "[ops][source_model]") {
+    const std::string_view s = "#include \"a.hpp\"\nnamespace n {\n"
+        "class M x {};\nint f();\n}\n";
+    const auto l = lex(s);
+    const auto directives = model_of(s, l, model_parts::directives);
+    CHECK(directives.includes.size() == 1);
+    CHECK(directives.names.empty());
+    CHECK(directives.heads.empty());
+    CHECK(directives.declarations.empty());
+    const auto heads = model_of(s, l, model_parts::heads);
+    CHECK(heads.heads.size() == 1);
+    CHECK(heads.names.empty());
+    CHECK(heads.declarations.empty());
+    const auto all = model_of(s, l);
+    CHECK(all.declarations.size() == 2);
+    CHECK_FALSE(all.names.empty());
+}
+
 TEST_CASE("code an #if 0 excludes declares nothing", "[ops][source_model]") {
     const std::string_view s = "namespace a {\n#if 0\nstruct gone {};\n"
         "#endif\nstruct kept {};\n}\n";

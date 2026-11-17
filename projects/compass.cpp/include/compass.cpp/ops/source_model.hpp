@@ -134,10 +134,36 @@ struct source_model {
 };
 
 /**
- * @brief The model of @p source, which @p l lexes. Its views point into
- * both, which must outlive it.
+ * @brief The parts of a model a reader asks for. The includes and macros,
+ * read from the directives alone, are always there; the rest walk the
+ * tokens, which is most of the cost.
  */
-[[nodiscard]] source_model model_of(std::string_view source, const lexed& l);
+enum class model_parts : std::uint8_t {
+    directives = 0,
+    names = 1,
+    heads = 2,
+    declarations = 4,
+    all = 7
+};
+
+[[nodiscard]] constexpr model_parts operator|(model_parts a,
+    model_parts b) noexcept {
+    return static_cast<model_parts>(static_cast<std::uint8_t>(a) |
+        static_cast<std::uint8_t>(b));
+}
+
+[[nodiscard]] constexpr model_parts operator&(model_parts a,
+    model_parts b) noexcept {
+    return static_cast<model_parts>(static_cast<std::uint8_t>(a) &
+        static_cast<std::uint8_t>(b));
+}
+
+/**
+ * @brief The @p parts of the model of @p source, which @p l lexes. Its
+ * views point into both, which must outlive it.
+ */
+[[nodiscard]] source_model model_of(std::string_view source, const lexed& l,
+    model_parts parts = model_parts::all);
 
 }
 

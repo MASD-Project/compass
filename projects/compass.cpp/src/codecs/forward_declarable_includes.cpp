@@ -342,8 +342,12 @@ const std::vector<declarable>& listed(std::string_view value) {
 void map(std::string_view path, std::string_view bytes,
     const ct::option_values& options, ct::file_scan& out) {
     const auto& types = listed(options["types"]);
+    if (std::ranges::none_of(types, [&](const declarable& d) {
+            return bytes.find(d.defining_header) != std::string_view::npos; }))
+        return;
     const auto lexed = ops::lex(bytes);
-    const auto model = ops::model_of(bytes, lexed);
+    const auto model = ops::model_of(bytes, lexed,
+        ops::model_parts::directives);
     const auto own = relative_include(path);
     std::vector<std::pair<const declarable*, std::uint32_t>> candidates;
     for (const auto& i : model.includes) {

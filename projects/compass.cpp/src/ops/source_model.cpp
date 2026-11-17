@@ -113,17 +113,26 @@ constexpr std::array<std::string_view, 9> after_parameters{"const",
 
 class reader {
 public:
-    reader(std::string_view source, const lexed& l, source_model& m)
-        : source_(source), code_(l.code), l_(l), m_(m),
-          t_(tokens_of(l)) {}
+    reader(std::string_view source, const lexed& l, model_parts parts,
+        source_model& m)
+        : source_(source), code_(l.code), l_(l), m_(m), parts_(parts),
+          t_(wants(model_parts::names | model_parts::heads |
+              model_parts::declarations) ? tokens_of(l)
+                  : std::vector<token>{}) {}
 
     void run() {
         directives();
-        names_and_heads();
-        declarations();
+        if (wants(model_parts::names | model_parts::heads))
+            names_and_heads();
+        if (wants(model_parts::declarations))
+            declarations();
     }
 
 private:
+    bool wants(model_parts p) const noexcept {
+        return (parts_ & p) != model_parts::directives;
+    }
+
     std::string_view text(const token& t) const {
         return code_.substr(t.begin, t.end - t.begin);
     }
@@ -193,11 +202,14 @@ private:
             auto e = starts_with_scope ? k + 1 : k;
             while (is(e + 1, "::") && is_name(e + 2))
                 e += 2;
-            m_.names.push_back({code_.substr(t_[k].begin,
-                t_[e].end - t_[k].begin), t_[k].begin, is(e + 1, "(")});
-            if ((is(k, "enum") && !(k > 0 && is(k - 1, "using"))) ||
-                ((is(k, "class") || is(k, "struct") || is(k, "union")) &&
-                    !(k > 0 && is(k - 1, "enum"))))
+            if (wants(model_parts::names))
+                m_.names.push_back({code_.substr(t_[k].begin,
+                    t_[e].end - t_[k].begin), t_[k].begin, is(e + 1, "(")});
+            const bool enum_head = is(k, "enum") &&
+                !(k > 0 && is(k - 1, "using"));
+            const bool class_head = (is(k, "class") || is(k, "struct") ||
+                is(k, "union")) && !(k > 0 && is(k - 1, "enum"));
+            if (wants(model_parts::heads) && (enum_head || class_head))
                 head(k);
             k = e;
         }
@@ -571,6 +583,7 @@ private:
     std::string_view code_;
     const lexed& l_;
     source_model& m_;
+    model_parts parts_;
     std::vector<token> t_;
     std::vector<std::string> scopes_;
 };
@@ -593,9 +606,10 @@ std::vector<std::string_view> components_of_name(std::string_view text) {
     return out;
 }
 
-source_model model_of(std::string_view source, const lexed& l) {
+source_model model_of(std::string_view source, const lexed& l,
+    model_parts parts) {
     source_model m;
-    reader(source, l, m).run();
+    reader(source, l, parts, m).run();
     return m;
 }
 

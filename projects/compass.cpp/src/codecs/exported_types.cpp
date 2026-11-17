@@ -99,7 +99,7 @@ bool is_export_header(std::string_view path) {
 void map(std::string_view path, std::string_view bytes,
     const ct::option_values&, ct::file_scan& out) {
     const auto lexed = ops::lex(bytes);
-    const auto model = ops::model_of(bytes, lexed);
+    const auto model = ops::model_of(bytes, lexed, ops::model_parts::heads);
     ct::fact_writer w(out.fact);
     const auto includes = ops::quoted_includes(model);
     w.number(static_cast<std::uint32_t>(includes.size()));
