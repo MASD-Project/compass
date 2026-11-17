@@ -19,7 +19,9 @@
  */
 #include <array>
 #include <cstddef>
+#include <map>
 #include <set>
+#include <span>
 #include <utility>
 #include <sstream>
 #include <string>
@@ -29,7 +31,13 @@
 #include <catch2/matchers/catch_matchers_string.hpp>
 #include "compass.cli/app/application.hpp"
 #include "compass.cli/app/codecs.hpp"
+#include "compass.codec/codecs/catalogue.hpp"
 #include "compass.codec/ops/exceptions.hpp"
+#include "compass.codegen/codecs/catalogue.hpp"
+#include "compass.cpp/codecs/catalogue.hpp"
+#include "compass.crosscheck/codecs/catalogue.hpp"
+#include "compass.docs/codecs/catalogue.hpp"
+#include "compass.sql/codecs/catalogue.hpp"
 #include "scoped_git_repo.hpp"
 
 namespace {
@@ -134,6 +142,42 @@ TEST_CASE("the check of a rule's metadata refuses a malformed citation",
             " twice"});
     CHECK(defects_of("c", unfinished) ==
         std::vector<std::string>{"c/r: the statement is not one sentence"});
+}
+
+TEST_CASE("every codec compass knows carries the code hash of the "
+    "component that defines it", "[app][codecs]") {
+    const std::array<std::pair<std::span<const ct::descriptor>,
+        std::string_view>, 6> components{{
+        {codec::codecs::catalogue(), codec::codecs::code_hash()},
+        {codegen::codecs::catalogue(), codegen::codecs::code_hash()},
+        {cpp::codecs::catalogue(), cpp::codecs::code_hash()},
+        {sql::codecs::catalogue(), sql::codecs::code_hash()},
+        {crosscheck::codecs::catalogue(), crosscheck::codecs::code_hash()},
+        {docs::codecs::catalogue(), docs::codecs::code_hash()}}};
+    std::map<std::string_view, std::string_view> expected;
+    std::set<std::string_view> hashes;
+    for (const auto& [catalogue, hash] : components) {
+        CHECK(hash.size() == 64);
+        CHECK(hash.find_first_not_of("0123456789abcdef") ==
+            std::string_view::npos);
+        hashes.insert(hash);
+        for (const auto& d : catalogue)
+            expected[d.name] = hash;
+    }
+    expected["rule_table"] = cli::app::code_hash();
+    hashes.insert(cli::app::code_hash());
+
+    std::vector<std::string> defects;
+    for (const auto& d : cli::app::codecs()) {
+        const auto it = expected.find(d.name);
+        if (it == expected.end())
+            defects.push_back(std::string(d.name) + ": in no catalogue");
+        else if (d.code != it->second)
+            defects.push_back(std::string(d.name) + ": code is '" +
+                std::string(d.code) + "'");
+    }
+    CHECK(defects == std::vector<std::string>{});
+    CHECK(hashes.size() == components.size() + 1);
 }
 
 TEST_CASE("the rule_table codec writes the page under the checkout and "

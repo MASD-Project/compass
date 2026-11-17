@@ -39,13 +39,18 @@
 namespace compass::cpp::codecs {
 
 std::span<const compass::codec::types::descriptor> catalogue() noexcept {
-    static const std::array<compass::codec::types::descriptor, 19> all{
-        bff_list_requests, core_link_edges, enum_attributes,
-        event_registrars, exported_types, forward_declarable_includes,
-        handler_registrars, history_registrars, portable_stop, route_auth,
-        shell_command_composition, shell_command_units, shell_menus,
-        stream_coverage, test_case_reachability, translation_unit_budget,
-        unique_type_names, unity_collisions, xml_family_census};
+    static const auto all = [] {
+        std::array<compass::codec::types::descriptor, 19> out{
+            bff_list_requests, core_link_edges, enum_attributes,
+            event_registrars, exported_types, forward_declarable_includes,
+            handler_registrars, history_registrars, portable_stop, route_auth,
+            shell_command_composition, shell_command_units, shell_menus,
+            stream_coverage, test_case_reachability, translation_unit_budget,
+            unique_type_names, unity_collisions, xml_family_census};
+        for (auto& d : out)
+            d.code = code_hash();
+        return out;
+    }();
     return all;
 }
 

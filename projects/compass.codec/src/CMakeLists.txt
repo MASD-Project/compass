@@ -52,3 +52,6 @@ target_link_libraries(${lib_target_name}
         Threads::Threads
     PRIVATE
         compass.platform.lib)
+
+compass_code_hash(${lib_target_name} codecs/code_hash.cpp
+    compass::codec::codecs compass.codec/codecs/catalogue.hpp)

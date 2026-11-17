@@ -21,6 +21,7 @@
 #define COMPASS_CLI_APP_CODECS_HPP
 
 #include <span>
+#include <string_view>
 #include "compass.codec/types/descriptor.hpp"
 
 namespace compass::cli::app {
@@ -31,6 +32,13 @@ namespace compass::cli::app {
  * gates, and last rule_table, the page of the rules of all the others.
  */
 [[nodiscard]] std::span<const codec::types::descriptor> codecs() noexcept;
+
+/**
+ * @brief The hash of the code rule_table is computed by: the sources of
+ * this component and of every component and library it links, and the
+ * compiler. The build writes it.
+ */
+[[nodiscard]] std::string_view code_hash() noexcept;
 
 }
 

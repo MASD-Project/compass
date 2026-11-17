@@ -21,18 +21,27 @@
 #define COMPASS_CODEC_CODECS_CATALOGUE_HPP
 
 #include <span>
+#include <string_view>
 #include "compass.codec/types/descriptor.hpp"
 
 namespace compass::codec::codecs {
 
 /**
- * @brief The codecs this component ships, in name order.
+ * @brief The codecs this component ships, in name order, each with the
+ * code hash of this component.
  *
  * A host passes them to ops::make_registry, with the codecs of any other
  * component after them. Nothing registers itself: the list a host builds
  * is the whole set.
  */
 [[nodiscard]] std::span<const types::descriptor> catalogue() noexcept;
+
+/**
+ * @brief The hash of the code the codecs of this component are computed
+ * by: the sources of this component and of every component and library it
+ * links, and the compiler. The build writes it.
+ */
+[[nodiscard]] std::string_view code_hash() noexcept;
 
 }
 

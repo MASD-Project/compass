@@ -47,16 +47,21 @@
 namespace compass::crosscheck::codecs {
 
 std::span<const compass::codec::types::descriptor> catalogue() noexcept {
-    static const std::array<compass::codec::types::descriptor, 27> all{
-        convention_kind_terms, conventions_coverage, conventions_dataset,
-        curve_column_guards, curve_sections_wiring, entity_binary_types,
-        entity_writes, er_diagram, generated_column_refs, http_areas,
-        marketdata_identity_columns, model_drift, model_sql_types,
-        money_decimal_columns, open_reads, ore_output_catalogue,
-        ore_renderings_tables, ore_value_sets, parameter_value_sets,
-        paste_blocks, protocol_twins, registry_exceptions, route_inventory,
-        route_units, script_library_seed, subject_conformance,
-        template_sections};
+    static const auto all = [] {
+        std::array<compass::codec::types::descriptor, 27> out{
+            convention_kind_terms, conventions_coverage, conventions_dataset,
+            curve_column_guards, curve_sections_wiring, entity_binary_types,
+            entity_writes, er_diagram, generated_column_refs, http_areas,
+            marketdata_identity_columns, model_drift, model_sql_types,
+            money_decimal_columns, open_reads, ore_output_catalogue,
+            ore_renderings_tables, ore_value_sets, parameter_value_sets,
+            paste_blocks, protocol_twins, registry_exceptions, route_inventory,
+            route_units, script_library_seed, subject_conformance,
+            template_sections};
+        for (auto& d : out)
+            d.code = code_hash();
+        return out;
+    }();
     return all;
 }
 
