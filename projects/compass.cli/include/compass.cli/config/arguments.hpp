@@ -56,11 +56,6 @@ using parsed_arguments =
 [[nodiscard]] std::string_view help_text() noexcept;
 
 /**
- * @brief The version of this build, as "compass <major>.<minor>.<patch>".
- */
-[[nodiscard]] std::string_view version_text() noexcept;
-
-/**
  * @brief Parses the arguments after the program name.
  *
  * One argument is the command: generate, or its alias gen, diff, check,

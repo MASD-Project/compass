@@ -30,6 +30,7 @@ add_library(${lib_target_name}
     io/hook_payload.cpp
     io/listing.cpp
     io/report.cpp
+    io/version.cpp
     ops/ratchet.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
@@ -64,3 +65,19 @@ set_target_properties(${exe_target_name} PROPERTIES OUTPUT_NAME compass)
 target_link_libraries(${exe_target_name}
     PRIVATE
         ${lib_target_name})
+
+# The manifest sits beside the compass binary, which finds it through its own
+# resolved path. It is deliberately not a BYPRODUCT and nothing depends on it:
+# a build input that changes with every commit relinks the tree. The executable
+# depends on the target for ordering only, so building compass alone still
+# refreshes the manifest.
+add_custom_target(${name}.version ALL
+    COMMAND "${CMAKE_COMMAND}"
+        "-DSOURCE_DIR=${CMAKE_SOURCE_DIR}"
+        "-DVERSION=${PROJECT_VERSION}"
+        "-DMANIFEST_FILE=${COMPASS_PUBLISH_DIRECTORY}/bin/compass.manifest"
+        -P "${CMAKE_SOURCE_DIR}/cmake/generate_version.cmake"
+    COMMENT "Writing the compass build manifest"
+    VERBATIM)
+
+add_dependencies(${exe_target_name} ${name}.version)

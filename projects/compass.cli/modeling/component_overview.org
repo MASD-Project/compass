@@ -291,6 +291,21 @@ record again, and 0.8 s reading it.
 | =--dry-run=, =--cap=, =--grace= | no, 0 bytes, 3600 s                      | =gc= only.                                      |
 | =--help=, =-h=, =--version=     |                                          | Print and exit 0, whatever else is there.       |
 
+=--version= prints one fact per line: the release; the full and short commit;
+whether its tree was dirty; the branch; the commit's committer time; the build
+time; the install time; and the store formats the binary reads and writes (the
+dependency record, action, written outputs, format cache and worktree index
+versions). The commit facts come from =compass.manifest=, a =key=value= file
+the =compass.cli.version= target writes beside the binary on every build
+through =cmake/generate_version.cmake=; the binary finds it beside its own
+resolved path, so a link to the binary works. The build time is the binary's
+last write time, read at runtime. A missing or damaged manifest gives
+=unknown=, and the exit status is still 0. No compiled file holds the commit,
+so a commit recompiles and relinks nothing. =build/scripts/install_compass.sh=
+installs a build as the one compass all environments share: the binary, its
+mtime kept, and the manifest, with the install time added, in
+=~/.local/opt/compass/=, and =~/.local/bin/compass= linked to the binary.
+
 - The configuration file, =.compass.org= at the root of the checkout. It
   is optional: without it every value is the default. =#+output:= and
   =#+meta:= set the paths, relative to the checkout. The first table under
@@ -380,7 +395,8 @@ range, 1-based, the column counted in bytes. The rule is written as
 | =include/compass.cli/config/repository_file.hpp= | Reading =.compass.org= into a layer.                                               |
 | =include/compass.cli/config/precedence.hpp=      | =resolve=: defaults, then the file, then the command line.                         |
 | =include/compass.cli/types/results.hpp=          | What each command returns.                                                         |
-| =include/compass.cli/config/arguments.hpp=       | The command-line parser, the help and the version.                                 |
+| =include/compass.cli/config/arguments.hpp=       | The command-line parser and the help.                                              |
+| =include/compass.cli/io/version.hpp=             | =version_text=: the release, the build manifest's facts and the store formats.     |
 | =include/compass.cli/io/listing.hpp=             | The org files of a checkout, from =git ls-files=; =resolve_commit= and =resolve_base=, from =git rev-parse=; =merge_base=; =similar_renames=, from =git diff -M=. |
 | =include/compass.cli/ops/ratchet.hpp=            | =split_new= and =exact_renames=: the pure matching of ratchet mode.                |
 | =include/compass.cli/app/steps.hpp=              | One function per step of the pipeline.                                             |
@@ -390,6 +406,7 @@ range, 1-based, the column counted in bytes. The rule is written as
 | =include/compass.cli/app/application.hpp=        | =app::run= and the exit statuses.                                                  |
 | =src/main.cpp=                                   | The executable.                                                                    |
 | =tests/end_to_end.sh=                            | The built executable over a fresh repository, then configured by a =.compass.org=. |
+| =tests/install_compass.sh=                       | The install script over copies of the executable, in a temporary =HOME=.           |
 
 | Target                   | Kind                                                   |
 |--------------------------+--------------------------------------------------------|
@@ -397,6 +414,8 @@ range, 1-based, the column counted in bytes. The rule is written as
 | =compass.cli.exe=        | The =compass= executable.                              |
 | =compass.cli.tests=      | Catch2 executable, registered with CTest.              |
 | =compass.cli.end_to_end= | CTest running =tests/end_to_end.sh= on the executable. |
+| =compass.cli.install=    | CTest running =tests/install_compass.sh=.              |
+| =compass.cli.version=    | Writes =compass.manifest= on every build.              |
 
 * Dependencies
 
@@ -412,7 +431,8 @@ range, 1-based, the column counted in bytes. The rule is written as
 - =compass.store= for IDs, the store, collection and the git object
   reader.
 - =compass.org= and =compass.platform= for the tables and mapped files,
-  which the steps' =corpus_files= exposes.
+  which the steps' =corpus_files= exposes, and =compass.platform= for the
+  executable's own path.
 - Catch2, git and bash, for the tests only.
 
 * See also

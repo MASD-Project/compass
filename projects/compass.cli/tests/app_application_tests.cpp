@@ -188,6 +188,7 @@ TEST_CASE("help and version exit 0 on standard output", "[app][application]") {
     const auto version = run({"--version"});
     CHECK(version.status == 0);
     CHECK_THAT(version.out, StartsWith("compass "));
+    CHECK_THAT(version.out, ContainsSubstring("\nstore formats: "));
 }
 
 TEST_CASE("config prints every value with where it came from",

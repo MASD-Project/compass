@@ -20,6 +20,7 @@ set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
     filesystem/mapped_file.cpp
+    process/executable.cpp
     process/run_program.cpp
     text/decoding.cpp
     text/regex.cpp

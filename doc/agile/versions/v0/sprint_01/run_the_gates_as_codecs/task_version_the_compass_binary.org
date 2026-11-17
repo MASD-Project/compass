@@ -1,0 +1,121 @@
+:PROPERTIES:
+:ID: C748041A-7303-4C6C-8732-73B4836880FE
+:END:
+#+title: Task: Version the compass binary
+#+description: Stamp each compass build with its commit, dirty flag and store formats without relinking on every commit, as ORE Studio does, and install builds side by side behind one compass path.
+#+type: task
+#+level: s1
+#+filetags: :run_the_gates_as_codecs:sprint_01:v0:
+#+owner: marco
+#+branch: feature/version-the-compass-binary
+#+pr: https://github.com/MASD-Project/compass/pull/48
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-11-17
+#+updated: 2026-11-17
+#+environment:
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+(Describe what user-visible-or-internal change this task produces.)
+
+* Status
+
+| Field        | Value                                  |
+|--------------+----------------------------------------|
+| State        | DONE                              |
+| Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
+| Now          | Nothing. |
+| Waiting on   | Nothing.                               |
+| Next         | Nothing. |
+| Last touched | 2026-11-17                               |
+
+* Acceptance
+
+- =compass --version= names the release, the commit, whether the tree was dirty, and the store formats it reads and writes.
+- A new commit recompiles and relinks nothing.
+- One compass, shared by every environment, installs behind =~/.local/bin/compass= in one atomic step, and a dirty build installs only when asked.
+
+* Plan
+
+- Follow ORE Studio's =cmake/generate_version.cmake=: a target run on every
+  build writes a stable =version.cpp= (copied only when different) and a
+  =key=value= manifest beside the binary with the commit, the dirty flag and
+  the branch. The binary reads the manifest at runtime from beside its own
+  resolved path, and reports "unknown" when it cannot.
+- Add the store formats (dependency record, action format, written outputs,
+  worktree index, format cache) to =--version=; they are compiled constants.
+- An install script copies the binary and its manifest into
+  =~/.local/opt/compass/<commit>/= and repoints =~/.local/bin/compass= with
+  an atomic rename, refusing a dirty tree unless told otherwise.
+- Prove that a commit changes no compiled file: build, commit, build again,
+  and see nothing recompile or relink.
+
+* Measurements
+
+Every number this task claims about a tree, with the command that produced it
+and the commit it was measured at. A number without both is not a measurement,
+because a clean-up record describes a tree and trunk moves under a branch: a
+consumer count, a gate's component count and a suite's size all change with no
+code changing, and the reader of a bare number cannot tell which tree it came
+from. Where the raw output matters, put it in an =evidence/= file beside the
+task and name that file in the Command column.
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+| =--version= | release, full and short commit, dirty flag, branch, commit time, build time, install time, store formats | =compass --version= | 0549a5d |
+| Rebuild after an empty commit, and with a dirty tree | only the manifest step runs; the binaries' mtimes unchanged, no object recompiled | =cmake --build -- -d explain= | 0549a5d |
+| Install script | a temporary-HOME ctest covers replace, link, dirty refusal and a damaged manifest | =ctest -R compass.cli.install= | 0549a5d |
+| ctest | 15 of 15 suites pass | =ctest --preset linux-clang-release= | 34496f1 |
+
+* Notes
+
+* Test Scenarios
+
+Manual QA scenarios (scaffolded via =compass add test_scenario=)
+that verify this task. Link
+new ones here as they're created; the scenario doc itself links back
+via its "Verifies task" field.
+
+| Scenario | State | Notes |
+|----------+-------+-------|
+|          |       |       |
+
+* PRs
+
+| PR | Title |
+|----+-------|
+| [[https://github.com/MASD-Project/compass/pull/48][#48]] | [cli] Version the compass binary |
+
+* Review
+
+| # | Comment summary | File | Decision | Notes |
+|---+-----------------+------+----------+-------|
+|   |                 |      |          |       |
+
+* Result
+
+=compass --version= names exactly which build is running, and a commit or a
+dirty tree recompiles and relinks nothing. As in ORE Studio, a build step
+writes =compass.manifest= beside the binary with the commit, commit time,
+dirty flag and branch, copied only when it changes, and compass reads it at
+runtime from beside its own resolved path; the build time is the binary's own
+mtime. CI builds take the commit from =COMPASS_BUILD_*= variables.
+
+=build/scripts/install_compass.sh= installs one shared compass for every
+environment: the binary and its manifest in =~/.local/opt/compass/=, with
+=~/.local/bin/compass= linking to it. It refuses a dirty build unless
+=--allow-dirty= is given and records the install time in the manifest. The
+recipe =how_do_i_install_compass.org= covers building, installing and reading
+=--version=, and =doc/ore_studio/move_an_environment_to_compass.md= guides an
+ORE Studio environment onto compass.
+
+Decisions to revisit:
+
+- The binary and the manifest are each renamed atomically but separately, so
+  a run in the moment between them pairs the new binary with the old manifest.
+- The release number stays a compile definition and changes only with
+  =project(VERSION)=.

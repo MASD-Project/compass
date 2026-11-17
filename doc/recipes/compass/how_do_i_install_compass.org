@@ -1,0 +1,95 @@
+:PROPERTIES:
+:ID: 92AD0A4C-4A68-431E-8581-55E6C56DC2EB
+:END:
+#+title: How do I install or update the shared compass?
+#+description: Install a compass build as the one compass every environment runs from the PATH, and tell exactly which build is installed.
+#+type: recipe
+#+level: cross
+#+filetags: :compass:cli:
+#+created: 2026-11-17
+#+updated: 2026-11-17
+
+Every environment on a machine runs the same =compass=, from the PATH. Each
+build carries a =compass.manifest= that names its commit, and =compass
+--version= reads it; see the =compass.cli= component overview.
+
+* Question
+
+How do I install a new compass build for every environment at once, and how
+do I tell exactly which build is installed?
+
+* Answer
+
+1. /Build/ from a clean tree; see
+   [[id:B99A4028-CA7F-495E-855B-D3A8DDBBEED4][How do I build and run compass?]].
+   The build writes =compass.manifest= beside the binary in
+   =build/output/linux-clang-release/publish/bin/=. A commit changes only
+   the manifest, so the build after a commit recompiles and relinks nothing.
+
+2. /Install/ it. The script copies =compass= and =compass.manifest= into
+   =~/.local/opt/compass/=, each under a temporary name and then renamed over
+   the old one, adds the install time to the manifest, and links
+   =~/.local/bin/compass= to the binary. It prints the installed path and
+   the result of =--version=:
+
+   #+begin_src sh :results verbatim
+build/scripts/install_compass.sh
+#+end_src
+
+   The script refuses a build of a tree with uncommitted changes. To install
+   one anyway, pass =--allow-dirty=; =--version= then says =dirty: yes=. Use
+   =--from <dir>= to install from a bin directory other than the release
+   preset's.
+
+3. /Check/ which build is installed:
+
+   #+begin_src sh :results verbatim
+compass --version
+#+end_src
+
+   #+begin_example
+compass 0.0.1
+commit: 6d1c0f2b9a1e4c55a0e3f1b7d2c8e9a4b5f6c7d8 (6d1c0f2)
+dirty: no
+branch: main
+committed: 2026-11-17T09:31:48Z
+built: 2026-11-17T09:46:18Z
+installed: 2026-11-17T10:02:11Z
+store formats: dependency records 6, actions 5, written outputs 1, format cache 1, worktree index 1
+#+end_example
+
+   - =compass= :: the release.
+   - =commit= :: the full commit the build was made from, then its short
+     form.
+   - =dirty= :: =yes= when the tree had uncommitted changes, so the commit
+     alone does not say what was built.
+   - =branch= :: the branch checked out at build time.
+   - =committed= :: the commit's committer time.
+   - =built= :: when the binary was linked: its last write time, which the
+     install keeps.
+   - =installed= :: when the install script installed it; =no= for a binary
+     run from the build tree.
+   - =store formats= :: the versions of the records compass keeps under
+     =.git/compass/=. When one changes, the first run of the new build runs
+     everything once.
+
+   The commit, dirty flag, branch, commit time and install time read
+   =unknown= when the manifest beside the binary is missing or damaged.
+
+4. /Update/ every environment: build the new commit and run the install
+   script again. Environments pick it up on their next run of =compass=.
+
+* Script
+
+=build/scripts/install_compass.sh=; the manifest is written by
+=cmake/generate_version.cmake= through the =compass.cli.version= target.
+
+* Tested by
+
+=compass.cli.install= in =ctest=: it installs clean and dirty builds into a
+temporary =HOME= and runs compass through the link. =compass.cli.tests=
+tests reading the manifest.
+
+* See also
+
+- [[id:B99A4028-CA7F-495E-855B-D3A8DDBBEED4][How do I build and run compass?]]

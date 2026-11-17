@@ -31,6 +31,7 @@ add_executable(${tests_target_name}
     config_arguments_tests.cpp
     config_precedence_tests.cpp
     config_repository_file_tests.cpp
+    io_version_tests.cpp
     ops_ratchet_tests.cpp)
 
 target_link_libraries(${tests_target_name}
@@ -44,4 +45,9 @@ add_test(NAME ${tests_target_name}
 
 add_test(NAME ${name}.end_to_end
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/end_to_end.sh
+        $<TARGET_FILE:${name}.exe>)
+
+add_test(NAME ${name}.install
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/install_compass.sh
+        ${CMAKE_SOURCE_DIR}/build/scripts/install_compass.sh
         $<TARGET_FILE:${name}.exe>)
