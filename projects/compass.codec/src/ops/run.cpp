@@ -409,14 +409,30 @@ void open_unit(types::dependency_record& to, std::string_view codec,
         {static_cast<std::uint32_t>(to.files.size())});
 }
 
+/**
+ * @brief Adds rows [begin, end) of @p files to @p to with the blob ID of
+ * each, hashed on up to @p threads threads, as codegen's unit alone holds
+ * about 190 MB of files.
+ */
 void add_record_files(types::dependency_record& to,
-    const types::file_table& files, std::uint32_t begin, std::uint32_t end) {
+    const types::file_table& files, std::uint32_t begin, std::uint32_t end,
+    unsigned threads) {
+    std::vector<blob_id> ids(end - begin);
+    const auto hash = [&](std::size_t i) {
+        ids[i] = compass::store::ops::blob_id_of(
+            files.contents[types::file_id{static_cast<std::uint32_t>(
+                begin + i)}]);
+    };
+    if (ids.size() < 256) {
+        for (std::size_t i = 0; i < ids.size(); ++i)
+            hash(i);
+    } else {
+        parallel_for(ids.size(), threads, hash);
+    }
     for (auto f = begin; f < end; ++f) {
         const types::file_id file{f};
-        const auto content = files.contents[file];
-        to.files.add(files.paths[file], content);
-        to.file_hashes.values.push_back(
-            compass::store::ops::blob_id_of(content));
+        to.files.add(files.paths[file], files.contents[file]);
+        to.file_hashes.values.push_back(ids[f - begin]);
     }
 }
 
@@ -460,7 +476,7 @@ void copy_unit(types::dependency_record& to,
 void add_cached_unit(types::dependency_record& to,
     const types::descriptor& d, const codec_key& key,
     std::string_view document, const cache_hit& hit,
-    std::uint32_t findings) {
+    std::uint32_t findings, unsigned threads) {
     open_unit(to, d.name, d.version, key.configuration, document);
     const auto& m = hit.manifest;
     const auto end = end_of(m.input_firsts, hit.set, m.input_count());
@@ -470,7 +486,7 @@ void add_cached_unit(types::dependency_record& to,
             m.input_values[in]);
     }
     add_record_files(to, hit.result.files, 0,
-        static_cast<std::uint32_t>(hit.result.files.size()));
+        static_cast<std::uint32_t>(hit.result.files.size()), threads);
     add_record_findings(to, hit.result.diagnostics, findings);
     to.manifests.values.push_back(hit.manifest_key);
     to.results.values.push_back(m.results.values[hit.set]);
@@ -479,7 +495,8 @@ void add_cached_unit(types::dependency_record& to,
 void add_called_unit(types::dependency_record& to, const types::corpus& c,
     const types::descriptor& d, const codec_key& key, std::string_view
     document, const blob_id& manifest, const types::read_log& log,
-    const piece& p, const call_rows& rows, const blob_id& registry) {
+    const piece& p, const call_rows& rows, const blob_id& registry,
+    unsigned threads) {
     const types::record_unit_id unit{static_cast<std::uint32_t>(to.size())};
     open_unit(to, d.name, d.version, key.configuration, document);
     for (std::size_t i = 0; i < log.size(); ++i)
@@ -489,7 +506,8 @@ void add_called_unit(types::dependency_record& to, const types::corpus& c,
         add_input(to, types::input_kind::type_set, {}, 1, key.type_set);
     if (log.registry)
         add_input(to, types::input_kind::type_registry, {}, 1, registry);
-    add_record_files(to, p.files, rows.files_begin, rows.files_end);
+    add_record_files(to, p.files, rows.files_begin, rows.files_end,
+        threads);
     add_record_findings(to, encode_diagnostics(c, p.diagnostics,
         rows.diagnostics_begin, rows.diagnostics_end),
         rows.diagnostics_end - rows.diagnostics_begin);
@@ -676,7 +694,7 @@ types::run_result run(const types::registry& r, const types::corpus& c,
                 &diagnostics);
             add_cached_unit(result.record, d, keys[codec.value], document,
                 *hit, static_cast<std::uint32_t>(diagnostics.size() -
-                    before));
+                    before), threads);
             ++result.cached[codec.value];
             continue;
         }
@@ -689,7 +707,7 @@ types::run_result run(const types::registry& r, const types::corpus& c,
             {static_cast<std::uint32_t>(result.record.size())});
         result.scans.push_back(std::move(scans[u]));
         add_called_unit(result.record, c, d, keys[codec.value], document,
-            units.manifests[u], logs[u], p, at, registry);
+            units.manifests[u], logs[u], p, at, registry, threads);
         ++result.ran[codec.value];
     }
     const auto skipped = std::ranges::fold_left(result.skipped,
