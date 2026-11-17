@@ -34,6 +34,7 @@
 #include "compass.crosscheck/codecs/paste_blocks.hpp"
 #include "compass.crosscheck/codecs/protocol_twins.hpp"
 #include "compass.crosscheck/codecs/registry_gates.hpp"
+#include "compass.crosscheck/codecs/route_inventory.hpp"
 #include "compass.crosscheck/codecs/script_library_seed.hpp"
 #include "compass.crosscheck/codecs/subject_conformance.hpp"
 #include "compass.crosscheck/codecs/template_sections.hpp"
@@ -41,13 +42,13 @@
 namespace compass::crosscheck::codecs {
 
 std::span<const compass::codec::types::descriptor> catalogue() noexcept {
-    static const std::array<compass::codec::types::descriptor, 20> all{
+    static const std::array<compass::codec::types::descriptor, 21> all{
         convention_kind_terms, curve_column_guards, curve_sections_wiring,
         entity_binary_types, entity_writes, generated_column_refs,
         http_areas, marketdata_identity_columns, model_drift,
         model_sql_types, money_decimal_columns, open_reads,
         ore_renderings_tables, paste_blocks,
-        protocol_twins, registry_exceptions, route_units, script_library_seed,
+        protocol_twins, registry_exceptions, route_inventory, route_units, script_library_seed,
         subject_conformance, template_sections};
     return all;
 }
