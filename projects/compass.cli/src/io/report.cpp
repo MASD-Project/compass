@@ -140,6 +140,13 @@ void write_generate(std::ostream& out, std::ostream& err,
     const types::generate_result& r) {
     write_problems(err, r.run);
     write_lines(err, "output: ", r.sink.problems);
+    for (const auto& h : r.hand_edits)
+        err << std::format("compass: warning: {}:{}: generate deleted {} "
+                           "line{} its output lacks, from \"{}\"; if they "
+                           "were written by hand, restore them from git "
+                           "and move them into a template or a hand-written "
+                           "file\n", h.path, h.block.line, h.block.lines,
+            h.block.lines == 1 ? "" : "s", h.block.first);
     const auto& s = r.sink;
     out << std::format("{} written, {} unchanged, {} restored, {} removed, "
                        "{} kept under {} ({})\n", s.written, s.unchanged,

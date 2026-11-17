@@ -171,7 +171,11 @@ replaced in this step.
      hand edit: `market_fixing_repository.cpp` has a hand-written
      `read_latest_for_series` that `compass-ng generate` deletes, as
      `ores.codegen` would. Move such code into a template or a hand-written
-     file before regenerating.
+     file before regenerating. `compass-ng generate` now warns when it
+     deletes three or more lines its output lacks from a file compass did
+     not write last (`compass: warning: <path>:<line>: generate deleted <n>
+     lines its output lacks, from "<first line>"`); it still writes, so
+     restore the lines from git and move them.
      - 24 codegen outputs. 22 were not regenerated after the system-tenant
        shared-read change (the 7 script entities' `*_create.sql`,
        `eventing/*_event.hpp` and `repository/*_repository.cpp`, and

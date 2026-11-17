@@ -76,13 +76,16 @@ struct run_summary {
 
 /**
  * @brief What compass generate did: sink counts what writing the outputs
- * under root did, and its problems why nothing could be written. ms is
+ * under root did, and its problems why nothing could be written.
+ * hand_edits are the files whose rewrite deleted what may be code
+ * written by hand, which generate warns of. ms is
  * the wall time of the whole command.
  */
 struct generate_result {
     run_summary run;
     std::filesystem::path root;
     codec::io::sink_result sink;
+    std::vector<codec::io::hand_edit> hand_edits;
     double ms = 0;
 };
 

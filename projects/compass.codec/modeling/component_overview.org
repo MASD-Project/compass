@@ -403,6 +403,20 @@ others is in its descriptor, so adding a codec adds a row to a list.
   finds a shortest edit script with Myers' O(ND) algorithm in linear space,
   in process. A text with a NUL byte in its first 8000 bytes is binary, as
   git decides it, and gets git's one-line notice.
+- *Hand edits.* =io::find_hand_edits= names each file a plan writes or
+  restores that may hold code written by hand which the write deletes.
+  It reads only a file that is on disk and is not what compass last wrote
+  there, by the record the plan was made from, so a file compass wrote and
+  nobody touched costs nothing. =ops::dropped_hand_lines= judges one file:
+  it diffs it against the new output with no context, and weighs each hunk
+  by the non-blank lines it removes that the output holds nowhere, less
+  the non-blank lines it adds, all trimmed of white space. A hunk weighing
+  =ops::dropped_block_minimum= (3) or more is reported, the heaviest with
+  its first counted line: a function written into a generated file is
+  dropped whole and weighs its length, while a block a template change
+  rewrites with as many lines of its own, a move and a reindent weigh
+  nothing. Two lines, or a rewrite that shrinks a block by two, are not
+  reported; that is the price of not warning on every template change.
 - *Written-outputs record.* =types::written_outputs= holds the absolute root
   and, sorted by path, each file's codec, blob ID and stat data after the
   write. A record of another root is ignored. Its =written= time is the start

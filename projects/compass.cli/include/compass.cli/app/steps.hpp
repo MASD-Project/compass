@@ -283,12 +283,14 @@ bool write_dependency_record(const std::filesystem::path& checkout,
     const codec::types::run_result& run);
 
 /**
- * @brief What writing the outputs did: sink, why the written-outputs
+ * @brief What writing the outputs did: sink, the files whose rewrite
+ * deleted what may be code written by hand, why the written-outputs
  * record read was not used when it was not, and whether the record was
  * rewritten.
  */
 struct sink_outcome {
     codec::io::sink_result sink;
+    std::vector<codec::io::hand_edit> hand_edits;
     std::string record_problem;
     bool record_written = false;
 };

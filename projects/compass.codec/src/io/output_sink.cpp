@@ -34,6 +34,7 @@
 #include "compass.codec/ops/unified_diff.hpp"
 #include "compass.store/io/git_files.hpp"
 #include "compass.store/io/object_file.hpp"
+#include "compass.store/ops/blob_hash.hpp"
 #include "compass.store/ops/git_index.hpp"
 
 namespace compass::codec::io {
@@ -309,6 +310,34 @@ sink_result write_outputs(const std::filesystem::path& root,
     const types::output_set& outputs,
     const types::written_outputs& previous) {
     return apply_outputs(plan_outputs(root, outputs, previous));
+}
+
+std::vector<hand_edit> find_hand_edits(const output_plan& plan,
+    const types::written_outputs& previous) {
+    std::vector<hand_edit> out;
+    const std::filesystem::path base = plan.record.root;
+    const bool same_root = previous.root == plan.record.root;
+    for (std::size_t i = 0; i < plan.size(); ++i) {
+        if (!changes_file(plan.actions[i]) ||
+            plan.actions[i] == output_action::remove)
+            continue;
+        const auto target = base / plan.paths[i];
+        if (!store::io::stat_of(target))
+            continue;
+        const auto disk = read_file(target);
+        if (!disk)
+            continue;
+        const auto at = std::ranges::lower_bound(previous.paths,
+            plan.paths[i]);
+        if (same_root && at != previous.paths.end() && *at == plan.paths[i] &&
+            previous.hashes[static_cast<std::size_t>(
+                at - previous.paths.begin())] ==
+                store::ops::blob_id_of(*disk))
+            continue;
+        if (auto block = ops::dropped_hand_lines(*disk, plan.contents[i]))
+            out.push_back({std::string(plan.paths[i]), std::move(*block)});
+    }
+    return out;
 }
 
 std::string diff_outputs(const output_plan& plan) {

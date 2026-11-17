@@ -429,8 +429,12 @@ sink_outcome write_outputs(const std::filesystem::path& checkout,
         codec::io::written_outputs_path(store::io::git_dir(checkout));
     const auto previous = codec::io::read_written_outputs(record_path);
     r.record_problem = previous.problem;
-    r.sink = codec::io::write_outputs(root, codec::ops::outputs_of(codecs, run),
+    const auto outputs = codec::ops::outputs_of(codecs, run);
+    const auto plan = codec::io::plan_outputs(root, outputs,
         previous.record);
+    if (plan.problems.empty())
+        r.hand_edits = codec::io::find_hand_edits(plan, previous.record);
+    r.sink = codec::io::apply_outputs(plan);
     if (r.sink.problems.empty())
         r.record_written =
             codec::io::write_written_outputs(record_path, r.sink.record);

@@ -442,8 +442,10 @@ types::generate_result generate(const types::options& o) {
     persist(p, o.threads);
     if (!p.summary.failed()) {
         p.timed("write", [&] {
-            r.sink = write_outputs(o.checkout, o.output_root, p.codecs,
-                p.run).sink;
+            auto written = write_outputs(o.checkout, o.output_root, p.codecs,
+                p.run);
+            r.sink = std::move(written.sink);
+            r.hand_edits = std::move(written.hand_edits);
         });
     }
     r.run = p.summary;

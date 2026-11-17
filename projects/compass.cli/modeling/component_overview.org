@@ -382,7 +382,11 @@ the name keeps it apart from ORE Studio's Python =compass=.
   prints one line per path and codec setting, as
   =<key> = <value> (<source>)=, the source being =default=,
   =.compass.org:<line>= or =command line=.
-- Standard error: the summary of =diff=; with =--timings=, one line per
+- Standard error: for =generate=, one warning per file whose rewrite
+  deleted what may be code written by hand
+  (=compass: warning: <path>:<line>: generate deleted <n> lines its output
+  lacks, from "<first line>"; ...=), as =codec::io::find_hand_edits= finds
+  them before the write; the summary of =diff=; with =--timings=, one line per
   step (=tree= for a commit, =types=, =list=, =resolve=, =load=, =record=,
   =codecs=, =format=, =persist=, =write= or =plan=, =exceptions=) with its wall time,
   and one line per codec

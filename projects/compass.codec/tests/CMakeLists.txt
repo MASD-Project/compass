@@ -33,6 +33,7 @@ add_executable(${tests_target_name}
     ops_file_findings_tests.cpp
     ops_file_inputs_tests.cpp
     ops_format_cache_tests.cpp
+    ops_hand_edits_tests.cpp
     ops_outputs_tests.cpp
     ops_registry_tests.cpp
     ops_rule_table_tests.cpp

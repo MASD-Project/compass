@@ -33,6 +33,7 @@ add_library(${lib_target_name}
     ops/dependencies.cpp
     ops/exceptions.cpp
     ops/format_cache.cpp
+    ops/hand_edits.cpp
     ops/outputs.cpp
     ops/registry.cpp
     ops/rule_table.cpp
