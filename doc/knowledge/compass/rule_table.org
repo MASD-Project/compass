@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-188 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 57 are cited by no rule.
+189 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 57 are cited by no rule.
 
 ** Rules
 
@@ -123,6 +123,7 @@ memories no rule cites are the candidates for the next checks.
 | =pattern_uses= | one_way | A pattern and each of its uses link each other: the use links the pattern, and the pattern lists the use. | =470D4571-47A4-4AEF-9A93-2B4DE0279C1E= |
 | =pattern_uses= | not_a_pattern | A page lists only service architecture patterns under Patterns used. | =470D4571-47A4-4AEF-9A93-2B4DE0279C1E= |
 | =pattern_uses= | shared_id | No two pages of a pattern link share an ID. |  |
+| =pending_models= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =populate_refs= | unresolved_reference | Every name a populate script looks up is one a populate script defines. | =7B477025-132E-4B20-80B4-D8C9420880B8= |
 | =populate_refs= | unbalanced_parentheses | Every call and definition the check reads closes its parentheses. |  |
 | =portable_stop= | stop_type_outside_platform | No code outside ores.platform names a C++20 stop type or includes <stop_token>. | [[id:B4E38241-6AD1-4859-9610-033CC39C0AF4][Use ores.platform for cross-platform functionality]] |

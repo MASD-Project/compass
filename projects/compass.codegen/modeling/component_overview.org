@@ -165,7 +165,9 @@ the codec, set in the checkout's =.compass.org=.
   section sets =:gated:= or =:pending_change:= true, it writes
   =ores.<component>.<singular>_change.org= beside it as the script derives
   it, its =:ID:= the uuid5 =ops::uuid5= gives. A model the script refuses
-  stops the codec there, as it stops the script.
+  is refused, as a =refused= finding on its pending model that names the
+  model and the reason; the other models are still written, and the codec
+  removes none of the files it wrote before.
 
 | Outputs at ORE Studio =5ce3cd7e6c=    | Identical | Of    |
 |---------------------------------------+-----------+-------|
