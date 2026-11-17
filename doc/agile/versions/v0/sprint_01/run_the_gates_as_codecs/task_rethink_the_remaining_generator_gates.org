@@ -26,11 +26,11 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-17                               |
 
 * Acceptance
@@ -66,7 +66,10 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Value-set seeds, with the =r.id= exemption | 3 seeds byte-identical to the committed files; =parameter_value_sets= reports nothing | compass vs committed, ORE copy | 03cdf8e |
+| Planted value-set changes | 6 plants: compass catches all the Python catches, flags nothing where it passes | agent's plant scripts | 03cdf8e |
+| Value sets, Python vs compass | 1.9 s for the three scripts against 85-100 ms per codec cold, 0 warm (load 22) | timed runs | 03cdf8e |
+| ctest | 15 of 15 suites pass | =ctest --preset linux-clang-release= | 03cdf8e |
 
 * Notes
 
@@ -94,3 +97,32 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+Each of the six gates has a written decision in [[id:9BF8E18C-EB46-4C08-B060-9C1165D2646E][the remaining generator gates
+evidence]], judging what it protects rather than copying the Python.
+
+- *ore-parameter-value-sets, ore-element-map, parameter-value-sets-only:
+  merged.* They read one fact three times, judged the sets twice with
+  different messages, and reparsed a 370 KB JSON file per leaf. compass
+  resolves the model once (=ops::value_sets=); =ore_value_sets= writes the
+  three seeds and =parameter_value_sets= reports each rule once. The curve
+  column and convention term rows are shared with their codecs.
+- *xml-bindings-drift: keep the drift check, drop its determinism run.* The
+  second run proves nothing; clang-format is the real cost, which compass's
+  format cache removes once the generator is ported. Not ported in this task.
+- *file-types-seed: keep, after ORE fixes its locale-dependent digest and
+  curates a name its walk order breaks a tie on.* Not ported: its table is
+  built by code.
+- *ore-parameters-seed: stays in Python* until its texts are data files.
+
+The ORE Studio guide now lists these fixes for the environment to make.
+
+Decisions to revisit:
+
+- =ore_value_sets= writes nothing when any set rule fails, stricter than the
+  Python.
+- Curation findings are anchored at line 1 of =generate_value_sets.py=.
+- A codec's results are keyed by its hand-set version, so a development build
+  that changes a codec without bumping it replays stale stored results. With
+  one shared store across ORE Studio's environments, that becomes a real
+  hazard and needs a structural fix.
