@@ -20,6 +20,9 @@
 #ifndef COMPASS_DOCS_CODECS_SKILL_TABLES_HPP
 #define COMPASS_DOCS_CODECS_SKILL_TABLES_HPP
 
+#include <span>
+#include <string_view>
+#include <utility>
 #include "compass.codec/types/descriptor.hpp"
 
 namespace compass::docs::codecs {
@@ -61,6 +64,27 @@ extern const compass::codec::types::descriptor skill_type_tables;
  * the script stops.
  */
 extern const compass::codec::types::descriptor skill_recipes;
+
+/**
+ * @brief ORE Studio's skill-levels generator (apply_skill_levels.py): the
+ * #+level: of every skill, from the script's table, and the generated
+ * inventory of doc/llm/skills/skill_systems_levels.org, the count of
+ * skills each System sees.
+ *
+ * A skill whose level differs gains the table's, on its #+level: line or
+ * after its export_exclude_tags line. Every skill is emitted. A skill
+ * missing from the table, or a table entry with no skill, emits nothing,
+ * where the script stops; an inventory without its markers is not
+ * written.
+ */
+extern const compass::codec::types::descriptor skill_levels;
+
+/**
+ * @brief The table skill_levels applies: each skill and the System it
+ * serves, sorted by skill.
+ */
+[[nodiscard]] std::span<const std::pair<std::string_view, std::string_view>>
+skill_level_table() noexcept;
 
 }
 

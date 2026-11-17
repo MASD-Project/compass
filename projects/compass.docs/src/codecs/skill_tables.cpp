@@ -31,6 +31,7 @@
 #include "compass.cpp/ops/glob.hpp"
 #include "compass.cpp/ops/text.hpp"
 #include "compass.docs/ops/regions.hpp"
+#include "compass.docs/ops/skills.hpp"
 #include "compass.platform/text/regex.hpp"
 
 namespace compass::docs::codecs {
@@ -41,23 +42,8 @@ namespace ct = compass::codec::types;
 namespace co = compass::cpp::ops;
 namespace pt = compass::platform::text;
 
-constexpr std::string_view skills_dir = "doc/llm/skills/";
-
-/**
- * @brief The names of the skill directories, those directly under
- * doc/llm/skills that hold a SKILL.org, sorted by name.
- */
-std::vector<std::string> skill_names(const ct::corpus_view& v) {
-    std::vector<std::string> out;
-    for (const auto path : v.list_files(skills_dir, "/SKILL.org")) {
-        const auto name = path.substr(skills_dir.size(),
-            path.size() - skills_dir.size() - std::string_view("/SKILL.org").size());
-        if (name.find('/') == std::string_view::npos)
-            out.emplace_back(name);
-    }
-    std::ranges::sort(out);
-    return out;
-}
+using ops::skill_names;
+using ops::skills_dir;
 
 struct domain {
     std::string_view prefix;

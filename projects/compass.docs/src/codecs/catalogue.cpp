@@ -20,25 +20,31 @@
 #include "compass.docs/codecs/catalogue.hpp"
 
 #include <array>
+#include "compass.docs/codecs/backlog_indexes.hpp"
 #include "compass.docs/codecs/component_docs.hpp"
 #include "compass.docs/codecs/heading_numbers.hpp"
 #include "compass.docs/codecs/org_links.hpp"
 #include "compass.docs/codecs/pattern_uses.hpp"
+#include "compass.docs/codecs/physical_inventory.hpp"
 #include "compass.docs/codecs/prototypes.hpp"
+#include "compass.docs/codecs/recipe_inventories.hpp"
 #include "compass.docs/codecs/recipe_libraries.hpp"
 #include "compass.docs/codecs/rule_identifiers.hpp"
 #include "compass.docs/codecs/skill_tables.hpp"
 #include "compass.docs/codecs/structure_notes.hpp"
+#include "compass.docs/codecs/trade_type_coverage.hpp"
 #include "compass.docs/codecs/tree_gates.hpp"
 
 namespace compass::docs::codecs {
 
 std::span<const compass::codec::types::descriptor> catalogue() noexcept {
-    static const std::array<compass::codec::types::descriptor, 15> all{
-        component_docs, heading_numbers, http_recipe_library, no_pr_triggers,
-        org_links, pattern_uses, prototypes, rule_identifiers,
-        shell_recipe_library, shell_recipe_provenance, skill_catalogue,
-        skill_namespace, skill_recipes, skill_type_tables, structure_notes};
+    static const std::array<compass::codec::types::descriptor, 20> all{
+        backlog_indexes, component_docs, heading_numbers, http_recipe_library,
+        no_pr_triggers, org_links, pattern_uses, physical_inventory, prototypes,
+        recipe_inventories, rule_identifiers, shell_recipe_library,
+        shell_recipe_provenance, skill_catalogue, skill_levels,
+        skill_namespace, skill_recipes, skill_type_tables, structure_notes,
+        trade_type_coverage};
     return all;
 }
 
