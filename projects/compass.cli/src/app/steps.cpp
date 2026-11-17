@@ -192,6 +192,14 @@ void list(listing& l, const std::filesystem::path& checkout) {
     std::erase(l.documents, config::repository_file_name);
 }
 
+void list(listing& l, io::recorded_listing r) {
+    l.files = std::move(r.files);
+    for (std::size_t row = 0; row < l.files.size(); ++row) {
+        if (r.documents[row] != 0)
+            l.documents.emplace_back(l.files[row]);
+    }
+}
+
 void list(listing& l, const commit_source& c) {
     l.files = c.files.paths;
     for (std::size_t row = 0; row < c.files.size(); ++row) {

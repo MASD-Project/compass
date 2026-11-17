@@ -20,7 +20,9 @@
 #ifndef COMPASS_CLI_IO_LISTING_HPP
 #define COMPASS_CLI_IO_LISTING_HPP
 
+#include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -50,6 +52,41 @@ namespace compass::cli::io {
 [[nodiscard]] std::vector<std::string_view> org_files(
     const std::filesystem::path& checkout,
     const std::vector<std::string>& files);
+
+/**
+ * @brief The files of a checkout, in byte order, and whether each is a
+ * document, as the last check that wrote the listing record saw them.
+ */
+struct recorded_listing {
+    std::vector<std::string> files;
+    std::vector<std::uint8_t> documents;
+};
+
+/**
+ * @brief The listing record of the worktree whose git directory is
+ * @p git_dir: compass/listing beside the dependency record.
+ */
+[[nodiscard]] std::filesystem::path listing_file_path(
+    const std::filesystem::path& git_dir);
+
+/**
+ * @brief Writes the listing record at @p path: magic CMPSLST, then each of
+ * @p files, a byte saying whether it is one of @p documents and its path,
+ * NUL-terminated, then the SHA-1 of what precedes. Writes through a
+ * temporary file and a rename, and only when the bytes differ.
+ * @pre @p files is in byte order and @p documents is a subsequence of it.
+ * @return true when the file was written.
+ */
+bool write_listing_file(const std::filesystem::path& path,
+    const std::vector<std::string>& files,
+    const std::vector<std::string_view>& documents);
+
+/**
+ * @brief The listing record at @p path, or nothing when it is missing or
+ * damaged.
+ */
+[[nodiscard]] std::optional<recorded_listing> read_listing_file(
+    const std::filesystem::path& path);
 
 /**
  * @brief The ID of the commit @p revision names in the repository of

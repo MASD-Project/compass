@@ -109,10 +109,12 @@ std::filesystem::path in_commit(const std::filesystem::path& path,
 
 /**
  * @brief Lists the files of the checkout of @p o, or of the commit it
- * names, into @p p, and builds the type and codec registries. Writes
- * nothing.
+ * names, into @p p, and builds the type and codec registries. When
+ * @p recorded, a checkout is listed from the listing record the last check
+ * wrote, if there is one, without starting git. Writes nothing.
  */
-void list_files(pipeline& p, const types::options& o) {
+void list_files(pipeline& p, const types::options& o,
+    bool recorded = false) {
     if (o.commit)
         p.timed("tree", [&] {
             p.commit.emplace(store::io::git_common_dir(o.checkout),
@@ -127,10 +129,18 @@ void list_files(pipeline& p, const types::options& o) {
     });
 
     p.timed("list", [&] {
-        if (commit)
+        if (commit) {
             list(p.listed, *commit);
-        else
-            list(p.listed, o.checkout);
+            return;
+        }
+        if (recorded) {
+            if (auto r = io::read_listing_file(io::listing_file_path(
+                    store::io::git_dir(o.checkout)))) {
+                list(p.listed, std::move(*r));
+                return;
+            }
+        }
+        list(p.listed, o.checkout);
     });
     p.codecs = codec::ops::make_registry(codecs(), p.types, o.settings);
     p.summary.problems = p.codecs.problems;
@@ -232,6 +242,9 @@ void persist(pipeline& p, unsigned threads) {
             return;
         write_worktree_index(p.files);
         write_dependency_record(p.files.checkout, p.run);
+        io::write_listing_file(io::listing_file_path(
+            store::io::git_dir(p.files.checkout)), p.listed.files,
+            p.listed.documents);
     });
 }
 
@@ -979,7 +992,14 @@ types::hook_result hook(const types::options& o, const std::string& path,
     if (touched.empty() && !edited.document)
         return done();
 
-    list_files(p, o);
+    list_files(p, o, !created);
+    if (!created && !std::ranges::binary_search(p.listed.files, path)) {
+        // A file an unchecked edit created is missing from the record's
+        // listing, so the checkout is listed again.
+        p.listed.files.clear();
+        p.listed.documents.clear();
+        p.timed("list", [&] { list(p.listed, o.checkout); });
+    }
     if (!std::ranges::binary_search(p.listed.files, path))
         return done();
     unit_heads heads;

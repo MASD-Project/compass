@@ -29,6 +29,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include "compass.cli/io/listing.hpp"
 #include "compass.codec/io/action_cache.hpp"
 #include "compass.codec/io/dependency_file.hpp"
 #include "compass.codec/io/output_sink.hpp"
@@ -146,6 +147,12 @@ struct listing {
  * @throws as io::list_files does.
  */
 void list(listing& l, const std::filesystem::path& checkout);
+
+/**
+ * @brief Lists into @p l the files and documents of @p r, as the check
+ * that wrote the listing record listed them, without starting git.
+ */
+void list(listing& l, io::recorded_listing r);
 
 /**
  * @brief Lists into @p l every path of the commit @p c and, as documents,

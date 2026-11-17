@@ -27,6 +27,8 @@
 #include <catch2/matchers/catch_matchers_string.hpp>
 #include "compass.cli/app/application.hpp"
 #include "compass.cli/io/hook_payload.hpp"
+#include "compass.cli/io/listing.hpp"
+#include "compass.store/io/object_file.hpp"
 #include "scoped_git_repo.hpp"
 
 namespace {
@@ -221,7 +223,8 @@ TEST_CASE("a new document is checked by every document codec",
     REQUIRE(run({"generate", "-C", repo.checkout().string(), "-j", "2"})
         .status == 0);
     const auto before = findings_of(check(repo).out);
-    repo.write("doc/task_c.org", "#+title: Task: c\n#+type: task\n* Goal\n");
+    repo.write("doc/task_c.org",
+        "#+title: Task: c\n#+type: task\n* Goal\n");
     auto write = payload((repo.checkout() / "doc/task_c.org").string(), "/",
         "Write");
     write.replace(write.find("\"update\""), 8, "\"create\"");
@@ -328,4 +331,38 @@ TEST_CASE("a payload names its file, its tool and whether it may be new",
 
     CHECK_FALSE(io::parse_hook_payload("{\"tool_input\": {}}"));
     CHECK_FALSE(io::parse_hook_payload("[1, 2]"));
+}
+
+TEST_CASE("an edit to a document created since the last check is checked, "
+    "though the check's listing lacks it", "[app][hook]") {
+    scoped_git_repo repo;
+    setup(repo);
+    (void)check(repo);
+    repo.write("doc/task_c.org",
+        "#+title: Task: c\n#+type: task\n* Goal\n");
+
+    const auto r = hook(repo, "doc/task_c.org");
+    CHECK(findings_of(r.out) == lines{
+        "doc/task_c.org:2:required_sections/missing_section",
+        "index.tsv:1:document_index/drift"});
+}
+
+TEST_CASE("the listing record reads back what was written, and a damaged "
+    "one reads as nothing", "[app][hook]") {
+    scoped_git_repo repo;
+    const auto path = repo.checkout() / "listing";
+    const std::vector<std::string> files{"a.org", "b.txt", "c/d.org"};
+    const std::vector<std::string_view> documents{files[0], files[2]};
+    CHECK(io::write_listing_file(path, files, documents));
+    CHECK_FALSE(io::write_listing_file(path, files, documents));
+
+    const auto r = io::read_listing_file(path);
+    REQUIRE(r);
+    CHECK(r->files == files);
+    CHECK(r->documents == std::vector<std::uint8_t>{1, 0, 1});
+
+    auto bytes = *compass::store::io::read_file(path);
+    bytes[10] = 'x';
+    repo.write("listing", bytes);
+    CHECK_FALSE(io::read_listing_file(path));
 }

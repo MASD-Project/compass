@@ -20,10 +20,13 @@
 #include "compass.cli/io/listing.hpp"
 
 #include <algorithm>
+#include <cstring>
+#include <span>
 #include <stdexcept>
 #include <string_view>
 #include <sys/stat.h>
 #include "compass.platform/process/run_program.hpp"
+#include "compass.store/io/object_file.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 #include "compass.store/ops/git_object.hpp"
 
@@ -164,6 +167,60 @@ std::vector<types::rename> similar_renames(
     std::vector<types::rename> out;
     for (std::size_t i = 0; i + 3 <= fields.size(); i += 3)
         out.push_back({std::string(fields[i + 1]), std::string(fields[i + 2])});
+    return out;
+}
+
+namespace {
+
+constexpr std::string_view listing_magic = "CMPSLST\n";
+constexpr std::size_t digest_size = 20;
+
+}
+
+std::filesystem::path listing_file_path(const std::filesystem::path& git_dir) {
+    return git_dir / "compass" / "listing";
+}
+
+bool write_listing_file(const std::filesystem::path& path,
+    const std::vector<std::string>& files,
+    const std::vector<std::string_view>& documents) {
+    std::string bytes(listing_magic);
+    std::size_t next = 0;
+    for (const auto& f : files) {
+        const bool document = next < documents.size() &&
+            documents[next] == f;
+        next += document ? 1 : 0;
+        bytes.push_back(document ? 'd' : 'f');
+        bytes += f;
+        bytes.push_back('\0');
+    }
+    const auto digest = store::ops::sha1_of(bytes);
+    bytes.append(reinterpret_cast<const char*>(digest.data()), digest_size);
+    if (store::io::read_file(path) == bytes)
+        return false;
+    store::io::write_object(path, std::as_bytes(std::span(bytes)));
+    return true;
+}
+
+std::optional<recorded_listing> read_listing_file(
+    const std::filesystem::path& path) {
+    const auto bytes = store::io::read_file(path);
+    if (!bytes || !bytes->starts_with(listing_magic) ||
+        bytes->size() < listing_magic.size() + digest_size)
+        return std::nullopt;
+    const std::string_view body(bytes->data(), bytes->size() - digest_size);
+    const auto digest = store::ops::sha1_of(body);
+    if (std::memcmp(digest.data(), body.data() + body.size(), digest_size) != 0)
+        return std::nullopt;
+    recorded_listing out;
+    for (auto rest = body.substr(listing_magic.size()); !rest.empty();) {
+        const auto end = rest.find('\0');
+        if (end == std::string_view::npos || end < 2)
+            return std::nullopt;
+        out.documents.push_back(rest.front() == 'd' ? 1 : 0);
+        out.files.emplace_back(rest.substr(1, end - 1));
+        rest.remove_prefix(end + 1);
+    }
     return out;
 }
 
