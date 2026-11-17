@@ -211,7 +211,10 @@ replaced in this step.
    drift gates (`component-drift`, `drift-sweep`) are `codegen/drift`;
    `reachability` is `test_case_reachability`; the tangle gates are `tangle`
    and `shell_recipe_library` and `http_recipe_library`; `cmake-sources` is
-   `component_files`.
+   `component_files`; `er-diagram` is two codecs, `er_diagram` for the
+   diagrams and `rls_coverage` for the row-level security checks its
+   `--strict` fails on (RLS_001 and RLS_002, read with the same
+   `validation_ignore.txt`).
 3. Time both. Record wall time, the load average and whether compass was warm.
 4. Write the result into an ORE Studio task: each disagreement, its cause, and
    whether compass or the script is right. Send compass bugs back to the

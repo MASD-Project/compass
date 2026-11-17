@@ -206,9 +206,10 @@ because each reads one kind of artefact and writes another:
   its keys reach in other groups. At 545cafca45 the committed
   =ores_schema.dq_datasets.puml= is stale: the description of
   =ores_dq_dataset_bundles_tbl= in its create script was reworded after
-  the diagram was drawn. The parser's convention warnings, which its
-  =--strict= turns into a failure, are not ported, and a committed group
-  diagram no group draws any more is not reported.
+  the diagram was drawn. Of the parser's warnings, which its =--strict=
+  turns into a failure, the row-level security ones are =compass.sql='s
+  =rls_coverage=; the naming and completeness ones are not ported, and a
+  committed group diagram no group draws any more is not reported.
 - *=conventions_dataset=.* =conventions-dataset=
   (=projects/ores.seeder/datasets/conventions/generate_sql.py=):
   =refdata_conventions_artefact_populate.sql= from =conventions.tsv=,

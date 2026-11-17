@@ -86,6 +86,28 @@ The codecs are off by default, and =codecs::catalogue= lists them.
   a =create policy= under =create= compares the current tenant with the
   system tenant. The script's table of excused policies is replaced by
   inline exceptions on their =create policy= lines.
+- *=rls_coverage=.* The row-level security half of =er-diagram=
+  (=plantuml_er_parse_sql.py --strict=, =validate_rls_policies=). Rule
+  =missing_rls= (RLS_001): a table the create scripts define, as
+  =ops::er_model_of= reads them, has a =tenant_id= column and no script
+  under =create= holds =ALTER TABLE <it> ENABLE ROW LEVEL SECURITY=. Rule
+  =missing_party_isolation= (RLS_002): it also has =party_id= and no
+  =CREATE POLICY ... ON <it>= reaches =AS RESTRICTIVE= and then =party_id=
+  before a semicolon. Both use the script's regular expressions over every
+  =*_create.sql=, comments included. The script's ignore file
+  (=projects/ores.sql/utility/validation_ignore.txt=, option
+  =ignore_file=) is read as the script reads it: a line names a code and
+  a table pattern, matched as =fnmatch= matches them. A finding is on the
+  line that creates the table, in the script that defines it last.
+  RLS_003, the reachability of each =*_rls_policies_create.sql= from
+  =rls/rls_create.sql=, is not ported. On an export of ORE Studio at
+  =67803175ce= the codec and =plantuml_er_parse_sql.py --strict= agree:
+  both report RLS_001 and RLS_002 for the four trading tables
+  =ores_trading_cash_position_instruments_tbl=,
+  =ores_trading_equity_pairwise_var_swap_instruments_tbl=,
+  =ores_trading_fx_asian_option_instruments_tbl= and
+  =ores_trading_fx_pairwise_variance_swap_instruments_tbl=, and nothing
+  else.
 - *=handler_permissions=.* =handler-permissions=
   (=check_handler_permissions.py=). Rule =unseeded_permission=: a handler of
   a component of the =components= option checks a code the =seeds= script

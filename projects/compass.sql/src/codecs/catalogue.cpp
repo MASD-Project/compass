@@ -23,6 +23,7 @@
 #include "compass.sql/codecs/curve_parameter_paths.hpp"
 #include "compass.sql/codecs/handler_permissions.hpp"
 #include "compass.sql/codecs/populate_refs.hpp"
+#include "compass.sql/codecs/rls_coverage.hpp"
 #include "compass.sql/codecs/rls_widenings.hpp"
 #include "compass.sql/codecs/sql_hygiene.hpp"
 #include "compass.sql/codecs/sql_reachability.hpp"
@@ -31,9 +32,9 @@ namespace compass::sql::codecs {
 
 std::span<const compass::codec::types::descriptor> catalogue() noexcept {
     static const auto all = [] {
-        std::array<compass::codec::types::descriptor, 6> out{
+        std::array<compass::codec::types::descriptor, 7> out{
             curve_parameter_paths, handler_permissions, populate_refs,
-            rls_widenings, sql_hygiene, sql_reachability};
+            rls_coverage, rls_widenings, sql_hygiene, sql_reachability};
         for (auto& d : out)
             d.code = code_hash();
         return out;

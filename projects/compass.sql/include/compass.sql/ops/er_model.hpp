@@ -20,6 +20,7 @@
 #ifndef COMPASS_SQL_OPS_ER_MODEL_HPP
 #define COMPASS_SQL_OPS_ER_MODEL_HPP
 
+#include <cstdint>
 #include <set>
 #include <span>
 #include <string>
@@ -123,12 +124,26 @@ struct er_relationship {
 };
 
 /**
- * @brief The packages in their order, each with its tables by name, and
- * the relationships in the order the scripts state them.
+ * @brief A table as the scripts define it: its name, the script and the
+ * 1-based line of its last definition, as the script keeps a table a
+ * later script defines again, and the names of its columns.
+ */
+struct er_defined_table {
+    std::string name;
+    std::string path;
+    std::uint32_t line = 0;
+    std::vector<std::string> columns;
+};
+
+/**
+ * @brief The packages in their order, each with its tables by name, the
+ * relationships in the order the scripts state them, and every table in
+ * the order first defined.
  */
 struct er_model {
     std::vector<er_package> packages;
     std::vector<er_relationship> relationships;
+    std::vector<er_defined_table> tables;
 };
 
 /**

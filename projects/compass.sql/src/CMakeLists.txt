@@ -23,6 +23,7 @@ add_library(${lib_target_name}
     codecs/curve_parameter_paths.cpp
     codecs/handler_permissions.cpp
     codecs/populate_refs.cpp
+    codecs/rls_coverage.cpp
     codecs/rls_widenings.cpp
     codecs/sql_hygiene.cpp
     codecs/sql_reachability.cpp
