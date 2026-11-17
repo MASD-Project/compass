@@ -447,8 +447,9 @@ others is in its descriptor, so adding a codec adds a row to a list.
   of the paths. The option =path= names the file and defaults to
   =doc/document_index.tsv=.
 - *=required_sections=.* A document codec over every typed document. It
-  reports each section the type requires and no heading of the document
-  carries, under the rule =missing_section=. The fix names the heading to add.
+  reports each section the type requires and no heading of level 1 of the
+  document carries, under the rule =missing_section=; a heading nested in
+  another section is not the section. The fix names the heading to add.
 - *Tangling.* =ops::tangle= does what org-babel-tangle-file does under
   =emacs -Q=, without Emacs. It reads the block table of one document and
   returns the files its source blocks tangle to and the blocks it cannot
