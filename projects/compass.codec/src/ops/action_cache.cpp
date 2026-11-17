@@ -34,10 +34,12 @@ using compass::store::types::blob_id;
 constexpr std::size_t hash_size = 20;
 
 /**
- * @brief What an encoded stage starts with, "STG1" little-endian, so the
- * table of a scan is never read as one.
+ * @brief What an encoded stage and an encoded scan table start with,
+ * "STG1" and "SCN2" little-endian, so neither is read as the other nor as
+ * the table an earlier build wrote.
  */
 constexpr std::uint32_t stage_magic = 0x31475453;
+constexpr std::uint32_t scan_magic = 0x324E4353;
 
 void put(std::string& out, std::uint8_t v) {
     out.push_back(static_cast<char>(v));
@@ -304,26 +306,44 @@ std::optional<action_result> decode_result(std::string_view body) {
     return result;
 }
 
-void put_scan_entry(std::string& out, std::string_view path,
-    const scan_entry& e) {
-    put_text(out, path);
-    put(out, e.content);
-    put_text(out, e.fact);
-    put_text(out, e.findings);
+std::string encode_scan(
+    std::span<const std::pair<std::string_view, scan_entry>> entries,
+    std::string_view reduce_findings) {
+    std::size_t size = 16 + reduce_findings.size();
+    for (const auto& [path, e] : entries)
+        size += path.size() + e.fact.size() + e.findings.size() + 33;
+    std::string out;
+    out.reserve(size);
+    put(out, scan_magic);
+    put(out, static_cast<std::uint32_t>(entries.size()));
+    for (const auto& [path, e] : entries) {
+        put_text(out, path);
+        put(out, e.content);
+        put_text(out, e.fact);
+        put_text(out, e.findings);
+        put(out, static_cast<std::uint8_t>(e.read_by_reduce ? 1 : 0));
+    }
+    put_text(out, reduce_findings);
+    return out;
 }
 
-std::optional<std::unordered_map<std::string_view, scan_entry>>
-decode_scan(std::string_view bytes) {
+std::optional<scan_table> decode_scan(std::string_view bytes) {
     reader r(bytes);
-    std::unordered_map<std::string_view, scan_entry> out;
-    while (r.ok() && !r.done()) {
+    if (r.u32() != scan_magic)
+        return std::nullopt;
+    scan_table out;
+    const auto count = r.u32();
+    out.entries.reserve(count);
+    for (std::uint32_t i = 0; i < count && r.ok(); ++i) {
         const auto path = r.text();
         scan_entry e;
         e.content = r.id();
         e.fact = r.text();
         e.findings = r.text();
-        out.insert_or_assign(path, e);
+        e.read_by_reduce = r.u8() != 0;
+        out.entries.insert_or_assign(path, e);
     }
+    out.reduce_findings = r.text();
     if (!r.done())
         return std::nullopt;
     return out;

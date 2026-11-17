@@ -432,8 +432,9 @@ TEST_CASE("a stage reads back as it was written, and a scan table is not "
     REQUIRE(back);
     CHECK(back->parts == s.parts);
     CHECK(back->facts == s.facts);
-    std::string scan;
-    ops::put_scan_entry(scan, "src/a.txt", {});
-    CHECK_FALSE(ops::decode_stage(scan));
+    const std::pair<std::string_view, ops::scan_entry> entry{"src/a.txt",
+        {}};
+    CHECK_FALSE(ops::decode_stage(ops::encode_scan({&entry, 1}, {})));
+    CHECK_FALSE(ops::decode_scan(ops::encode_stage(s)));
     CHECK_FALSE(ops::decode_stage(""));
 }

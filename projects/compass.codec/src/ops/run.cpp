@@ -77,10 +77,10 @@ enum class unit_kind : std::uint8_t { document, corpus, stage, part };
  * @brief The units of a run, grouped by codec in registry order and, for
  * a document codec, in visible-document order. visible is the unit's
  * document in its codec's view, or for a part its row among the parts its
- * prepare step listed. last is, for a part, its row in the previous
- * record under the same version and options when that row does not stand
- * in for the call, or no_unit, and changed the inputs of that row that no
- * longer hold. previous is the unit's row in the previous
+ * prepare step listed. last is, for a part or a scan, its row in the
+ * previous record under the same version and options when that row does
+ * not stand in for the call, or no_unit, and changed, for a part, the
+ * inputs of that row that no longer hold. previous is the unit's row in the previous
  * record when that row stands in for the call, or no_unit. manifests holds
  * the unit's manifest key. seeds holds, for a scan, the key of the result
  * the previous record names for it under the same version and options,
@@ -144,58 +144,6 @@ struct scan_context {
     const types::corpus_index& index;
     const types::action_source& cache;
 };
-
-/**
- * @brief Calls the scan @p f through @p view, mapping again only the files
- * whose content ID differs from the one the scan table in the result
- * object @p seed holds for them, and returns the scan table of the call.
- * A file taken from the table is a file input of @p log with its content
- * ID, as reading it would have been.
- */
-std::string run_scan(const types::scan_function& f,
-    const types::corpus_view& view, const scan_context& s,
-    std::string_view seed, types::read_log& log,
-    types::diagnostic_table& out) {
-    std::unordered_map<std::string_view, scan_entry> before;
-    if (const auto result = decode_result(seed)) {
-        if (auto entries = decode_scan(result->scan))
-            before = std::move(*entries);
-    }
-    const auto paths = f.files(view);
-    std::vector<std::string> facts(paths.size());
-    std::vector<types::scanned_file> files;
-    files.reserve(paths.size());
-    std::string table;
-    for (std::size_t i = 0; i < paths.size(); ++i) {
-        const auto path = paths[i];
-        const auto id = s.c.files != nullptr ? s.c.files->content_of(path)
-            : std::nullopt;
-        const auto it = id ? before.find(path) : before.end();
-        if (it != before.end() && it->second.content == *id &&
-            decode_diagnostics(it->second.findings, s.index, nullptr)) {
-            log.add(types::input_kind::file, path, id);
-            (void)decode_diagnostics(it->second.findings, s.index, &out);
-            put_scan_entry(table, path, it->second);
-            files.push_back({path, it->second.fact});
-            continue;
-        }
-        const auto bytes = view.read_file(path);
-        types::file_scan mapped;
-        f.map(path, bytes ? std::string_view(*bytes) : std::string_view{},
-            view.options(), mapped);
-        facts[i] = std::move(mapped.fact);
-        const auto findings = encode_diagnostics(s.c, mapped.findings, 0,
-            static_cast<std::uint32_t>(mapped.findings.size()));
-        out.append(mapped.findings);
-        if (bytes)
-            put_scan_entry(table, path, {store::ops::blob_id_of(*bytes),
-                facts[i], findings});
-        files.push_back({path, facts[i]});
-    }
-    if (f.reduce != nullptr)
-        f.reduce(files, view, out);
-    return table;
-}
 
 /**
  * @brief What the prepare step of one staged codec gave this run: the
@@ -297,6 +245,173 @@ std::uint32_t end_of(const Column& firsts, std::uint32_t row,
 }
 
 /**
+ * @brief The row of a unit in the previous record, under the same version
+ * and options, with what the corpus answers its inputs now; unit is
+ * no_unit when the record has no such row.
+ */
+struct last_call {
+    const types::dependency_record& record;
+    std::uint32_t unit;
+    const answers& now;
+};
+
+/**
+ * @brief True when the reduce step of a scan would see what its last call
+ * saw: every file mapped again in @p mapped has the fact @p before holds
+ * for it and was not read by that reduce step, no file came or went, and
+ * every other input of the last call still holds.
+ */
+bool reduces_the_same(const scan_table& before,
+    std::span<const std::pair<std::string_view, scan_entry>> entries,
+    std::span<const std::size_t> mapped, const last_call& last) {
+    if (last.unit == no_unit || entries.size() != before.entries.size())
+        return false;
+    for (const auto i : mapped) {
+        const auto it = before.entries.find(entries[i].first);
+        if (it == before.entries.end() || it->second.read_by_reduce ||
+            it->second.fact != entries[i].second.fact)
+            return false;
+    }
+    const auto& r = last.record;
+    const auto end = end_of(r.input_firsts, last.unit, r.input_count());
+    for (auto i = r.input_firsts[{last.unit}].value; i < end; ++i) {
+        const types::input_id in{i};
+        if (r.input_kinds[in] == types::input_kind::file &&
+            before.entries.contains(r.input_keys[in]))
+            continue;
+        if (!last.now.holds(r, in))
+            return false;
+    }
+    return true;
+}
+
+/**
+ * @brief Adds every input of @p from to @p to, a log of a corpus unit.
+ */
+void add_reads(types::read_log& to, const types::read_log& from) {
+    for (std::size_t i = 0; i < from.size(); ++i)
+        to.add(from.kinds[i], from.keys[i], from.found[i] != 0
+            ? std::optional(from.values[i]) : std::nullopt);
+    to.whole = to.whole || from.whole;
+    to.registry = to.registry || from.registry;
+}
+
+/**
+ * @brief Calls the scan @p f through @p view, mapping again only the files
+ * whose content ID differs from the one the scan table in the result
+ * object @p seed holds for them, and returns the scan table of the call.
+ * A file taken from the table is a file input of @p log with its content
+ * ID, as reading it would have been.
+ *
+ * The reduce step is not called when it would see what the call of
+ * @p last saw: its findings are those the table holds and its inputs
+ * those that call recorded. Otherwise it is called with a log of its
+ * own, which says which of the files it read itself.
+ */
+std::string run_scan(const types::scan_function& f, types::corpus_view& view,
+    const scan_context& s, std::string_view seed, const last_call& last,
+    types::read_log& log, types::diagnostic_table& out) {
+    scan_table before;
+    bool seeded = false;
+    if (const auto result = decode_result(seed)) {
+        if (auto table = decode_scan(result->scan)) {
+            before = std::move(*table);
+            seeded = true;
+        }
+    }
+    const auto paths = f.files(view);
+    std::vector<std::string> facts(paths.size());
+    std::vector<std::string> findings(paths.size());
+    std::vector<types::scanned_file> files;
+    files.reserve(paths.size());
+    std::vector<std::pair<std::string_view, scan_entry>> entries;
+    entries.reserve(paths.size());
+    std::vector<std::size_t> mapped;
+    bool unread = false;
+    for (std::size_t i = 0; i < paths.size(); ++i) {
+        const auto path = paths[i];
+        const auto id = s.c.files != nullptr ? s.c.files->content_of(path)
+            : std::nullopt;
+        const auto it = id ? before.entries.find(path)
+            : before.entries.end();
+        if (it != before.entries.end() && it->second.content == *id &&
+            decode_diagnostics(it->second.findings, s.index, nullptr)) {
+            log.add(types::input_kind::file, path, id);
+            (void)decode_diagnostics(it->second.findings, s.index, &out);
+            entries.emplace_back(path, it->second);
+            files.push_back({path, it->second.fact});
+            continue;
+        }
+        const auto bytes = view.read_file(path);
+        types::file_scan made;
+        f.map(path, bytes ? std::string_view(*bytes) : std::string_view{},
+            view.options(), made);
+        facts[i] = std::move(made.fact);
+        findings[i] = encode_diagnostics(s.c, made.findings, 0,
+            static_cast<std::uint32_t>(made.findings.size()));
+        out.append(made.findings);
+        files.push_back({path, facts[i]});
+        // A file that cannot be read has no entry, so it is mapped again
+        // and the reduce step is called.
+        unread = unread || !bytes;
+        if (!bytes)
+            continue;
+        mapped.push_back(entries.size());
+        entries.emplace_back(path, scan_entry{store::ops::blob_id_of(*bytes),
+            facts[i], findings[i], false});
+    }
+
+    std::string reduced;
+    if (seeded && !unread &&
+        reduces_the_same(before, entries, mapped, last) &&
+        decode_diagnostics(before.reduce_findings, s.index, nullptr)) {
+        (void)decode_diagnostics(before.reduce_findings, s.index, &out);
+        reduced = before.reduce_findings;
+        for (auto& [path, e] : entries)
+            e.read_by_reduce = before.entries.find(path)->second
+                .read_by_reduce;
+        const auto& r = last.record;
+        const auto end = end_of(r.input_firsts, last.unit, r.input_count());
+        for (auto i = r.input_firsts[{last.unit}].value; i < end; ++i) {
+            const types::input_id in{i};
+            const auto kind = r.input_kinds[in];
+            if (kind == types::input_kind::type_set)
+                log.whole = true;
+            else if (kind == types::input_kind::type_registry)
+                log.registry = true;
+            else if (kind != types::input_kind::file ||
+                !before.entries.contains(r.input_keys[in]))
+                log.add(kind, r.input_keys[in], r.input_found[in] != 0
+                    ? std::optional(r.input_values[in]) : std::nullopt);
+        }
+    } else if (f.reduce != nullptr) {
+        types::read_log reads;
+        reads.corpus = true;
+        view.record_to(&reads);
+        const auto first = static_cast<std::uint32_t>(out.size());
+        f.reduce(files, view, out);
+        view.record_to(&log);
+        reduced = encode_diagnostics(s.c, out, first,
+            static_cast<std::uint32_t>(out.size()));
+        std::unordered_map<std::string_view, std::size_t> rows;
+        for (std::size_t i = 0; i < reads.size(); ++i) {
+            if (reads.kinds[i] != types::input_kind::file &&
+                reads.kinds[i] != types::input_kind::path)
+                continue;
+            if (rows.empty()) {
+                rows.reserve(entries.size());
+                for (std::size_t e = 0; e < entries.size(); ++e)
+                    rows.emplace(entries[e].first, e);
+            }
+            if (const auto it = rows.find(reads.keys[i]); it != rows.end())
+                entries[it->second].second.read_by_reduce = true;
+        }
+        add_reads(log, reads);
+    }
+    return encode_scan(entries, reduced);
+}
+
+/**
  * @brief Calls the units of one piece, each with a log of its own.
  */
 struct call {
@@ -352,9 +467,10 @@ struct call {
                     *units.seeds[unit]))
                 seed = std::move(*body);
         }
+        const last_call last{previous, units.last[unit], now};
         around<types::diagnostic_table>(unit,
             [&](types::diagnostic_table& out) {
-                scans[unit] = run_scan(f, view, scanning, seed,
+                scans[unit] = run_scan(f, view, scanning, seed, last,
                     logs[unit], out);
             });
     }
@@ -941,8 +1057,10 @@ types::run_result run(const types::registry& r, const types::corpus& c,
                 it != recorded.end() &&
                 previous.versions[{it->second}] == d.version &&
                 previous.configurations[{it->second}] ==
-                    keys[i].configuration)
+                    keys[i].configuration) {
                 units.seeds.back() = previous.results[{it->second}];
+                units.last.back() = it->second;
+            }
         }
     }
     const auto document_of = [&](std::uint32_t u) -> std::string_view {

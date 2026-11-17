@@ -41,6 +41,7 @@ using namespace compass::codec;
 using sources = std::map<std::string, std::string>;
 
 std::atomic<int> mapped{0};
+std::atomic<int> reduced{0};
 
 constexpr std::array<types::rule, 2> rules{{
     {"bad_line", "No line of a file is the option marker."},
@@ -81,10 +82,14 @@ void map_file(std::string_view path, std::string_view bytes,
 }
 
 /**
- * @brief Reports, on the later file, each name two files define.
+ * @brief Reports, on the later file, each name two files define that
+ * src/ignore.cfg does not list, at the line that defines it, which is
+ * found by reading the file.
  */
 void reduce_files(std::span<const types::scanned_file> files,
-    const types::corpus_view&, types::diagnostic_table& out) {
+    const types::corpus_view& v, types::diagnostic_table& out) {
+    ++reduced;
+    const auto ignored = "\n" + v.read_file("src/ignore.cfg").value_or("");
     std::map<std::string, std::string_view> first;
     for (const auto& f : files) {
         auto fact = f.fact;
@@ -93,12 +98,15 @@ void reduce_files(std::span<const types::scanned_file> files,
             const std::string name(fact.substr(0, end));
             fact.remove_prefix(end + 1);
             const auto [it, added] = first.try_emplace(name, f.path);
-            if (added)
+            if (added || ignored.contains("\n" + name + "\n"))
                 continue;
             const auto message = name + " is also defined in " +
                 std::string(it->second);
+            const auto bytes = v.read_file(f.path).value_or("");
+            const auto at = static_cast<std::uint32_t>(
+                bytes.find("def " + name));
             out.add({.document = compass::org::types::document_id::none(),
-                .range = {0, 0}, .rule = types::rule_id{1},
+                .range = {at, at}, .rule = types::rule_id{1},
                 .level = types::severity::error, .message = message,
                 .fix = "rename one", .file = f.path});
         }
@@ -179,6 +187,7 @@ std::vector<std::string> lines_of(const types::diagnostic_table& t) {
 struct outcome {
     std::vector<std::string> findings;
     int maps = 0;
+    int reduces = 0;
     types::dependency_record record;
 };
 
@@ -194,15 +203,17 @@ outcome run(const sources& plain, const scoped_cache& cache,
     const std::array<types::descriptor, 1> codecs{names};
     const auto r = ops::make_registry(codecs, c.types(), settings);
     mapped = 0;
+    reduced = 0;
     auto result = ops::run(r, c.corpus(), c.types(), 2, previous,
         io::action_source_of(cache.root()));
     const auto maps = mapped.load();
+    const auto reduces = reduced.load();
     (void)io::store_actions(cache.root(), result.record, result.fresh, 2,
         result.scans);
     const auto plain_run = ops::run(r, c.corpus(), c.types(), 2);
     CHECK(lines_of(result.diagnostics[0]) ==
         lines_of(plain_run.diagnostics[0]));
-    return {lines_of(result.diagnostics[0]), maps,
+    return {lines_of(result.diagnostics[0]), maps, reduces,
         std::move(result.record)};
 }
 
@@ -226,7 +237,7 @@ TEST_CASE("a scan maps every listed file, then reports each file's "
     CHECK(r.maps == 3);
     CHECK(r.findings == std::vector<std::string>{
         "src/a.txt 0 10 the marker line",
-        "src/c.txt 1 0 beta is also defined in src/b.txt"});
+        "src/c.txt 1 10 beta is also defined in src/b.txt"});
 }
 
 TEST_CASE("after an edit a scan maps only the edited file, and its reduce "
@@ -302,4 +313,70 @@ TEST_CASE("a scan whose result object is gone maps every file again",
 
     CHECK(second.maps == 3);
     CHECK(second.findings == findings);
+}
+
+TEST_CASE("an edit that leaves a file's fact as it was is mapped and not "
+    "reduced", "[ops][scan]") {
+    scoped_cache cache;
+    auto files = tree();
+    files["src/c.txt"] = "def alpha\n";
+    const auto first = run(files, cache);
+    REQUIRE(first.reduces == 1);
+    files["src/b.txt"] = "a note\ndef beta\nbad\n";
+
+    const auto second = run(files, cache, first.record);
+
+    CHECK(second.maps == 1);
+    CHECK(second.reduces == 0);
+    CHECK(second.findings == std::vector<std::string>{
+        "src/a.txt 0 10 the marker line",
+        "src/b.txt 0 16 the marker line",
+        "src/c.txt 1 0 alpha is also defined in src/a.txt"});
+
+    files["src/b.txt"] = "def beta\ndef alpha\n";
+    const auto third = run(files, cache, second.record);
+    CHECK(third.reduces == 1);
+}
+
+TEST_CASE("an edit to a file the reduce step read is reduced again though "
+    "its fact is as it was", "[ops][scan]") {
+    scoped_cache cache;
+    auto files = tree();
+    files["src/c.txt"] = "def alpha\n";
+    const auto first = run(files, cache);
+    files["src/c.txt"] = "a note\ndef alpha\n";
+
+    const auto second = run(files, cache, first.record);
+
+    CHECK(second.reduces == 1);
+    CHECK(second.findings.back() ==
+        "src/c.txt 1 7 alpha is also defined in src/a.txt");
+}
+
+TEST_CASE("a scan that was not reduced still depends on what its reduce "
+    "step read", "[ops][scan]") {
+    scoped_cache cache;
+    auto files = tree();
+    files["src/c.txt"] = "def alpha\n";
+    const auto first = run(files, cache);
+    files["src/b.txt"] = "a note\ndef beta\n";
+    const auto second = run(files, cache, first.record);
+    REQUIRE(second.reduces == 0);
+    files["src/ignore.cfg"] = "alpha\n";
+
+    const auto third = run(files, cache, second.record);
+
+    CHECK(third.maps == 0);
+    CHECK(third.reduces == 1);
+    CHECK(third.findings == std::vector<std::string>{
+        "src/a.txt 0 10 the marker line"});
+}
+
+TEST_CASE("a file that comes or goes is reduced again", "[ops][scan]") {
+    scoped_cache cache;
+    const auto first = run(tree(), cache);
+    auto files = tree();
+    files["src/d.txt"] = "a note\n";
+
+    CHECK(run(files, cache, first.record).reduces == 1);
 }
