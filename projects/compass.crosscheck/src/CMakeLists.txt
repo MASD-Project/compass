@@ -25,6 +25,7 @@ add_library(${lib_target_name}
     codecs/curve_sections_wiring.cpp
     codecs/entity_binary_types.cpp
     codecs/entity_writes.cpp
+    codecs/er_diagram.cpp
     codecs/generated_column_refs.cpp
     codecs/marketdata_identity_columns.cpp
     codecs/model_drift.cpp
@@ -52,6 +53,7 @@ target_include_directories(${lib_target_name} PUBLIC
 target_link_libraries(${lib_target_name}
     PUBLIC
         compass.codegen.lib
+        compass.sql.lib
         compass.cpp.lib
         compass.codec.lib
         compass.platform.lib)
