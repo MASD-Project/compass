@@ -1,0 +1,50 @@
+:PROPERTIES:
+:ID: 8BACC84D-681B-41D9-A349-236C142B53B4
+:END:
+#+title: Story: Report builds and tests to CDash
+#+description: Submit every CI build and test run of compass to CDash, the way ORE Studio does, with continuous and nightly tracks, so build health, warnings, test results and timings are visible in one dashboard.
+#+type: story
+#+level: s2
+#+filetags: :ci:cdash:testing:sprint_01:v0:
+#+created: 2026-11-17
+#+updated: 2026-11-17
+#+environment:
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+Every CI build of compass submits its configure, build, test and coverage results to a CDash project, and a failing build is visible there with its log.
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | BACKLOG                              |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | Not yet started.                       |
+| Waiting on    | Nothing.                               |
+| Next          | Break the story into tasks.            |
+| Last touched  | 2026-11-17                               |
+
+* Acceptance
+
+- A CTestConfig.cmake names the compass CDash project, and a ctest -S dashboard script drives configure, build, test and submit, following ORE Studio's CTest.cmake.
+- CI submits pull request and main builds to a Continuous track and a scheduled run to a Nightly track.
+- A Nightly run on a debug build submits coverage, and one submits a memcheck run.
+- The CDash project shows each build's warnings, failed tests and test times.
+- A recipe tells a developer how to find their build on CDash and how to submit a local run.
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+|      |       |       |     |             |
+
+* Decisions
+
+* Out of scope
+
+- ORE Studio's CDash project; compass gets its own project.
+- Dashboards for the codec timings measured by compass.bench.
