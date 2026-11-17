@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-189 rules, 45 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
+187 rules, 45 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
 
 ** Rules
 
@@ -92,8 +92,6 @@ memories no rule cites are the candidates for the next checks.
 | =model_drift= | unset_required | A model sets every feature its profile requires. |  |
 | =model_drift= | self_contradicting | A model states a feature once, or always with one value. |  |
 | =model_drift= | no_profiles | The tree has profiles to bind to. |  |
-| =model_sql_types= | type_mismatch | A column's model type is the type the table is created with. |  |
-| =model_sql_types= | too_few_compared | At least min_compared columns are compared, so the check is reading the tree. |  |
 | =money_decimal_columns= | money_not_exact | A money column is numeric in SQL and a decimal in C++, never a binary float or text. | =E47BAF35-066F-4EF2-BA3D-522AED44FF33=, =B9DAC38A-BEB1-4658-87BC-DFF901033E84= |
 | =money_decimal_columns= | continuous_exact | A continuous quantity is not typed numeric or decimal, an exactness it does not have. | =B9DAC38A-BEB1-4658-87BC-DFF901033E84= |
 | =money_decimal_columns= | too_few_columns | The models yield at least min_columns columns, so the check is reading them. |  |
