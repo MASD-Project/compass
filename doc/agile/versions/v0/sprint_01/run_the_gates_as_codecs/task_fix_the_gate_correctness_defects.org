@@ -26,11 +26,11 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-17                               |
 
 * Acceptance
@@ -61,7 +61,11 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Sink test: a refusal after a good run | before: the file was removed; after: kept and reported | =ctest= (=io_output_sink_tests=) | 1d9d830 |
+| Year configured as 2026 on the ORE copy | all 826 codegen units and component_files re-ran; findings unchanged (agent) | =compass check= | 1d9d830 |
+| Warm ORE check | 4.79 s at load 29; 242 findings (+2 refusals) | =compass check= | 1d9d830 |
+| Store after one cold run on the ORE copy | 161,029 files | =find .git/compass \| wc -l= | 1d9d830 |
+| ctest | 15 of 15 suites pass | =ctest --preset linux-clang-release= | 1d9d830 |
 
 * Notes
 
@@ -89,3 +93,32 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+- *Refusals.* A codec of files now writes both files and refusals, so a
+  generator that cannot produce an output reports a =refused= finding on it.
+  A codec that refused anything is not complete, so the sink removes none of
+  its files and the hook plans no removal: a refusal after a good run keeps
+  the committed file. All 26 files codecs use the one shape; pending_models
+  reports each refused model and still derives the rest.
+- *Licence year.* =year= is a required option of =codegen= and
+  =component_files=, never the clock, and is part of the configuration hash,
+  so a new year is one deliberate change. ORE Studio's guide sets
+  =year=2026=.
+- *Copied bugs.* exported_types reads include directives only and honours
+  =#if 0=; the registrars ignore calls in comments; enum_attributes reads
+  digit separators; shell_menus matches inserts without a newline;
+  no_pr_triggers reads every form of =on= and =pull_request_target=; lint
+  ignores =:ID:= inside blocks; unity_collisions reads delimited raw strings;
+  required_sections counts only level-1 headings. None changes a verdict on
+  ORE Studio; subject_conformance's C++ half is left for the drop.
+
+The only verdict change on ORE Studio is two refusals that used to pass
+silently: =convention_kind_terms= and =ore_value_sets=, both from the =r.id=
+defect.
+
+An install of this build needs ORE Studio's =.compass.org= to set =year= in
+the =codegen= and =component_files= rows first, or every run stops.
+
+Decisions to revisit: a refusal keeps every file of its codec, not only the
+refused unit's; =generate= keeps a refused file but does not print the
+refusal.
