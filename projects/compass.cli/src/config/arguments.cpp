@@ -79,8 +79,6 @@ constexpr std::string_view help =
     "when\n"
     "diff finds a change or check a diagnostic, 2 on failure or bad usage.\n";
 
-constexpr std::string_view version = "compass " COMPASS_VERSION "\n";
-
 std::optional<types::command> command_named(std::string_view name) {
     if (name == "generate" || name == "gen")
         return types::command::generate;
@@ -131,8 +129,6 @@ bool takes_value(std::string_view flag) {
 }
 
 std::string_view help_text() noexcept { return help; }
-
-std::string_view version_text() noexcept { return version; }
 
 parsed_arguments parse_arguments(std::span<const std::string_view> args,
     const std::filesystem::path& working_directory,

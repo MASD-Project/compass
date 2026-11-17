@@ -31,6 +31,7 @@ add_executable(${tests_target_name}
     config_arguments_tests.cpp
     config_precedence_tests.cpp
     config_repository_file_tests.cpp
+    io_version_tests.cpp
     ops_ratchet_tests.cpp)
 
 target_link_libraries(${tests_target_name}

@@ -33,6 +33,8 @@
 #include "compass.cli/io/hook_payload.hpp"
 #include "compass.cli/io/listing.hpp"
 #include "compass.cli/io/report.hpp"
+#include "compass.cli/io/version.hpp"
+#include "compass.platform/process/executable.hpp"
 #include "compass.store/io/git_objects.hpp"
 #include "compass.store/io/location.hpp"
 #include "compass.cli/app/codecs.hpp"
@@ -204,7 +206,7 @@ int run(std::span<const std::string_view> args,
         return exit_success;
     }
     if (std::holds_alternative<config::show_version>(parsed)) {
-        out << config::version_text();
+        out << io::version_text(platform::process::executable_path());
         return exit_success;
     }
     if (const auto* e = std::get_if<config::usage_error>(&parsed)) {
