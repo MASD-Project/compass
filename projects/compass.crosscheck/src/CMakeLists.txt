@@ -28,6 +28,7 @@ add_library(${lib_target_name}
     codecs/model_sql_types.cpp
     codecs/money_decimal_columns.cpp
     codecs/open_reads.cpp
+    codecs/ore_renderings_tables.cpp
     codecs/paste_blocks.cpp
     codecs/protocol_twins.cpp
     codecs/registry_gates.cpp
