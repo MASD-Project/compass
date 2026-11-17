@@ -178,7 +178,8 @@ They are off by default.
   (=apply_skill_levels.py=): the region between its markers in
   =doc/llm/skills/skill_systems_levels.org=, the count of skills each
   System sees by the script's =LEVELS= table, copied into the codec. A
-  skill the table lacks, or an entry with no skill, writes nothing.
+  skill the table lacks, or an entry with no skill, writes nothing and is
+  refused.
 - *=skill_level_tags=.* The page half of =skill-levels=, as a check: each
   skill whose =#+level:= is not the table's, each skill the table lacks
   and each entry with no skill, reported as the script's =--check= does.
@@ -205,12 +206,18 @@ They are off by default.
   (=generate_trade_type_coverage.py --write=): the generated block of
   =doc/knowledge/domain/ore_trade_type_coverage.org= from ORE's mined
   trade types, the catalogue, the recorded trades and the coverage
-  story's tasks; nothing is written where the script refuses.
+  story's tasks; where the script refuses, nothing is written and the
+  codec refuses with the script's reason.
 
 A generator that edits pages emits every page it may edit, edited or not:
 the sink removes a file a complete codec wrote before and no longer emits,
 so a page emitted only while it lacked its link would be deleted once it
-had it.
+had it. Where a script would stop, =skill_catalogue=, =skill_type_tables=,
+=skill_levels=, =recipe_inventories= and =trade_type_coverage= refuse
+instead: a =refused= finding on the page, with the reason (a page or
+region that is missing, a skill without its =:ID:=, title or description,
+a merge conflict in a recipe index, a coverage source the script
+rejects), and the page a good run wrote is kept.
 
 =ops::replace_region= replaces the first region between two markers, or
 every one, as the scripts do with =re.search= or =re.sub=; the generators

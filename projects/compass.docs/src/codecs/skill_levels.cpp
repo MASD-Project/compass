@@ -232,11 +232,17 @@ std::string inventory(const std::vector<std::string>& names) {
 
 void write_inventory(const ct::corpus_view& v, ct::file_output& out) {
     const auto names = ops::skill_names(v);
-    if (!complete(names))
+    if (!complete(names)) {
+        co::refuse(out, levels_doc, "the level table and the skills differ",
+            "Correct what skill_level_tags reports.");
         return;
+    }
     const auto text = v.read_file(levels_doc);
-    if (!text)
+    if (!text) {
+        co::refuse(out, levels_doc, "the page does not exist",
+            "Restore the page with its generated inventory.");
         return;
+    }
     const auto block = inventory(names);
     auto fresh = ops::replace_region(*text, inventory_begin, inventory_end,
         block, ops::replace::every);
@@ -245,6 +251,10 @@ void write_inventory(const ct::corpus_view& v, ct::file_output& out) {
             block, ops::replace::every);
     if (fresh)
         out.files.add(levels_doc, *fresh);
+    else
+        co::refuse(out, levels_doc, "the page has no generated inventory "
+            "region", "Restore its BEGIN and END generated inventory "
+            "markers.");
 }
 
 }
@@ -296,7 +306,7 @@ const ct::descriptor skill_levels{
     .summary = "Writes the inventory of what each System sees.",
     .reads = ct::inputs::of_types({}),
     .options = {},
-    .rules = {},
+    .rules = co::refusal_rules,
     .enabled_by_default = false,
     .run = ct::corpus_function<ct::file_output>{write_inventory}};
 
