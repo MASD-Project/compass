@@ -70,6 +70,8 @@ TEST_CASE("each gap of a component's documentation is reported, as the "
     CHECK(tests::messages(tests::run(codecs::component_docs, t)) ==
         std::vector<std::string>{
             "ores.a: no :ID: UUID in :PROPERTIES: block",
+            "ores.a: missing section(s): Outputs, Entry points, "
+            "Dependencies, See also",
             "ores.a: no .puml file in modeling/",
             "ores.b.api: modeling/component_overview.org not found",
             "ores.b.api: no .puml diagram in modeling/",

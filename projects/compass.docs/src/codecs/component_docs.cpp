@@ -42,17 +42,17 @@ namespace pt = compass::platform::text;
 
 enum rule : std::uint32_t {
     missing_overview, missing_id, missing_type, missing_description,
-    missing_puml, name_collision, backtick_link
+    missing_section, missing_puml, name_collision, backtick_link
 };
 
-constexpr std::array<std::string_view, 7> codes{"MISSING_OVERVIEW",
-    "MISSING_ID", "MISSING_TYPE", "MISSING_DESCRIPTION", "MISSING_PUML",
-    "NAME_COLLISION", "BACKTICK_LINK"};
+constexpr std::array<std::string_view, 8> codes{"MISSING_OVERVIEW",
+    "MISSING_ID", "MISSING_TYPE", "MISSING_DESCRIPTION", "MISSING_SECTION",
+    "MISSING_PUML", "NAME_COLLISION", "BACKTICK_LINK"};
 
 constexpr std::array<std::string_view, 1> component_type_sources{
     "CE17C7BB-C68C-4304-BD3D-92FA5D13272B"};
 
-constexpr std::array<ct::rule, 7> rules{{
+constexpr std::array<ct::rule, 8> rules{{
     {"missing_overview", "A component, or a part with include/ and src/, "
         "has modeling/component_overview.org.", component_type_sources},
     {"missing_id", "A component overview has an :ID: property.",
@@ -60,6 +60,9 @@ constexpr std::array<ct::rule, 7> rules{{
     {"missing_type", "A component overview is #+type: component.",
         component_type_sources},
     {"missing_description", "A component overview has a #+description:.",
+        component_type_sources},
+    {"missing_section", "A component overview has Summary, Inputs, "
+        "Outputs, Entry points, Dependencies and See also.",
         component_type_sources},
     {"missing_puml", "A component's modeling/ directory holds a .puml "
         "diagram."},
@@ -72,6 +75,9 @@ constexpr std::array<ct::option, 1> options{{
     {"exceptions", "projects/ores.codegen/docs_exceptions.txt",
         "The checkout file of CODE component lines that excuse one rule for "
         "one component or page."}}};
+
+constexpr std::array<std::string_view, 6> sections{"Summary", "Inputs",
+    "Outputs", "Entry points", "Dependencies", "See also"};
 
 /**
  * @brief One violation as the script records it: its code's rule, the
@@ -132,6 +138,16 @@ void check_overview(const ct::corpus_view& v, const std::string& modeling,
     if (!m || co::strip(m->group(1)).empty())
         out.push_back({missing_description, owner, overview, 0,
             owner + ": #+description: missing or empty"});
+    std::string missing;
+    for (const auto s : sections) {
+        const pt::regex heading(R"(^\*\s+)" + pt::escape(s) + R"(\s*$)",
+            {.multiline = true});
+        if (!heading.search(text))
+            missing += (missing.empty() ? "" : ", ") + std::string(s);
+    }
+    if (!missing.empty())
+        out.push_back({missing_section, owner, overview, 0,
+            owner + ": missing section(s): " + missing});
     const auto pumls = v.list_files(modeling + "/", ".puml");
     const bool has_puml = std::ranges::any_of(pumls, [&](auto p) {
         return co::parent_of(p) == modeling;
@@ -331,8 +347,8 @@ void reduce(std::span<const ct::scanned_file> scanned,
             continue;
         co::report(out, f.file, f.offset, f.code, f.message,
             "Complete the component's documentation: an overview with its "
-            "ID, type and description, and a diagram, or record the "
-            "exception in the exceptions file.");
+            "ID, type, description and sections, and a diagram, or record "
+            "the exception in the exceptions file.");
     }
 }
 
@@ -340,7 +356,7 @@ void reduce(std::span<const ct::scanned_file> scanned,
 
 const ct::descriptor component_docs{
     .name = "component_docs",
-    .version = 3,
+    .version = 2,
     .summary = "Reports each component without a complete overview and "
         "diagram, and each link inside backticks under doc/.",
     .reads = ct::inputs::of_types({}),
