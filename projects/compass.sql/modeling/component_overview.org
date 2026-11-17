@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :sql:gates:checks:component:
 #+created: 2026-11-16
-#+updated: 2026-11-16
+#+updated: 2026-11-17
 
 This page is the component overview for =compass.sql=, a simple component in
 the domain layer of the
@@ -97,6 +97,23 @@ The codecs are off by default, and =codecs::catalogue= lists them.
   Rule =stale_exemption=: an exemption no path needs. The exemptions file
   stays, because a rule is a pattern over paths, not a line.
 
+- *ER model.* =ops::er_model_of= reads the create scripts, in the order
+  given, as =projects/ores.codegen/src/plantuml_er_parse_sql.py= does: the
+  =create table if not exists= statements by regular expression, their
+  columns line by line with the script's type shortening, the primary key,
+  the description in the =-- ===== = block or the =/** */= comment above the
+  table, the unique indexes, and the foreign keys a script states (a
+  =soft FK= comment, =references= on a column, a =foreign key= constraint),
+  each kept only when one table of that script owns the column. It returns
+  the model as the diagram draws it: the packages in the order of their
+  component, the data quality tables split into four groups by the shape of
+  their names, each table's classification, key columns and other columns
+  with the temporal ones last, and the relationships from parent to child
+  with the script's labels. The script's tables, its component prefixes,
+  the columns it takes as keys by name and the styles, are parameters
+  (=ops::er_conventions=), because the caller reads them from the script's
+  source. The parser's convention warnings are not ported.
+
 * Entry points
 
 | Path                                           | Role                                         |
@@ -104,6 +121,7 @@ The codecs are off by default, and =codecs::catalogue= lists them.
 | =include/compass.sql/codecs/sql_hygiene.hpp=   | The =sql_hygiene= codec.                     |
 | =include/compass.sql/ops/hygiene.hpp=          | The four rules over the text of one file.    |
 | =include/compass.sql/ops/scripts.hpp=          | The helpers the SQL gate scripts share.      |
+| =include/compass.sql/ops/er_model.hpp=         | The entity-relationship model of the create scripts. |
 | =include/compass.sql/codecs/catalogue.hpp=     | The codecs this component ships.             |
 | =include/compass.sql/codecs/<gate>.hpp=        | One header for each other codec.             |
 

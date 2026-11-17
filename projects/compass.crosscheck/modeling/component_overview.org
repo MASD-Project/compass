@@ -195,13 +195,51 @@ because each reads one kind of artefact and writes another:
   output formats page, from the output samples ORE ships, read with
   Python's =csv= rules. Its data files go through clang-format, the
   codec's formatter, which its =clang_format= option names.
+- *=er_diagram=.* =er-diagram= (=plantuml_er_parse_sql.py=, then
+  =plantuml_er_generate.py=): =ores_schema.puml=, the index, and one
+  =ores_schema.<group>.puml= per table group, from the create scripts
+  under =projects/ores.sql/create=. =compass.sql='s =ops::er_model_of=
+  reads the scripts; the codec reads =COMPONENT_PREFIXES=, =FK_COLUMNS=
+  and =TABLE_STYLES= from the parser's source and renders the two
+  templates through =compass.codegen='s pystache renderer, unescaped. A
+  group's diagram draws the keys inside the group and names the tables
+  its keys reach in other groups. At 545cafca45 the committed
+  =ores_schema.dq_datasets.puml= is stale: the description of
+  =ores_dq_dataset_bundles_tbl= in its create script was reworded after
+  the diagram was drawn. The parser's convention warnings, which its
+  =--strict= turns into a failure, are not ported, and a committed group
+  diagram no group draws any more is not reported.
+- *=conventions_dataset=.* =conventions-dataset=
+  (=projects/ores.seeder/datasets/conventions/generate_sql.py=):
+  =refdata_conventions_artefact_populate.sql= from =conventions.tsv=,
+  =oresmd_index_map.tsv= and =methodology.txt= beside the script. Every
+  table the script keeps is read from its source, =COMPOSITE_KINDS=
+  included; the decoders of the nested commodity future and power load
+  fields, the two functions =COMPOSITE_KINDS= names for its parts and the
+  text =render()= writes are ported. Numbers are written as Python's
+  =str(int())= and =repr(float())= write them (=ops::python_int=,
+  =ops::python_float=).
+- *=conventions_coverage=.* =conventions-coverage=
+  (=tools/ore_conventions/extract.py=, then =propose.py --check=). A scan:
+  each XML file under =external/ore/examples= is read once for the entries
+  of a =Conventions= root, each with its normalised signature, and the
+  reduce step resolves them as =extract.py= does (the four rules, the
+  =-CONVENTIONS= renames, the pins of =decisions.tsv=, by MD5 digest or
+  signature) into the canonical table, then compares it and the engine's
+  index conventions with the dataset as =propose.py= does. Each line
+  =propose.py= reports is a finding: =duplicate_row=, =no_source=,
+  =undefined_index=, =missing_convention= and =differing_convention=;
+  =extract_failed= is a =decisions.tsv= =extract.py= refuses.
+  =INDEX_FIELDS= and =BDC= are read from =propose.py=. The audit files
+  =extract.py= also writes under =tmp/= are not ported.
 
 These generators keep their tables in Python modules, and the codecs read
 those tables through =ops::python_assignment= rather than copying them, so
 an edit to a table is seen. The reader takes the literals the modules are
 written in: strings with their prefixes, f-strings and sums of strings and
-names, tuples, lists, sets and dicts (tuple keys too), and calls with
-positional and keyword arguments. =ops::resolved= substitutes a module's
+names, numbers as written, tuples, lists, sets and dicts (tuple keys too),
+calls with positional and keyword arguments, and a lambda, read as its
+body. =ops::resolved= substitutes a module's
 string constants for its names. Where a script stops without writing,
 because a problem is reported or a table cannot be read, the codec writes
 nothing, so its drift findings are silent where the gate would fail.
@@ -216,9 +254,12 @@ except =subject_conformance=, which reports such a model.
 |--------------------------------------------------------+---------------------------------------------------------|
 | =include/compass.crosscheck/codecs/catalogue.hpp=      | The codecs this component ships.                        |
 | =include/compass.crosscheck/codecs/<gate>.hpp=         | One header for each codec, named after it.              |
-| =include/compass.crosscheck/ops/words.hpp=             | Python's lower, split and run of spaces over bytes.     |
+| =include/compass.crosscheck/ops/words.hpp=             | Python's lower, split, run of spaces and its words joined. |
 | =include/compass.crosscheck/ops/python_literals.hpp=   | A module-level Python literal: strings, tuples, sets, dicts, calls; its names resolved. |
 | =include/compass.crosscheck/ops/curve_wiring.hpp=      | The curve wiring the two curve generators write from.   |
+| =include/compass.crosscheck/ops/csv.hpp=               | Python's =csv.reader= with the excel dialect and a delimiter. |
+| =include/compass.crosscheck/ops/python_numbers.hpp=    | =str(int())= and =repr(float())=.                        |
+| =include/compass.crosscheck/ops/md5.hpp=               | =hashlib.md5= as hex, a key some scripts use.           |
 | =include/compass.crosscheck/codecs/registry_gates.hpp= | =http_areas=, =route_units= and =registry_exceptions=. |
 | =tests/test_checkout.hpp=                              | Runs one codec over a checkout of files held in memory. |
 
@@ -234,7 +275,9 @@ except =subject_conformance=, which reports such a model.
 - =compass.cpp= for its text helpers and its blanking of C++ comments and
   literals.
 - =compass.codegen= for the template library's physical-space graph and
-  the component catalogue, which =protocol_twins= reads.
+  the component catalogue, which =protocol_twins= reads, and the pystache
+  renderer =er_diagram= draws through.
+- =compass.sql= for the entity-relationship model of the create scripts.
 - =compass.platform= for regular expressions and Python's decoding.
 - The C++23 standard library.
 - =compass.store= and Catch2, for the tests only.

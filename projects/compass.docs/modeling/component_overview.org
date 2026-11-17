@@ -103,6 +103,25 @@ the parsed tables.
   review checklist cites only identifiers a page carries, with two digits,
   or a page that has none yet. The pages and their section codes are the
   script's own table, kept in the codec.
+- *=lint=.* =lint= (=./compass.sh lint=, =cmd_lint= of
+  =projects/ores.compass/src/compass.py=). A scan over every =.org= file of
+  the checkout but those under =build=, =venv=, =.packages=, =vcpkg= or
+  =external= at the root, under a =.git=, =.claude=, =node_modules= or
+  =__pycache__= directory, or whose name starts with a dot. A page's map
+  reports its own defects: =bad_filetag=, a tag of its first =#+filetags:=
+  line that is not lowercase; =unclosed_marker=, a =# BEGIN generated X=
+  with no =# END generated X= on a line of its own; =malformed_link=, an
+  id link whose target has a hyphen and is not a UUID. Its fact is its
+  type, the =:ID:= lines it holds, its id links line by line and the
+  scripts its markers name, and the reduce step reports
+  =marker_without_writer= (the script does not exist, or its source does
+  not mention the page's file name, or a =SKILL.org='s directory) and
+  =dangling_link= (no page holds the ID). =durable_link=, a page under
+  =doc/llm=, =doc/meta=, =doc/knowledge= or =doc/recipes= that links an
+  agile page, is advisory in the gate and is reported only with the option
+  =strict_links=true=; with it, the 549 links over 215 files the gate lists
+  with =--strict-links= at 545cafca45. An edit to one page costs one map and
+  a reduce of about 90 ms on ORE Studio.
 
 Generators. Each of these writes the artefact an ORE Studio generator
 writes, so =compass generate= replaces the script and =compass check='s
