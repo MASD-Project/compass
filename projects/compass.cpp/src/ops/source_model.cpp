@@ -508,6 +508,9 @@ private:
         d.kind = declaration_kind::function;
         set_name(d, name, paren - 1);
         auto j = skip_balanced(paren, "(", ")");
+        if (j > paren + 1 && j <= t_.size())
+            d.parameters = code_.substr(t_[paren].end,
+                t_[j - 1].begin - t_[paren].end);
         for (;;) {
             j = skip_attributes(j);
             if (is_name(j) && std::ranges::find(after_parameters,

@@ -34,6 +34,7 @@ add_library(${lib_target_name}
     codecs/unique_type_names.cpp
     codecs/unity_collisions.cpp
     codecs/xml_family_census.cpp
+    ops/declarations.cpp
     ops/exported_types.cpp
     ops/glob.cpp
     ops/lexer.cpp

@@ -82,3 +82,14 @@ TEST_CASE("an edit that defines a second type of one name is reported "
         after, before).findings) == places{
             {"projects/ores.e/tests/one.hpp", 1}});
 }
+
+TEST_CASE("an attribute before the name hides no definition",
+    "[codecs][unique_type_names]") {
+    const files t{
+        {"projects/ores.a/include/ores.a/x.hpp",
+         "namespace ores::a {\nclass [[nodiscard]] X_EXPORT widget {};\n}\n"},
+        {"projects/ores.b/include/ores.b/y.hpp",
+         "namespace ores::a {\nstruct widget final {};\n}\n"}};
+    CHECK(tests::places(tests::run(codecs::unique_type_names, t).findings) ==
+        places{{"projects/ores.a/include/ores.a/x.hpp", 2}});
+}

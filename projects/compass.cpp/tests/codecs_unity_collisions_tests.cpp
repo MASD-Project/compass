@@ -106,11 +106,13 @@ TEST_CASE("a recorded file that does not exist is reported",
         places{{"cmake/unity_exclusions.cmake", 3}});
 }
 
-TEST_CASE("a file that is not UTF-8 is skipped, as read_text() fails on it",
+TEST_CASE("a byte that is not UTF-8 hides none of a file's names",
     "[codecs][unity_collisions]") {
     auto t = tree();
     t["projects/ores.a/src/sub/two.cpp"] += "// \xff\n";
-    CHECK(tests::run(codecs::unity_collisions, t).findings.empty());
+    CHECK(tests::places(tests::run(codecs::unity_collisions, t).findings) ==
+        tests::places(tests::run(codecs::unity_collisions, tree()).findings));
+    CHECK_FALSE(tests::run(codecs::unity_collisions, t).findings.empty());
 }
 
 TEST_CASE("an edit that adds or drops a colliding name changes the findings "
@@ -124,4 +126,33 @@ TEST_CASE("an edit that adds or drops a colliding name changes the findings "
             {"projects/ores.a/src/one.cpp", 3}});
     CHECK(tests::run_after_edit(codecs::unity_collisions, tree(), before)
         .findings.empty());
+}
+
+TEST_CASE("a declaration across lines and a template have the linkage of "
+    "their namespace", "[codecs][unity_collisions]") {
+    const files t{
+        {"CMakeLists.txt", ""},
+        {"projects/ores.a/src/one.cpp",
+         "namespace ores::a {\nnamespace {\nstd::vector<int>\n"
+         "rows_of(int x) { return {x}; }\n}\n}\n"},
+        {"projects/ores.a/src/two.cpp",
+         "namespace ores::a {\nnamespace {\ntemplate <typename T>\n"
+         "std::vector<int> rows_of(int y) { return {}; }\n}\n}\n"}};
+    CHECK(tests::places(tests::run(codecs::unity_collisions, t).findings) ==
+        places{{"projects/ores.a/src/one.cpp", 3}});
+}
+
+TEST_CASE("overloads that differ in their parameter types do not collide",
+    "[codecs][unity_collisions]") {
+    const files t{
+        {"CMakeLists.txt", ""},
+        {"projects/ores.a/src/one.cpp",
+         "namespace ores::a {\nnamespace {\n"
+         "int page_of(const reply& r, int most = 20) { return 0; }\n}\n}\n"},
+        {"projects/ores.a/src/two.cpp",
+         "namespace ores::a {\nnamespace {\n"
+         "int page_of(const request& q) { return 1; }\n"
+         "int page_of(const reply & other, int) { return 2; }\n}\n}\n"}};
+    CHECK(tests::places(tests::run(codecs::unity_collisions, t).findings) ==
+        places{{"projects/ores.a/src/one.cpp", 3}});
 }

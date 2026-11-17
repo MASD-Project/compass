@@ -90,6 +90,8 @@ struct declaration {
     bool qualified = false;
     std::uint32_t offset = 0;
     std::uint32_t start = 0;
+    /** For a function, the code between its parentheses. */
+    std::string_view parameters;
 };
 
 /**
