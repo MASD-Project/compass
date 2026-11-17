@@ -237,14 +237,15 @@ void load(corpus_files& f, unsigned threads);
 /**
  * @brief Runs @p codecs over @p corpus on up to @p threads threads,
  * starting from @p previous and the result cache of the repository of
- * @p checkout, only the units @p only takes when given. Writes nothing.
+ * @p checkout, only the units @p only takes when given, checking the
+ * inputs at @p edited first. Writes nothing.
  */
 [[nodiscard]] codec::types::run_result run_codecs(
     const codec::types::registry& codecs, const codec::types::corpus& corpus,
     const org::types::type_registry& types, unsigned threads,
     const codec::types::dependency_record& previous,
     const std::filesystem::path& checkout,
-    const codec::ops::unit_filter& only = {});
+    const codec::ops::unit_filter& only = {}, std::string_view edited = {});
 
 /**
  * @brief Writes the object of every row that loaded by parsing to the

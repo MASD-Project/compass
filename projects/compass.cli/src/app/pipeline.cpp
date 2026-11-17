@@ -179,15 +179,16 @@ void load_files(pipeline& p, const types::options& o,
 
 /**
  * @brief Runs the codecs of @p p from @p previous and the result cache,
- * the units @p only takes when given, and records what each codec ran.
+ * the units @p only takes when given, checking the inputs at @p edited
+ * first, and records what each codec ran.
  */
 void run_units(pipeline& p, const types::options& o,
     const ct::dependency_record& previous,
-    const codec::ops::unit_filter& only = {}) {
+    const codec::ops::unit_filter& only = {}, std::string_view edited = {}) {
     auto& s = p.summary;
     p.timed("codecs", [&] {
         p.run = run_codecs(p.codecs, p.corpus, p.types, o.threads, previous,
-            o.checkout, only);
+            o.checkout, only, edited);
     });
     for (std::size_t c = 0; c < p.codecs.size(); ++c)
         s.codecs.emplace_back(p.codecs.codecs[c].name);
@@ -1061,7 +1062,7 @@ types::hook_result hook(const types::options& o, const std::string& path,
         return (edited.document && document == path) ||
             heads.names.contains(joined(p.codecs.codecs[c.value].name,
                 document));
-    });
+    }, path);
     r.checked = true;
 
     std::vector<types::finding> found;

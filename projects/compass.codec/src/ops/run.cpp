@@ -222,7 +222,8 @@ struct staging {
 /**
  * @brief What the current corpus says to the inputs of one codec: the
  * answers a call would get, without calling it. facts holds what the
- * prepare step of a staged codec published, and is null otherwise.
+ * prepare step of a staged codec published, and is null otherwise. edited
+ * is a path whose inputs hold checks first.
  */
 struct answers {
     const types::corpus& c;
@@ -231,6 +232,7 @@ struct answers {
     const codec_key& key;
     const blob_id& registry;
     const std::unordered_map<std::string_view, blob_id>* facts = nullptr;
+    std::string_view edited = {};
 
     [[nodiscard]] std::optional<blob_id> of(types::input_kind kind,
         std::string_view input) const {
@@ -274,6 +276,11 @@ struct answers {
     template <typename Table>
     [[nodiscard]] bool hold(const Table& t, std::uint32_t begin,
         std::uint32_t end) const {
+        for (auto i = begin; i < end && !edited.empty(); ++i) {
+            if (t.input_keys[types::input_id{i}] == edited &&
+                !holds(t, types::input_id{i}))
+                return false;
+        }
         for (auto i = begin; i < end; ++i) {
             if (!holds(t, types::input_id{i}))
                 return false;
@@ -746,7 +753,8 @@ ot::type_id document_type(std::string_view source,
 types::run_result run(const types::registry& r, const types::corpus& c,
     const ot::type_registry& types, unsigned threads,
     const types::dependency_record& previous,
-    const types::action_source& cache, const unit_filter& only) {
+    const types::action_source& cache, const unit_filter& only,
+    std::string_view edited) {
     const auto start = std::chrono::steady_clock::now();
     threads = std::max(threads, 1u);
 
@@ -775,7 +783,7 @@ types::run_result run(const types::registry& r, const types::corpus& c,
     const auto answers_of = [&](types::codec_id codec) {
         const auto& s = staged[codec.value];
         return answers{c, index, flags_of(r, codec), keys[codec.value],
-            registry, s ? &s->facts : nullptr};
+            registry, s ? &s->facts : nullptr, edited};
     };
     const auto prepare = [&](std::uint32_t i, staging& s, types::read_log& log,
         types::stage& out) {
@@ -959,7 +967,7 @@ types::run_result run(const types::registry& r, const types::corpus& c,
         std::vector<std::uint32_t> unknown;
         for (std::uint32_t u = 0; u < units.size(); ++u) {
             if (units.previous[u] == no_unit &&
-                units.kinds[u] != unit_kind::stage)
+                units.kinds[u] != unit_kind::stage && !units.seeds[u])
                 unknown.push_back(u);
         }
         parallel_for(unknown.size(), threads, [&](std::size_t i) {
