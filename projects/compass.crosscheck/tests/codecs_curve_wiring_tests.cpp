@@ -22,12 +22,15 @@
 #include <string>
 #include <catch2/catch_test_macros.hpp>
 #include "compass.crosscheck/ops/curve_wiring.hpp"
+#include "curve_fixture.hpp"
 #include "test_checkout.hpp"
 
 namespace {
 
 using namespace compass::crosscheck;
 using tests::files;
+using tests::curve_projection;
+using tests::curve_schema;
 
 const std::string module_path =
     "projects/ores.web/packages/bff/src/curve-sections.generated.ts";
@@ -39,153 +42,6 @@ const std::string guard_path = "projects/ores.sql/create/refdata/"
     "refdata_curve_configuration_columns_validate_create.sql";
 const std::string drop_path = "projects/ores.sql/drop/refdata/"
     "refdata_curve_configuration_columns_validate_drop.sql";
-
-// generate_curve_section_parameters.py and generate_curve_column_guards.py
-// were run on this fixture; the expected texts are what they wrote.
-const std::string projection = R"cpp(constexpr std::string_view yield_section = "YieldCurves";
-constexpr std::string_view default_section = "DefaultCurves";
-
-template <> struct document_part<refdata::domain::curve_segment_simple> {
-    static constexpr auto vector = &curve_document::segment_simples;
-    static constexpr auto key = &refdata::domain::curve_segment_simple::segment_id;
-};
-template <> struct document_part<refdata::domain::default_curve_spec> {
-    static constexpr auto vector = &curve_document::default_curve_specs;
-    static constexpr auto key = &refdata::domain::default_curve_spec::configuration_id;
-};
-
-const std::vector<section_access>& sections() {
-    static const std::vector<section_access> all{
-        {yield_section, "YieldCurve"},
-        {default_section, "DefaultCurve"},
-    };
-    return all;
-}
-
-std::string import_context::segment(const record_reader& r, const std::string& definition_id, const std::string& type) {
-    refdata::domain::curve_segment s;
-    s.curve_definition_id = definition_id;
-    s.segment_type = type;
-    out.curve_segments.push_back(s);
-    return s.id;
-}
-
-void import_quotes(import_context& ctx, const std::string& segment_id, const record_reader& v) {
-    refdata::domain::curve_segment_quote q;
-    q.segment_id = segment_id;
-}
-
-void import_simple(import_context& ctx, const std::string& segment_id, const record_reader& r) {
-    refdata::domain::curve_segment_simple p;
-    p.convention = required_text(r, "Conventions");
-    p.projection = r.text("ProjectionCurve");
-    ctx.out.segment_simples.push_back(p);
-}
-
-void import_segments(import_context& ctx, const record_reader& v) {
-    for (const auto& r : v.children("Simple")) {
-        const auto id = ctx.segment(r, "x", "Simple");
-        import_simple(ctx, id, r);
-    }
-    for (const auto& r : v.children("Direct")) {
-        const auto id = ctx.segment(r, "x", "Direct");
-        import_simple(ctx, id, r);
-    }
-}
-
-default_curve_parts parts_of_default_curve_type(const std::string& type) {
-    default_curve_parts out;
-    if (type == "Fitted" || type == "Spread") {
-        out.spec = true;
-    } else if (type == "Benchmark" || type == "Fitted") {
-        out.spec = true;
-    }
-    return out;
-}
-
-void import_yield(import_context& ctx, curve_document& out, const record_reader& v) {
-    add_definition(out, yield_section, required_text(v, "CurveId"),
-        required_text(v, "CurveDescription"));
-    refdata::domain::yield_curve y;
-    y.currency = required_spelling(v, "Currency");
-    y.day_counter = v.spelling("DayCounter");
-    y.has_pillars = v.has("Pillars");
-    y.id = ctx.mint();
-    if (const auto pillars = v.child("Pillars"); pillars) {
-        const auto inner = pillars->child("Inner");
-    }
-    if (const auto segs = v.child("Segments"); segs)
-        import_segments(ctx, *segs);
-    out.yield_curves.push_back(std::move(y));
-}
-
-void import_default(import_context& ctx, curve_document& out, const record_reader& v) {
-    add_definition(out, default_section, required_text(v, "CurveId"),
-        required_text(v, "CurveDescription"));
-    refdata::domain::default_curve d;
-    d.currency = required_spelling(v, "Currency");
-    if (const auto c = v.child("Configuration"); c) {
-        refdata::domain::default_curve_spec s;
-    }
-    out.default_curves.push_back(std::move(d));
-}
-
-void import_document(import_context& ctx, curve_document& out) {
-    for (const auto& e : each("YieldCurves", "YieldCurve"))
-        import_yield(ctx, out, e);
-    for (const auto& e : each("DefaultCurves", "DefaultCurve"))
-        import_default(ctx, out, e);
-}
-)cpp";
-
-const std::string schema = R"xsd(<xs:schema>
-  <xs:complexType name="curveconfiguration">
-    <xs:all>
-      <xs:element type="yieldCurves" name="YieldCurves" minOccurs="0"/>
-      <xs:element type="defaultCurves" name="DefaultCurves" minOccurs="0"/>
-      <xs:element type="reportConfiguration" name="ReportConfiguration" minOccurs="0"/>
-    </xs:all>
-  </xs:complexType>
-  <xs:complexType name="yieldCurves">
-    <xs:sequence>
-      <xs:element type="yieldCurve" name="YieldCurve" maxOccurs="unbounded"/>
-    </xs:sequence>
-  </xs:complexType>
-  <xs:complexType name="defaultCurves">
-    <xs:sequence>
-      <xs:element type="defaultCurve" name="DefaultCurve" maxOccurs="unbounded"/>
-    </xs:sequence>
-  </xs:complexType>
-  <xs:complexType name="reportConfiguration">
-    <xs:sequence>
-      <xs:element type="a" name="A"/>
-      <xs:element type="b" name="B"/>
-    </xs:sequence>
-  </xs:complexType>
-  <xs:complexType name="yieldCurve">
-    <xs:sequence>
-      <xs:element name="CurveId" type="xs:string"/>
-      <xs:element name="CurveDescription" type="xs:string"/>
-      <xs:element name="Currency" type="xs:string"/>
-      <xs:element name="DayCounter" type="xs:string"/>
-      <xs:element name="Pillars">
-        <xs:complexType>
-          <xs:element name="Inner" type="xs:string"/>
-        </xs:complexType>
-      </xs:element>
-      <xs:element name="Segments" type="segments"/>
-    </xs:sequence>
-  </xs:complexType>
-  <xs:complexType name="defaultCurve">
-    <xs:sequence>
-      <xs:element name="CurveId" type="xs:string"/>
-      <xs:element name="CurveDescription" type="xs:string"/>
-      <xs:element name="Currency" type="xs:string"/>
-      <xs:element name="Configuration" type="xs:string"/>
-    </xs:sequence>
-  </xs:complexType>
-</xs:schema>
-)xsd";
 
 const std::string sections_tail = R"ts(export const CURVE_SECTIONS: readonly CurveSectionWiring[] = [
     {
@@ -338,12 +194,12 @@ export function curveSectionOf(section: string): CurveSectionWiring | undefined 
 files tree() {
     return {
         {"projects/ores.ore/core/src/domain/curve_configuration_projection.cpp",
-            projection},
-        {"external/ore/xsd/curveconfig.xsd", schema},
+            curve_projection},
+        {"external/ore/xsd/curveconfig.xsd", curve_schema},
         {"projects/ores.refdata/modeling/ores.refdata.yield_curve.org",
-            "#+title: x\n:tablename: ores_refdata_yield_curves_tbl  \n"},
+            tests::yield_curve_model},
         {"projects/ores.refdata/modeling/ores.refdata.default_curve.org",
-            ":tablename:ores_refdata_default_curves_tbl\n"}};
+            tests::default_curve_model}};
 }
 
 void replace(std::string& text, const std::string& from,

@@ -43,12 +43,16 @@ add_library(${lib_target_name}
     codecs/script_library_seed.cpp
     codecs/subject_conformance.cpp
     codecs/template_sections.cpp
+    codecs/value_sets.cpp
     ops/csv.cpp
     ops/curve_wiring.cpp
+    ops/json_value.cpp
     ops/md5.cpp
+    ops/ore_schema.cpp
     ops/projection_columns.cpp
     ops/python_numbers.cpp
     ops/python_literals.cpp
+    ops/value_sets.cpp
     ops/words.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
