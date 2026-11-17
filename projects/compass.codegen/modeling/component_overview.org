@@ -108,6 +108,18 @@ the codec, set in the checkout's =.compass.org=.
   =--write --log-level warn --config {style}=, as generate.py's
   =clang_format_files= and =prettier_format_files= run them. The runtime
   formats the codec's files through the result cache in every run.
+- *=component_files=.* ORE Studio's =cmake-sources= generator
+  (=regenerate_cmake_component_files.py --all=), off by default. A corpus
+  codec that reads no document: each =projects/**/modeling/component_overview.org=
+  with a =#+full_name:= line is a component, the later path winning a
+  shared name. For its =src= and =tests= directories that hold a
+  =CMakeLists.txt= it renders =cmake_component_files_<dir>.mustache=
+  through =ops::render_output= from the library values, with
+  =component.files= the =.cpp= files under the directory and
+  =component.headers= the =.hpp= files under =include/=, both sorted and
+  relative. It writes all 202 lists of ORE Studio =545cafca45= as the
+  script does; the listing is the checkout's, so a file deleted from disk
+  but still in the index is listed until =git rm=.
 
 | Outputs at ORE Studio =5ce3cd7e6c=    | Identical | Of    |
 |---------------------------------------+-----------+-------|
@@ -138,6 +150,7 @@ reading the contexts.
 | =include/compass.codegen/ops/manifest.hpp=            | The models =regenerate --all= visits.       |
 | =include/compass.codegen/ops/generate.hpp=            | The reader, the plan and its rendering.     |
 | =include/compass.codegen/codecs/codegen.hpp=          | The codec, its settings and formatters.     |
+| =include/compass.codegen/codecs/component_files.hpp=  | The component_files.cmake lists.            |
 | =tests/data/mustache_spec/=                           | The Mustache spec v1.4.3, MIT licence.      |
 
 | Target                  | Kind                                      |
@@ -158,6 +171,8 @@ either with the oracle, output by output and template by template.
 
 - =compass.model= for the value tables contexts are made of, and the JSON
   reader for the oracle's contexts and the spec suite.
+- =compass.platform= for the regular expression that finds a component's
+  full name.
 - =compass.codec= for the descriptor, the corpus view the codec reads
   through, the file table it emits, the formatter type and =find_program=.
 - =compass.ingest=, for the tests only: the codec's tests parse a small
