@@ -78,7 +78,22 @@ private:
             return bracketed(c);
         if (co::is_identifier(c) && !(c >= '0' && c <= '9'))
             return name_or_call();
+        if ((c >= '0' && c <= '9') || c == '-' || c == '.')
+            return number();
         return std::nullopt;
+    }
+
+    std::optional<python_value> number() {
+        python_value v;
+        v.what = python_value::kind::number;
+        if (text_[i_] == '-')
+            v.text.push_back(text_[i_++]);
+        while (!at_end() && (co::is_identifier(text_[i_]) ||
+                text_[i_] == '.'))
+            v.text.push_back(text_[i_++]);
+        if (v.text.empty() || v.text == "-")
+            return std::nullopt;
+        return v;
     }
 
     bool at_end() const noexcept { return i_ >= text_.size(); }
@@ -251,6 +266,17 @@ private:
         while (!at_end() && (co::is_identifier(text_[i_]) ||
                 text_[i_] == '.'))
             v.text.push_back(text_[i_++]);
+        if (v.text == "lambda") {
+            while (!at_end() && text_[i_] != ':' && text_[i_] != '\n')
+                ++i_;
+            if (!eat(':'))
+                return std::nullopt;
+            auto body = value();
+            if (!body)
+                return std::nullopt;
+            v.items.push_back(std::move(*body));
+            return v;
+        }
         if (!eat('('))
             return v;
         v.what = python_value::kind::call;

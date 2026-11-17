@@ -21,10 +21,13 @@ set(lib_target_name ${name}.lib)
 add_library(${lib_target_name}
     codecs/catalogue.cpp
     codecs/convention_kind_terms.cpp
+    codecs/conventions_coverage.cpp
+    codecs/conventions_dataset.cpp
     codecs/curve_column_guards.cpp
     codecs/curve_sections_wiring.cpp
     codecs/entity_binary_types.cpp
     codecs/entity_writes.cpp
+    codecs/er_diagram.cpp
     codecs/generated_column_refs.cpp
     codecs/marketdata_identity_columns.cpp
     codecs/model_drift.cpp
@@ -40,7 +43,10 @@ add_library(${lib_target_name}
     codecs/script_library_seed.cpp
     codecs/subject_conformance.cpp
     codecs/template_sections.cpp
+    ops/csv.cpp
     ops/curve_wiring.cpp
+    ops/md5.cpp
+    ops/python_numbers.cpp
     ops/python_literals.cpp
     ops/words.cpp)
 
@@ -52,6 +58,7 @@ target_include_directories(${lib_target_name} PUBLIC
 target_link_libraries(${lib_target_name}
     PUBLIC
         compass.codegen.lib
+        compass.sql.lib
         compass.cpp.lib
         compass.codec.lib
         compass.platform.lib)

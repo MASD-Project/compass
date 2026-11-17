@@ -23,6 +23,7 @@ add_library(${lib_target_name}
     codecs/catalogue.cpp
     codecs/component_docs.cpp
     codecs/heading_numbers.cpp
+    codecs/lint.cpp
     codecs/org_links.cpp
     codecs/pattern_uses.cpp
     codecs/physical_inventory.cpp

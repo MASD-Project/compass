@@ -26,6 +26,7 @@ add_library(${lib_target_name}
     codecs/rls_widenings.cpp
     codecs/sql_hygiene.cpp
     codecs/sql_reachability.cpp
+    ops/er_model.cpp
     ops/hygiene.cpp
     ops/scripts.cpp)
 
