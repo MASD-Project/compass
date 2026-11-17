@@ -36,7 +36,6 @@ add_library(${lib_target_name}
     codecs/open_reads.cpp
     codecs/ore_output_catalogue.cpp
     codecs/ore_renderings_tables.cpp
-    codecs/paste_blocks.cpp
     codecs/protocol_twins.cpp
     codecs/registry_gates.cpp
     codecs/route_inventory.cpp

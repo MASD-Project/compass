@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-191 rules, 45 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
+189 rules, 45 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
 
 ** Rules
 
@@ -117,8 +117,6 @@ memories no rule cites are the candidates for the next checks.
 | =parameter_value_sets= | override_column | No pair setting table, model or reader states a per-pair control the value set states. |  |
 | =parameter_value_sets= | value_check | No engine settings part states a value as a column check. |  |
 | =parameter_value_sets= | missing_file | Every file the override rules guard exists. |  |
-| =paste_blocks= | unresolved_name | Every ores:: name a model's :implements block pastes is declared by some header under an include directory. |  |
-| =paste_blocks= | nothing_read | The tree has an :implements block, a header and a qualified name in a block to check. |  |
 | =pattern_uses= | unknown_use | Every page a pattern lists under In ORE Studio exists. |  |
 | =pattern_uses= | one_way | A pattern and each of its uses link each other: the use links the pattern, and the pattern lists the use. | =470D4571-47A4-4AEF-9A93-2B4DE0279C1E= |
 | =pattern_uses= | not_a_pattern | A page lists only service architecture patterns under Patterns used. | =470D4571-47A4-4AEF-9A93-2B4DE0279C1E= |

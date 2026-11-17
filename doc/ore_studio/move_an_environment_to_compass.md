@@ -217,7 +217,9 @@ replaced in this step.
    `component_files`; `er-diagram` is two codecs, `er_diagram` for the
    diagrams and `rls_coverage` for the row-level security checks its
    `--strict` fails on (RLS_001 and RLS_002, read with the same
-   `validation_ignore.txt`).
+   `validation_ignore.txt`). Some gates and rules have no codec because
+   another check covers them; see "Gates compass dropped" below. Compare
+   their verdict with the check that covers them.
 3. Time both. Record wall time, the load average and whether compass was warm.
 4. Write the result into an ORE Studio task: each disagreement, its cause, and
    whether compass or the script is right. Send compass bugs back to the
@@ -258,7 +260,8 @@ Only after step 2 shows agreement:
     codec writes their three seeds and `parameter_value_sets` reports their
     rules. They need the `r.id` fix below before either side passes;
   - always kept: build, database and test gates (31 of them), and
-    `site-page`.
+    `site-page`;
+  - retired with no replacement: the gates in "Gates compass dropped".
 
   The compass repository's gate classification
   (`doc/agile/versions/v0/sprint_01/run_the_gates_as_codecs/evidence/gate_classification.org`)
@@ -275,6 +278,18 @@ Only after step 2 shows agreement:
   covers the former.
 - **CI.** Leave CI on the Python gates for now. CI cannot use a binary on this
   machine; it needs a published compass release first.
+
+## Gates compass dropped
+
+compass's review of the ported gates found some that repeat another check.
+compass no longer has these codecs or rules. Remove the rows of a dropped
+codec from `.compass.org`: `compass-ng config` rejects a codec it does not
+know. An inline exception that names a dropped rule no longer parses, so
+remove it too.
+
+| Gate or rule | What covers it |
+|---|---|
+| `paste-blocks` (codec `paste_blocks`) | `codegen/drift`, when the model's block and the generated file disagree; the build of the component, when both name a symbol that is gone. |
 
 ## Fixes to make in ORE Studio
 

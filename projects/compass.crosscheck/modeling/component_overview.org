@@ -16,14 +16,13 @@ component in the domain layer of the
 * Summary
 
 =compass.crosscheck= runs the ORE Studio gates that read more than one kind
-of artefact: a model and the C++ headers its pasted code names, a model and
-the SQL that creates its table, the generated output and the model it came
-from. Each gate was a Python script that read the tree on every run; here
-each is a corpus codec that reads the files of the checkout through its
-view, so a run in which none of them changed reuses the findings.
-=entity_writes=, =paste_blocks= and =subject_conformance= are scans: each
-file's writers, :implements blocks or declared identifiers, or subjects
-are kept per content ID, so a run after an edit maps the edited file alone.
+of artefact: a model and the SQL that creates its table, the generated
+output and the model it came from. Each gate was a Python script that read
+the tree on every run; here each is a corpus codec that reads the files of
+the checkout through its view, so a run in which none of them changed
+reuses the findings. =entity_writes= and =subject_conformance= are scans:
+each file's writers or subjects are kept per content ID, so a run after an
+edit maps the edited file alone.
 
 The ports follow their scripts rule for rule, including the regular
 expressions and the order of their tests, because the acceptance of a port
@@ -39,6 +38,12 @@ A script's baseline of known violations is not ported. Each finding it
 excused is a finding here, and the tree excuses it with an inline
 exception where it stands.
 
+A gate whose verdict another check already gives is not ported:
+
+- =paste-blocks=. A pasted block that disagrees with the generated file it
+  lands in is =codegen/drift=. One that agrees with it but names a symbol
+  that is gone fails the build of that component.
+
 * Inputs
 
 - The files of the checkout, through =types::corpus_view=: =list_files=
@@ -46,18 +51,6 @@ exception where it stands.
 
 * Outputs
 
-- *=paste_blocks=.* ORE Studio's =paste-blocks= gate
-  (=projects/ores.codegen/scripts/check_paste_block_symbols.py=). It reads
-  each cpp source block of an org file under
-  =projects/<component>/modeling/=, at any depth, whose header line holds
-  =:implements=, from a =#+begin_src= at the start of a line to the next
-  =#+end_src= there. Every header with an =include= directory on its path
-  gives the (scope, identifier) pairs it mentions, its comments and literals
-  blanked: a =namespace= or a =class=, =struct=, =union= or =enum= opens a
-  scope at its brace, an export macro before the name is skipped, any other
-  brace keeps the scope it is in. Rule =unresolved_name=: a name of a block
-  rooted at =ores= whose scope holds no such identifier. Rule
-  =nothing_read=: no block, no header, or no name in any block.
 - *=subject_conformance=.* =subject-conformance=
   (=check_subject_conformance.py=). Rule =outside_protocol=: a =:subject:=
   line of an org file directly under =projects/<component>/modeling/=, or a
@@ -321,8 +314,7 @@ except =subject_conformance=, which reports such a model.
 
 - =compass.codec= for the descriptor, the corpus view the codecs read
   through and the diagnostic table they fill.
-- =compass.cpp= for its text helpers and its blanking of C++ comments and
-  literals.
+- =compass.cpp= for its text helpers.
 - =compass.codegen= for the template library's physical-space graph and
   the component catalogue, which =protocol_twins= reads, and the pystache
   renderer =er_diagram= draws through.
