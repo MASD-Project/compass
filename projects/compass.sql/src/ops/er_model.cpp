@@ -387,15 +387,13 @@ struct parser {
 
     void parse(const er_script& s) {
         extract_descriptions(s.text);
-        std::set<std::string, std::less<>> before_here;
-        for (const auto& t : tables)
-            before_here.insert(t.name);
+        // A table first defined here is appended; one defined again here
+        // is replaced where it stands, so it is not new to this script.
+        const auto before_here = tables.size();
         extract_tables(s.text, s.path);
         std::vector<std::string> parsed_here;
-        for (const auto& t : tables) {
-            if (!before_here.contains(t.name))
-                parsed_here.push_back(t.name);
-        }
+        for (auto i = before_here; i < tables.size(); ++i)
+            parsed_here.push_back(tables[i].name);
         record_fk_targets(s.text, parsed_here);
         extract_unique_indexes(s.text);
     }
