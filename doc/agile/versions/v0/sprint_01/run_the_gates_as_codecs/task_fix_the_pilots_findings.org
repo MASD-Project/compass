@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/fix-the-pilots-findings
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -35,6 +35,7 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Acceptance
 
+- D8: the store holds a bounded number of files, packing results and objects instead of one file each; a store that held 188,697 files after one day of pilot runs holds a few hundred, and =gc= reclaims space without growing the count.
 - D1: =er_diagram= runs the RLS validation the Python gate runs with =--strict= and reports the four trading tables without row level security at ORE Studio =67803175ce=.
 - D3: a =--commit= or =--ratchet= run on a commit without =.compass.org= warns and uses the working tree's configuration, never silent defaults.
 - D5: the hook can report only findings new since the last check, so an edit to a file with old findings does not block on them.
@@ -43,9 +44,12 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- D8 first: pack the store. Results, manifests and parsed objects go into
+  append-only pack files with an index, as git does, written atomically and
+  safe for concurrent writers across worktrees; gc rewrites packs to drop
+  unreferenced entries. Measure file count, bytes and warm and cold times on
+  the ORE copy before and after.
+- Then D1, D3, D5 and D6, each with a test that fails first.
 
 * Measurements
 
@@ -71,6 +75,11 @@ The pilot's report, from =ores_dev_solid_dirac= on ORE Studio main
   Python is right. The value-set gates wait on the =r.id= fix.
 - Planted violations: compass caught 10 of 10 in 8.7 to 10.4 s; Python caught
   10 of 10 in 9 min 56 s.
+- D8, the store's file count: after one day of pilot runs (about six checks
+  and one diff over two trees) ORE Studio's store held 188,697 files, 858 MB
+  of data and 1.5 GB on disk; =gc --dry-run= removed nothing. One cold run
+  on the scratch copy alone wrote 161,029 files; earlier the scratch store
+  reached 465,000 files and exhausted /tmp's inodes for every session.
 - Performance: the 75 ported gates take 1,844 s in Python; =compass check=
   took 66.5 s cold (44 s clang-format) and 4.7 s warm. portable_stop and
   stream_coverage took about 8 s each cold.
