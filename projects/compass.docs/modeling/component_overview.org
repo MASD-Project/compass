@@ -87,10 +87,12 @@ the parsed tables.
   =outside_namespace=: a skill directory under =doc/llm/skills= not named
   =compass-...=.
 - *=no_pr_triggers=.* =no-pr-triggers= (=check_no_pr_triggers.py=). Rule
-  =pull_request_trigger=: a line of a workflow directly under
-  =.github/workflows= that is =pull_request:= indented by exactly two
-  spaces and is not a comment; =pull_request_review= and a deeper key are
-  other things. Rule =no_workflows=: there is no workflow file.
+  =pull_request_trigger=: a workflow directly under =.github/workflows=
+  whose top-level =on= names =pull_request= or =pull_request_target=, as a
+  scalar (=on: pull_request=), a flow sequence or mapping (=on: [push,
+  pull_request]=) or a key or item of its block at any indentation;
+  =pull_request_review= and a deeper key are other things. Rule
+  =no_workflows=: there is no workflow file.
 - *=prototypes=.* =prototypes= (=check_prototype_inventory.py=). The
   prototypes under =doc/prototypes/<group>/<name>/=, the group pages and
   the top page agree; each review directory has its index and each row its
@@ -112,7 +114,8 @@ the parsed tables.
   line that is not lowercase; =unclosed_marker=, a =# BEGIN generated X=
   with no =# END generated X= on a line of its own; =malformed_link=, an
   id link whose target has a hyphen and is not a UUID. Its fact is its
-  type, the =:ID:= lines it holds, its id links line by line and the
+  type, the =:ID:= lines it holds outside a =#+begin_= block (one inside,
+  such as an example page, names no page), its id links line by line and the
   scripts its markers name, and the reduce step reports
   =marker_without_writer= (the script does not exist, or its source does
   not mention the page's file name, or a =SKILL.org='s directory) and
