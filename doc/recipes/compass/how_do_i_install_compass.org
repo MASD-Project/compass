@@ -30,7 +30,10 @@ do I tell exactly which build is installed?
 2. /Install/ it. The script copies =compass= and =compass.manifest= into
    =~/.local/opt/compass/=, each under a temporary name and then renamed over
    the old one, adds the install time to the manifest, and links
-   =~/.local/bin/compass= to the binary. It prints the installed path and
+   =~/.local/bin/compass-ng= to the binary. The link is not named =compass=,
+   because ORE Studio's Python tool answers to that name; an older link of
+   ours at =~/.local/bin/compass= is removed, and anything else there is left
+   alone. Run the installed build as =compass-ng=. It prints the installed path and
    the result of =--version=:
 
    #+begin_src sh :results verbatim
