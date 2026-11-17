@@ -187,7 +187,7 @@ ops::checkout_reader reader_of(const ct::corpus_view& v) {
 
 const ct::descriptor codegen{
     .name = "codegen",
-    .version = 2,
+    .version = 3,
     .summary = "Generates what ores.codegen's regenerate --all writes.",
     .reads = ct::inputs::every_document(),
     .options = options,
