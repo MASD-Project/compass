@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/port-the-large-generator-gates
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -40,9 +40,17 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- The gates: conventions-dataset, ore-parameters-seed, file-types-seed,
+  conventions-coverage, xml-bindings-drift, er-diagram, ore-element-map,
+  ore-parameter-value-sets, parameter-value-sets-only and lint.
+- Port each generator as a codec over the expat reader, the Python literal
+  reader and compass.sql, byte-identical to its original on ORE Studio
+  545cafca45, as it is and after a planted change. xml-bindings-drift formats
+  through the codec formatter mechanism, as codegen does; er-diagram's DDL
+  parsing goes into compass.sql.
+- The value-set gates' verdict is their originals' with the =r.id= defect
+  fixed in =NOT_A_COLUMN=. lint is a diagnostics codec.
+- Keep the warm =compass check= under the story's 10 s budget.
 
 * Measurements
 
