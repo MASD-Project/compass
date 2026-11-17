@@ -60,6 +60,14 @@ namespace compass::cpp::ops {
     std::string_view b) noexcept;
 
 /**
+ * @brief True when @p path matches @p pattern as pathlib's glob matches a
+ * file: component by component, "*" any run of characters but "/", "?"
+ * one character, and a "**" component zero or more directories.
+ */
+[[nodiscard]] bool glob_matches(std::string_view pattern,
+    std::string_view path);
+
+/**
  * @brief The files of a checkout, paths relative to its root in byte
  * order, and the directories they imply.
  */

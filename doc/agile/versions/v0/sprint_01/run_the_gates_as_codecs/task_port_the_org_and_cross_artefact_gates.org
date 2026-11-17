@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/port-the-org-and-cross-artefact-gates
+#+pr: https://github.com/MASD-Project/compass/pull/42
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -26,11 +26,11 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -39,9 +39,23 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- The gates, from the [[id:AFF665C4-739C-4BDB-93BD-9D547351AE4F][gate classification]]:
+  - Org documents (12): org-links, component-docs, heading-numbers,
+    pattern-uses, generated-column-refs, shell-recipe-provenance,
+    model-drift, skill-namespace, http-areas, prototypes, rule-identifiers,
+    registry-exceptions.
+  - Cross-artefact (16): paste-blocks, subject-conformance, entity-writes,
+    money-decimal-columns, conventions-coverage, entity-binary-types,
+    open-reads, model-sql-types, protocol-twins, route-units,
+    template-sections, marketdata-identity-columns,
+    no-committed-credentials, no-pr-triggers, and the self-tests of
+    shell-menus and portable-stop.
+- Read org documents from the parsed corpus and models through
+  =compass.model=, not by re-reading text, and reuse the text facet for the
+  rest.
+- Check each against its original on ORE Studio 545cafca45, as it is and with
+  planted violations, in order of cost; move line- and file-shaped baselines
+  to inline exceptions.
 
 * Measurements
 
@@ -55,7 +69,11 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Gates ported | 24 of 28; each matches its original on ORE 545cafca45, as it is and planted | original vs codec, =orgx/bin/= | 5a12b0f |
+| Warm ORE check, all ported gates | 9.17-10.29 s at load 26-32 on 8 cores; 226 findings | =compass check= | 5a12b0f |
+| Added by these 24 (agent, paired steps) | about 0.8 s median, at load 28-36 | =compass check --timings= | 5a12b0f |
+| Slowest originals vs codec, cold | paste-blocks 54.2 s to 2.3-3.1 s; subject-conformance 15.5 s to 1.5 s; entity-writes 6.05 s to 1.3-1.5 s | =time_codec.cpp= | 5a12b0f |
+| ctest | 14 of 14 suites pass | =ctest --preset linux-clang-release= | 5a12b0f |
 
 * Notes
 
@@ -74,7 +92,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/42][#42]] | [crosscheck] Port the org and cross-artefact gates |
 
 * Review
 
@@ -83,3 +101,35 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+24 of the 28 org and cross-artefact gates are compass check codecs, each
+matching its original on ORE Studio as it is and with planted violations. Two
+new components hold them: =compass.docs= (8 gates over org documents and plain
+files; =org_links= and =heading_numbers= run per document) and
+=compass.crosscheck= (16 gates over models with C++, SQL, templates or
+generated output).
+
+Baselines moved to inline exceptions: entity table writes (136), money
+decimal columns (7) and template sections (8); the empty subject-conformance
+baseline and the model-drift known list are gone. That is why a check of ORE
+as it is now reports 226 findings: 24 drift files and 202 baseline entries
+that ORE would carry as exceptions.
+
+Not ported:
+
+- The two =--self-test= gates prove their scripts fail on planted defects;
+  the codecs' Catch2 tests plant the same defects on every build.
+- no-committed-credentials reads =.env=, which is git-ignored, so a codec
+  would never see it.
+- conventions-coverage regenerates a dataset from ORE's XML samples; it moves
+  to the generator gates.
+
+Decisions to revisit:
+
+- The warm check measured 9.2-10.3 s at load 32, against the story's 10 s
+  budget. It needs a measurement on a quiet machine, and the dependency
+  record's read (about 0.9 s) is the known saving.
+- Gates that apply a regex to org text keep the regex instead of the parse,
+  because the parse differs on indented or upper-case blocks.
+- =compass.docs= and =compass.crosscheck= depend on =compass.cpp= for its
+  Python-emulation helpers; those belong in =compass.platform=.

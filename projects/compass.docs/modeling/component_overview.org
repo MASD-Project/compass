@@ -1,0 +1,135 @@
+:PROPERTIES:
+:ID: C32D7EAF-CC6A-4341-8C27-B0F4CD0791ED
+:END:
+#+title: compass.docs
+#+description: The checks over ORE Studio's org documents and repository files: ports of its document gate scripts, rule for rule, run as codecs over the parsed corpus.
+#+type: component
+#+level: cross
+#+filetags: :docs:gates:checks:component:
+#+created: 2026-11-16
+#+updated: 2026-11-16
+
+This page is the component overview for =compass.docs=, a simple component
+in the domain layer of the
+[[id:8A9A460F-8024-4890-B091-C0D02FD84218][System Model]].
+
+* Summary
+
+=compass.docs= runs the ORE Studio gates that read its org documents and the
+plain files of the repository, and no model and no source language. Each
+gate was a script that walked the tree and read every page again; here a
+gate that judges one page at a time is a document codec, so an edit re-runs
+it for that page alone, and a gate that relates pages is a corpus codec
+over the parsed corpus.
+
+The ports follow their scripts rule for rule. Where a script reads a page
+as text with a regular expression, the codec applies the same expression to
+the page's source, which the corpus holds already, because the parse would
+decide differently on an indented block or a heading inside one. Where the
+script parses the page, as =org-links= does through Emacs, the codec reads
+the parsed tables.
+
+* Inputs
+
+- The documents of the corpus, every one whether it has a type or not:
+  their paths, sources and =compass.org= tables.
+- The files of the checkout, through =types::corpus_view=, for the gates
+  that read the tree's listing or a file that is not a document.
+
+* Outputs
+
+- *=org_links=.* ORE Studio's =org-links= gate
+  (=projects/ores.lisp/src/ores-check-org-links.el=). A document codec over
+  every page outside a =.packages=, =vcpkg=, =build= or =tmp= directory or
+  =.claude/worktrees=. Rule =colon_link=: a bracket link whose raw target
+  begins with a colon, which no link type does; it is what a verbatim span
+  closed early leaves behind, as in =[[:space:]]=. The script parses only
+  pages that hold =[[:=; here every page's parse is in the corpus already.
+- *=heading_numbers=.* =heading-numbers=
+  (=build/scripts/check_heading_numbers.py=). A document codec over every
+  page under =doc/= or =projects/= outside =build=, =external=, =venv=,
+  =node_modules=, =.git= and =.cache= directories, read line by line as
+  =str.splitlines(keepends=True)= splits it, with the script's count of
+  open blocks. Rule =numbered_heading=: a heading outside a block whose
+  title starts with a number such as =2.1.= or =3)=. Rule
+  =unreadable_document=: a page that is not UTF-8, which the script fails
+  on.
+- *=pattern_uses=.* =pattern-uses= (=build/scripts/check_pattern_uses.py=).
+  A corpus codec over the UTF-8 pages under =doc/= or =projects/=, outside
+  =build= and =vcpkg=, that have an =:ID:= line. A service architecture
+  pattern lists its uses in its =In ORE Studio= section and a use lists its
+  patterns under =Patterns used=, both as =id:= links. Rules =unknown_use=,
+  =one_way=, =not_a_pattern= and =shared_id=; a use under =doc/plans/=,
+  =doc/knowledge/external/= or =doc/agile/= need not link back.
+- *=component_docs=.* =component-docs=
+  (=projects/ores.codegen/validate_docs.py=). Every component
+  =projects/ores.*= and every part with =include/= and =src/= has a
+  =modeling/component_overview.org= with an =:ID:=, =#+type: component=, a
+  =#+description:= and the six sections, and a =.puml= beside it; no
+  top-level name extends another's; no page under =doc/= holds a bare
+  bracket link inside one backtick span. The directories come from the
+  listing of the checkout, so a directory that holds no tracked file is not
+  one. The =exceptions= option names the script's own file of =CODE
+  component= lines, which stays as data: it excuses a rule for a
+  component, and a component that lacks an overview has no file for an
+  inline exception to sit in.
+- *=shell_recipe_provenance=.* The CI gate =shell-recipe-provenance=
+  (=projects/ores.codegen/scripts/check_shell_recipe_sources.py=). Rule
+  =orphan_recipe=: a recipe one directory under
+  =projects/ores.shell/scripts/library/= whose =# GENERATED from ...= line
+  is missing or names no file, =..= going up only from a directory that
+  exists, as the operating system resolves it.
+- *=skill_namespace=.* =skill-namespace=
+  (=rename_skills_to_compass_namespace.py --check=). Rule
+  =outside_namespace=: a skill directory under =doc/llm/skills= not named
+  =compass-...=.
+- *=no_pr_triggers=.* =no-pr-triggers= (=check_no_pr_triggers.py=). Rule
+  =pull_request_trigger=: a line of a workflow directly under
+  =.github/workflows= that is =pull_request:= indented by exactly two
+  spaces and is not a comment; =pull_request_review= and a deeper key are
+  other things. Rule =no_workflows=: there is no workflow file.
+- *=prototypes=.* =prototypes= (=check_prototype_inventory.py=). The
+  prototypes under =doc/prototypes/<group>/<name>/=, the group pages and
+  the top page agree; each review directory has its index and each row its
+  review cell; the site build deploys what it finds; the files the
+  =trades= and =conventions= groups share by copy, which the script lists
+  in code, are identical; the retired React prototype tree is gone.
+- *=rule_identifiers=.* =rule-identifiers= (=check_rule_identifiers.py=).
+  The two UX pages key the bullets of the level-two sections the script
+  lists in code, each with one identifier of the page's code; the screen
+  review checklist cites only identifiers a page carries, with two digits,
+  or a page that has none yet. The pages and their section codes are the
+  script's own table, kept in the codec.
+
+* Entry points
+
+| Path                                         | Role                                                         |
+|----------------------------------------------+--------------------------------------------------------------|
+| =include/compass.docs/codecs/catalogue.hpp=  | The codecs this component ships.                             |
+| =include/compass.docs/codecs/<gate>.hpp=     | One header for each codec, named after it.                   |
+| =tests/test_tree.hpp=                        | Runs one codec over a checkout held in memory, pages parsed. |
+
+| Target               | Kind                                      |
+|----------------------+-------------------------------------------|
+| =compass.docs.lib=   | Library.                                  |
+| =compass.docs.tests= | Catch2 executable, registered with CTest. |
+
+* Dependencies
+
+- =compass.codec= for the descriptor, the corpus view the codecs read
+  through and the diagnostic table they fill.
+- =compass.org= for the tables of a parsed page.
+- =compass.cpp= for its text helpers: Python's lines, spaces and pathlib
+  order, and the finding on a byte of a file.
+- =compass.platform= for regular expressions and Python's decoding.
+- The C++23 standard library.
+- =compass.ingest=, =compass.store= and Catch2, for the tests only.
+
+* See also
+
+- [[id:4663A0BD-D73A-4C9F-9956-411BCE5E76A8][compass.crosscheck]] --- the gates
+  that read models with the code beside them.
+- [[id:995ECC12-860C-4009-B9A2-8CA1A6102BD6][compass.codec]] --- the runtime the
+  codecs run in.
+- [[id:AFF665C4-739C-4BDB-93BD-9D547351AE4F][Investigation: ORE Studio gate classification]]
+  --- the gates and their baseline times.

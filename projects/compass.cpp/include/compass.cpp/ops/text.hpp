@@ -97,6 +97,13 @@ namespace compass::cpp::ops {
     std::string_view text);
 
 /**
+ * @brief The lines of @p text as str.splitlines(keepends=True) gives
+ * them: each with its separator, views into @p text.
+ */
+[[nodiscard]] std::vector<std::string_view> split_lines_keeping_ends(
+    std::string_view text);
+
+/**
  * @brief @p text without the spaces at either end, as str.strip() leaves
  * it.
  */

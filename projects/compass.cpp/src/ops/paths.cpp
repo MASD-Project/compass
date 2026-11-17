@@ -83,6 +83,48 @@ bool component_less(std::string_view a, std::string_view b) noexcept {
     }
 }
 
+namespace {
+
+bool name_matches(std::string_view pattern, std::string_view name) {
+    if (pattern.empty())
+        return name.empty();
+    if (pattern[0] == '*') {
+        for (std::size_t i = 0; i <= name.size(); ++i) {
+            if (name_matches(pattern.substr(1), name.substr(i)))
+                return true;
+        }
+        return false;
+    }
+    if (name.empty())
+        return false;
+    if (pattern[0] != '?' && pattern[0] != name[0])
+        return false;
+    return name_matches(pattern.substr(1), name.substr(1));
+}
+
+bool parts_match(std::span<const std::string_view> pattern,
+    std::span<const std::string_view> path) {
+    if (pattern.empty())
+        return path.empty();
+    if (pattern[0] == "**") {
+        for (std::size_t i = 0; i < path.size(); ++i) {
+            if (parts_match(pattern.subspan(1), path.subspan(i)))
+                return true;
+        }
+        return false;
+    }
+    return !path.empty() && name_matches(pattern[0], path[0]) &&
+        parts_match(pattern.subspan(1), path.subspan(1));
+}
+
+}
+
+bool glob_matches(std::string_view pattern, std::string_view path) {
+    const auto p = components_of(pattern);
+    const auto f = components_of(path);
+    return parts_match(p, f);
+}
+
 bool file_set::is_file(std::string_view path) const noexcept {
     return std::ranges::binary_search(paths_, path);
 }

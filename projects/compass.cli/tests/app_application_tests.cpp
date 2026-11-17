@@ -27,6 +27,8 @@
 #include <catch2/matchers/catch_matchers_string.hpp>
 #include "compass.cli/app/codecs.hpp"
 #include "compass.cpp/codecs/catalogue.hpp"
+#include "compass.crosscheck/codecs/catalogue.hpp"
+#include "compass.docs/codecs/catalogue.hpp"
 #include "compass.sql/codecs/catalogue.hpp"
 #include "scoped_git_repo.hpp"
 
@@ -52,7 +54,7 @@ std::string units_run(std::string_view name, int ran) {
 }
 
 /**
- * @brief The config lines of the C++ and SQL gate codecs, all off and
+ * @brief The config lines of the C++, SQL, cross-artefact and document gate codecs, all off and
  * every option at its default.
  */
 std::string gate_defaults() {
@@ -67,6 +69,8 @@ std::string gate_defaults() {
     };
     add(compass::cpp::codecs::catalogue());
     add(compass::sql::codecs::catalogue());
+    add(compass::crosscheck::codecs::catalogue());
+    add(compass::docs::codecs::catalogue());
     return out;
 }
 
