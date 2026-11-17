@@ -26,11 +26,11 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-17                               |
 
 * Acceptance
@@ -62,7 +62,7 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-| Install test | links =compass-ng=, removes an old link of ours, leaves a foreign =compass= alone; fails if the link is named =compass= | =ctest -R compass.cli.install= | this branch |
+| Install test | links =compass-ng=, removes an old link of ours, leaves a foreign =compass= alone; fails if the link is named =compass= | =ctest -R compass.cli.install= | 6eb2375 |
 
 * Notes
 
