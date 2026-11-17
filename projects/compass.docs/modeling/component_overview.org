@@ -169,7 +169,8 @@ reading the file they write.
 |----------------------------------------------+--------------------------------------------------------------|
 | =include/compass.docs/codecs/catalogue.hpp=  | The codecs this component ships.                             |
 | =include/compass.docs/codecs/<gate>.hpp=     | One header for each codec, named after it.                   |
-| =tests/test_tree.hpp=                        | Runs one codec over a checkout held in memory, pages parsed. |
+| =include/compass.docs/ops/regions.hpp=       | Replacing a generated region between two markers.            |
+| =tests/test_tree.hpp=                        | Runs one codec over a checkout held in memory, pages parsed; =generate= returns the files it writes. |
 
 | Target               | Kind                                      |
 |----------------------+-------------------------------------------|
