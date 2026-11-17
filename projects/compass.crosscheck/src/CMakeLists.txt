@@ -46,6 +46,7 @@ add_library(${lib_target_name}
     ops/csv.cpp
     ops/curve_wiring.cpp
     ops/md5.cpp
+    ops/projection_columns.cpp
     ops/python_numbers.cpp
     ops/python_literals.cpp
     ops/words.cpp)

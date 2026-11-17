@@ -22,9 +22,9 @@
 #include <string>
 #include <string_view>
 #include "compass.codec/types/corpus_view.hpp"
-#include "compass.cpp/ops/text.hpp"
 #include "compass.crosscheck/codecs/curve_sections_wiring.hpp"
 #include "compass.crosscheck/ops/curve_wiring.hpp"
+#include "compass.crosscheck/ops/projection_columns.hpp"
 
 namespace compass::crosscheck::codecs {
 
@@ -133,13 +133,6 @@ do $$
 begin
 )SQL";
 
-struct column {
-    std::string entity;
-    std::string column;
-    std::string table;
-    std::string xpath;
-};
-
 std::string q(std::string_view value) {
     std::string out = "'";
     for (const char c : value) {
@@ -150,40 +143,12 @@ std::string q(std::string_view value) {
     return out + "'";
 }
 
-/**
- * @brief The :tablename: line of the entity's model, as the script reads
- * it, or nothing where the script raises.
- */
-std::optional<std::string> table_of(const ct::corpus_view& v,
-    std::string_view entity) {
-    const auto text = v.read_file("projects/ores.refdata/modeling/"
-        "ores.refdata." + std::string(entity) + ".org");
-    if (!text)
-        return std::nullopt;
-    std::string_view rest(*text);
-    while (!rest.empty()) {
-        const auto end = rest.find('\n');
-        auto line = rest.substr(0, end);
-        rest = end == std::string_view::npos ? std::string_view{}
-            : rest.substr(end + 1);
-        if (!line.starts_with(":tablename:"))
-            continue;
-        line.remove_prefix(line.find(':', 1) + 1);
-        while (!line.empty() && compass::cpp::ops::is_space(line.front()))
-            line.remove_prefix(1);
-        while (!line.empty() && compass::cpp::ops::is_space(line.back()))
-            line.remove_suffix(1);
-        return std::string(line);
-    }
-    return std::nullopt;
-}
-
-std::string render_map(const std::map<std::string, column>& found) {
+std::string render_map(const std::vector<ops::projection_column>& found) {
     std::string values;
-    for (const auto& [code, c] : found) {
+    for (const auto& c : found) {
         if (!values.empty())
             values += ",\n";
-        values += "    (" + q(code) + ", ores_utility_system_tenant_id_fn(), 0, " +
+        values += "    (" + q(c.code) + ", ores_utility_system_tenant_id_fn(), 0, " +
             q(c.entity) + ", " + q(c.column) + ", " + q(c.table) + ", " +
             q(cw::schema_name) + ", " + q(c.xpath) +
             ", 'ores_refdata_service', 'system.initial_load', " +
@@ -248,35 +213,13 @@ std::string render_drop(const std::map<std::string, std::string>& tables) {
 }
 
 void run(const ct::corpus_view& v, ct::file_table& out) {
-    const auto projection = v.read_file(cw::projection_path);
-    const auto schema = v.read_file(cw::schema_path);
-    if (!projection || !schema)
+    const auto found = ops::curve_columns(v);
+    if (!found)
         return;
-    const auto declared = cw::leaves_of_schema(*schema);
-    if (!declared)
-        return;
-    const auto wired = cw::wiring(*projection, *declared);
-    if (!wired || !wired->problems.empty())
-        return;
-    std::map<std::string, column> found;
-    std::map<std::string, std::string> entity_of;
-    for (const auto& s : wired->sections)
-        for (const auto& p : s.parameters) {
-            if (p.entity == cw::definition_entity)
-                continue;
-            auto table = table_of(v, p.entity);
-            if (!table)
-                return;
-            if (entity_of.try_emplace(*table, p.entity).first->second !=
-                p.entity)
-                return;
-            found.insert_or_assign(p.entity + "|" + p.column,
-                column{p.entity, p.column, *table, "/" + p.xpath});
-        }
     std::map<std::string, std::string> tables;
-    for (const auto& [code, c] : found)
+    for (const auto& c : *found)
         tables.insert_or_assign(c.table, c.entity);
-    out.add(map_path, render_map(found));
+    out.add(map_path, render_map(*found));
     out.add(guard_path, render_guard(tables));
     out.add(drop_path, render_drop(tables));
 }
