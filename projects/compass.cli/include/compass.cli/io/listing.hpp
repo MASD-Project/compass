@@ -33,8 +33,8 @@ namespace compass::cli::io {
  * @brief The files of @p checkout, relative to it, in byte order, each
  * once: every tracked path and every untracked path no ignore rule
  * covers, as `git ls-files -z --cached --others --exclude-standard` lists
- * them. A tracked file deleted from the worktree is listed; reading it
- * fails.
+ * them, less the tracked files deleted from the worktree, so a codec
+ * lists what a script globbing the disk finds.
  *
  * @throws std::system_error when git cannot be started, and
  * std::runtime_error when it fails.

@@ -90,14 +90,27 @@ bool is_plain_file(const std::filesystem::path& path) {
 }
 
 std::vector<std::string> list_files(const std::filesystem::path& checkout) {
-    const auto raw = run_git(checkout,
-        {"ls-files", "-z", "--cached", "--others", "--exclude-standard"});
+    // -t tags each path; a tracked file deleted from the worktree is
+    // listed once more under R and is dropped, so the listing is the disk.
+    const auto raw = run_git(checkout, {"ls-files", "-z", "-t", "--cached",
+        "--others", "--deleted", "--exclude-standard"});
     std::vector<std::string> out;
-    for (const auto path : fields_of(raw))
-        out.emplace_back(path);
+    std::vector<std::string_view> deleted;
+    for (const auto field : fields_of(raw)) {
+        if (field.size() < 2)
+            continue;
+        if (field.front() == 'R')
+            deleted.push_back(field.substr(2));
+        else
+            out.emplace_back(field.substr(2));
+    }
+    std::ranges::sort(deleted);
     // git lists a path with conflicts once per stage.
     std::ranges::sort(out);
     out.erase(std::unique(out.begin(), out.end()), out.end());
+    std::erase_if(out, [&](const std::string& path) {
+        return std::ranges::binary_search(deleted, path);
+    });
     return out;
 }
 
