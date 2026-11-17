@@ -97,9 +97,11 @@ public:
         return reader_.find;
     }
 
+    // Documents are .org files, so only those are listed and a new file
+    // of another kind changes no listing a model depends on.
     [[nodiscard]] mops::document_lister lister() const {
         return [&reader = reader_](std::string_view prefix) {
-            return reader.list(prefix, {});
+            return reader.list(prefix, ".org");
         };
     }
 
