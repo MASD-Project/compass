@@ -19,25 +19,37 @@
  */
 #include "compass.cpp/codecs/forward_declarable_includes.hpp"
 
+#include <array>
 #include <catch2/catch_test_macros.hpp>
 #include "test_checkout.hpp"
 
 namespace {
 
 using namespace compass::cpp;
+namespace ct = compass::codec::types;
 using tests::files;
 using place = std::pair<std::string, std::uint32_t>;
 using places = std::vector<place>;
 
+constexpr std::string_view both_types =
+    "ores::db::pq::context;class;ores.db/pq/context.hpp;"
+    "ores.db/pq/context_fwd.hpp,"
+    "ores::db::pool;struct;ores.db/pool.hpp;-";
+
+/**
+ * @brief The codec with its types option defaulting to @p types.
+ */
+ct::descriptor listing(std::string_view types) {
+    static std::vector<std::unique_ptr<std::array<ct::option, 1>>> kept;
+    auto d = codecs::forward_declarable_includes;
+    kept.push_back(std::make_unique<std::array<ct::option, 1>>(
+        std::array<ct::option, 1>{{{"types", types, ""}}}));
+    d.options = *kept.back();
+    return d;
+}
+
 files tree() {
     return {
-        {"build/scripts/forward_declarable_types.list",
-         "# name keyword defining forwarding\n"
-         "ores::db::pq::context class ores.db/pq/context.hpp "
-         "ores.db/pq/context_fwd.hpp\n"
-         "ores::db::pool struct ores.db/pool.hpp -\n"},
-        {"build/scripts/forward_declarable_includes.baseline",
-         "ores::db::pool:projects/ores.x/include/ores.x/pointer.hpp\n"},
         {"projects/ores.db/include/ores.db/pq/context.hpp",
          "namespace ores::db::pq { class context { int x; }; }\n"},
         {"projects/ores.x/include/ores.x/pointer.hpp",
@@ -55,6 +67,10 @@ files tree() {
         {"projects/ores.x/include/ores.x/comment.hpp",
          "#include \"ores.db/pq/context.hpp\"\n"
          "// pq::context* in a comment\n"},
+        {"projects/ores.x/include/ores.x/literal.hpp",
+         "#include \"ores.db/pq/context.hpp\"\n"
+         "void f(pq::context* c);\n"
+         "const char* s = \"pq::context value;\";\n"},
         {"projects/ores.x/include/ores.x/opened.hpp",
          "#include \"ores.db/pool.hpp\"\n"
          "namespace ores::db {\n"
@@ -68,31 +84,31 @@ files tree() {
 }
 
 TEST_CASE("a header that includes a definition it only names is reported "
-    "on the include, baseline or not",
-    "[codecs][forward_declarable_includes]") {
-    const auto r = tests::run(codecs::forward_declarable_includes, tree());
+    "on the include", "[codecs][forward_declarable_includes]") {
+    const auto r = tests::run(listing(both_types), tree());
     CHECK(tests::places(r.findings) == places{
+        {"projects/ores.x/include/ores.x/literal.hpp", 1},
         {"projects/ores.x/include/ores.x/opened.hpp", 1},
         {"projects/ores.x/include/ores.x/pointer.hpp", 2},
         {"projects/ores.x/include/ores.x/pointer.hpp", 3}});
 }
 
-TEST_CASE("an empty type list turns the guard off, which is reported",
-    "[codecs][forward_declarable_includes]") {
-    auto t = tree();
-    t["build/scripts/forward_declarable_types.list"] = "# nothing\n";
-    CHECK(tests::places(tests::run(codecs::forward_declarable_includes,
-        t).findings) == places{
-        {"build/scripts/forward_declarable_types.list", 1}});
+TEST_CASE("an empty or malformed type list is reported, as it turns the "
+    "guard off", "[codecs][forward_declarable_includes]") {
+    CHECK(tests::places(tests::run(listing(""), tree()).findings) ==
+        places{{".compass.org", 0}});
+    const auto r = tests::run(listing("ores::db::pool;union;a.hpp;-"),
+        tree());
+    REQUIRE(r.findings.size() == 1);
+    CHECK(std::get<2>(r.findings[0]).find("must be class or struct") !=
+        std::string::npos);
 }
 
-TEST_CASE("an edit to the type list or to one header changes only what "
-    "they decide", "[codecs][forward_declarable_includes]") {
-    auto unlisted = tree();
-    unlisted["build/scripts/forward_declarable_types.list"] =
-        "ores::db::pool struct ores.db/pool.hpp -\n";
-    CHECK(tests::places(tests::run_after_edit(
-        codecs::forward_declarable_includes, tree(), unlisted).findings) ==
+TEST_CASE("the types are an option, so a header is decided alone and an "
+    "edit to one changes only its findings",
+    "[codecs][forward_declarable_includes]") {
+    CHECK(tests::places(tests::run(listing("ores::db::pool;struct;"
+        "ores.db/pool.hpp;-"), tree()).findings) ==
         places{{"projects/ores.x/include/ores.x/opened.hpp", 1},
             {"projects/ores.x/include/ores.x/pointer.hpp", 3}});
 
@@ -100,10 +116,21 @@ TEST_CASE("an edit to the type list or to one header changes only what "
     edited["projects/ores.x/include/ores.x/value.hpp"] =
         "#include \"ores.db/pq/context.hpp\"\n"
         "void f(pq::context* c);\n";
-    CHECK(tests::places(tests::run_after_edit(
-        codecs::forward_declarable_includes, tree(), edited).findings) ==
-        places{{"projects/ores.x/include/ores.x/opened.hpp", 1},
+    CHECK(tests::places(tests::run_after_edit(listing(both_types), tree(),
+        edited).findings) == places{
+            {"projects/ores.x/include/ores.x/literal.hpp", 1},
+            {"projects/ores.x/include/ores.x/opened.hpp", 1},
             {"projects/ores.x/include/ores.x/pointer.hpp", 2},
             {"projects/ores.x/include/ores.x/pointer.hpp", 3},
             {"projects/ores.x/include/ores.x/value.hpp", 1}});
+}
+
+TEST_CASE("ORE Studio's six types are the default",
+    "[codecs][forward_declarable_includes]") {
+    const auto r = tests::run(codecs::forward_declarable_includes, {
+        {"projects/ores.a/include/ores.a/x.hpp",
+         "#include <ores.database/pq/pool.hpp>\n"
+         "void f(ores::database::pq::pool& p);\n"}});
+    CHECK(tests::places(r.findings) == places{
+        {"projects/ores.a/include/ores.a/x.hpp", 1}});
 }

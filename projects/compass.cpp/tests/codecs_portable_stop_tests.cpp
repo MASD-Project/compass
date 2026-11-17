@@ -56,10 +56,15 @@ TEST_CASE("a stop type outside ores.platform is reported on its line",
         {"projects/ores.comms/include/ores.comms/a.hxx", 1}});
 }
 
-TEST_CASE("an invalid byte is dropped, as errors=\"ignore\" drops it",
-    "[codecs][portable_stop]") {
-    const files t{{"projects/ores.a/src/a.cpp", "std::j\xfft" "hread w;\n"}};
-    CHECK(tests::run(codecs::portable_stop, t).findings.size() == 1);
+TEST_CASE("a character literal hides no code and an #if 0 branch is not "
+    "code", "[codecs][portable_stop]") {
+    const files t{{"projects/ores.a/src/a.cpp",
+        "char q = '\"'; std::jthread a; auto s = \"x\";\n"
+        "std :: stop_source b;\n"
+        "#if 0\nstd::jthread dead;\n#endif\n"}};
+    CHECK(tests::places(tests::run(codecs::portable_stop, t).findings) ==
+        places{{"projects/ores.a/src/a.cpp", 1},
+            {"projects/ores.a/src/a.cpp", 2}});
 }
 
 TEST_CASE("after an edit the unedited files keep their findings and the "

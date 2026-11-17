@@ -95,3 +95,13 @@ TEST_CASE("a generated command unit no application source registers is "
         {"projects/ores.shell/refdata/include/ores.shell/app/commands/"
          "refdata/books_commands.hpp", 1}});
 }
+
+TEST_CASE("a root command in a comment owns no name",
+    "[codecs][shell_menus]") {
+    auto all = tree();
+    all["projects/ores.shell/refdata/src/quit.cpp"] =
+        "// root_menu.Insert(\"quit\", quit);\n"
+        "/* root_menu.Insert(\"exit\", quit); */\n";
+    CHECK(tests::places(tests::run(codecs::shell_menus, all).findings) ==
+        tests::places(tests::run(codecs::shell_menus, tree()).findings));
+}

@@ -27,8 +27,10 @@
 #include <string>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.cpp/ops/lexer.hpp"
 #include "compass.cpp/ops/paths.hpp"
 #include "compass.cpp/ops/report.hpp"
+#include "compass.cpp/ops/source_model.hpp"
 #include "compass.platform/text/decoding.hpp"
 #include "compass.platform/text/regex.hpp"
 
@@ -68,8 +70,7 @@ constexpr std::array<ct::option, 3> options{{
 
 constexpr std::size_t budget = 1;
 constexpr std::array<std::string_view, 3> suffixes{".cpp", ".hpp", ".inc"};
-constexpr std::string_view reflecting_header =
-    "\"conventions_family_pack.hpp\"";
+constexpr std::string_view reflecting_header = "conventions_family_pack.hpp";
 
 std::vector<std::string_view> split(std::string_view list) {
     std::vector<std::string_view> out;
@@ -103,30 +104,37 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
     }
 
     const auto registry = v.read_file(v.option("registry"));
-    std::set<std::string> names;
+    std::set<std::string, std::less<>> names;
     if (registry) {
         for (const auto& m : domain_type.find_all(*registry))
             names.emplace(m.group(1));
     }
-    std::vector<pt::regex> families;
-    for (const auto& name : names)
-        families.emplace_back(R"((?<![A-Za-z0-9_])domain::)" +
-            pt::escape(name) + R"((?![A-Za-z0-9_]))");
-
     std::map<std::string, std::size_t, std::less<>> counts;
     for (const auto scope : split(v.option("scopes"))) {
         const auto base = std::string(scope) + "/";
         for (const auto suffix : suffixes) {
             for (const auto p : v.list_files(base, suffix)) {
-                const auto text = pt::decode_replacing(
-                    v.read_file(p).value_or(""));
-                if (text.find(reflecting_header) == std::string::npos)
+                const auto bytes = v.read_file(p).value_or("");
+                if (bytes.find(reflecting_header) == std::string::npos)
                     continue;
-                const auto n = static_cast<std::size_t>(std::ranges::count_if(
-                    families, [&](const auto& f) {
-                        return f.search(text).has_value(); }));
-                if (n > 0)
-                    counts[std::string(p)] = n;
+                const auto lexed = ops::lex(bytes);
+                const auto model = ops::model_of(bytes, lexed,
+                    ops::model_parts::names);
+                if (std::ranges::none_of(model.includes, [](const auto& i) {
+                        return !i.angled &&
+                            i.target.ends_with(reflecting_header); }))
+                    continue;
+                std::set<std::string_view> named;
+                for (const auto& n : model.names) {
+                    const auto parts = ops::components_of_name(n.text);
+                    for (std::size_t i = 0; i + 1 < parts.size(); ++i) {
+                        if (parts[i] == "domain" &&
+                            names.contains(parts[i + 1]))
+                            named.insert(parts[i + 1]);
+                    }
+                }
+                if (!named.empty())
+                    counts[std::string(p)] = named.size();
             }
         }
     }

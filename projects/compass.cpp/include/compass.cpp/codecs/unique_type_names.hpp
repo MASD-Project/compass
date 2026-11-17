@@ -29,8 +29,8 @@ namespace compass::cpp::codecs {
  * of the same name in one namespace.
  *
  * Reads every .hpp under an include or tests directory of projects/ores.*,
- * outside build, with its comments, literals and preprocessor lines
- * blanked, and collects the qualified name of each class or struct defined
+ * outside build, through the declaration model, and collects the
+ * qualified name of each class, struct, union or scoped enum defined
  * directly in named namespaces. A header under include can meet any other;
  * a test header meets the headers of its own tests directory. Rule
  * type_defined_twice: two headers that can meet in one binary define the

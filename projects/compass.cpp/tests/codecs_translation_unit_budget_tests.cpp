@@ -67,3 +67,22 @@ TEST_CASE("a unit over its budget and a ceiling above its unit are "
         {"projects/ores.ore/core/src/domain/"
          "conventions_family_cross_currency_fix_float.cpp", 0}});
 }
+
+TEST_CASE("a family named in a comment or a literal, or a pack included "
+    "in a comment, does not count", "[codecs][translation_unit_budget]") {
+    auto t = tree();
+    t["projects/ores.ore/core/src/domain/two.cpp"] =
+        "#include \"conventions_family_pack.hpp\"\n"
+        "domain::swap a; // domain::fra b;\nauto s = \"domain::ois\";\n";
+    t["projects/ores.ore/core/src/domain/quiet.cpp"] =
+        "// #include \"conventions_family_pack.hpp\"\n"
+        "domain::swap a; domain::fra b;\n";
+    const auto r = tests::run(codecs::translation_unit_budget, t);
+    CHECK(tests::places(r.findings) == places{
+        {"projects/ores.ore/core/src/domain/"
+         "conventions_family_commodity_future.cpp", 1},
+        {"projects/ores.ore/core/src/domain/"
+         "conventions_family_cross_currency_basis.cpp", 0},
+        {"projects/ores.ore/core/src/domain/"
+         "conventions_family_cross_currency_fix_float.cpp", 0}});
+}

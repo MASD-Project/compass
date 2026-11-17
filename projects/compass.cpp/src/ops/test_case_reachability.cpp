@@ -23,6 +23,7 @@
 #include <array>
 #include <set>
 #include <utility>
+#include "compass.cpp/ops/lexer.hpp"
 #include "compass.cpp/ops/paths.hpp"
 #include "compass.cpp/ops/text.hpp"
 
@@ -137,52 +138,6 @@ std::size_t string_end(std::string_view text, std::size_t i) noexcept {
     return j;
 }
 
-}
-
-std::string blank_comments_and_literals(std::string_view text) {
-    std::string out(text);
-    const auto n = text.size();
-    const auto blank = [&](std::size_t start, std::size_t stop) {
-        for (auto k = start; k < stop; ++k) {
-            if (text[k] != '\n')
-                out[k] = ' ';
-        }
-    };
-    for (std::size_t i = 0; i < n;) {
-        const auto c = text[i];
-        if (c == '/' && text.substr(i, 2) == "//") {
-            auto stop = text.find('\n', i);
-            stop = stop == std::string_view::npos ? n : stop;
-            blank(i, stop);
-            i = stop;
-        } else if (c == '/' && text.substr(i, 2) == "/*") {
-            auto stop = text.find("*/", i + 2);
-            stop = stop == std::string_view::npos ? n : stop + 2;
-            blank(i, stop);
-            i = stop;
-        } else if (c == '"' && i > 0 && text[i - 1] == 'R') {
-            const auto open_paren = text.find('(', i);
-            if (open_paren == std::string_view::npos) {
-                blank(i, n);
-                i = n;
-                continue;
-            }
-            const auto stop = raw_string_end(text, i, open_paren);
-            blank(i, stop);
-            i = stop;
-        } else if (c == '"') {
-            const auto j = string_end(text, i);
-            blank(i, std::min(j + 1, n));
-            i = j + 1;
-        } else if (c == '\'' && closes_char_literal(text, i)) {
-            const auto j = text.find('\'', i + 1);
-            blank(i, j + 1);
-            i = j + 1;
-        } else {
-            ++i;
-        }
-    }
-    return out;
 }
 
 namespace {
@@ -337,20 +292,32 @@ bool is_test_source(std::string_view path) {
 }
 
 scan_result scan_source(std::string_view text) {
-    const auto spliced = unsplice(text);
-    const auto blanked = blank_comments_and_literals(spliced.text);
-    std::vector<std::pair<std::uint32_t, std::string_view>> logical;
-    const std::string_view view(blanked);
-    std::size_t start = 0;
-    for (std::size_t offset = 0; offset < view.size(); ++offset) {
-        if (view[offset] == '\n') {
-            logical.emplace_back(spliced.lines[start],
-                view.substr(start, offset - start));
-            start = offset + 1;
+    const auto l = lex(text);
+    std::vector<std::pair<std::uint32_t, std::string>> logical;
+    std::string current;
+    std::uint32_t line = 1;
+    std::uint32_t first = 1;
+    std::size_t splice = 0;
+    for (std::size_t i = 0; i < l.code.size(); ++i) {
+        const char c = l.code[i];
+        if (c != '\n') {
+            current.push_back(c);
+            continue;
         }
+        ++line;
+        if (splice < l.splices.size() && l.splices[splice] == i) {
+            ++splice;
+            current.pop_back();
+            if (i >= 2 && text[i - 1] == '\r')
+                current.pop_back();
+            continue;
+        }
+        logical.emplace_back(first, std::move(current));
+        current.clear();
+        first = line;
     }
-    if (start < view.size())
-        logical.emplace_back(spliced.lines[start], view.substr(start));
+    if (!current.empty())
+        logical.emplace_back(first, std::move(current));
 
     name_set names(test_macros.begin(), test_macros.end());
     const name_set macros_only = names;
@@ -393,7 +360,8 @@ scan_result scan_source(std::string_view text) {
     for (const auto& [line, opened] : open)
         r.problems.push_back({line, opened,
             reading_problem::unclosed_conditional});
-    if (const auto moved = raw_string_moved(text, spliced); moved != 0)
+    if (const auto moved = raw_string_moved(text, unsplice(text));
+        moved != 0)
         r.problems.push_back({moved, at(moved),
             reading_problem::raw_string_moves});
     return r;

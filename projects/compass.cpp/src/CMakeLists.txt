@@ -22,7 +22,6 @@ add_library(${lib_target_name}
     codecs/bff_list_requests.cpp
     codecs/catalogue.cpp
     codecs/core_link_edges.cpp
-    codecs/enum_attributes.cpp
     codecs/exported_types.cpp
     codecs/forward_declarable_includes.cpp
     codecs/portable_stop.cpp
@@ -35,11 +34,13 @@ add_library(${lib_target_name}
     codecs/unique_type_names.cpp
     codecs/unity_collisions.cpp
     codecs/xml_family_census.cpp
-    ops/enum_attributes.cpp
+    ops/declarations.cpp
     ops/exported_types.cpp
     ops/glob.cpp
+    ops/lexer.cpp
     ops/paths.cpp
     ops/report.cpp
+    ops/source_model.cpp
     ops/test_case_reachability.cpp
     ops/text.cpp)
 

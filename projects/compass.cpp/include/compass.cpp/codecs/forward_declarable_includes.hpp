@@ -28,19 +28,19 @@ namespace compass::cpp::codecs {
  * @brief ORE Studio's forward-declarable-includes gate: a header that only
  * names a type includes its declaration, not its definition.
  *
- * Reads the types of the list option
- * (build/scripts/forward_declarable_types.list), then every .hpp, .h and
- * .ipp under projects/ outside venv, .venv, node_modules, build and _deps.
- * A header that includes a listed type's defining header, other than that
- * header itself, is scanned with its comments and include lines gone: a
- * use names the type when it follows class, struct or enum class, is
- * followed by * or &, is in a using or typedef, or is an argument of
- * shared_ptr or weak_ptr; any other use, or a call through a reference,
- * pointer or smart pointer that holds it, needs the definition. Rule
+ * Reads every .hpp, .h and .ipp under projects/ outside venv, .venv,
+ * node_modules, build and _deps, and decides each alone against the types
+ * of the types option. A header that includes a listed type's defining
+ * header, other than that header itself, is read from its lexed code with
+ * its comments, literals and include lines blanked: a use names the type
+ * when it follows class, struct or enum class, is followed by * or &, is
+ * in a using or typedef, or is an argument of shared_ptr or weak_ptr; any
+ * other use, or a call through a reference, pointer or smart pointer that
+ * holds it, needs the definition. Rule
  * includes_definition_it_only_names: every use only names the type,
- * reported on the include line. Rule bad_type_list: the list is malformed
- * or empty. The script's baseline is not read: an accepted offender
- * carries an inline exception on its include line.
+ * reported on the include line. Rule bad_type_list: the types option is
+ * malformed or empty. The script's baseline is not read: an accepted
+ * offender carries an inline exception on its include line.
  */
 extern const compass::codec::types::descriptor forward_declarable_includes;
 

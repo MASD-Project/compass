@@ -28,8 +28,10 @@
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.codec/types/fact.hpp"
 #include "compass.cpp/ops/paths.hpp"
 #include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
@@ -191,53 +193,332 @@ const pt::regex& file_local_string() {
 
 std::string str(std::string_view s) { return std::string(s); }
 
+using pairs = std::vector<std::pair<std::string, std::string>>;
+
+/**
+ * @brief A .on( call of a routes table: the subject expression and the
+ * array a for loop over it names, empty when none does; or, when the call
+ * does not close, why.
+ */
+struct route {
+    std::string expr;
+    std::string loop_array;
+    std::string error;
+};
+
+/**
+ * @brief An ensure_stream, serve_step_commands or js_queue_subscribe call
+ * of a file: its line and where that line starts in the file's bytes, its
+ * arguments or why they cannot be read, and for serve_step_commands what
+ * the file alone says of its service and routes: the function around the
+ * call and its parameters, or why there is none, and the routes table's
+ * group and calls, or why it cannot be read.
+ */
+struct call_site {
+    std::string call;
+    std::uint32_t line = 0;
+    std::uint32_t line_offset = 0;
+    std::string error;
+    std::vector<std::string> args;
+    std::string enclosing_error;
+    std::string function;
+    std::vector<std::string> params;
+    std::string routes_error;
+    std::string group;
+    std::vector<route> routes;
+};
+
+/**
+ * @brief What a file that names a stream call, a subject or a string
+ * constant declares, read from its text alone: the fact its map stores.
+ * The reduce resolves names across these and reads no file of the tree,
+ * so an edit that changes none of them leaves the fact as it was.
+ */
+struct declarations {
+    bool header = false;
+    bool constant_header = false;
+    pairs consts;
+    pairs members;
+    pairs local_strings;
+    pairs stream_vars;
+    std::string arrays_error;
+    std::vector<std::pair<std::string, std::vector<std::string>>> arrays;
+    std::vector<call_site> sites;
+};
+
+std::map<std::string, std::vector<std::string>> arrays_of(
+    std::string_view t) {
+    static const pt::regex array_start(
+        R"((?:static\s+)?constexpr\s+)"
+        R"((?:std::array\s*(?:<[^;{}]*>)?|std::string_view|std::string)"
+        R"(|char\s+const\s*\*))"
+        R"(\s*(\w+)\s*(?:\[\s*\])?\s*(?:=\s*)?\{)");
+    std::map<std::string, std::vector<std::string>> found;
+    for (const auto& m : array_start.find_all(t)) {
+        const auto body = "(" + brace_body(t, m.end() - 1) + ")";
+        std::vector<std::string> items;
+        for (const auto& item : split_arguments(body, 0)) {
+            const auto s = ops::strip(item);
+            if (!s.empty())
+                items.emplace_back(s);
+        }
+        found[str(m.group(1))] = std::move(items);
+    }
+    return found;
+}
+
+void read_serve(std::string_view t, std::size_t at, call_site& c) {
+    static const pt::regex head(R"(^([A-Za-z_]\w*(?:::\w+)*)\s*\()",
+        {.multiline = true});
+    static const pt::regex word(R"([A-Za-z_]\w*)");
+    std::optional<pt::regex_match> enclosing;
+    for (auto& m : head.find_all(t)) {
+        if (m.start() < at)
+            enclosing = std::move(m);
+    }
+    try {
+        if (!enclosing)
+            throw unresolved(
+                "the call is not inside a function this check reads");
+        for (const auto& arg : split_arguments(t, enclosing->end() - 1)) {
+            const auto names = word.find_all(arg);
+            if (!names.empty())
+                c.params.emplace_back(names.back().group());
+        }
+        c.function = str(enclosing->group(1));
+        const auto last = c.function.rfind("::");
+        if (last != std::string::npos)
+            c.function = c.function.substr(last + 2);
+    } catch (const unresolved& e) {
+        c.enclosing_error = e.what();
+    }
+
+    if (c.args.size() < 3)
+        return;
+    const auto routes = no_spaces(c.args[2]);
+    if (!identifier().match(routes)) {
+        c.routes_error = "the routes argument is not a table";
+        return;
+    }
+    static const pt::regex step_routes(
+        R"re(step_routes\s+(\w+)\s*(?:\{\s*"([^"]*)"\s*\})?\s*;)re");
+    std::optional<pt::regex_match> declaration;
+    for (auto& m : step_routes.find_all(t)) {
+        if (m.group(1) == routes) {
+            declaration = std::move(m);
+            break;
+        }
+    }
+    if (!declaration) {
+        c.routes_error = "the routes table '" + routes +
+            "' is not declared here";
+        return;
+    }
+    c.group = str(declaration->group(2));
+    const auto serve = t.find("serve_step_commands", declaration->end());
+    const auto region = t.substr(declaration->end(),
+        serve == std::string::npos ? std::string::npos
+            : serve - declaration->end());
+    static const pt::regex on(R"(\.on\s*\()");
+    for (const auto& m : on.find_all(region)) {
+        route r;
+        try {
+            r.expr = std::string(ops::strip(
+                split_arguments(region, m.end() - 1)[0]));
+        } catch (const unresolved& e) {
+            r.error = e.what();
+            c.routes.push_back(std::move(r));
+            return;
+        }
+        const pt::regex loop(R"(for\s*\([^)]*\b)" + pt::escape(r.expr) +
+            R"(\s*:\s*([A-Za-z_]\w*)\s*\))");
+        if (const auto l = loop.search(region))
+            r.loop_array = str(l->group(1));
+        c.routes.push_back(std::move(r));
+    }
+}
+
+constexpr std::array<std::string_view, 4> stream_calls{"ensure_stream",
+    "serve_step_commands", "js_queue_subscribe", "js_queue_subscribe_multi"};
+
+declarations read_declarations(std::string_view path, std::string_view raw,
+    std::string_view bytes) {
+    static const pt::regex type_start(R"((?:struct|class)\s+(\w+)[^;{]*\{)");
+    static const pt::regex member(R"re(nats_subject\s*=\s*"([^"]*)")re");
+    static const pt::regex stream_var(
+        R"re((?:const\s+auto|const\s+std::string|std::string)\s+(\w+)\s*)re"
+        R"re((?:=\s*|\(\s*)nats\.make_stream_name\s*\(\s*"([^"]*)"\s*\))re");
+    declarations d;
+    const auto t = strip_comments(raw);
+    d.header = path.ends_with(".hpp");
+    d.constant_header = d.header &&
+        (raw.find("nats_subject") != std::string_view::npos ||
+            const_re().search(raw));
+    for (const auto& m : const_re().find_all(t))
+        d.consts.emplace_back(m.group(1), m.group(2));
+    if (d.constant_header && t.find("nats_subject") != std::string::npos) {
+        const auto starts = type_start.find_all(t);
+        for (std::size_t i = 0; i < starts.size(); ++i) {
+            const auto end = i + 1 < starts.size() ? starts[i + 1].start()
+                : t.size();
+            const auto region = std::string_view(t).substr(starts[i].end(),
+                end - std::min(end, starts[i].end()));
+            if (const auto m = member.search(region))
+                d.members.emplace_back(starts[i].group(1), m->group(1));
+        }
+    }
+    for (const auto& m : file_local_string().find_all(t))
+        d.local_strings.emplace_back(m.group(1), m.group(2));
+    for (const auto& m : stream_var.find_all(t))
+        d.stream_vars.emplace_back(m.group(1), m.group(2));
+    try {
+        for (auto& [name, items] : arrays_of(t))
+            d.arrays.emplace_back(name, std::move(items));
+    } catch (const unresolved& e) {
+        d.arrays_error = e.what();
+    }
+    for (const auto call : stream_calls) {
+        if (t.find(call) == std::string::npos)
+            continue;
+        for (const auto at : find_call_sites(t, call)) {
+            call_site c;
+            c.call = call;
+            c.line = ops::line_of(t, at);
+            c.line_offset = ops::offset_of_line(bytes, c.line);
+            try {
+                c.args = split_arguments(t, t.find('(', at));
+            } catch (const unresolved& e) {
+                c.error = e.what();
+            }
+            if (call == "serve_step_commands" && c.error.empty())
+                read_serve(t, at, c);
+            d.sites.push_back(std::move(c));
+        }
+    }
+    return d;
+}
+
+void write_pairs(ct::fact_writer& w, const pairs& p) {
+    w.number(static_cast<std::uint32_t>(p.size()));
+    for (const auto& [a, b] : p)
+        w.text(a).text(b);
+}
+
+void write_texts(ct::fact_writer& w, const std::vector<std::string>& t) {
+    w.number(static_cast<std::uint32_t>(t.size()));
+    for (const auto& s : t)
+        w.text(s);
+}
+
+pairs read_pairs(ct::fact_reader& r) {
+    pairs out;
+    for (auto n = r.number(); n > 0; --n) {
+        auto a = str(r.text());
+        out.emplace_back(std::move(a), str(r.text()));
+    }
+    return out;
+}
+
+std::vector<std::string> read_texts(ct::fact_reader& r) {
+    std::vector<std::string> out;
+    for (auto n = r.number(); n > 0; --n)
+        out.emplace_back(r.text());
+    return out;
+}
+
+void write_declarations(ct::fact_writer& w, const declarations& d) {
+    w.number(d.header ? 1 : 0).number(d.constant_header ? 1 : 0);
+    write_pairs(w, d.consts);
+    write_pairs(w, d.members);
+    write_pairs(w, d.local_strings);
+    write_pairs(w, d.stream_vars);
+    w.text(d.arrays_error);
+    w.number(static_cast<std::uint32_t>(d.arrays.size()));
+    for (const auto& [name, items] : d.arrays) {
+        w.text(name);
+        write_texts(w, items);
+    }
+    w.number(static_cast<std::uint32_t>(d.sites.size()));
+    for (const auto& c : d.sites) {
+        w.text(c.call).number(c.line).number(c.line_offset).text(c.error);
+        write_texts(w, c.args);
+        w.text(c.enclosing_error).text(c.function);
+        write_texts(w, c.params);
+        w.text(c.routes_error).text(c.group);
+        w.number(static_cast<std::uint32_t>(c.routes.size()));
+        for (const auto& r : c.routes)
+            w.text(r.expr).text(r.loop_array).text(r.error);
+    }
+}
+
+declarations read_declarations(ct::fact_reader& r) {
+    declarations d;
+    d.header = r.number() != 0;
+    d.constant_header = r.number() != 0;
+    d.consts = read_pairs(r);
+    d.members = read_pairs(r);
+    d.local_strings = read_pairs(r);
+    d.stream_vars = read_pairs(r);
+    d.arrays_error = r.text();
+    for (auto n = r.number(); n > 0; --n) {
+        auto name = str(r.text());
+        d.arrays.emplace_back(std::move(name), read_texts(r));
+    }
+    for (auto n = r.number(); n > 0; --n) {
+        call_site c;
+        c.call = r.text();
+        c.line = r.number();
+        c.line_offset = r.number();
+        c.error = r.text();
+        c.args = read_texts(r);
+        c.enclosing_error = r.text();
+        c.function = r.text();
+        c.params = read_texts(r);
+        c.routes_error = r.text();
+        c.group = r.text();
+        for (auto k = r.number(); k > 0; --k) {
+            route rt;
+            rt.expr = r.text();
+            rt.loop_array = r.text();
+            rt.error = r.text();
+            c.routes.push_back(std::move(rt));
+        }
+        d.sites.push_back(std::move(c));
+    }
+    return d;
+}
+
 /**
  * @brief The string constants, subject members and arrays of the tree, as
- * the script's Tree class reads them.
+ * the script's Tree class reads them, from the declarations of each file.
  */
 class tree final {
 public:
     /**
-     * @pre @p raw holds every file that names a stream, a subject or a
-     * string constant; @p add_callers adds every other file that calls the
-     * function it is given.
+     * @pre @p files holds the declarations of every file that names a
+     * stream, a subject or a string constant; @p callers gives the text
+     * of every file that calls the function it is given, other than the
+     * file named.
      */
-    tree(std::map<std::string, std::string>& raw,
-        std::function<void(std::string_view)> add_callers)
-        : raw_(raw), add_callers_(std::move(add_callers)) {
-        static const pt::regex type_start(R"((?:struct|class)\s+(\w+)[^;{]*\{)");
-        static const pt::regex member(R"re(nats_subject\s*=\s*"([^"]*)")re");
-        for (const auto& [rel, source] : raw_) {
-            if (!rel.ends_with(".hpp"))
+    tree(const std::map<std::string, declarations>& files,
+        std::function<std::vector<std::pair<std::string, std::string>>(
+            std::string_view)> callers)
+        : files_(files), callers_(std::move(callers)) {
+        for (const auto& [rel, d] : files_) {
+            if (!d.constant_header)
                 continue;
-            if (source.find("nats_subject") == std::string::npos &&
-                !const_re().search(source))
-                continue;
-            const auto& t = text(rel);
             auto& consts = file_consts_[rel];
-            for (const auto& m : const_re().find_all(t)) {
-                values_[str(m.group(1))].insert(str(m.group(2)));
-                consts[str(m.group(1))] = str(m.group(2));
+            for (const auto& [name, value] : d.consts) {
+                values_[name].insert(value);
+                consts[name] = value;
             }
-            if (t.find("nats_subject") == std::string::npos)
-                continue;
-            const auto starts = type_start.find_all(t);
-            for (std::size_t i = 0; i < starts.size(); ++i) {
-                const auto end = i + 1 < starts.size() ? starts[i + 1].start()
-                    : t.size();
-                const auto region = std::string_view(t).substr(
-                    starts[i].end(), end - std::min(end, starts[i].end()));
-                if (const auto m = member.search(region))
-                    members_[str(starts[i].group(1))].insert(str(m->group(1)));
-            }
+            for (const auto& [type, value] : d.members)
+                members_[type].insert(value);
         }
     }
 
-    const std::string& text(const std::string& rel) {
-        auto it = stripped_.find(rel);
-        if (it == stripped_.end())
-            it = stripped_.emplace(rel, strip_comments(raw_.at(rel))).first;
-        return it->second;
+    const declarations& of(const std::string& rel) const {
+        return files_.at(rel);
     }
 
     const std::map<std::string, std::string>& file_consts(
@@ -246,8 +527,8 @@ public:
         if (it != file_consts_.end())
             return it->second;
         auto& consts = file_consts_[rel];
-        for (const auto& m : const_re().find_all(text(rel)))
-            consts.try_emplace(str(m.group(1)), str(m.group(2)));
+        for (const auto& [name, value] : of(rel).consts)
+            consts.try_emplace(name, value);
         return consts;
     }
 
@@ -295,9 +576,12 @@ public:
 
     std::vector<std::string> resolve_array(const std::string& name,
         const std::string& rel) {
-        const auto& all = arrays(rel);
-        const auto it = all.find(name);
-        if (it == all.end())
+        const auto& d = of(rel);
+        if (!d.arrays_error.empty())
+            throw unresolved(d.arrays_error);
+        const auto it = std::ranges::find_if(d.arrays,
+            [&](const auto& a) { return a.first == name; });
+        if (it == d.arrays.end())
             throw unresolved("the array '" + name + "' is not declared in " +
                 str(rel.substr(rel.rfind('/') + 1)));
         std::vector<std::string> subjects;
@@ -311,9 +595,6 @@ public:
     std::string stream_suffix(std::string_view raw_expr,
         const std::string& rel) {
         static const pt::regex make(R"re(nats\.make_stream_name\("([^"]*)"\))re");
-        static const pt::regex stream_var(
-            R"re((?:const\s+auto|const\s+std::string|std::string)\s+(\w+)\s*)re"
-            R"re((?:=\s*|\(\s*)nats\.make_stream_name\s*\(\s*"([^"]*)"\s*\))re");
         const auto expr = no_spaces(raw_expr);
         if (const auto m = make.fullmatch(expr))
             return str(m->group(1));
@@ -323,66 +604,45 @@ public:
         const auto& local = file_consts(rel);
         if (const auto it = local.find(expr); it != local.end())
             return it->second;
-        for (const auto& m : stream_var.find_all(text(rel))) {
-            if (m.group(1) == expr)
-                return str(m.group(2));
+        for (const auto& [name, suffix] : of(rel).stream_vars) {
+            if (name == expr)
+                return suffix;
         }
         throw unresolved("the stream name '" + expr +
             "' is not a make_stream_name call this check reads");
     }
 
     std::string service_name(std::string_view raw_expr,
-        const std::string& rel, std::size_t position) {
+        const std::string& rel, const call_site& c) {
         const auto expr = no_spaces(raw_expr);
         if (auto literal = string_literal(expr))
             return *literal;
         if (!identifier().match(expr))
             throw unresolved("the service name '" + expr +
                 "' is not a name this check reads");
-        for (const auto& m : file_local_string().find_all(text(rel))) {
-            if (m.group(1) == expr)
-                return str(m.group(2));
+        for (const auto& [name, value] : of(rel).local_strings) {
+            if (name == expr)
+                return value;
         }
-        return bound_service(expr, rel, position);
+        return bound_service(expr, rel, c);
     }
 
 private:
     std::string bound_service(const std::string& param,
-        const std::string& rel, std::size_t position) {
-        static const pt::regex head(R"(^([A-Za-z_]\w*(?:::\w+)*)\s*\()",
-            {.multiline = true});
-        static const pt::regex word(R"([A-Za-z_]\w*)");
-        const auto& t = text(rel);
-        std::optional<pt::regex_match> enclosing;
-        for (auto& m : head.find_all(t)) {
-            if (m.start() < position)
-                enclosing = std::move(m);
-        }
-        if (!enclosing)
-            throw unresolved(
-                "the call is not inside a function this check reads");
-        std::vector<std::string> params;
-        for (const auto& arg : split_arguments(t, enclosing->end() - 1)) {
-            const auto names = word.find_all(arg);
-            if (!names.empty())
-                params.emplace_back(names.back().group());
-        }
-        auto function = str(enclosing->group(1));
-        function = function.substr(function.rfind("::") == std::string::npos
-            ? 0 : function.rfind("::") + 2);
-        const auto p = std::ranges::find(params, param);
-        if (p == params.end())
+        const std::string& rel, const call_site& c) {
+        if (!c.enclosing_error.empty())
+            throw unresolved(c.enclosing_error);
+        const auto p = std::ranges::find(c.params, param);
+        if (p == c.params.end())
             throw unresolved("'" + param +
                 "' is neither a constant here nor a parameter");
-        const auto index = static_cast<std::size_t>(p - params.begin());
+        const auto index = static_cast<std::size_t>(p - c.params.begin());
         std::set<std::string> found;
-        add_callers_(function);
-        for (const auto& [other_rel, other_text] : raw_) {
-            if (other_text.find(function) == std::string::npos)
+        for (const auto& [other_rel, other_text] : callers_(c.function)) {
+            if (other_rel == rel)
                 continue;
-            for (const auto at : find_call_sites(other_text, function)) {
-                if (other_rel == rel)
-                    continue;
+            std::optional<std::string> stripped;
+            for (const auto at : find_call_sites(other_text, c.function)) {
                 const auto args = split_arguments(other_text,
                     other_text.find('(', at));
                 if (index >= args.size())
@@ -392,8 +652,9 @@ private:
                     continue;
                 }
                 const auto expr = no_spaces(args[index]);
-                for (const auto& m : file_local_string().find_all(
-                         text(other_rel))) {
+                if (!stripped)
+                    stripped = strip_comments(other_text);
+                for (const auto& m : file_local_string().find_all(*stripped)) {
                     if (m.group(1) == expr) {
                         found.insert(str(m.group(2)));
                         break;
@@ -403,43 +664,16 @@ private:
         }
         if (found.size() == 1)
             return *found.begin();
-        throw unresolved("the parameter '" + param + "' of " + function +
+        throw unresolved("the parameter '" + param + "' of " + c.function +
             " resolves to " + (found.empty() ? std::string("nothing")
                 : std::to_string(found.size()) + " values"));
     }
 
-    const std::map<std::string, std::vector<std::string>>& arrays(
-        const std::string& rel) {
-        static const pt::regex array_start(
-            R"((?:static\s+)?constexpr\s+)"
-            R"((?:std::array\s*(?:<[^;{}]*>)?|std::string_view|std::string)"
-            R"(|char\s+const\s*\*))"
-            R"(\s*(\w+)\s*(?:\[\s*\])?\s*(?:=\s*)?\{)");
-        auto it = arrays_.find(rel);
-        if (it != arrays_.end())
-            return it->second;
-        std::map<std::string, std::vector<std::string>> found;
-        const auto& t = text(rel);
-        for (const auto& m : array_start.find_all(t)) {
-            const auto body = "(" + brace_body(t, m.end() - 1) + ")";
-            std::vector<std::string> items;
-            for (const auto& item : split_arguments(body, 0)) {
-                const auto s = ops::strip(item);
-                if (!s.empty())
-                    items.emplace_back(s);
-            }
-            found[str(m.group(1))] = std::move(items);
-        }
-        return arrays_.emplace(rel, std::move(found)).first->second;
-    }
-
-    std::map<std::string, std::string>& raw_;
-    std::function<void(std::string_view)> add_callers_;
-    std::map<std::string, std::string> stripped_;
+    const std::map<std::string, declarations>& files_;
+    std::function<std::vector<std::pair<std::string, std::string>>(
+        std::string_view)> callers_;
     std::map<std::string, std::set<std::string>> values_;
     std::map<std::string, std::set<std::string>> members_;
-    std::map<std::string, std::map<std::string, std::vector<std::string>>>
-        arrays_;
     std::map<std::string, std::map<std::string, std::string>> file_consts_;
 };
 
@@ -542,55 +776,85 @@ std::string decoded(std::string_view bytes) {
 }
 
 /**
- * @brief The fact of a source: + and its decoded text when it names a
- * stream call, a subject member or a string constant; otherwise - and
- * each name it calls on a line of its own, as such a file only matters as
- * a caller of a function whose parameter names a service.
+ * @brief The fact of a source: each name it calls, as the reduce looks for
+ * the callers of a function whose parameter names a service; then, when it
+ * names a stream call, a subject member or a string constant, what it
+ * declares.
  */
-void map(std::string_view, std::string_view bytes, const ct::option_values&,
-    ct::file_scan& out) {
-    static const pt::regex call(R"(\b([A-Za-z_]\w*)\s*\()");
-    auto text = decoded(bytes);
-    const bool named = text.find("nats_subject") != std::string::npos ||
-        text.find("ensure_stream") != std::string::npos ||
-        text.find("serve_step_commands") != std::string::npos ||
-        text.find("js_queue_subscribe") != std::string::npos ||
-        const_re().search(text);
-    if (named) {
-        out.fact = "+" + std::move(text);
-        return;
+/**
+ * @brief Each name of @p text that ( follows, after any spaces: the
+ * matches of \b([A-Za-z_]\w*)\s*\(, a byte of a multi-byte character
+ * counting as a word character.
+ */
+std::set<std::string_view> called_names(std::string_view text) {
+    std::set<std::string_view> out;
+    for (std::size_t i = 0; i < text.size();) {
+        const char c = text[i];
+        if (!ops::is_word(c)) {
+            ++i;
+            continue;
+        }
+        auto end = i + 1;
+        while (end < text.size() && ops::is_word(text[end]))
+            ++end;
+        auto start = i;
+        while (start < end && !((text[start] >= 'A' && text[start] <= 'Z') ||
+                   (text[start] >= 'a' && text[start] <= 'z') ||
+                   text[start] == '_'))
+            ++start;
+        if (start == i && ops::skip_spaces(text, end) < text.size() &&
+            text[ops::skip_spaces(text, end)] == '(')
+            out.insert(text.substr(start, end - start));
+        i = end;
     }
-    std::set<std::string> called;
-    for (const auto& m : call.find_all(text))
-        called.emplace(m.group(1));
-    out.fact = "-\n";
-    for (const auto& c : called)
-        out.fact += c + "\n";
+    return out;
+}
+
+void map(std::string_view path, std::string_view bytes,
+    const ct::option_values&, ct::file_scan& out) {
+    const bool named = bytes.find("nats_subject") != std::string::npos ||
+        std::ranges::any_of(stream_calls, [&](std::string_view c) {
+            return bytes.find(c) != std::string::npos; }) ||
+        (bytes.find("constexpr") != std::string::npos &&
+            const_re().search(decoded(bytes)));
+    const auto text = named || !pt::is_utf8(bytes) ? decoded(bytes)
+        : std::string(bytes);
+    const auto called = called_names(text);
+    ct::fact_writer w(out.fact);
+    w.number(static_cast<std::uint32_t>(called.size()));
+    for (const auto c : called)
+        w.text(c);
+    if (named)
+        write_declarations(w, read_declarations(path, text, bytes));
 }
 
 void reduce(std::span<const ct::scanned_file> files,
     const ct::corpus_view& v, ct::diagnostic_table& out) {
-    std::map<std::string, std::string> raw;
+    std::map<std::string, declarations> named;
+    std::unordered_map<std::string_view, std::set<std::string_view>> calls;
     for (const auto& f : files) {
-        if (f.fact.starts_with('+'))
-            raw.emplace(f.path, f.fact.substr(1));
+        ct::fact_reader r(f.fact);
+        auto& names = calls[f.path];
+        for (auto n = r.number(); n > 0; --n)
+            names.insert(r.text());
+        if (!r.done())
+            named.emplace(f.path, read_declarations(r));
     }
-    tree t(raw, [&](std::string_view function) {
-        const auto line = "\n" + std::string(function) + "\n";
+    tree t(named, [&](std::string_view function) {
+        std::vector<std::pair<std::string, std::string>> callers;
         for (const auto& f : files) {
-            if (f.fact.starts_with('-') &&
-                f.fact.find(line) != std::string_view::npos)
-                raw.emplace(f.path,
+            if (calls[f.path].contains(function))
+                callers.emplace_back(f.path,
                     decoded(v.read_file(f.path).value_or("")));
         }
+        std::ranges::sort(callers);
+        return callers;
     });
     std::map<std::string, stream> streams;
     std::vector<consumer> consumers;
     const auto report = [&](const site& s, std::uint32_t rule,
         const std::string& message, std::string_view fix) {
-        const auto bytes = v.read_file(s.file).value_or("");
-        ops::report(out, s.file, ops::offset_of_line(bytes, s.line), rule,
-            message, fix);
+        ops::report(out, s.file, s.offset, rule, message, fix);
     };
     const auto add_stream = [&](const std::string& suffix,
         std::vector<std::string> filters, const site& where) {
@@ -616,156 +880,113 @@ void reduce(std::span<const ct::scanned_file> files,
     const std::string_view unresolved_fix = "name the stream and subjects "
         "as the check reads them, or teach the check the new form";
 
-    for (const auto& [rel, source] : raw) {
-        const auto& text = t.text(rel);
-        const auto site_at = [&](std::size_t at) {
-            return site{rel, static_cast<std::uint32_t>(at),
-                ops::line_of(text, at)};
-        };
-        if (rel != step_helper) {
-            if (text.find("ensure_stream") != std::string::npos) {
-                for (const auto at : find_call_sites(text, "ensure_stream")) {
-                    const auto where = site_at(at);
-                    try {
-                        const auto args = split_arguments(text,
-                            text.find('(', at));
-                        if (args.size() < 2)
-                            throw unresolved(
-                                "ensure_stream needs a name and a filter");
-                        const auto suffix = t.stream_suffix(args[0], rel);
-                        static const pt::regex head(
-                            R"(^nats\s*\.\s*covering_subjects\s*\()");
-                        static const pt::regex spaces(R"(\s+)");
-                        const auto expr = spaces.substitute(
-                            ops::strip(args[1]), " ");
-                        const auto h = head.search(expr);
-                        if (!h)
-                            throw unresolved("the filter argument '" + expr +
-                                "' is not a covering_subjects call");
-                        const auto inner_args = split_arguments(expr,
-                            h->end() - 1);
-                        if (inner_args.size() != 1)
-                            throw unresolved("covering_subjects takes one "
-                                "argument");
-                        const auto inner = std::string(
-                            ops::strip(inner_args[0]));
-                        std::vector<std::string> subjects;
-                        if (inner.starts_with('{')) {
-                            const auto list = "(" + inner.substr(1,
-                                inner.size() - 2) + ")";
-                            for (const auto& item : split_arguments(list, 0)) {
-                                if (ops::strip(item).empty())
-                                    continue;
-                                for (auto& s : t.resolve(item, rel))
-                                    subjects.push_back(std::move(s));
-                            }
-                        } else if (identifier().match(no_spaces(inner))) {
-                            subjects = t.resolve_array(no_spaces(inner), rel);
-                        } else {
-                            throw unresolved("covering_subjects is given '" +
-                                inner + "', which this check cannot read");
-                        }
-                        if (subjects.empty())
-                            throw unresolved("ensure_stream covers no subject");
-                        add_stream(suffix, covering(subjects), where);
-                    } catch (const unresolved& e) {
-                        report(where, 0, "ensure_stream: " + str(e.what()),
-                            unresolved_fix);
-                    }
-                }
-            }
-            if (text.find("serve_step_commands") != std::string::npos) {
-                for (const auto at :
-                    find_call_sites(text, "serve_step_commands")) {
-                    const auto where = site_at(at);
-                    try {
-                        const auto args = split_arguments(text,
-                            text.find('(', at));
-                        if (args.size() != 3 && args.size() != 4)
-                            throw unresolved("serve_step_commands takes three "
-                                "arguments and an optional worker count");
-                        const auto service = t.service_name(args[1], rel, at);
-                        const auto routes = no_spaces(args[2]);
-                        if (!identifier().match(routes))
-                            throw unresolved("the routes argument is not a "
-                                "table");
-                        static const pt::regex step_routes(
-                            R"re(step_routes\s+(\w+)\s*(?:\{\s*"([^"]*)"\s*\})?\s*;)re");
-                        std::optional<pt::regex_match> declaration;
-                        for (auto& m : step_routes.find_all(text)) {
-                            if (m.group(1) == routes) {
-                                declaration = std::move(m);
-                                break;
-                            }
-                        }
-                        if (!declaration)
-                            throw unresolved("the routes table '" + routes +
-                                "' is not declared here");
-                        const auto group = str(declaration->group(2));
-                        const auto serve = text.find("serve_step_commands",
-                            declaration->end());
-                        const auto region = std::string_view(text).substr(
-                            declaration->end(), serve == std::string::npos
-                                ? std::string::npos
-                                : serve - declaration->end());
-                        static const pt::regex on(R"(\.on\s*\()");
-                        std::vector<std::string> subjects;
-                        bool seen = false;
-                        for (const auto& m : on.find_all(region)) {
-                            seen = true;
-                            const auto expr = std::string(ops::strip(
-                                split_arguments(region, m.end() - 1)[0]));
-                            try {
-                                for (auto& s : t.resolve(expr, rel))
-                                    subjects.push_back(std::move(s));
+    for (const auto& [rel, d] : named) {
+        for (const auto& c : d.sites) {
+            const site where{rel, c.line_offset, c.line};
+            const bool helper = rel == step_helper;
+            if (c.call == "ensure_stream" && !helper) {
+                try {
+                    if (!c.error.empty())
+                        throw unresolved(c.error);
+                    const auto& args = c.args;
+                    if (args.size() < 2)
+                        throw unresolved(
+                            "ensure_stream needs a name and a filter");
+                    const auto suffix = t.stream_suffix(args[0], rel);
+                    static const pt::regex head(
+                        R"(^nats\s*\.\s*covering_subjects\s*\()");
+                    static const pt::regex spaces(R"(\s+)");
+                    const auto expr = spaces.substitute(
+                        ops::strip(args[1]), " ");
+                    const auto h = head.search(expr);
+                    if (!h)
+                        throw unresolved("the filter argument '" + expr +
+                            "' is not a covering_subjects call");
+                    const auto inner_args = split_arguments(expr,
+                        h->end() - 1);
+                    if (inner_args.size() != 1)
+                        throw unresolved("covering_subjects takes one "
+                            "argument");
+                    const auto inner = std::string(ops::strip(inner_args[0]));
+                    std::vector<std::string> subjects;
+                    if (inner.starts_with('{')) {
+                        const auto list = "(" + inner.substr(1,
+                            inner.size() - 2) + ")";
+                        for (const auto& item : split_arguments(list, 0)) {
+                            if (ops::strip(item).empty())
                                 continue;
-                            } catch (const unresolved&) {
-                            }
-                            const pt::regex loop(R"(for\s*\([^)]*\b)" +
-                                pt::escape(expr) +
-                                R"(\s*:\s*([A-Za-z_]\w*)\s*\))");
-                            const auto l = loop.search(region);
-                            if (!l)
-                                throw unresolved("the subject '" + expr +
-                                    "' of " + routes + " cannot be resolved");
-                            for (auto& s : t.resolve_array(str(l->group(1)),
-                                     rel))
+                            for (auto& s : t.resolve(item, rel))
                                 subjects.push_back(std::move(s));
                         }
-                        if (!seen)
-                            throw unresolved("the routes table '" + routes +
-                                "' declares no subject");
-                        auto name = service;
-                        if (name.starts_with("ores."))
-                            name = name.substr(5);
-                        if (name.ends_with(".service"))
-                            name = name.substr(0, name.size() - 8);
-                        if (!group.empty())
-                            name += "_" + group;
-                        const auto suffix = name + "_steps";
-                        add_stream(suffix, covering(subjects), where);
-                        consumers.push_back({subjects, suffix, where});
-                    } catch (const unresolved& e) {
-                        report(where, 0, "serve_step_commands: " +
-                            str(e.what()), unresolved_fix);
+                    } else if (identifier().match(no_spaces(inner))) {
+                        subjects = t.resolve_array(no_spaces(inner), rel);
+                    } else {
+                        throw unresolved("covering_subjects is given '" +
+                            inner + "', which this check cannot read");
                     }
+                    if (subjects.empty())
+                        throw unresolved("ensure_stream covers no subject");
+                    add_stream(suffix, covering(subjects), where);
+                } catch (const unresolved& e) {
+                    report(where, 0, "ensure_stream: " + str(e.what()),
+                        unresolved_fix);
                 }
-            }
-        }
-        for (const auto call : {"js_queue_subscribe",
-                 "js_queue_subscribe_multi"}) {
-            if (rel == step_helper || text.find(call) == std::string::npos)
-                continue;
-            for (const auto at : find_call_sites(text, call)) {
-                const auto where = site_at(at);
+            } else if (c.call == "serve_step_commands" && !helper) {
                 try {
-                    const auto args = split_arguments(text,
-                        text.find('(', at));
+                    if (!c.error.empty())
+                        throw unresolved(c.error);
+                    const auto& args = c.args;
+                    if (args.size() != 3 && args.size() != 4)
+                        throw unresolved("serve_step_commands takes three "
+                            "arguments and an optional worker count");
+                    const auto service = t.service_name(args[1], rel, c);
+                    if (!c.routes_error.empty())
+                        throw unresolved(c.routes_error);
+                    const auto routes = no_spaces(args[2]);
+                    std::vector<std::string> subjects;
+                    for (const auto& r : c.routes) {
+                        if (!r.error.empty())
+                            throw unresolved(r.error);
+                        try {
+                            for (auto& s : t.resolve(r.expr, rel))
+                                subjects.push_back(std::move(s));
+                            continue;
+                        } catch (const unresolved&) {
+                        }
+                        if (r.loop_array.empty())
+                            throw unresolved("the subject '" + r.expr +
+                                "' of " + routes + " cannot be resolved");
+                        for (auto& s : t.resolve_array(r.loop_array, rel))
+                            subjects.push_back(std::move(s));
+                    }
+                    if (c.routes.empty())
+                        throw unresolved("the routes table '" + routes +
+                            "' declares no subject");
+                    auto name = service;
+                    if (name.starts_with("ores."))
+                        name = name.substr(5);
+                    if (name.ends_with(".service"))
+                        name = name.substr(0, name.size() - 8);
+                    if (!c.group.empty())
+                        name += "_" + c.group;
+                    const auto suffix = name + "_steps";
+                    add_stream(suffix, covering(subjects), where);
+                    consumers.push_back({subjects, suffix, where});
+                } catch (const unresolved& e) {
+                    report(where, 0, "serve_step_commands: " +
+                        str(e.what()), unresolved_fix);
+                }
+            } else if (c.call.starts_with("js_queue_subscribe") && !helper) {
+                try {
+                    if (!c.error.empty())
+                        throw unresolved(c.error);
+                    const auto& args = c.args;
                     if (args.size() < 7)
-                        throw unresolved(str(call) + " takes seven arguments");
+                        throw unresolved(c.call + " takes seven arguments");
                     auto subjects = t.resolve(args[0], rel);
-                    const auto named = t.stream_suffix(args[4], rel);
-                    consumers.push_back({std::move(subjects), named, where});
+                    const auto stream_name = t.stream_suffix(args[4], rel);
+                    consumers.push_back({std::move(subjects), stream_name,
+                        where});
                 } catch (const unresolved& e) {
                     report(where, 0, "js_queue_subscribe: " + str(e.what()),
                         unresolved_fix);
@@ -884,7 +1105,7 @@ void reduce(std::span<const ct::scanned_file> files,
 
 const ct::descriptor stream_coverage{
     .name = "stream_coverage",
-    .version = 3,
+    .version = 4,
     .summary = "Reports each durably consumed subject no single stream "
         "covers, and each pair of streams whose subjects overlap.",
     .reads = ct::inputs::of_types({}),

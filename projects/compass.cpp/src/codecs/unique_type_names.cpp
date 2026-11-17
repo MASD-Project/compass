@@ -22,24 +22,22 @@
 #include <algorithm>
 #include <array>
 #include <map>
-#include <optional>
 #include <set>
 #include <span>
 #include <string>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.codec/types/fact.hpp"
+#include "compass.cpp/ops/declarations.hpp"
+#include "compass.cpp/ops/lexer.hpp"
 #include "compass.cpp/ops/paths.hpp"
 #include "compass.cpp/ops/report.hpp"
-#include "compass.platform/text/decoding.hpp"
-#include "compass.platform/text/regex.hpp"
 
 namespace compass::cpp::codecs {
 
 namespace {
 
 namespace ct = compass::codec::types;
-namespace pt = compass::platform::text;
 
 constexpr std::array<ct::rule, 1> rules{{
     {"type_defined_twice", "No two headers that can meet in one binary "
@@ -87,62 +85,6 @@ std::string binary_of(std::string_view path) {
     return out;
 }
 
-/**
- * @brief Each qualified class or struct name the header defines directly
- * in named namespaces, with the offset of its first definition.
- */
-std::map<std::string, std::uint32_t> defined_types(std::string_view text) {
-    static const pt::regex lexeme(
-        R"re(R"(?P<delim>[^(\s]*)\(.*?\)(?P=delim)"|//[^\n]*|/\*.*?\*/|^\s*#[^\n]*)re"
-        R"re(|"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*')re",
-        {.dotall = true, .multiline = true});
-    static const pt::regex token(
-        R"(\bnamespace\s+(?P<namespace>[A-Za-z_][\w:]*)?\s*\{)"
-        R"(|\b(?:struct|class)\s+(?:[A-Z][A-Z0-9_]+\s+)?(?P<type>[A-Za-z_]\w*))"
-        R"((?:\s+final)?\s*(?::[^{;()]*)?\{)"
-        R"(|\{|\})");
-    // A lexeme blanked byte for byte keeps the offsets; the tokens split the
-    // same as around the one space the script puts in its place.
-    const auto blanked = lexeme.substitute(text, [](const auto& m) {
-        std::string out(m.group().size(), ' ');
-        for (std::size_t i = 0; i < out.size(); ++i) {
-            if (m.group()[i] == '\n')
-                out[i] = '\n';
-        }
-        return out;
-    });
-    // Each open brace: a namespace name, empty for an anonymous namespace,
-    // or nothing for any other scope.
-    std::vector<std::optional<std::string>> scopes;
-    std::map<std::string, std::uint32_t> found;
-    for (const auto& m : token.find_all(blanked)) {
-        const auto t = m.group();
-        if (t == "}") {
-            if (!scopes.empty())
-                scopes.pop_back();
-            continue;
-        }
-        const bool in_namespaces = std::ranges::all_of(scopes,
-            [](const auto& s) { return s && !s->empty(); });
-        if (m.matched("type")) {
-            if (!scopes.empty() && in_namespaces) {
-                std::string name;
-                for (const auto& s : scopes)
-                    name += *s + "::";
-                name += m.group("type");
-                found.try_emplace(std::move(name),
-                    static_cast<std::uint32_t>(m.start("type")));
-            }
-            scopes.emplace_back(std::nullopt);
-        } else if (t.starts_with("namespace")) {
-            scopes.emplace_back(std::string(m.group("namespace")));
-        } else {
-            scopes.emplace_back(std::nullopt);
-        }
-    }
-    return found;
-}
-
 std::vector<std::string_view> scanned(const ct::corpus_view& v) {
     std::vector<std::string_view> headers;
     for (const auto p : v.list_files("projects/ores.", ".hpp")) {
@@ -154,18 +96,17 @@ std::vector<std::string_view> scanned(const ct::corpus_view& v) {
 }
 
 /**
- * @brief The fact of a header: each type it defines and its offset, zero
- * when the text was decoded, as defined_types orders them.
+ * @brief The fact of a header: each type it defines directly in named
+ * namespaces, with the offset of its name, read from its model.
  */
 void map(std::string_view, std::string_view bytes, const ct::option_values&,
     ct::file_scan& out) {
-    const bool exact = pt::is_utf8(bytes) &&
-        bytes.find('\r') == std::string_view::npos;
-    const auto text = exact ? std::string(bytes)
-        : pt::universal_newlines(pt::decode_replacing(bytes));
+    const auto lexed = ops::lex(bytes);
     ct::fact_writer fact(out.fact);
-    for (const auto& [name, offset] : defined_types(text))
-        fact.text(name).number(exact ? offset : 0);
+    for (const auto& [name, offset] :
+         ops::defined_types(ops::model_of(bytes, lexed,
+             ops::model_parts::declarations)))
+        fact.text(name).number(offset);
 }
 
 void reduce(std::span<const ct::scanned_file> headers,
@@ -228,7 +169,7 @@ void reduce(std::span<const ct::scanned_file> headers,
 
 const ct::descriptor unique_type_names{
     .name = "unique_type_names",
-    .version = 2,
+    .version = 3,
     .summary = "Reports each qualified type name two headers define where "
         "both can meet in one binary.",
     .reads = ct::inputs::of_types({}),

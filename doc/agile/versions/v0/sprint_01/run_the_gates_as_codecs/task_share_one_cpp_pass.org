@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/share-one-cpp-pass
+#+pr: https://github.com/MASD-Project/compass/pull/61
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-17
@@ -26,22 +26,26 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-17                               |
 
 * Acceptance
 
--
+- One C++ lexer replaces the six comment and literal blankers, and one per-file fact (includes as directives, namespace-scope declarations, enums and their macros, identifiers named) serves the C++ gates.
+- Every C++ gate gives the same findings on ORE Studio as before, except where a copied blanker was wrong, each change stated.
+- exported_types and enum_attributes run as one pass; forward_declarable_includes decides in its map step; stream_coverage keeps declarations, not whole files.
+- A C++ header edit in the hook costs at least 300 ms less than today, and the cold check's C++ time falls, measured at a stated load.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Follow section 3 of =evidence/gate_review/plan.md= and =cpp.md= beside it.
+- Start from test_case_reachability's lexer, which the review found the best
+  of the six; build the per-file fact as a scan fact; move each gate onto it
+  one at a time, comparing findings on the ORE copy after each.
 
 * Measurements
 
@@ -55,7 +59,12 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Hook, header stream_coverage reads | 912 ms before, 406 ms after, load 14-15 (agent) | median of 5 | 7b0fa97 |
+| Hook, plain header / .cpp edit | 642 to 424 ms / 827 to 431 ms, load 17-18 (agent); 379 ms on a platform header at load 18 | median of 5 | 7b0fa97 |
+| Cold check, C++ codec time | 29.0 s before, 20.4 s after, load 23-24 (agent) | =compass check --timings= | 7b0fa97 |
+| C++ findings on ORE | 38 before and after every move | =compass check= | 7b0fa97 |
+| Warm ORE check | 3.62 s at load 18; 243 findings | =compass check= | 7b0fa97 |
+| ctest | 15 of 15 suites pass | =ctest --preset linux-clang-release= | 7b0fa97 |
 
 * Notes
 
@@ -74,7 +83,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/61][#61]] | [cpp] Share one C++ lexer and model across the C++ gates |
 
 * Review
 
@@ -83,3 +92,27 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+One C++ lexer (=ops::lex=: raw strings with delimiters, encoding prefixes,
+digit separators, line splices, =#if 0= regions) replaces the six blankers,
+and one per-file model (=ops::model_of=: includes, macros, namespace-scope
+declarations, class and enum heads, names written) serves portable_stop,
+exported_types, forward_declarable_includes, stream_coverage,
+unique_type_names, unity_collisions, the registrars, the shell gates,
+translation_unit_budget and test_case_reachability. Each gate builds only the
+parts it reads.
+
+- enum_attributes is merged into exported_types: one pass, two rules. Its
+  rule is now =exported_types/visibility_macro_on_enum=.
+- forward_declarable_includes decides each header in its map step, from a
+  =types= option whose default is ORE Studio's list.
+- stream_coverage keeps each file's declarations, not its text.
+- unity_collisions keys functions by parameter types, so overloads a unity
+  build compiles are not reported.
+
+C++ findings on ORE Studio are unchanged; the cases the old blankers got wrong
+(character literals, attribute heads, multi-line declarations, comments) are
+covered by planted tests.
+
+An install needs ORE Studio's =.compass.org= to drop its =enum_attributes=
+row; =forward_declarable_types.list= is no longer read.

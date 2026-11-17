@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <array>
+#include <expected>
 #include <map>
 #include <optional>
 #include <set>
@@ -29,9 +30,10 @@
 #include <unordered_map>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
-#include "compass.codec/types/fact.hpp"
+#include "compass.cpp/ops/lexer.hpp"
 #include "compass.cpp/ops/paths.hpp"
 #include "compass.cpp/ops/report.hpp"
+#include "compass.cpp/ops/source_model.hpp"
 #include "compass.cpp/ops/text.hpp"
 #include "compass.platform/text/decoding.hpp"
 #include "compass.platform/text/regex.hpp"
@@ -50,9 +52,20 @@ constexpr std::array<ct::rule, 2> rules{{
         "and not empty."}}};
 
 constexpr std::array<ct::option, 1> options{{
-    {"list", "build/scripts/forward_declarable_types.list",
-        "The types a header may name without their definition: name, class "
-        "key, defining header and forwarding header or -, one per line."}}};
+    {"types",
+        "ores::database::context;class;ores.database/domain/context.hpp;"
+        "ores.database/domain/context_fwd.hpp,"
+        "ores::database::pq::connection;class;ores.database/pq/connection.hpp;"
+        "ores.database/pq/connection_fwd.hpp,"
+        "ores::database::pq::pool;class;ores.database/pq/pool.hpp;-,"
+        "ores::database::pq::result;class;ores.database/pq/result.hpp;-,"
+        "ores::database::pq::session_context;struct;"
+        "ores.database/pq/transaction.hpp;-,"
+        "ores::database::pq::transaction;class;"
+        "ores.database/pq/transaction.hpp;-",
+        "The types a header may name without their definition, "
+        "comma-separated, each name;class key;defining header;forwarding "
+        "header or -: ORE Studio's forward_declarable_types.list."}}};
 
 constexpr std::array<std::string_view, 3> header_suffixes{".hpp", ".h",
     ".ipp"};
@@ -91,55 +104,6 @@ struct declarable {
         return out;
     }
 };
-
-const pt::regex& include_re() {
-    static const pt::regex r(R"re(^[ \t]*#[ \t]*include[ \t]*[<"]([^>"]+)[>"])re",
-        {.multiline = true});
-    return r;
-}
-
-/**
- * @brief The text without its comments, every newline kept: the script's
- * strip_comments, which copies literals whole and drops comment bytes.
- */
-std::string strip_comments(std::string_view text) {
-    std::string out;
-    out.reserve(text.size());
-    std::size_t i = 0;
-    while (i < text.size()) {
-        const char c = text[i];
-        if (c == '/' && text.substr(i, 2) == "//") {
-            while (i < text.size() && text[i] != '\n')
-                ++i;
-        } else if (c == '/' && text.substr(i, 2) == "/*") {
-            i += 2;
-            while (i + 1 < text.size() && text.substr(i, 2) != "*/") {
-                if (text[i] == '\n')
-                    out.push_back('\n');
-                ++i;
-            }
-            i += 2;
-        } else if (c == '"' || c == '\'') {
-            out.push_back(c);
-            ++i;
-            while (i < text.size()) {
-                if (text[i] == '\\' && i + 1 < text.size()) {
-                    out.append(text.substr(i, 2));
-                    i += 2;
-                    continue;
-                }
-                out.push_back(text[i]);
-                ++i;
-                if (out.back() == c)
-                    break;
-            }
-        } else {
-            out.push_back(c);
-            ++i;
-        }
-    }
-    return out;
-}
 
 /**
  * @brief The regex of @p pattern, compiled once per thread. The patterns
@@ -305,17 +269,6 @@ std::string relative_include(std::string_view path) {
     return std::string(parts.back());
 }
 
-std::uint32_t include_line(std::string_view text, std::string_view include) {
-    std::uint32_t number = 0;
-    for (const auto line : ops::split_lines(text)) {
-        ++number;
-        if (line.find(include) != std::string_view::npos &&
-            line.find("#include") != std::string_view::npos)
-            return number;
-    }
-    return 0;
-}
-
 std::vector<std::string_view> scanned(const ct::corpus_view& v) {
     std::vector<std::string_view> headers;
     for (const auto suffix : header_suffixes) {
@@ -329,116 +282,139 @@ std::vector<std::string_view> scanned(const ct::corpus_view& v) {
 }
 
 /**
- * @brief The fact of a header: the path of each of its #include lines.
+ * @brief The types of the types option, or why they cannot be read: each
+ * row name;key;defining header;forwarding header or -, rows separated by
+ * commas.
  */
-void map(std::string_view, std::string_view bytes, const ct::option_values&,
-    ct::file_scan& out) {
-    const auto text = pt::universal_newlines(pt::decode_ignoring(bytes));
-    ct::fact_writer fact(out.fact);
-    for (const auto& m : include_re().find_all(text))
-        fact.text(m.group(1));
-}
-
-/**
- * @brief Reads the list, then reads again only the headers whose includes
- * name a listed type's defining header.
- */
-void reduce(std::span<const ct::scanned_file> headers,
-    const ct::corpus_view& v, ct::diagnostic_table& out) {
-    const auto list_path = v.option("list");
-    const auto list = v.read_file(list_path);
-    std::vector<declarable> declarables;
-    std::uint32_t number = 0;
-    for (const auto line : ops::split_lines(list.value_or(""))) {
-        ++number;
-        const auto stripped = ops::strip(line);
-        if (stripped.empty() || stripped.starts_with('#'))
+std::expected<std::vector<declarable>, std::string> parse_types(
+    std::string_view value) {
+    std::vector<declarable> out;
+    for (std::size_t start = 0; start < value.size();) {
+        auto end = value.find(',', start);
+        if (end == std::string_view::npos)
+            end = value.size();
+        const auto row = value.substr(start, end - start);
+        start = end + 1;
+        if (row.empty())
             continue;
         std::vector<std::string> fields;
-        for (std::size_t i = ops::skip_spaces(stripped, 0);
-             i < stripped.size(); i = ops::skip_spaces(stripped, i)) {
-            auto j = i;
-            while (j < stripped.size() && !ops::is_space(stripped[j]))
-                ++j;
-            fields.emplace_back(stripped.substr(i, j - i));
-            i = j;
+        for (std::size_t f = 0; f <= row.size();) {
+            auto e = row.find(';', f);
+            if (e == std::string_view::npos)
+                e = row.size();
+            fields.emplace_back(row.substr(f, e - f));
+            f = e + 1;
         }
-        const auto at = ops::offset_of_line(*list, number);
-        if (fields.size() != 4) {
-            ops::report(out, list_path, at, 1, "expected four fields, found " +
-                std::to_string(fields.size()), "write the type, its class "
-                "key, its defining header and its forwarding header or -");
-            return;
-        }
-        if (fields[1] != "class" && fields[1] != "struct") {
-            ops::report(out, list_path, at, 1, "the class key must be class "
-                "or struct, found " + fields[1], "write class or struct");
-            return;
-        }
-        declarables.push_back({fields[0], fields[1], fields[2],
+        if (fields.size() != 4)
+            return std::unexpected("the row " + std::string(row) + " has " +
+                std::to_string(fields.size()) + " fields, not four");
+        if (fields[1] != "class" && fields[1] != "struct")
+            return std::unexpected("the class key of " + fields[0] +
+                " must be class or struct, found " + fields[1]);
+        out.push_back({fields[0], fields[1], fields[2],
             fields[3] == "-" ? std::nullopt
                 : std::optional<std::string>(fields[3])});
     }
-    if (declarables.empty()) {
-        ops::report(out, list_path, 0, 1, "no type is listed, so the guard "
-            "is off", "list the types a header may forward-declare");
-        return;
-    }
-    std::map<std::string, std::vector<const declarable*>, std::less<>>
-        by_include;
-    for (const auto& d : declarables)
-        by_include[d.defining_header].push_back(&d);
+    if (out.empty())
+        return std::unexpected("no type is listed, so the guard is off");
+    return out;
+}
 
-    static const pt::regex template_re(R"(^\s*\*\s*Template:\s*(\S+)\s*$)",
-        {.multiline = true});
-    for (const auto& [path, fact] : headers) {
-        const auto own = relative_include(path);
-        std::vector<const declarable*> candidates;
-        ct::fact_reader includes(fact);
-        while (!includes.done()) {
-            const auto it = by_include.find(includes.text());
-            if (it == by_include.end())
-                continue;
-            for (const auto* d : it->second) {
-                if (d->defining_header != own &&
-                    std::ranges::find(candidates, d) == candidates.end())
-                    candidates.push_back(d);
-            }
-        }
-        if (candidates.empty())
-            continue;
-        const auto bytes = v.read_file(path).value_or("");
-        const auto text = pt::universal_newlines(pt::decode_ignoring(bytes));
-        std::optional<std::string> generated_by;
-        if (text.find(generated_marker) != std::string::npos) {
-            const auto head = std::string_view(text).substr(0,
-                std::min(text.size(), ops::byte_of_character(text, 2000)));
-            const auto m = template_re.search(head);
-            generated_by = m ? std::string(m->group(1)) : "unknown";
-        }
-        const auto body = include_re().substitute(strip_comments(text), "");
-        for (const auto* d : candidates) {
-            if (scan(*d, body) != verdict::names)
-                continue;
-            const auto line = include_line(text, d->defining_header);
-            const auto key = d->name + ":" + (generated_by
-                ? "template:" + *generated_by : std::string(path));
-            ops::report(out, path, line == 0 ? 0
-                    : ops::offset_of_line(bytes, line), 0,
-                "the header includes " + d->defining_header + " but only "
-                "names " + d->name + " (" + key + ")",
-                d->forwarding_header
-                    ? "include " + *d->forwarding_header + " instead"
-                    : "declare " + d->keyword + " " + d->name + ";");
+/**
+ * @brief The listed types of the types option, parsed once per value.
+ */
+const std::vector<declarable>& listed(std::string_view value) {
+    thread_local std::string parsed_value;
+    thread_local std::vector<declarable> parsed;
+    if (parsed_value != value || parsed.empty()) {
+        parsed_value = value;
+        parsed = parse_types(value).value_or(std::vector<declarable>{});
+    }
+    return parsed;
+}
+
+/**
+ * @brief Decides the header alone: for each listed type whose defining
+ * header it includes, other than that header itself, whether every use
+ * only names the type, read from its lexed code with the include lines
+ * blanked. Reported on the line of the include.
+ */
+void map(std::string_view path, std::string_view bytes,
+    const ct::option_values& options, ct::file_scan& out) {
+    const auto& types = listed(options["types"]);
+    if (std::ranges::none_of(types, [&](const declarable& d) {
+            return bytes.find(d.defining_header) != std::string_view::npos; }))
+        return;
+    const auto lexed = ops::lex(bytes);
+    const auto model = ops::model_of(bytes, lexed,
+        ops::model_parts::directives);
+    const auto own = relative_include(path);
+    std::vector<std::pair<const declarable*, std::uint32_t>> candidates;
+    for (const auto& i : model.includes) {
+        for (const auto& d : types) {
+            if (d.defining_header == i.target && d.defining_header != own &&
+                std::ranges::none_of(candidates,
+                    [&](const auto& c) { return c.first == &d; }))
+                candidates.emplace_back(&d, i.offset);
         }
     }
+    if (candidates.empty())
+        return;
+
+    auto code = lexed.code;
+    for (const auto d : lexed.directives) {
+        if (ops::parts_of(lexed, d).keyword != "include")
+            continue;
+        for (auto k = d.begin; k < d.end; ++k) {
+            if (code[k] != '\n')
+                code[k] = ' ';
+        }
+    }
+    const auto body = pt::universal_newlines(pt::decode_ignoring(code));
+    std::optional<std::string> generated_by;
+    if (bytes.find(generated_marker) != std::string_view::npos) {
+        static const pt::regex template_re(
+            R"(^\s*\*\s*Template:\s*(\S+)\s*$)", {.multiline = true});
+        const auto text = pt::universal_newlines(pt::decode_ignoring(bytes));
+        const auto head = std::string_view(text).substr(0,
+            std::min(text.size(), ops::byte_of_character(text, 2000)));
+        const auto m = template_re.search(head);
+        generated_by = m ? std::string(m->group(1)) : "unknown";
+    }
+    for (const auto& [d, offset] : candidates) {
+        if (scan(*d, body) != verdict::names)
+            continue;
+        const auto key = d->name + ":" + (generated_by
+            ? "template:" + *generated_by : std::string(path));
+        ops::report(out.findings, path, ops::offset_of_line(bytes,
+                ops::line_of(bytes, offset)), 0,
+            "the header includes " + d->defining_header + " but only "
+            "names " + d->name + " (" + key + ")",
+            d->forwarding_header
+                ? "include " + *d->forwarding_header + " instead"
+                : "declare " + d->keyword + " " + d->name + ";");
+    }
+}
+
+/**
+ * @brief Reports a types option that cannot be read; the headers are
+ * decided in map.
+ */
+void reduce(std::span<const ct::scanned_file>, const ct::corpus_view& v,
+    ct::diagnostic_table& out) {
+    const auto types = parse_types(v.option("types"));
+    if (!types)
+        ops::report(out, ".compass.org", 0, 1, "the forward-declarable "
+            "types cannot be read: " + types.error(), "write each type as "
+            "name;class or struct;defining header;forwarding header or -, "
+            "comma-separated");
 }
 
 }
 
 const ct::descriptor forward_declarable_includes{
     .name = "forward_declarable_includes",
-    .version = 2,
+    .version = 3,
     .summary = "Reports each header that includes the definition of a "
         "listed type it only names.",
     .reads = ct::inputs::of_types({}),

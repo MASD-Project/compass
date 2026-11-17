@@ -36,8 +36,13 @@ namespace compass::cpp::codecs {
  * .cpp under its src/ reaches the header through #include "..." lines,
  * each resolved against the including file's directory and then every
  * projects/<component>/<part>/include. On Windows such a type is imported
- * by every consumer and defined by nobody. Reads every file of the
- * checkout it opens and the listing of all paths.
+ * by every consumer and defined by nobody.
+ *
+ * It is also ORE Studio's enum-attributes gate, in the same pass. Rule
+ * visibility_macro_on_enum: an enum declared with BOOST_SYMBOL_EXPORT,
+ * BOOST_SYMBOL_IMPORT or a macro a scanned file #defines as a visibility
+ * or DLL storage attribute between its key and its name. clang-cl
+ * refuses dllimport on an enum, and only the Windows build sees it.
  */
 extern const compass::codec::types::descriptor exported_types;
 
