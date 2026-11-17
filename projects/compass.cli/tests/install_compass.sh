@@ -25,7 +25,8 @@ compass="$2"
 root="$(mktemp -d)"
 trap 'rm -rf "$root"' EXIT
 export HOME="$root/home"
-link="$HOME/.local/bin/compass"
+link="$HOME/.local/bin/compass-ng"
+old_link="$HOME/.local/bin/compass"
 opt="$HOME/.local/opt/compass"
 
 fail() {
@@ -60,14 +61,17 @@ expect_version() {
 }
 
 clean=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-mkdir -p "$HOME/.local/bin"
+mkdir -p "$HOME/.local/bin" "$opt"
 echo "a plain copy" >"$link"
+ln -s "$opt/compass" "$old_link"
 
 bash "$script" --from "$(build $clean false)" >"$root/out" 2>&1 ||
     fail "a clean build did not install"
 [ -L "$link" ] || fail "the plain file was not replaced by a link"
 [ "$(readlink "$link")" = "$opt/compass" ] ||
     fail "the link points at $(readlink "$link")"
+[ ! -e "$old_link" ] && [ ! -L "$old_link" ] ||
+    fail "the old compass link of ours was not removed"
 grep -qx "installed $opt/compass" "$root/out" ||
     fail "the installed path was not printed"
 grep -qx "commit: $clean (aaaaaaa)" "$root/out" ||
@@ -88,6 +92,12 @@ bash "$script" --from "$dirty" --allow-dirty >"$root/out" 2>&1 ||
 expect_version "dirty: yes"
 [ "$(ls -A "$opt")" = "$(printf 'compass\ncompass.manifest')" ] ||
     fail "the install left more than the binary and manifest: $(ls -A "$opt")"
+
+echo "the python tool" >"$old_link"
+bash "$script" --from "$(build $clean false)" >"$root/out" 2>&1 ||
+    fail "a reinstall did not succeed"
+[ "$(cat "$old_link")" = "the python tool" ] ||
+    fail "a compass the script does not own was touched"
 
 echo "garbage" >"$opt/compass.manifest"
 expect_version "commit: unknown"

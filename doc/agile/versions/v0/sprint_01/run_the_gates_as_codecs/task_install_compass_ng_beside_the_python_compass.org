@@ -1,0 +1,99 @@
+:PROPERTIES:
+:ID: FEAB1CC1-5F10-4EB3-9DD3-C6366F341B4D
+:END:
+#+title: Task: Install compass-ng beside the Python compass
+#+description: Install the shared binary as compass-ng, so ORE Studio's Python compass keeps its name, and bring the ORE Studio guide up to date with the pilot's findings.
+#+type: task
+#+level: s1
+#+filetags: :run_the_gates_as_codecs:sprint_01:v0:
+#+owner: marco
+#+branch: feature/install-compass-as-compass-ng
+#+pr:
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-11-17
+#+updated: 2026-11-17
+#+environment:
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+(Describe what user-visible-or-internal change this task produces.)
+
+* Status
+
+| Field        | Value                                  |
+|--------------+----------------------------------------|
+| State        | STARTED                              |
+| Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
+| Now          | Not yet started.                       |
+| Waiting on   | Nothing.                               |
+| Next         | Begin implementation.                  |
+| Last touched | 2026-11-17                               |
+
+* Acceptance
+
+- The install script links =~/.local/bin/compass-ng=, removes only an older link of its own at =~/.local/bin/compass=, and leaves any other =compass= alone; a test covers all three.
+- The ORE Studio guide, the readme, the install recipe and the cli overview name the installed tool =compass-ng=.
+
+* Plan
+
+- ORE Studio's pilot in =ores_dev_solid_dirac= (main =67803175ce=, compass
+  =68833c3=) found that =~/.local/bin/compass= hides the Python compass its
+  docs and skills call (D2, a rollout blocker). Rename the link to
+  =compass-ng=; keep the binary and its manifest in =~/.local/opt/compass/=.
+- Update the guide for the pilot's other findings that need only words: turn
+  =rule_table= off by default (D4), refresh the drift list and warn about hand
+  edits regenerate deletes (D6), say the ratchet needs =.compass.org= on the
+  base (D3) and that the hook belongs after the baselines step (D5).
+- The code fixes go to [[id:3BDAD06A-FFDC-4E8A-8890-72C25071239A][Fix the pilot's findings]].
+
+* Measurements
+
+Every number this task claims about a tree, with the command that produced it
+and the commit it was measured at. A number without both is not a measurement,
+because a clean-up record describes a tree and trunk moves under a branch: a
+consumer count, a gate's component count and a suite's size all change with no
+code changing, and the reader of a bare number cannot tell which tree it came
+from. Where the raw output matters, put it in an =evidence/= file beside the
+task and name that file in the Command column.
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+| Install test | links =compass-ng=, removes an old link of ours, leaves a foreign =compass= alone; fails if the link is named =compass= | =ctest -R compass.cli.install= | this branch |
+
+* Notes
+
+* Test Scenarios
+
+Manual QA scenarios (scaffolded via =compass add test_scenario=)
+that verify this task. Link
+new ones here as they're created; the scenario doc itself links back
+via its "Verifies task" field.
+
+| Scenario | State | Notes |
+|----------+-------+-------|
+|          |       |       |
+
+* PRs
+
+| PR | Title |
+|----+-------|
+|    |       |
+
+* Review
+
+| # | Comment summary | File | Decision | Notes |
+|---+-----------------+------+----------+-------|
+|   |                 |      |          |       |
+
+* Result
+
+The install script now links =~/.local/bin/compass-ng=, so ORE Studio's Python
+=compass= keeps its name until it is retired. It removes an older link of its
+own at =~/.local/bin/compass= and nothing else. The guide, readme, recipe and
+overview use =compass-ng=, and the guide carries the pilot's other findings
+that need only words. The installed binary is not changed by this task: the
+product owner decides when to reinstall.
