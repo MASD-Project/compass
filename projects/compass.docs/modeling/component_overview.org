@@ -29,6 +29,14 @@ decide differently on an indented block or a heading inside one. Where the
 script parses the page, as =org-links= does through Emacs, the codec reads
 the parsed tables.
 
+A gate or rule that another check covers, or that guards work that is
+finished, is not ported:
+
+- =skill-recipes= (=link_skill_recipes.py=). It applied a reviewed table of
+  skill-to-recipe links once; the links are in the skill pages now, and
+  =lint/dangling_link= reports one that no longer resolves. A link someone
+  removes is a change reviewed in the skill page's diff.
+
 * Inputs
 
 - The documents of the corpus, every one whether it has a type or not:
@@ -162,10 +170,6 @@ They are off by default.
   read from the =doc_*.org.mustache= templates and from
   =_STATIC_PARENT= and =_DEFAULTABLE_PARENT= in =compass.py=, and the
   read-only commands with the help =compass.py= gives each.
-- *=skill_recipes=.* =skill-recipes= (=link_skill_recipes.py=). Writes each
-  skill of the script's table with the recipe links its Recipes section
-  lacks appended; a skill or recipe that does not exist leaves the skill
-  alone, where the script stops.
 - *=structure_notes=.* =structure-notes= (=link_structure_notes.py=). A
   corpus codec over every page: the UTF-8 pages under =doc/= and
   =projects/modeling/= with an =:ID:= line, keyed by the ID in upper case.
@@ -186,9 +190,9 @@ They are off by default.
 - *=skill_level_tags=.* The page half of =skill-levels=, as a check: each
   skill whose =#+level:= is not the table's, each skill the table lacks
   and each entry with no skill, reported as the script's =--check= does.
-  The script writes the level into the page, but =skill_recipes= and
-  =structure_notes= also write skill pages and an output has one
-  producer, so this half reports.
+  The script writes the level into the page, but =structure_notes= also
+  writes skill pages and an output has one producer, so this half
+  reports.
 - *=recipe_inventories=.* =recipe-inventories=
   (=regenerate_shell_recipe_inventory.py= and
   =regenerate_http_recipe_inventory.py=): =doc/recipes/shell/shell.org=,

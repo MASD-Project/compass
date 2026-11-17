@@ -53,19 +53,6 @@ extern const compass::codec::types::descriptor skill_catalogue;
 extern const compass::codec::types::descriptor skill_type_tables;
 
 /**
- * @brief ORE Studio's skill-recipes generator (link_skill_recipes.py): each
- * skill of the script's table links, in its Recipes section, the recipes
- * that own its commands.
- *
- * A link a skill lacks is appended to the section, after the links it
- * carries; a skill without the section gains an empty Recipes and
- * Reference pair before its Artefacts heading, or at its end. A skill or
- * recipe of the table that does not exist leaves that skill alone, where
- * the script stops.
- */
-extern const compass::codec::types::descriptor skill_recipes;
-
-/**
  * @brief The inventory half of ORE Studio's skill-levels generator
  * (apply_skill_levels.py): the generated region of
  * doc/llm/skills/skill_systems_levels.org, the count of skills each
@@ -81,8 +68,8 @@ extern const compass::codec::types::descriptor skill_levels;
  * the table lacks and each table entry with no skill.
  *
  * The script writes the level into the page. That page is also written by
- * skill_recipes and structure_notes, and an output has one producer, so
- * this half reports instead of writing.
+ * structure_notes, and an output has one producer, so this half reports
+ * instead of writing.
  */
 extern const compass::codec::types::descriptor skill_level_tags;
 

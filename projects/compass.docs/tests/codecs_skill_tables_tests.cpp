@@ -74,19 +74,3 @@ TEST_CASE("a region is replaced once or everywhere, and missing markers "
     CHECK_FALSE(ops::replace_region("none", "<b>", "<e>", "X",
         ops::replace::first));
 }
-
-TEST_CASE("a skill missing a recipe link gains it after the links it has",
-    "[codecs][skill_tables]") {
-    const std::string path = "doc/llm/skills/compass-devops-run-sql/SKILL.org";
-    const auto out = tests::generate(codecs::skill_recipes, {
-        {path, "* Recipes\n\n- [[id:OLD][Old]] \xe2\x80\x94 old.\n\n"
-            "* Reference\n"},
-        {"doc/recipes/sql/how_do_i_run_sql_with_compass.org",
-            ":PROPERTIES:\n:ID: R1\n:END:\n#+title:  Run SQL  \n"}});
-
-    // The script's \s*$ stops short of the blank line, so the section
-    // gains a second one, as it does when the script runs.
-    CHECK(out.at(path) == "* Recipes\n\n\n- [[id:OLD][Old]] \xe2\x80\x94 old.\n"
-        "- [[id:R1][Run SQL]] \xe2\x80\x94 credentials and connection come "
-        "from the .env.\n\n* Reference\n");
-}
