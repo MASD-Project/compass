@@ -64,7 +64,7 @@ types::codecs_result run(const scoped_git_repo& repo,
     const compass::codec::types::configuration& settings = {},
     unsigned repetitions = 2) {
     return ops::run_codecs_stage(repo.checkout(), repo.list(),
-        repo.checkout() / "doc" / "meta", repo.objects(), settings, 2,
+        repo.checkout() / "doc" / "meta", repo.packs(), settings, 2,
         repetitions);
 }
 
@@ -127,7 +127,7 @@ TEST_CASE("writing the outputs of the codecs stage writes the index once "
     const auto root = repo.checkout() / "generated";
     const auto write = [&] {
         return ops::run_codecs_stage(repo.checkout(), repo.list(),
-            repo.checkout() / "doc" / "meta", repo.objects(), {}, 2, 1, root);
+            repo.checkout() / "doc" / "meta", repo.packs(), {}, 2, 1, root);
     };
 
     const auto first = write();
@@ -143,7 +143,7 @@ TEST_CASE("writing the outputs of the codecs stage writes the index once "
     CHECK(second.sink.unchanged == 1);
     CHECK(std::filesystem::last_write_time(index) == written_at);
     std::ostringstream os;
-    io::write_codecs_report(os, second, {}, repo.objects());
+    io::write_codecs_report(os, second, {}, repo.packs());
     CHECK_THAT(os.str(), ContainsSubstring("outputs: 0 written, 1 unchanged"));
     CHECK_FALSE(io::failed(second));
 }
@@ -173,7 +173,7 @@ TEST_CASE("a codec the configuration disables is reported as disabled and "
     CHECK(r.last.diagnostics[1].size() == 0);
     CHECK(r.last.files[0].size() == 1);
     std::ostringstream os;
-    io::write_codecs_report(os, r, {}, repo.objects());
+    io::write_codecs_report(os, r, {}, repo.packs());
     CHECK_THAT(os.str(), ContainsSubstring("disabled"));
     CHECK_FALSE(io::failed(r));
 }
@@ -185,7 +185,7 @@ TEST_CASE("the codecs report names each output and counts the findings",
     const auto r = run(repo);
 
     std::ostringstream os;
-    io::write_codecs_report(os, r, {}, repo.objects());
+    io::write_codecs_report(os, r, {}, repo.packs());
 
     CHECK_THAT(os.str(),
         ContainsSubstring("doc/document_index.tsv  ") &&
@@ -207,7 +207,7 @@ TEST_CASE("a setting for a codec nobody registered fails the stage",
 
     CHECK(io::failed(r));
     std::ostringstream os;
-    io::write_codecs_report(os, r, {}, repo.objects());
+    io::write_codecs_report(os, r, {}, repo.packs());
     CHECK_THAT(os.str(), ContainsSubstring("registry problem: ") &&
         ContainsSubstring("FAILED: the codec registry has 1 problem(s)."));
 }
@@ -231,7 +231,7 @@ TEST_CASE("a second run of the codecs stage with nothing changed calls no "
     CHECK(std::string(second.last.files[0].contents[{0}]) ==
         std::string(first.last.files[0].contents[{0}]));
     std::ostringstream os;
-    io::write_codecs_report(os, second, {}, repo.objects());
+    io::write_codecs_report(os, second, {}, repo.packs());
     CHECK_THAT(os.str(), ContainsSubstring("3 units") &&
         ContainsSubstring("unchanged"));
 }
@@ -278,13 +278,13 @@ std::map<std::string, std::pair<std::string, std::int64_t>> snapshot(
 types::codecs_diff diff(const scoped_git_repo& repo,
     const std::filesystem::path& root) {
     return ops::diff_codecs_stage(repo.checkout(), repo.list(),
-        repo.checkout() / "doc" / "meta", repo.objects(), {}, 2, 1, root);
+        repo.checkout() / "doc" / "meta", repo.packs(), {}, 2, 1, root);
 }
 
 types::codecs_result write(const scoped_git_repo& repo,
     const std::filesystem::path& root) {
     return ops::run_codecs_stage(repo.checkout(), repo.list(),
-        repo.checkout() / "doc" / "meta", repo.objects(), {}, 2, 1, root);
+        repo.checkout() / "doc" / "meta", repo.packs(), {}, 2, 1, root);
 }
 
 }
@@ -300,7 +300,7 @@ TEST_CASE("diffing a checkout never run before writes nothing and shows "
     const auto d = diff(repo, root);
 
     CHECK(snapshot(all) == before);
-    CHECK_FALSE(std::filesystem::exists(repo.objects()));
+    CHECK_FALSE(std::filesystem::exists(repo.packs()));
     CHECK(d.run.parsed == 4);
     CHECK(d.run.written == 0);
     CHECK(d.planned.written == 1);

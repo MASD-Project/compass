@@ -138,8 +138,9 @@ the line format of =compass::org::io::dump=, which
 - =compass-bench types <checkout> --meta <dir> [-j N] [--repeat R]=. =--meta=
   is the directory of the contract pages, such as =doc/meta=.
 - =compass-bench store <checkout> [--store <dir>] [-j N] [--repeat R]=.
-  =--store= is the objects directory; without it the stage uses
-  =compass/objects= under the git common directory of the checkout.
+  =--store= is the packs directory; without it the stage uses
+  =compass/packs= under the git common directory of the checkout. Each
+  repetition publishes one pack and removes the previous one.
 - =compass-bench warm <checkout> [--store <dir>] [-j N] [--repeat R]=.
   =--store= is as for =store=.
 - =compass-bench codecs <checkout> --meta <dir> [--store <dir>] [--set

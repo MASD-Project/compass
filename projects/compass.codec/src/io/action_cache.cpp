@@ -20,11 +20,12 @@
 #include "compass.codec/io/action_cache.hpp"
 
 #include <atomic>
+#include <memory>
 #include "compass.codec/io/dependency_file.hpp"
 #include "compass.codec/ops/action_cache.hpp"
 #include "compass.codec/ops/parallel_for.hpp"
-#include "compass.store/io/action_file.hpp"
 #include "compass.store/io/location.hpp"
+#include "compass.store/io/pack_store.hpp"
 
 namespace compass::codec::io {
 
@@ -36,13 +37,10 @@ using compass::store::types::action_kind;
 
 types::action_source action_source_of(
     const std::filesystem::path& git_common_dir) {
-    return [manifests = store::io::actions_dir(git_common_dir,
-                action_kind::manifest),
-               results = store::io::actions_dir(git_common_dir,
-                   action_kind::result)](action_kind kind,
+    return [store = std::make_shared<const store::io::pack_reader>(
+                store::io::packs_dir(git_common_dir))](action_kind kind,
                const store::types::blob_id& key) {
-        return store::io::read_action(
-            kind == action_kind::manifest ? manifests : results, key);
+        return store->read_action(kind, key);
     };
 }
 
@@ -50,10 +48,11 @@ action_writes store_actions(const std::filesystem::path& git_common_dir,
     const types::dependency_record& record,
     std::span<const types::record_unit_id> fresh, unsigned threads,
     std::span<const std::string> scans) {
-    const auto manifests = store::io::actions_dir(git_common_dir,
-        action_kind::manifest);
-    const auto results = store::io::actions_dir(git_common_dir,
-        action_kind::result);
+    if (fresh.empty())
+        return {};
+    const auto packs = store::io::packs_dir(git_common_dir);
+    const store::io::pack_reader store(packs);
+    store::io::pack_writer writes(packs);
     std::atomic<std::uint64_t> results_written{0};
     std::atomic<std::uint64_t> manifests_written{0};
     std::atomic<std::uint64_t> unchanged{0};
@@ -62,13 +61,13 @@ action_writes store_actions(const std::filesystem::path& git_common_dir,
         const auto u = fresh[i];
         const auto result = ops::encode_result(record, u,
             scans.empty() ? std::string_view{} : std::string_view(scans[i]));
-        store::io::write_action(results, record.results[u], result);
+        writes.add_action(action_kind::result, record.results[u], result);
         ++results_written;
         bytes += result.size();
 
         const auto key = record.manifests[u];
         types::action_manifest manifest;
-        if (const auto body = store::io::read_action(manifests, key)) {
+        if (const auto body = store.read_action(action_kind::manifest, key)) {
             if (auto decoded = ops::decode_manifest(*body))
                 manifest = std::move(*decoded);
         }
@@ -77,10 +76,11 @@ action_writes store_actions(const std::filesystem::path& git_common_dir,
             return;
         }
         const auto encoded = ops::encode_manifest(manifest);
-        store::io::write_action(manifests, key, encoded);
+        writes.add_action(action_kind::manifest, key, encoded);
         ++manifests_written;
         bytes += encoded.size();
     });
+    writes.publish();
     return {results_written, manifests_written, unchanged, bytes};
 }
 

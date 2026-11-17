@@ -45,7 +45,7 @@ thing with what the codecs produced:
 | =check --commit=  | The same diagnostics at a commit, read from git's objects with no checkout. | Store and result cache only.                   |
 | =check --ratchet= | Only the diagnostics the merge base of HEAD and a base lacks.            | Store and records, as =check=.                    |
 | =check --today=   | The same diagnostics, with exception expiry judged as of another date.  | As =check=.                                       |
-| =gc=              | Removes old unreferenced objects and action objects from the store.      | Removes files from the store, unless =--dry-run=. |
+| =gc=              | Drops old unreferenced objects and action objects from the store, rewriting its packs into one, and removes the first layout of the store. | Rewrites the packs, unless =--dry-run=. |
 | =hook=            | Checks the one file a Claude Code PostToolUse payload on standard input names, running only the units that read or report on it. | Nothing.                                          |
 | =config=          | Prints every path and codec setting in effect, and where it came from.   | Nothing.                                          |
 
@@ -296,8 +296,8 @@ record again, and 0.8 s reading it.
 =--version= prints one fact per line: the release; the full and short commit;
 whether its tree was dirty; the branch; the commit's committer time; the build
 time; the install time; and the store formats the binary reads and writes (the
-dependency record, action, written outputs, format cache and worktree index
-versions). The commit facts come from =compass.manifest=, a =key=value= file
+store layout, 2 for packs, the pack, dependency record, action, written
+outputs, format cache and worktree index versions). The commit facts come from =compass.manifest=, a =key=value= file
 the =compass.cli.version= target writes beside the binary on every build
 through =cmake/generate_version.cmake=; the binary finds it beside its own
 resolved path, so a link to the binary works. The build time is the binary's
@@ -364,7 +364,9 @@ the name keeps it apart from ORE Studio's Python =compass=.
   path. =check --ratchet= prints only the new diagnostics, in the same
   form, then one line with their count, the excused count, the merge base
   and the renamed files followed. =gc= prints
-  what it removed, or would remove, and the size of the store. =config=
+  the entries and files it removed, or would remove, the size of the store
+  and its packs before and after, and the files of the first layout it
+  removed. =config=
   prints one line per path and codec setting, as
   =<key> = <value> (<source>)=, the source being =default=,
   =.compass.org:<line>= or =command line=.

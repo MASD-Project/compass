@@ -23,7 +23,6 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include "compass.store/ops/blob_hash.hpp"
 
 namespace compass::store::io {
 
@@ -67,25 +66,19 @@ std::filesystem::path git_common_dir(const std::filesystem::path& checkout) {
     return common.empty() ? dir : resolve(dir, common);
 }
 
-std::filesystem::path objects_dir(const std::filesystem::path& git_common_dir) {
-    return git_common_dir / "compass" / "objects";
+std::filesystem::path packs_dir(const std::filesystem::path& git_common_dir) {
+    return git_common_dir / "compass" / "packs";
 }
 
-std::filesystem::path actions_dir(const std::filesystem::path& git_common_dir,
-    types::action_kind kind) {
-    return git_common_dir / "compass" /
-        (kind == types::action_kind::manifest ? "manifests" : "results");
+std::vector<std::filesystem::path> legacy_store_dirs(
+    const std::filesystem::path& git_common_dir) {
+    const auto store = git_common_dir / "compass";
+    return {store / "objects", store / "manifests", store / "results"};
 }
 
 std::filesystem::path worktree_index_path(
     const std::filesystem::path& git_dir) {
     return git_dir / "compass" / "index";
-}
-
-std::filesystem::path object_path(const std::filesystem::path& objects_dir,
-    const types::blob_id& id) {
-    const auto hex = ops::to_hex(id);
-    return objects_dir / hex.substr(0, 2) / hex.substr(2);
 }
 
 }

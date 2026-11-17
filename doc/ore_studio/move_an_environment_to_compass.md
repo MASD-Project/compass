@@ -63,7 +63,7 @@ installed binary, `~/.local/opt/compass/compass`, which has its build manifest,
   committed: 2026-11-17T09:31:48Z
   built: 2026-11-17T09:46:18Z
   installed: 2026-11-17T10:02:11Z
-  store formats: dependency records 6, actions 5, written outputs 1, format cache 1, worktree index 1
+  store formats: store layout 2, packs 1, dependency records 6, actions 5, written outputs 1, format cache 1, worktree index 1
   ```
 
   These are the release, the full and short commit the build was made from,
@@ -83,13 +83,31 @@ installed binary, `~/.local/opt/compass/compass`, which has its build manifest,
 - To see which codecs the installed build knows, run `compass-ng config`: any unknown codec
   named in `.compass.org` is an error that lists the known ones.
 - compass keeps its store under the repository's git common directory
-  (`<common dir>/compass/`), shared by every `ores_dev_*` worktree. Per-worktree
-  records live under each worktree's git directory.
+  (`<common dir>/compass/packs/`), shared by every `ores_dev_*` worktree.
+  Per-worktree records live under each worktree's git directory.
+- The store is a handful of pack files, not a file per object and result.
+  Every run that computes something adds one pack, and small packs are
+  merged into bigger ones as they are written, so the count stays near the
+  logarithm of the store's size. A cold check of ORE Studio leaves one pack
+  of about 620 MB beside four records. Any number of worktrees, checks and
+  hooks may use the store at once: each writer publishes its own pack with
+  an atomic rename, and only merging and `gc` take a lock.
 - When a new binary changes the record format, the first run after it runs
   everything once (cold). That is expected. Compare the `store formats` line
   of the two builds' `--version` to see whether it will happen.
-- Run `compass-ng gc` now and then. The store grows quickly: on a scratch copy of
-  ORE Studio it reached 12 GB before a gc brought it to 2.8 GB.
+- **Store layout 2.** A build whose `store formats` line starts `store
+  layout 2` does not read the old layout of one file per object, manifest
+  and result (`compass/objects`, `compass/manifests`, `compass/results`).
+  Its first check is cold, which every new build is anyway, since a new
+  build changes the key of every stored result. Run `compass-ng gc` once
+  after the install: it removes the old directories, about 189,000 files
+  in a store a day old.
+- Run `compass-ng gc` now and then. It keeps every entry a worktree's index
+  or record names and everything written in the last hour, and rewrites
+  the rest of the store into one pack without the entries nothing names.
+  Formatted files are among those: a `gc` more than an hour after the last
+  check drops them, and the next check runs clang-format and prettier again
+  (about 50 s on ORE Studio).
 
 ## Step 1: add `.compass.org`
 

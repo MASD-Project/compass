@@ -33,7 +33,6 @@ namespace compass::bench::ops {
  */
 [[nodiscard]] store::types::collection_result run_gc_stage(
     const std::filesystem::path& checkout,
-    const std::filesystem::path& objects,
     const store::types::collection_options& options);
 
 }

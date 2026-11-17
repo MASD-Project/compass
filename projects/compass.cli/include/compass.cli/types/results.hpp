@@ -200,10 +200,11 @@ struct ratchet_result {
 };
 
 /**
- * @brief What compass gc found and removed in the store at objects.
+ * @brief What compass gc found and removed in the store whose packs are in
+ * packs.
  */
 struct gc_result {
-    std::filesystem::path objects;
+    std::filesystem::path packs;
     store::types::collection_options options;
     store::types::collection_result collection;
 };

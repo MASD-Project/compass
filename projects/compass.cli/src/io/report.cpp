@@ -216,16 +216,29 @@ void write_gc(std::ostream& out, const types::gc_result& r) {
     const auto& plan = c.plan;
     const auto ms = c.worktrees_ms + c.live_ms + c.list_ms + c.plan_ms +
         c.remove_ms;
+    const auto dropped = plan.victims.objects + c.superseded.objects;
+    const auto dropped_bytes = plan.victims.bytes + c.superseded.bytes;
     if (r.options.dry_run) {
-        out << std::format("would remove {} files, {} bytes; store {} bytes "
-                           "in {} files ({:.1f} ms)\n", plan.victims.objects,
-            plan.victims.bytes, plan.stored.bytes, plan.stored.objects, ms);
+        out << std::format("would remove {} entries and files, {} bytes; "
+                           "store {} bytes in {} entries, {} packs",
+            dropped, dropped_bytes, plan.stored.bytes + c.superseded.bytes,
+            plan.stored.objects + c.superseded.objects, c.packs);
+        if (c.legacy.objects != 0)
+            out << std::format("; would remove the old layout, {} files, {} "
+                               "bytes", c.legacy.objects, c.legacy.bytes);
+        out << std::format(" ({:.1f} ms)\n", ms);
         return;
     }
-    out << std::format("removed {} files, {} bytes; store {} bytes in {} "
-                       "files ({:.1f} ms)\n", c.removed.objects,
-        c.removed.bytes, plan.stored.bytes - c.removed.bytes,
-        plan.stored.objects - c.removed.objects, ms);
+    out << std::format("removed {} entries and files, {} bytes; store {} "
+                       "bytes in {} entries, {} packs (was {})",
+        c.removed.objects, c.removed.bytes,
+        plan.stored.bytes + c.superseded.bytes - c.removed.bytes,
+        plan.stored.objects + c.superseded.objects - c.removed.objects,
+        c.packs_after, c.packs);
+    if (c.legacy.objects != 0)
+        out << std::format("; removed the old layout, {} files, {} bytes",
+            c.legacy.objects, c.legacy.bytes);
+    out << std::format(" ({:.1f} ms)\n", ms);
 }
 
 }

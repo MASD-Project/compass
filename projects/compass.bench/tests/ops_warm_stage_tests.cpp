@@ -23,6 +23,7 @@
 #include <filesystem>
 #include <fstream>
 #include <map>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -36,6 +37,7 @@
 #include "compass.platform/filesystem/mapped_file.hpp"
 #include "compass.store/io/collection.hpp"
 #include "compass.store/io/location.hpp"
+#include "compass.store/io/pack_store.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 #include "scoped_git_repo.hpp"
 
@@ -46,7 +48,7 @@ using namespace compass::bench;
 using tests::scoped_git_repo;
 
 types::warm_result run(const scoped_git_repo& repo, unsigned repetitions) {
-    return ops::run_warm_stage(repo.checkout(), repo.list(), repo.objects(),
+    return ops::run_warm_stage(repo.checkout(), repo.list(), repo.packs(),
         2, repetitions);
 }
 
@@ -78,13 +80,16 @@ std::map<std::string, std::string> stored_dumps(const scoped_git_repo& repo) {
     for (const auto* path : org_paths) {
         const mapped_file source(repo.checkout() / path);
         const auto id = compass::store::ops::blob_id_of(source.text());
-        const mapped_file object(
-            compass::store::io::object_path(repo.objects(), id));
-        const auto view = compass::org::io::decode(object.bytes(),
-            {id.bytes, compass::ingest::org::parser_version});
+        const compass::store::io::pack_reader store(repo.packs());
+        const auto object = store.find(
+            compass::store::types::entry_kind::object, id);
         std::ostringstream os;
-        if (view)
-            compass::org::io::dump(os, source.text(), *view);
+        if (object) {
+            const auto view = compass::org::io::decode(*object,
+                {id.bytes, compass::ingest::org::parser_version});
+            if (view)
+                compass::org::io::dump(os, source.text(), *view);
+        }
         dumps[path] = os.str();
     }
     return dumps;
@@ -142,13 +147,14 @@ TEST_CASE("a damaged object is rewritten", "[ops][warm_stage]") {
     scoped_git_repo repo;
     fill(repo);
     (void)run(repo, 1);
-    for (const auto& entry :
-        std::filesystem::recursive_directory_iterator(repo.objects())) {
-        if (entry.is_regular_file()) {
-            std::ofstream os(entry.path(), std::ios::binary | std::ios::trunc);
-            os << "not an object";
-            break;
-        }
+    const auto packs = compass::store::io::open_packs(repo.packs());
+    REQUIRE(packs.size() == 1);
+    const auto first = compass::store::ops::entry_at(packs[0].view, 0);
+    {
+        std::fstream os(packs[0].path,
+            std::ios::binary | std::ios::in | std::ios::out);
+        os.seekp(static_cast<std::streamoff>(first.offset));
+        os << "not an object";
     }
 
     const auto r = run(repo, 1);
@@ -187,15 +193,8 @@ TEST_CASE("a run after collection parses the removed objects again and they "
         repo.write(path, std::string("* Rewritten ") + path + "\n");
     repo.git("add -A");
     CHECK(run(repo, 1).runs[0].written == 4);
-    for (const auto& entry :
-        std::filesystem::recursive_directory_iterator(repo.objects())) {
-        std::filesystem::last_write_time(entry.path(),
-            std::filesystem::file_time_type::clock::now() -
-                std::chrono::hours(2));
-    }
-
     const auto collected = compass::store::io::collect(repo.checkout(),
-        repo.objects(), {}, [](const std::filesystem::path&) {
+        {0, std::chrono::seconds(0), false}, [](const std::filesystem::path&) {
             return std::vector<compass::store::types::blob_id>{};
         });
     CHECK(collected.plan.stored.objects == 8);

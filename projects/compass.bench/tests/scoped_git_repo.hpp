@@ -84,7 +84,13 @@ public:
     }
 
     std::filesystem::path checkout() const { return root_ / "checkout"; }
-    std::filesystem::path objects() const { return root_ / "objects"; }
+    /**
+     * @brief The packs of the store of the checkout, where app::store_objects
+     * and the result cache put them.
+     */
+    std::filesystem::path packs() const {
+        return checkout() / ".git" / "compass" / "packs";
+    }
 
 private:
     std::filesystem::path root_;
