@@ -25,6 +25,7 @@
 #include <string>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.codec/types/fact.hpp"
 #include "compass.cpp/ops/paths.hpp"
 #include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
@@ -263,67 +264,83 @@ std::vector<std::string> bare_link_targets(std::string_view text) {
     return out;
 }
 
-void check_backtick_links(const ct::corpus_view& v,
-    std::vector<violation>& out) {
+/**
+ * @brief The pages under doc/, which the backtick rule reads.
+ */
+std::vector<std::string_view> pages(const ct::corpus_view& v) {
+    return v.list_files("doc/", ".org");
+}
+
+/**
+ * @brief Makes the fact of a page: the byte and the message of each
+ * bracket link inside a backtick span, in order. The findings are the
+ * reduce step's, since the exceptions file may excuse a page.
+ */
+void map_page(std::string_view, std::string_view source,
+    const ct::option_values&, ct::file_scan& out) {
     static const pt::regex span(R"(`([^`\n]*)`)");
     static const pt::regex inline_verbatim(R"(=[^=\n]+=|~[^~\n]+~)");
     static const pt::regex verbatim_begin(R"(^#\+(begin_(?:src|example))\b)",
         {.ignorecase = true});
     static const pt::regex verbatim_end(R"(^#\+end_(?:src|example)\b)",
         {.ignorecase = true});
-    std::vector<std::size_t> pages;
-    for (std::size_t i = 0; i < v.size(); ++i) {
-        if (v[i].path.starts_with("doc/"))
-            pages.push_back(i);
-    }
-    std::ranges::sort(pages, [&](auto a, auto b) {
-        return co::component_less(v[a].path, v[b].path);
-    });
-    for (const auto i : pages) {
-        const auto d = v[i];
-        const auto text = pt::universal_newlines(
-            pt::decode_replacing(d.source));
-        bool in_verbatim = false;
-        std::uint32_t number = 0;
-        for (const auto line : co::split_lines(text)) {
-            ++number;
-            const auto stripped = co::strip(line);
-            if (verbatim_begin.match(stripped)) {
-                in_verbatim = true;
-                continue;
+    ct::fact_writer fact(out.fact);
+    const auto text = pt::universal_newlines(
+        pt::decode_replacing(source));
+    bool in_verbatim = false;
+    std::uint32_t number = 0;
+    for (const auto line : co::split_lines(text)) {
+        ++number;
+        const auto stripped = co::strip(line);
+        if (verbatim_begin.match(stripped)) {
+            in_verbatim = true;
+            continue;
+        }
+        if (verbatim_end.match(stripped)) {
+            in_verbatim = false;
+            continue;
+        }
+        if (in_verbatim)
+            continue;
+        for (const auto& m : span.find_all(line)) {
+            std::string content(m.group(1));
+            for (const auto& s : inline_verbatim.find_all(m.group(1))) {
+                for (auto k = s.start(); k < s.end(); ++k)
+                    content[k] = '\0';
             }
-            if (verbatim_end.match(stripped)) {
-                in_verbatim = false;
+            const auto targets = bare_link_targets(content);
+            if (targets.empty())
                 continue;
-            }
-            if (in_verbatim)
-                continue;
-            for (const auto& m : span.find_all(line)) {
-                std::string content(m.group(1));
-                for (const auto& s : inline_verbatim.find_all(m.group(1))) {
-                    for (auto k = s.start(); k < s.end(); ++k)
-                        content[k] = '\0';
-                }
-                const auto targets = bare_link_targets(content);
-                if (targets.empty())
-                    continue;
-                std::string joined;
-                for (const auto& t : targets)
-                    joined += (joined.empty() ? "" : ",") + t;
-                out.push_back({backtick_link, std::string(d.path),
-                    std::string(d.path), co::offset_of_line(d.source, number),
-                    "org parses " + joined + " inside backticks as a link, "
-                    "and the site export aborts on the unresolved target; "
-                    "use =...= or a src block: " + std::string(m.group())});
-            }
+            std::string joined;
+            for (const auto& t : targets)
+                joined += (joined.empty() ? "" : ",") + t;
+            fact.number(co::offset_of_line(source, number));
+            fact.text("org parses " + joined + " inside backticks as a "
+                "link, and the site export aborts on the unresolved "
+                "target; use =...= or a src block: " +
+                std::string(m.group()));
         }
     }
 }
 
-void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
+/**
+ * @brief Reports the gaps of the components, then the backtick links of
+ * the pages in path order, each unless the exceptions file excuses it.
+ */
+void reduce(std::span<const ct::scanned_file> scanned,
+    const ct::corpus_view& v, ct::diagnostic_table& out) {
     std::vector<violation> found;
     check_components(v, found);
-    check_backtick_links(v, found);
+    std::vector<ct::scanned_file> by_path(scanned.begin(), scanned.end());
+    std::ranges::sort(by_path, co::component_less, &ct::scanned_file::path);
+    for (const auto& page : by_path) {
+        ct::fact_reader fact(page.fact);
+        while (!fact.done()) {
+            const auto offset = fact.number();
+            found.push_back({backtick_link, std::string(page.path),
+                std::string(page.path), offset, std::string(fact.text())});
+        }
+    }
     const auto exceptions = load_exceptions(v);
     for (const auto& f : found) {
         if (exceptions.contains({std::string(codes[f.code]), f.name}))
@@ -339,13 +356,13 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
 
 const ct::descriptor component_docs{
     .name = "component_docs",
-    .version = 1,
+    .version = 2,
     .summary = "Reports each component without a complete overview and "
         "diagram, and each link inside backticks under doc/.",
-    .reads = ct::inputs::every_document(),
+    .reads = ct::inputs::of_types({}),
     .options = options,
     .rules = rules,
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::diagnostic_table>{run}};
+    .run = ct::scan_function{pages, map_page, reduce}};
 
 }
