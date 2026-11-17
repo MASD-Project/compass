@@ -24,18 +24,17 @@
 #include <string>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.cpp/ops/lexer.hpp"
 #include "compass.cpp/ops/paths.hpp"
 #include "compass.cpp/ops/report.hpp"
+#include "compass.cpp/ops/source_model.hpp"
 #include "compass.cpp/ops/text.hpp"
-#include "compass.platform/text/decoding.hpp"
-#include "compass.platform/text/regex.hpp"
 
 namespace compass::cpp::codecs {
 
 namespace {
 
 namespace ct = compass::codec::types;
-namespace pt = compass::platform::text;
 
 constexpr std::array<std::string_view, 1> stop_type_outside_platform_sources{
     "B4E38241-6AD1-4859-9610-033CC39C0AF4"};
@@ -80,30 +79,43 @@ std::vector<std::string_view> scanned(const ct::corpus_view& v) {
     return paths;
 }
 
+constexpr std::array<std::string_view, 4> stop_types{"jthread", "stop_token",
+    "stop_source", "stop_callback"};
+
+/**
+ * @brief Reports each line of the live code that names std:: and a stop
+ * type, as in std::jthread or std :: jthread, or includes <stop_token>.
+ */
 void map(std::string_view path, std::string_view bytes,
     const ct::option_values&, ct::file_scan& out) {
-    static const pt::regex noise(
-        R"re(//[^\n]*|/\*.*?\*/|R"(?P<d>[^(\s]*)\(.*?\)(?P=d)"|"(?:\\.|[^"\\\n])*")re",
-        {.dotall = true});
-    static const pt::regex stop_type(
-        R"(\bstd::(jthread|stop_token|stop_source|stop_callback)\b)");
-    static const pt::regex stop_include(R"(^\s*#\s*include\s*<stop_token>)");
-    const auto text = pt::universal_newlines(pt::decode_ignoring(bytes));
-    const auto blanked = noise.substitute(text, [](const auto& m) {
-        return pt::blank_keeping_newlines(m.group());
-    });
-    std::uint32_t number = 0;
-    for (const auto line : ops::split_lines(blanked)) {
-        ++number;
-        std::string name;
-        if (const auto m = stop_type.search(line))
-            name = "std::" + std::string(m->group(1));
-        else if (stop_include.match(line))
-            name = "<stop_token>";
-        else
+    const auto lexed = ops::lex(bytes);
+    const auto model = ops::model_of(bytes, lexed);
+    std::vector<std::pair<std::uint32_t, std::string>> hits;
+    for (const auto& n : model.names) {
+        const auto parts = ops::components_of_name(n.text);
+        for (std::size_t i = 0; i + 1 < parts.size(); ++i) {
+            if (parts[i] == "std" &&
+                std::ranges::find(stop_types, parts[i + 1]) !=
+                    stop_types.end()) {
+                hits.emplace_back(n.offset, "std::" + std::string(parts[i + 1]));
+                break;
+            }
+        }
+    }
+    for (const auto& i : model.includes) {
+        if (i.angled && i.target == "stop_token")
+            hits.emplace_back(i.offset, "<stop_token>");
+    }
+    std::ranges::stable_sort(hits, {}, &std::pair<std::uint32_t,
+        std::string>::first);
+    std::uint32_t last = 0;
+    for (const auto& [offset, name] : hits) {
+        const auto line = ops::line_of(bytes, offset);
+        if (line == last)
             continue;
-        ops::report(out.findings, path, ops::offset_of_line(bytes, number),
-            0, name + " is not portable: Apple's libc++ has no C++20 stop "
+        last = line;
+        ops::report(out.findings, path, ops::offset_of_line(bytes, line), 0,
+            name + " is not portable: Apple's libc++ has no C++20 stop "
             "types", "use the same name in ores::platform::concurrency "
             "from stoppable_thread.hpp");
     }

@@ -19,7 +19,7 @@
  */
 #include "compass.cpp/ops/exported_types.hpp"
 
-#include "compass.cpp/ops/test_case_reachability.hpp"
+#include "compass.cpp/ops/lexer.hpp"
 #include "compass.cpp/ops/text.hpp"
 
 namespace compass::cpp::ops {
@@ -131,7 +131,7 @@ std::optional<std::string_view> export_macro(std::string_view header) {
 }
 
 std::vector<std::string_view> quoted_includes(std::string_view text) {
-    const auto blanked = blank_comments_and_literals(text);
+    const auto blanked = lex(text).code;
     std::vector<conditional> open;
     bool live = true;
     std::vector<std::string_view> out;

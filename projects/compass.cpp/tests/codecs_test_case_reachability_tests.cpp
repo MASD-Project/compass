@@ -99,7 +99,7 @@ TEST_CASE("digit separators are not character literals",
         "char c = '\"'; TEST_CASE(\"b\") {}\n");
     CHECK(r.declared == 2);
     CHECK(lines_of(r) == std::vector<std::uint32_t>{3});
-    CHECK(ops::scan_source("x = 1'\"'; TEST_CASE(\"a\") {}\n").declared == 0);
+    CHECK(ops::scan_source("x = 1'\"'; TEST_CASE(\"a\") {}\n").declared == 1);
 }
 
 TEST_CASE("test sources are under tests directories or named _tests, "

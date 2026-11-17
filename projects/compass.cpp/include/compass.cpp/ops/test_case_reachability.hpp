@@ -81,13 +81,6 @@ struct scan_result {
 };
 
 /**
- * @brief @p text with comments and string and character literals turned
- * into blanks, newlines kept, as the script's _blank_comments_and_literals
- * blanks them.
- */
-[[nodiscard]] std::string blank_comments_and_literals(std::string_view text);
-
-/**
  * @brief Scans @p text as the script does: splices removed, comments and
  * literals blanked, #if, #ifdef and #ifndef opening a block and #endif
  * closing one, and a Catch2 test macro, or a name the file's own #define

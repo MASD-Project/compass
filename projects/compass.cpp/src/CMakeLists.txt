@@ -38,8 +38,10 @@ add_library(${lib_target_name}
     ops/enum_attributes.cpp
     ops/exported_types.cpp
     ops/glob.cpp
+    ops/lexer.cpp
     ops/paths.cpp
     ops/report.cpp
+    ops/source_model.cpp
     ops/test_case_reachability.cpp
     ops/text.cpp)
 
