@@ -57,21 +57,22 @@ void add(ct::diagnostic_table& out, std::string_view file,
 
 void check(std::string_view file, std::string_view text,
     ct::diagnostic_table& out) {
-    if (const auto open = ops::unterminated_comment(text); open.depth > 0)
-        add(out, file, open.offset, 0,
+    const auto tokens = ops::lex(text);
+    if (tokens.open_depth > 0)
+        add(out, file, tokens.open_offset, 0,
             "a block comment is still open at the end of the file, so "
             "everything after it is comment", "close the comment; "
             "PostgreSQL nests block comments, so an inner /* needs its "
             "own */");
-    for (const auto& d : ops::duplicate_indexes(text))
+    for (const auto& d : ops::duplicate_indexes(ops::model_of(text, tokens)))
         add(out, file, d.offset, 1, "index " + d.name + " on " + d.table +
             " (" + d.columns + ") is defined more than once",
             "create the index once, outside any per-column loop");
-    for (const auto at : ops::split_concatenations(text))
+    for (const auto at : ops::split_concatenations(text, tokens))
         add(out, file, at, 2, "a comment splits two string literals; "
             "PostgreSQL joins them only across whitespace",
             "move the comment above the statement");
-    for (const auto& r : ops::not_re_runnables(text))
+    for (const auto& r : ops::not_re_runnables(text, tokens))
         add(out, file, r.offset, 3, r.why + "; a second run would fail",
             "make the statement idempotent");
 }
@@ -104,7 +105,7 @@ void map(std::string_view path, std::string_view bytes,
 
 const ct::descriptor sql_hygiene{
     .name = "sql_hygiene",
-    .version = 2,
+    .version = 3,
     .summary = "Reports unterminated comments, duplicate indexes, comments "
         "that split string literals and DDL that cannot run twice.",
     .reads = ct::inputs::of_types({}),

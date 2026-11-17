@@ -24,33 +24,19 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include "compass.sql/ops/lexer.hpp"
+#include "compass.sql/ops/sql_model.hpp"
 
 /**
- * @brief The rules of ORE Studio's check_sql_hygiene.py over the text of
- * one SQL file, which follow PostgreSQL's lexer: block comments nest,
- * dollar-quoted bodies, -- comments and both quote styles are skipped.
- *
- * Python reads the file as text, so its \s, \b and case folding are
- * Unicode-aware; here a byte of 0x80 or more is a word character and the
- * non-ASCII spaces are not spaces.
+ * @brief The rules of ORE Studio's check_sql_hygiene.py over one SQL file,
+ * read from its tokens (ops::lex) and its model (ops::model_of).
  */
 namespace compass::sql::ops {
 
 /**
- * @brief How deep the block comments still open at the end of @p text
- * nest, 0 when every one closes, and where the outermost of them opened.
- */
-struct open_comment {
-    std::uint32_t depth = 0;
-    std::uint32_t offset = 0;
-};
-
-[[nodiscard]] open_comment unterminated_comment(std::string_view text);
-
-/**
  * @brief An index the file creates more than once with "create [unique]
- * index if not exists": its name, table and columns, lower-cased with the
- * columns' spaces collapsed, how often, and where it is first created.
+ * index if not exists": its name, table and columns, as the model states
+ * them, how often, and where it is first created.
  */
 struct duplicate_index {
     std::string name;
@@ -61,20 +47,14 @@ struct duplicate_index {
 };
 
 [[nodiscard]] std::vector<duplicate_index> duplicate_indexes(
-    std::string_view text);
+    const sql_file& model);
 
 /**
  * @brief Where each comment that stands between two string literals
- * starts, dollar-quoted bodies included, in the order the scan meets them.
+ * starts, dollar-quoted bodies included, in the order of the text.
  */
 [[nodiscard]] std::vector<std::uint32_t> split_concatenations(
-    std::string_view text);
-
-/**
- * @brief @p text with comments, string literals and dollar-quoted bodies
- * blanked, newlines and quoted identifiers kept, byte for byte.
- */
-[[nodiscard]] std::string mask_non_code(std::string_view text);
+    std::string_view text, const lexed& tokens);
 
 /**
  * @brief A statement a second run of the file fails on: where it starts
@@ -86,15 +66,15 @@ struct not_re_runnable {
 };
 
 /**
- * @brief The DDL of @p text, searched with comments, literals and bodies
- * masked, that cannot run twice: create table, sequence, extension,
- * schema or materialized view without "if not exists"; create trigger,
- * rule, view, function or procedure without "or replace"; create index
- * without "if not exists"; create policy, type or domain with no matching
- * drop ... if exists. In that order, each in the order of the text.
+ * @brief The top-level DDL of @p text that cannot run twice: create table,
+ * sequence, extension, schema or materialized view without "if not
+ * exists"; create trigger, rule, view, function or procedure without "or
+ * replace"; create index without "if not exists"; create policy, type or
+ * domain with no matching drop ... if exists in the file. DDL inside a
+ * dollar body is not read. In the order of the text.
  */
 [[nodiscard]] std::vector<not_re_runnable> not_re_runnables(
-    std::string_view text);
+    std::string_view text, const lexed& tokens);
 
 }
 

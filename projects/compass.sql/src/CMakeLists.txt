@@ -29,7 +29,9 @@ add_library(${lib_target_name}
     codecs/sql_reachability.cpp
     ops/er_model.cpp
     ops/hygiene.cpp
-    ops/scripts.cpp)
+    ops/lexer.cpp
+    ops/scripts.cpp
+    ops/sql_model.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
 

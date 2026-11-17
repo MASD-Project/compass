@@ -29,288 +29,50 @@ namespace compass::sql::ops {
 
 namespace {
 
-constexpr auto npos = std::string_view::npos;
-
-constexpr bool is_space(char c) noexcept {
-    return c == ' ' || (c >= '\t' && c <= '\r') || (c >= '\x1c' &&
-        c <= '\x1f');
-}
-
-constexpr bool is_word(char c) noexcept {
-    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-        (c >= '0' && c <= '9') || c == '_' ||
-        static_cast<unsigned char>(c) >= 0x80;
-}
-
-constexpr bool is_name(char c) noexcept {
-    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-        (c >= '0' && c <= '9') || c == '_';
-}
-
-constexpr bool is_quoted_name(char c) noexcept {
-    return is_name(c) || c == '"';
-}
-
-constexpr char lower(char c) noexcept {
-    return c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c;
-}
-
-std::string lowered(std::string_view text) {
-    std::string out(text);
-    for (auto& c : out)
-        c = lower(c);
-    return out;
-}
-
-std::size_t skip_spaces(std::string_view text, std::size_t i) noexcept {
-    while (i < text.size() && is_space(text[i]))
-        ++i;
-    return i;
+bool is_comment(const token& t) noexcept {
+    return t.kind == token_kind::line_comment ||
+        t.kind == token_kind::block_comment;
 }
 
 /**
- * @brief The end of @p word at @p i, compared without case, or npos.
+ * @brief Whether the bytes from @p from to @p to are spaces, tabs and line
+ * ends only, the white space PostgreSQL joins two literals across.
  */
-std::size_t keyword(std::string_view text, std::size_t i,
-    std::string_view word) noexcept {
-    if (i == npos || i + word.size() > text.size())
-        return npos;
-    for (std::size_t k = 0; k < word.size(); ++k) {
-        if (lower(text[i + k]) != word[k])
-            return npos;
+bool joining_space(std::string_view text, std::uint32_t from,
+    std::uint32_t to) noexcept {
+    for (auto i = from; i < to; ++i) {
+        const auto c = text[i];
+        if (c != ' ' && c != '\t' && c != '\r' && c != '\n')
+            return false;
     }
-    return i + word.size();
+    return true;
 }
 
-/**
- * @brief The end of the spaces at @p i when there is at least one, or
- * npos: \s+.
- */
-std::size_t spaces(std::string_view text, std::size_t i) noexcept {
-    if (i == npos)
-        return npos;
-    const auto end = skip_spaces(text, i);
-    return end == i ? npos : end;
-}
-
-/**
- * @brief The end of the words of @p words at @p i, each followed by at
- * least one space, or npos: word\s+word\s+...
- */
-std::size_t words(std::string_view text, std::size_t i,
-    std::initializer_list<std::string_view> words) noexcept {
-    for (const auto w : words)
-        i = spaces(text, keyword(text, i, w));
-    return i;
-}
-
-/**
- * @brief The end of the longest run of @p accept at @p i, or npos when
- * there is none.
- */
-template <typename Accept>
-std::size_t run(std::string_view text, std::size_t i, Accept accept) {
-    if (i == npos)
-        return npos;
-    auto end = i;
-    while (end < text.size() && accept(text[end]))
-        ++end;
-    return end == i ? npos : end;
-}
-
-bool word_starts(std::string_view text, std::size_t i) noexcept {
-    return i == 0 || !is_word(text[i - 1]);
-}
-
-/**
- * @brief Each position of @p text where @p word starts, without case,
- * after a word boundary.
- */
-std::vector<std::size_t> starts_of(std::string_view text,
-    std::string_view word) {
-    std::vector<std::size_t> out;
-    for (std::size_t i = 0; i + word.size() <= text.size(); ++i) {
-        if (lower(text[i]) == word[0] && keyword(text, i, word) != npos &&
-            word_starts(text, i))
-            out.push_back(i);
-    }
-    return out;
-}
-
-/**
- * @brief The dollar-quote tag at @p i, $[A-Za-z_0-9]*$, or empty.
- */
-std::string_view dollar_tag(std::string_view text, std::size_t i) noexcept {
-    if (i >= text.size() || text[i] != '$')
-        return {};
-    auto j = i + 1;
-    while (j < text.size() && is_name(text[j]))
-        ++j;
-    if (j >= text.size() || text[j] != '$')
-        return {};
-    return text.substr(i, j + 1 - i);
-}
-
-std::size_t after_quoted(std::string_view text, std::size_t i, char quote) {
-    const auto n = text.size();
-    auto j = i + 1;
-    while (j < n) {
-        if (text[j] == quote) {
-            if (j + 1 < n && text[j + 1] == quote) {
-                j += 2;
-                continue;
-            }
-            return j + 1;
-        }
-        ++j;
-    }
-    return n;
-}
-
-std::size_t after_block_comment(std::string_view text, std::size_t i) {
-    const auto n = text.size();
-    int depth = 1;
-    auto j = i + 2;
-    while (j < n) {
-        if (text.substr(j, 2) == "/*") {
-            ++depth;
-            j += 2;
-            continue;
-        }
-        if (text.substr(j, 2) == "*/") {
-            --depth;
-            j += 2;
-            if (depth == 0)
-                return j;
-            continue;
-        }
-        ++j;
-    }
-    return n;
-}
-
-void split_into(std::string_view text, std::uint32_t base,
+void split_into(std::string_view text, const std::vector<token>& tokens,
     std::vector<std::uint32_t>& out) {
-    const auto n = text.size();
-    std::size_t i = 0;
-    while (i < n) {
-        if (text.substr(i, 2) == "--") {
-            const auto end = text.find('\n', i);
-            i = end == npos ? n : end;
+    for (std::size_t k = 0; k < tokens.size(); ++k) {
+        const auto& t = tokens[k];
+        if (t.kind == token_kind::dollar_body) {
+            const auto content = dollar_content(text_of(text, t));
+            const auto base = static_cast<std::uint32_t>(
+                content.data() - text.data());
+            split_into(text, lex(content, base, false).tokens, out);
             continue;
         }
-        if (text.substr(i, 2) == "/*") {
-            i = after_block_comment(text, i);
+        if (t.kind != token_kind::string)
             continue;
+        auto end = t.offset + t.size;
+        auto j = k + 1;
+        while (j < tokens.size() && is_comment(tokens[j]) &&
+            joining_space(text, end, tokens[j].offset)) {
+            end = tokens[j].offset + tokens[j].size;
+            ++j;
         }
-        if (const auto tag = dollar_tag(text, i); !tag.empty()) {
-            const auto body = i + tag.size();
-            const auto end = text.find(tag, body);
-            const auto body_end = end == npos ? n : end;
-            split_into(text.substr(body, body_end - body),
-                base + static_cast<std::uint32_t>(body), out);
-            i = end == npos ? n : end + tag.size();
-            continue;
-        }
-        if (text[i] == '"') {
-            i = after_quoted(text, i, '"');
-            continue;
-        }
-        if (text[i] != '\'') {
-            ++i;
-            continue;
-        }
-        i = after_quoted(text, i, '\'');
-        auto j = i;
-        auto comment_at = npos;
-        while (j < n) {
-            const auto c = text[j];
-            if (c == ' ' || c == '\t' || c == '\r' || c == '\n') {
-                ++j;
-                continue;
-            }
-            if (text.substr(j, 2) == "--") {
-                comment_at = comment_at == npos ? j : comment_at;
-                const auto end = text.find('\n', j);
-                j = end == npos ? n : end + 1;
-                continue;
-            }
-            if (text.substr(j, 2) == "/*") {
-                comment_at = comment_at == npos ? j : comment_at;
-                j = after_block_comment(text, j);
-                continue;
-            }
-            break;
-        }
-        if (comment_at != npos && j < n && text[j] == '\'')
-            out.push_back(base + static_cast<std::uint32_t>(comment_at));
+        if (j > k + 1 && j < tokens.size() &&
+            tokens[j].kind == token_kind::string &&
+            joining_space(text, end, tokens[j].offset))
+            out.push_back(tokens[k + 1].offset);
     }
-}
-
-/**
- * @brief The end of
- * create\s+(unique\s+)?index\s+if\s+not\s+exists\s+NAME\s*\n?\s*on\s+"?TABLE"?\s*\(COLUMNS\)
- * at @p i, with its three groups, or npos. NAME gives back characters
- * from its end until the rest matches, as the regular expression does.
- */
-std::size_t index_at(std::string_view text, std::size_t i,
-    std::string_view& name, std::string_view& table,
-    std::string_view& columns) {
-    auto j = spaces(text, keyword(text, i, "create"));
-    if (const auto unique = words(text, j, {"unique"}); unique != npos)
-        j = unique;
-    j = words(text, j, {"index", "if", "not", "exists"});
-    const auto name_end = run(text, j, is_name);
-    if (name_end == npos)
-        return npos;
-    for (auto end = name_end; end > j; --end) {
-        auto k = spaces(text, keyword(text, skip_spaces(text, end), "on"));
-        if (k == npos)
-            continue;
-        if (k < text.size() && text[k] == '"')
-            ++k;
-        const auto table_end = run(text, k, is_name);
-        if (table_end == npos)
-            continue;
-        auto p = table_end;
-        if (p < text.size() && text[p] == '"')
-            ++p;
-        p = skip_spaces(text, p);
-        if (p >= text.size() || text[p] != '(')
-            continue;
-        const auto close = text.find(')', p + 1);
-        if (close == npos)
-            continue;
-        name = text.substr(j, end - j);
-        table = text.substr(k, table_end - k);
-        columns = text.substr(p + 1, close - p - 1);
-        return close + 1;
-    }
-    return npos;
-}
-
-std::string collapsed_lower(std::string_view text) {
-    std::string out;
-    for (std::size_t i = 0; i < text.size();) {
-        if (is_space(text[i])) {
-            ++i;
-            continue;
-        }
-        if (!out.empty())
-            out.push_back(' ');
-        while (i < text.size() && !is_space(text[i]))
-            out.push_back(lower(text[i++]));
-    }
-    return out;
-}
-
-std::string bare(std::string_view name) {
-    auto out = lowered(name);
-    const auto first = out.find_first_not_of('"');
-    if (first == std::string::npos)
-        return {};
-    const auto last = out.find_last_not_of('"');
-    return out.substr(first, last - first + 1);
 }
 
 /**
@@ -340,291 +102,134 @@ const std::array<simple_rule, 10>& simple_rules() {
 }
 
 /**
- * @brief Whether \bcreate\s+WORDS\s+(?!if\s+not\s+exists) matches at
- * @p i. The last \s+ gives back spaces, so a run of two or more always
- * leaves a space where the lookahead looks.
+ * @brief The top-level code tokens of a file, with readers over them.
  */
-bool simple_matches(std::string_view text, std::size_t i,
-    const simple_rule& rule) {
-    auto j = spaces(text, keyword(text, i, "create"));
-    std::size_t before_last = npos;
-    for (const auto w : rule.words) {
-        before_last = keyword(text, j, w);
-        j = spaces(text, before_last);
+struct code_tokens {
+    std::string_view text;
+    std::vector<token> code;
+
+    bool is(std::size_t i, std::string_view lower_word) const noexcept {
+        return i < code.size() && code[i].kind == token_kind::word &&
+            is_keyword(text_of(text, code[i]), lower_word);
     }
-    if (j == npos)
-        return false;
-    if (!rule.if_not_exists)
-        return true;
-    return j - before_last >= 2 ||
-        words(text, j, {"if", "not"}) == npos ||
-        keyword(text, words(text, j, {"if", "not"}), "exists") == npos;
-}
 
-/**
- * @brief NAME\s+on\s+TABLE at @p i, names of [a-z0-9_"]+, or nothing.
- */
-bool name_on_table(std::string_view text, std::size_t i,
-    std::string_view& name, std::string_view& table) {
-    const auto name_end = run(text, i, is_quoted_name);
-    const auto t = words(text, spaces(text, name_end), {"on"});
-    const auto table_end = run(text, t, is_quoted_name);
-    if (table_end == npos)
-        return false;
-    name = text.substr(i, name_end - i);
-    table = text.substr(t, table_end - t);
-    return true;
-}
+    bool names(std::size_t i) const noexcept {
+        return i < code.size() && (code[i].kind == token_kind::word ||
+            code[i].kind == token_kind::quoted_name);
+    }
 
-}
+    bool if_not_exists(std::size_t i) const noexcept {
+        return is(i, "if") && is(i + 1, "not") && is(i + 2, "exists");
+    }
 
-open_comment unterminated_comment(std::string_view text) {
-    const auto n = text.size();
-    open_comment r;
-    std::size_t i = 0;
-    while (i < n) {
-        if (r.depth > 0) {
-            if (text.substr(i, 2) == "/*") {
-                ++r.depth;
-                i += 2;
-            } else if (text.substr(i, 2) == "*/") {
-                --r.depth;
-                i += 2;
-            } else {
-                ++i;
-            }
-            continue;
-        }
-        if (text.substr(i, 2) == "--") {
-            const auto end = text.find('\n', i);
-            i = end == npos ? n : end;
-            continue;
-        }
-        if (text.substr(i, 2) == "/*") {
-            r.depth = 1;
-            r.offset = static_cast<std::uint32_t>(i);
-            i += 2;
-            continue;
-        }
-        if (const auto tag = dollar_tag(text, i); !tag.empty()) {
-            const auto end = text.find(tag, i + tag.size());
-            i = end == npos ? n : end + tag.size();
-            continue;
-        }
-        const auto c = text[i];
-        if (c == '\'' || c == '"') {
-            ++i;
-            while (i < n) {
-                if (text[i] == c) {
-                    if (c == '\'' && text.substr(i, 2) == "''") {
-                        i += 2;
-                        continue;
-                    }
-                    break;
-                }
-                ++i;
-            }
-            ++i;
-            continue;
-        }
+    std::string bare(std::size_t i) const {
+        const auto bytes = text_of(text, code[i]);
+        return code[i].kind == token_kind::quoted_name
+            ? lowered(string_value(bytes)) : lowered(bytes);
+    }
+
+    /**
+     * @brief The bare name at @p i, the schema dropped, and the index
+     * after it.
+     */
+    std::pair<std::string, std::size_t> qualified(std::size_t i) const {
+        auto name = bare(i);
         ++i;
+        while (i + 1 < code.size() && code[i].kind == token_kind::symbol &&
+            text[code[i].offset] == '.' && names(i + 1)) {
+            name = bare(i + 1);
+            i += 2;
+        }
+        return {std::move(name), i};
     }
-    if (r.depth == 0)
-        r.offset = 0;
-    return r;
+};
+
 }
 
-std::vector<duplicate_index> duplicate_indexes(std::string_view text) {
+std::vector<duplicate_index> duplicate_indexes(const sql_file& model) {
     std::vector<duplicate_index> seen;
     std::map<std::tuple<std::string, std::string, std::string>, std::size_t>
         rows;
-    for (std::size_t i = 0; i < text.size();) {
-        std::string_view name, table, columns;
-        const auto end = lower(text[i]) == 'c'
-            ? index_at(text, i, name, table, columns) : npos;
-        if (end == npos) {
-            ++i;
+    for (const auto& x : model.indexes) {
+        if (!x.if_not_exists || x.name.empty())
             continue;
-        }
-        auto key = std::make_tuple(lowered(name), lowered(table),
-            collapsed_lower(columns));
-        const auto [it, added] = rows.try_emplace(key, seen.size());
+        const auto [it, added] = rows.try_emplace(
+            std::make_tuple(x.name, x.table, x.columns), seen.size());
         if (added)
-            seen.push_back({std::get<0>(key), std::get<1>(key),
-                std::get<2>(key), 0, static_cast<std::uint32_t>(i)});
+            seen.push_back({x.name, x.table, x.columns, 0, x.offset});
         ++seen[it->second].count;
-        i = end;
     }
     std::erase_if(seen, [](const duplicate_index& d) { return d.count < 2; });
     return seen;
 }
 
-std::vector<std::uint32_t> split_concatenations(std::string_view text) {
+std::vector<std::uint32_t> split_concatenations(std::string_view text,
+    const lexed& tokens) {
     std::vector<std::uint32_t> out;
-    split_into(text, 0, out);
+    split_into(text, tokens.tokens, out);
     return out;
 }
 
-std::string mask_non_code(std::string_view text) {
-    std::string out(text);
-    const auto n = text.size();
-    const auto blank = [&](std::size_t from, std::size_t to) {
-        for (auto k = from; k < to; ++k) {
-            if (out[k] != '\n')
-                out[k] = ' ';
-        }
-    };
-    std::size_t i = 0;
-    int depth = 0;
-    while (i < n) {
-        if (depth > 0) {
-            if (text.substr(i, 2) == "/*") {
-                out[i] = out[i + 1] = ' ';
-                ++depth;
-                i += 2;
-            } else if (text.substr(i, 2) == "*/") {
-                out[i] = out[i + 1] = ' ';
-                --depth;
-                i += 2;
-            } else {
-                blank(i, i + 1);
-                ++i;
-            }
-            continue;
-        }
-        if (text.substr(i, 2) == "--") {
-            auto end = text.find('\n', i);
-            end = end == npos ? n : end;
-            blank(i, end);
-            i = end;
-            continue;
-        }
-        if (text.substr(i, 2) == "/*") {
-            out[i] = out[i + 1] = ' ';
-            ++depth;
-            i += 2;
-            continue;
-        }
-        if (const auto tag = dollar_tag(text, i); !tag.empty()) {
-            auto end = text.find(tag, i + tag.size());
-            end = end == npos ? n : end + tag.size();
-            blank(i, end);
-            i = end;
-            continue;
-        }
-        const auto c = text[i];
-        if (c == '"') {
-            auto j = i + 1;
-            while (j < n) {
-                if (text[j] == '"') {
-                    if (text.substr(j, 2) == "\"\"") {
-                        j += 2;
-                        continue;
-                    }
-                    ++j;
-                    break;
-                }
-                ++j;
-            }
-            i = j;
-            continue;
-        }
-        if (c == '\'') {
-            auto j = i + 1;
-            while (j < n) {
-                if (text[j] == '\'') {
-                    if (text.substr(j, 2) == "''") {
-                        j += 2;
-                        continue;
-                    }
-                    ++j;
-                    break;
-                }
-                ++j;
-            }
-            blank(i, std::min(j, n));
-            i = j;
-            continue;
-        }
-        ++i;
+std::vector<not_re_runnable> not_re_runnables(std::string_view text,
+    const lexed& tokens) {
+    code_tokens c{text, {}};
+    c.code.reserve(tokens.tokens.size());
+    for (const auto& t : tokens.tokens) {
+        if (!is_comment(t) && t.kind != token_kind::meta)
+            c.code.push_back(t);
     }
-    return out;
-}
-
-std::vector<not_re_runnable> not_re_runnables(std::string_view text) {
-    const auto masked = mask_non_code(text);
-    const std::string_view m(masked);
-    std::vector<not_re_runnable> out;
-    const auto creates = starts_of(m, "create");
-    const auto drops = starts_of(m, "drop");
-
-    for (const auto& rule : simple_rules()) {
-        for (const auto at : creates) {
-            if (simple_matches(m, at, rule))
-                out.push_back({static_cast<std::uint32_t>(at),
-                    std::string(rule.why)});
-        }
-    }
-
-    for (const auto at : creates) {
-        auto j = spaces(m, keyword(m, at, "create"));
-        if (const auto unique = words(m, j, {"unique"}); unique != npos)
-            j = unique;
-        j = words(m, j, {"index"});
-        if (j == npos)
-            continue;
-        const auto tail = lowered(m.substr(j, 48));
-        if (!tail.starts_with("if not exists") &&
-            !tail.starts_with("concurrently if not exists"))
-            out.push_back({static_cast<std::uint32_t>(at),
-                "create index without `if not exists`"});
-    }
+    constexpr std::array<std::string_view, 2> kinds{"type", "domain"};
 
     std::set<std::pair<std::string, std::string>> dropped_policies;
-    std::set<std::pair<std::string, std::string>> dropped_types;
-    for (const auto at : drops) {
-        const auto after = spaces(m, keyword(m, at, "drop"));
-        std::string_view name, table;
-        const auto policy = words(m, after, {"policy", "if", "exists"});
-        if (policy != npos && name_on_table(m, policy, name, table))
-            dropped_policies.emplace(bare(name), bare(table));
-        for (const auto kind : {std::string_view("type"),
-                 std::string_view("domain")}) {
-            const auto j = words(m, after, {kind, "if", "exists"});
-            const auto end = run(m, j, is_quoted_name);
-            if (end != npos)
-                dropped_types.emplace(std::string(kind),
-                    bare(m.substr(j, end - j)));
+    std::set<std::pair<std::string_view, std::string>> dropped_types;
+    for (std::size_t i = 0; i < c.code.size(); ++i) {
+        if (!c.is(i, "drop"))
+            continue;
+        if (c.is(i + 1, "policy") && c.is(i + 2, "if") &&
+            c.is(i + 3, "exists") && c.names(i + 4) && c.is(i + 5, "on") &&
+            c.names(i + 6))
+            dropped_policies.emplace(c.bare(i + 4), c.qualified(i + 6).first);
+        for (const auto kind : kinds) {
+            if (c.is(i + 1, kind) && c.is(i + 2, "if") &&
+                c.is(i + 3, "exists") && c.names(i + 4))
+                dropped_types.emplace(kind, c.qualified(i + 4).first);
         }
     }
 
-    for (const auto at : creates) {
-        const auto j = words(m, spaces(m, keyword(m, at, "create")),
-            {"policy"});
-        std::string_view name, table;
-        if (j == npos || !name_on_table(m, j, name, table))
+    std::vector<not_re_runnable> out;
+    const auto report = [&](std::size_t i, std::string why) {
+        out.push_back({c.code[i].offset, std::move(why)});
+    };
+    for (std::size_t i = 0; i < c.code.size(); ++i) {
+        if (!c.is(i, "create"))
             continue;
-        if (!dropped_policies.contains({bare(name), bare(table)}))
-            out.push_back({static_cast<std::uint32_t>(at),
-                "create policy " + std::string(name) +
-                    " with no `drop policy if exists`"});
-    }
-
-    for (const auto at : creates) {
-        const auto after = spaces(m, keyword(m, at, "create"));
-        for (const auto kind : {std::string_view("type"),
-                 std::string_view("domain")}) {
-            const auto j = words(m, after, {kind});
-            const auto end = run(m, j, is_quoted_name);
-            if (end == npos)
+        const auto j = i + 1;
+        for (const auto& rule : simple_rules()) {
+            auto k = j;
+            bool matched = true;
+            for (const auto w : rule.words)
+                matched = matched && c.is(k++, w);
+            if (matched && (!rule.if_not_exists || !c.if_not_exists(k)))
+                report(i, std::string(rule.why));
+        }
+        const auto index = c.is(j, "unique") ? j + 1 : j;
+        if (c.is(index, "index") && !c.if_not_exists(index + 1) &&
+            !(c.is(index + 1, "concurrently") && c.if_not_exists(index + 2)))
+            report(i, "create index without `if not exists`");
+        if (c.is(j, "policy") && c.names(j + 1) && c.is(j + 2, "on") &&
+            c.names(j + 3) && !dropped_policies.contains(
+                {c.bare(j + 1), c.qualified(j + 3).first}))
+            report(i, "create policy " +
+                std::string(text_of(text, c.code[j + 1])) +
+                " with no `drop policy if exists`");
+        for (const auto kind : kinds) {
+            if (!c.is(j, kind) || !c.names(j + 1))
                 continue;
-            const auto name = m.substr(j, end - j);
-            if (!dropped_types.contains({std::string(kind), bare(name)}))
-                out.push_back({static_cast<std::uint32_t>(at),
-                    "create " + std::string(m.substr(after, kind.size())) +
-                        " " + std::string(name) +
-                        " with no `drop ... if exists`"});
-            break;
+            const auto [name, after] = c.qualified(j + 1);
+            if (!dropped_types.contains({kind, name}))
+                report(i, "create " + std::string(text_of(text, c.code[j])) +
+                    " " + std::string(text_of(text, c.code[after - 1])) +
+                    " with no `drop ... if exists`");
         }
     }
     return out;
