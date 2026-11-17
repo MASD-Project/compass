@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-157 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 57 are cited by no rule.
+163 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 57 are cited by no rule.
 
 ** Rules
 
@@ -36,6 +36,12 @@ memories no rule cites are the candidates for the next checks.
 | =component_docs= | missing_puml | A component's modeling/ directory holds a .puml diagram. |  |
 | =component_docs= | name_collision | No top-level component's dotted name extends another's. |  |
 | =component_docs= | backtick_link | No bracket link a site export cannot resolve sits inside a backtick span of a page under doc/. |  |
+| =conventions_coverage= | duplicate_row | Each (kind, id) is one row of the conventions dataset. |  |
+| =conventions_coverage= | no_source | Each row of the conventions dataset names its source. |  |
+| =conventions_coverage= | undefined_index | Each Ibor or overnight index a convention names is defined by an index convention of the dataset. |  |
+| =conventions_coverage= | missing_convention | The dataset holds every convention ORE holds, or propose_decisions.tsv says why not. |  |
+| =conventions_coverage= | differing_convention | The dataset states a convention's terms as ORE does, or propose_decisions.tsv says why not. |  |
+| =conventions_coverage= | extract_failed | decisions.tsv reads, so the canonical set of the ORE examples can be extracted. |  |
 | =core_link_edges= | forbidden_edge | No component's core links another component's core or service library; it links the api contract. |  |
 | =core_link_edges= | unresolved_link | Every library a core links names no variable the check cannot resolve. |  |
 | =core_link_edges= | unnamed_core | Every core library file states its name. |  |

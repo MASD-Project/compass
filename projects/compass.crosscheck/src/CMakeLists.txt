@@ -21,6 +21,7 @@ set(lib_target_name ${name}.lib)
 add_library(${lib_target_name}
     codecs/catalogue.cpp
     codecs/convention_kind_terms.cpp
+    codecs/conventions_coverage.cpp
     codecs/conventions_dataset.cpp
     codecs/curve_column_guards.cpp
     codecs/curve_sections_wiring.cpp
@@ -44,6 +45,7 @@ add_library(${lib_target_name}
     codecs/template_sections.cpp
     ops/csv.cpp
     ops/curve_wiring.cpp
+    ops/md5.cpp
     ops/python_numbers.cpp
     ops/python_literals.cpp
     ops/words.cpp)
