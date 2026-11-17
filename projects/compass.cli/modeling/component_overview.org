@@ -301,7 +301,10 @@ through =cmake/generate_version.cmake=; the binary finds it beside its own
 resolved path, so a link to the binary works. The build time is the binary's
 last write time, read at runtime. A missing or damaged manifest gives
 =unknown=, and the exit status is still 0. No compiled file holds the commit,
-so a commit recompiles and relinks nothing.
+so a commit recompiles and relinks nothing. =build/scripts/install_compass.sh=
+installs a build as the one compass all environments share: the binary, its
+mtime kept, and the manifest, with the install time added, in
+=~/.local/opt/compass/=, and =~/.local/bin/compass= linked to the binary.
 
 - The configuration file, =.compass.org= at the root of the checkout. It
   is optional: without it every value is the default. =#+output:= and
@@ -403,6 +406,7 @@ range, 1-based, the column counted in bytes. The rule is written as
 | =include/compass.cli/app/application.hpp=        | =app::run= and the exit statuses.                                                  |
 | =src/main.cpp=                                   | The executable.                                                                    |
 | =tests/end_to_end.sh=                            | The built executable over a fresh repository, then configured by a =.compass.org=. |
+| =tests/install_compass.sh=                       | The install script over copies of the executable, in a temporary =HOME=.           |
 
 | Target                   | Kind                                                   |
 |--------------------------+--------------------------------------------------------|
@@ -410,6 +414,7 @@ range, 1-based, the column counted in bytes. The rule is written as
 | =compass.cli.exe=        | The =compass= executable.                              |
 | =compass.cli.tests=      | Catch2 executable, registered with CTest.              |
 | =compass.cli.end_to_end= | CTest running =tests/end_to_end.sh= on the executable. |
+| =compass.cli.install=    | CTest running =tests/install_compass.sh=.              |
 | =compass.cli.version=    | Writes =compass.manifest= on every build.              |
 
 * Dependencies
