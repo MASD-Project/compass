@@ -8,7 +8,7 @@
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
 #+branch: feature/fix-the-pilots-findings
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/57
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-17
@@ -104,7 +104,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/57][#57]] | [store] Fix the pilot's findings: packed store, RLS check and more |
 
 * Review
 
