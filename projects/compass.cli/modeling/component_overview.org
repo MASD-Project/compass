@@ -20,14 +20,16 @@ checkout, resolves the IDs of its org files from git's index or the
 worktree index, maps each parsed object from the store or parses the file,
 builds the type registry from the contract pages, and runs the enabled
 codecs from the dependency record and the result cache: those
-=compass.codec= ships, the =codegen= codec of =compass.codegen=, the C++
+=compass.codec= ships, the codecs of =compass.codegen=, the C++
 gates of =compass.cpp=, the SQL gates of =compass.sql=, the
 cross-artefact gates of =compass.crosscheck= and the document gates of
 =compass.docs=, which =app::codecs= lists, and last =rule_table=. That
 codec is the host's own: it binds =ops::rule_table= of =compass.codec= to
 the list, since only the host knows every codec, and its version is
 =ops::rule_table_version= of the list, so a changed rule, statement or
-citation regenerates the page. It reads every typed document, for the
+citation regenerates the page; its code hash is =app::code_hash=, that of
+this component and everything it links, where every other codec carries
+the code hash its own component's catalogue stamps. It reads every typed document, for the
 memories and the titles of the pages a rule cites, writes the page to its
 =path= option, and is off by default. The codecs read the other files of the checkout
 through =app::checkout_files_of=, whose content IDs come from the same

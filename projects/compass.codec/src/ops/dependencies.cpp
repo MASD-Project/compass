@@ -139,8 +139,10 @@ types::corpus_index index_corpus(const types::corpus& c) {
 
 blob_id configuration_hash(const types::registry& r, types::codec_id codec) {
     std::string bytes;
+    const auto& d = r.codecs[codec.value];
+    put_text(bytes, d.code);
     const auto values = option_values(r, codec);
-    const auto& options = r.codecs[codec.value].options;
+    const auto& options = d.options;
     for (std::size_t i = 0; i < options.size(); ++i) {
         put_text(bytes, options[i].key);
         put_text(bytes, values[i]);

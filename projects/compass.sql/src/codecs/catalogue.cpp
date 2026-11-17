@@ -30,9 +30,14 @@
 namespace compass::sql::codecs {
 
 std::span<const compass::codec::types::descriptor> catalogue() noexcept {
-    static const std::array<compass::codec::types::descriptor, 6> all{
-        curve_parameter_paths, handler_permissions, populate_refs,
-        rls_widenings, sql_hygiene, sql_reachability};
+    static const auto all = [] {
+        std::array<compass::codec::types::descriptor, 6> out{
+            curve_parameter_paths, handler_permissions, populate_refs,
+            rls_widenings, sql_hygiene, sql_reachability};
+        for (auto& d : out)
+            d.code = code_hash();
+        return out;
+    }();
     return all;
 }
 

@@ -21,16 +21,25 @@
 #define COMPASS_CPP_CODECS_CATALOGUE_HPP
 
 #include <span>
+#include <string_view>
 #include "compass.codec/types/descriptor.hpp"
 
 namespace compass::cpp::codecs {
 
 /**
- * @brief The codecs this component ships, in name order. Each is off by
+ * @brief The codecs this component ships, in name order, each with the
+ * code hash of this component. Each is off by
  * default.
  */
 [[nodiscard]] std::span<const compass::codec::types::descriptor>
 catalogue() noexcept;
+
+/**
+ * @brief The hash of the code the codecs of this component are computed
+ * by: the sources of this component and of every component and library it
+ * links, and the compiler. The build writes it.
+ */
+[[nodiscard]] std::string_view code_hash() noexcept;
 
 }
 

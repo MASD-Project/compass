@@ -1,0 +1,113 @@
+:PROPERTIES:
+:ID: FB5F361D-62C0-4CAF-8060-7B02141EB90D
+:END:
+#+title: Task: Key codec results by their code
+#+description: Derive each codec's version from a hash of the code that computes it, so a build that changes a codec can never replay results stored by an older one, without relinking anything on an unrelated commit.
+#+type: task
+#+level: s1
+#+filetags: :run_the_gates_as_codecs:sprint_01:v0:
+#+owner: marco
+#+branch: feature/key-codec-results-by-their-code
+#+pr: https://github.com/MASD-Project/compass/pull/50
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-11-17
+#+updated: 2026-11-17
+#+environment:
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+(Describe what user-visible-or-internal change this task produces.)
+
+* Status
+
+| Field        | Value                                  |
+|--------------+----------------------------------------|
+| State        | DONE                              |
+| Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
+| Now          | Nothing. |
+| Waiting on   | Nothing.                               |
+| Next         | Nothing. |
+| Last touched | 2026-11-17                               |
+
+* Acceptance
+
+- A change to a codec's code, or to code it calls, changes the key of its stored results, with no hand-bumped version; a test proves a changed codec does not replay an older result.
+- A commit that changes no codec code leaves every key, and every build artefact, unchanged.
+- Shipping a new compass to the shared store re-runs only the codecs whose code changed.
+
+* Plan
+
+- Today a codec's results are keyed by a version set by hand, so a build that
+  changes a codec without bumping it replays stale results, and every ORE
+  Studio environment now shares one store.
+- At build time, hash the sources each codec component compiles from (and the
+  components it links), and compile the hash into that component only, through
+  a generated file copied only when it changes, so a commit that touches no
+  source of the component rebuilds nothing.
+- Make the codec key the hand version plus that hash; keep the hand version
+  for deliberate invalidation.
+- Measure what a codec change re-runs on the ORE copy, and prove with
+  =-d explain= that an unrelated commit rebuilds nothing.
+
+* Measurements
+
+Every number this task claims about a tree, with the command that produced it
+and the commit it was measured at. A number without both is not a measurement,
+because a clean-up record describes a tree and trunk moves under a branch: a
+consumer count, a gate's component count and a suite's size all change with no
+code changing, and the reader of a bare number cannot tell which tree it came
+from. Where the raw output matters, put it in an =evidence/= file beside the
+task and name that file in the Command column.
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+| Comment-only change in compass.docs, ORE copy | only the 22 docs codecs and rule_table re-ran; findings identical; revert served from the store (agent) | =compass check --timings= | eee6ee9 |
+| Unrelated and docs-only commits | rebuilt nothing; only the hash and manifest steps ran (agent) | =cmake --build -- -d explain= | eee6ee9 |
+| No-op rebuild here | 0 compile or link steps | =cmake --build= | eee6ee9 |
+| Warm ORE check | 4.15 s at load 27; 240 findings | =compass check= | eee6ee9 |
+| ctest | 15 of 15 suites pass | =ctest --preset linux-clang-release= | eee6ee9 |
+
+* Notes
+
+* Test Scenarios
+
+Manual QA scenarios (scaffolded via =compass add test_scenario=)
+that verify this task. Link
+new ones here as they're created; the scenario doc itself links back
+via its "Verifies task" field.
+
+| Scenario | State | Notes |
+|----------+-------+-------|
+|          |       |       |
+
+* PRs
+
+| PR | Title |
+|----+-------|
+| [[https://github.com/MASD-Project/compass/pull/50][#50]] | [codec] Key codec results by their code |
+
+* Review
+
+| # | Comment summary | File | Decision | Notes |
+|---+-----------------+------+----------+-------|
+|   |                 |      |          |       |
+
+* Result
+
+A codec's stored results are keyed by a hash of the code that computes it, so
+a build that changes a codec can no longer replay results stored by an older
+one in the store every ORE Studio environment shares. Each codec component
+hashes, at build time, every source of itself and of the components it links,
+the third-party archives it links (PCRE2, expat, zlib) and the compiler
+version, into a generated file copied only when it changes; a commit that
+touches no source rebuilds nothing. The hash enters the configuration hash, so
+the record and the shared cache both key on it; the hand =.version= stays for
+deliberate invalidation.
+
+Decisions to revisit: the granularity is per component, so a change to
+=compass.codec= re-runs every codec once; the system C++ runtime and compile
+flags are not hashed.

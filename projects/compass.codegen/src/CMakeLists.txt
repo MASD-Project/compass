@@ -19,6 +19,7 @@ set(name "compass.codegen")
 set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
+    codecs/catalogue.cpp
     codecs/codegen.cpp
     codecs/component_files.cpp
     codecs/pending_models.cpp
@@ -78,3 +79,6 @@ target_link_libraries(${lib_target_name}
         compass.platform.lib
         compass.cpp.lib
         compass.store.lib)
+
+compass_code_hash(${lib_target_name} codecs/code_hash.cpp
+    compass::codegen::codecs compass.codegen/codecs/catalogue.hpp)

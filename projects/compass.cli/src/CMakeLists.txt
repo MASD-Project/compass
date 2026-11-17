@@ -57,6 +57,9 @@ target_link_libraries(${lib_target_name}
         compass.ingest.lib
         Threads::Threads)
 
+compass_code_hash(${lib_target_name} app/code_hash.cpp
+    compass::cli::app compass.cli/app/codecs.hpp)
+
 add_executable(${exe_target_name}
     main.cpp)
 

@@ -23,8 +23,9 @@ do I tell exactly which build is installed?
 1. /Build/ from a clean tree; see
    [[id:B99A4028-CA7F-495E-855B-D3A8DDBBEED4][How do I build and run compass?]].
    The build writes =compass.manifest= beside the binary in
-   =build/output/linux-clang-release/publish/bin/=. A commit changes only
-   the manifest, so the build after a commit recompiles and relinks nothing.
+   =build/output/linux-clang-release/publish/bin/=. A commit that touches no
+   component source changes only the manifest, so the build after it
+   recompiles and relinks nothing.
 
 2. /Install/ it. The script copies =compass= and =compass.manifest= into
    =~/.local/opt/compass/=, each under a temporary name and then renamed over
@@ -78,6 +79,10 @@ store formats: dependency records 6, actions 5, written outputs 1, format cache 
 
 4. /Update/ every environment: build the new commit and run the install
    script again. Environments pick it up on their next run of =compass=.
+   Every stored result is keyed by the code hash of its codec's component,
+   so the first run of the new build runs again only the codecs whose code,
+   or the code of a component or library they link, changed; no codec
+   version needs bumping by hand.
 
 * Script
 

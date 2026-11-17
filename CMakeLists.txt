@@ -40,4 +40,6 @@ find_package(unofficial-tree-sitter CONFIG REQUIRED)
 find_package(unofficial-tree-sitter-cpp CONFIG REQUIRED)
 find_package(unofficial-tree-sitter-sql CONFIG REQUIRED)
 
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/code_hash.cmake)
+
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/projects)

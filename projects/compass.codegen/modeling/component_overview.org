@@ -184,23 +184,24 @@ reading the contexts.
 
 * Entry points
 
-| Path                                                  | Role                                        |
-|-------------------------------------------------------+---------------------------------------------|
-| =include/compass.codegen/types/compiled_template.hpp= | The node table of a template.               |
-| =include/compass.codegen/types/physical_space.hpp=    | The facet and archetype tables.             |
-| =include/compass.codegen/ops/compile.hpp=             | Parsing a template once.                    |
-| =include/compass.codegen/ops/render.hpp=              | Rendering against a context stack.          |
-| =include/compass.codegen/ops/output.hpp=              | The text ores.codegen writes for an output. |
-| =include/compass.codegen/ops/context.hpp=             | The library values and the model contexts.  |
-| =include/compass.codegen/ops/physical_space.hpp=      | The graph and a model's units.              |
-| =include/compass.codegen/ops/manifest.hpp=            | The models =regenerate --all= visits.       |
+| Path                                                  | Role                                                           |
+|-------------------------------------------------------+----------------------------------------------------------------|
+| =include/compass.codegen/types/compiled_template.hpp= | The node table of a template.                                  |
+| =include/compass.codegen/types/physical_space.hpp=    | The facet and archetype tables.                                |
+| =include/compass.codegen/ops/compile.hpp=             | Parsing a template once.                                       |
+| =include/compass.codegen/ops/render.hpp=              | Rendering against a context stack.                             |
+| =include/compass.codegen/ops/output.hpp=              | The text ores.codegen writes for an output.                    |
+| =include/compass.codegen/ops/context.hpp=             | The library values and the model contexts.                     |
+| =include/compass.codegen/ops/physical_space.hpp=      | The graph and a model's units.                                 |
+| =include/compass.codegen/ops/manifest.hpp=            | The models =regenerate --all= visits.                          |
 | =include/compass.codegen/ops/generate.hpp=            | The reader, what the models share, and one model's generation. |
-| =include/compass.codegen/ops/facts.hpp=               | The facts of the registries.                |
-| =include/compass.codegen/types/recorded.hpp=          | A collection that says what was read of it. |
-| =include/compass.codegen/codecs/codegen.hpp=          | The codec, its settings and formatters.     |
-| =include/compass.codegen/codecs/component_files.hpp=  | The component_files.cmake lists.            |
-| =include/compass.codegen/codecs/pending_models.hpp=   | The pending-change models.                  |
-| =tests/data/mustache_spec/=                           | The Mustache spec v1.4.3, MIT licence.      |
+| =include/compass.codegen/ops/facts.hpp=               | The facts of the registries.                                   |
+| =include/compass.codegen/types/recorded.hpp=          | A collection that says what was read of it.                    |
+| =include/compass.codegen/codecs/codegen.hpp=          | The codec, its settings and formatters.                        |
+| =include/compass.codegen/codecs/component_files.hpp=  | The component_files.cmake lists.                               |
+| =include/compass.codegen/codecs/pending_models.hpp=   | The pending-change models.                                     |
+| =include/compass.codegen/codecs/catalogue.hpp=        | The codecs this component ships, and its code hash.            |
+| =tests/data/mustache_spec/=                           | The Mustache spec v1.4.3, MIT licence.                         |
 
 | Target                  | Kind                                      |
 |-------------------------+-------------------------------------------|
