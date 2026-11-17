@@ -23,6 +23,7 @@
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <iterator>
 #include <optional>
@@ -285,7 +286,7 @@ types::finding drift_finding(std::string path, std::string_view source,
         .path = std::move(path),
         .line = line,
         .column = column,
-        .rule = codec + "/drift",
+        .rule = std::format("{}/{}", codec, codec::ops::drift_rule.name),
         .level = codec::types::severity::error,
         .message = std::move(message),
         .fix = "run compass generate, or change the model or template "

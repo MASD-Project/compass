@@ -43,13 +43,16 @@ constexpr std::uint32_t one_way = 1;
 constexpr std::uint32_t not_a_pattern = 2;
 constexpr std::uint32_t shared_id = 3;
 
+constexpr std::array<std::string_view, 1> named_patterns_sources{
+    "470D4571-47A4-4AEF-9A93-2B4DE0279C1E"};
+
 constexpr std::array<ct::rule, 4> rules{{
     {"unknown_use", "Every page a pattern lists under In ORE Studio "
         "exists."},
     {"one_way", "A pattern and each of its uses link each other: the use "
-        "links the pattern, and the pattern lists the use."},
+        "links the pattern, and the pattern lists the use.", named_patterns_sources},
     {"not_a_pattern", "A page lists only service architecture patterns "
-        "under Patterns used."},
+        "under Patterns used.", named_patterns_sources},
     {"shared_id", "No two pages of a pattern link share an ID."}}};
 
 constexpr std::string_view pattern_type = "service_architecture_pattern";

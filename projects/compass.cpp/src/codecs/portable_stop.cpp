@@ -37,9 +37,13 @@ namespace {
 namespace ct = compass::codec::types;
 namespace pt = compass::platform::text;
 
+constexpr std::array<std::string_view, 1> stop_type_outside_platform_sources{
+    "B4E38241-6AD1-4859-9610-033CC39C0AF4"};
+
 constexpr std::array<ct::rule, 1> rules{{
     {"stop_type_outside_platform", "No code outside ores.platform names a "
-        "C++20 stop type or includes <stop_token>."}}};
+        "C++20 stop type or includes <stop_token>.",
+        stop_type_outside_platform_sources}}};
 
 constexpr std::array<std::string_view, 8> suffixes{".cpp", ".cc", ".cxx",
     ".hpp", ".h", ".hxx", ".ipp", ".inc"};

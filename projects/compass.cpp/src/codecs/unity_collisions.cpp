@@ -43,9 +43,13 @@ namespace {
 namespace ct = compass::codec::types;
 namespace pt = compass::platform::text;
 
+constexpr std::array<std::string_view, 1> unrecorded_collision_sources{
+    "6C744720-FF73-4895-92E3-24E1E9BF518E"};
+
 constexpr std::array<ct::rule, 2> rules{{
     {"unrecorded_collision", "No two sources of a target define the same "
-        "file-local name outside the unity exclusions."},
+        "file-local name outside the unity exclusions.",
+        unrecorded_collision_sources},
     {"missing_recorded_file",
         "Every file the unity exclusions name exists."}}};
 

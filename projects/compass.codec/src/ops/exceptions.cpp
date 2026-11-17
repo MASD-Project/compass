@@ -36,6 +36,11 @@ namespace {
 
 namespace ct = compass::codec::types;
 
+bool is_exception_rule(std::string_view rule) noexcept {
+    return rule.starts_with(exception_codec) &&
+        rule.substr(exception_codec.size()).starts_with('/');
+}
+
 constexpr std::string_view blanks = " \t";
 constexpr std::string_view written_as = "write it as compass:except(<codec>/"
     "<rule>) expires=<YYYY-MM-DD> approver=<name> reason=<why>";
@@ -246,7 +251,7 @@ rule_status status_of(const ct::registry& codecs, std::string_view rule) {
         if (d.name != codec)
             continue;
         const bool declared = output_of(d) == ct::output_kind::files
-            ? name == "drift"
+            ? name == drift_rule.name
             : std::ranges::any_of(d.rules,
                   [&](const ct::rule& r) { return r.name == name; });
         if (!declared)
@@ -270,28 +275,31 @@ excusal excuse(std::span<const finding_site> sites,
     };
     std::unordered_map<std::string_view, std::vector<judged>> by_path;
     const auto problem = [&](std::string_view path, std::uint32_t line,
-                             std::string_view kind, std::string message,
+                             exception_rule kind, std::string message,
                              std::string fix) {
         out.findings.push_back({std::string(path), line,
-            "exception/" + std::string(kind), std::move(message),
-            std::move(fix)});
+            std::format("{}/{}", exception_codec, rule_of(kind).name),
+            std::move(message), std::move(fix)});
     };
 
     for (const auto& f : files) {
         for (const auto& m : f.malformed)
-            problem(f.path, m.line, "malformed", m.why, std::string(written_as));
+            problem(f.path, m.line, exception_rule::malformed, m.why,
+                std::string(written_as));
         auto& judgements = by_path[f.path];
         for (const auto& e : f.exceptions) {
-            const auto status = e.rule.starts_with("exception/")
+            const auto status = is_exception_rule(e.rule)
                 ? rule_status::unknown : status_of(codecs, e.rule);
             bool valid = false;
-            if (e.rule.starts_with("exception/")) {
-                problem(f.path, e.line, "malformed", std::format("{} is a "
-                    "finding about exceptions, which no exception excuses",
-                    e.rule), "fix the exception it reports");
+            if (is_exception_rule(e.rule)) {
+                problem(f.path, e.line, exception_rule::malformed,
+                    std::format("{} is a finding about exceptions, which no "
+                        "exception excuses", e.rule),
+                    "fix the exception it reports");
             } else if (status == rule_status::unknown) {
-                problem(f.path, e.line, "malformed", std::format("the "
-                    "exception names {}, a rule no codec declares", e.rule),
+                problem(f.path, e.line, exception_rule::malformed,
+                    std::format("the exception names {}, a rule no codec "
+                        "declares", e.rule),
                     "name the rule as the finding does, codec/rule");
             } else if (e.reason.empty() || e.approver.empty() || !e.expires) {
                 std::string missing;
@@ -302,13 +310,15 @@ excusal excuse(std::span<const finding_site> sites,
                     if (absent)
                         missing += (missing.empty() ? "" : ", ") +
                             std::string(field);
-                problem(f.path, e.line, "incomplete", std::format(
-                    "the exception for {} lacks {}", e.rule, missing),
+                problem(f.path, e.line, exception_rule::incomplete,
+                    std::format("the exception for {} lacks {}", e.rule,
+                        missing),
                     std::string(written_as));
             } else if (std::chrono::sys_days(*e.expires) <
                        std::chrono::sys_days(today)) {
                 problem(f.path, e.scope == ct::exception_scope::line
-                        ? e.covers : e.line, "expired", std::format(
+                        ? e.covers : e.line, exception_rule::expired,
+                    std::format(
                     "the exception for {} approved by {} expired on {}",
                     e.rule, e.approver, date_text(*e.expires)),
                     std::format("fix the finding, or renew the exception "
@@ -340,9 +350,9 @@ excusal excuse(std::span<const finding_site> sites,
     for (const auto& f : files)
         for (const auto& j : by_path[f.path])
             if (j.valid && !j.used)
-                problem(f.path, j.exception->line, "stale", std::format(
-                    "the exception for {} covers no finding",
-                    j.exception->rule), "remove the exception");
+                problem(f.path, j.exception->line, exception_rule::stale,
+                    std::format("the exception for {} covers no finding",
+                        j.exception->rule), "remove the exception");
 
     std::ranges::stable_sort(out.findings, {},
         [](const exception_finding& f) { return std::tie(f.path, f.line); });

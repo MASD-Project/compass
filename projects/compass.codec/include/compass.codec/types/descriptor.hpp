@@ -80,11 +80,15 @@ struct option {
 
 /**
  * @brief One rule a diagnostics codec enforces. name is unique within the
- * codec; with the codec's name it identifies the rule everywhere.
+ * codec; with the codec's name it identifies the rule everywhere. summary
+ * states in one line what the rule enforces. enforces holds the :ID: of
+ * each memory or document that states the rule in prose, when one does,
+ * as an uppercase UUID.
  */
 struct rule {
     std::string_view name;
     std::string_view summary;
+    std::span<const std::string_view> enforces = {};
 };
 
 /**

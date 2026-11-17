@@ -35,8 +35,12 @@ namespace {
 namespace ct = compass::codec::types;
 namespace pt = compass::platform::text;
 
+constexpr std::array<std::string_view, 1> numbered_heading_sources{
+    "177EDB1C-6241-45AA-81B1-46C4B9D6329D"};
+
 constexpr std::array<ct::rule, 2> rules{{
-    {"numbered_heading", "No org heading carries its own number."},
+    {"numbered_heading", "No org heading carries its own number.",
+        numbered_heading_sources},
     {"unreadable_document", "Every document under doc/ and projects/ is "
         "UTF-8, which the script's strict read needs."}}};
 

@@ -48,14 +48,21 @@ constexpr std::array<std::string_view, 8> codes{"MISSING_OVERVIEW",
     "MISSING_ID", "MISSING_TYPE", "MISSING_DESCRIPTION", "MISSING_SECTION",
     "MISSING_PUML", "NAME_COLLISION", "BACKTICK_LINK"};
 
+constexpr std::array<std::string_view, 1> component_type_sources{
+    "CE17C7BB-C68C-4304-BD3D-92FA5D13272B"};
+
 constexpr std::array<ct::rule, 8> rules{{
     {"missing_overview", "A component, or a part with include/ and src/, "
-        "has modeling/component_overview.org."},
-    {"missing_id", "A component overview has an :ID: property."},
-    {"missing_type", "A component overview is #+type: component."},
-    {"missing_description", "A component overview has a #+description:."},
+        "has modeling/component_overview.org.", component_type_sources},
+    {"missing_id", "A component overview has an :ID: property.",
+        component_type_sources},
+    {"missing_type", "A component overview is #+type: component.",
+        component_type_sources},
+    {"missing_description", "A component overview has a #+description:.",
+        component_type_sources},
     {"missing_section", "A component overview has Summary, Inputs, "
-        "Outputs, Entry points, Dependencies and See also."},
+        "Outputs, Entry points, Dependencies and See also.",
+        component_type_sources},
     {"missing_puml", "A component's modeling/ directory holds a .puml "
         "diagram."},
     {"name_collision", "No top-level component's dotted name extends "

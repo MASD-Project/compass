@@ -35,9 +35,13 @@ namespace ot = compass::org::types;
 
 constexpr types::rule_id missing_section{0};
 
+constexpr std::array<std::string_view, 1> missing_section_sources{
+    "8B29A8D8-E004-4E87-B81D-ABEAF68F2B98"};
+
 constexpr std::array<types::rule, 1> rules{{
     {"missing_section",
-        "A document has every section its type requires."}}};
+        "A document has every section its type requires.",
+        missing_section_sources}}};
 
 bool has_section(const types::document& d, std::string_view title) {
     const auto& h = d.tables.headings;

@@ -43,6 +43,14 @@ namespace {
 namespace ct = compass::codec::types;
 namespace pt = compass::platform::text;
 
+constexpr std::array<std::string_view, 1> uncovered_subject_sources{
+    "05B6C7D8-E9F0-4A1B-8C3D-4E5F60718293"};
+
+constexpr std::array<std::string_view, 3> unensured_stream_sources{
+    "C0B3C6F4-62DC-4DEA-966D-A84108AAB9AE",
+    "F4A5B6C7-D8E9-4F0A-9B2C-3D4E5F607182",
+    "05B6C7D8-E9F0-4A1B-8C3D-4E5F60718293"};
+
 constexpr std::array<ct::rule, 9> rules{{
     {"unresolved_declaration", "Every ensure_stream, serve_step_commands "
         "and js_queue_subscribe call names its stream and subjects in a way "
@@ -54,10 +62,11 @@ constexpr std::array<ct::rule, 9> rules{{
     {"empty_catalogue", "The scan finds a stream."},
     {"overlapping_streams", "No two streams have overlapping filters."},
     {"wildcard_subject", "A durable consumer reads named subjects only."},
-    {"uncovered_subject", "Every durable subject is matched by a stream."},
+    {"uncovered_subject", "Every durable subject is matched by a stream.",
+        uncovered_subject_sources},
     {"many_streams", "No durable subject is matched by two streams."},
     {"unensured_stream", "A consumer names a stream something ensures, "
-        "whose filters cover its subject."}}};
+        "whose filters cover its subject.", unensured_stream_sources}}};
 
 constexpr std::string_view excluded_prefix = "projects/ores.nats/";
 constexpr std::string_view step_helper = "projects/ores.service/include/"
