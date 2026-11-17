@@ -79,8 +79,10 @@ void list_tasks(const types::corpus_view& corpus, types::file_table& out) {
     out.add("tasks.txt", text);
 }
 
-types::descriptor link_follower(std::uint32_t version = 1) {
-    return {.name = "follow_links", .version = version, .summary = "",
+types::descriptor link_follower(std::uint32_t version = 1,
+    std::string_view code = "") {
+    return {.name = "follow_links", .version = version, .code = code,
+        .summary = "",
         .reads = types::inputs::of_types(stories_and_tasks), .options = {},
         .rules = link_rules, .enabled_by_default = true,
         .run = types::document_function<types::diagnostic_table>{
@@ -98,9 +100,10 @@ types::descriptor task_list() {
  * @brief document_index, required_sections, follow_links and task_list,
  * in that order.
  */
-std::array<types::descriptor, 4> all_codecs(std::uint32_t links_version = 1) {
+std::array<types::descriptor, 4> all_codecs(std::uint32_t links_version = 1,
+    std::string_view links_code = "") {
     return {codecs::document_index, codecs::required_sections,
-        link_follower(links_version), task_list()};
+        link_follower(links_version, links_code), task_list()};
 }
 
 /**
@@ -299,6 +302,20 @@ TEST_CASE("bumping the version of a codec calls only that codec's units",
     const auto second = run(base(), first.record, bumped);
 
     CHECK(second.ran == counts{0, 0, 4, 0});
+}
+
+TEST_CASE("a build that changes the code of a codec calls only that "
+    "codec's units, and one with the same code calls none",
+    "[ops][dependencies]") {
+    const auto built = all_codecs(1, "code-a");
+    const auto first = run(base(), {}, built);
+    const auto rebuilt = all_codecs(1, "code-b");
+
+    const auto second = run(base(), first.record, rebuilt);
+    const auto third = run(base(), second.record, rebuilt);
+
+    CHECK(second.ran == counts{0, 0, 4, 0});
+    CHECK(third.ran == counts{0, 0, 0, 0});
 }
 
 TEST_CASE("changing the configuration of a codec calls only that codec's "

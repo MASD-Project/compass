@@ -72,8 +72,10 @@ void quote_links(const types::document& d, const types::corpus_view& corpus,
     }
 }
 
-types::descriptor link_quoter(std::uint32_t version = 1) {
-    return {.name = "quote_links", .version = version, .summary = "",
+types::descriptor link_quoter(std::uint32_t version = 1,
+    std::string_view code = "") {
+    return {.name = "quote_links", .version = version, .code = code,
+        .summary = "",
         .reads = types::inputs::of_types(stories_and_tasks),
         .options = quote_options, .rules = quote_rules,
         .enabled_by_default = true,
@@ -149,12 +151,12 @@ struct outcome {
 outcome run(const scoped_cache& cache, const sources& docs,
     const types::dependency_record& previous = {},
     const types::configuration& settings = {}, std::uint32_t version = 1,
-    types::dependency_record* record = nullptr) {
+    types::dependency_record* record = nullptr, std::string_view code = "") {
     tests::test_corpus t;
     for (const auto& [path, source] : docs)
         t.add(path, source);
     const std::array<types::descriptor, 2> codecs{codecs::document_index,
-        link_quoter(version)};
+        link_quoter(version, code)};
     const auto r = ops::make_registry(codecs, t.types(), settings);
     const auto result = ops::run(r, t.corpus(), t.types(), 2, previous,
         io::action_source_of(cache.root()));
@@ -290,6 +292,18 @@ TEST_CASE("a change of version or configuration misses the cache",
     settings.set("quote_links", "prefix", "cites");
     const auto configured = run(cache, base(), {}, settings);
     CHECK(configured.ran == counts{0, 4});
+}
+
+TEST_CASE("a build whose code differs misses the cache and the build "
+    "that stored a result hits it", "[ops][action_cache]") {
+    scoped_cache cache;
+    (void)run(cache, base(), {}, {}, 1, nullptr, "code-a");
+
+    const auto rebuilt = run(cache, base(), {}, {}, 1, nullptr, "code-b");
+    const auto reverted = run(cache, base(), {}, {}, 1, nullptr, "code-a");
+
+    CHECK(rebuilt.ran == counts{0, 4});
+    CHECK(reverted.ran == counts{0, 0});
 }
 
 TEST_CASE("a damaged result or manifest is ignored and its unit runs",

@@ -277,10 +277,12 @@ using formatters_function = std::vector<formatter> (*)(
 /**
  * @brief A codec: what it is, what it reads and the function that runs it.
  *
- * version is bumped by hand whenever some input would now give an output
- * that differs from the one the previous version gave it. A result is kept
- * under the name, the version, the option values and the content IDs of
- * the documents read, so a change to any of them runs the codec again.
+ * version is bumped by hand to discard every result the codec has stored.
+ * code is the hash of the code that computes the codec, which the build
+ * of its component sets, so a build that changes that code never replays
+ * a result an older build stored. A result is kept under the name, the
+ * version, the code, the option values and the content IDs of the
+ * documents read, so a change to any of them runs the codec again.
  * rules is empty for a codec that emits files. formatters is null for a
  * codec whose files are written as it emits them.
  *
@@ -290,6 +292,7 @@ using formatters_function = std::vector<formatter> (*)(
 struct descriptor {
     std::string_view name;
     std::uint32_t version = 0;
+    std::string_view code = {};
     std::string_view summary;
     inputs reads;
     std::span<const option> options;

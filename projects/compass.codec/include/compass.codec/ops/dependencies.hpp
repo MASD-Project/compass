@@ -51,8 +51,10 @@ inline constexpr std::uint32_t dependency_record_version = 6;
 [[nodiscard]] types::corpus_index index_corpus(const types::corpus& c);
 
 /**
- * @brief The SHA-1 of the option keys and values of @p codec, in declared
- * order. A unit recorded under another value runs again.
+ * @brief The SHA-1 of the code hash of @p codec and its option keys and
+ * values, in declared order. A unit recorded under another value runs
+ * again, and its manifest key differs, so a build whose code differs or a
+ * configuration that differs replays no stored result.
  */
 [[nodiscard]] compass::store::types::blob_id configuration_hash(
     const types::registry& r, types::codec_id codec);

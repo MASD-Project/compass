@@ -69,8 +69,8 @@ inline constexpr input_kind last_input_kind = input_kind::fact;
  * A unit is named by its codec and, for a document codec, the path of its
  * document; documents is empty for a corpus codec and for the prepare step
  * of a staged codec, and holds the part's key for a part of one. versions and
- * configurations hold the codec's version and the SHA-1 of its option
- * values when the unit ran. The inputs of unit u are the rows from
+ * configurations hold the codec's version and the SHA-1 of its code hash
+ * and option values when the unit ran. The inputs of unit u are the rows from
  * input_firsts[u] up to input_firsts of the next unit, or the end; found is
  * 0 for a lookup no document answered, whose value is all zeros. The files
  * of u are the rows of files from file_firsts[u] in the same way, with the
