@@ -97,6 +97,45 @@ std::optional<sql_include> include_of(std::string_view meta,
     return sql_include{relative, std::string(path), offset};
 }
 
+/**
+ * @brief Each ores_*_tbl table the code tokens @p s of @p text insert
+ * into, update or delete from, then those of the SQL in each of their
+ * string literals, which a body runs with execute.
+ */
+void writes_of(std::string_view text, tokens_t s,
+    std::vector<std::string>& out) {
+    const auto is = [&](std::size_t k, std::string_view word) {
+        return k < s.size() && s[k].kind == token_kind::word &&
+            is_keyword(text_of(text, s[k]), word);
+    };
+    for (std::size_t k = 0; k + 1 < s.size(); ++k) {
+        std::size_t t = npos;
+        if (is(k, "insert") && is(k + 1, "into"))
+            t = k + 2;
+        else if (is(k, "delete") && is(k + 1, "from"))
+            t = k + 2;
+        else if (is(k, "update"))
+            t = k + 1;
+        if (t >= s.size() || s[t].kind != token_kind::word)
+            continue;
+        const auto table = lowered(text_of(text, s[t]));
+        if (table.starts_with("ores_") && table.ends_with("_tbl") &&
+            table.size() >= 9)
+            out.push_back(table);
+    }
+    for (const auto& t : s) {
+        if (t.kind != token_kind::string)
+            continue;
+        const auto sql = string_value(text_of(text, t));
+        std::vector<token> code;
+        for (const auto& inner : lex(sql, 0, false).tokens) {
+            if (!is_comment(inner))
+                code.push_back(inner);
+        }
+        writes_of(sql, code, out);
+    }
+}
+
 struct walker {
     std::string_view text;
     sql_file& out;
@@ -429,21 +468,7 @@ struct walker {
     }
 
     void body(tokens_t s, sql_function& f) {
-        for (std::size_t k = 0; k + 1 < s.size(); ++k) {
-            std::size_t t = npos;
-            if (is(s[k], "insert") && is(s, k + 1, "into"))
-                t = k + 2;
-            else if (is(s[k], "delete") && is(s, k + 1, "from"))
-                t = k + 2;
-            else if (is(s[k], "update"))
-                t = k + 1;
-            if (t >= s.size() || s[t].kind != token_kind::word)
-                continue;
-            const auto table = lowered(of(s[t]));
-            if (table.starts_with("ores_") && table.ends_with("_tbl") &&
-                table.size() >= 9)
-                f.writes.push_back(table);
-        }
+        writes_of(text, s, f.writes);
         for (std::size_t k = 0; k + 3 < s.size(); ++k) {
             if (!is(s[k], "insert") || !is(s[k + 1], "into") ||
                 s[k + 2].kind != token_kind::word || !symbol(s, k + 3, '('))

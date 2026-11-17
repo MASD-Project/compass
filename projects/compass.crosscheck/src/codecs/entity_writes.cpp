@@ -34,6 +34,7 @@
 #include "compass.cpp/ops/text.hpp"
 #include "compass.platform/text/decoding.hpp"
 #include "compass.platform/text/regex.hpp"
+#include "compass.sql/ops/sql_model.hpp"
 
 namespace compass::crosscheck::codecs {
 
@@ -101,27 +102,14 @@ struct writer {
 
 void sql_writers(std::string_view path, std::string_view bytes,
     std::map<std::string, writer>& out) {
-    static const pt::regex function(
-        R"(create\s+(?:or\s+replace\s+)?function\s+([a-z0-9_]+)\s*\()",
-        {.ignorecase = true});
-    const auto text = pt::universal_newlines(pt::decode_ignoring(bytes));
-    for (const auto& m : function.find_all(text)) {
-        const auto opened = text.find("$$", m.end());
-        if (opened == std::string::npos)
+    for (const auto& f : compass::sql::ops::model_of(bytes).functions) {
+        if (f.writes.empty() || f.name.starts_with("ores_iam_purge_"))
             continue;
-        const auto closed = text.find("$$", opened + 2);
-        if (closed == std::string::npos)
-            continue;
-        const std::string name(m.group(1));
-        if (name.starts_with("ores_iam_purge_"))
-            continue;
-        const auto body = std::string_view(text).substr(opened + 2,
-            closed - opened - 2);
-        if (!dml().search(body))
-            continue;
-        out.insert_or_assign("sql_function\n" + name, writer{sql_writer,
-            path, co::offset_of_line(bytes, co::line_of(text, m.start())),
-            "SQL function " + name + " writes an entity table outside "
+        const auto line = bytes.rfind('\n', f.offset);
+        out.insert_or_assign("sql_function\n" + f.name, writer{sql_writer,
+            path, line == std::string_view::npos ? 0
+                : static_cast<std::uint32_t>(line + 1),
+            "SQL function " + f.name + " writes an entity table outside "
             "its repository"});
     }
 }

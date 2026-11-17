@@ -29,9 +29,10 @@ namespace compass::crosscheck::codecs {
  * entity table.
  *
  * Rule sql_writer: a function of a .sql file under projects/ores.sql/create/
- * whose body, between the first two dollar quotes after its CREATE
- * FUNCTION, holds INSERT INTO, UPDATE or DELETE FROM an ores_..._tbl table,
- * unless its name starts with ores_iam_purge_. Rule cpp_writer: a .cpp or
+ * whose body, as compass.sql's ops::model_of reads it, writes an
+ * ores_..._tbl table with INSERT INTO, UPDATE or DELETE FROM, in its code
+ * or in the SQL of a string literal it executes, unless its name starts
+ * with ores_iam_purge_. Rule cpp_writer: a .cpp or
  * .hpp under a projects/ores.* component, outside ores.testing and any tests
  * or build directory, that writes such a table and is not named
  * <name>_repository for a table ores_<component>_<name>[s]_tbl of each one

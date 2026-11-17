@@ -111,8 +111,9 @@ struct sql_insert {
 
 /**
  * @brief A create function: its parameters by name, what its body guards
- * and inserts, and the tables its body inserts into, updates or deletes
- * from, in the order the body names them.
+ * and inserts, and the ores_*_tbl tables its body inserts into, updates
+ * or deletes from, in its code or in the SQL of its string literals, in
+ * the order the body names them.
  */
 struct sql_function {
     std::string name;

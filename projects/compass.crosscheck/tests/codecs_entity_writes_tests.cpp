@@ -88,3 +88,23 @@ TEST_CASE("a function two SQL files define is reported once, on the later "
     CHECK(tests::places(tests::run_after_edit(codecs::entity_writes, before,
         after).findings) == places{{"projects/ores.sql/create/a/a.sql", 2}});
 }
+
+TEST_CASE("a SQL writer is read from code and executed literals, whatever "
+    "the dollar tag, and not from comments", "[codecs][entity_writes]") {
+    const files t{
+        {"projects/ores.sql/create/iam/a.sql",
+         "create function ores_iam_tagged_fn() returns void as $body$\n"
+         "  -- delete from ores_iam_roles_tbl;\n"
+         "  select 1;\n"
+         "$body$;\n"
+         "create function ores_iam_next_fn() returns void as $$\n"
+         "  update ores_iam_roles_tbl set a = 1;\n"
+         "$$;\n"
+         "create function ores_iam_dynamic_fn() returns void as $$\n"
+         "  execute format('insert into ores_iam_roles_tbl (a) values "
+         "(%L)', 1);\n"
+         "$$;\n"}};
+    CHECK(tests::places(tests::run(codecs::entity_writes, t).findings) ==
+        places{{"projects/ores.sql/create/iam/a.sql", 8},
+            {"projects/ores.sql/create/iam/a.sql", 5}});
+}

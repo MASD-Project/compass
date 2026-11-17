@@ -143,6 +143,7 @@ TEST_CASE("a function states its parameters, the lookups it guards, the "
         "upper(p_currency));\n"
         "  update ores_books_tbl set x = 1;\n"
         "  insert into ores_audit_tbl select 1;\n"
+        "  execute format('delete from ores_dyn_tbl where x = %L', 1);\n"
         "end;\n"
         "$body$ language plpgsql;\n"
         "create function plain_fn() returns int as $$ select 1 $$;\n");
@@ -161,7 +162,7 @@ TEST_CASE("a function states its parameters, the lookups it guards, the "
     CHECK(f.inserts[0].values == pairs{{"name", "p_name"},
         {"currency", "upper(p_currency)"}});
     CHECK(f.writes == std::vector<std::string>{"ores_books_tbl",
-        "ores_audit_tbl"});
+        "ores_audit_tbl", "ores_dyn_tbl"});
     CHECK(m.functions[1].name == "plain_fn");
     CHECK(m.functions[1].writes.empty());
 }
