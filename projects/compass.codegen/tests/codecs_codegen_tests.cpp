@@ -185,6 +185,35 @@ TEST_CASE("the codegen codec renders each output the library's graph "
     CHECK(r.text.find("project(ores.a)") != std::string::npos);
 }
 
+TEST_CASE("many outputs, rendered on many threads, each hold their own "
+    "model's text, in the order the models are planned", "[codegen][codec]") {
+    auto all = library();
+    std::string catalogue = "* Components\n\n"
+        "| name | modeling_dir | exclude_org_types |\n"
+        "|------+--------------+-------------------|\n";
+    std::vector<std::string> names{"a"};
+    for (int i = 100; i < 400; ++i)
+        names.push_back("c" + std::to_string(i));
+    for (const auto& n : names) {
+        catalogue += "| " + n + " | projects/ores." + n + "/modeling | |\n";
+        all["projects/ores." + n + "/modeling/component_overview.org"] =
+            "#+title: ores." + n + "\n#+type: ores.codegen.component\n"
+            "#+name: " + n + "\n#+full_name: ores." + n + "\n#+brief: B\n"
+            "#+component_kind: flat\n";
+    }
+    all["lib/component_catalogue.org"] = catalogue;
+
+    const auto r = run(all);
+    const auto& out = r.run.files[0];
+    REQUIRE(out.size() == names.size());
+    for (std::uint32_t i = 0; i < out.size(); ++i) {
+        INFO(names[i]);
+        CHECK(out.paths[{i}] == "projects/ores." + names[i] +
+            "/CMakeLists.txt");
+        CHECK(out.contents[{i}] == "project(ores." + names[i] + ")\n");
+    }
+}
+
 TEST_CASE("the codegen codec runs again for a model or template edit and "
     "not for another document or file", "[codegen][codec]") {
     const auto first = run(library());

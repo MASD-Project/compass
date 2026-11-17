@@ -24,8 +24,10 @@
 #include <iterator>
 #include <set>
 #include <stdexcept>
+#include <thread>
 #include <unordered_map>
 #include <utility>
+#include "compass.codec/ops/parallel_for.hpp"
 #include "compass.codegen/ops/compile.hpp"
 #include "compass.codegen/ops/context.hpp"
 #include "compass.codegen/ops/entity_context.hpp"
@@ -590,12 +592,16 @@ void generate(compass::codec::types::file_table& out,
         throw std::runtime_error(what);
     }
     const auto templates = compile_templates(reader, s);
-    std::string text;
-    for (const auto& o : plan.outputs) {
-        text.clear();
-        render_planned(text, templates, plan, o);
-        out.add(o.output, text);
-    }
+    // Each output renders from the plan and the templates alone, so they
+    // render on every core and are added in plan order.
+    std::vector<std::string> texts(plan.outputs.size());
+    compass::codec::ops::parallel_for(plan.outputs.size(),
+        std::max(1u, std::thread::hardware_concurrency()),
+        [&](std::size_t i) {
+            render_planned(texts[i], templates, plan, plan.outputs[i]);
+        });
+    for (std::size_t i = 0; i < plan.outputs.size(); ++i)
+        out.add(plan.outputs[i].output, texts[i]);
 }
 
 }
