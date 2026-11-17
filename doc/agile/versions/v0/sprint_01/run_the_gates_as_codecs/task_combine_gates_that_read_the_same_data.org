@@ -61,6 +61,21 @@ task and name that file in the Command column.
 
 * Notes
 
+
+A read-only review of every ported gate, in four parts, is in
+=evidence/gate_review/= (=plan.md= combines them). Decisions taken by the
+product owner on 2026-11-17:
+
+- Drop the unconditional set: paste_blocks, the C++ half of
+  subject_conformance, model_sql_types for generated create scripts, the two
+  model_drift rules the loader already throws, skill_recipes,
+  skill_level_tags, component_docs/missing_section, and prototypes'
+  react_tree and no_discovery rules.
+- Correctness first: refusal findings for the 14 silently passing generators
+  and pending_models, the licence year taken from the clock, and the copied
+  Python bugs; then the drops; then the shared passes in the order SQL, C++,
+  org, models; then ORE policy tables into ORE pages.
+
 * Test Scenarios
 
 Manual QA scenarios (scaffolded via =compass add test_scenario=)

@@ -26,11 +26,11 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-17                               |
 
 * Acceptance
@@ -65,7 +65,11 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Comment-only change in compass.docs, ORE copy | only the 22 docs codecs and rule_table re-ran; findings identical; revert served from the store (agent) | =compass check --timings= | eee6ee9 |
+| Unrelated and docs-only commits | rebuilt nothing; only the hash and manifest steps ran (agent) | =cmake --build -- -d explain= | eee6ee9 |
+| No-op rebuild here | 0 compile or link steps | =cmake --build= | eee6ee9 |
+| Warm ORE check | 4.15 s at load 27; 240 findings | =compass check= | eee6ee9 |
+| ctest | 15 of 15 suites pass | =ctest --preset linux-clang-release= | eee6ee9 |
 
 * Notes
 
@@ -93,3 +97,17 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+A codec's stored results are keyed by a hash of the code that computes it, so
+a build that changes a codec can no longer replay results stored by an older
+one in the store every ORE Studio environment shares. Each codec component
+hashes, at build time, every source of itself and of the components it links,
+the third-party archives it links (PCRE2, expat, zlib) and the compiler
+version, into a generated file copied only when it changes; a commit that
+touches no source rebuilds nothing. The hash enters the configuration hash, so
+the record and the shared cache both key on it; the hand =.version= stays for
+deliberate invalidation.
+
+Decisions to revisit: the granularity is per component, so a change to
+=compass.codec= re-runs every codec once; the system C++ runtime and compile
+flags are not hashed.
