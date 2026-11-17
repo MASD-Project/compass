@@ -36,13 +36,15 @@ namespace compass::cli::io {
  * once: every tracked path and every untracked path no ignore rule
  * covers, as `git ls-files -z --cached --others --exclude-standard` lists
  * them, less the tracked files deleted from the worktree, so a codec
- * lists what a script globbing the disk finds.
+ * lists what a script globbing the disk finds. With @p only, a path
+ * relative to the checkout, the listing is limited to that path, so it
+ * holds the path or nothing.
  *
  * @throws std::system_error when git cannot be started, and
  * std::runtime_error when it fails.
  */
 [[nodiscard]] std::vector<std::string> list_files(
-    const std::filesystem::path& checkout);
+    const std::filesystem::path& checkout, std::string_view only = {});
 
 /**
  * @brief The org files among @p files of @p checkout: those whose name

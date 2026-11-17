@@ -112,10 +112,12 @@ std::filesystem::path in_commit(const std::filesystem::path& path,
  * @brief Lists the files of the checkout of @p o, or of the commit it
  * names, into @p p, and builds the type and codec registries. When
  * @p recorded, a checkout is listed from the listing record the last check
- * wrote, if there is one, without starting git. Writes nothing.
+ * wrote, if there is one, without listing the checkout: @p created, a file
+ * that may be new, is added to it when git lists that one path. Writes
+ * nothing.
  */
 void list_files(pipeline& p, const types::options& o,
-    bool recorded = false) {
+    bool recorded = false, std::string_view created = {}) {
     if (o.commit)
         p.timed("tree", [&] {
             p.commit.emplace(store::io::git_common_dir(o.checkout),
@@ -137,6 +139,19 @@ void list_files(pipeline& p, const types::options& o,
         if (recorded) {
             if (auto r = io::read_listing_file(io::listing_file_path(
                     store::io::git_dir(o.checkout)))) {
+                const auto at = std::ranges::lower_bound(r->files, created);
+                if (!created.empty() &&
+                    (at == r->files.end() || *at != created)) {
+                    const auto one = io::list_files(o.checkout, created);
+                    if (std::ranges::contains(one, created)) {
+                        const bool document = created !=
+                            config::repository_file_name &&
+                            !io::org_files(o.checkout, one).empty();
+                        r->documents.insert(r->documents.begin() +
+                            (at - r->files.begin()), document ? 1 : 0);
+                        r->files.insert(at, std::string(created));
+                    }
+                }
                 list(p.listed, std::move(*r));
                 return;
             }
@@ -1009,7 +1024,8 @@ types::hook_result hook(const types::options& o, const std::string& path,
     if (touched.empty() && !edited.document)
         return done();
 
-    list_files(p, o, !created);
+    list_files(p, o, true, created ? std::string_view(path)
+        : std::string_view{});
     if (!created && !std::ranges::binary_search(p.listed.files, path)) {
         // A file an unchecked edit created is missing from the record's
         // listing, so the checkout is listed again.
