@@ -141,6 +141,22 @@ They are off by default.
   skill of the script's table with the recipe links its Recipes section
   lacks appended; a skill or recipe that does not exist leaves the skill
   alone, where the script stops.
+- *=structure_notes=.* =structure-notes= (=link_structure_notes.py=). A
+  corpus codec over every page: the UTF-8 pages under =doc/= and
+  =projects/modeling/= with an =:ID:= line, keyed by the ID in upper case.
+  A page tagged =structure_note= is a note; the pages its =id:= links name
+  before its =What this cluster does not cover= and =See also= sections
+  form its cluster, those under a section marked =# aside= set beside its
+  order. Every cluster page that is not a note is written, with a line
+  linking the note added to its =See also= section, or a new section at
+  its end, unless it links the note already; notes go in ID order, so a
+  page two notes name gains both lines. It writes the 417 pages of ORE
+  Studio as they are committed.
+
+A generator that edits pages emits every page it may edit, edited or not:
+the sink removes a file a complete codec wrote before and no longer emits,
+so a page emitted only while it lacked its link would be deleted once it
+had it.
 
 =ops::replace_region= replaces the first region between two markers, or
 every one, as the scripts do with =re.search= or =re.sub=; the generators

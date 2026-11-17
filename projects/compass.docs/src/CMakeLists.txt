@@ -28,6 +28,7 @@ add_library(${lib_target_name}
     codecs/recipe_libraries.cpp
     codecs/rule_identifiers.cpp
     codecs/skill_tables.cpp
+    codecs/structure_notes.cpp
     codecs/tree_gates.cpp
     ops/regions.cpp)
 
