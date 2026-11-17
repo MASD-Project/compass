@@ -92,6 +92,30 @@ int run_ratchet(const types::options& o, std::string_view base,
 }
 
 /**
+ * @brief The layer of the configuration file in effect for @p i: the one
+ * at its commit, or the checkout's when there is no commit or the commit
+ * has none, which @p warnings then says.
+ */
+std::expected<types::layer, std::string> repository_layer(
+    const types::invocation& i,
+    const std::optional<store::types::object_id>& commit,
+    std::vector<std::string>& warnings) {
+    if (commit) {
+        auto at_commit = config::read_repository_file(store::io::git_objects(
+            store::io::git_objects_dir(
+                store::io::git_common_dir(i.checkout))), *commit);
+        if (!at_commit)
+            return std::unexpected(at_commit.error());
+        if (*at_commit)
+            return std::move(**at_commit);
+        warnings.push_back("the commit " + i.revision + " has no " +
+            std::string(config::repository_file_name) + "; using the "
+            "working tree's");
+    }
+    return config::read_repository_file(i.checkout);
+}
+
+/**
  * @brief The settings and paths in effect for the checkout of @p i: its
  * configuration file, or the one at its commit, then the command line.
  * @return the problems, when either cannot be read or applied.
@@ -101,15 +125,13 @@ std::expected<types::options, std::vector<std::string>> options_of(
     std::optional<store::types::object_id> commit;
     if (!i.revision.empty())
         commit = io::resolve_commit(i.checkout, i.revision);
-    const auto file = commit
-        ? config::read_repository_file(store::io::git_objects(
-              store::io::git_objects_dir(
-                  store::io::git_common_dir(i.checkout))), *commit)
-        : config::read_repository_file(i.checkout);
+    std::vector<std::string> warnings;
+    const auto file = repository_layer(i, commit, warnings);
     if (!file)
         return std::unexpected(std::vector<std::string>{file.error()});
     c = config::resolve(codecs(), i.checkout,
         i.checkout / config::repository_file_name, *file, i.command_line);
+    c.warnings = std::move(warnings);
     if (!c.problems.empty())
         return std::unexpected(c.problems);
     return types::options{.which = i.which,
@@ -173,6 +195,8 @@ int run_command(const types::invocation& i, std::ostream& out,
             err << "compass: " << p << "\n";
         return exit_failure;
     }
+    for (const auto& w : c.warnings)
+        err << "compass: warning: " << w << "\n";
     const auto& o = *resolved;
     switch (o.which) {
     case types::command::generate:

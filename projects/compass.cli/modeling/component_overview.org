@@ -287,7 +287,7 @@ record again, and 0.8 s reading it.
 | =-j <n>=                        | one per core                             | Threads.                                        |
 | =--set <codec>.<key>=<value>=   | the file, else the codecs' own           | A codec setting; repeatable, the last one wins. |
 | =--timings=                     | no                                       | =generate=, =diff=, =check=, =hook=: print each step's time and what each codec ran or reused, and how long its units ran. |
-| =--commit <rev>=                | the files on disk                        | =check= only: check the commit =<rev>= names, as =git rev-parse <rev>^{commit}= resolves it, with that commit's =.compass.org=. The output root and meta directory must be under the checkout. |
+| =--commit <rev>=                | the files on disk                        | =check= only: check the commit =<rev>= names, as =git rev-parse <rev>^{commit}= resolves it, with that commit's =.compass.org=, or, when the commit has none, the working tree's, with a warning on standard error. The output root and meta directory must be under the checkout. |
 | =--ratchet [<base>]=            | the upstream, else =origin/main=         | =check= only: fail only on findings the merge base of HEAD and =<base>= lacks. The next argument is the base unless it starts with =-= or names a command; =--ratchet=<base>= always takes one. Not with =--commit=. |
 | =--today <YYYY-MM-DD>=          | today in UTC                             | =check= and =hook=: the date the expiry of inline exceptions is judged against, for the checkout, a commit and both sides of a ratchet. |
 | =--dry-run=, =--cap=, =--grace= | no, 0 bytes, 3600 s                      | =gc= only.                                      |

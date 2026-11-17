@@ -227,13 +227,13 @@ std::expected<types::layer, std::string> read_repository_file(
     return parse_repository_file(text, repository_file_name);
 }
 
-std::expected<types::layer, std::string> read_repository_file(
+std::expected<std::optional<types::layer>, std::string> read_repository_file(
     const store::io::git_objects& objects,
     const store::types::object_id& commit) {
     const auto text = store::io::read_commit_file(objects, commit,
         repository_file_name);
     if (!text)
-        return types::layer{};
+        return std::nullopt;
     const auto label = store::ops::to_hex(commit).substr(0, 7) + ":" +
         std::string(repository_file_name);
     return parse_repository_file(*text, label);

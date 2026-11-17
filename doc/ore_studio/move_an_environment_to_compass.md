@@ -34,7 +34,11 @@ mattered):
   are new since the merge base. The base defaults to the upstream, else
   `origin/main`.
 - **Past commits.** `compass-ng check --commit <rev>` checks any commit straight
-  from git's object store, without a checkout.
+  from git's object store, without a checkout, with that commit's
+  `.compass.org`. A commit that has none is checked with the working tree's,
+  and compass says so on standard error
+  (`compass: warning: the commit <rev> has no .compass.org; using the working
+  tree's`); it never falls back to the defaults.
 - **Inline exceptions.** A comment excuses one finding:
   `compass:except(<codec>/<rule>) expires=<YYYY-MM-DD> approver=<name> reason=<text>`.
   Expired, incomplete, malformed and stale exceptions are findings themselves.
@@ -249,9 +253,10 @@ Only after step 2 shows agreement:
   The compass repository's gate classification
   (`doc/agile/versions/v0/sprint_01/run_the_gates_as_codecs/evidence/gate_classification.org`)
   lists every gate and its class.
-- **Ratchet.** The merge base is checked with its own `.compass.org`, so the
-  ratchet is meaningful only once `.compass.org` is on the base branch; merge
-  it before switching any gate to ratchet mode. For pull requests,
+- **Ratchet.** Both sides of the ratchet are checked with the working
+  tree's `.compass.org`, so the base is judged by the rules HEAD is judged
+  by, whether or not the base has a `.compass.org` of its own. For pull
+  requests,
   `compass-ng check --ratchet origin/main` is the
   gate: it fails only on new findings.
 - **Regeneration.** Replace `regenerate --all` with `compass-ng generate`. Keep

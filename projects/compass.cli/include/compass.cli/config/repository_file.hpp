@@ -21,6 +21,7 @@
 #define COMPASS_CLI_CONFIG_REPOSITORY_FILE_HPP
 
 #include <expected>
+#include <optional>
 #include <filesystem>
 #include <string>
 #include <string_view>
@@ -62,13 +63,14 @@ inline constexpr std::string_view repository_file_name = ".compass.org";
 
 /**
  * @brief The layer the configuration file of the commit @p commit sets,
- * read from @p objects: an empty layer when the commit has no such file,
- * else as parse_repository_file reads it, labelled
- * "<abbreviated ID>:.compass.org" as git names a file of a commit.
+ * read from @p objects: nothing when the commit has no such file, else as
+ * parse_repository_file reads it, labelled "<abbreviated ID>:.compass.org"
+ * as git names a file of a commit.
  *
  * @throws as store::io::read_commit_file does.
  */
-[[nodiscard]] std::expected<types::layer, std::string> read_repository_file(
+[[nodiscard]] std::expected<std::optional<types::layer>, std::string>
+read_repository_file(
     const store::io::git_objects& objects,
     const store::types::object_id& commit);
 

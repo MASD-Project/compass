@@ -192,6 +192,24 @@ TEST_CASE("compass check --commit reads the configuration of the commit",
     CHECK_THAT(at_commit.out, ContainsSubstring("document_index/drift"));
 }
 
+TEST_CASE("compass check --commit of a commit with no configuration warns "
+    "and uses the working tree's", "[app][commit]") {
+    scoped_git_repo repo;
+    commit_all(repo);
+    repo.write(".compass.org", "#+output: out\n\n* Codecs\n\n"
+        "| name | enabled | options |\n"
+        "| required_sections | no | |\n");
+
+    const auto at_commit = run(repo, {"--commit", "HEAD"});
+
+    CHECK_THAT(at_commit.err, ContainsSubstring("compass: warning: the "
+        "commit HEAD has no .compass.org; using the working tree's"));
+    CHECK_THAT(at_commit.out, !ContainsSubstring("required_sections/"));
+    CHECK_THAT(at_commit.out, ContainsSubstring("document_index/drift"));
+    const auto on_disk = run(repo, {});
+    CHECK_THAT(on_disk.err, !ContainsSubstring("warning"));
+}
+
 TEST_CASE("compass check --commit fails on a revision that names no "
     "commit", "[app][commit]") {
     scoped_git_repo repo;
