@@ -88,7 +88,10 @@ others is in its descriptor, so adding a codec adds a row to a list.
   to each page it cites (the bare ID when the corpus lacks that page),
   then the documents of type =memory= that no rule cites, by path. The
   page states its counts: rules, rules that cite a page, memories and
-  memories no rule cites. =ops::rule_table_version= hashes the format and
+  memories no rule cites. Those memories are listed, not reported as
+  findings: a memory no check enforces is work not yet done, not a defect
+  of the tree, and a finding would fail or clutter every check until
+  someone wrote the check. =ops::rule_table_version= hashes the format and
   every row, so a codec built on it reruns whenever a rule, a statement
   or a citation changes. The host binds the renderer to its catalogue
   as the =rule_table= codec.
