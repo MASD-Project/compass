@@ -19,6 +19,7 @@ pillars that fold in the standalone scripts, starting with Provision.
 The =compass= executable of compass-ng.
 
 - [[id:B99A4028-CA7F-495E-855B-D3A8DDBBEED4][How do I build and run compass?]] — Build the compass executable from a fresh checkout and run it.
+- [[id:92AD0A4C-4A68-431E-8581-55E6C56DC2EB][How do I install or update the shared compass?]] — Install a compass build as the one compass every environment runs from the PATH, and tell exactly which build is installed.
 - [[id:521D0D78-E4CF-487A-A5BB-EC698DC76B99][How do I generate outputs with compass?]] — Run compass generate to write the outputs of the enabled codecs, touching only files whose content changed.
 - [[id:22EC58E3-C413-402C-96D5-93E34230C887][How do I generate code with compass?]] — Configure the codegen codec in .compass.org and run compass diff, generate and check to regenerate a checkout's generated code, formatted, touching only files whose content changed.
 - [[id:2AD84580-A94E-4EEE-A234-3EB437A8B492][How do I see what compass would change?]] — Run compass diff to print, as unified diffs, every change compass generate would make, writing nothing.
