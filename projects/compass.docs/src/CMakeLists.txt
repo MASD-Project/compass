@@ -36,6 +36,8 @@ add_library(${lib_target_name}
     codecs/structure_notes.cpp
     codecs/trade_type_coverage.cpp
     codecs/tree_gates.cpp
+    ops/link_graph.cpp
+    ops/org_text.cpp
     ops/regions.cpp
     ops/skills.cpp)
 
