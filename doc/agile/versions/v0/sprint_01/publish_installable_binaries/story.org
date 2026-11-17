@@ -1,0 +1,52 @@
+:PROPERTIES:
+:ID: EB6AF798-D472-4CC2-B97C-FC2BD9FD1FDE
+:END:
+#+title: Story: Publish installable binaries
+#+description: Build compass in CI on every merge and every tag, and publish a release with installable binaries and their manifests, so ORE Studio CI, the fleet and external developers install compass without building it from source.
+#+type: story
+#+level: s2
+#+filetags: :ci:release:distribution:sprint_01:v0:
+#+created: 2026-11-17
+#+updated: 2026-11-17
+#+environment:
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+A person or a CI job installs a named compass release with one command, without a compiler, a vcpkg tree or a checkout of this repository.
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | BACKLOG                              |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | Not yet started.                       |
+| Waiting on    | Nothing.                               |
+| Next          | Break the story into tasks.            |
+| Last touched  | 2026-11-17                               |
+
+* Acceptance
+
+- CI builds compass on Linux for every pull request and every merge to main, and runs its tests.
+- A version tag produces a GitHub release with a binary archive per supported platform, its compass.manifest, and a SHA-256 checksum.
+- The release binary depends only on the system C and C++ runtimes, proved by running it in a clean container of the oldest supported distribution.
+- An install script downloads a named release, verifies its checksum, installs it under ~/.local/opt/compass and links ~/.local/bin, refusing a checksum mismatch.
+- compass --version on an installed release names the tag, the commit and dirty: no.
+- A pinned version file lets a consumer such as ORE Studio state which release it needs, and the install script reads it.
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+|      |       |       |     |             |
+
+* Decisions
+
+* Out of scope
+
+- Windows and macOS binaries; Linux x86-64 comes first, and the other platforms are tasks added when a consumer needs them.
+- Packaging for distribution package managers (deb, rpm, Homebrew).
+- Wiring the release into ORE Studio's CI; ORE Studio's own story does that.

@@ -21,9 +21,12 @@ usage() {
     cat <<'EOF'
 usage: install_compass.sh [--from <bin dir>] [--allow-dirty]
 
-Installs a compass build as the one compass every environment shares: the
+Installs a compass build as the one compass-ng every environment shares: the
 binary and its compass.manifest go into ~/.local/opt/compass/, and
-~/.local/bin/compass links to that binary.
+~/.local/bin/compass-ng links to that binary. The link is not named compass,
+because ORE Studio's Python tool answers to that name until it is retired; an
+older link of ours at ~/.local/bin/compass is removed, anything else there is
+left alone.
 
   --from <bin dir>  where the built compass and its compass.manifest are
                     (default: build/output/linux-clang-release/publish/bin)
@@ -39,7 +42,8 @@ fail() {
 repository="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 from="$repository/build/output/linux-clang-release/publish/bin"
 opt="$HOME/.local/opt/compass"
-link="$HOME/.local/bin/compass"
+link="$HOME/.local/bin/compass-ng"
+old_link="$HOME/.local/bin/compass"
 allow_dirty=false
 
 while [ $# -gt 0 ]; do
@@ -81,6 +85,10 @@ mv -f "$opt/.compass.tmp.$$" "$opt/compass"
 mv -f "$opt/.compass.manifest.tmp.$$" "$opt/compass.manifest"
 ln -s "$opt/compass" "$link.tmp.$$"
 mv -T "$link.tmp.$$" "$link"
+if [ -L "$old_link" ] && [ "$(readlink "$old_link")" = "$opt/compass" ]; then
+    rm -f "$old_link"
+    echo "removed the old link $old_link"
+fi
 
 echo "installed $opt/compass"
 echo "$link -> $opt/compass"

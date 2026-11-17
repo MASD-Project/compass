@@ -17,28 +17,28 @@ into ORE Studio.
 Measured on a copy of ORE Studio at `545cafca45` (8 cores; load given where it
 mattered):
 
-- **Code generation.** `compass generate` writes all 26,212 files `ores.codegen`
+- **Code generation.** `compass-ng generate` writes all 26,212 files `ores.codegen`
   generates, byte-identical to its formatted output.
   - A warm run with no template change takes under 3 s and starts no formatter.
   - A cold run takes 23 to 31 s, most of it clang-format and prettier.
   - Generation is incremental: a model edit re-renders only the models that
     read it, and a template edit only that template's outputs.
-- **Gates.** `compass check` runs 76 of ORE Studio's gates in one pass, in
+- **Gates.** `compass-ng check` runs 76 of ORE Studio's gates in one pass, in
   about 3.5 s warm at load 4. As scripts, those gates take about half an hour.
   - Each ported gate gives its original's verdict on the same commit, both as
     the tree is and with planted violations.
   - Generator gates (tangles, inventories, seeds, the cmake source lists and
-    others) are codec outputs, so their drift is a `compass check` finding and
-    `compass generate` replaces the script.
-- **Ratchet.** `compass check --ratchet [<base>]` fails only on findings that
+    others) are codec outputs, so their drift is a `compass-ng check` finding and
+    `compass-ng generate` replaces the script.
+- **Ratchet.** `compass-ng check --ratchet [<base>]` fails only on findings that
   are new since the merge base. The base defaults to the upstream, else
   `origin/main`.
-- **Past commits.** `compass check --commit <rev>` checks any commit straight
+- **Past commits.** `compass-ng check --commit <rev>` checks any commit straight
   from git's object store, without a checkout.
 - **Inline exceptions.** A comment excuses one finding:
   `compass:except(<codec>/<rule>) expires=<YYYY-MM-DD> approver=<name> reason=<text>`.
   Expired, incomplete, malformed and stale exceptions are findings themselves.
-- **Edit hook.** `compass hook` checks the one file Claude Code just edited, in
+- **Edit hook.** `compass-ng hook` checks the one file Claude Code just edited, in
   well under a second for most edits on a quiet machine.
 
 compass does not export HTML yet. Keep the Emacs site export and the
@@ -47,11 +47,13 @@ compass does not export HTML yet. Keep the Emacs site export and the
 ## The binary
 
 There is one compass, shared by every environment on the machine. Scripts run
-it as `compass`, from the PATH. `~/.local/bin/compass` is a link to the
+it as `compass-ng`, from the PATH. It is not called `compass`, because ORE
+Studio's Python tool (`./compass.sh`, `ores.compass`) answers to that name
+until it is retired; both tools work side by side. `~/.local/bin/compass-ng` is a link to the
 installed binary, `~/.local/opt/compass/compass`, which has its build manifest,
 `compass.manifest`, beside it.
 
-- **Which build is installed.** `compass --version` prints one fact per line:
+- **Which build is installed.** `compass-ng --version` prints one fact per line:
 
   ```
   compass 0.0.1
@@ -74,11 +76,11 @@ installed binary, `~/.local/opt/compass/compass`, which has its build manifest,
   environment. The compass repository builds a commit and runs
   `build/scripts/install_compass.sh`, which replaces the binary and its
   manifest, each through an atomic rename, and keeps the link pointing at it.
-  Every environment runs the new build from its next `compass` command. The
+  Every environment runs the new build from its next `compass-ng` command. The
   script refuses a build of uncommitted changes unless it is given
   `--allow-dirty`.
 - The binary depends only on the system C and C++ runtimes.
-- To see which codecs the installed build knows, run `compass config`: any unknown codec
+- To see which codecs the installed build knows, run `compass-ng config`: any unknown codec
   named in `.compass.org` is an error that lists the known ones.
 - compass keeps its store under the repository's git common directory
   (`<common dir>/compass/`), shared by every `ores_dev_*` worktree. Per-worktree
@@ -86,7 +88,7 @@ installed binary, `~/.local/opt/compass/compass`, which has its build manifest,
 - When a new binary changes the record format, the first run after it runs
   everything once (cold). That is expected. Compare the `store formats` line
   of the two builds' `--version` to see whether it will happen.
-- Run `compass gc` now and then. The store grows quickly: on a scratch copy of
+- Run `compass-ng gc` now and then. The store grows quickly: on a scratch copy of
   ORE Studio it reached 12 GB before a gc brought it to 2.8 GB.
 
 ## Step 1: add `.compass.org`
@@ -115,21 +117,23 @@ options as `key=value` pairs. Use these rows:
 | codegen | yes | `library=projects/ores.codegen/library convention_component=refdata year=2026 clang_format=clang-format clang_format_style=.clang-format prettier=projects/ores.web/node_modules/.bin/prettier,prettier prettier_style=.prettierrc.yaml` |
 | component_files | yes | `year=2026` |
 | ore_output_catalogue | yes | `clang_format=clang-format` |
-| rule_table | yes | `path=doc/knowledge/compass/rule_table.org` |
+| rule_table | no | |
 
 `year` is the copyright year of the licence blocks that `codegen` and
 `component_files` write. Both codecs require it: compass never takes the
 year from the clock, so a run in January writes the same bytes as one in
 December. 2026 is the year in the files ORE Studio has committed. To move to
-a new year, change `year` in `.compass.org` and run `compass generate`; the
+a new year, change `year` in `.compass.org` and run `compass-ng generate`; the
 change of year is then one commit.
 
-Also add every other codec `compass config` lists, with `yes` and no options:
+`rule_table` writes a page listing every rule and the memories none enforces;
+turn it on with `path=` naming a knowledge page once ORE Studio wants that
+page. Also add every other codec `compass-ng config` lists, with `yes` and no options:
 the C++, SQL, org, cross-artefact and generator gates. Keep
 `document_index` and `required_sections` off; ORE Studio has its own index
 and contract checks.
 
-Check it with `compass config`. Then run `compass diff | head` to see what
+Check it with `compass-ng config`. Then run `compass-ng diff | head` to see what
 `generate` would change, before running `generate` itself.
 
 ## Step 2: compare with the existing tooling (the pilot)
@@ -137,9 +141,15 @@ Check it with `compass config`. Then run `compass diff | head` to see what
 Run both sides on the same tree and record every disagreement. Nothing is
 replaced in this step.
 
-1. Run `compass check`. Expect findings in two groups.
-   - **Drift that is real in ORE Studio at `545cafca45`.** The tree may have
-     moved on since; re-establish this list at your commit.
+1. Run `compass-ng check`. Expect findings in two groups.
+   - **Drift that is real in ORE Studio.** This list was taken at
+     `545cafca45`; the tree moves on, so re-establish it at your commit. At
+     `67803175ce` the pilot found 26 codegen files and 52 shell scripts (40
+     new files for four families never tangled, and 12 changed), and a new
+     hand edit: `market_fixing_repository.cpp` has a hand-written
+     `read_latest_for_series` that `compass-ng generate` deletes, as
+     `ores.codegen` would. Move such code into a template or a hand-written
+     file before regenerating.
      - 24 codegen outputs. 22 were not regenerated after the system-tenant
        shared-read change (the 7 script entities' `*_create.sql`,
        `eventing/*_event.hpp` and `repository/*_repository.cpp`, and
@@ -185,7 +195,7 @@ replaced in this step.
 
 This is ordinary ORE Studio work, done on a branch and merged through a PR.
 
-- **Regenerate.** Run `compass generate`, then review and commit the drift
+- **Regenerate.** Run `compass-ng generate`, then review and commit the drift
   files that are real: the 22 codegen files, the 9 shell scripts, the backlog
   index and the route inventory. The 2 hand edits need a decision: either move
   the change into the template or model, or drop it.
@@ -196,13 +206,13 @@ This is ordinary ORE Studio work, done on a branch and merged through a PR.
   whole-file entries such as entity writers in C++ files. Give each one a
   real reason, an approver and an expiry. Then delete the baseline file once
   the script that reads it is no longer run.
-- After this step, `compass check` should report nothing on that branch.
+- After this step, `compass-ng check` should report nothing on that branch.
 
 ## Step 4: switch the environment over
 
 Only after step 2 shows agreement:
 
-- **Gates.** Make `./compass.sh check` run `compass check` for the ported
+- **Gates.** Make `./compass.sh check` run `compass-ng check` for the ported
   gates, and keep running the Python script only for the gates compass does
   not cover:
   - not ported: `boost-deps` (reads the vcpkg submodule),
@@ -221,9 +231,12 @@ Only after step 2 shows agreement:
   The compass repository's gate classification
   (`doc/agile/versions/v0/sprint_01/run_the_gates_as_codecs/evidence/gate_classification.org`)
   lists every gate and its class.
-- **Ratchet.** For pull requests, `compass check --ratchet origin/main` is the
+- **Ratchet.** The merge base is checked with its own `.compass.org`, so the
+  ratchet is meaningful only once `.compass.org` is on the base branch; merge
+  it before switching any gate to ratchet mode. For pull requests,
+  `compass-ng check --ratchet origin/main` is the
   gate: it fails only on new findings.
-- **Regeneration.** Replace `regenerate --all` with `compass generate`. Keep
+- **Regeneration.** Replace `regenerate --all` with `compass-ng generate`. Keep
   `regenerate_cmake_component_files.py` and the PlantUML script until
   `component_files` and `er_diagram` are confirmed; `component_files` already
   covers the former.
@@ -261,7 +274,7 @@ The full reasoning for each is in the compass repository's
 
 ## Step 5: the edit hook (optional, per environment)
 
-Claude Code runs `compass hook` after each edit. Add this to the environment's
+Claude Code runs `compass-ng hook` after each edit. Add this to the environment's
 Claude Code settings through ORE Studio's own settings mechanism (they are
 tangled from an org page there; don't hand-edit the generated JSON):
 
@@ -272,7 +285,7 @@ tangled from an org page there; don't hand-edit the generated JSON):
       {
         "matcher": "Edit|Write|MultiEdit",
         "hooks": [
-          { "type": "command", "command": "compass hook", "timeout": 30 }
+          { "type": "command", "command": "compass-ng hook", "timeout": 30 }
         ]
       }
     ]
@@ -286,8 +299,12 @@ What the hook does:
   and returns a `block` decision with the findings. That shows them to the
   agent; it does not undo the edit.
 - It fails open, with a note, on any internal error.
-- It writes nothing, so it trusts the record of the last `compass check`. Run
-  a full `compass check` after pulls and rebases.
+- It reports every finding on the edited file, including ones that were
+  there before the edit. Until the baselines become inline exceptions (step
+  3), an edit to a file with a baseline entry blocks every time, so install
+  the hook only after step 3.
+- It writes nothing, so it trusts the record of the last `compass-ng check`. Run
+  a full `compass-ng check` after pulls and rebases.
 - Warm times at load 2 to 4: most edits take 0.2 to 0.9 s, and a new model
   takes about 1.1 s. A loaded machine can push model and C++ header edits to
   1.4 to 1.7 s.
@@ -298,9 +315,9 @@ What the hook does:
 are all committed, so other environments get them as they rebase onto the
 merged branch. Each environment then needs only:
 
-1. `~/.local/bin/compass` present (shared by all environments on this
+1. `~/.local/bin/compass-ng` present (shared by all environments on this
    machine).
-2. One full `compass check` to build its records. The store is shared, so
+2. One full `compass-ng check` to build its records. The store is shared, so
    this is mostly cache hits after the first environment.
 3. The hook, if wanted, in its own Claude Code settings.
 
@@ -313,5 +330,5 @@ merged branch. Each environment then needs only:
   `./compass.sh check` and `regenerate`, which this migration does not remove
   until the Retire legacy tooling work.
 - **A run reports a whole tree of drift after a compass upgrade.** Run
-  `compass generate` into a scratch directory with `--out`, and compare it
+  `compass-ng generate` into a scratch directory with `--out`, and compare it
   before writing anything. Report it if the outputs really changed.

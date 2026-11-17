@@ -306,7 +306,8 @@ last write time, read at runtime. A missing or damaged manifest gives
 so a commit recompiles and relinks nothing. =build/scripts/install_compass.sh=
 installs a build as the one compass all environments share: the binary, its
 mtime kept, and the manifest, with the install time added, in
-=~/.local/opt/compass/=, and =~/.local/bin/compass= linked to the binary.
+=~/.local/opt/compass/=, and =~/.local/bin/compass-ng= linked to the binary;
+the name keeps it apart from ORE Studio's Python =compass=.
 
 - The configuration file, =.compass.org= at the root of the checkout. It
   is optional: without it every value is the default. =#+output:= and

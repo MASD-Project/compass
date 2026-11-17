@@ -1,0 +1,65 @@
+:PROPERTIES:
+:ID: 6AB4BCDE-C8A2-4F63-B4B0-FF21DD1D792D
+:END:
+#+title: Story: Design output for LLMs
+#+description: Make every compass command's output fit for an LLM reader: short and to the point, with a next action, and a full grep-able log of the run in the project directory.
+#+type: story
+#+level: s2
+#+filetags: :design_output_for_llms:sprint_01:v0:
+#+created: 2026-11-17
+#+updated: 2026-11-17
+#+environment:
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+Most of compass's readers are LLM agents working in ORE Studio, and every line
+compass prints costs them context. Every command answers in a few lines: what
+happened, what is wrong, and the one thing to do next. Everything else a run
+knows (each step, each unit, every finding, the timings, the full diffs) goes
+into a log file in the project directory that the agent can grep when it needs
+more, and the terminal output says where that file is.
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | BACKLOG                              |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | Not yet started.                       |
+| Waiting on    | Nothing.                               |
+| Next          | Break the story into tasks.            |
+| Last touched  | 2026-11-17                               |
+
+* Acceptance
+
+- Every command prints a one-line verdict first (pass, fail or error, with counts), then at most a bounded number of findings, grouped by rule when a rule repeats, and ends with the path of the run's log.
+- Every result and every finding carries a next action: the command to run, the file and line to change, or the exception to write.
+- Each run writes a complete, grep-able log to a git-ignored directory inside the checkout: the command, the =--version= facts, every step and unit with its timing and cache source, every finding in full, and every diff; old logs are pruned.
+- Findings have one stable line format, documented and locked by tests, and a machine format (JSON Lines) for tools.
+- =compass explain <rule>= gives the rule's statement, why it exists, the memory or document behind it, how to fix it and how to excuse it.
+- Errors say what failed and what to do about it, never a bare exception text, and exit codes 0, 1 and 2 keep their documented meanings.
+- The output is deterministic: sorted, relative paths, no colour or progress output when not on a terminal, no timings unless asked.
+- =compass hook= follows the same contract within Claude Code's hook payload.
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+| [[id:B92C04DC-53B4-4678-A618-F53DCE2460FC][Define the output contract]] | BACKLOG | | | Write the output contract for LLM readers: the verdict line, finding line format, grouping, limits, next actions, log location and exit codes, with examples for each command. |
+| [[id:0776D15F-F563-4BF6-B9D6-BA88191BF00A][Write a run log to the project]] | BACKLOG | | | Write every run's full detail to a git-ignored log in the checkout, print its path, and prune old logs. |
+| [[id:EFB72301-382E-4302-B5D2-057DAAEFE789][Summarise and bound terminal output]] | BACKLOG | | | Print a verdict line first, bound the findings shown, group repeated rules with counts and examples, and point to the log for the rest. |
+| [[id:14D3F807-A239-4E58-AE29-F919A18DADD5][Give every result a next action]] | BACKLOG | | | Attach a concrete next action to every verdict, finding and error: the command, the file and line, or the exception to write. |
+| [[id:A77F6BE6-D1FA-447B-B75E-04545F1C8318][Add compass explain]] | BACKLOG | | | Add compass explain <rule>, built from the rule metadata: statement, rationale, memory, fix steps and exception syntax. |
+| [[id:F0809AB6-F7AB-4491-84A2-092C0B0F95B9][Add a machine format]] | BACKLOG | | | Emit findings as JSON Lines with a stable schema for tools, alongside the line format. |
+| [[id:5D76B1CC-B785-4AB0-AD76-34D3016C710A][Make errors actionable]] | BACKLOG | | | Turn every exit-2 error into what failed, why and what to do, and document the exit codes. |
+| [[id:5BC5647C-2444-4C68-A874-9DE26EDA7D5B][Lock the contract with tests]] | BACKLOG | | | Apply the contract to every command and the hook, and lock it with golden-output tests. |
+
+* Decisions
+
+* Out of scope
+
+- Output for human dashboards or HTML reports.
+- Changing what any check decides; this story changes only how results are reported.

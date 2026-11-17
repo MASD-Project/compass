@@ -1,0 +1,29 @@
+:PROPERTIES:
+:ID: B4DE978C-10AC-4D93-B56B-E87B0D1335D8
+:END:
+#+title: Install compass only when told
+#+description: Never replace the shared compass binary under ~/.local unless the product owner says to; ORE Studio environments run it.
+#+type: memory
+#+memory_subtype: feedback
+#+level: cross
+#+filetags: :compass:install:ore_studio:memory:feedback:
+#+created: 2026-11-17
+#+updated: 2026-11-17
+
+Never replace the shared compass binary, =~/.local/opt/compass/= and the
+=~/.local/bin/compass-ng= link to it, unless the product owner says to install.
+Build and test compass locally from =build/output/linux-clang-release/publish/bin/=
+as much as needed, but do not run =build/scripts/install_compass.sh= on your
+own initiative.
+
+*Why:* ORE Studio environments run that binary. The product owner said: "only
+reinstall when I tell you to. keep building and testing locally but don't
+change the binary under .local unless solid dirac is aware of the change and
+ready to take it." A new build can change verdicts, rule names and store
+formats under an environment that is mid-way through integrating compass.
+
+*How to apply:* After merging a change, report what an install would bring
+(the commit, verdict changes, renamed rules, store format changes) and wait.
+Install only on an explicit instruction, then report the new =compass
+--version=. Agents briefed on compass work must be told not to run the
+install script.
