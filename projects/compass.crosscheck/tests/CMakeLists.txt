@@ -20,6 +20,7 @@ set(lib_target_name ${name}.lib)
 set(tests_target_name ${name}.tests)
 
 add_executable(${tests_target_name}
+    codecs_curve_wiring_tests.cpp
     codecs_entity_writes_tests.cpp
     codecs_generated_reads_tests.cpp
     codecs_marketdata_identity_columns_tests.cpp
