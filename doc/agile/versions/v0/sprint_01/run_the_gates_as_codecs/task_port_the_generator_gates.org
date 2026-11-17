@@ -26,11 +26,11 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -66,7 +66,11 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Generator gates ported | 24 of 31; each byte-identical to its original on ORE 545cafca45, as it is and planted | =gg/tree_cmp.sh=, =gg/reverify.sh= | cba39ed |
+| Shell script drift | 9 files; Emacs 30.2 on 545cafca45 writes the same 9 compass does | Emacs tangle vs compass | cba39ed |
+| Warm ORE check, every ported gate | 7.57-7.64 s at load 15-23 on 8 cores (agent: 6.46-7.02 s at load 12-13); 237 findings | =compass check= | cba39ed |
+| Slowest originals vs codec | tangle-shell 42 s to about 2.5 s for all three tangles cold; cmake-sources 1.2 s to 1.3 s cold, reused warm | =gg/= scripts | cba39ed |
+| ctest | 14 of 14 suites pass | =ctest --preset linux-clang-release= | cba39ed |
 
 * Notes
 
@@ -94,3 +98,41 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+24 of the 31 generator gates are codecs: their artefacts are compass outputs
+byte-identical to the original generators on ORE Studio 545cafca45, so
+=compass check= reports their drift and =compass generate= replaces the
+scripts. The warm check with every ported gate is inside the story's 10 s
+budget.
+
+Ported: tangle-shell, tangle-http and tangle-templates (the tangle codecs with
+a directory option), cmake-sources, skill-catalogue, skill-type-tables,
+skill-recipes, structure-notes, skill-levels, recipe-inventories,
+backlog-indexes, physical-inventory, pending-models, trade-type-coverage,
+ore-renderings-tables, script-library-seed, curve-sections-wiring,
+curve-column-guards, convention-kind-terms, route-inventory and
+ore-output-catalogue.
+
+Real drift found in ORE Studio at 545cafca45: 9 shell recipe scripts never
+re-tangled after their recipes gained an argument, a capture missing from the
+backlog inbox index, and 19 stale line numbers in the route inventory.
+
+The rest move to [[id:555CA760-38D2-40B5-97C5-8ED858EAF3BB][Port the large generator gates]]: conventions-dataset,
+ore-parameters-seed, file-types-seed, conventions-coverage, xml-bindings-drift,
+er-diagram, ore-element-map, ore-parameter-value-sets,
+parameter-value-sets-only and lint (a diagnostics check, not a generator).
+The value-set gates stop on ORE's =r.id= defect; with it fixed they pass, which
+defines their verdict.
+
+Decisions to revisit:
+
+- An output may have only one producer, so skill-levels split into an
+  inventory and a check; letting several codecs edit one page needs a change
+  to the output rules.
+- Where a script reports a problem and writes nothing, the codec writes
+  nothing, so =compass check= is silent where the gate fails (convention-kind-
+  terms on =r.id=).
+- The checkout listing now leaves out files deleted from the worktree.
+- Tables are read from ORE's Python modules through the literal reader where
+  possible; earlier ports copied theirs into the codecs.
+- XML is read through expat, with ElementTree's text and tail rules.
