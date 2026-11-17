@@ -47,13 +47,14 @@ One compass check command runs every ORE Studio gate that needs no build in seco
 | [[id:0BF85A51-A61C-4FCC-AF6F-53BD689721E2][Add ratchet mode]] | DONE | 2026-11-16 | 2026-11-16 | Compare diagnostics against the merge base and fail only on new ones. |
 | [[id:35F12CD3-E765-42D8-A6D6-641FB0EC7F1F][Add inline exceptions]] | DONE | 2026-11-16 | 2026-11-16 | Parse exception comments with reason, expiry and approver, and report expired or incomplete ones. |
 | [[id:4D217E91-CB98-416D-9129-9AB01D9B62A4][Check a past commit]] | DONE | 2026-11-16 | 2026-11-16 | Run checks against any commit by reading blobs from git's object store. |
-| [[id:9E8AA07D-B8CE-43FC-844E-2104C2EC7967][Add the edit hook]] | STARTED | 2026-11-17 | | A Claude Code hook that checks the changed files after each edit. |
+| [[id:9E8AA07D-B8CE-43FC-844E-2104C2EC7967][Add the edit hook]] | DONE | 2026-11-17 | 2026-11-17 | A Claude Code hook that checks the changed files after each edit. |
 | [[id:88319C5E-B1B9-4E15-A59B-D3953448CCB0][Port the slowest gates]] | DONE | 2026-11-16 | 2026-11-16 | Port the drift checks through diff mode and the slowest whole-tree scans: exported-types, sql-hygiene, enum-attributes, reachability. |
 | [[id:E1748BC4-CD84-400D-BCFB-B2F3420815ED][Generate the rule table]] | BACKLOG | | | Generate the table of rules and their enforcing checks from check metadata, and list memories with no check. |
 | [[id:D2AB717A-2B88-4677-98E5-2EEF4E7C204A][Port the C++ and SQL gates]] | DONE | 2026-11-16 | 2026-11-16 | Port the 25 port-class gates that read C++, CMake and SQL sources as compass check codecs, each with its original's verdict. |
 | [[id:07AA6F7B-2DB0-4E46-A1EF-E01BAD47ED07][Port the org and cross-artefact gates]] | DONE | 2026-11-16 | 2026-11-17 | Port the 28 port-class gates that read org documents, models and several artefact kinds as compass check codecs, each with its original's verdict. |
 | [[id:171A5BB7-C816-4996-A325-03D6F0E0DEF2][Port the generator gates]] | DONE | 2026-11-17 | 2026-11-17 | Port the 29 gates that regenerate a non-codegen artefact and compare it, as compass codecs checked by diff mode. |
 | [[id:555CA760-38D2-40B5-97C5-8ED858EAF3BB][Port the large generator gates]] | BACKLOG | | | Port the generator gates left over from the first round: conventions-dataset, ore-parameters-seed, file-types-seed, conventions-coverage, xml-bindings-drift, er-diagram, the three value-set gates and lint. |
+| [[id:3AF7E12E-3167-43E2-BADF-0178E90A74BB][Bring the edit hook under one second]] | BACKLOG | | | Make code generation incremental per model and template, and cut the remaining C++ and SQL scan costs, so every single-file edit in ORE Studio is checked in under one second warm. |
 
 * Decisions
 

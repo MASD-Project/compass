@@ -26,11 +26,11 @@ A Claude Code hook that checks the changed files after each edit.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -60,7 +60,12 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Hook vs full check | 27 of 27 single-file edits give the same findings | =w/w_compare.py= | 2d4f48d |
+| Hook, file no codec reads / CMake / org document | 60 ms / 250-270 ms / 0.88-0.92 s at load 7-9 (agent) | =compass hook= | 2d4f48d |
+| Hook, SQL / C++ header | 1.13-1.20 s / 1.42-1.62 s at load 7-9 (agent); 0.23 s / 1.35 s at load 14 | =compass hook= | 2d4f48d |
+| Hook, codegen template / model | 2.23-2.27 s / 2.63-2.77 s at load 7-9 (agent) | =compass hook= | 2d4f48d |
+| Full warm check | 4.07-4.13 s at load 14, 24 codegen drift files, 237 findings (6.5-7.6 s before) | =compass check= | 2d4f48d |
+| ctest | 14 of 14 suites pass | =ctest --preset linux-clang-release= | 2d4f48d |
 
 * Notes
 
@@ -88,3 +93,36 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+=compass hook= reads Claude Code's PostToolUse payload, runs only the units
+whose recorded inputs include the edited file, and reports the findings on or
+caused by the edit as a =block= decision; it fails open with a note. It gives
+a full check's findings on every edit tried.
+
+The acceptance is met for unrelated files, CMake, org documents, skill pages
+and several C++ edits, but not yet for codegen models and templates (2.2-2.8
+s), most C++ header edits (1.4-1.6 s) or new files (about 2 s). That work moves
+to [[id:3AF7E12E-3167-43E2-BADF-0178E90A74BB][Bring the edit hook under one second]].
+
+- The dependency record (version 5) indexes its unit heads, so one unit loads
+  without reading the 268 MB of output contents; the index reads in about 55
+  ms.
+- Scans: a corpus codec maps each file to findings and a fact, cached by
+  content ID, and reduces the facts. Thirteen gates are scans now, which cut a
+  header edit's gate time from 2.5-4.5 s to 70-650 ms and the full warm check
+  from 6.5-7.6 s to about 4.1 s.
+- The hook lists the checkout from the last check's listing record unless the
+  edit creates a file, and the worktree index keeps every hashed file's ID.
+- Codegen renders on every core but is still one unit.
+
+The hook is not installed in this repository's or ORE Studio's Claude Code
+settings; the recipe =how_do_i_check_edits_as_claude_code_makes_them.org=
+holds the settings.
+
+Decisions to revisit:
+
+- The hook writes nothing and trusts the last check's listing and record, so
+  a change made outside the edit is seen only at the next check.
+- =stream_coverage= keeps call-name lists for every file, about 4.5 MB.
+- A check right after a codegen change takes about 10 s, mostly decoding and
+  writing the 193 MB codegen result.
