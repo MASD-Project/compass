@@ -291,3 +291,16 @@ TEST_CASE("a dict keyed by tuples is read with each key's items",
     CHECK(v->entries[0].value.text == "xy");
     CHECK(v->entries[1].key_items.size() == 1);
 }
+
+TEST_CASE("a number is read as written, and a name is not one",
+    "[codecs][python_literals]") {
+    const auto v = ops::python_assignment(
+        "T = {'a': 4.1, 'b': -2, 'c': x2}\n", "T");
+    REQUIRE(v);
+    REQUIRE(v->entries.size() == 3);
+    CHECK(v->entries[0].value.what == ops::python_value::kind::number);
+    CHECK(v->entries[0].value.text == "4.1");
+    CHECK(v->entries[1].value.what == ops::python_value::kind::number);
+    CHECK(v->entries[1].value.text == "-2");
+    CHECK(v->entries[2].value.what == ops::python_value::kind::name);
+}

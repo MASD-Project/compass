@@ -69,7 +69,7 @@ beside it, it reads one of git's formats and keeps nothing.
 | =compass.codec=   | The codec runtime: descriptors, the recorded view of the corpus, file and diagnostic tables, the registry and runner, dependency records indexed so one unit loads alone, the output sink, diff mode and the result cache; and the codecs that need only the org tables. |
 | =compass.codegen= | Code generation from the models: a Mustache engine with pystache's semantics, templates compiled once, the render contexts and output units ores.codegen builds, the physical-space graph of the template library, and the =codegen= codec. |
 | =compass.cpp=     | Checks over C++ sources as text: byte scanners that read includes, export macros, enum declarations and test cases as ORE Studio's gate scripts do, and the codecs that run those gates.                                                 |
-| =compass.sql=     | Checks over SQL sources as text: a byte scanner that follows PostgreSQL's lexer as ORE Studio's sql-hygiene script does, and the codec that runs that gate.                                                                              |
+| =compass.sql=     | Checks over SQL sources as text: a byte scanner that follows PostgreSQL's lexer as ORE Studio's sql-hygiene script does, the entity-relationship model of the create scripts, and the codecs that run the SQL gates.                    |
 | =compass.crosscheck= | Checks that hold the models against the C++, SQL, templates and generated output beside them: ports of ORE Studio's cross-artefact gates, run as codecs. |
 | =compass.docs=    | Checks and generators over the org documents and the plain files of a checkout that read no model and no source language: ports of ORE Studio's document gates and of the generators some gates compare against, run as codecs over the parsed corpus. |
 
@@ -121,8 +121,10 @@ expressions; =compass.cli= adds its codecs to the ones it runs.
 
 =compass.sql= is the same for SQL: =sql_hygiene=, whose scanner follows
 PostgreSQL's lexer as ORE Studio's script does, and the other SQL gates. It
-is a component of its own, not part of =compass.cpp=, because the two
-languages share no scanner, and it depends on =compass.codec= and
+also reads the entity-relationship model of the create scripts as ORE
+Studio's ER diagram parser does, for the codec that draws it. It is a
+component of its own, not part of =compass.cpp=, because the two languages
+share no scanner, and it depends on =compass.codec= and
 =compass.platform=.
 
 =compass.crosscheck= runs the ORE Studio gates that read more than one kind
@@ -132,13 +134,17 @@ component of its own, not part of =compass.cpp= or =compass.sql=, because
 no one language owns these checks, and not part of =compass.model=, which
 loads models and checks nothing. It depends on =compass.codec=,
 =compass.platform= and =compass.cpp=, whose text helpers and C++ blanking
-it shares, and on =compass.codegen= for the template library's graph,
-which one gate reads, and the JSON reader of =compass.model= it brings.
-The generators of ORE Studio data artefacts that read one kind of artefact
-and write another (=ore_renderings_tables=, =script_library_seed=, the
-curve wiring and column guards, the convention kind terms, the HTTP route
-inventory and the ORE output catalogue) live here too, reading the tables
-their scripts keep in Python modules from those modules; =compass.cli= adds its codecs to the ones it runs.
+it shares, on =compass.codegen= for the template library's graph, which
+one gate reads, for the pystache renderer the ER diagrams go through, and
+for the JSON reader of =compass.model= it brings, and on =compass.sql= for
+the entity-relationship model. The generators of ORE Studio data artefacts
+that read one kind of artefact and write another (=ore_renderings_tables=,
+=script_library_seed=, the curve wiring and column guards, the convention
+kind terms, the HTTP route inventory, the ORE output catalogue, the ER
+diagrams and the conventions dataset) live here too, reading the tables
+their scripts keep in Python modules from those modules, as does the
+conventions coverage gate, which reads the ORE examples and the dataset;
+=compass.cli= adds its codecs to the ones it runs.
 
 =compass.docs= runs the ORE Studio gates that read only org documents and
 plain repository files, such as numbered headings, links org cannot resolve
@@ -147,7 +153,8 @@ and the component overviews. It is a component of its own, not a facet of
 repository, because these encode one repository's rules; and not part of
 =compass.crosscheck=, because none of them reads a model or a source
 language. A gate that judges one page is a document codec, so an edit
-re-runs it for that page alone. It depends on =compass.codec=,
+re-runs it for that page alone; one that relates pages, such as =lint=, is
+a scan whose reduce step reads each page's fact. It depends on =compass.codec=,
 =compass.platform= and =compass.cpp= for the same text helpers. It also
 holds the ports of the generators that write org documents and recipe
 libraries from org documents (the recipe libraries and inventories, the

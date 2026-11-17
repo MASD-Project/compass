@@ -57,4 +57,52 @@ std::string collapse_spaces(std::string_view text) {
     return out;
 }
 
+namespace {
+
+/**
+ * @brief The length of the space character at @p i of UTF-8 @p text, as
+ * str.isspace() decides, or zero when it is not a space.
+ */
+std::size_t space_at(std::string_view text, std::size_t i) {
+    const auto c = static_cast<unsigned char>(text[i]);
+    if (c < 0x80)
+        return compass::cpp::ops::is_space(text[i]) ? 1 : 0;
+    const auto byte = [&](std::size_t k) {
+        return i + k < text.size()
+            ? static_cast<unsigned char>(text[i + k]) : 0;
+    };
+    if (c == 0xC2 && (byte(1) == 0x85 || byte(1) == 0xA0))
+        return 2;
+    if (c == 0xE1 && byte(1) == 0x9A && byte(2) == 0x80)
+        return 3;
+    if (c == 0xE2 && byte(1) == 0x80 &&
+        (byte(2) <= 0x8A || byte(2) == 0xA8 || byte(2) == 0xA9 ||
+         byte(2) == 0xAF) && byte(2) >= 0x80)
+        return 3;
+    if (c == 0xE2 && byte(1) == 0x81 && byte(2) == 0x9F)
+        return 3;
+    if (c == 0xE3 && byte(1) == 0x80 && byte(2) == 0x80)
+        return 3;
+    return 0;
+}
+
+}
+
+std::string normalised_words(std::string_view text) {
+    std::string out;
+    bool pending = false;
+    for (std::size_t i = 0; i < text.size();) {
+        if (const auto n = space_at(text, i); n > 0) {
+            pending = !out.empty();
+            i += n;
+            continue;
+        }
+        if (pending)
+            out.push_back(' ');
+        pending = false;
+        out.push_back(text[i++]);
+    }
+    return out;
+}
+
 }

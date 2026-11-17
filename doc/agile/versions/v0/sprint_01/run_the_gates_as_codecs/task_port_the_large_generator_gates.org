@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/port-the-large-generator-gates
+#+pr: https://github.com/MASD-Project/compass/pull/47
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-17
@@ -26,11 +26,11 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-17                               |
 
 * Acceptance
@@ -40,9 +40,17 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- The gates: conventions-dataset, ore-parameters-seed, file-types-seed,
+  conventions-coverage, xml-bindings-drift, er-diagram, ore-element-map,
+  ore-parameter-value-sets, parameter-value-sets-only and lint.
+- Port each generator as a codec over the expat reader, the Python literal
+  reader and compass.sql, byte-identical to its original on ORE Studio
+  545cafca45, as it is and after a planted change. xml-bindings-drift formats
+  through the codec formatter mechanism, as codegen does; er-diagram's DDL
+  parsing goes into compass.sql.
+- The value-set gates' verdict is their originals' with the =r.id= defect
+  fixed in =NOT_A_COLUMN=. lint is a diagnostics codec.
+- Keep the warm =compass check= under the story's 10 s budget.
 
 * Measurements
 
@@ -56,7 +64,11 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Gates ported | 4 of 10: lint, er-diagram, conventions-dataset, conventions-coverage; each matches its original on ORE 545cafca45, as it is and planted | =lg/cmp.sh=, =lg/verdict.sh= | cfb847d |
+| er-diagram | 22 of 22 diagrams identical, 23 of 23 planted; 2.3 s original, 0.4-0.5 s compass | =lg/cmp.sh= | cfb847d |
+| conventions-coverage, planted | 2,866 of 2,866 findings identical | =lg/verdict.sh= | cfb847d |
+| Warm ORE check, everything enabled | 4.58 s at load 16; 239 findings (agent: 4.0-4.4 s at load 21-23) | =compass check= | cfb847d |
+| ctest | 14 of 14 suites pass, twice | =ctest --preset linux-clang-release= | cfb847d |
 
 * Notes
 
@@ -75,7 +87,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/47][#47]] | [crosscheck] Port the lint, ER diagram and conventions gates |
 
 * Review
 
@@ -84,3 +96,30 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+Four of the ten large gates are compass codecs: lint (a diagnostics scan in
+=compass.docs=), er-diagram (the DDL parsing in =compass.sql=),
+conventions-dataset and conventions-coverage. A warm check of ORE Studio with
+every ported gate stays well inside the story's 10 s budget.
+
+The check found one more piece of real drift in ORE Studio:
+=ores_schema.dq_datasets.puml= predates a reworded table description.
+
+The other six were not ported as copies: xml-bindings-drift depends on Python
+object identity and dict order, file-types-seed on the unsorted order of
+=os.walk=, ore-parameters-seed on about 7,800 lines of row and release logic,
+and the three value-set gates on about 4,000 lines of value-set code. Copying
+what the Python does is the wrong goal for them; [[id:E2B7B4B6-3097-4FFA-9EE1-E0ABDA80ECE4][Rethink the remaining generator gates]]
+decides what each protects and the best way to do it. Separately, many ported
+gates read the same files; [[id:F51A1EEB-55D4-4AC4-8119-360BF85EB570][Combine gates that read the same data]] merges
+them into shared passes.
+
+Decisions to revisit:
+
+- A codec whose code changes under an unchanged version replays stale stored
+  results; the verification scripts use a store of their own for that reason.
+- lint reports durable-link advice only with =strict_links=true=, as the gate
+  itself only advises.
+- One full ctest run failed 1 of 14 suites once and passed six reruns; the
+  failing test was not identified. An earlier unexplained single failure is
+  recorded in the CLI story.

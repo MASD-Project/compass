@@ -31,6 +31,7 @@
 #include "compass.codec/io/format_cache.hpp"
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.cpp/ops/text.hpp"
+#include "compass.crosscheck/ops/csv.hpp"
 #include "compass.crosscheck/ops/python_literals.hpp"
 #include "compass.platform/text/decoding.hpp"
 #include "compass.platform/text/regex.hpp"
@@ -214,110 +215,6 @@ std::vector<std::pair<std::string, pt::regex>> ore_files(
     return out;
 }
 
-/**
- * @brief Python's csv.reader over @p text with the excel dialect, as the
- * script feeds it: lines split at \n, each a record unless a quoted field
- * runs on.
- */
-std::vector<strings> csv_rows(std::string_view text) {
-    enum class state { record, field, in_field, quoted, quote, eat_crnl };
-    std::vector<strings> rows;
-    strings fields;
-    std::string field;
-    auto s = state::record;
-    const auto save = [&] {
-        fields.push_back(std::move(field));
-        field.clear();
-    };
-    constexpr int eol = -1;
-    const auto process = [&](int c) {
-        switch (s) {
-        case state::record:
-            if (c == eol)
-                return;
-            if (c == '\n' || c == '\r') {
-                s = state::eat_crnl;
-                return;
-            }
-            s = state::field;
-            [[fallthrough]];
-        case state::field:
-            if (c == '\n' || c == '\r' || c == eol) {
-                save();
-                s = c == eol ? state::record : state::eat_crnl;
-            } else if (c == '"') {
-                s = state::quoted;
-            } else if (c == ',') {
-                save();
-            } else {
-                field.push_back(static_cast<char>(c));
-                s = state::in_field;
-            }
-            return;
-        case state::in_field:
-            if (c == '\n' || c == '\r' || c == eol) {
-                save();
-                s = c == eol ? state::record : state::eat_crnl;
-            } else if (c == ',') {
-                save();
-                s = state::field;
-            } else {
-                field.push_back(static_cast<char>(c));
-            }
-            return;
-        case state::quoted:
-            if (c == eol)
-                return;
-            if (c == '"')
-                s = state::quote;
-            else
-                field.push_back(static_cast<char>(c));
-            return;
-        case state::quote:
-            if (c == '"') {
-                field.push_back('"');
-                s = state::quoted;
-            } else if (c == ',') {
-                save();
-                s = state::field;
-            } else if (c == '\n' || c == '\r' || c == eol) {
-                save();
-                s = c == eol ? state::record : state::eat_crnl;
-            } else {
-                field.push_back(static_cast<char>(c));
-                s = state::in_field;
-            }
-            return;
-        case state::eat_crnl:
-            if (c == '\n' || c == '\r')
-                return;
-            if (c == eol) {
-                s = state::record;
-                return;
-            }
-            throw stop{};
-        }
-    };
-    std::size_t at = 0;
-    while (at < text.size()) {
-        auto end = text.find('\n', at);
-        end = end == std::string_view::npos ? text.size() : end + 1;
-        for (std::size_t i = at; i < end; ++i)
-            process(static_cast<unsigned char>(text[i]));
-        process(eol);
-        at = end;
-        if (s == state::record) {
-            rows.push_back(std::move(fields));
-            fields.clear();
-        }
-    }
-    if (!field.empty() || s == state::quoted) {
-        save();
-        rows.push_back(std::move(fields));
-    }
-    return rows;
-}
-
 struct family_entry {
     std::string family;
     std::string pattern;
@@ -434,7 +331,7 @@ std::map<std::string, family_entry> collect(const ct::corpus_view& v,
                 : text.substr(cut + 1);
             if (first.starts_with('#'))
                 first.erase(0, 1);
-            const auto rows = csv_rows(first + "\n" + rest);
+            const auto rows = ops::csv_rows(first + "\n" + rest, ',');
             const strings fields = rows.empty() ? strings{} : rows.front();
             std::map<std::string, strings, std::less<>> values;
             for (std::size_t r = 1; r < rows.size(); ++r)
@@ -921,6 +818,7 @@ void run(const ct::corpus_view& v, ct::file_table& out) {
         out.add(data_hpp_path, data_hpp);
         out.add(page_path, formats_page);
     } catch (const stop&) {
+    } catch (const ops::csv_error&) {
     }
 }
 

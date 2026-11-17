@@ -45,6 +45,13 @@ namespace compass::crosscheck::ops {
  */
 [[nodiscard]] std::string collapse_spaces(std::string_view text);
 
+/**
+ * @brief " ".join(@p text.split()) over UTF-8: the words between runs of
+ * what str.isspace() calls space, U+00A0 and the other Unicode spaces
+ * included, joined by one blank.
+ */
+[[nodiscard]] std::string normalised_words(std::string_view text);
+
 }
 
 #endif
