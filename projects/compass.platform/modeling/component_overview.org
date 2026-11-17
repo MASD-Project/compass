@@ -56,7 +56,9 @@ element tree Python's =xml.etree.ElementTree= builds. It supports Linux and POSI
   =ET.fromstring= raises. Each element holds its tag, attributes in order,
   text, tail and children, as ElementTree's TreeBuilder fills them; =find=,
   =find_all=, =find_text= and =iter= follow =find=, =findall= with a path
-  of tag names, =findtext= and =iter=.
+  of tag names, =findtext= and =iter=. A path is split at each '/', so a
+  namespaced tag, whose URI holds slashes, cannot be a step of one; =iter=
+  takes a whole tag, and a caller matches a namespaced child by its tag.
 
 * Entry points
 

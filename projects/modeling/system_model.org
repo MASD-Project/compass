@@ -143,8 +143,11 @@ that read one kind of artefact and write another (=ore_renderings_tables=,
 kind terms, the HTTP route inventory, the ORE output catalogue, the ER
 diagrams and the conventions dataset) live here too, reading the tables
 their scripts keep in Python modules from those modules, as does the
-conventions coverage gate, which reads the ORE examples and the dataset;
-=compass.cli= adds its codecs to the ones it runs.
+conventions coverage gate, which reads the ORE examples and the dataset.
+So do the parameter value sets: three ORE Studio gates that resolved one
+curation in three processes are one model here, with one codec writing
+the value set seed and the element map and one reporting every rule they
+must keep. =compass.cli= adds its codecs to the ones it runs.
 
 =compass.docs= runs the ORE Studio gates that read only org documents and
 plain repository files, such as numbered headings, links org cannot resolve

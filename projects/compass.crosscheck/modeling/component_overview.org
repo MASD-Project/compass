@@ -233,6 +233,39 @@ because each reads one kind of artefact and writes another:
   =INDEX_FIELDS= and =BDC= are read from =propose.py=. The audit files
   =extract.py= also writes under =tmp/= are not ported.
 
+Three gates of the parameter value sets are one model here, not three
+ports. ORE Studio's =generate_value_sets.py=, =generate_ore_element_map.py=
+and =check_parameter_value_sets.py= each resolved the same curation in a
+process of its own and judged its sets with two lists of rules.
+=ops::value_sets::evaluate= resolves it once: the guide's sets, the code's
+over them, the two reviewed files, then the sets the convention terms, the
+curve leaves and the engine run settings imply, and the element map from
+the curve family columns and the convention kind terms
+(=ops::curve_columns= and =ops::convention_terms=, which the curve column
+guards and the convention kind terms codecs write from too). It reads the
+curation as JSON with =ops::json_value=, which keeps an int apart from a
+float, the ORE schemas once with =ops::ore_schema=, and the policy tables
+of the five Python modules as literals; the curve module's =OWN_SETS=,
+which calls the schema reader, is stated in the code. Of the curation
+directory it reads =engine-settings-groups.json= alone. Two codecs read the
+model:
+
+- *=ore_value_sets=.* The value set seed, the element map and its columns
+  seed, byte for byte what the two scripts write on ORE 545cafca45 with
+  the =r.id= exemption. It writes nothing while the model has a problem.
+- *=parameter_value_sets=.* Every rule, once: =unresolved= (a generator
+  would raise, and why), =unlinked_parameter= (a parameter a screen draws,
+  pricing or engine run setting, with no set), =clash=, =unknown_set=,
+  =unnamed_set=, =impossible_set= (the generator's and the check's set rules
+  as one list), =unruled_leaf= (a leaf of the map that names no authority,
+  past =UNREAD_ALLOWED=), and the check's source rules =override_column=,
+  =value_check= and =missing_file=. At 545cafca45 it reports one
+  =unresolved= finding: the convention kind terms stop on =r.id=.
+
+The schema walk collects the elements of a group nested in another at any
+depth; =ore_schema_types.py= looks one level too deep there, which changes
+nothing at 545cafca45.
+
 These generators keep their tables in Python modules, and the codecs read
 those tables through =ops::python_assignment= rather than copying them, so
 an edit to a table is seen. The reader takes the literals the modules are
@@ -261,6 +294,11 @@ except =subject_conformance=, which reports such a model.
 | =include/compass.crosscheck/ops/python_numbers.hpp=    | =str(int())= and =repr(float())=.                        |
 | =include/compass.crosscheck/ops/md5.hpp=               | =hashlib.md5= as hex, a key some scripts use.           |
 | =include/compass.crosscheck/codecs/registry_gates.hpp= | =http_areas=, =route_units= and =registry_exceptions=. |
+| =include/compass.crosscheck/codecs/value_sets.hpp=     | =ore_value_sets= and =parameter_value_sets=.            |
+| =include/compass.crosscheck/ops/value_sets.hpp=        | The resolved value sets, the element map and the seeds. |
+| =include/compass.crosscheck/ops/ore_schema.hpp=        | The types ORE's schemas declare for a leaf.             |
+| =include/compass.crosscheck/ops/json_value.hpp=        | JSON and module literals as Python holds them.          |
+| =include/compass.crosscheck/ops/projection_columns.hpp= | The curve family columns and the convention kind terms. |
 | =tests/test_checkout.hpp=                              | Runs one codec over a checkout of files held in memory. |
 
 | Target                     | Kind                                      |
@@ -278,7 +316,8 @@ except =subject_conformance=, which reports such a model.
   the component catalogue, which =protocol_twins= reads, and the pystache
   renderer =er_diagram= draws through.
 - =compass.sql= for the entity-relationship model of the create scripts.
-- =compass.platform= for regular expressions and Python's decoding.
+- =compass.platform= for regular expressions, Python's decoding and the
+  XML reader the ORE schemas are read with.
 - The C++23 standard library.
 - =compass.store= and Catch2, for the tests only.
 
