@@ -166,8 +166,11 @@ void add_visibility_macros(std::string_view erased,
     }
 }
 
-std::vector<enum_site> enum_sites(std::string_view erased,
-    const std::set<std::string, std::less<>>& macros) {
+namespace {
+
+template <typename Predicate>
+std::vector<enum_site> sites_of(std::string_view erased,
+    Predicate treat_as_macro) {
     std::vector<enum_site> out;
     std::vector<std::string_view> lines;
     bool split = false;
@@ -195,7 +198,7 @@ std::vector<enum_site> enum_sites(std::string_view erased,
         if (first == end)
             continue;
         const auto name = erased.substr(end, first - end);
-        const auto is_macro = macros.contains(name);
+        const auto is_macro = treat_as_macro(name);
         auto cursor = first;
         if (is_macro) {
             const auto second_at = skip_spaces(erased, cursor);
@@ -220,6 +223,18 @@ std::vector<enum_site> enum_sites(std::string_view erased,
             is_macro ? std::string(name) : std::string()});
     }
     return out;
+}
+
+}
+
+std::vector<enum_site> enum_sites(std::string_view erased,
+    const std::set<std::string, std::less<>>& macros) {
+    return sites_of(erased,
+        [&](std::string_view name) { return macros.contains(name); });
+}
+
+std::vector<enum_site> macro_enum_sites(std::string_view erased) {
+    return sites_of(erased, [](std::string_view) { return true; });
 }
 
 }
