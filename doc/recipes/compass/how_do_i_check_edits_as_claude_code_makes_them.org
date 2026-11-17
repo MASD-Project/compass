@@ -96,22 +96,27 @@ echo '{"tool_name": "Edit", "cwd": "'"$PWD"'", "tool_input": {"file_path": "sql/
   | build/output/linux-clang-release/publish/bin/compass hook --timings
 #+end_src
 
-On ORE Studio, warm, at a load of 7 to 9 on eight cores, an edit takes:
+On ORE Studio, warm, on eight cores, an edit takes:
 
-| Edit                            | Hook      |
-|---------------------------------+-----------|
-| A file no codec reads           | 60 ms     |
-| A CMakeLists.txt                | 260 ms    |
-| An org document or a skill page | 0.9 s     |
-| A SQL file                      | 1.1-1.2 s |
-| A C++ header or source          | 1.4-1.6 s |
-| A codegen template              | 2.2-2.3 s |
-| A codegen model                 | 2.6-2.8 s |
-| A new SQL file                  | 2.0-2.1 s |
+| Edit                            | Load 2 to 3    | Load 5 to 15   |
+|---------------------------------+----------------+----------------|
+| A file no codec reads           | 45 ms          | 50 to 60 ms    |
+| A CMakeLists.txt                | 180 to 430 ms  | 220 to 770 ms  |
+| An org document or a skill page | 0.5 to 0.6 s   | 0.7 to 0.9 s   |
+| A SQL file                      | 0.6 to 0.9 s   | 0.7 to 1.2 s   |
+| A C++ header or source          | 0.5 to 0.9 s   | 0.6 to 1.6 s   |
+| A codegen template              | 0.5 to 0.7 s   | 0.7 to 1.3 s   |
+| A codegen model                 | 0.8 to 0.9 s   | 1.3 to 1.6 s   |
+| A new SQL file or org document  | 0.7 to 0.8 s   | 0.7 to 1.0 s   |
+| A new C++ header                | 0.9 s          | 1.4 to 1.6 s   |
+| A new model document            | 1.1 s          | 1.4 to 1.7 s   |
 
-The gates that read every C++ or SQL file map the edited file alone and
-reduce the stored facts with it; codegen still plans every model again for
-an edit to a model or template.
+The second column is with seven other processes spinning: the hook runs
+its units on every core, so a loaded machine slows it. An edit to a model
+generates that model and the models that read it, and an edit to a
+template renders that template's outputs. The gates that read every C++
+or SQL file map the edited file alone, and reduce the stored facts again
+only when the file's fact changed.
 [[id:45FA67C9-60BC-420D-BB66-8A272CB1106C][compass.cli]] has the
 breakdown.
 

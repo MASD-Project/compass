@@ -68,8 +68,9 @@ others is in its descriptor, so adding a codec adds a row to a list.
   =document_function= is called once per document and a =corpus_function=
   once over all of them, and each emits a =file_table= or a
   =diagnostic_table=. A =scan_function= is a corpus function of
-  diagnostics in two steps (see /Scan/). =unit_of= and =output_of= read
-  both facts back.
+  diagnostics in two steps (see /Scan/), and a =staged_function= a corpus
+  function of files in a prepare step and parts (see /Staged codec/).
+  =unit_of= and =output_of= read both facts back.
 - *Rules.* =types::rule= is one rule a diagnostics codec enforces: its
   name, unique within the codec, so that =codec/rule= names it in a finding
   and in an inline exception; a one-line statement of what it enforces;
@@ -115,7 +116,39 @@ others is in its descriptor, so adding a codec adds a row to a list.
   maps one file, and the reduce combines the stored facts with it.
   =types::fact_writer= and =fact_reader= encode a fact's fields. A codec
   that becomes a scan, or whose fact changes shape, bumps its version, so
-  its next run stores a table.
+  its next run stores a table. The table (=ops::encode_scan=,
+  =ops::scan_table=) also keeps the reduce step's findings and, per file,
+  whether the reduce step read the file itself through the view; the
+  reduce step runs with a log of its own, which says so. When every file
+  mapped again has the fact the table held for it and was not read by
+  the reduce step, no file came or went, and every other input of the
+  last call holds, the reduce step would see what it saw, so it is not
+  called: its findings are the table's and the unit inherits the inputs
+  that call recorded. An edit that leaves a file's fact as it was, as
+  most edits do for most gates, so costs one map. A scan the record
+  holds is not looked up in the cache: its manifest lists every file it
+  maps, up to eight times, and is larger than its scan table.
+- *Staged codec.* =types::staged_function= splits a corpus codec of files
+  into =prepare= and =run=. =prepare= reads through the view what every
+  part shares, and returns a state with a =types::stage=: the key of each
+  part, in the order their files are joined, and /facts/, each a name and
+  the hash of a value prepare derived. It is a unit of its own with an
+  empty document that emits nothing, and its stage is kept in its result
+  object where a scan keeps its table (=ops::encode_stage=). =run= is
+  called with the state and a run of parts, on as many threads as a
+  document codec; each part is a unit named by its key, begun through a
+  =types::part_sink=. Its inputs are what it read through the view and
+  the facts it told the sink it read, each a =fact= input whose answer is
+  the hash prepare published, or a miss. A part is called again when one
+  of them has another answer, so an edit that changes one fact calls only
+  the parts that read it. The sink also lists the inputs of the part that
+  changed since its last call (=changed=) and emits a file of that call
+  unchanged (=keep=); a part that keeps a file inherits the inputs that
+  call recorded, so it may skip the work the file took when no changed
+  input could alter it. A path two parts emit is the later part's, in the
+  run's files and in the output set. When the record or the cache stands
+  in for prepare and a part must run, prepare is called again for its
+  state alone. Code generation is the one staged codec: a part per model.
 - *Inputs of a codec.* =types::inputs= is a list of =#+type:= values, every
   registered type, or every document including those with no registered type.
 - *View.* =types::corpus_view= is all a codec can read. It numbers the
@@ -136,7 +169,8 @@ others is in its descriptor, so adding a codec adds a row to a list.
   =file= input with the content ID of the bytes read, =file_exists= a
   =file_exists= input whose answer is only found or missing, and
   =list_files(prefix, suffix)= a =listing= input keyed =prefix*suffix= whose
-  value is the SHA-1 of the matching paths. A corpus unit is recorded read
+  value is the SHA-1 of the matching paths. A part of a staged codec also
+  records the facts it read, as =fact= inputs. A corpus unit is recorded read
   by read, as a document unit is, until it enumerates the documents through
   =size()= or =operator[]=; from then on it depends on all of them, as one
   =type_set= input, the SHA-1 of the sorted paths and content IDs of every
@@ -154,7 +188,7 @@ others is in its descriptor, so adding a codec adds a row to a list.
   whether it names a document or a file.
 - *Record file.* =io::dependency_file_path= is =compass/deps= under the
   checkout's own git directory, beside the worktree index, so each worktree
-  keeps its own. =ops::encode_dependency_record= lays out version 5
+  keeps its own. =ops::encode_dependency_record= lays out version 6
   little-endian: a 16-byte header (magic =CMPSDEP\n=, version, unit count);
   the head of each unit (its codec, version, configuration hash, document,
   inputs, the path, blob ID and size of each output, its findings and its
@@ -164,8 +198,9 @@ others is in its descriptor, so adding a codec adds a row to a list.
   and SHA-1 of each head, the offset of each unit's contents, and the
   subjects: per kind and key, the units that name it. The kinds are a path
   a unit reads (a document, a file or an existence test), an ID it looked
-  up, a listing pattern, the type set, the type registry, an output path
-  and a path a finding names. A full read checks every head against its
+  up, a listing pattern, the type set, the type registry, an output path,
+  a path a finding names, and, keyed by codec, the units of a staged codec
+  that read facts and the prepare step that published them. A full read checks every head against its
   SHA-1 and every output against its blob ID, so the record is hashed once,
   as before. =io::read_dependency_file= reads a missing file as an empty
   record and a damaged one, or one of another version, as an empty record
@@ -178,11 +213,14 @@ others is in its descriptor, so adding a codec adds a row to a list.
   that list a pattern it matches when it may be new, and for a document,
   those that enumerate documents or looked up an ID it holds. A lookup by
   ID that found a document also read its path, so a document whose ID
-  changes is found by path. =io::read_record_units= reads the heads of those
+  changes is found by path. A unit of a staged codec brings every unit of
+  that codec: a part is checked against the facts prepare published, any
+  of which may change when prepare runs again, and which part a shared
+  path belongs to is known only with all of them. =io::read_record_units= reads the heads of those
   units alone, each checked against its SHA-1, with the contents of their
   outputs left empty; =io::read_recorded_file= reads one output, checked
-  against its blob ID. Codegen's unit is 193 MB with its outputs and about
-  2 MB as a head. A file replaced since the index was read fails the
+  against its blob ID. Codegen's 826 units are 193 MB with their outputs and
+  about 3 MB as heads. A file replaced since the index was read fails the
   checks, and the caller says so. =io::write_dependency_file= writes through a
   temporary file and a rename, and only when the bytes differ from the
   file's. A run whose previous record stood in for every unit, and held no
@@ -212,7 +250,11 @@ others is in its descriptor, so adding a codec adds a row to a list.
   exception from a codec is rethrown after every thread has stopped. Given
   an =ops::unit_filter=, a run takes only the units it allows: the others
   are neither called, reused nor recorded, and a codec with no unit taken
-  costs nothing, so the edit hook runs the few units an edit touches.
+  costs nothing, so the edit hook runs the few units an edit touches. A
+  staged codec is taken only when its prepare step is. Given =edited=, the
+  path of a file thought to have changed, the inputs with that key are
+  checked first, so a unit that read it is known to need calling without
+  checking the inputs before it; it changes no result.
 - *Selection.* Given the previous record, =ops::run= calls a unit only when
   it is new, its codec's version or configuration hash changed, or one of
   its inputs has another answer now: a document's content ID changed, an ID
@@ -239,8 +281,10 @@ others is in its descriptor, so adding a codec adds a row to a list.
   by kind and key. The result (=ops::action_result=) holds the unit's files
   and its encoded findings. Its outputs go into the run's result and its
   row into the record exactly as a call's would, so a run from the cache
-  returns what a run with no cache does, byte for byte. Format 4 ends the
-  result with the unit's scan table, empty for a unit that is not a scan.
+  returns what a run with no cache does, byte for byte. Format 5 ends the
+  result with the unit's scan table or, for the prepare step of a staged
+  codec, its stage; it is empty for any other unit. Each starts with a
+  magic number, so neither is read as the other.
   A unit with 256 files or more hashes them on the run's threads as the
   record is assembled. A manifest or result
   that does not load, or whose findings name a document the corpus lacks, is
@@ -279,7 +323,9 @@ others is in its descriptor, so adding a codec adds a row to a list.
   file its codec, its path relative to the output root, its bytes and its
   blob ID, and the names of the /complete/ codecs, whose every unit ran or
   was reused. =ops::outputs_of= builds it from a =run_result=, from the
-  record but for formatted codecs; every enabled codec is complete. =ops::check_outputs= lists a path that is not plain
+  record but for formatted codecs; a path two parts of a staged codec
+  emit is taken once, from the later part; every enabled codec is
+  complete. =ops::check_outputs= lists a path that is not plain
   relative (absolute, empty, or with an empty, =.= or =..= component) and a
   path two rows produce, naming both codecs.
 - *Output sink.* The sink is a plan and an apply. =io::plan_outputs= reads
@@ -408,7 +454,7 @@ others is in its descriptor, so adding a codec adds a row to a list.
 
 | Path                                           | Role                                              |
 |------------------------------------------------+---------------------------------------------------|
-| =include/compass.codec/types/descriptor.hpp=   | =descriptor=, =inputs=, =option=, =rule= and the function types. |
+| =include/compass.codec/types/descriptor.hpp=   | =descriptor=, =inputs=, =option=, =rule=, the function types, =stage= and =part_sink=. |
 | =include/compass.codec/types/corpus.hpp=       | The corpus a host fills.                          |
 | =include/compass.codec/types/checkout_files.hpp= | Every file of the checkout, for file inputs.    |
 | =include/compass.codec/types/corpus_view.hpp=  | =document=, =read_log= and =corpus_view=.         |
