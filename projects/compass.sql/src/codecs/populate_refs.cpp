@@ -54,7 +54,7 @@ constexpr std::array<ct::rule, 3> rules{{
     {"unbalanced_parentheses", "Every call and definition the check reads "
         "closes its parentheses."},
     {"unread_function", "Every function a populate lookup involves is "
-        "named *_fn, the calls the check reads."}}};
+        "named *_fn, as the check reads only those calls."}}};
 
 constexpr std::string_view create_dir = "projects/ores.sql/create/";
 constexpr std::string_view populate_dir = "projects/ores.sql/populate/";
