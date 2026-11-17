@@ -126,7 +126,8 @@ component of its own, not part of =compass.cpp= or =compass.sql=, because
 no one language owns these checks, and not part of =compass.model=, which
 loads models and checks nothing. It depends on =compass.codec=,
 =compass.platform= and =compass.cpp=, whose text helpers and C++ blanking
-it shares; =compass.cli= adds its codecs to the ones it runs.
+it shares, and on =compass.codegen= for the template library's graph,
+which one gate reads; =compass.cli= adds its codecs to the ones it runs.
 
 =compass.docs= runs the ORE Studio gates that read only org documents and
 plain repository files, such as numbered headings, links org cannot resolve

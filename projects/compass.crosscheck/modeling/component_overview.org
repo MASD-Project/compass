@@ -139,6 +139,14 @@ exception where it stands.
   per template becomes one finding per line, 8 at this commit in
   =cpp_domain_type_entity.hpp.mustache=, for inline exceptions to excuse.
 
+- *=protocol_twins=.* =protocol-twins=
+  (=check_protocol_twin_coverage.py=). The twin directories come from the
+  =ores.ts= archetypes of the template library's graph, which
+  =compass.codegen= loads as the codegen codec does, and the components
+  from its catalogue and the registry's =COMPONENTS_UNDER_TEST=. Rule
+  =missing_twin=: a protocol header of a checked component with no
+  TypeScript twin. Rule =opt_out=: a model that switches the facet off.
+
 Where a script reads a file with a strict UTF-8 decode and would stop on a
 file that is not UTF-8, these codecs read it with invalid bytes replaced,
 except =subject_conformance=, which reports such a model.
@@ -165,6 +173,8 @@ except =subject_conformance=, which reports such a model.
   through and the diagnostic table they fill.
 - =compass.cpp= for its text helpers and its blanking of C++ comments and
   literals.
+- =compass.codegen= for the template library's physical-space graph and
+  the component catalogue, which =protocol_twins= reads.
 - =compass.platform= for regular expressions and Python's decoding.
 - The C++23 standard library.
 - =compass.store= and Catch2, for the tests only.

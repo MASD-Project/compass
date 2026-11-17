@@ -28,6 +28,7 @@ add_library(${lib_target_name}
     codecs/money_decimal_columns.cpp
     codecs/open_reads.cpp
     codecs/paste_blocks.cpp
+    codecs/protocol_twins.cpp
     codecs/registry_gates.cpp
     codecs/subject_conformance.cpp
     codecs/template_sections.cpp
@@ -41,6 +42,7 @@ target_include_directories(${lib_target_name} PUBLIC
 
 target_link_libraries(${lib_target_name}
     PUBLIC
+        compass.codegen.lib
         compass.cpp.lib
         compass.codec.lib
         compass.platform.lib)
