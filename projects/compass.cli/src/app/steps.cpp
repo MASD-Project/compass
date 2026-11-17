@@ -20,6 +20,8 @@
 #include "compass.cli/app/steps.hpp"
 
 #include <algorithm>
+#include <memory>
+#include <mutex>
 #include <span>
 #include <stdexcept>
 #include <system_error>
@@ -206,13 +208,33 @@ codec::types::checkout_files checkout_files_of(const corpus_files& f,
         return commit_files_of(*f.commit, l);
     codec::types::checkout_files out;
     out.paths.assign(l.files.begin(), l.files.end());
-    out.content_of = [&f](std::string_view path)
+    const auto resolve = [&f](std::string_view path)
         -> std::optional<store::types::blob_id> {
         try {
             return f.resolver->resolve(path).id;
         } catch (const std::system_error&) {
             return std::nullopt;
         }
+    };
+    // Many codecs ask for the ID of one file, each lookup an lstat or a
+    // hash, so each listed file is resolved once per run.
+    struct resolved {
+        explicit resolved(std::vector<std::string_view> p)
+            : paths(std::move(p)), once(paths.size()), ids(paths.size()) {}
+        std::vector<std::string_view> paths;
+        std::vector<std::once_flag> once;
+        std::vector<std::optional<store::types::blob_id>> ids;
+    };
+    auto memo = std::make_shared<resolved>(out.paths);
+    out.content_of = [memo, resolve](std::string_view path)
+        -> std::optional<store::types::blob_id> {
+        const auto it = std::ranges::lower_bound(memo->paths, path);
+        if (it == memo->paths.end() || *it != path)
+            return resolve(path);
+        const auto row = static_cast<std::size_t>(it - memo->paths.begin());
+        std::call_once(memo->once[row],
+            [&] { memo->ids[row] = resolve(path); });
+        return memo->ids[row];
     };
     out.read = [&f](std::string_view path) -> std::optional<std::string> {
         try {
