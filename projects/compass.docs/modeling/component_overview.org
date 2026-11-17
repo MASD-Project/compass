@@ -29,6 +29,24 @@ decide differently on an indented block or a heading inside one. Where the
 script parses the page, as =org-links= does through Emacs, the codec reads
 the parsed tables.
 
+A gate or rule that another check covers, or that guards work that is
+finished, is not ported:
+
+- =skill-recipes= (=link_skill_recipes.py=). It applied a reviewed table of
+  skill-to-recipe links once; the links are in the skill pages now, and
+  =lint/dangling_link= reports one that no longer resolves. A link someone
+  removes is a change reviewed in the skill page's diff.
+- The page half of =skill-levels= (=apply_skill_levels.py --check=). It
+  compared each skill page's =#+level:= with a copy of the script's table
+  compiled into compass, two sources of one fact. A level change is
+  reviewed in the skill page's diff. A skill the table lacks, or an entry
+  with no skill, still stops =skill_levels=, whose refusal names each.
+- The =react_tree= and =no_discovery= rules of =prototypes=. They guarded
+  the move of the prototypes out of the React tree, finished on
+  2026-10-06. =no_discovery= looked for the string
+  =ores-deploy-prototypes= anywhere in the site build, so the function's
+  own definition passed it with the call removed.
+
 * Inputs
 
 - The documents of the corpus, every one whether it has a type or not:
@@ -96,9 +114,8 @@ the parsed tables.
 - *=prototypes=.* =prototypes= (=check_prototype_inventory.py=). The
   prototypes under =doc/prototypes/<group>/<name>/=, the group pages and
   the top page agree; each review directory has its index and each row its
-  review cell; the site build deploys what it finds; the files the
-  =trades= and =conventions= groups share by copy, which the script lists
-  in code, are identical; the retired React prototype tree is gone.
+  review cell; the files the =trades= and =conventions= groups share by
+  copy, which the script lists in code, are identical.
 - *=rule_identifiers=.* =rule-identifiers= (=check_rule_identifiers.py=).
   The two UX pages key the bullets of the level-two sections the script
   lists in code, each with one identifier of the page's code; the screen
@@ -162,10 +179,6 @@ They are off by default.
   read from the =doc_*.org.mustache= templates and from
   =_STATIC_PARENT= and =_DEFAULTABLE_PARENT= in =compass.py=, and the
   read-only commands with the help =compass.py= gives each.
-- *=skill_recipes=.* =skill-recipes= (=link_skill_recipes.py=). Writes each
-  skill of the script's table with the recipe links its Recipes section
-  lacks appended; a skill or recipe that does not exist leaves the skill
-  alone, where the script stops.
 - *=structure_notes=.* =structure-notes= (=link_structure_notes.py=). A
   corpus codec over every page: the UTF-8 pages under =doc/= and
   =projects/modeling/= with an =:ID:= line, keyed by the ID in upper case.
@@ -182,13 +195,7 @@ They are off by default.
   =doc/llm/skills/skill_systems_levels.org=, the count of skills each
   System sees by the script's =LEVELS= table, copied into the codec. A
   skill the table lacks, or an entry with no skill, writes nothing and is
-  refused.
-- *=skill_level_tags=.* The page half of =skill-levels=, as a check: each
-  skill whose =#+level:= is not the table's, each skill the table lacks
-  and each entry with no skill, reported as the script's =--check= does.
-  The script writes the level into the page, but =skill_recipes= and
-  =structure_notes= also write skill pages and an output has one
-  producer, so this half reports.
+  refused, the refusal naming each.
 - *=recipe_inventories=.* =recipe-inventories=
   (=regenerate_shell_recipe_inventory.py= and
   =regenerate_http_recipe_inventory.py=): =doc/recipes/shell/shell.org=,

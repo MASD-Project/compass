@@ -78,24 +78,20 @@ TEST_CASE("a declared subject outside the protocol is reported on its line",
             "five for an event"});
 }
 
-TEST_CASE("a written subject is read only where the script's patterns "
-    "reach", "[codecs][subject_conformance]") {
+TEST_CASE("a written subject is read from the data-quality seed alone",
+    "[codecs][subject_conformance]") {
     const files t{
         {"projects/ores.refdata/modeling/ores.refdata.currency.org",
          ":subject: refdata.v1.currencies.get\n"},
         {"projects/ores.iam/src/a.cpp",
          "constexpr auto nats_subject = \"iam.v1.users.fetch\";\n"
-         "auto step_subject =\n    \"iam.v1.users.grab'\";\n"
-         "auto events_prefix_subject = \"iam.v1.ops.x.'\";\n"},
+         "auto step_subject =\n    \"iam.v1.users.grab'\";\n"},
         {"projects/ores.sql/populate/dq/dq_artefact_types_populate.sql",
          "insert into t values ('dq.v1.datasets.load', 'x');\n"},
         {"projects/ores.sql/populate/other.sql",
          "insert into t values ('dq.v1.datasets.load');\n"}};
     CHECK(messages(tests::run(codecs::subject_conformance, t)) ==
         std::vector<std::string>{
-            "projects/ores.iam/src/a.cpp:2: iam.v1.users.grab: the verb "
-            "'grab' is not one of the closed set of eight and is not in the "
-            "reserved ops namespace",
             "projects/ores.sql/populate/dq/dq_artefact_types_populate.sql:1: "
             "dq.v1.datasets.load: the verb 'load' is not one of the closed "
             "set of eight and is not in the reserved ops namespace"});

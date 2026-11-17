@@ -32,10 +32,8 @@ namespace compass::docs::codecs {
  * doc/prototypes/<group>/index.org and the top page doc/prototypes/index.org.
  * Rules: unlisted, missing, no_group_page, unlinked_group and missing_group
  * relate the three; review_without_index and review_cell relate a
- * prototype's review/ directory to its row; no_discovery needs the site
- * build to call ores-deploy-prototypes; copy_differs holds the files the
- * trades and conventions groups share by copy identical; react_tree reports
- * the retired React prototype directories.
+ * prototype's review/ directory to its row; copy_differs holds the files
+ * the trades and conventions groups share by copy identical.
  */
 extern const compass::codec::types::descriptor prototypes;
 

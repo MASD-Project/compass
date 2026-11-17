@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-191 rules, 45 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
+180 rules, 43 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
 
 ** Rules
 
@@ -86,14 +86,10 @@ memories no rule cites are the candidates for the next checks.
 | =marketdata_identity_columns= | views | Each asset class with series has one view exposing the context, its identity fields and its instrument types. |  |
 | =marketdata_identity_columns= | index_mapping | The projector places exactly the index names the grammar declares, each in a column the table has. |  |
 | =marketdata_identity_columns= | unreadable_source | The schema, projector, SQL and index grammar have the shapes the check reads. |  |
-| =model_drift= | unknown_profile | A model binds only to profiles that exist. |  |
 | =model_drift= | contradicted | A model does not redeclare a feature its profile fixes to another value. |  |
-| =model_drift= | profile_conflict | The profiles a model binds to agree on every feature they fix. |  |
 | =model_drift= | unset_required | A model sets every feature its profile requires. |  |
 | =model_drift= | self_contradicting | A model states a feature once, or always with one value. |  |
 | =model_drift= | no_profiles | The tree has profiles to bind to. |  |
-| =model_sql_types= | type_mismatch | A column's model type is the type the table is created with. |  |
-| =model_sql_types= | too_few_compared | At least min_compared columns are compared, so the check is reading the tree. |  |
 | =money_decimal_columns= | money_not_exact | A money column is numeric in SQL and a decimal in C++, never a binary float or text. | =E47BAF35-066F-4EF2-BA3D-522AED44FF33=, =B9DAC38A-BEB1-4658-87BC-DFF901033E84= |
 | =money_decimal_columns= | continuous_exact | A continuous quantity is not typed numeric or decimal, an exactness it does not have. | =B9DAC38A-BEB1-4658-87BC-DFF901033E84= |
 | =money_decimal_columns= | too_few_columns | The models yield at least min_columns columns, so the check is reading them. |  |
@@ -117,8 +113,6 @@ memories no rule cites are the candidates for the next checks.
 | =parameter_value_sets= | override_column | No pair setting table, model or reader states a per-pair control the value set states. |  |
 | =parameter_value_sets= | value_check | No engine settings part states a value as a column check. |  |
 | =parameter_value_sets= | missing_file | Every file the override rules guard exists. |  |
-| =paste_blocks= | unresolved_name | Every ores:: name a model's :implements block pastes is declared by some header under an include directory. |  |
-| =paste_blocks= | nothing_read | The tree has an :implements block, a header and a qualified name in a block to check. |  |
 | =pattern_uses= | unknown_use | Every page a pattern lists under In ORE Studio exists. |  |
 | =pattern_uses= | one_way | A pattern and each of its uses link each other: the use links the pattern, and the pattern lists the use. | =470D4571-47A4-4AEF-9A93-2B4DE0279C1E= |
 | =pattern_uses= | not_a_pattern | A page lists only service architecture patterns under Patterns used. | =470D4571-47A4-4AEF-9A93-2B4DE0279C1E= |
@@ -137,9 +131,7 @@ memories no rule cites are the candidates for the next checks.
 | =prototypes= | missing_group | Every group the top page links has a page. | =D913FE21-6CF6-439A-89CF-6A1928AFA094= |
 | =prototypes= | review_without_index | A review directory lists its screens on an index.html. |  |
 | =prototypes= | review_cell | A prototype's row links its review, or says none in its review cell. |  |
-| =prototypes= | no_discovery | The site build deploys the prototypes it finds. | [[id:708C2462-C1F8-455B-B091-9D9690FEEAAB][Keep journey prototypes on main]] |
 | =prototypes= | copy_differs | The copies of a file a group shares are identical, save one that may add rules after the shared text. |  |
-| =prototypes= | react_tree | The retired React prototype tree is gone. | [[id:708C2462-C1F8-455B-B091-9D9690FEEAAB][Keep journey prototypes on main]], =D913FE21-6CF6-439A-89CF-6A1928AFA094= |
 | =recipe_inventories= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =registry_exceptions= | bad_exception | Each accepted exception of the component registry names a listed component, a checklist item the standard defines once, a reason, who accepted it and an ISO date. | =E22B9A3C-DF20-4EC3-8BEC-C193E1560745=, =7B477025-132E-4B20-80B4-D8C9420880B8= |
 | =registry_exceptions= | unreadable_registry | The registry and the standard state their tables in a form this check reads. |  |
@@ -167,9 +159,6 @@ memories no rule cites are the candidates for the next checks.
 | =shell_menus= | root_name_collides | No two units own one root name. |  |
 | =shell_recipe_provenance= | orphan_recipe | Every shell recipe names, in its GENERATED header, the document it was tangled from, and that document exists. |  |
 | =skill_catalogue= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
-| =skill_level_tags= | level_differs | Every skill carries the level the script's table gives it. |  |
-| =skill_level_tags= | untabled_skill | Every skill has a level in the script's table. |  |
-| =skill_level_tags= | missing_skill | Every skill the script's table names exists. |  |
 | =skill_levels= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =skill_namespace= | outside_namespace | Every skill under doc/llm/skills is named compass-... |  |
 | =skill_type_tables= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
@@ -188,7 +177,7 @@ memories no rule cites are the candidates for the next checks.
 | =stream_coverage= | uncovered_subject | Every durable subject is matched by a stream. | =05B6C7D8-E9F0-4A1B-8C3D-4E5F60718293= |
 | =stream_coverage= | many_streams | No durable subject is matched by two streams. |  |
 | =stream_coverage= | unensured_stream | A consumer names a stream something ensures, whose filters cover its subject. | =C0B3C6F4-62DC-4DEA-966D-A84108AAB9AE=, =F4A5B6C7-D8E9-4F0A-9B2C-3D4E5F607182=, =05B6C7D8-E9F0-4A1B-8C3D-4E5F60718293= |
-| =subject_conformance= | outside_protocol | Every NATS subject a model declares or a writing site spells is inside the entity protocol. |  |
+| =subject_conformance= | outside_protocol | Every NATS subject a model declares or the data-quality seed spells is inside the entity protocol. |  |
 | =subject_conformance= | no_declaration | Some model declares a :subject:. |  |
 | =subject_conformance= | unreadable_model | Every model is UTF-8, which the script's strict read needs. |  |
 | =tangle_check= | unsupported_header_argument | A tangled block sets nothing whose effect on the bytes tangling does not reproduce. |  |

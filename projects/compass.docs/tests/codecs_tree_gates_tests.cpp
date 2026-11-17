@@ -112,8 +112,6 @@ TEST_CASE("the prototype inventory must match the tree",
         {"doc/prototypes/trades/ticket/common.js", "b\n"},
         {"doc/prototypes/trades/ticket/review/notes.md", ""},
         {"doc/prototypes/loose/x/index.html", ""},
-        {"projects/ores.lisp/src/ores-build-site.el",
-         "(ores-deploy-prototypes)\n"},
         {"projects/ores.web/packages/web/src/prototype/a.tsx", ""}};
     CHECK(tests::messages(tests::run(codecs::prototypes, t)) ==
         std::vector<std::string>{
@@ -131,9 +129,7 @@ TEST_CASE("the prototype inventory must match the tree",
             "review, though the review directory exists",
             "doc/prototypes/trades/ticket/common.js differs from "
             "doc/prototypes/trades/blotter/common.js: the group shares this "
-            "file by copy, so the copies must be identical",
-            "projects/ores.web/packages/web/src/prototype still exists: "
-            "React is for the product, not for prototypes"});
+            "file by copy, so the copies must be identical"});
 }
 
 TEST_CASE("each UX rule carries one identifier and the checklist cites "

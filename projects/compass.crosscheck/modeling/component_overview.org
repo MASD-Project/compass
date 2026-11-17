@@ -16,14 +16,13 @@ component in the domain layer of the
 * Summary
 
 =compass.crosscheck= runs the ORE Studio gates that read more than one kind
-of artefact: a model and the C++ headers its pasted code names, a model and
-the SQL that creates its table, the generated output and the model it came
-from. Each gate was a Python script that read the tree on every run; here
-each is a corpus codec that reads the files of the checkout through its
-view, so a run in which none of them changed reuses the findings.
-=entity_writes=, =paste_blocks= and =subject_conformance= are scans: each
-file's writers, :implements blocks or declared identifiers, or subjects
-are kept per content ID, so a run after an edit maps the edited file alone.
+of artefact: a generated row and the SQL that creates its table, the
+generated output and the model it came from. Each gate was a Python script that read
+the tree on every run; here each is a corpus codec that reads the files of
+the checkout through its view, so a run in which none of them changed
+reuses the findings. =entity_writes= and =subject_conformance= are scans:
+each file's writers or subjects are kept per content ID, so a run after an
+edit maps the edited file alone.
 
 The ports follow their scripts rule for rule, including the regular
 expressions and the order of their tests, because the acceptance of a port
@@ -39,6 +38,24 @@ A script's baseline of known violations is not ported. Each finding it
 excused is a finding here, and the tree excuses it with an inline
 exception where it stands.
 
+A gate or rule that another check covers, or that never fires, is not
+ported:
+
+- =paste-blocks=. A pasted block that disagrees with the generated file it
+  lands in is =codegen/drift=. One that agrees with it but names a symbol
+  that is gone fails the build of that component.
+- The C++ half of =subject-conformance=. Its pattern opens on a double
+  quote and closes on a single one, so it matches nothing in compilable
+  code.
+- =model-sql-types=. A model's column type and its generated create script
+  disagree only as =codegen/drift=. The gate compares a model with the
+  first table its create script makes, and no ORE Studio model has a
+  hand-written create script, so it had nothing else to compare.
+- The =unknown_profile= and =profile_conflict= rules of =model-drift=. The
+  model loader of =codegen= refuses a model that binds a profile that does
+  not exist, or two profiles that disagree, and the refusal stops the
+  check.
+
 * Inputs
 
 - The files of the checkout, through =types::corpus_view=: =list_files=
@@ -46,26 +63,13 @@ exception where it stands.
 
 * Outputs
 
-- *=paste_blocks=.* ORE Studio's =paste-blocks= gate
-  (=projects/ores.codegen/scripts/check_paste_block_symbols.py=). It reads
-  each cpp source block of an org file under
-  =projects/<component>/modeling/=, at any depth, whose header line holds
-  =:implements=, from a =#+begin_src= at the start of a line to the next
-  =#+end_src= there. Every header with an =include= directory on its path
-  gives the (scope, identifier) pairs it mentions, its comments and literals
-  blanked: a =namespace= or a =class=, =struct=, =union= or =enum= opens a
-  scope at its brace, an export macro before the name is skipped, any other
-  brace keeps the scope it is in. Rule =unresolved_name=: a name of a block
-  rooted at =ores= whose scope holds no such identifier. Rule
-  =nothing_read=: no block, no header, or no name in any block.
 - *=subject_conformance=.* =subject-conformance=
   (=check_subject_conformance.py=). Rule =outside_protocol=: a =:subject:=
   line of an org file directly under =projects/<component>/modeling/=, or a
-  subject written at one of the script's two sites, that is not
+  quoted subject of the data-quality artefact type seed, that is not
   =component.v1.resource.verb= with a verb of the closed set or
   =list_by_...=, =component.v1.ops.operation= or
-  =component.v1.events.collection.action=. The C++ site's pattern ends at
-  a single quote, as the script's does, so it reads almost nothing. Rule
+  =component.v1.events.collection.action=. Rule
   =no_declaration=: no model declares a subject. Rule =unreadable_model=: a
   model that is not UTF-8, which the script fails on.
 - *=entity_writes=.* =entity-writes= (=check_entity_table_writes.py=). Rule
@@ -86,11 +90,6 @@ exception where it stands.
   hand-written column lists are the options =excluded_columns= and
   =continuous_columns=, and its two baselines (7 money columns, no
   continuous one) are findings on the column's line.
-- *=model_sql_types=.* =model-sql-types= (=check_model_sql_types.py=). Rule
-  =type_mismatch=: a column of a model's =* Columns= section whose =:type:=
-  differs, in case and spacing aside, from the type the first =CREATE
-  TABLE= of its table's =_create.sql= gives it, constraints dropped. Rule
-  =too_few_compared=: fewer than =min_compared= columns compared.
 - *=entity_binary_types=.* =entity-binary-types=
   (=check_entity_binary_types.py=). A generated =repository/*_entity.hpp=
   binds each column with =bind= or =key= in the format its member's C++
@@ -131,9 +130,8 @@ exception where it stands.
 - *=model_drift=.* =model-drift= (=check_model_drift.py=). The profiles of
   =projects/modeling/variability_*.org= fix features in their =*
   Assignments= table; a model binds by its =profile= property and states
-  features in any drawer. Rules =unknown_profile=, =contradicted=,
-  =profile_conflict=, =unset_required=, =self_contradicting= and
-  =no_profiles=. The script's =KNOWN_MODEL_DRIFT= entry no longer fires at
+  features in any drawer. Rules =contradicted=, =unset_required=,
+  =self_contradicting= and =no_profiles=. The script's =KNOWN_MODEL_DRIFT= entry no longer fires at
   this commit; one that did would be an inline exception in its model.
 - *=template_sections=.* =template-sections=
   (=check_template_sections.py=). Rule =chained_tags=: a line of a
@@ -321,8 +319,7 @@ except =subject_conformance=, which reports such a model.
 
 - =compass.codec= for the descriptor, the corpus view the codecs read
   through and the diagnostic table they fill.
-- =compass.cpp= for its text helpers and its blanking of C++ comments and
-  literals.
+- =compass.cpp= for its text helpers.
 - =compass.codegen= for the template library's physical-space graph and
   the component catalogue, which =protocol_twins= reads, and the pystache
   renderer =er_diagram= draws through.

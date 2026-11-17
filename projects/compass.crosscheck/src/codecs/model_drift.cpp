@@ -41,15 +41,12 @@ namespace ct = compass::codec::types;
 namespace co = compass::cpp::ops;
 namespace pt = compass::platform::text;
 
-enum rule : std::uint32_t { unknown_profile, contradicted, profile_conflict,
-    unset_required, self_contradicting, no_profiles };
+enum rule : std::uint32_t { contradicted, unset_required,
+    self_contradicting, no_profiles };
 
-constexpr std::array<ct::rule, 6> rules{{
-    {"unknown_profile", "A model binds only to profiles that exist."},
+constexpr std::array<ct::rule, 4> rules{{
     {"contradicted", "A model does not redeclare a feature its profile "
         "fixes to another value."},
-    {"profile_conflict", "The profiles a model binds to agree on every "
-        "feature they fix."},
     {"unset_required", "A model sets every feature its profile requires."},
     {"self_contradicting", "A model states a feature once, or always with "
         "one value."},
@@ -191,21 +188,15 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
             const std::string name(co::strip(raw));
             if (name.empty())
                 continue;
+            // codegen's model loader refuses an unknown profile and two
+            // profiles that disagree, and that refusal stops the check.
             const auto profile = all.find(name);
-            if (profile == all.end()) {
-                co::report(out, path, 0, unknown_profile, "binds to unknown "
-                    "profile '" + name + "'", fix);
+            if (profile == all.end())
                 continue;
-            }
             for (const auto& [feature, expected] : profile->second) {
                 if (const auto it = fixed_by.find(feature);
-                    it != fixed_by.end() && it->second.second != expected) {
-                    co::report(out, path, 0, profile_conflict, "profiles '" +
-                        it->second.first + "' and '" + name + "' disagree on " +
-                        feature + " (" + it->second.second + " vs " +
-                        expected + ")", fix);
+                    it != fixed_by.end() && it->second.second != expected)
                     continue;
-                }
                 fixed_by[feature] = {name, expected};
                 const auto actual = stated(values, feature);
                 if (actual.disagreement) {
@@ -237,7 +228,7 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
 
 const ct::descriptor model_drift{
     .name = "model_drift",
-    .version = 1,
+    .version = 2,
     .summary = "Reports each model that contradicts or leaves unset a "
         "feature its profile fixes.",
     .reads = ct::inputs::of_types({}),

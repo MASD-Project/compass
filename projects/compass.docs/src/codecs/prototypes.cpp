@@ -43,8 +43,7 @@ namespace pt = compass::platform::text;
 
 enum rule : std::uint32_t {
     unlisted, missing, no_group_page, unlinked_group, missing_group,
-    review_without_index, review_cell, no_discovery, copy_differs,
-    react_tree
+    review_without_index, review_cell, copy_differs
 };
 
 constexpr std::array<std::string_view, 2> record_sources{
@@ -54,10 +53,7 @@ constexpr std::array<std::string_view, 2> record_sources{
 constexpr std::array<std::string_view, 1> inventory_sources{
     "D913FE21-6CF6-439A-89CF-6A1928AFA094"};
 
-constexpr std::array<std::string_view, 1> on_main_sources{
-    "708C2462-C1F8-455B-B091-9D9690FEEAAB"};
-
-constexpr std::array<ct::rule, 10> rules{{
+constexpr std::array<ct::rule, 8> rules{{
     {"unlisted", "Every prototype is listed on its group's page.",
         record_sources},
     {"missing", "Every prototype a group page lists exists.", inventory_sources},
@@ -71,12 +67,8 @@ constexpr std::array<ct::rule, 10> rules{{
         "index.html."},
     {"review_cell", "A prototype's row links its review, or says none in "
         "its review cell."},
-    {"no_discovery", "The site build deploys the prototypes it finds.",
-        on_main_sources},
     {"copy_differs", "The copies of a file a group shares are identical, "
-        "save one that may add rules after the shared text."},
-    {"react_tree", "The retired React prototype tree is gone.",
-        record_sources}}};
+        "save one that may add rules after the shared text."}}};
 
 constexpr std::string_view base = "doc/prototypes/";
 
@@ -204,11 +196,6 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
                     "row");
         }
     }
-    constexpr std::string_view site = "projects/ores.lisp/src/ores-build-site.el";
-    if (!read(v, site).contains("ores-deploy-prototypes"))
-        report(no_discovery, site, "the site build does not call "
-            "ores-deploy-prototypes: the prototypes must be deployed where "
-            "they sit, with no list to keep in step");
     for (const auto& [group, files] : shared_copies()) {
         std::vector<std::string> folders;
         for (const auto& [g, n] : present) {
@@ -249,20 +236,13 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
                     "may not change it");
         }
     }
-    for (const auto dir : {"projects/ores.web/packages/web/src/prototype",
-             "projects/ores.web/packages/web/src/pages/prototype"}) {
-        const std::string d(dir);
-        if (v.file_exists(d) || !v.list_files(d + "/").empty())
-            report(react_tree, d, d + " still exists: React is for the "
-                "product, not for prototypes");
-    }
 }
 
 }
 
 const ct::descriptor prototypes{
     .name = "prototypes",
-    .version = 1,
+    .version = 2,
     .summary = "Reports each way the prototype inventory and its pages "
         "disagree with the tree.",
     .reads = ct::inputs::of_types({}),

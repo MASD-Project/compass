@@ -19,7 +19,6 @@
  */
 #include <catch2/catch_test_macros.hpp>
 #include "compass.crosscheck/codecs/entity_binary_types.hpp"
-#include "compass.crosscheck/codecs/model_sql_types.hpp"
 #include "compass.crosscheck/codecs/money_decimal_columns.hpp"
 #include "test_checkout.hpp"
 
@@ -82,30 +81,6 @@ TEST_CASE("a tree with too few columns is a finding, not a pass",
     const auto r = tests::run(codecs::money_decimal_columns, t);
     REQUIRE(r.findings.size() == 1);
     CHECK(std::get<0>(r.findings[0]) == "projects");
-}
-
-TEST_CASE("a model type that differs from its created type is reported",
-    "[codecs][model_sql_types]") {
-    const files t{
-        {"projects/ores.iam/modeling/ores.iam.role.org",
-         ":tablename: ores_iam_roles_tbl\n* Columns\n"
-         "** id\n:type: uuid\n** name\n:type: text\n"
-         "** amount\n:type: numeric(38, 12)\n** gone\n:type: text\n"
-         "** level\n:type: Integer\n* Other\n** stray\n:type: text\n"},
-        {"projects/ores.sql/create/iam/iam_roles_create.sql",
-         "-- header\ncreate table if not exists \"ores_iam_roles_tbl\" (\n"
-         "    \"id\" uuid not null,\n    \"name\" varchar(10) default 'x',\n"
-         "    \"amount\" numeric(38,12) not null,\n"
-         "    -- comment\n    \"level\" integer,\n"
-         "    \"stray\" bigint\n);\n"}};
-    CHECK(tests::messages_of(tests::run(codecs::model_sql_types, t,
-            {{"min_compared", "1"}})) == std::vector<std::string>{
-        "name: the model types it 'text' but "
-        "projects/ores.sql/create/iam/iam_roles_create.sql creates it "
-        "'varchar(10)'",
-        "amount: the model types it 'numeric(38, 12)' but "
-        "projects/ores.sql/create/iam/iam_roles_create.sql creates it "
-        "'numeric(38,12)'"});
 }
 
 TEST_CASE("a row binds each column in its table's binary format",

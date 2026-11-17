@@ -30,10 +30,9 @@ namespace compass::crosscheck::codecs {
  *
  * A subject is declared by a :subject: line of an org file directly under
  * projects/<component>/modeling/, or written where no model declares it: a
- * name holding "subject" assigned a string in a .hpp or .cpp under
- * projects/, as the script's pattern spells it (it ends at a single quote,
- * so it rarely matches), and a quoted dotted name in the DQ artefact type
- * populate script. Rule outside_protocol: a subject that is not
+ * quoted dotted name in the DQ artefact type populate script. The script
+ * also read C++ files with a pattern that opens on a double quote and
+ * closes on a single one, so it matched nothing; that half is not ported. Rule outside_protocol: a subject that is not
  * component.v1.resource.verb with a verb of the closed set or list_by_,
  * component.v1.ops.operation, or component.v1.events.collection.action.
  * Rule no_declaration: no model declares a subject. Rule unreadable_model:

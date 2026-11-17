@@ -1,0 +1,108 @@
+:PROPERTIES:
+:ID: 0A4718C5-0278-4670-B7B0-72CDAABE8D1C
+:END:
+#+title: Task: Drop the redundant gates
+#+description: Remove the gates and rules the gate review found redundant or dead, as the product owner decided.
+#+type: task
+#+level: s1
+#+filetags: :run_the_gates_as_codecs:sprint_01:v0:
+#+owner: marco
+#+branch: feature/drop-the-redundant-gates
+#+pr: https://github.com/MASD-Project/compass/pull/58
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-11-17
+#+updated: 2026-11-17
+#+environment:
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+(Describe what user-visible-or-internal change this task produces.)
+
+* Status
+
+| Field        | Value                                  |
+|--------------+----------------------------------------|
+| State        | DONE                              |
+| Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
+| Now          | Nothing. |
+| Waiting on   | Nothing.                               |
+| Next         | Nothing. |
+| Last touched | 2026-11-17                               |
+
+* Acceptance
+
+- paste_blocks, skill_recipes and skill_level_tags are gone; subject_conformance keeps only its model half; model_sql_types no longer checks generated create scripts; model_drift drops the two rules the model loader throws; prototypes drops react_tree and no_discovery.
+- For each drop, the evidence that another check covers the case, or that the rule never fires, is recorded; the warm ORE Studio check is measured before and after.
+
+* Plan
+
+- The product owner approved the unconditional drops in section 2 of
+  =evidence/gate_review/plan.md= on 2026-11-17.
+- Remove each codec or rule, its tests and its catalogue entry; regenerate the
+  rule table; update the overviews and the ORE Studio guide's codec list.
+- Show on the ORE copy that each dropped finding is covered elsewhere or never
+  fired, and measure the warm check.
+
+* Measurements
+
+Every number this task claims about a tree, with the command that produced it
+and the commit it was measured at. A number without both is not a measurement,
+because a clean-up record describes a tree and trunk moves under a branch: a
+consumer count, a gate's component count and a suite's size all change with no
+code changing, and the reader of a bare number cannot tell which tree it came
+from. Where the raw output matters, put it in an =evidence/= file beside the
+task and name that file in the Command column.
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+| Findings of the dropped rules on ORE, before the drop | 0 of 242 | =compass check= on the base binary | 2d19ad2 |
+| Plants, one per dropped rule | where meaningful, codegen drift or the loader still catches it; skill_recipes, skill_level_tags and the prototypes rules are no longer reported, as accepted | =drop/plant.py= | e4ab522 |
+| Warm ORE check, base vs new, alternated 5 rounds | 5.69 s vs 5.51 s median at load 19-28; no difference above noise (agent) | =drop/interleave.sh= | e4ab522 |
+| ctest | 15 of 15 suites pass | =ctest --preset linux-clang-release= | 0a08974 |
+
+* Notes
+
+* Test Scenarios
+
+Manual QA scenarios (scaffolded via =compass add test_scenario=)
+that verify this task. Link
+new ones here as they're created; the scenario doc itself links back
+via its "Verifies task" field.
+
+| Scenario | State | Notes |
+|----------+-------+-------|
+|          |       |       |
+
+* PRs
+
+| PR | Title |
+|----+-------|
+| [[https://github.com/MASD-Project/compass/pull/58][#58]] | [crosscheck] Drop the redundant gates |
+
+* Review
+
+| # | Comment summary | File | Decision | Notes |
+|---+-----------------+------+----------+-------|
+|   |                 |      |          |       |
+
+* Result
+
+Six of the seven approved drops are made: paste_blocks, the C++ half of
+subject_conformance, model_sql_types (whole: every create script a model
+claims is generated, so drift covers them), model_drift's two rules the
+loader throws first, skill_recipes, skill_level_tags, and prototypes'
+react_tree and no_discovery. None of the dropped rules had a finding on ORE
+Studio.
+
+component_docs/missing_section is kept. Its drop was approved as a
+duplicate of required_sections, but that holds only for =#+type: component=,
+and all 128 of ORE Studio's overviews are =#+type: ores.codegen.component=,
+which has no contract; dropping it would leave them with no section check.
+
+An install needs ORE Studio's =.compass.org= to lose the rows for
+skill_recipes, paste_blocks, model_sql_types and skill_level_tags, or every
+run stops; an inline exception naming a dropped rule becomes malformed.
