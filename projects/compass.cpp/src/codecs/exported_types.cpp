@@ -118,8 +118,8 @@ public:
         const auto dir = ops::parent_of(path);
         for (const auto name : names) {
             auto found = files_.find(dir, name);
-            for (std::size_t r = 0; !found && r < roots_.size(); ++r)
-                found = files_.find(roots_[r], name);
+            if (!found)
+                found = under_roots(name);
             if (found)
                 out.push_back(std::move(*found));
         }
@@ -127,10 +127,25 @@ public:
     }
 
 private:
+    /**
+     * @brief The file @p name names under the first include root that has
+     * it, looked up once per name.
+     */
+    const std::optional<std::string>& under_roots(std::string_view name) {
+        const std::string key(name);
+        if (const auto it = rooted_.find(key); it != rooted_.end())
+            return it->second;
+        std::optional<std::string> found;
+        for (std::size_t r = 0; !found && r < roots_.size(); ++r)
+            found = files_.find(roots_[r], name);
+        return rooted_.emplace(key, std::move(found)).first->second;
+    }
+
     const ct::corpus_view& view_;
     const ops::file_set& files_;
     std::vector<std::string> roots_;
     const std::unordered_map<std::string_view, file_fact>& facts_;
+    std::unordered_map<std::string, std::optional<std::string>> rooted_;
     std::unordered_map<std::string, std::vector<std::string>> targets_;
 };
 
@@ -213,28 +228,41 @@ void reduce(std::span<const ct::scanned_file> scanned_files,
         if (!files.is_dir(sources))
             continue;
 
-        std::unordered_set<std::string> reached;
-        std::vector<std::string> queue;
-        for (const auto p : under(all, sources + "/", ".cpp"))
-            queue.emplace_back(p);
-        while (!queue.empty()) {
-            auto current = std::move(queue.back());
-            queue.pop_back();
-            if (!reached.insert(current).second)
-                continue;
-            for (const auto& target : graph.targets(current))
-                queue.push_back(target);
-        }
-
         auto headers = under(all, std::string(library) + "/include/",
             ".hpp");
         std::ranges::sort(headers, ops::component_less);
+        using exports = std::vector<ops::exported_type>;
+        std::vector<std::pair<std::string_view, exports>> exporting;
+        std::unordered_set<std::string> pending;
         for (const auto header : headers) {
             auto types = fact_of(header).types;
             std::erase_if(types, [&](const ops::exported_type& t) {
                 return t.macro != *macro;
             });
-            if (types.empty() || reached.contains(std::string(header)))
+            if (types.empty())
+                continue;
+            exporting.emplace_back(header, std::move(types));
+            pending.emplace(header);
+        }
+
+        // The walk stops once every exporting header is reached, as the
+        // rest of it cannot change a finding.
+        std::unordered_set<std::string> reached;
+        std::vector<std::string> queue;
+        for (const auto p : under(all, sources + "/", ".cpp"))
+            queue.emplace_back(p);
+        while (!queue.empty() && !pending.empty()) {
+            auto current = std::move(queue.back());
+            queue.pop_back();
+            if (!reached.insert(current).second)
+                continue;
+            pending.erase(current);
+            for (const auto& target : graph.targets(current))
+                queue.push_back(target);
+        }
+
+        for (const auto& [header, types] : exporting) {
+            if (!pending.contains(std::string(header)))
                 continue;
             std::string names;
             for (const auto& t : types)
