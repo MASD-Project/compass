@@ -71,3 +71,29 @@ TEST_CASE("each declaration the server would refuse or the check cannot "
         {"projects/ores.a/src/service.cpp", 7},
         {"projects/ores.a/src/service.cpp", 9}});
 }
+
+TEST_CASE("a service named by a parameter is resolved through a caller "
+    "that names no stream, before and after an edit to the caller",
+    "[codecs][stream_coverage]") {
+    const files before{
+        {"projects/ores.c/src/steps.cpp",
+         "void\nserve(client& nats, std::string_view service) {\n"
+         "    step_routes routes{\"w\"};\n"
+         "    routes.on(\"c.load\", handle);\n"
+         "    serve_step_commands(nats, service, routes);\n"
+         "}\n"},
+        {"projects/ores.c/src/main.cpp",
+         "int main() { serve(nats, \"ores.c.service\"); }\n"}};
+    auto after = before;
+    after["projects/ores.c/src/main.cpp"] =
+        "int main() { serve(nats, \"ores.c.other\"); }\n";
+
+    CHECK(tests::run(codecs::stream_coverage, before).findings.empty());
+    CHECK(tests::run_after_edit(codecs::stream_coverage, before, after)
+        .findings.empty());
+
+    after.erase("projects/ores.c/src/main.cpp");
+    CHECK(tests::places(tests::run_after_edit(codecs::stream_coverage,
+        before, after).findings) == places{
+            {"projects/ores.c/src/steps.cpp", 5}, {"projects", 0}});
+}

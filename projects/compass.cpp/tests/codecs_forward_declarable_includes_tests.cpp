@@ -85,3 +85,25 @@ TEST_CASE("an empty type list turns the guard off, which is reported",
         t).findings) == places{
         {"build/scripts/forward_declarable_types.list", 1}});
 }
+
+TEST_CASE("an edit to the type list or to one header changes only what "
+    "they decide", "[codecs][forward_declarable_includes]") {
+    auto unlisted = tree();
+    unlisted["build/scripts/forward_declarable_types.list"] =
+        "ores::db::pool struct ores.db/pool.hpp -\n";
+    CHECK(tests::places(tests::run_after_edit(
+        codecs::forward_declarable_includes, tree(), unlisted).findings) ==
+        places{{"projects/ores.x/include/ores.x/opened.hpp", 1},
+            {"projects/ores.x/include/ores.x/pointer.hpp", 3}});
+
+    auto edited = tree();
+    edited["projects/ores.x/include/ores.x/value.hpp"] =
+        "#include \"ores.db/pq/context.hpp\"\n"
+        "void f(pq::context* c);\n";
+    CHECK(tests::places(tests::run_after_edit(
+        codecs::forward_declarable_includes, tree(), edited).findings) ==
+        places{{"projects/ores.x/include/ores.x/opened.hpp", 1},
+            {"projects/ores.x/include/ores.x/pointer.hpp", 2},
+            {"projects/ores.x/include/ores.x/pointer.hpp", 3},
+            {"projects/ores.x/include/ores.x/value.hpp", 1}});
+}

@@ -46,7 +46,8 @@ namespace compass::cli::types {
  * as a --set nobody declared; either makes the command fail. codecs
  * names each codec of the run and ran counts the units of that codec that
  * were called rather than reused, skipped those the worktree's record
- * stood in for and cached those the result cache stood in for. formats
+ * stood in for and cached those the result cache stood in for, and
+ * codec_ms the time spent in the codec's calls, summed over threads. formats
  * says, per codec, what formatting its files did, for a codec whose files
  * were formatted. steps names each step of the command with its wall
  * time, in the order they ran. ms is the wall time from listing the
@@ -63,6 +64,7 @@ struct run_summary {
     std::vector<std::uint64_t> ran;
     std::vector<std::uint64_t> skipped;
     std::vector<std::uint64_t> cached;
+    std::vector<double> codec_ms;
     std::vector<std::optional<codec::io::format_stats>> formats;
     std::vector<std::pair<std::string, double>> steps;
     double ms = 0;
@@ -132,6 +134,24 @@ struct check_result {
     run_summary run;
     std::vector<finding> findings;
     std::size_t excused = 0;
+    double ms = 0;
+};
+
+/**
+ * @brief What compass hook found for one edited file.
+ * path is the file, relative to the checkout. checked is false when no
+ * codec reads or reports on it, so nothing ran. findings are those on the
+ * file and those the edit caused on other files, less the excused ones,
+ * sorted as check sorts them. note, when not empty, says why the hook
+ * could not check the file; it then has no findings.
+ */
+struct hook_result {
+    run_summary run;
+    std::string path;
+    bool checked = false;
+    std::vector<finding> findings;
+    std::size_t excused = 0;
+    std::string note;
     double ms = 0;
 };
 

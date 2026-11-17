@@ -32,6 +32,6 @@ int main(int argc, char** argv) {
                   << ec.message() << "\n";
         return compass::cli::app::exit_failure;
     }
-    return compass::cli::app::run(args, working_directory, std::cout,
-        std::cerr);
+    return compass::cli::app::run(args, working_directory, std::cin,
+        std::cout, std::cerr);
 }

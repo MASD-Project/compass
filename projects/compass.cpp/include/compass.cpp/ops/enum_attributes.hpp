@@ -69,6 +69,15 @@ struct enum_site {
 [[nodiscard]] std::vector<enum_site> enum_sites(std::string_view erased,
     const std::set<std::string, std::less<>>& macros);
 
+/**
+ * @brief The enums of the erased @p text that enum_sites would find
+ * decorated were the name after the keyword a macro, each with that name
+ * as its macro, whether or not it is one. enum_sites finds a decorated
+ * site exactly when its macro is one of the macros it is given.
+ */
+[[nodiscard]] std::vector<enum_site> macro_enum_sites(
+    std::string_view erased);
+
 }
 
 #endif

@@ -22,8 +22,12 @@
 #include <cstddef>
 #include <filesystem>
 #include <catch2/catch_test_macros.hpp>
+#include "compass.cli/app/steps.hpp"
 #include "compass.cli/io/listing.hpp"
+#include "compass.codec/ops/parallel_for.hpp"
+#include "compass.store/io/id_resolver.hpp"
 #include "compass.store/io/location.hpp"
+#include "compass.store/ops/blob_hash.hpp"
 #include "scoped_git_repo.hpp"
 
 namespace {
@@ -100,6 +104,48 @@ TEST_CASE("a tracked file deleted from the worktree is not listed, and an "
     CHECK(io::list_files(repo.checkout()) == std::vector<std::string>{
         "doc/meta/document_type_task.org", "doc/task_a.org",
         "doc/task_b.org", "src/new.cpp"});
+}
+
+TEST_CASE("every listed file answers the content ID of its own bytes, "
+    "asked once or many times, from many threads", "[app][pipeline]") {
+    scoped_git_repo repo;
+    repo.write("src/new.cpp", "int x;\n");
+    repo.write("readme.org", "Edited, so it is hashed.\n");
+    repo.write("other/unlisted.txt", "Not listed.\n");
+    app::listing l;
+    app::list(l, repo.checkout());
+    std::erase(l.files, "other/unlisted.txt");
+    auto f = app::open_files(repo.checkout(),
+        compass::store::io::objects_dir(
+            compass::store::io::git_common_dir(repo.checkout())), {});
+    app::resolve(f, 1);
+    const auto files = app::checkout_files_of(f, l);
+
+    const auto id_of = [&](const std::string& path) {
+        return compass::store::ops::blob_id_of(*files.read(path));
+    };
+    for (int pass = 0; pass < 2; ++pass) {
+        std::vector<std::optional<compass::store::types::blob_id>> ids(
+            l.files.size());
+        compass::codec::ops::parallel_for(l.files.size(), 4,
+            [&](std::size_t i) { ids[i] = files.content_of(l.files[i]); });
+        for (std::size_t i = 0; i < l.files.size(); ++i) {
+            INFO(l.files[i]);
+            REQUIRE(ids[i]);
+            CHECK(*ids[i] == id_of(l.files[i]));
+        }
+    }
+    CHECK(files.content_of("other/unlisted.txt") ==
+        compass::store::ops::blob_id_of("Not listed.\n"));
+    CHECK_FALSE(files.content_of("src/missing.cpp"));
+
+    (void)app::write_worktree_index(f);
+    const compass::store::io::id_resolver next(repo.checkout());
+    const auto& kept = next.worktree_index();
+    const auto row = std::ranges::find(kept.paths, "src/new.cpp");
+    REQUIRE(row != kept.paths.end());
+    CHECK(kept.ids[static_cast<std::size_t>(row - kept.paths.begin())] ==
+        id_of("src/new.cpp"));
 }
 
 TEST_CASE("a setting nobody declared fails the run and writes no output",

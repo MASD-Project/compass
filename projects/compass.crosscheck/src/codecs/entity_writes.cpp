@@ -24,9 +24,11 @@
 #include <cctype>
 #include <map>
 #include <set>
+#include <span>
 #include <string>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.codec/types/fact.hpp"
 #include "compass.cpp/ops/paths.hpp"
 #include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
@@ -93,35 +95,30 @@ struct writer {
     std::string message;
 };
 
-void sql_writers(const ct::corpus_view& v,
+void sql_writers(std::string_view path, std::string_view bytes,
     std::map<std::string, writer>& out) {
     static const pt::regex function(
         R"(create\s+(?:or\s+replace\s+)?function\s+([a-z0-9_]+)\s*\()",
         {.ignorecase = true});
-    auto paths = v.list_files("projects/ores.sql/create/", ".sql");
-    std::ranges::sort(paths, co::component_less);
-    for (const auto path : paths) {
-        const auto bytes = v.read_file(path).value_or("");
-        const auto text = pt::universal_newlines(pt::decode_ignoring(bytes));
-        for (const auto& m : function.find_all(text)) {
-            const auto opened = text.find("$$", m.end());
-            if (opened == std::string::npos)
-                continue;
-            const auto closed = text.find("$$", opened + 2);
-            if (closed == std::string::npos)
-                continue;
-            const std::string name(m.group(1));
-            if (name.starts_with("ores_iam_purge_"))
-                continue;
-            const auto body = std::string_view(text).substr(opened + 2,
-                closed - opened - 2);
-            if (!dml().search(body))
-                continue;
-            out.insert_or_assign("sql_function\n" + name, writer{sql_writer,
-                path, co::offset_of_line(bytes, co::line_of(text, m.start())),
-                "SQL function " + name + " writes an entity table outside "
-                "its repository"});
-        }
+    const auto text = pt::universal_newlines(pt::decode_ignoring(bytes));
+    for (const auto& m : function.find_all(text)) {
+        const auto opened = text.find("$$", m.end());
+        if (opened == std::string::npos)
+            continue;
+        const auto closed = text.find("$$", opened + 2);
+        if (closed == std::string::npos)
+            continue;
+        const std::string name(m.group(1));
+        if (name.starts_with("ores_iam_purge_"))
+            continue;
+        const auto body = std::string_view(text).substr(opened + 2,
+            closed - opened - 2);
+        if (!dml().search(body))
+            continue;
+        out.insert_or_assign("sql_function\n" + name, writer{sql_writer,
+            path, co::offset_of_line(bytes, co::line_of(text, m.start())),
+            "SQL function " + name + " writes an entity table outside "
+            "its repository"});
     }
 }
 
@@ -135,37 +132,71 @@ bool is_hand_written(std::string_view path) {
     });
 }
 
-void cpp_writers(const ct::corpus_view& v,
+void cpp_writers(std::string_view path, std::string_view bytes,
     std::map<std::string, writer>& out) {
+    const auto text = pt::universal_newlines(pt::decode_ignoring(bytes));
+    std::set<std::string> tables;
+    std::size_t first = std::string::npos;
+    for (const auto& m : dml().find_all(text)) {
+        tables.insert(lowered(m.group(2)));
+        first = std::min(first, m.start());
+    }
+    if (tables.empty() || is_own_repository(path, tables))
+        return;
+    out.insert_or_assign("cpp\n" + std::string(path), writer{
+        cpp_writer, path,
+        co::offset_of_line(bytes, co::line_of(text, first)),
+        "writes an entity table in raw SQL, and is not the "
+        "repository of every table it writes"});
+}
+
+constexpr std::string_view sql_root = "projects/ores.sql/create/";
+
+/**
+ * @brief The SQL files, then the hand-written .cpp and .hpp files, each
+ * group in component order, as the writers are keyed in that order.
+ */
+std::vector<std::string_view> scanned(const ct::corpus_view& v) {
+    auto out = v.list_files(sql_root, ".sql");
+    std::ranges::sort(out, co::component_less);
     for (const auto suffix : {".cpp", ".hpp"}) {
         auto paths = v.list_files("projects/ores.", suffix);
         std::erase_if(paths, [](auto p) { return !is_hand_written(p); });
         std::ranges::sort(paths, co::component_less);
-        for (const auto path : paths) {
-            const auto bytes = v.read_file(path).value_or("");
-            const auto text = pt::universal_newlines(
-                pt::decode_ignoring(bytes));
-            std::set<std::string> tables;
-            std::size_t first = std::string::npos;
-            for (const auto& m : dml().find_all(text)) {
-                tables.insert(lowered(m.group(2)));
-                first = std::min(first, m.start());
-            }
-            if (tables.empty() || is_own_repository(path, tables))
-                continue;
-            out.insert_or_assign("cpp\n" + std::string(path), writer{
-                cpp_writer, path,
-                co::offset_of_line(bytes, co::line_of(text, first)),
-                "writes an entity table in raw SQL, and is not the "
-                "repository of every table it writes"});
-        }
+        out.insert(out.end(), paths.begin(), paths.end());
     }
+    return out;
 }
 
-void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
+/**
+ * @brief The fact of a file: each writer it holds, keyed as the reduce
+ * keys it, with its rule, offset and message.
+ */
+void map(std::string_view path, std::string_view bytes,
+    const ct::option_values&, ct::file_scan& out) {
     std::map<std::string, writer> found;
-    sql_writers(v, found);
-    cpp_writers(v, found);
+    if (path.starts_with(sql_root) && path.ends_with(".sql"))
+        sql_writers(path, bytes, found);
+    else
+        cpp_writers(path, bytes, found);
+    ct::fact_writer fact(out.fact);
+    for (const auto& [key, w] : found)
+        fact.text(key).number(w.rule).number(w.offset).text(w.message);
+}
+
+void reduce(std::span<const ct::scanned_file> files, const ct::corpus_view&,
+    ct::diagnostic_table& out) {
+    std::map<std::string, writer> found;
+    for (const auto& f : files) {
+        ct::fact_reader fact(f.fact);
+        while (!fact.done()) {
+            std::string key(fact.text());
+            const auto rule = fact.number();
+            const auto offset = fact.number();
+            found.insert_or_assign(std::move(key), writer{rule, f.path,
+                offset, std::string(fact.text())});
+        }
+    }
     for (const auto& [key, w] : found)
         co::report(out, w.file, w.offset, w.rule, w.message,
             "Write the table through its repository, or excuse the writer "
@@ -176,13 +207,13 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
 
 const ct::descriptor entity_writes{
     .name = "entity_writes",
-    .version = 1,
+    .version = 2,
     .summary = "Reports each SQL function and hand-written C++ file that "
         "writes an entity table outside its repository.",
     .reads = ct::inputs::of_types({}),
     .options = {},
     .rules = rules,
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::diagnostic_table>{run}};
+    .run = ct::scan_function{scanned, map, reduce}};
 
 }

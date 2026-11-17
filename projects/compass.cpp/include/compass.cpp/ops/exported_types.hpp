@@ -54,6 +54,7 @@ namespace compass::cpp::ops {
 struct exported_type {
     std::string_view name;
     std::uint32_t offset = 0;
+    std::string_view macro;
 };
 
 /**
@@ -63,6 +64,13 @@ struct exported_type {
  */
 [[nodiscard]] std::vector<exported_type> exported_types(
     std::string_view header, std::string_view macro);
+
+/**
+ * @brief The types @p header declares as exported_types finds them, for
+ * every ORES_..._EXPORT macro at once, each with its macro.
+ */
+[[nodiscard]] std::vector<exported_type> exported_types(
+    std::string_view header);
 
 }
 

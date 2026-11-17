@@ -66,7 +66,7 @@ beside it, it reads one of git's formats and keeps nothing.
 | =compass.org=     | The tables an org-mode document becomes: element tree, objects, headings, keywords, properties, blocks, lists, links and interned names, with byte ranges into the source; and the document type registry.                               |
 | =compass.ingest=  | Readers that fill the =compass.org= tables: the org-mode parser and the type registry builder first, then the C++ and SQL fact extractors.                                                                                               |
 | =compass.model=   | The codegen models of ORE Studio as tables: one value row per object, list or scalar, linked by handles, loaded from the =compass.org= tables of a model document with the values ores.codegen's loader builds.                          |
-| =compass.codec=   | The codec runtime: descriptors, the recorded view of the corpus, file and diagnostic tables, the registry and runner, dependency records, the output sink, diff mode and the result cache; and the codecs that need only the org tables. |
+| =compass.codec=   | The codec runtime: descriptors, the recorded view of the corpus, file and diagnostic tables, the registry and runner, dependency records indexed so one unit loads alone, the output sink, diff mode and the result cache; and the codecs that need only the org tables. |
 | =compass.codegen= | Code generation from the models: a Mustache engine with pystache's semantics, templates compiled once, the render contexts and output units ores.codegen builds, the physical-space graph of the template library, and the =codegen= codec. |
 | =compass.cpp=     | Checks over C++ sources as text: byte scanners that read includes, export macros, enum declarations and test cases as ORE Studio's gate scripts do, and the codecs that run those gates.                                                 |
 | =compass.sql=     | Checks over SQL sources as text: a byte scanner that follows PostgreSQL's lexer as ORE Studio's sql-hygiene script does, and the codec that runs that gate.                                                                              |
@@ -162,7 +162,7 @@ of work is a document with a lifecycle state, read through the same tables.
 * Application layer
 | Component     | Role                                                                                                                                 |
 |---------------+--------------------------------------------------------------------------------------------------------------------------------------|
-| =compass.cli= | The =compass= executable: loads the corpus, runs codecs, writes outputs or prints diffs, collects the store. The one host of the pipeline. |
+| =compass.cli= | The =compass= executable: loads the corpus, runs codecs, writes outputs or prints diffs, collects the store, and checks one edited file for a Claude Code hook. The one host of the pipeline. |
 
 * Tooling layer
 | Component       | Role                                                                                   |
@@ -170,7 +170,7 @@ of work is a document with a lifecycle state, read through the same tables.
 | =compass.bench= | The frozen measurement harness: wall time, bytes and counts per stage of the pipeline. |
 
 =compass.cli= exists and hosts the pipeline behind =compass generate=,
-=diff=, =check= and =gc= (see
+=diff=, =check=, =gc= and =hook= (see
 [[id:45FA67C9-60BC-420D-BB66-8A272CB1106C][compass.cli]]). =compass.bench=
 still keeps its own copy of the pipeline until the
 [[id:0C218273-FF56-4C96-8464-7C8311E3B97F][Hand the pipeline to the CLI]]

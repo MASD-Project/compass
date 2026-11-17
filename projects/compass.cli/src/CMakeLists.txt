@@ -27,6 +27,7 @@ add_library(${lib_target_name}
     config/arguments.cpp
     config/precedence.cpp
     config/repository_file.cpp
+    io/hook_payload.cpp
     io/listing.cpp
     io/report.cpp
     ops/ratchet.cpp)
@@ -47,6 +48,7 @@ target_link_libraries(${lib_target_name}
         compass.sql.lib
         compass.crosscheck.lib
         compass.docs.lib
+        compass.model.lib
         compass.org.lib
         compass.platform.lib
         compass.store.lib

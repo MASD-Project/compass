@@ -82,9 +82,10 @@ outcome check(const scoped_git_repo& repo, std::string_view today,
         "-j", "2", "--today", std::string(today)};
     args.insert(args.end(), extra.begin(), extra.end());
     const std::vector<std::string_view> views(args.begin(), args.end());
+    std::istringstream in;
     std::ostringstream out;
     std::ostringstream err;
-    const auto status = app::run(views, "/", out, err);
+    const auto status = app::run(views, "/", in, out, err);
     return {status, out.str(), err.str()};
 }
 
@@ -203,17 +204,18 @@ TEST_CASE("--today takes a date and applies to check only",
     "[app][exceptions]") {
     scoped_git_repo repo;
     repo.write(".compass.org", configuration);
+    std::istringstream in;
     std::ostringstream out;
     std::ostringstream err;
     const auto checkout = repo.checkout().string();
 
     const std::vector<std::string_view> bad{"check", "-C", checkout,
         "--today", "2026-02-30"};
-    CHECK(app::run(bad, "/", out, err) == 2);
+    CHECK(app::run(bad, "/", in, out, err) == 2);
     CHECK_THAT(err.str(), ContainsSubstring("bad value for --today"));
 
     const std::vector<std::string_view> generate{"generate", "-C", checkout,
         "--today", "2026-11-16"};
-    CHECK(app::run(generate, "/", out, err) == 2);
-    CHECK_THAT(err.str(), ContainsSubstring("--today applies to check only"));
+    CHECK(app::run(generate, "/", in, out, err) == 2);
+    CHECK_THAT(err.str(), ContainsSubstring("--today applies to check and hook only"));
 }

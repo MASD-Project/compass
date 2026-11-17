@@ -21,11 +21,14 @@
 
 #include <algorithm>
 #include <array>
+#include <optional>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.codec/types/fact.hpp"
 #include "compass.cpp/ops/exported_types.hpp"
 #include "compass.cpp/ops/paths.hpp"
 
@@ -41,25 +44,82 @@ constexpr std::array<ct::rule, 1> rules{{
         "compiles."}}};
 
 /**
+ * @brief The fact of a file: its quoted includes, the export macro it
+ * defines when it is a library's export header, and the types it exports
+ * with any macro.
+ */
+struct file_fact {
+    std::vector<std::string_view> includes;
+    std::optional<std::string_view> macro;
+    std::vector<ops::exported_type> types;
+};
+
+file_fact read_fact(std::string_view fact) {
+    ct::fact_reader r(fact);
+    file_fact out;
+    for (auto n = r.number(); n > 0; --n)
+        out.includes.push_back(r.text());
+    if (r.number() != 0)
+        out.macro = r.text();
+    while (!r.done()) {
+        ops::exported_type t;
+        t.macro = r.text();
+        t.name = r.text();
+        t.offset = r.number();
+        out.types.push_back(t);
+    }
+    return out;
+}
+
+bool is_export_header(std::string_view path);
+
+void map(std::string_view path, std::string_view bytes,
+    const ct::option_values&, ct::file_scan& out) {
+    ct::fact_writer w(out.fact);
+    const auto includes = ops::quoted_includes(bytes);
+    w.number(static_cast<std::uint32_t>(includes.size()));
+    for (const auto i : includes)
+        w.text(i);
+    const auto macro = is_export_header(path) ? ops::export_macro(bytes)
+        : std::nullopt;
+    w.number(macro ? 1 : 0);
+    if (macro)
+        w.text(*macro);
+    if (path.ends_with(".hpp")) {
+        for (const auto& t : ops::exported_types(bytes))
+            w.text(t.macro).text(t.name).number(t.offset);
+    }
+}
+
+/**
  * @brief The files the #include "..." lines of each file reach, resolved
- * once per file whichever library's walk reaches it.
+ * once per file whichever library's walk reaches it, from the facts of the
+ * files scanned and by reading any other.
  */
 class include_graph final {
 public:
     include_graph(const ct::corpus_view& v, const ops::file_set& files,
-        std::vector<std::string> roots)
-        : view_(v), files_(files), roots_(std::move(roots)) {}
+        std::vector<std::string> roots,
+        const std::unordered_map<std::string_view, file_fact>& facts)
+        : view_(v), files_(files), roots_(std::move(roots)), facts_(facts) {}
 
     const std::vector<std::string>& targets(const std::string& path) {
         if (const auto it = targets_.find(path); it != targets_.end())
             return it->second;
         auto& out = targets_[path];
-        const auto text = view_.read_file(path).value_or("");
+        std::string text;
+        std::vector<std::string_view> names;
+        if (const auto it = facts_.find(path); it != facts_.end()) {
+            names = it->second.includes;
+        } else {
+            text = view_.read_file(path).value_or("");
+            names = ops::quoted_includes(text);
+        }
         const auto dir = ops::parent_of(path);
-        for (const auto name : ops::quoted_includes(text)) {
+        for (const auto name : names) {
             auto found = files_.find(dir, name);
-            for (std::size_t r = 0; !found && r < roots_.size(); ++r)
-                found = files_.find(roots_[r], name);
+            if (!found)
+                found = under_roots(name);
             if (found)
                 out.push_back(std::move(*found));
         }
@@ -67,9 +127,25 @@ public:
     }
 
 private:
+    /**
+     * @brief The file @p name names under the first include root that has
+     * it, looked up once per name.
+     */
+    const std::optional<std::string>& under_roots(std::string_view name) {
+        const std::string key(name);
+        if (const auto it = rooted_.find(key); it != rooted_.end())
+            return it->second;
+        std::optional<std::string> found;
+        for (std::size_t r = 0; !found && r < roots_.size(); ++r)
+            found = files_.find(roots_[r], name);
+        return rooted_.emplace(key, std::move(found)).first->second;
+    }
+
     const ct::corpus_view& view_;
     const ops::file_set& files_;
     std::vector<std::string> roots_;
+    const std::unordered_map<std::string_view, file_fact>& facts_;
+    std::unordered_map<std::string, std::optional<std::string>> rooted_;
     std::unordered_map<std::string, std::vector<std::string>> targets_;
 };
 
@@ -109,10 +185,26 @@ std::vector<std::string_view> under(const std::vector<std::string_view>& all,
     return out;
 }
 
-void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
+constexpr std::array<std::string_view, 9> scanned_suffixes{".cpp", ".hpp",
+    ".h", ".ipp", ".inc", ".cc", ".cxx", ".hxx", ".tpp"};
+
+std::vector<std::string_view> scanned(const ct::corpus_view& v) {
+    std::vector<std::string_view> out;
+    for (const auto suffix : scanned_suffixes) {
+        const auto paths = v.list_files("projects/", suffix);
+        out.insert(out.end(), paths.begin(), paths.end());
+    }
+    return out;
+}
+
+void reduce(std::span<const ct::scanned_file> scanned_files,
+    const ct::corpus_view& v, ct::diagnostic_table& out) {
+    std::unordered_map<std::string_view, file_fact> facts;
+    for (const auto& f : scanned_files)
+        facts.emplace(f.path, read_fact(f.fact));
     const auto all = v.list_files("");
     const ops::file_set files(all);
-    include_graph graph(v, files, include_roots(all));
+    include_graph graph(v, files, include_roots(all), facts);
 
     std::vector<std::string_view> export_headers;
     for (const auto p : under(all, "projects/", "/export.hpp")) {
@@ -121,9 +213,13 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
     }
     std::ranges::sort(export_headers, ops::component_less);
 
+    const file_fact none;
+    const auto fact_of = [&](std::string_view path) -> const file_fact& {
+        const auto it = facts.find(path);
+        return it == facts.end() ? none : it->second;
+    };
     for (const auto export_header : export_headers) {
-        const auto text = v.read_file(export_header).value_or("");
-        const auto macro = ops::export_macro(text);
+        const auto macro = fact_of(export_header).macro;
         if (!macro)
             continue;
         const auto library = ops::parent_of(ops::parent_of(
@@ -132,26 +228,41 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
         if (!files.is_dir(sources))
             continue;
 
+        auto headers = under(all, std::string(library) + "/include/",
+            ".hpp");
+        std::ranges::sort(headers, ops::component_less);
+        using exports = std::vector<ops::exported_type>;
+        std::vector<std::pair<std::string_view, exports>> exporting;
+        std::unordered_set<std::string> pending;
+        for (const auto header : headers) {
+            auto types = fact_of(header).types;
+            std::erase_if(types, [&](const ops::exported_type& t) {
+                return t.macro != *macro;
+            });
+            if (types.empty())
+                continue;
+            exporting.emplace_back(header, std::move(types));
+            pending.emplace(header);
+        }
+
+        // The walk stops once every exporting header is reached, as the
+        // rest of it cannot change a finding.
         std::unordered_set<std::string> reached;
         std::vector<std::string> queue;
         for (const auto p : under(all, sources + "/", ".cpp"))
             queue.emplace_back(p);
-        while (!queue.empty()) {
+        while (!queue.empty() && !pending.empty()) {
             auto current = std::move(queue.back());
             queue.pop_back();
             if (!reached.insert(current).second)
                 continue;
+            pending.erase(current);
             for (const auto& target : graph.targets(current))
                 queue.push_back(target);
         }
 
-        auto headers = under(all, std::string(library) + "/include/",
-            ".hpp");
-        std::ranges::sort(headers, ops::component_less);
-        for (const auto header : headers) {
-            const auto bytes = v.read_file(header).value_or("");
-            const auto types = ops::exported_types(bytes, *macro);
-            if (types.empty() || reached.contains(std::string(header)))
+        for (const auto& [header, types] : exporting) {
+            if (!pending.contains(std::string(header)))
                 continue;
             std::string names;
             for (const auto& t : types)
@@ -176,13 +287,13 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
 
 const ct::descriptor exported_types{
     .name = "exported_types",
-    .version = 1,
+    .version = 2,
     .summary = "Reports each header whose library exports a type that no "
         "translation unit of the library compiles.",
     .reads = ct::inputs::of_types({}),
     .options = {},
     .rules = rules,
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::diagnostic_table>{run}};
+    .run = ct::scan_function{scanned, map, reduce}};
 
 }

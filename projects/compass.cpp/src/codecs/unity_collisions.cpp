@@ -23,11 +23,13 @@
 #include <array>
 #include <map>
 #include <set>
+#include <span>
 #include <string>
 #include <tuple>
 #include <unordered_map>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.codec/types/fact.hpp"
 #include "compass.cpp/ops/paths.hpp"
 #include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
@@ -172,13 +174,37 @@ bool is_scanned(std::string_view path) {
     });
 }
 
-void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
+std::vector<std::string_view> scanned(const ct::corpus_view& v) {
     std::vector<std::string_view> sources;
     for (const auto p : v.list_files("projects/ores.", ".cpp")) {
         if (is_scanned(p))
             sources.push_back(p);
     }
     std::ranges::sort(sources, ops::component_less);
+    return sources;
+}
+
+/**
+ * @brief The fact of a source: 1 when it is UTF-8, else 0 and nothing
+ * more, then each name of internal linkage, its namespace and the offset
+ * of the line it is on.
+ */
+void map(std::string_view, std::string_view bytes, const ct::option_values&,
+    ct::file_scan& out) {
+    ct::fact_writer fact(out.fact);
+    if (!pt::is_utf8(bytes)) {
+        fact.number(0);
+        return;
+    }
+    fact.number(1);
+    for (const auto& [key, line] : internal_names(
+             pt::universal_newlines(bytes)))
+        fact.text(key.first).text(key.second)
+            .number(ops::offset_of_line(bytes, line));
+}
+
+void reduce(std::span<const ct::scanned_file> sources,
+    const ct::corpus_view& v, ct::diagnostic_table& out) {
 
     std::unordered_map<std::string, std::string> target_of_dir;
     const auto target_dir = [&](std::string_view source) {
@@ -197,19 +223,21 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
     using group_key = std::tuple<std::string, std::string, std::string>;
     struct site {
         std::string_view file;
-        std::uint32_t line;
+        std::uint32_t offset;
     };
     std::map<group_key, std::vector<site>> groups;
-    std::unordered_map<std::string_view, std::string> texts;
-    for (const auto p : sources) {
-        const auto bytes = v.read_file(p).value_or("");
-        if (!pt::is_utf8(bytes))
+    for (const auto& [p, f] : sources) {
+        ct::fact_reader fact(f);
+        if (fact.number() == 0)
             continue;
-        const auto text = pt::universal_newlines(bytes);
         const auto target = target_dir(p);
-        for (const auto& [key, line] : internal_names(text))
-            groups[{target, key.first, key.second}].push_back({p, line});
-        texts.emplace(p, bytes);
+        while (!fact.done()) {
+            std::string ns(fact.text());
+            std::string name(fact.text());
+            const auto offset = fact.number();
+            groups[{target, std::move(ns), std::move(name)}].push_back(
+                {p, offset});
+        }
     }
 
     const auto recorded_text = v.read_file(exclusions);
@@ -239,8 +267,7 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
             files += s.file;
         }
         const auto& first = kept.front();
-        ops::report(out, first.file,
-            ops::offset_of_line(texts.at(first.file), first.line), 0,
+        ops::report(out, first.file, first.offset, 0,
             (ns.empty() ? std::string("(global)") : ns) + "::" + name +
                 " has internal linkage in " + files + ", which a unity "
                 "build of " + target + " merges",
@@ -263,13 +290,13 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
 
 const ct::descriptor unity_collisions{
     .name = "unity_collisions",
-    .version = 1,
+    .version = 2,
     .summary = "Reports file-local names that two sources of one target "
         "define, which a unity build merges.",
     .reads = ct::inputs::of_types({}),
     .options = {},
     .rules = rules,
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::diagnostic_table>{run}};
+    .run = ct::scan_function{scanned, map, reduce}};
 
 }

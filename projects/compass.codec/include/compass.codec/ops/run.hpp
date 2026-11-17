@@ -20,6 +20,7 @@
 #ifndef COMPASS_CODEC_OPS_RUN_HPP
 #define COMPASS_CODEC_OPS_RUN_HPP
 
+#include <functional>
 #include <string_view>
 #include "compass.codec/types/action_manifest.hpp"
 #include "compass.codec/types/corpus.hpp"
@@ -38,6 +39,13 @@ namespace compass::codec::ops {
 [[nodiscard]] compass::org::types::type_id document_type(
     std::string_view source, const compass::org::types::tables_view& tables,
     const compass::org::types::type_registry& types) noexcept;
+
+/**
+ * @brief Whether a run takes the unit of a codec for a document, or, with
+ * an empty document, its corpus unit.
+ */
+using unit_filter = std::function<bool(types::codec_id codec,
+    std::string_view document)>;
 
 /**
  * @brief Runs every enabled codec of @p r over @p c on up to @p threads
@@ -83,7 +91,7 @@ namespace compass::codec::ops {
 [[nodiscard]] types::run_result run(const types::registry& r,
     const types::corpus& c, const compass::org::types::type_registry& types,
     unsigned threads, const types::dependency_record& previous = {},
-    const types::action_source& cache = {});
+    const types::action_source& cache = {}, const unit_filter& only = {});
 
 }
 

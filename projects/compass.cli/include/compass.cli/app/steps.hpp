@@ -23,13 +23,17 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
+#include "compass.cli/io/listing.hpp"
 #include "compass.codec/io/action_cache.hpp"
 #include "compass.codec/io/dependency_file.hpp"
 #include "compass.codec/io/output_sink.hpp"
+#include "compass.codec/ops/run.hpp"
 #include "compass.codec/types/checkout_files.hpp"
 #include "compass.codec/types/corpus.hpp"
 #include "compass.codec/types/output_set.hpp"
@@ -90,6 +94,22 @@ struct commit_source {
  * checkout mapped in sources, or a blob of the commit held in blobs. Both
  * live as long as the files, since the corpus points into them.
  */
+/**
+ * @brief The content IDs of the listed files of a checkout, each resolved
+ * at most once, on whichever thread asks first, as many codecs ask for the
+ * ID of one file and each answer is an lstat or a hash. paths is in byte
+ * order; ids holds a row's ID once it is resolved, or nothing when the
+ * file could not be read.
+ */
+struct listed_ids {
+    explicit listed_ids(std::vector<std::string_view> p)
+        : paths(std::move(p)), once(paths.size()), ids(paths.size()) {}
+
+    std::vector<std::string_view> paths;
+    std::vector<std::once_flag> once;
+    std::vector<std::optional<store::io::resolved_id>> ids;
+};
+
 struct corpus_files {
     std::filesystem::path checkout;
     std::filesystem::path objects;
@@ -104,6 +124,7 @@ struct corpus_files {
     std::vector<std::vector<std::byte>> encoded;
     std::vector<org::types::tables_view> tables;
     std::vector<std::string> errors;
+    std::shared_ptr<listed_ids> listed;
 };
 
 /**
@@ -128,6 +149,12 @@ struct listing {
 void list(listing& l, const std::filesystem::path& checkout);
 
 /**
+ * @brief Lists into @p l the files and documents of @p r, as the check
+ * that wrote the listing record listed them, without starting git.
+ */
+void list(listing& l, io::recorded_listing r);
+
+/**
  * @brief Lists into @p l every path of the commit @p c and, as documents,
  * its regular files whose name ends in .org, without the repository file.
  */
@@ -137,11 +164,12 @@ void list(listing& l, const commit_source& c);
  * @brief The files of @p l as the codecs read them: for a checkout,
  * content IDs from the resolver of @p f and bytes from disk; for a
  * commit, the IDs its trees record and the bytes of its blobs, read only
- * when asked for.
+ * when asked for. For a checkout, the IDs are resolved once each and
+ * kept in @p f's listed.
  * @pre resolve has run on @p f. @p f and @p l outlive the result.
  */
 [[nodiscard]] codec::types::checkout_files checkout_files_of(
-    const corpus_files& f, const listing& l);
+    corpus_files& f, const listing& l);
 
 /**
  * @brief The type registry the contract pages document_type_*.org under
@@ -209,13 +237,14 @@ void load(corpus_files& f, unsigned threads);
 /**
  * @brief Runs @p codecs over @p corpus on up to @p threads threads,
  * starting from @p previous and the result cache of the repository of
- * @p checkout. Writes nothing.
+ * @p checkout, only the units @p only takes when given. Writes nothing.
  */
 [[nodiscard]] codec::types::run_result run_codecs(
     const codec::types::registry& codecs, const codec::types::corpus& corpus,
     const org::types::type_registry& types, unsigned threads,
     const codec::types::dependency_record& previous,
-    const std::filesystem::path& checkout);
+    const std::filesystem::path& checkout,
+    const codec::ops::unit_filter& only = {});
 
 /**
  * @brief Writes the object of every row that loaded by parsing to the
@@ -226,8 +255,9 @@ void load(corpus_files& f, unsigned threads);
 std::uint64_t store_objects(const corpus_files& f);
 
 /**
- * @brief Replaces the worktree index with the rows that loaded, and
- * returns how many entries it holds.
+ * @brief Replaces the worktree index with the rows that loaded and the
+ * listed files whose IDs were resolved without git's index, and returns
+ * how many entries it holds.
  *
  * @throws std::filesystem::filesystem_error when it cannot be written.
  */

@@ -21,6 +21,7 @@
 
 #include <array>
 #include <string>
+#include <vector>
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.sql/ops/hygiene.hpp"
 
@@ -75,7 +76,8 @@ void check(std::string_view file, std::string_view text,
             "make the statement idempotent");
 }
 
-void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
+std::vector<std::string_view> scanned(const ct::corpus_view& v) {
+    std::vector<std::string_view> out;
     const auto roots = v.option("roots");
     for (std::size_t start = 0; start <= roots.size();) {
         auto end = roots.find(',', start);
@@ -87,22 +89,28 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
             continue;
         if (!root.ends_with('/'))
             root.push_back('/');
-        for (const auto path : v.list_files(root, ".sql"))
-            check(path, v.read_file(path).value_or(""), out);
+        const auto paths = v.list_files(root, ".sql");
+        out.insert(out.end(), paths.begin(), paths.end());
     }
+    return out;
+}
+
+void map(std::string_view path, std::string_view bytes,
+    const ct::option_values&, ct::file_scan& out) {
+    check(path, bytes, out.findings);
 }
 
 }
 
 const ct::descriptor sql_hygiene{
     .name = "sql_hygiene",
-    .version = 1,
+    .version = 2,
     .summary = "Reports unterminated comments, duplicate indexes, comments "
         "that split string literals and DDL that cannot run twice.",
     .reads = ct::inputs::of_types({}),
     .options = options,
     .rules = rules,
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::diagnostic_table>{run}};
+    .run = ct::scan_function{scanned, map, nullptr}};
 
 }

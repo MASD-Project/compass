@@ -69,13 +69,16 @@ struct codec_key {
  * a document codec, in visible-document order. visible is the unit's
  * document in its codec's view. previous is the unit's row in the previous
  * record when that row stands in for the call, or no_unit. manifests holds
- * the unit's manifest key.
+ * the unit's manifest key. seeds holds, for a scan, the key of the result
+ * the previous record names for it under the same version and options,
+ * whose scan table the call starts from, and nothing otherwise.
  */
 struct unit_table {
     std::vector<types::codec_id> codecs;
     std::vector<std::uint32_t> visible;
     std::vector<std::uint32_t> previous;
     std::vector<blob_id> manifests;
+    std::vector<std::optional<blob_id>> seeds;
 
     [[nodiscard]] std::size_t size() const noexcept { return codecs.size(); }
 };
@@ -112,6 +115,69 @@ Output& output(piece& p) noexcept {
 }
 
 /**
+ * @brief What a scan reads besides its view: the corpus and its index,
+ * for the content IDs of files and the findings of its scan table, and
+ * the result cache its seed comes from.
+ */
+struct scan_context {
+    const types::corpus& c;
+    const types::corpus_index& index;
+    const types::action_source& cache;
+};
+
+/**
+ * @brief Calls the scan @p f through @p view, mapping again only the files
+ * whose content ID differs from the one the scan table in the result
+ * object @p seed holds for them, and returns the scan table of the call.
+ * A file taken from the table is a file input of @p log with its content
+ * ID, as reading it would have been.
+ */
+std::string run_scan(const types::scan_function& f,
+    const types::corpus_view& view, const scan_context& s,
+    std::string_view seed, types::read_log& log,
+    types::diagnostic_table& out) {
+    std::unordered_map<std::string_view, scan_entry> before;
+    if (const auto result = decode_result(seed)) {
+        if (auto entries = decode_scan(result->scan))
+            before = std::move(*entries);
+    }
+    const auto paths = f.files(view);
+    std::vector<std::string> facts(paths.size());
+    std::vector<types::scanned_file> files;
+    files.reserve(paths.size());
+    std::string table;
+    for (std::size_t i = 0; i < paths.size(); ++i) {
+        const auto path = paths[i];
+        const auto id = s.c.files != nullptr ? s.c.files->content_of(path)
+            : std::nullopt;
+        const auto it = id ? before.find(path) : before.end();
+        if (it != before.end() && it->second.content == *id &&
+            decode_diagnostics(it->second.findings, s.index, nullptr)) {
+            log.add(types::input_kind::file, path, id);
+            (void)decode_diagnostics(it->second.findings, s.index, &out);
+            put_scan_entry(table, path, it->second);
+            files.push_back({path, it->second.fact});
+            continue;
+        }
+        const auto bytes = view.read_file(path);
+        types::file_scan mapped;
+        f.map(path, bytes ? std::string_view(*bytes) : std::string_view{},
+            view.options(), mapped);
+        facts[i] = std::move(mapped.fact);
+        const auto findings = encode_diagnostics(s.c, mapped.findings, 0,
+            static_cast<std::uint32_t>(mapped.findings.size()));
+        out.append(mapped.findings);
+        if (bytes)
+            put_scan_entry(table, path, {store::ops::blob_id_of(*bytes),
+                facts[i], findings});
+        files.push_back({path, facts[i]});
+    }
+    if (f.reduce != nullptr)
+        f.reduce(files, view, out);
+    return table;
+}
+
+/**
  * @brief Calls the units of one piece, each with a log of its own.
  */
 struct call {
@@ -122,6 +188,8 @@ struct call {
     const unit_table& units;
     std::vector<types::read_log>& logs;
     std::vector<call_rows>& rows;
+    const scan_context& scanning;
+    std::vector<std::string>& scans;
 
     template <typename Output>
     void around(std::uint32_t unit, auto&& body) {
@@ -151,6 +219,22 @@ struct call {
         const auto unit = called[p.begin];
         logs[unit].corpus = true;
         around<Output>(unit, [&](Output& out) { f(view, out); });
+    }
+
+    void operator()(const types::scan_function& f) {
+        const auto unit = called[p.begin];
+        logs[unit].corpus = true;
+        std::string seed;
+        if (units.seeds[unit] && scanning.cache) {
+            if (auto body = scanning.cache(store::types::action_kind::result,
+                    *units.seeds[unit]))
+                seed = std::move(*body);
+        }
+        around<types::diagnostic_table>(unit,
+            [&](types::diagnostic_table& out) {
+                scans[unit] = run_scan(f, view, scanning, seed,
+                    logs[unit], out);
+            });
     }
 };
 
@@ -325,14 +409,30 @@ void open_unit(types::dependency_record& to, std::string_view codec,
         {static_cast<std::uint32_t>(to.files.size())});
 }
 
+/**
+ * @brief Adds rows [begin, end) of @p files to @p to with the blob ID of
+ * each, hashed on up to @p threads threads, as codegen's unit alone holds
+ * about 190 MB of files.
+ */
 void add_record_files(types::dependency_record& to,
-    const types::file_table& files, std::uint32_t begin, std::uint32_t end) {
+    const types::file_table& files, std::uint32_t begin, std::uint32_t end,
+    unsigned threads) {
+    std::vector<blob_id> ids(end - begin);
+    const auto hash = [&](std::size_t i) {
+        ids[i] = compass::store::ops::blob_id_of(
+            files.contents[types::file_id{static_cast<std::uint32_t>(
+                begin + i)}]);
+    };
+    if (ids.size() < 256) {
+        for (std::size_t i = 0; i < ids.size(); ++i)
+            hash(i);
+    } else {
+        parallel_for(ids.size(), threads, hash);
+    }
     for (auto f = begin; f < end; ++f) {
         const types::file_id file{f};
-        const auto content = files.contents[file];
-        to.files.add(files.paths[file], content);
-        to.file_hashes.values.push_back(
-            compass::store::ops::blob_id_of(content));
+        to.files.add(files.paths[file], files.contents[file]);
+        to.file_hashes.values.push_back(ids[f - begin]);
     }
 }
 
@@ -376,7 +476,7 @@ void copy_unit(types::dependency_record& to,
 void add_cached_unit(types::dependency_record& to,
     const types::descriptor& d, const codec_key& key,
     std::string_view document, const cache_hit& hit,
-    std::uint32_t findings) {
+    std::uint32_t findings, unsigned threads) {
     open_unit(to, d.name, d.version, key.configuration, document);
     const auto& m = hit.manifest;
     const auto end = end_of(m.input_firsts, hit.set, m.input_count());
@@ -386,7 +486,7 @@ void add_cached_unit(types::dependency_record& to,
             m.input_values[in]);
     }
     add_record_files(to, hit.result.files, 0,
-        static_cast<std::uint32_t>(hit.result.files.size()));
+        static_cast<std::uint32_t>(hit.result.files.size()), threads);
     add_record_findings(to, hit.result.diagnostics, findings);
     to.manifests.values.push_back(hit.manifest_key);
     to.results.values.push_back(m.results.values[hit.set]);
@@ -395,7 +495,8 @@ void add_cached_unit(types::dependency_record& to,
 void add_called_unit(types::dependency_record& to, const types::corpus& c,
     const types::descriptor& d, const codec_key& key, std::string_view
     document, const blob_id& manifest, const types::read_log& log,
-    const piece& p, const call_rows& rows, const blob_id& registry) {
+    const piece& p, const call_rows& rows, const blob_id& registry,
+    unsigned threads) {
     const types::record_unit_id unit{static_cast<std::uint32_t>(to.size())};
     open_unit(to, d.name, d.version, key.configuration, document);
     for (std::size_t i = 0; i < log.size(); ++i)
@@ -405,7 +506,8 @@ void add_called_unit(types::dependency_record& to, const types::corpus& c,
         add_input(to, types::input_kind::type_set, {}, 1, key.type_set);
     if (log.registry)
         add_input(to, types::input_kind::type_registry, {}, 1, registry);
-    add_record_files(to, p.files, rows.files_begin, rows.files_end);
+    add_record_files(to, p.files, rows.files_begin, rows.files_end,
+        threads);
     add_record_findings(to, encode_diagnostics(c, p.diagnostics,
         rows.diagnostics_begin, rows.diagnostics_end),
         rows.diagnostics_end - rows.diagnostics_begin);
@@ -432,7 +534,7 @@ ot::type_id document_type(std::string_view source,
 types::run_result run(const types::registry& r, const types::corpus& c,
     const ot::type_registry& types, unsigned threads,
     const types::dependency_record& previous,
-    const types::action_source& cache) {
+    const types::action_source& cache, const unit_filter& only) {
     const auto start = std::chrono::steady_clock::now();
     threads = std::max(threads, 1u);
 
@@ -473,13 +575,21 @@ types::run_result run(const types::registry& r, const types::corpus& c,
         if (r.enabled[i] == 0)
             continue;
         result.documents[i] = rows[i].size();
+        const auto count = corpus_unit ? 1 : rows[i].size();
+        std::vector<std::uint32_t> taken;
+        for (std::uint32_t v = 0; v < count; ++v) {
+            if (!only || only(codec, corpus_unit ? std::string_view{}
+                    : c.paths[rows[i][v].value]))
+                taken.push_back(v);
+        }
+        if (taken.empty())
+            continue;
         keys[i].configuration = configuration_hash(r, codec);
         if (corpus_unit)
             keys[i].type_set = type_set_hash(c, rows[i]);
         const auto now = answers_of(codec);
 
-        const auto count = corpus_unit ? 1 : rows[i].size();
-        for (std::size_t v = 0; v < count; ++v) {
+        for (const auto v : taken) {
             const auto document = corpus_unit ? std::string_view{}
                 : c.paths[rows[i][v].value];
             const auto subject = corpus_unit ? blob_id{}
@@ -490,10 +600,18 @@ types::run_result run(const types::registry& r, const types::corpus& c,
                 reusable(previous, {it->second}, d, now))
                 previous_unit = it->second;
             units.codecs.push_back(codec);
-            units.visible.push_back(static_cast<std::uint32_t>(v));
+            units.visible.push_back(v);
             units.previous.push_back(previous_unit);
             units.manifests.push_back(manifest_key(d.name, d.version,
                 keys[i].configuration, document, subject));
+            std::optional<blob_id> seed;
+            if (std::holds_alternative<types::scan_function>(d.run) &&
+                it != recorded.end() &&
+                previous.versions[{it->second}] == d.version &&
+                previous.configurations[{it->second}] ==
+                    keys[i].configuration)
+                seed = previous.results[{it->second}];
+            units.seeds.push_back(seed);
         }
     }
 
@@ -535,12 +653,14 @@ types::run_result run(const types::registry& r, const types::corpus& c,
 
     std::vector<types::read_log> logs(units.size());
     std::vector<call_rows> call_outputs(units.size());
+    std::vector<std::string> scans(units.size());
+    const scan_context scanning{c, index, cache};
     parallel_for(pieces.size(), threads, [&](std::size_t i) {
         auto& p = pieces[i];
         const auto began = std::chrono::steady_clock::now();
         std::visit(call{p, static_cast<std::uint32_t>(i),
-            views[p.codec.value], called, units, logs, call_outputs},
-            r.codecs[p.codec.value].run);
+            views[p.codec.value], called, units, logs, call_outputs,
+            scanning, scans}, r.codecs[p.codec.value].run);
         p.ms = since(began);
     });
 
@@ -574,7 +694,7 @@ types::run_result run(const types::registry& r, const types::corpus& c,
                 &diagnostics);
             add_cached_unit(result.record, d, keys[codec.value], document,
                 *hit, static_cast<std::uint32_t>(diagnostics.size() -
-                    before));
+                    before), threads);
             ++result.cached[codec.value];
             continue;
         }
@@ -585,8 +705,9 @@ types::run_result run(const types::registry& r, const types::corpus& c,
             at.diagnostics_end);
         result.fresh.push_back(
             {static_cast<std::uint32_t>(result.record.size())});
+        result.scans.push_back(std::move(scans[u]));
         add_called_unit(result.record, c, d, keys[codec.value], document,
-            units.manifests[u], logs[u], p, at, registry);
+            units.manifests[u], logs[u], p, at, registry, threads);
         ++result.ran[codec.value];
     }
     const auto skipped = std::ranges::fold_left(result.skipped,

@@ -20,6 +20,7 @@
 #include "compass.cli/io/report.hpp"
 
 #include <format>
+#include <sstream>
 #include <string>
 #include <vector>
 #include "compass.store/ops/blob_hash.hpp"
@@ -56,6 +57,29 @@ void write_findings(std::ostream& out,
             f.column, f.rule, f.message, f.fix);
 }
 
+/**
+ * @brief @p text as a JSON string, quotes included.
+ */
+std::string json_string(std::string_view text) {
+    std::string out = "\"";
+    for (const char c : text) {
+        switch (c) {
+        case '"': out += "\\\""; break;
+        case '\\': out += "\\\\"; break;
+        case '\n': out += "\\n"; break;
+        case '\t': out += "\\t"; break;
+        default:
+            if (static_cast<unsigned char>(c) < 0x20)
+                out += std::format("\\u{:04x}",
+                    static_cast<unsigned>(static_cast<unsigned char>(c)));
+            else
+                out.push_back(c);
+        }
+    }
+    out.push_back('"');
+    return out;
+}
+
 std::string source_of(const types::origin& o,
     const std::filesystem::path& file) {
     switch (o.kind) {
@@ -74,6 +98,27 @@ std::string shown(const std::filesystem::path& p,
         ? p.string() : relative.string();
 }
 
+}
+
+void write_hook(std::ostream& out, std::ostream& err,
+    const types::hook_result& r) {
+    write_problems(err, r.run);
+    if (!r.note.empty()) {
+        out << std::format("{{\"hookSpecificOutput\": {{\"hookEventName\": "
+            "\"PostToolUse\", \"additionalContext\": {}}}}}\n",
+            json_string("compass hook: " + r.note));
+        return;
+    }
+    if (r.findings.empty())
+        return;
+    std::ostringstream lines;
+    write_findings(lines, r.findings);
+    const auto count = r.findings.size();
+    const auto reason = std::format("compass found {} finding{} on or "
+        "caused by the edit to {}{}:\n{}", count, count == 1 ? "" : "s",
+        r.path, excused_note(r.excused), lines.str());
+    out << std::format("{{\"decision\": \"block\", \"reason\": {}}}\n",
+        json_string(reason));
 }
 
 void write_problems(std::ostream& err, const types::run_summary& s) {
@@ -160,6 +205,8 @@ void write_timings(std::ostream& err, const types::run_summary& s) {
                 f->hits, f->formatted, f->unformatted, f->runs,
                 f->format_ms);
         }
+        if (s.ran[c] != 0)
+            err << std::format("; {:.1f} ms running", s.codec_ms[c]);
         err << "\n";
     }
 }

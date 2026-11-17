@@ -71,3 +71,20 @@ TEST_CASE("a C++ file is excused only as the repository of every table it "
         places{{"projects/ores.iam/src/repository/account_repository.cpp", 1},
             {"projects/ores.iam/src/service/role_service.cpp", 2}});
 }
+
+TEST_CASE("a function two SQL files define is reported once, on the later "
+    "file, before and after an edit to the earlier one",
+    "[codecs][entity_writes]") {
+    const auto body = std::string("create function ores_x_fn() as $$\n"
+        "  update ores_x_tbl set a = 1;\n$$;\n");
+    const files before{{"projects/ores.sql/create/a/a.sql", body},
+        {"projects/ores.sql/create/b/b.sql", "\n" + body}};
+    auto after = before;
+    after["projects/ores.sql/create/a/a.sql"] = "-- edited\n" + body;
+
+    CHECK(tests::places(tests::run_after_edit(codecs::entity_writes, before,
+        after).findings) == places{{"projects/ores.sql/create/b/b.sql", 2}});
+    after.erase("projects/ores.sql/create/b/b.sql");
+    CHECK(tests::places(tests::run_after_edit(codecs::entity_writes, before,
+        after).findings) == places{{"projects/ores.sql/create/a/a.sql", 2}});
+}

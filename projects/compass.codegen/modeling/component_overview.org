@@ -101,7 +101,9 @@ the codec, set in the checkout's =.compass.org=.
   listing of =projects/*.org= and of the templates, and each domain header
   whose existence an entity's includes depend on. It does not enumerate
   the corpus, so an edit to a document it did not read, or to a source
-  file, does not run it again. =codecs::settings_of= parses the options and
+  file, does not run it again. It plans every model in one pass, then
+  renders the planned outputs on every core and adds them in plan order;
+  an edit to any model or template it reads runs the whole unit again. =codecs::settings_of= parses the options and
   =codecs::formatters_of= gives ores.codegen's formatter table:
   clang-format twice over =.cpp=, =.hpp=, =.h=, =.cxx= and =.cc= with
   =-i --style=file:{style}=, and prettier once over =.ts= and =.tsx= with

@@ -264,7 +264,7 @@ std::optional<types::action_manifest> decode_manifest(std::string_view body) {
 }
 
 std::string encode_result(const types::dependency_record& record,
-    types::record_unit_id u) {
+    types::record_unit_id u, std::string_view scan) {
     std::string out;
     put(out, action_format_version);
     const auto begin = record.file_firsts[u].value;
@@ -277,6 +277,7 @@ std::string encode_result(const types::dependency_record& record,
         put_text(out, record.files.contents[file]);
     }
     put_text(out, record.diagnostics[u]);
+    put_text(out, scan);
     return out;
 }
 
@@ -291,9 +292,35 @@ std::optional<action_result> decode_result(std::string_view body) {
         result.files.add(path, r.text());
     }
     result.diagnostics = r.text();
+    result.scan = r.text();
     if (!r.done())
         return std::nullopt;
     return result;
+}
+
+void put_scan_entry(std::string& out, std::string_view path,
+    const scan_entry& e) {
+    put_text(out, path);
+    put(out, e.content);
+    put_text(out, e.fact);
+    put_text(out, e.findings);
+}
+
+std::optional<std::unordered_map<std::string_view, scan_entry>>
+decode_scan(std::string_view bytes) {
+    reader r(bytes);
+    std::unordered_map<std::string_view, scan_entry> out;
+    while (r.ok() && !r.done()) {
+        const auto path = r.text();
+        scan_entry e;
+        e.content = r.id();
+        e.fact = r.text();
+        e.findings = r.text();
+        out.insert_or_assign(path, e);
+    }
+    if (!r.done())
+        return std::nullopt;
+    return out;
 }
 
 }

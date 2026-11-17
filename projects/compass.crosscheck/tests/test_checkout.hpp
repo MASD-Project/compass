@@ -21,6 +21,10 @@
 #define COMPASS_CROSSCHECK_TESTS_TEST_CHECKOUT_HPP
 
 #include <array>
+#include <filesystem>
+#include <unistd.h>
+#include <catch2/catch_test_macros.hpp>
+#include "compass.codec/io/action_cache.hpp"
 #include <cstdint>
 #include <map>
 #include <string>
@@ -57,11 +61,13 @@ using options = std::vector<std::pair<std::string, std::string>>;
 
 /**
  * @brief Runs @p codec, enabled with @p settings, over a checkout of
- * @p all and no documents, from @p previous.
+ * @p all and no documents, from @p previous and, when @p cache is not
+ * empty, the result cache under it, where it then stores what ran.
  */
 inline outcome run(const compass::codec::types::descriptor& codec,
     const files& all, const options& settings_of = {},
-    const compass::codec::types::dependency_record& previous = {}) {
+    const compass::codec::types::dependency_record& previous = {},
+    const std::filesystem::path& cache = {}) {
     namespace ct = compass::codec::types;
     ct::checkout_files checkout;
     for (const auto& [path, bytes] : all)
@@ -82,7 +88,12 @@ inline outcome run(const compass::codec::types::descriptor& codec,
     const std::array<ct::descriptor, 1> codecs{codec};
     const auto registry = compass::codec::ops::make_registry(codecs, types,
         settings);
-    auto r = compass::codec::ops::run(registry, corpus, types, 1, previous);
+    auto r = compass::codec::ops::run(registry, corpus, types, 1, previous,
+        cache.empty() ? ct::action_source{}
+                      : compass::codec::io::action_source_of(cache));
+    if (!cache.empty())
+        (void)compass::codec::io::store_actions(cache, r.record, r.fresh, 1,
+            r.scans);
     outcome out;
     const auto& t = r.diagnostics[0];
     for (std::uint32_t i = 0; i < t.size(); ++i) {
@@ -95,6 +106,25 @@ inline outcome run(const compass::codec::types::descriptor& codec,
     out.ran = r.ran[0];
     out.record = std::move(r.record);
     return out;
+}
+
+/**
+ * @brief Runs @p codec over @p before, then over @p after from that run's
+ * record and result cache, as a check after an edit does, and checks that
+ * it finds what a run over @p after alone finds. Returns the second run.
+ */
+inline outcome run_after_edit(const compass::codec::types::descriptor& codec,
+    const files& before, const files& after) {
+    static int counter = 0;
+    const auto cache = std::filesystem::temp_directory_path() /
+        ("compass.tests.edit." + std::to_string(::getpid()) + "." +
+            std::to_string(counter++));
+    std::filesystem::create_directories(cache);
+    const auto first = run(codec, before, {}, {}, cache);
+    auto second = run(codec, after, {}, first.record, cache);
+    std::filesystem::remove_all(cache);
+    CHECK(second.findings == run(codec, after).findings);
+    return second;
 }
 
 /**

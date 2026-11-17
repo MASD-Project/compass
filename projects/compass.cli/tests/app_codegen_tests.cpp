@@ -45,9 +45,10 @@ outcome run_on(const scoped_git_repo& repo, const std::string& command) {
         repo.checkout().string(), "--out", repo.output_root().string(),
         "-j", "2", "--timings"};
     const std::vector<std::string_view> views(args.begin(), args.end());
+    std::istringstream in;
     std::ostringstream out;
     std::ostringstream err;
-    const auto status = compass::cli::app::run(views, "/", out, err);
+    const auto status = compass::cli::app::run(views, "/", in, out, err);
     return {status, out.str(), err.str()};
 }
 

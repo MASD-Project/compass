@@ -138,8 +138,7 @@ std::vector<std::string_view> quoted_includes(std::string_view text) {
     return out;
 }
 
-std::vector<exported_type> exported_types(std::string_view header,
-    std::string_view macro) {
+std::vector<exported_type> exported_types(std::string_view header) {
     std::vector<exported_type> out;
     if (header.find("AUTO-GENERATED FILE") != std::string_view::npos)
         return out;
@@ -151,8 +150,7 @@ std::vector<exported_type> exported_types(std::string_view header,
         if (name == std::string_view::npos)
             continue;
         const auto end = name_with_tail(line, name, "_EXPORT");
-        if (end == std::string_view::npos ||
-            line.substr(name, end - name) != macro)
+        if (end == std::string_view::npos)
             continue;
         const auto type = skip_spaces(line, end);
         auto type_end = type;
@@ -161,8 +159,17 @@ std::vector<exported_type> exported_types(std::string_view header,
         if (type_end == type)
             continue;
         out.push_back({line.substr(type, type_end - type),
-            static_cast<std::uint32_t>(line.data() - header.data())});
+            static_cast<std::uint32_t>(line.data() - header.data()),
+            line.substr(name, end - name)});
     }
+    return out;
+}
+
+std::vector<exported_type> exported_types(std::string_view header,
+    std::string_view macro) {
+    auto out = exported_types(header);
+    std::erase_if(out,
+        [&](const exported_type& t) { return t.macro != macro; });
     return out;
 }
 

@@ -25,6 +25,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include "compass.codec/types/action_manifest.hpp"
 #include "compass.codec/types/dependency_record.hpp"
 #include "compass.codec/types/file_table.hpp"
@@ -37,7 +38,7 @@ namespace compass::codec::ops {
  * every key, so a build that changes a format finds none of the objects of
  * another.
  */
-inline constexpr std::uint32_t action_format_version = 3;
+inline constexpr std::uint32_t action_format_version = 4;
 
 /**
  * @brief How many input sets a manifest keeps. A new set goes first and
@@ -90,20 +91,24 @@ bool add_input_set(types::action_manifest& m,
     std::string_view body);
 
 /**
- * @brief What a cached unit produced: its files, and its findings encoded
- * as encode_diagnostics encodes them, which point into the body decoded.
+ * @brief What a cached unit produced: its files, its findings encoded as
+ * encode_diagnostics encodes them and, for a scan, its scan table as
+ * put_scan_entry writes it, all pointing into the body decoded.
  */
 struct action_result {
     types::file_table files;
     std::string_view diagnostics;
+    std::string_view scan;
 };
 
 /**
  * @brief The body of the result object of unit @p u of @p record: the
- * format version, the files (path, content) and the encoded findings.
+ * format version, the files (path, content), the encoded findings and
+ * @p scan, the unit's scan table, empty for a unit that is not a scan.
  */
 [[nodiscard]] std::string encode_result(
-    const types::dependency_record& record, types::record_unit_id u);
+    const types::dependency_record& record, types::record_unit_id u,
+    std::string_view scan = {});
 
 /**
  * @brief The result held by @p body, or nothing when it is not one this
@@ -111,6 +116,31 @@ struct action_result {
  */
 [[nodiscard]] std::optional<action_result> decode_result(
     std::string_view body);
+
+/**
+ * @brief What a scan made of one file: the content ID of the bytes it
+ * mapped, its fact and its findings, encoded as encode_diagnostics
+ * encodes them.
+ */
+struct scan_entry {
+    compass::store::types::blob_id content;
+    std::string_view fact;
+    std::string_view findings;
+};
+
+/**
+ * @brief Appends the entry of the file at @p path to the scan table
+ * @p out: its path, content ID, fact and findings.
+ */
+void put_scan_entry(std::string& out, std::string_view path,
+    const scan_entry& e);
+
+/**
+ * @brief The entries of the scan table @p bytes by path, pointing into
+ * it, or nothing when it is not one put_scan_entry wrote.
+ */
+[[nodiscard]] std::optional<std::unordered_map<std::string_view, scan_entry>>
+decode_scan(std::string_view bytes);
 
 }
 

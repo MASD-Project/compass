@@ -20,10 +20,13 @@
 #include "compass.cli/app/steps.hpp"
 
 #include <algorithm>
+#include <memory>
+#include <mutex>
 #include <span>
 #include <stdexcept>
 #include <system_error>
 #include <tuple>
+#include <unordered_set>
 #include <utility>
 #include "compass.cli/config/repository_file.hpp"
 #include "compass.cli/io/listing.hpp"
@@ -189,6 +192,14 @@ void list(listing& l, const std::filesystem::path& checkout) {
     std::erase(l.documents, config::repository_file_name);
 }
 
+void list(listing& l, io::recorded_listing r) {
+    l.files = std::move(r.files);
+    for (std::size_t row = 0; row < l.files.size(); ++row) {
+        if (r.documents[row] != 0)
+            l.documents.emplace_back(l.files[row]);
+    }
+}
+
 void list(listing& l, const commit_source& c) {
     l.files = c.files.paths;
     for (std::size_t row = 0; row < c.files.size(); ++row) {
@@ -200,19 +211,33 @@ void list(listing& l, const commit_source& c) {
     }
 }
 
-codec::types::checkout_files checkout_files_of(const corpus_files& f,
+codec::types::checkout_files checkout_files_of(corpus_files& f,
     const listing& l) {
     if (f.commit != nullptr)
         return commit_files_of(*f.commit, l);
     codec::types::checkout_files out;
     out.paths.assign(l.files.begin(), l.files.end());
-    out.content_of = [&f](std::string_view path)
-        -> std::optional<store::types::blob_id> {
+    const auto resolve = [&f](std::string_view path)
+        -> std::optional<store::io::resolved_id> {
         try {
-            return f.resolver->resolve(path).id;
+            return f.resolver->resolve(path);
         } catch (const std::system_error&) {
             return std::nullopt;
         }
+    };
+    f.listed = std::make_shared<listed_ids>(out.paths);
+    out.content_of = [memo = f.listed, resolve](std::string_view path)
+        -> std::optional<store::types::blob_id> {
+        const auto it = std::ranges::lower_bound(memo->paths, path);
+        if (it == memo->paths.end() || *it != path) {
+            const auto r = resolve(path);
+            return r ? std::optional(r->id) : std::nullopt;
+        }
+        const auto row = static_cast<std::size_t>(it - memo->paths.begin());
+        std::call_once(memo->once[row],
+            [&] { memo->ids[row] = resolve(path); });
+        const auto& r = memo->ids[row];
+        return r ? std::optional(r->id) : std::nullopt;
     };
     out.read = [&f](std::string_view path) -> std::optional<std::string> {
         try {
@@ -341,9 +366,11 @@ codec::io::loaded_record read_dependency_record(
 codec::types::run_result run_codecs(const codec::types::registry& codecs,
     const codec::types::corpus& corpus, const ot::type_registry& types,
     unsigned threads, const codec::types::dependency_record& previous,
-    const std::filesystem::path& checkout) {
+    const std::filesystem::path& checkout,
+    const codec::ops::unit_filter& only) {
     return codec::ops::run(codecs, corpus, types, threads, previous,
-        codec::io::action_source_of(store::io::git_common_dir(checkout)));
+        codec::io::action_source_of(store::io::git_common_dir(checkout)),
+        only);
 }
 
 std::uint64_t store_objects(const corpus_files& f) {
@@ -362,10 +389,23 @@ std::uint64_t store_objects(const corpus_files& f) {
 std::size_t write_worktree_index(const corpus_files& f) {
     std::vector<std::string_view> paths;
     std::vector<store::io::resolved_id> resolved;
+    std::unordered_set<std::string_view> documents;
     for (std::size_t row = 0; row < f.paths.size(); ++row) {
         if (f.errors[row].empty()) {
             paths.push_back(f.paths[row]);
             resolved.push_back(f.resolved[row]);
+            documents.insert(f.paths[row]);
+        }
+    }
+    if (f.listed) {
+        const auto& l = *f.listed;
+        for (std::size_t row = 0; row < l.paths.size(); ++row) {
+            const auto& r = l.ids[row];
+            if (r && r->source != store::io::id_source::git_index &&
+                !documents.contains(l.paths[row])) {
+                paths.push_back(l.paths[row]);
+                resolved.push_back(*r);
+            }
         }
     }
     return f.resolver->write_worktree_index(paths, resolved);
@@ -374,7 +414,7 @@ std::size_t write_worktree_index(const corpus_files& f) {
 codec::io::action_writes store_results(const std::filesystem::path& checkout,
     const codec::types::run_result& run, unsigned threads) {
     return codec::io::store_actions(store::io::git_common_dir(checkout),
-        run.record, run.fresh, threads);
+        run.record, run.fresh, threads, run.scans);
 }
 
 bool write_dependency_record(const std::filesystem::path& checkout,

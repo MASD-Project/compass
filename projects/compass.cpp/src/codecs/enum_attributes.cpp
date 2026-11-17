@@ -22,9 +22,11 @@
 #include <algorithm>
 #include <array>
 #include <set>
+#include <span>
 #include <string>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.codec/types/fact.hpp"
 #include "compass.cpp/ops/enum_attributes.hpp"
 #include "compass.cpp/ops/paths.hpp"
 
@@ -41,7 +43,7 @@ constexpr std::array<ct::rule, 1> rules{{
 constexpr std::array<std::string_view, 5> suffixes{
     ".hpp", ".h", ".cpp", ".ipp", ".cc"};
 
-void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
+std::vector<std::string_view> scanned(const ct::corpus_view& v) {
     std::vector<std::string_view> paths;
     for (const auto suffix : suffixes) {
         for (const auto p : v.list_files("projects/", suffix)) {
@@ -50,31 +52,56 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
         }
     }
     std::ranges::sort(paths, ops::component_less);
+    return paths;
+}
 
-    std::vector<std::string> erased;
-    erased.reserve(paths.size());
+/**
+ * @brief The fact of a file: the visibility macros it defines, then each
+ * enum that one of them, or any other file's, would decorate.
+ */
+void map(std::string_view, std::string_view bytes, const ct::option_values&,
+    ct::file_scan& out) {
+    const auto erased = ops::erase_comments_and_literals(bytes);
+    std::set<std::string, std::less<>> macros;
+    ops::add_visibility_macros(erased, macros);
+    const auto sites = ops::macro_enum_sites(erased);
+    ct::fact_writer fact(out.fact);
+    fact.number(static_cast<std::uint32_t>(macros.size()));
+    for (const auto& m : macros)
+        fact.text(m);
+    for (const auto& site : sites)
+        fact.number(site.offset).text(site.macro).text(site.source);
+}
+
+void reduce(std::span<const ct::scanned_file> files, const ct::corpus_view&,
+    ct::diagnostic_table& out) {
     std::set<std::string, std::less<>> macros{"BOOST_SYMBOL_EXPORT",
         "BOOST_SYMBOL_IMPORT"};
-    for (const auto p : paths) {
-        erased.push_back(ops::erase_comments_and_literals(
-            v.read_file(p).value_or("")));
-        ops::add_visibility_macros(erased.back(), macros);
+    for (const auto& f : files) {
+        ct::fact_reader fact(f.fact);
+        for (auto n = fact.number(); n > 0; --n)
+            macros.emplace(fact.text());
     }
-
-    for (std::size_t f = 0; f < paths.size(); ++f) {
-        for (const auto& site : ops::enum_sites(erased[f], macros)) {
-            if (site.macro.empty())
+    for (const auto& f : files) {
+        ct::fact_reader fact(f.fact);
+        for (auto n = fact.number(); n > 0; --n)
+            (void)fact.text();
+        while (!fact.done()) {
+            const auto offset = fact.number();
+            const auto macro = fact.text();
+            const auto source = fact.text();
+            if (!macros.contains(macro))
                 continue;
             out.add({.document = compass::org::types::document_id::none(),
-                .range = {site.offset, site.offset},
+                .range = {offset, offset},
                 .rule = ct::rule_id{0},
                 .level = ct::severity::error,
-                .message = "the visibility macro " + site.macro +
+                .message = "the visibility macro " + std::string(macro) +
                     " decorates an enum, and the attribute does not apply "
-                    "to one: " + site.source,
+                    "to one: " + std::string(source),
                 .fix = "drop the macro; an enum needs no export attribute "
                     "to cross a binary boundary",
-                .file = paths[f]});
+                .file = f.path});
         }
     }
 }
@@ -83,13 +110,13 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
 
 const ct::descriptor enum_attributes{
     .name = "enum_attributes",
-    .version = 1,
+    .version = 2,
     .summary = "Reports each enum declaration that a visibility macro "
         "decorates.",
     .reads = ct::inputs::of_types({}),
     .options = {},
     .rules = rules,
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::diagnostic_table>{run}};
+    .run = ct::scan_function{scanned, map, reduce}};
 
 }

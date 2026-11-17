@@ -89,9 +89,10 @@ outcome ratchet(const scoped_git_repo& repo,
         "-j", "2"};
     args.insert(args.end(), extra.begin(), extra.end());
     const std::vector<std::string_view> views(args.begin(), args.end());
+    std::istringstream in;
     std::ostringstream out;
     std::ostringstream err;
-    const auto status = app::run(views, "/", out, err);
+    const auto status = app::run(views, "/", in, out, err);
     return {status, out.str(), err.str()};
 }
 

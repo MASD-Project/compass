@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <span>
+#include <string>
 #include <vector>
 #include "compass.codec/types/action_manifest.hpp"
 #include "compass.codec/types/dependency_record.hpp"
@@ -53,7 +54,9 @@ struct action_writes {
 /**
  * @brief Puts the units @p fresh of @p record in the result cache of
  * @p git_common_dir, on up to @p threads threads: each one's result object,
- * and its input set at the head of its manifest.
+ * and its input set at the head of its manifest. @p scans, when not
+ * empty, holds the scan table of each of @p fresh, in order, which goes
+ * into its result object.
  *
  * A result object is always written, so one a damaged copy made the unit
  * run is replaced. A manifest is read, given the set and written back;
@@ -65,7 +68,8 @@ struct action_writes {
  */
 action_writes store_actions(const std::filesystem::path& git_common_dir,
     const types::dependency_record& record,
-    std::span<const types::record_unit_id> fresh, unsigned threads);
+    std::span<const types::record_unit_id> fresh, unsigned threads,
+    std::span<const std::string> scans = {});
 
 /**
  * @brief The keys of the manifests and results the dependency record of

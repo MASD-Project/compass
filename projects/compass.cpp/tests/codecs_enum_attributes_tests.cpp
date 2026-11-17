@@ -65,6 +65,20 @@ TEST_CASE("a visibility macro another file defines is reported on the "
         "enum class ORES_A_EXPORT colour : int { red };");
 }
 
+TEST_CASE("an edit to the file defining a macro changes the findings on "
+    "the files it decorates", "[codecs][enum_attributes]") {
+    const auto export_header = "projects/ores.a/include/ores.a/export.hpp";
+    auto after = tree();
+    after[export_header] = "#define ORES_A_EXPORT\n";
+
+    CHECK(tests::run_after_edit(codecs::enum_attributes, tree(), after)
+        .findings.empty());
+    CHECK(tests::places(tests::run_after_edit(codecs::enum_attributes,
+        after, tree()).findings) == places{
+            {"projects/ores.a/include/ores.a/kinds.hpp", 2},
+            {"projects/ores.a/include/ores.a/kinds.hpp", 5}});
+}
+
 TEST_CASE("a macro whose body is not a visibility attribute is not "
     "reported", "[codecs][enum_attributes]") {
     auto all = tree();

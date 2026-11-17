@@ -24,9 +24,11 @@
 #include <map>
 #include <optional>
 #include <set>
+#include <span>
 #include <string>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.codec/types/fact.hpp"
 #include "compass.cpp/ops/paths.hpp"
 #include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
@@ -298,7 +300,35 @@ std::uint32_t include_line(std::string_view text, std::string_view include) {
     return 0;
 }
 
-void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
+std::vector<std::string_view> scanned(const ct::corpus_view& v) {
+    std::vector<std::string_view> headers;
+    for (const auto suffix : header_suffixes) {
+        for (const auto p : v.list_files("projects/", suffix)) {
+            if (is_header(p))
+                headers.push_back(p);
+        }
+    }
+    std::ranges::sort(headers, ops::component_less);
+    return headers;
+}
+
+/**
+ * @brief The fact of a header: the path of each of its #include lines.
+ */
+void map(std::string_view, std::string_view bytes, const ct::option_values&,
+    ct::file_scan& out) {
+    const auto text = pt::universal_newlines(pt::decode_ignoring(bytes));
+    ct::fact_writer fact(out.fact);
+    for (const auto& m : include_re().find_all(text))
+        fact.text(m.group(1));
+}
+
+/**
+ * @brief Reads the list, then reads again only the headers whose includes
+ * name a listed type's defining header.
+ */
+void reduce(std::span<const ct::scanned_file> headers,
+    const ct::corpus_view& v, ct::diagnostic_table& out) {
     const auto list_path = v.option("list");
     const auto list = v.read_file(list_path);
     std::vector<declarable> declarables;
@@ -345,21 +375,12 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
 
     static const pt::regex template_re(R"(^\s*\*\s*Template:\s*(\S+)\s*$)",
         {.multiline = true});
-    std::vector<std::string_view> headers;
-    for (const auto suffix : header_suffixes) {
-        for (const auto p : v.list_files("projects/", suffix)) {
-            if (is_header(p))
-                headers.push_back(p);
-        }
-    }
-    std::ranges::sort(headers, ops::component_less);
-    for (const auto path : headers) {
-        const auto bytes = v.read_file(path).value_or("");
-        const auto text = pt::universal_newlines(pt::decode_ignoring(bytes));
+    for (const auto& [path, fact] : headers) {
         const auto own = relative_include(path);
         std::vector<const declarable*> candidates;
-        for (const auto& m : include_re().find_all(text)) {
-            const auto it = by_include.find(m.group(1));
+        ct::fact_reader includes(fact);
+        while (!includes.done()) {
+            const auto it = by_include.find(includes.text());
             if (it == by_include.end())
                 continue;
             for (const auto* d : it->second) {
@@ -370,6 +391,8 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
         }
         if (candidates.empty())
             continue;
+        const auto bytes = v.read_file(path).value_or("");
+        const auto text = pt::universal_newlines(pt::decode_ignoring(bytes));
         std::optional<std::string> generated_by;
         if (text.find(generated_marker) != std::string::npos) {
             const auto head = std::string_view(text).substr(0,
@@ -399,13 +422,13 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
 
 const ct::descriptor forward_declarable_includes{
     .name = "forward_declarable_includes",
-    .version = 1,
+    .version = 2,
     .summary = "Reports each header that includes the definition of a "
         "listed type it only names.",
     .reads = ct::inputs::of_types({}),
     .options = options,
     .rules = rules,
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::diagnostic_table>{run}};
+    .run = ct::scan_function{scanned, map, reduce}};
 
 }

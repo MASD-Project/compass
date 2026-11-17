@@ -21,9 +21,11 @@
 
 #include <algorithm>
 #include <array>
+#include <functional>
 #include <map>
 #include <optional>
 #include <set>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -186,7 +188,14 @@ std::string str(std::string_view s) { return std::string(s); }
  */
 class tree final {
 public:
-    explicit tree(const std::map<std::string, std::string>& raw) : raw_(raw) {
+    /**
+     * @pre @p raw holds every file that names a stream, a subject or a
+     * string constant; @p add_callers adds every other file that calls the
+     * function it is given.
+     */
+    tree(std::map<std::string, std::string>& raw,
+        std::function<void(std::string_view)> add_callers)
+        : raw_(raw), add_callers_(std::move(add_callers)) {
         static const pt::regex type_start(R"((?:struct|class)\s+(\w+)[^;{]*\{)");
         static const pt::regex member(R"re(nats_subject\s*=\s*"([^"]*)")re");
         for (const auto& [rel, source] : raw_) {
@@ -358,6 +367,7 @@ private:
                 "' is neither a constant here nor a parameter");
         const auto index = static_cast<std::size_t>(p - params.begin());
         std::set<std::string> found;
+        add_callers_(function);
         for (const auto& [other_rel, other_text] : raw_) {
             if (other_text.find(function) == std::string::npos)
                 continue;
@@ -414,7 +424,8 @@ private:
         return arrays_.emplace(rel, std::move(found)).first->second;
     }
 
-    const std::map<std::string, std::string>& raw_;
+    std::map<std::string, std::string>& raw_;
+    std::function<void(std::string_view)> add_callers_;
     std::map<std::string, std::string> stripped_;
     std::map<std::string, std::set<std::string>> values_;
     std::map<std::string, std::set<std::string>> members_;
@@ -500,8 +511,8 @@ std::string join(const std::vector<std::string>& items) {
     return out;
 }
 
-void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
-    std::map<std::string, std::string> raw;
+std::vector<std::string_view> scanned(const ct::corpus_view& v) {
+    std::vector<std::string_view> out;
     for (const auto suffix : {".cpp", ".hpp"}) {
         for (const auto p : v.list_files("projects/", suffix)) {
             const auto parts = ops::components_of(p);
@@ -511,11 +522,59 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
             if (skipped || p.find("/tests/") != std::string_view::npos ||
                 p.starts_with(excluded_prefix))
                 continue;
-            raw.emplace(p, pt::universal_newlines(pt::decode_replacing(
-                v.read_file(p).value_or(""))));
+            out.push_back(p);
         }
     }
-    tree t(raw);
+    return out;
+}
+
+std::string decoded(std::string_view bytes) {
+    return pt::universal_newlines(pt::decode_replacing(bytes));
+}
+
+/**
+ * @brief The fact of a source: + and its decoded text when it names a
+ * stream call, a subject member or a string constant; otherwise - and
+ * each name it calls on a line of its own, as such a file only matters as
+ * a caller of a function whose parameter names a service.
+ */
+void map(std::string_view, std::string_view bytes, const ct::option_values&,
+    ct::file_scan& out) {
+    static const pt::regex call(R"(\b([A-Za-z_]\w*)\s*\()");
+    auto text = decoded(bytes);
+    const bool named = text.find("nats_subject") != std::string::npos ||
+        text.find("ensure_stream") != std::string::npos ||
+        text.find("serve_step_commands") != std::string::npos ||
+        text.find("js_queue_subscribe") != std::string::npos ||
+        const_re().search(text);
+    if (named) {
+        out.fact = "+" + std::move(text);
+        return;
+    }
+    std::set<std::string> called;
+    for (const auto& m : call.find_all(text))
+        called.emplace(m.group(1));
+    out.fact = "-\n";
+    for (const auto& c : called)
+        out.fact += c + "\n";
+}
+
+void reduce(std::span<const ct::scanned_file> files,
+    const ct::corpus_view& v, ct::diagnostic_table& out) {
+    std::map<std::string, std::string> raw;
+    for (const auto& f : files) {
+        if (f.fact.starts_with('+'))
+            raw.emplace(f.path, f.fact.substr(1));
+    }
+    tree t(raw, [&](std::string_view function) {
+        const auto line = "\n" + std::string(function) + "\n";
+        for (const auto& f : files) {
+            if (f.fact.starts_with('-') &&
+                f.fact.find(line) != std::string_view::npos)
+                raw.emplace(f.path,
+                    decoded(v.read_file(f.path).value_or("")));
+        }
+    });
     std::map<std::string, stream> streams;
     std::vector<consumer> consumers;
     const auto report = [&](const site& s, std::uint32_t rule,
@@ -816,13 +875,13 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
 
 const ct::descriptor stream_coverage{
     .name = "stream_coverage",
-    .version = 1,
+    .version = 3,
     .summary = "Reports each durably consumed subject no single stream "
         "covers, and each pair of streams whose subjects overlap.",
     .reads = ct::inputs::of_types({}),
     .options = {},
     .rules = rules,
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::diagnostic_table>{run}};
+    .run = ct::scan_function{scanned, map, reduce}};
 
 }

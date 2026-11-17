@@ -1,0 +1,305 @@
+/* -*- mode: c++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+#include <array>
+#include <atomic>
+#include <filesystem>
+#include <map>
+#include <string>
+#include <string_view>
+#include <vector>
+#include <unistd.h>
+#include <catch2/catch_test_macros.hpp>
+#include "compass.codec/io/action_cache.hpp"
+#include "compass.codec/ops/registry.hpp"
+#include "compass.codec/ops/run.hpp"
+#include "compass.codec/types/configuration.hpp"
+#include "compass.codec/types/corpus_view.hpp"
+#include "compass.store/ops/blob_hash.hpp"
+#include "test_corpus.hpp"
+
+namespace {
+
+using namespace compass::codec;
+
+using sources = std::map<std::string, std::string>;
+
+std::atomic<int> mapped{0};
+
+constexpr std::array<types::rule, 2> rules{{
+    {"bad_line", "No line of a file is the option marker."},
+    {"defined_twice", "No two files define one name."}}};
+
+constexpr std::array<types::option, 1> options{{
+    {"marker", "bad", "The line that is a finding."}}};
+
+std::vector<std::string_view> scanned(const types::corpus_view& v) {
+    return v.list_files("src/", ".txt");
+}
+
+/**
+ * @brief Reports each line that is the marker, and makes the fact the
+ * names the file defines, one per line, from its lines "def <name>".
+ */
+void map_file(std::string_view path, std::string_view bytes,
+    const types::option_values& o, types::file_scan& out) {
+    ++mapped;
+    std::size_t at = 0;
+    while (at < bytes.size()) {
+        auto end = bytes.find('\n', at);
+        if (end == std::string_view::npos)
+            end = bytes.size();
+        const auto line = bytes.substr(at, end - at);
+        const auto offset = static_cast<std::uint32_t>(at);
+        if (line == o["marker"])
+            out.findings.add({.document =
+                    compass::org::types::document_id::none(),
+                .range = {offset, offset}, .rule = types::rule_id{0},
+                .level = types::severity::error,
+                .message = "the marker line", .fix = "remove it",
+                .file = path});
+        if (line.starts_with("def "))
+            out.fact += std::string(line.substr(4)) + "\n";
+        at = end + 1;
+    }
+}
+
+/**
+ * @brief Reports, on the later file, each name two files define.
+ */
+void reduce_files(std::span<const types::scanned_file> files,
+    const types::corpus_view&, types::diagnostic_table& out) {
+    std::map<std::string, std::string_view> first;
+    for (const auto& f : files) {
+        auto fact = f.fact;
+        while (!fact.empty()) {
+            const auto end = fact.find('\n');
+            const std::string name(fact.substr(0, end));
+            fact.remove_prefix(end + 1);
+            const auto [it, added] = first.try_emplace(name, f.path);
+            if (added)
+                continue;
+            const auto message = name + " is also defined in " +
+                std::string(it->second);
+            out.add({.document = compass::org::types::document_id::none(),
+                .range = {0, 0}, .rule = types::rule_id{1},
+                .level = types::severity::error, .message = message,
+                .fix = "rename one", .file = f.path});
+        }
+    }
+}
+
+constexpr types::descriptor names{.name = "names", .version = 1,
+    .summary = "", .reads = types::inputs::of_types({}), .options = options,
+    .rules = rules, .enabled_by_default = true,
+    .run = types::scan_function{scanned, map_file, reduce_files}};
+
+/**
+ * @brief A corpus with no documents whose checkout holds @p plain.
+ */
+class checkout final {
+public:
+    explicit checkout(const sources& plain)
+        : bytes_(plain.begin(), plain.end()) {
+        for (const auto& [path, source] : bytes_)
+            files_.paths.push_back(path);
+        files_.content_of = [this](std::string_view path) {
+            return std::optional(compass::store::ops::blob_id_of(
+                bytes_.find(path)->second));
+        };
+        files_.read = [this](std::string_view path) {
+            return std::optional(bytes_.find(path)->second);
+        };
+        view_ = corpus_.corpus();
+        view_.files = &files_;
+    }
+    checkout(const checkout&) = delete;
+    checkout& operator=(const checkout&) = delete;
+
+    [[nodiscard]] const types::corpus& corpus() const { return view_; }
+    [[nodiscard]] const auto& types() const { return corpus_.types(); }
+
+private:
+    tests::test_corpus corpus_;
+    std::map<std::string, std::string, std::less<>> bytes_;
+    types::checkout_files files_;
+    types::corpus view_;
+};
+
+class scoped_cache final {
+public:
+    scoped_cache() {
+        static int counter = 0;
+        root_ = std::filesystem::temp_directory_path() /
+            ("compass.codec.scan." + std::to_string(::getpid()) + "." +
+                std::to_string(counter++));
+        std::filesystem::create_directories(root_);
+    }
+    ~scoped_cache() { std::filesystem::remove_all(root_); }
+    scoped_cache(const scoped_cache&) = delete;
+    scoped_cache& operator=(const scoped_cache&) = delete;
+
+    [[nodiscard]] const std::filesystem::path& root() const { return root_; }
+
+private:
+    std::filesystem::path root_;
+};
+
+/**
+ * @brief Each finding as its file, rule, offset and message, in order.
+ */
+std::vector<std::string> lines_of(const types::diagnostic_table& t) {
+    std::vector<std::string> out;
+    for (std::uint32_t i = 0; i < t.size(); ++i) {
+        const types::diagnostic_id d{i};
+        out.push_back(std::string(t.files[d]) + " " +
+            std::to_string(t.rules[d].value) + " " +
+            std::to_string(t.ranges[d].begin) + " " +
+            std::string(t.messages[d]));
+    }
+    return out;
+}
+
+struct outcome {
+    std::vector<std::string> findings;
+    int maps = 0;
+    types::dependency_record record;
+};
+
+/**
+ * @brief Runs names over @p plain from @p previous and the cache under
+ * @p cache, then stores what ran there. Checks the findings equal those of
+ * a run with neither, which maps every file.
+ */
+outcome run(const sources& plain, const scoped_cache& cache,
+    const types::dependency_record& previous = {},
+    const types::configuration& settings = {}) {
+    const checkout c(plain);
+    const std::array<types::descriptor, 1> codecs{names};
+    const auto r = ops::make_registry(codecs, c.types(), settings);
+    mapped = 0;
+    auto result = ops::run(r, c.corpus(), c.types(), 2, previous,
+        io::action_source_of(cache.root()));
+    const auto maps = mapped.load();
+    (void)io::store_actions(cache.root(), result.record, result.fresh, 2,
+        result.scans);
+    const auto plain_run = ops::run(r, c.corpus(), c.types(), 2);
+    CHECK(lines_of(result.diagnostics[0]) ==
+        lines_of(plain_run.diagnostics[0]));
+    return {lines_of(result.diagnostics[0]), maps,
+        std::move(result.record)};
+}
+
+sources tree() {
+    return {{"src/a.txt", "def alpha\nbad\n"},
+            {"src/b.txt", "def beta\n"},
+            {"src/c.txt", "def gamma\n"},
+            {"src/notes.md", "def alpha\n"}};
+}
+
+}
+
+TEST_CASE("a scan maps every listed file, then reports each file's "
+    "findings and those of the reduce", "[ops][scan]") {
+    scoped_cache cache;
+    auto files = tree();
+    files["src/c.txt"] += "def beta\n";
+
+    const auto r = run(files, cache);
+
+    CHECK(r.maps == 3);
+    CHECK(r.findings == std::vector<std::string>{
+        "src/a.txt 0 10 the marker line",
+        "src/c.txt 1 0 beta is also defined in src/b.txt"});
+}
+
+TEST_CASE("after an edit a scan maps only the edited file, and its reduce "
+    "sees the new fact beside the stored ones", "[ops][scan]") {
+    scoped_cache cache;
+    const auto first = run(tree(), cache);
+    REQUIRE(first.maps == 3);
+    auto files = tree();
+    files["src/c.txt"] = "def alpha\nbad\n";
+
+    const auto second = run(files, cache, first.record);
+
+    CHECK(second.maps == 1);
+    CHECK(second.findings == std::vector<std::string>{
+        "src/a.txt 0 10 the marker line",
+        "src/c.txt 0 10 the marker line",
+        "src/c.txt 1 0 alpha is also defined in src/a.txt"});
+
+    files["src/c.txt"] = "def delta\n";
+    const auto third = run(files, cache, second.record);
+    CHECK(third.maps == 1);
+    CHECK(third.findings == std::vector<std::string>{
+        "src/a.txt 0 10 the marker line"});
+}
+
+TEST_CASE("a scan forgets a removed file and maps a new one",
+    "[ops][scan]") {
+    scoped_cache cache;
+    auto files = tree();
+    files["src/d.txt"] = "def beta\n";
+    const auto first = run(files, cache);
+    REQUIRE(first.findings.size() == 2);
+
+    files.erase("src/b.txt");
+    files["src/e.txt"] = "def gamma\n";
+    const auto second = run(files, cache, first.record);
+
+    CHECK(second.maps == 1);
+    CHECK(second.findings == std::vector<std::string>{
+        "src/a.txt 0 10 the marker line",
+        "src/e.txt 1 0 gamma is also defined in src/c.txt"});
+}
+
+TEST_CASE("a scan whose options changed maps every file again",
+    "[ops][scan]") {
+    scoped_cache cache;
+    const auto first = run(tree(), cache);
+    types::configuration settings;
+    settings.set("names", "marker", "def beta");
+
+    const auto second = run(tree(), cache, first.record, settings);
+
+    CHECK(second.maps == 3);
+    CHECK(second.findings == std::vector<std::string>{
+        "src/b.txt 0 0 the marker line"});
+}
+
+TEST_CASE("a scan whose result object is gone maps every file again",
+    "[ops][scan]") {
+    std::vector<std::string> findings;
+    types::dependency_record record;
+    {
+        scoped_cache cache;
+        auto first = run(tree(), cache);
+        findings = first.findings;
+        record = std::move(first.record);
+    }
+    scoped_cache empty;
+    auto files = tree();
+    files["src/b.txt"] += "\n";
+
+    const auto second = run(files, empty, record);
+
+    CHECK(second.maps == 3);
+    CHECK(second.findings == findings);
+}

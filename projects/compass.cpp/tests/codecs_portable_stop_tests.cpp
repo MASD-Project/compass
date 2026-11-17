@@ -61,3 +61,18 @@ TEST_CASE("an invalid byte is dropped, as errors=\"ignore\" drops it",
     const files t{{"projects/ores.a/src/a.cpp", "std::j\xfft" "hread w;\n"}};
     CHECK(tests::run(codecs::portable_stop, t).findings.size() == 1);
 }
+
+TEST_CASE("after an edit the unedited files keep their findings and the "
+    "edited one is scanned again", "[codecs][portable_stop]") {
+    const files before{
+        {"projects/ores.a/src/a.cpp", "std::jthread a;\n"},
+        {"projects/ores.b/src/b.cpp", "int b;\n"}};
+    auto after = before;
+    after["projects/ores.b/src/b.cpp"] = "int b;\nstd::stop_token t;\n";
+
+    const auto r = tests::run_after_edit(codecs::portable_stop, before,
+        after);
+
+    CHECK(tests::places(r.findings) == places{
+        {"projects/ores.a/src/a.cpp", 1}, {"projects/ores.b/src/b.cpp", 2}});
+}
