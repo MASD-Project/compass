@@ -22,6 +22,7 @@ set(tests_target_name ${name}.tests)
 add_executable(${tests_target_name}
     codecs_entity_writes_tests.cpp
     codecs_generated_reads_tests.cpp
+    codecs_marketdata_identity_columns_tests.cpp
     codecs_model_columns_tests.cpp
     codecs_paste_blocks_tests.cpp
     codecs_protocol_twins_tests.cpp

@@ -147,6 +147,14 @@ exception where it stands.
   =missing_twin=: a protocol header of a checked component with no
   TypeScript twin. Rule =opt_out=: a model that switches the facet off.
 
+- *=marketdata_identity_columns=.* =marketdata-identity-columns=
+  (=build/scripts/check_marketdata_identity_columns.py=). The series
+  identity table, the projector's field switch and index mapping and the
+  per-asset-class views agree with the codec schema and the index grammar
+  (=table_columns=, =projector_switch=, =views=, =index_mapping=). A source
+  that lost the shape the script reads is one =unreadable_source=
+  finding, and nothing else is reported, as the script stops there.
+
 Where a script reads a file with a strict UTF-8 decode and would stop on a
 file that is not UTF-8, these codecs read it with invalid bytes replaced,
 except =subject_conformance=, which reports such a model.

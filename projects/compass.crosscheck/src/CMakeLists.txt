@@ -23,6 +23,7 @@ add_library(${lib_target_name}
     codecs/entity_binary_types.cpp
     codecs/entity_writes.cpp
     codecs/generated_column_refs.cpp
+    codecs/marketdata_identity_columns.cpp
     codecs/model_drift.cpp
     codecs/model_sql_types.cpp
     codecs/money_decimal_columns.cpp
