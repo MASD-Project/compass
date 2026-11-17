@@ -26,11 +26,11 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-17                               |
 
 * Acceptance
@@ -63,7 +63,14 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Hook, codegen model / template edit | 0.83 s / 0.55 s at load 4 (3.0-3.5 s before) | =compass hook= on the ORE copy | 63f4a1d |
+| Hook, every edit kind at load 2-3 (agent) | under 1 s except a new model document, 1.0-1.1 s | =a19/a_compare.py= | 63f4a1d |
+| Hook, loaded (agent, load 5-15 synthetic) | models, fact-changing headers, new headers and models 1.4-1.7 s | =a19/a_compare.py= | 63f4a1d |
+| Hook vs full check | 34 of 34 edits the same | =a19/a_compare.py= | 63f4a1d |
+| Incremental vs full codegen bytes | equal over 12 semantic edits | =a19/incr.py= | 63f4a1d |
+| Full warm check | 3.48-3.52 s at load 4; 24 codegen drift files, 237 findings | =compass check= | 63f4a1d |
+| Full check after a codegen change (agent) | 4.7-5.0 s at load 7-9 (about 10 s before) | =compass check= | 63f4a1d |
+| ctest | 14 of 14 suites pass | =ctest --preset linux-clang-release= | 63f4a1d |
 
 * Notes
 
@@ -91,3 +98,39 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+Code generation is incremental, and the hook checks almost every edit kind in
+under a second on a quiet machine. Under load, edits that change codegen
+models or C++ facts and new files still take 1.4-1.7 s.
+
+- Staged codecs: a prepare unit publishes facts (a name and the hash of a
+  derived value), and each part is a unit whose inputs include the facts it
+  read. Codegen is one part per model, 826 units on ORE. The entity and
+  checkout registries record every lookup as a fact read, so a model edit
+  re-renders only the models that read it, and a template edit re-renders only
+  that template's outputs. A changed model stores about 230 KB instead of 193
+  MB.
+- SHA-1 is about two and a half times faster; it was half the instructions of
+  a header edit.
+- A scan whose facts are unchanged skips its reduce; component_docs and
+  test_case_reachability scan file by file.
+- The record is version 6 and the action format 5, so the first check after
+  upgrading runs everything once.
+
+Left open:
+
+- populate_refs is not a scan (about 410 ms on SQL edits): its second pass
+  builds a regex from the first pass's results.
+- exported_types lists every file, so a new file runs its reduce (about 290
+  ms); stream_coverage and forward_declarable_includes reduces cost about 510
+  and 310 ms when facts change.
+- Codegen's prepare step runs serially, about 140 ms.
+
+Decisions to revisit:
+
+- Skipping a reduce relies on the contract that a reduce is a function of its
+  facts and what it reads through the view.
+- A template edit keeps a part's other outputs from its last call; codegen
+  uses this only when every changed input is a template fact.
+- The agent's commits carry a =Co-Authored-By: Claude Fable 5.2= trailer,
+  the model that wrote them.
