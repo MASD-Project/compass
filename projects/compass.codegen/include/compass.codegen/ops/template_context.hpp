@@ -20,6 +20,8 @@
 #ifndef COMPASS_CODEGEN_OPS_TEMPLATE_CONTEXT_HPP
 #define COMPASS_CODEGEN_OPS_TEMPLATE_CONTEXT_HPP
 
+#include <array>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -39,6 +41,12 @@ namespace compass::codegen::ops {
  * upper case.
  */
 [[nodiscard]] std::string recipe_org_id(std::string_view name);
+
+/**
+ * @brief str(uuid.uuid5(@p space, @p name)).upper().
+ */
+[[nodiscard]] std::string uuid5(const std::array<std::uint8_t, 16>& space,
+    std::string_view name);
 
 /**
  * @brief convention_family_registry's _entry_for: the family the model at

@@ -222,7 +222,8 @@ TEST_CASE("config prints every value with where it came from",
         "codegen.prettier_style =  (default)\n"
         "component_files.enabled = false (default)\n"
         "component_files.library = projects/ores.codegen/library (default)\n"
-        "component_files.year =  (default)\n" + gate_defaults());
+        "component_files.year =  (default)\n"
+        "pending_models.enabled = false (default)\n" + gate_defaults());
 }
 
 TEST_CASE("an error in the configuration file exits 2 naming the line and "

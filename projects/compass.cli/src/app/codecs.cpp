@@ -23,6 +23,7 @@
 #include "compass.codec/codecs/catalogue.hpp"
 #include "compass.codegen/codecs/codegen.hpp"
 #include "compass.codegen/codecs/component_files.hpp"
+#include "compass.codegen/codecs/pending_models.hpp"
 #include "compass.cpp/codecs/catalogue.hpp"
 #include "compass.crosscheck/codecs/catalogue.hpp"
 #include "compass.docs/codecs/catalogue.hpp"
@@ -37,6 +38,7 @@ std::span<const codec::types::descriptor> codecs() noexcept {
             shipped.end());
         out.push_back(codegen::codecs::codegen);
         out.push_back(codegen::codecs::component_files);
+        out.push_back(codegen::codecs::pending_models);
         for (const auto& d : cpp::codecs::catalogue())
             out.push_back(d);
         for (const auto& d : sql::codecs::catalogue())

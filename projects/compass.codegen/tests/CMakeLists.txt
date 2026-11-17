@@ -22,6 +22,7 @@ set(tests_target_name ${name}.tests)
 add_executable(${tests_target_name}
     codecs_codegen_tests.cpp
     codecs_component_files_tests.cpp
+    codecs_pending_models_tests.cpp
     ops_compile_tests.cpp
     ops_context_tests.cpp
     ops_entity_codecs_tests.cpp
