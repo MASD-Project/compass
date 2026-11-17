@@ -8,7 +8,7 @@
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
 #+branch: feature/share-one-sql-pass
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/59
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-17
@@ -85,7 +85,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/59][#59]] | [sql] Share one SQL lexer and model across the SQL gates |
 
 * Review
 
