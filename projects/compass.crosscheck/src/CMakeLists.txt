@@ -20,6 +20,7 @@ set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
     codecs/catalogue.cpp
+    codecs/convention_kind_terms.cpp
     codecs/curve_column_guards.cpp
     codecs/curve_sections_wiring.cpp
     codecs/entity_binary_types.cpp

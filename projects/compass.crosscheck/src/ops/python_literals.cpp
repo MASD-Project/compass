@@ -128,12 +128,17 @@ private:
             if (!item)
                 return std::nullopt;
             if (open == '{') {
-                if (item->what != python_value::kind::string || !eat(':'))
+                const bool tuple = item->what == python_value::kind::sequence;
+                if ((item->what != python_value::kind::string && !tuple) ||
+                    !eat(':'))
                     return std::nullopt;
                 auto entry = value();
                 if (!entry)
                     return std::nullopt;
-                v.entries.push_back({item->text, std::move(*entry)});
+                v.entries.push_back({tuple ? std::string() : item->text,
+                    std::move(*entry),
+                    tuple ? std::move(item->items)
+                          : std::vector<python_value>{}});
             } else {
                 v.items.push_back(std::move(*item));
             }
@@ -169,7 +174,7 @@ private:
             auto arg = value();
             if (!arg)
                 return std::nullopt;
-            v.entries.push_back({std::move(key), std::move(*arg)});
+            v.entries.push_back({std::move(key), std::move(*arg), {}});
             if (!eat(',') && !eat(')'))
                 return std::nullopt;
             if (text_[i_ - 1] == ')')

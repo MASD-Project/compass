@@ -180,7 +180,7 @@ constexpr std::array<ct::option, 2> exception_options{{
         "The page whose checklist tables define the items."}}};
 
 std::string field(const ops::python_value& call, std::string_view key) {
-    for (const auto& [k, v] : call.entries) {
+    for (const auto& [k, v, tuple] : call.entries) {
         if (k == key && v.what == ops::python_value::kind::string)
             return v.text;
     }
@@ -224,7 +224,7 @@ void registry_exception_run(const ct::corpus_view& v,
     };
     auto entries = accepted->entries;
     std::ranges::sort(entries, {}, [](const auto& e) { return e.key; });
-    for (const auto& [component, exceptions] : entries) {
+    for (const auto& [component, exceptions, tuple] : entries) {
         if (std::ranges::find(*listed, component) == listed->end())
             problem(component + ": carries accepted exceptions but is not "
                 "listed in COMPONENTS_UNDER_TEST; an exception only means "

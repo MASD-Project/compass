@@ -49,11 +49,13 @@ struct python_value {
 };
 
 /**
- * @brief A key of a dict or a keyword of a call, and its value.
+ * @brief A key of a dict or a keyword of a call, and its value. A dict key
+ * that is a tuple has its items in key_items and an empty key.
  */
 struct python_entry {
     std::string key;
     python_value value;
+    std::vector<python_value> key_items;
 };
 
 /**
