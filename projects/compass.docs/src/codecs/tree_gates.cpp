@@ -110,8 +110,13 @@ void skill_names(const ct::corpus_view& v, ct::diagnostic_table& out) {
     }
 }
 
+constexpr std::array<std::string_view, 2> pull_request_trigger_sources{
+    "B83064E5-6357-4FC6-A8BE-395DD429ED2A",
+    "BC85C0DF-99BE-4079-A649-88A236AE0ACF"};
+
 constexpr std::array<ct::rule, 2> trigger_rules{{
-    {"pull_request_trigger", "No workflow triggers on a pull request."},
+    {"pull_request_trigger", "No workflow triggers on a pull request.",
+        pull_request_trigger_sources},
     {"no_workflows", "The repository has workflow files to read."}}};
 
 void workflow_triggers(const ct::corpus_view& v, ct::diagnostic_table& out) {

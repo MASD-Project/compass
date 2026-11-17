@@ -34,9 +34,15 @@ namespace {
 namespace ct = compass::codec::types;
 namespace pt = compass::platform::text;
 
+constexpr std::array<std::string_view, 3> system_tenant_widening_sources{
+    "C3D570EF-468D-427D-B355-30C0443BCDDF",
+    "5A5D6490-AF64-4AAF-8B3D-48EF3EDAF3D2",
+    "07177FE0-F0B9-44E8-B67C-CEAA6DCC696A"};
+
 constexpr std::array<ct::rule, 1> rules{{
     {"system_tenant_widening", "No row-level security policy lets a "
-        "system-tenant session see every tenant's rows."}}};
+        "system-tenant session see every tenant's rows.",
+        system_tenant_widening_sources}}};
 
 constexpr std::string_view create_dir = "projects/ores.sql/create/";
 

@@ -47,20 +47,36 @@ enum rule : std::uint32_t {
     react_tree
 };
 
+constexpr std::array<std::string_view, 2> record_sources{
+    "708C2462-C1F8-455B-B091-9D9690FEEAAB",
+    "D913FE21-6CF6-439A-89CF-6A1928AFA094"};
+
+constexpr std::array<std::string_view, 1> inventory_sources{
+    "D913FE21-6CF6-439A-89CF-6A1928AFA094"};
+
+constexpr std::array<std::string_view, 1> on_main_sources{
+    "708C2462-C1F8-455B-B091-9D9690FEEAAB"};
+
 constexpr std::array<ct::rule, 10> rules{{
-    {"unlisted", "Every prototype is listed on its group's page."},
-    {"missing", "Every prototype a group page lists exists."},
-    {"no_group_page", "A group that holds prototypes has a page."},
-    {"unlinked_group", "The top page links every group page."},
-    {"missing_group", "Every group the top page links has a page."},
+    {"unlisted", "Every prototype is listed on its group's page.",
+        record_sources},
+    {"missing", "Every prototype a group page lists exists.", inventory_sources},
+    {"no_group_page", "A group that holds prototypes has a page.",
+        record_sources},
+    {"unlinked_group", "The top page links every group page.",
+        inventory_sources},
+    {"missing_group", "Every group the top page links has a page.",
+        inventory_sources},
     {"review_without_index", "A review directory lists its screens on an "
         "index.html."},
     {"review_cell", "A prototype's row links its review, or says none in "
         "its review cell."},
-    {"no_discovery", "The site build deploys the prototypes it finds."},
+    {"no_discovery", "The site build deploys the prototypes it finds.",
+        on_main_sources},
     {"copy_differs", "The copies of a file a group shares are identical, "
         "save one that may add rules after the shared text."},
-    {"react_tree", "The retired React prototype tree is gone."}}};
+    {"react_tree", "The retired React prototype tree is gone.",
+        record_sources}}};
 
 constexpr std::string_view base = "doc/prototypes/";
 

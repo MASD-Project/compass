@@ -165,10 +165,15 @@ void route_unit_run(const ct::corpus_view& v, ct::diagnostic_table& out) {
     }
 }
 
+constexpr std::array<std::string_view, 2> bad_exception_sources{
+    "E22B9A3C-DF20-4EC3-8BEC-C193E1560745",
+    "7B477025-132E-4B20-80B4-D8C9420880B8"};
+
 constexpr std::array<ct::rule, 2> exception_rules{{
     {"bad_exception", "Each accepted exception of the component registry "
         "names a listed component, a checklist item the standard defines "
-        "once, a reason, who accepted it and an ISO date."},
+        "once, a reason, who accepted it and an ISO date.",
+        bad_exception_sources},
     {"unreadable_registry", "The registry and the standard state their "
         "tables in a form this check reads."}}};
 

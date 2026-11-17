@@ -40,9 +40,12 @@ namespace {
 namespace ct = compass::codec::types;
 namespace pt = compass::platform::text;
 
+constexpr std::array<std::string_view, 1> unresolved_reference_sources{
+    "7B477025-132E-4B20-80B4-D8C9420880B8"};
+
 constexpr std::array<ct::rule, 2> rules{{
     {"unresolved_reference", "Every name a populate script looks up is "
-        "one a populate script defines."},
+        "one a populate script defines.", unresolved_reference_sources},
     {"unbalanced_parentheses", "Every call and definition the check reads "
         "closes its parentheses."}}};
 

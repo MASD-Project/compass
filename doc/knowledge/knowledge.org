@@ -119,6 +119,7 @@ features. Each component's own page carries its script inventory.
 | Component | What it does |
 |-----------+--------------|
 | [[id:6F7A122F-BC0F-4F3E-BA46-8B793FF15D10][compass.legacy]] | Repository compass: orientation, doc search, agile scaffolding over the graph |
+| [[id:9DE422EE-3416-4CFD-B15B-4CFD3E77D7F4][Rule table]] | Every rule compass checks, the memories it enforces, and the memories no rule enforces; generated |
 | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][ores.codegen]] | The code generator producing SQL, C++ and org documents from JSON models |
 | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][ores.lisp]] | Emacs Lisp tooling: dashboard, database browser, org-roam export |
 | [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][ores.sql]] | Schema, migrations, role provisioning, database lifecycle |

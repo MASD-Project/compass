@@ -46,11 +46,18 @@ constexpr std::uint32_t money_not_exact = 0;
 constexpr std::uint32_t continuous_exact = 1;
 constexpr std::uint32_t too_few_columns = 2;
 
+constexpr std::array<std::string_view, 2> money_not_exact_sources{
+    "E47BAF35-066F-4EF2-BA3D-522AED44FF33",
+    "B9DAC38A-BEB1-4658-87BC-DFF901033E84"};
+
+constexpr std::array<std::string_view, 1> continuous_exact_sources{
+    "B9DAC38A-BEB1-4658-87BC-DFF901033E84"};
+
 constexpr std::array<ct::rule, 3> rules{{
     {"money_not_exact", "A money column is numeric in SQL and a decimal in "
-        "C++, never a binary float or text."},
+        "C++, never a binary float or text.", money_not_exact_sources},
     {"continuous_exact", "A continuous quantity is not typed numeric or "
-        "decimal, an exactness it does not have."},
+        "decimal, an exactness it does not have.", continuous_exact_sources},
     {"too_few_columns", "The models yield at least min_columns columns, so "
         "the check is reading them."}}};
 

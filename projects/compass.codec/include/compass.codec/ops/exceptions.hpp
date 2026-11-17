@@ -20,13 +20,16 @@
 #ifndef COMPASS_CODEC_OPS_EXCEPTIONS_HPP
 #define COMPASS_CODEC_OPS_EXCEPTIONS_HPP
 
+#include <array>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <span>
 #include <string>
 #include <string_view>
 #include <vector>
+#include "compass.codec/types/descriptor.hpp"
 #include "compass.codec/types/exception.hpp"
 #include "compass.codec/types/registry.hpp"
 
@@ -36,6 +39,47 @@ namespace compass::codec::ops {
  * @brief The text an exception comment starts with.
  */
 inline constexpr std::string_view exception_marker = "compass:except";
+
+/**
+ * @brief The codec name the findings about exceptions carry.
+ */
+inline constexpr std::string_view exception_codec = "exception";
+
+inline constexpr std::array<std::string_view, 1> exception_documents{
+    "5B528519-8BCE-4CB8-A48E-B525FD71F873"};
+
+/**
+ * @brief The rules of the findings about exceptions, which the runtime
+ * reports under exception_codec rather than a codec declaring them.
+ */
+enum class exception_rule : std::uint8_t {
+    malformed, incomplete, expired, stale };
+
+inline constexpr std::array<types::rule, 4> exception_rules{{
+    {"malformed", "An exception comment parses and names a rule some codec "
+        "declares, other than a rule about exceptions.", exception_documents},
+    {"incomplete", "An exception gives a reason, an approver and an "
+        "expiry.", exception_documents},
+    {"expired", "No exception is used past its expiry date.",
+        exception_documents},
+    {"stale", "A valid exception of an enabled codec excuses some "
+        "finding.", exception_documents}}};
+
+[[nodiscard]] constexpr const types::rule& rule_of(exception_rule r) noexcept {
+    return exception_rules[static_cast<std::size_t>(r)];
+}
+
+inline constexpr std::array<std::string_view, 2> drift_documents{
+    "B71DDE37-CFC8-44C1-A3DA-4B50C4CBE3EE",
+    "C88C4034-1DE6-4945-8CF1-393EC9E0805F"};
+
+/**
+ * @brief The rule every codec that emits files declares without listing
+ * it: the file on disk holds what the codec generates.
+ */
+inline constexpr types::rule drift_rule{"drift", "Every file a codec "
+    "generates holds what the codec generates from its inputs; nobody edits "
+    "it by hand.", drift_documents};
 
 /**
  * @brief The date @p s writes as YYYY-MM-DD, or nothing when it is not

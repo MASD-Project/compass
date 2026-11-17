@@ -46,11 +46,15 @@ namespace pt = compass::platform::text;
 constexpr std::uint32_t sql_writer = 0;
 constexpr std::uint32_t cpp_writer = 1;
 
+constexpr std::array<std::string_view, 1> table_writes_sources{
+    "5724BDE2-7FA4-4667-9129-2D9DD7783AB2"};
+
 constexpr std::array<ct::rule, 2> rules{{
     {"sql_writer", "No SQL function but the purge writes an entity table "
-        "with INSERT, UPDATE or DELETE."},
+        "with INSERT, UPDATE or DELETE.", table_writes_sources},
     {"cpp_writer", "No hand-written C++ file but the repository of each "
-        "table it names writes an entity table in raw SQL."}}};
+        "table it names writes an entity table in raw SQL.",
+        table_writes_sources}}};
 
 const pt::regex& dml() {
     static const pt::regex out(

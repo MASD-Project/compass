@@ -39,11 +39,14 @@ namespace {
 namespace ct = compass::codec::types;
 namespace pt = compass::platform::text;
 
+constexpr std::array<std::string_view, 1> filter_mismatch_sources{
+    "7E3659C3-356E-4F0F-B4BA-C54050F39A98"};
+
 constexpr std::array<ct::rule, 4> rules{{
     {"missing_member", "A hand-written list request states as_of and its "
         "filter when the protocol declares them."},
     {"filter_mismatch", "A literal filter states exactly the members the "
-        "filter struct declares."},
+        "filter struct declares.", filter_mismatch_sources},
     {"wrong_rows", "readAll reads the rows a reply carries."},
     {"stale_table", "The generated list request table is what the protocol "
         "headers give."}}};

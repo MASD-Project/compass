@@ -111,11 +111,15 @@ void check_composed(const ct::corpus_view& v, ct::diagnostic_table& out,
     }
 }
 
+constexpr std::array<std::string_view, 1> composition_sources{
+    "B5492D6C-7C18-4723-BA47-232AEAA13314"};
+
 constexpr std::array<ct::rule, 2> composed_rules{{
     {"uncomposed_registrar", "Every generated registrar of a checked "
-        "component is called from its composition file."},
+        "component is called from its composition file.",
+        composition_sources},
     {"missing_composition", "A checked component that generates registrars "
-        "has its composition file."}}};
+        "has its composition file.", composition_sources}}};
 
 constexpr std::array<std::string_view, 3> event_components{"ores.dq",
     "ores.refdata", "ores.synthetic"};

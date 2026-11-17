@@ -36,9 +36,12 @@ namespace {
 namespace ct = compass::codec::types;
 namespace pt = compass::platform::text;
 
+constexpr std::array<std::string_view, 1> unseeded_permission_sources{
+    "7B477025-132E-4B20-80B4-D8C9420880B8"};
+
 constexpr std::array<ct::rule, 1> rules{{
     {"unseeded_permission", "Every permission code a handler of a checked "
-        "component checks is seeded."}}};
+        "component checks is seeded.", unseeded_permission_sources}}};
 
 constexpr std::array<ct::option, 2> options{{
     {"components", "refdata,analytics,compute,assets,storage,reporting,dq,"

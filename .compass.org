@@ -7,8 +7,8 @@
 #+level: cross
 #+filetags: :meta:configuration:compass:
 #+created: 2026-11-16
-#+updated: 2026-11-16
-#+output: build/output/compass
+#+updated: 2026-11-17
+#+output: .
 #+meta: doc/meta
 
 This page configures the =compass= executable for this repository. Every
@@ -18,7 +18,10 @@ where each value came from. The command line wins over this page: =--out=,
 
 * Paths
 
-- =#+output:= :: The output root, relative to the checkout.
+- =#+output:= :: The output root, relative to the checkout. It is the
+  checkout itself, so a generated page lands where it is committed and
+  =compass check= reports it when it drifts. An output nobody commits goes
+  under =build/output/=, which git ignores.
 - =#+meta:= :: The directory of the contract pages, relative to the
   checkout.
 
@@ -26,11 +29,12 @@ where each value came from. The command line wins over this page: =--out=,
 
 One row per codec: its name, =yes= or =no= for enabled, and its options as
 space-separated =key=value= pairs. A codec with no row runs on its
-defaults.
+defaults. =tangle= is off: the files it writes are not committed here.
 
-| name              | enabled | options                     |
-|-------------------+---------+-----------------------------|
-| document_index    | yes     | path=doc/document_index.tsv |
-| required_sections | yes     |                             |
-| tangle            | yes     |                             |
-| tangle_check      | yes     |                             |
+| name              | enabled | options                                          |
+|-------------------+---------+--------------------------------------------------|
+| document_index    | yes     | path=build/output/compass/doc/document_index.tsv |
+| required_sections | yes     |                                                  |
+| tangle            | no      |                                                  |
+| tangle_check      | yes     |                                                  |
+| rule_table        | yes     | path=doc/knowledge/compass/rule_table.org        |

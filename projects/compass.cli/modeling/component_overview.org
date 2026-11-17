@@ -23,7 +23,13 @@ codecs from the dependency record and the result cache: those
 =compass.codec= ships, the =codegen= codec of =compass.codegen=, the C++
 gates of =compass.cpp=, the SQL gates of =compass.sql=, the
 cross-artefact gates of =compass.crosscheck= and the document gates of
-=compass.docs=, which =app::codecs= lists. The codecs read the other files of the checkout
+=compass.docs=, which =app::codecs= lists, and last =rule_table=. That
+codec is the host's own: it binds =ops::rule_table= of =compass.codec= to
+the list, since only the host knows every codec, and its version is
+=ops::rule_table_version= of the list, so a changed rule, statement or
+citation regenerates the page. It reads every typed document, for the
+memories and the titles of the pages a rule cites, writes the page to its
+=path= option, and is off by default. The codecs read the other files of the checkout
 through =app::checkout_files_of=, whose content IDs come from the same
 resolver. =generate=, =diff= and =check= then format the files of each codec that
 names formatters, through the result cache. Then each command does one

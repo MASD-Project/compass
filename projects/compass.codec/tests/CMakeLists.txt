@@ -35,6 +35,7 @@ add_executable(${tests_target_name}
     ops_format_cache_tests.cpp
     ops_outputs_tests.cpp
     ops_registry_tests.cpp
+    ops_rule_table_tests.cpp
     ops_run_tests.cpp
     ops_scan_tests.cpp
     ops_unified_diff_tests.cpp
