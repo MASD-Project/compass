@@ -8,7 +8,7 @@
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
 #+branch: feature/key-codec-results-by-their-code
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/50
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-17
@@ -88,7 +88,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/50][#50]] | [codec] Key codec results by their code |
 
 * Review
 
