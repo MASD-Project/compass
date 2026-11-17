@@ -432,7 +432,7 @@ ot::type_id document_type(std::string_view source,
 types::run_result run(const types::registry& r, const types::corpus& c,
     const ot::type_registry& types, unsigned threads,
     const types::dependency_record& previous,
-    const types::action_source& cache) {
+    const types::action_source& cache, const unit_filter& only) {
     const auto start = std::chrono::steady_clock::now();
     threads = std::max(threads, 1u);
 
@@ -473,13 +473,21 @@ types::run_result run(const types::registry& r, const types::corpus& c,
         if (r.enabled[i] == 0)
             continue;
         result.documents[i] = rows[i].size();
+        const auto count = corpus_unit ? 1 : rows[i].size();
+        std::vector<std::uint32_t> taken;
+        for (std::uint32_t v = 0; v < count; ++v) {
+            if (!only || only(codec, corpus_unit ? std::string_view{}
+                    : c.paths[rows[i][v].value]))
+                taken.push_back(v);
+        }
+        if (taken.empty())
+            continue;
         keys[i].configuration = configuration_hash(r, codec);
         if (corpus_unit)
             keys[i].type_set = type_set_hash(c, rows[i]);
         const auto now = answers_of(codec);
 
-        const auto count = corpus_unit ? 1 : rows[i].size();
-        for (std::size_t v = 0; v < count; ++v) {
+        for (const auto v : taken) {
             const auto document = corpus_unit ? std::string_view{}
                 : c.paths[rows[i][v].value];
             const auto subject = corpus_unit ? blob_id{}
@@ -490,7 +498,7 @@ types::run_result run(const types::registry& r, const types::corpus& c,
                 reusable(previous, {it->second}, d, now))
                 previous_unit = it->second;
             units.codecs.push_back(codec);
-            units.visible.push_back(static_cast<std::uint32_t>(v));
+            units.visible.push_back(v);
             units.previous.push_back(previous_unit);
             units.manifests.push_back(manifest_key(d.name, d.version,
                 keys[i].configuration, document, subject));

@@ -22,8 +22,10 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <span>
 #include <string>
 #include "compass.codec/types/dependency_record.hpp"
+#include "compass.codec/types/unit_index.hpp"
 
 namespace compass::codec::io {
 
@@ -64,6 +66,36 @@ struct loaded_record {
  */
 bool write_dependency_file(const std::filesystem::path& path,
     const types::dependency_record& record);
+
+/**
+ * @brief What reading the unit index of a dependency record found.
+ * problem is empty when the index was read, or the file is missing and
+ * missing is true; otherwise it says why the index was not used and
+ * index is empty.
+ */
+struct loaded_index {
+    types::unit_index index;
+    bool missing = false;
+    std::string problem;
+};
+
+/**
+ * @brief Reads the unit index of the record at @p path: its header, its
+ * footer and the index they locate, and none of its units. Never throws
+ * for the content of the file.
+ */
+[[nodiscard]] loaded_index read_unit_index(const std::filesystem::path& path);
+
+/**
+ * @brief The record holding @p units of the record at @p path, in the
+ * order given, each read alone and checked against the SHA-1 @p index
+ * holds for it. The problem is not empty, and the record is, when a unit
+ * cannot be read or does not match, as when the file was replaced since
+ * the index was read.
+ */
+[[nodiscard]] loaded_record read_record_units(
+    const std::filesystem::path& path, const types::unit_index& index,
+    std::span<const types::record_unit_id> units);
 
 }
 

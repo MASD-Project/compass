@@ -20,15 +20,35 @@
 #include "compass.codec/io/dependency_file.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <fstream>
 #include <iterator>
 #include <optional>
 #include <span>
 #include <stdexcept>
+#include <string>
 #include "compass.codec/ops/dependencies.hpp"
 #include "compass.store/io/object_file.hpp"
 
 namespace compass::codec::io {
+
+namespace {
+
+/**
+ * @brief The @p size bytes of @p in at @p offset.
+ * @throws std::runtime_error when they cannot all be read.
+ */
+std::string read_at(std::ifstream& in, std::uint64_t offset,
+    std::uint64_t size) {
+    std::string bytes(size, '\0');
+    in.seekg(static_cast<std::streamoff>(offset));
+    in.read(bytes.data(), static_cast<std::streamsize>(size));
+    if (!in || static_cast<std::uint64_t>(in.gcount()) != size)
+        throw std::runtime_error("dependency record: truncated");
+    return bytes;
+}
+
+}
 
 std::filesystem::path dependency_file_path(
     const std::filesystem::path& git_dir) {
@@ -44,6 +64,52 @@ loaded_record read_dependency_file(const std::filesystem::path& path) {
     try {
         r.record = ops::decode_dependency_record(*bytes);
     } catch (const std::runtime_error& e) {
+        r.problem = e.what();
+    }
+    return r;
+}
+
+loaded_index read_unit_index(const std::filesystem::path& path) {
+    loaded_index r;
+    std::ifstream in(path, std::ios::binary | std::ios::ate);
+    if (!in) {
+        r.missing = true;
+        return r;
+    }
+    try {
+        const auto size = static_cast<std::uint64_t>(in.tellg());
+        if (size < ops::record_header_size + ops::record_footer_size)
+            throw std::runtime_error("dependency record: truncated");
+        const auto header = read_at(in, 0, ops::record_header_size);
+        const auto layout = ops::locate_unit_index(header,
+            read_at(in, size - ops::record_footer_size,
+                ops::record_footer_size), size);
+        r.index = ops::decode_unit_index(header,
+            read_at(in, layout.index_offset, layout.index_size), layout);
+    } catch (const std::runtime_error& e) {
+        r.index = {};
+        r.problem = e.what();
+    }
+    return r;
+}
+
+loaded_record read_record_units(const std::filesystem::path& path,
+    const types::unit_index& index,
+    std::span<const types::record_unit_id> units) {
+    loaded_record r;
+    std::ifstream in(path, std::ios::binary);
+    try {
+        if (!in)
+            throw std::runtime_error("dependency record: cannot be opened");
+        for (const auto u : units) {
+            const auto begin = index.offsets[u.value];
+            const auto size = index.offsets[u.value + 1] - begin;
+            ops::decode_record_unit(read_at(in, begin, size),
+                index.hashes[u], r.record);
+            r.bytes += size;
+        }
+    } catch (const std::runtime_error& e) {
+        r.record = {};
         r.problem = e.what();
     }
     return r;

@@ -20,15 +20,18 @@
 #ifndef COMPASS_CODEC_OPS_DEPENDENCIES_HPP
 #define COMPASS_CODEC_OPS_DEPENDENCIES_HPP
 
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 #include "compass.codec/types/corpus.hpp"
 #include "compass.codec/types/corpus_index.hpp"
 #include "compass.codec/types/dependency_record.hpp"
 #include "compass.codec/types/diagnostic_table.hpp"
 #include "compass.codec/types/registry.hpp"
+#include "compass.codec/types/unit_index.hpp"
 #include "compass.org/types/handle.hpp"
 #include "compass.org/types/type_registry.hpp"
 #include "compass.store/types/blob_id.hpp"
@@ -39,7 +42,7 @@ namespace compass::codec::ops {
  * @brief The version of the dependency record file this build writes and
  * reads. A file of any other version is not read, so every unit runs.
  */
-inline constexpr std::uint32_t dependency_record_version = 4;
+inline constexpr std::uint32_t dependency_record_version = 5;
 
 /**
  * @brief The row of every document by path and by ID property.
@@ -88,25 +91,106 @@ inline constexpr std::uint32_t dependency_record_version = 4;
     const types::corpus_index& index, types::diagnostic_table* out);
 
 /**
+ * @brief The paths the findings of @p bytes name, as encode_diagnostics
+ * writes them, in order and with repeats; none when the bytes do not
+ * decode.
+ */
+[[nodiscard]] std::vector<std::string_view> diagnostic_paths(
+    std::string_view bytes);
+
+/**
  * @brief The bytes of the dependency record file.
- * All integers are little-endian. The magic "CMPSDEP\n", the version and
- * the unit count come first. Each unit follows: codec name, version,
- * configuration hash, document path, its inputs (kind, key, found, value),
- * its files (path, blob ID, content), its findings (count, hash, encoded
- * bytes) and the keys of its manifest and result objects. A string is its length and its bytes. The SHA-1 of
- * everything before it ends the file.
+ * All integers are little-endian and a string is its length and its
+ * bytes. A 16-byte header comes first: the magic "CMPSDEP\n", the version
+ * and the unit count. The units follow, end to end, each with its codec
+ * name, version, configuration hash, document path, inputs (kind, key,
+ * found, value), files (path, blob ID, content), findings (count, hash,
+ * encoded bytes) and the keys of its manifest and result objects. Then
+ * the unit index: the offset of each unit and of the end of the last,
+ * the SHA-1 of each unit's bytes, and the subjects, each a kind, a key
+ * and the units it names. A 28-byte footer ends the file: the offset of
+ * the index and the SHA-1 of the header followed by the index. So the
+ * index and any one unit can be read and checked without the rest.
  */
 [[nodiscard]] std::string encode_dependency_record(
     const types::dependency_record& record);
 
 /**
- * @brief The dependency record held by @p bytes.
- * @throws std::runtime_error naming the defect when the magic, the version
- * or the trailing SHA-1 is not the expected one, an input has an unknown
- * kind, or a field runs past the end.
+ * @brief The dependency record held by @p bytes, every unit checked
+ * against its SHA-1.
+ * @throws std::runtime_error naming the defect when the magic, the version,
+ * the index's SHA-1 or a unit's is not the expected one, an input or a
+ * subject has an unknown kind, or a field runs past its end.
  */
 [[nodiscard]] types::dependency_record decode_dependency_record(
     std::string_view bytes);
+
+/**
+ * @brief Where the unit index of a dependency record file is: the offset
+ * and size of its bytes, and the SHA-1 they and the header must have.
+ */
+struct record_layout {
+    std::uint64_t index_offset = 0;
+    std::uint64_t index_size = 0;
+    compass::store::types::blob_id digest;
+};
+
+/**
+ * @brief The size of the header and of the footer of a dependency record
+ * file, which locate_unit_index reads.
+ */
+inline constexpr std::size_t record_header_size = 16;
+inline constexpr std::size_t record_footer_size = 28;
+
+/**
+ * @brief The layout of a dependency record file of @p file_size bytes
+ * whose first record_header_size bytes are @p header and last
+ * record_footer_size bytes are @p footer.
+ * @throws std::runtime_error when the magic or version is not the expected
+ * one or the index lies outside the file.
+ */
+[[nodiscard]] record_layout locate_unit_index(std::string_view header,
+    std::string_view footer, std::uint64_t file_size);
+
+/**
+ * @brief The unit index whose bytes are @p section, of a file whose
+ * header is @p header, laid out as @p layout says.
+ * @throws std::runtime_error when the SHA-1 of the header and the section
+ * is not the digest of @p layout, or the section does not decode.
+ */
+[[nodiscard]] types::unit_index decode_unit_index(std::string_view header,
+    std::string_view section, const record_layout& layout);
+
+/**
+ * @brief Appends the unit whose bytes are @p bytes to @p to.
+ * @throws std::runtime_error when the SHA-1 of @p bytes is not @p hash or
+ * they are not one unit.
+ */
+void decode_record_unit(std::string_view bytes,
+    const compass::store::types::blob_id& hash,
+    types::dependency_record& to);
+
+/**
+ * @brief The units @p index links to the subject of kind @p kind and key
+ * @p key, in ascending order; none when there is no such subject.
+ */
+[[nodiscard]] std::span<const types::record_unit_id> units_of(
+    const types::unit_index& index, types::subject_kind kind,
+    std::string_view key);
+
+/**
+ * @brief The units of @p index whose result an edit to the file at
+ * @p path of the checkout may change, or that report on it: those that
+ * read it, produced it or have a finding on it, or list a pattern it
+ * matches; and, when @p document, those that depend on the whole set of
+ * documents and those that looked up one of @p ids, the ID properties
+ * the file holds now. Ascending, each once. A unit that read the type
+ * registry is not among them unless otherwise named: an edit to a
+ * contract page changes what every unit sees.
+ */
+[[nodiscard]] std::vector<types::record_unit_id> units_touching(
+    const types::unit_index& index, std::string_view path, bool document,
+    std::span<const std::string_view> ids);
 
 }
 
