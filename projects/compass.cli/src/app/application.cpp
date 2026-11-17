@@ -144,7 +144,8 @@ std::expected<types::options, std::vector<std::string>> options_of(
             std::chrono::floor<std::chrono::days>(
                 std::chrono::system_clock::now())}),
         .settings = config::settings_of(c),
-        .collection = i.collection};
+        .collection = i.collection,
+        .all_findings = i.all_findings};
 }
 
 /**

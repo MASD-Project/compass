@@ -175,17 +175,28 @@ taken, so a model that code generation lists for the first time is
 generated. The run is told the edited path, whose inputs are checked
 first. It reports:
 
-- every finding of those units on the file, which is every finding a full
-  check reports on it, since a unit with a finding on the file is one the
-  index names;
+- their findings on the file that their recorded findings lack, matched by
+  path, rule and message as ratchet mode matches when lines moved, each
+  recorded finding matching one; with =--all-findings=, every finding of
+  those units on the file, which is every finding a full check reports on
+  it, since a unit with a finding on the file is one the index names;
 - their findings on other files that their recorded findings lack, matched
-  by path, rule and message as ratchet mode matches;
+  the same way;
 - the drift of each output whose blob ID differs from the recorded one, or
   that is the edited file, and of each recorded output the run no longer
   generates. Only those outputs are formatted and compared with the disk;
   a reused unit's output contents are not read, except the edited file's.
   A path two parts of a staged codec emit is compared as the later
   part's.
+
+Reporting only new findings is the default because the hook answers
+whether this edit broke something, and an agent blocked on what the file
+already held learns nothing it can act on: ORE Studio's tree held about
+200 baseline entries, and every edit to a file holding one blocked. The
+old findings are counted, not lost: the hook says how many the last check
+recorded on the file and that =compass check= lists them, in
+=additionalContext= when nothing is new, so it does not block, and after
+the new findings when something is.
 
 Valid inline exceptions excuse findings as =check= excuses them, reading
 only the edited file and the files with findings; the exception findings
@@ -290,6 +301,7 @@ record again, and 0.8 s reading it.
 | =--commit <rev>=                | the files on disk                        | =check= only: check the commit =<rev>= names, as =git rev-parse <rev>^{commit}= resolves it, with that commit's =.compass.org=, or, when the commit has none, the working tree's, with a warning on standard error. The output root and meta directory must be under the checkout. |
 | =--ratchet [<base>]=            | the upstream, else =origin/main=         | =check= only: fail only on findings the merge base of HEAD and =<base>= lacks. The next argument is the base unless it starts with =-= or names a command; =--ratchet=<base>= always takes one. Not with =--commit=. |
 | =--today <YYYY-MM-DD>=          | today in UTC                             | =check= and =hook=: the date the expiry of inline exceptions is judged against, for the checkout, a commit and both sides of a ratchet. |
+| =--all-findings=                | no                                       | =hook= only: report every finding on the edited file, not only those the last check did not record. |
 | =--dry-run=, =--cap=, =--grace= | no, 0 bytes, 3600 s                      | =gc= only.                                      |
 | =--help=, =-h=, =--version=     |                                          | Print and exit 0, whatever else is there.       |
 

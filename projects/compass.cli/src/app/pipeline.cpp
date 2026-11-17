@@ -1094,10 +1094,11 @@ types::hook_result hook(const types::options& o, const std::string& path,
     add_findings(p, found);
     auto old = recorded_findings(p, heads.loaded.record);
     for (auto& f : found) {
-        if (f.path != path) {
+        if (f.path != path || !o.all_findings) {
             const auto it = old.find(joined(f.path, f.rule, f.message));
             if (it != old.end() && it->second != 0) {
                 --it->second;
+                r.old += f.path == path ? 1 : 0;
                 continue;
             }
         }

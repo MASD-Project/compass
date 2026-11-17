@@ -67,6 +67,8 @@ constexpr std::string_view help =
     "origin/main)\n"
     "  --today <YYYY-MM-DD>        check, hook: judge the expiry of exceptions "
     "as of this date (default: today in UTC)\n"
+    "  --all-findings              hook: report every finding on the edited "
+    "file, not only those the last check did not record\n"
     "  --dry-run                   gc: remove nothing, report what would go\n"
     "  --cap <bytes>               gc: the size the store comes down to "
     "(default: 0)\n"
@@ -156,6 +158,10 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
             o.timings = true;
             continue;
         }
+        if (arg == "--all-findings") {
+            o.all_findings = true;
+            continue;
+        }
         if (arg == "--ratchet") {
             const bool has_base = i + 1 < args.size() &&
                 !args[i + 1].starts_with("-") && !command_named(args[i + 1]);
@@ -230,6 +236,8 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
     if (o.today && *which != types::command::check &&
         *which != types::command::hook)
         return usage_error{"--today applies to check and hook only"};
+    if (o.all_findings && *which != types::command::hook)
+        return usage_error{"--all-findings applies to hook only"};
     if (o.ratchet && !o.revision.empty())
         return usage_error{"--ratchet and --commit cannot be combined"};
     o.which = *which;

@@ -109,14 +109,24 @@ void write_hook(std::ostream& out, std::ostream& err,
             json_string("compass hook: " + r.note));
         return;
     }
-    if (r.findings.empty())
+    const auto old = r.old == 0 ? std::string() : std::format("{} finding{} "
+        "the last check recorded on {} {} not shown; compass check lists "
+        "them", r.old, r.old == 1 ? "" : "s", r.path,
+        r.old == 1 ? "is" : "are");
+    if (r.findings.empty()) {
+        if (!old.empty())
+            out << std::format("{{\"hookSpecificOutput\": {{\"hookEventName\": "
+                "\"PostToolUse\", \"additionalContext\": {}}}}}\n",
+                json_string("compass hook: no new findings; " + old));
         return;
+    }
     std::ostringstream lines;
     write_findings(lines, r.findings);
     const auto count = r.findings.size();
     const auto reason = std::format("compass found {} finding{} on or "
-        "caused by the edit to {}{}:\n{}", count, count == 1 ? "" : "s",
-        r.path, excused_note(r.excused), lines.str());
+        "caused by the edit to {}{}{}:\n{}", count, count == 1 ? "" : "s",
+        r.path, excused_note(r.excused), old.empty() ? "" : "; " + old,
+        lines.str());
     out << std::format("{{\"decision\": \"block\", \"reason\": {}}}\n",
         json_string(reason));
 }

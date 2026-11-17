@@ -322,10 +322,13 @@ What the hook does:
   and returns a `block` decision with the findings. That shows them to the
   agent; it does not undo the edit.
 - It fails open, with a note, on any internal error.
-- It reports every finding on the edited file, including ones that were
-  there before the edit. Until the baselines become inline exceptions (step
-  3), an edit to a file with a baseline entry blocks every time, so install
-  the hook only after step 3.
+- It reports only findings that are new since the last `compass-ng check`:
+  a finding the record of that check holds, on the edited file or another,
+  does not block, even when the edit moved its line. The hook says how many
+  old findings it left out, and `compass-ng check` lists them. So the hook
+  can go in before the baselines become inline exceptions (step 3). To see
+  every finding on the edited file instead, use
+  `compass-ng hook --all-findings`.
 - It writes nothing, so it trusts the record of the last `compass-ng check`. Run
   a full `compass-ng check` after pulls and rebases.
 - Warm times at load 2 to 4: most edits take 0.2 to 0.9 s, and a new model

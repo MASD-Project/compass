@@ -142,8 +142,10 @@ struct check_result {
  * path is the file, relative to the checkout. checked is false when no
  * codec reads or reports on it, so nothing ran. findings are those on the
  * file and those the edit caused on other files, less the excused ones,
- * sorted as check sorts them. note, when not empty, says why the hook
- * could not check the file; it then has no findings.
+ * sorted as check sorts them. old counts the findings on the file that
+ * the last check recorded, which are left out unless all were asked for.
+ * note, when not empty, says why the hook could not check the file; it
+ * then has no findings.
  */
 struct hook_result {
     run_summary run;
@@ -151,6 +153,7 @@ struct hook_result {
     bool checked = false;
     std::vector<finding> findings;
     std::size_t excused = 0;
+    std::size_t old = 0;
     std::string note;
     double ms = 0;
 };
