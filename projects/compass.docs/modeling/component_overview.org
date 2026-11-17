@@ -41,6 +41,11 @@ finished, is not ported:
   compiled into compass, two sources of one fact. A level change is
   reviewed in the skill page's diff. A skill the table lacks, or an entry
   with no skill, still stops =skill_levels=, whose refusal names each.
+- The =missing_section= rule of =component-docs=. It is
+  =required_sections/missing_section=: the =component= type's contract
+  requires the same six sections, and =required_sections= reads them from
+  the type registry. A repository that turns =required_sections= off has
+  no section check on its component overviews.
 
 * Inputs
 
@@ -77,8 +82,8 @@ finished, is not ported:
 - *=component_docs=.* =component-docs=
   (=projects/ores.codegen/validate_docs.py=). Every component
   =projects/ores.*= and every part with =include/= and =src/= has a
-  =modeling/component_overview.org= with an =:ID:=, =#+type: component=, a
-  =#+description:= and the six sections, and a =.puml= beside it; no
+  =modeling/component_overview.org= with an =:ID:=, =#+type: component=
+  and a =#+description:=, and a =.puml= beside it; no
   top-level name extends another's; no page under =doc/= holds a bare
   bracket link inside one backtick span. It is a scan over the pages
   under =doc/=: a page's links are its fact, and the reduce step checks

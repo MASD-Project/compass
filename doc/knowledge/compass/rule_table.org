@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-182 rules, 45 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
+181 rules, 44 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
 
 ** Rules
 
@@ -32,7 +32,6 @@ memories no rule cites are the candidates for the next checks.
 | =component_docs= | missing_id | A component overview has an :ID: property. | [[id:CE17C7BB-C68C-4304-BD3D-92FA5D13272B][Document type: component]] |
 | =component_docs= | missing_type | A component overview is #+type: component. | [[id:CE17C7BB-C68C-4304-BD3D-92FA5D13272B][Document type: component]] |
 | =component_docs= | missing_description | A component overview has a #+description:. | [[id:CE17C7BB-C68C-4304-BD3D-92FA5D13272B][Document type: component]] |
-| =component_docs= | missing_section | A component overview has Summary, Inputs, Outputs, Entry points, Dependencies and See also. | [[id:CE17C7BB-C68C-4304-BD3D-92FA5D13272B][Document type: component]] |
 | =component_docs= | missing_puml | A component's modeling/ directory holds a .puml diagram. |  |
 | =component_docs= | name_collision | No top-level component's dotted name extends another's. |  |
 | =component_docs= | backtick_link | No bracket link a site export cannot resolve sits inside a backtick span of a page under doc/. |  |
