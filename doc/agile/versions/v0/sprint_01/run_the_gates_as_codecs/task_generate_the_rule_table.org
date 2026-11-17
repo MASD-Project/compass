@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/generate-the-rule-table
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ Generate the table of rules and their enforcing checks from check metadata, and 
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,13 @@ Generate the table of rules and their enforcing checks from check metadata, and 
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Give every codec rule metadata: its identifier, a one-line statement, and
+  the memory or document that states the rule in prose, where one does.
+- Generate the rule table as a codec output, an org page listing each rule
+  with its codec and the memory it enforces, so it can never drift from the
+  checks.
+- List the memories in =doc/llm/memory/= (and ORE Studio's, when compass runs
+  there) that no check enforces, as the candidates for the next checks.
 
 * Measurements
 
