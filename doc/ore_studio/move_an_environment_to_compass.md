@@ -112,9 +112,17 @@ options as `key=value` pairs. Use these rows:
 | required_sections | no | |
 | tangle | yes | `directory=projects/ores.codegen/library/templates` |
 | tangle_check | yes | `directory=projects/ores.codegen/library/templates` |
-| codegen | yes | `library=projects/ores.codegen/library convention_component=refdata clang_format=clang-format clang_format_style=.clang-format prettier=projects/ores.web/node_modules/.bin/prettier,prettier prettier_style=.prettierrc.yaml` |
+| codegen | yes | `library=projects/ores.codegen/library convention_component=refdata year=2026 clang_format=clang-format clang_format_style=.clang-format prettier=projects/ores.web/node_modules/.bin/prettier,prettier prettier_style=.prettierrc.yaml` |
+| component_files | yes | `year=2026` |
 | ore_output_catalogue | yes | `clang_format=clang-format` |
 | rule_table | yes | `path=doc/knowledge/compass/rule_table.org` |
+
+`year` is the copyright year of the licence blocks that `codegen` and
+`component_files` write. Both codecs require it: compass never takes the
+year from the clock, so a run in January writes the same bytes as one in
+December. 2026 is the year in the files ORE Studio has committed. To move to
+a new year, change `year` in `.compass.org` and run `compass generate`; the
+change of year is then one commit.
 
 Also add every other codec `compass config` lists, with `yes` and no options:
 the C++, SQL, org, cross-artefact and generator gates. Keep

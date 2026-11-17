@@ -20,8 +20,6 @@
 #include "compass.codegen/codecs/component_files.hpp"
 
 #include <array>
-#include <charconv>
-#include <chrono>
 #include <map>
 #include <stdexcept>
 #include <string>
@@ -44,22 +42,8 @@ namespace pt = compass::platform::text;
 constexpr std::array<ct::option, 2> options{{
     {"library", "projects/ores.codegen/library", "The codegen library: its "
         "data directory and its templates."},
-    {"year", "", "The copyright year of the licence blocks; empty for the "
-        "year of the run."}}};
-
-int year_of(std::string_view option) {
-    if (option.empty())
-        return static_cast<int>(std::chrono::year_month_day{
-            std::chrono::floor<std::chrono::days>(
-                std::chrono::system_clock::now())}.year());
-    int year = 0;
-    const auto end = option.data() + option.size();
-    const auto [at, error] = std::from_chars(option.data(), end, year);
-    if (error != std::errc{} || at != end || year < 1)
-        throw std::runtime_error("component_files: the option year is not "
-            "a year: " + std::string(option));
-    return year;
-}
+    {"year", "", "The copyright year of the licence blocks. Required: the "
+        "year is configuration, never the clock."}}};
 
 std::string read(const ct::corpus_view& v, const std::string& path) {
     auto bytes = v.read_file(path);
@@ -94,7 +78,8 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
         return;
 
     const std::string library(v.option("library"));
-    const auto year = year_of(v.option("year"));
+    const auto year = ops::copyright_year("component_files",
+        v.option("year"));
     const auto licence = read(v, library + "/data/licence-GPL-v3.txt");
     const auto modelines = read(v, library + "/data/modeline.org");
     struct unit {

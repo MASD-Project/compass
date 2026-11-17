@@ -152,7 +152,7 @@ TEST_CASE("a codegen formatter that cannot be found fails the command",
     scoped_git_repo repo;
     set_up(repo);
     repo.write(".compass.org", "* Codecs\n"
-        "| codegen | yes | library=lib convention_component=a "
+        "| codegen | yes | library=lib convention_component=a year=2031 "
         "clang_format=bin/missing clang_format_style=style |\n");
 
     const auto r = run_on(repo, "gen");

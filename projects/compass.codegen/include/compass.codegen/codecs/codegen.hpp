@@ -39,8 +39,8 @@ namespace compass::codegen::codecs {
  *   templates/, data/ and component_catalogue.org. Required.
  * - convention_component: the component of the catalogue whose modeling
  *   directory declares the convention families. Required.
- * - year: the copyright year of the licence blocks; empty for the year
- *   of the run.
+ * - year: the copyright year of the licence blocks. Required: it is
+ *   configuration, never the clock.
  * - clang_format and prettier: the programs that format C++ and
  *   TypeScript outputs, each a comma-separated list of candidates of
  *   which the first found is used: a name is searched on PATH, a path is
@@ -56,7 +56,7 @@ extern const compass::codec::types::descriptor codegen;
 /**
  * @brief The settings the options @p o give.
  * @throws std::runtime_error naming the option when library or
- * convention_component is empty or year is not a year.
+ * convention_component is empty, or year is empty or not a year.
  */
 [[nodiscard]] ops::generation_settings settings_of(
     const compass::codec::types::option_values& o);

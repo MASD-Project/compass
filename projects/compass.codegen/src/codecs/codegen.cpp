@@ -20,8 +20,6 @@
 #include "compass.codegen/codecs/codegen.hpp"
 
 #include <array>
-#include <charconv>
-#include <chrono>
 #include <memory>
 #include <optional>
 #include <span>
@@ -29,6 +27,7 @@
 #include <string>
 #include <string_view>
 #include "compass.codec/io/format_cache.hpp"
+#include "compass.codegen/ops/context.hpp"
 
 namespace compass::codegen::codecs {
 
@@ -41,8 +40,8 @@ constexpr std::array<ct::option, 7> options{{
         "the checkout: templates/, data/ and component_catalogue.org."},
     {"convention_component", "", "The component of the catalogue whose "
         "modeling directory declares the convention families."},
-    {"year", "", "The copyright year of the licence blocks; empty for the "
-        "year of the run."},
+    {"year", "", "The copyright year of the licence blocks. Required: the "
+        "year is configuration, never the clock."},
     {"clang_format", "", "The clang-format that formats C++ outputs: "
         "comma-separated candidates, the first found used; empty for none."},
     {"clang_format_style", "", "clang-format's style file, relative to the "
@@ -51,13 +50,6 @@ constexpr std::array<ct::option, 7> options{{
         "comma-separated candidates, the first found used; empty for none."},
     {"prettier_style", "", "prettier's configuration file, relative to the "
         "checkout."}}};
-
-int current_year() {
-    const std::chrono::year_month_day today{
-        std::chrono::floor<std::chrono::days>(
-            std::chrono::system_clock::now())};
-    return static_cast<int>(today.year());
-}
 
 std::string required(const ct::option_values& o, std::string_view key) {
     const auto value = o[key];
@@ -135,16 +127,7 @@ ops::generation_settings settings_of(const ct::option_values& o) {
     while (s.library.ends_with('/'))
         s.library.pop_back();
     s.convention_component = required(o, "convention_component");
-    const auto year = o["year"];
-    if (year.empty()) {
-        s.year = current_year();
-    } else {
-        const auto end = year.data() + year.size();
-        const auto [at, error] = std::from_chars(year.data(), end, s.year);
-        if (error != std::errc{} || at != end || s.year < 1)
-            throw std::runtime_error("codegen: the option year is not a "
-                "year: " + std::string(year));
-    }
+    s.year = ops::copyright_year("codegen", o["year"]);
     return s;
 }
 
