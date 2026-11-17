@@ -24,8 +24,10 @@
 #include <functional>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <tuple>
 #include <unordered_map>
@@ -65,9 +67,20 @@ struct codec_key {
 };
 
 /**
+ * @brief What a unit is a call of: a document codec for one document, a
+ * corpus codec or a scan, the prepare step of a staged codec, or one of
+ * its parts.
+ */
+enum class unit_kind : std::uint8_t { document, corpus, stage, part };
+
+/**
  * @brief The units of a run, grouped by codec in registry order and, for
  * a document codec, in visible-document order. visible is the unit's
- * document in its codec's view. previous is the unit's row in the previous
+ * document in its codec's view, or for a part its row among the parts its
+ * prepare step listed. last is, for a part, its row in the previous
+ * record under the same version and options when that row does not stand
+ * in for the call, or no_unit, and changed the inputs of that row that no
+ * longer hold. previous is the unit's row in the previous
  * record when that row stands in for the call, or no_unit. manifests holds
  * the unit's manifest key. seeds holds, for a scan, the key of the result
  * the previous record names for it under the same version and options,
@@ -75,10 +88,13 @@ struct codec_key {
  */
 struct unit_table {
     std::vector<types::codec_id> codecs;
+    std::vector<unit_kind> kinds;
     std::vector<std::uint32_t> visible;
     std::vector<std::uint32_t> previous;
     std::vector<blob_id> manifests;
     std::vector<std::optional<blob_id>> seeds;
+    std::vector<std::uint32_t> last;
+    std::vector<std::vector<types::changed_input>> changed;
 
     [[nodiscard]] std::size_t size() const noexcept { return codecs.size(); }
 };
@@ -98,7 +114,9 @@ struct call_rows {
 
 /**
  * @brief Entries [begin, end) of the list of called units, all of one
- * codec, with the tables they fill.
+ * codec, with the tables they fill. For the parts of a staged codec, ids
+ * holds the blob ID of each row of files, and kept whether a part kept
+ * the row from its last call, whose bytes may not be loaded.
  */
 struct piece {
     types::codec_id codec;
@@ -107,6 +125,8 @@ struct piece {
     types::file_table files;
     types::diagnostic_table diagnostics;
     double ms = 0;
+    std::vector<blob_id> ids;
+    std::vector<std::uint8_t> kept;
 };
 
 template <typename Output>
@@ -178,6 +198,98 @@ std::string run_scan(const types::scan_function& f,
 }
 
 /**
+ * @brief What the prepare step of one staged codec gave this run: the
+ * parts and the facts, by name, and the state the parts run from, which
+ * is null until prepare is called in this run. called is true when
+ * prepare was called for the record, with its reads in log and its time
+ * in ms.
+ */
+struct staging {
+    types::stage stage;
+    std::unordered_map<std::string_view, blob_id> facts;
+    std::shared_ptr<const void> state;
+    bool called = false;
+    types::read_log log;
+    double ms = 0;
+
+    void index() {
+        facts.clear();
+        for (const auto& [name, value] : stage.facts)
+            facts.emplace(name, value);
+    }
+};
+
+/**
+ * @brief What the current corpus says to the inputs of one codec: the
+ * answers a call would get, without calling it. facts holds what the
+ * prepare step of a staged codec published, and is null otherwise.
+ */
+struct answers {
+    const types::corpus& c;
+    const types::corpus_index& index;
+    std::span<const std::uint8_t> reads;
+    const codec_key& key;
+    const blob_id& registry;
+    const std::unordered_map<std::string_view, blob_id>* facts = nullptr;
+
+    [[nodiscard]] std::optional<blob_id> of(types::input_kind kind,
+        std::string_view input) const {
+        switch (kind) {
+        case types::input_kind::path:
+        case types::input_kind::id: {
+            const auto row = types::locate(c, index, reads, kind, input);
+            if (row.is_none())
+                return std::nullopt;
+            return types::answer_of(c, kind, row);
+        }
+        case types::input_kind::type_set: return key.type_set;
+        case types::input_kind::type_registry: return registry;
+        case types::input_kind::file:
+        case types::input_kind::file_exists:
+        case types::input_kind::listing:
+            return types::file_answer(c, kind, input);
+        case types::input_kind::fact: {
+            if (facts == nullptr)
+                return std::nullopt;
+            const auto it = facts->find(input);
+            if (it == facts->end())
+                return std::nullopt;
+            return it->second;
+        }
+        }
+        return std::nullopt;
+    }
+
+    /**
+     * @brief True when input @p in of @p t, a record or a manifest, still
+     * has the answer it recorded, a miss included.
+     */
+    template <typename Table>
+    [[nodiscard]] bool holds(const Table& t, types::input_id in) const {
+        const auto now = of(t.input_kinds[in], t.input_keys[in]);
+        return now.has_value() == (t.input_found[in] != 0) &&
+            (!now || *now == t.input_values[in]);
+    }
+
+    template <typename Table>
+    [[nodiscard]] bool hold(const Table& t, std::uint32_t begin,
+        std::uint32_t end) const {
+        for (auto i = begin; i < end; ++i) {
+            if (!holds(t, types::input_id{i}))
+                return false;
+        }
+        return true;
+    }
+};
+
+template <typename Column>
+std::uint32_t end_of(const Column& firsts, std::uint32_t row,
+    std::size_t total) noexcept {
+    return row + 1 < firsts.size() ? firsts.values[row + 1].value
+        : static_cast<std::uint32_t>(total);
+}
+
+/**
  * @brief Calls the units of one piece, each with a log of its own.
  */
 struct call {
@@ -190,6 +302,9 @@ struct call {
     std::vector<call_rows>& rows;
     const scan_context& scanning;
     std::vector<std::string>& scans;
+    const types::dependency_record& previous;
+    const staging* staged;
+    const answers now;
 
     template <typename Output>
     void around(std::uint32_t unit, auto&& body) {
@@ -236,6 +351,137 @@ struct call {
                     logs[unit], out);
             });
     }
+
+    /**
+     * @brief The sink of the parts of this piece, begun in order.
+     */
+    class sink final : public types::part_sink {
+    public:
+        sink(call& c, std::span<const std::string_view> parts)
+            : c_(c), parts_(parts) {}
+
+        void begin(std::string_view part) override {
+            close();
+            if (next_ == parts_.size() || parts_[next_] != part)
+                throw std::logic_error("a staged codec began the part " +
+                    std::string(part) + " out of turn");
+            unit_ = c_.called[c_.p.begin + next_++];
+            inherited_ = false;
+            c_.logs[unit_].corpus = true;
+            c_.view.record_to(&c_.logs[unit_]);
+            auto& r = c_.rows[unit_];
+            r.piece = c_.piece_index;
+            r.files_begin = static_cast<std::uint32_t>(c_.p.files.size());
+        }
+
+        void read(std::string_view fact) override {
+            const auto it = c_.staged->facts.find(fact);
+            c_.logs[at()].add(types::input_kind::fact, fact,
+                it == c_.staged->facts.end() ? std::nullopt
+                    : std::optional(it->second));
+        }
+
+        void add(std::string_view path, std::string_view bytes) override {
+            (void)at();
+            c_.p.files.add(path, bytes);
+            c_.p.ids.emplace_back();
+            c_.p.kept.push_back(0);
+        }
+
+        [[nodiscard]] std::optional<std::span<const types::changed_input>>
+        changed() const override {
+            if (c_.units.last[at()] == no_unit)
+                return std::nullopt;
+            return std::span(c_.units.changed[unit_]);
+        }
+
+        bool keep(std::string_view path) override {
+            const auto last = c_.units.last[at()];
+            if (last == no_unit)
+                return false;
+            const auto& from = c_.previous;
+            const auto end = end_of(from.file_firsts, last,
+                from.files.size());
+            for (auto f = from.file_firsts[{last}].value; f < end; ++f) {
+                const types::file_id file{f};
+                if (from.files.paths[file] != path)
+                    continue;
+                inherit(last);
+                c_.p.ids.push_back(from.file_hashes[file]);
+                c_.p.kept.push_back(1);
+                c_.p.files.add(path, from.files.contents[file]);
+                return true;
+            }
+            return false;
+        }
+
+        void finish() {
+            close();
+            if (next_ != parts_.size())
+                throw std::logic_error("a staged codec left the part " +
+                    std::string(parts_[next_]) + " out");
+        }
+
+    private:
+        [[nodiscard]] std::uint32_t at() const {
+            if (unit_ == no_unit)
+                throw std::logic_error("a staged codec emitted before it "
+                    "began a part");
+            return unit_;
+        }
+
+        void close() {
+            if (unit_ != no_unit)
+                c_.rows[unit_].files_end =
+                    static_cast<std::uint32_t>(c_.p.files.size());
+        }
+
+        /**
+         * @brief Adds every input the last call recorded to the log, with
+         * the answer it has now.
+         */
+        void inherit(std::uint32_t last) {
+            if (inherited_)
+                return;
+            inherited_ = true;
+            const auto& from = c_.previous;
+            auto& log = c_.logs[unit_];
+            const auto end = end_of(from.input_firsts, last,
+                from.input_count());
+            for (auto i = from.input_firsts[{last}].value; i < end; ++i) {
+                const types::input_id in{i};
+                const auto kind = from.input_kinds[in];
+                if (kind == types::input_kind::type_set)
+                    log.whole = true;
+                else if (kind == types::input_kind::type_registry)
+                    log.registry = true;
+                else
+                    log.add(kind, from.input_keys[in],
+                        c_.now.of(kind, from.input_keys[in]));
+            }
+        }
+
+        call& c_;
+        std::span<const std::string_view> parts_;
+        std::size_t next_ = 0;
+        std::uint32_t unit_ = no_unit;
+        bool inherited_ = false;
+    };
+
+    void operator()(const types::staged_function& f) {
+        std::vector<std::string_view> parts;
+        for (auto i = p.begin; i < p.end; ++i)
+            parts.emplace_back(
+                staged->stage.parts[units.visible[called[i]]]);
+        sink out(*this, parts);
+        f.run(staged->state.get(), parts, view, out);
+        out.finish();
+        for (std::uint32_t row = 0; row < p.files.size(); ++row) {
+            if (p.kept[row] == 0)
+                p.ids[row] = store::ops::blob_id_of(
+                    p.files.contents[types::file_id{row}]);
+        }
+    }
 };
 
 std::vector<ot::document_id> visible_rows(const types::registry& r,
@@ -254,68 +500,12 @@ std::span<const std::uint8_t> flags_of(const types::registry& r,
         codec.value * r.type_slots, r.type_slots);
 }
 
-template <typename Column>
-std::uint32_t end_of(const Column& firsts, std::uint32_t row,
-    std::size_t total) noexcept {
-    return row + 1 < firsts.size() ? firsts.values[row + 1].value
-        : static_cast<std::uint32_t>(total);
-}
-
 std::string unit_name(std::string_view codec, std::string_view document) {
     std::string name(codec);
     name.push_back('\0');
     name += document;
     return name;
 }
-
-/**
- * @brief What the current corpus says to the inputs of one codec: the
- * answers a call would get, without calling it.
- */
-struct answers {
-    const types::corpus& c;
-    const types::corpus_index& index;
-    std::span<const std::uint8_t> reads;
-    const codec_key& key;
-    const blob_id& registry;
-
-    [[nodiscard]] std::optional<blob_id> of(types::input_kind kind,
-        std::string_view input) const {
-        switch (kind) {
-        case types::input_kind::path:
-        case types::input_kind::id: {
-            const auto row = types::locate(c, index, reads, kind, input);
-            if (row.is_none())
-                return std::nullopt;
-            return types::answer_of(c, kind, row);
-        }
-        case types::input_kind::type_set: return key.type_set;
-        case types::input_kind::type_registry: return registry;
-        case types::input_kind::file:
-        case types::input_kind::file_exists:
-        case types::input_kind::listing:
-            return types::file_answer(c, kind, input);
-        }
-        return std::nullopt;
-    }
-
-    /**
-     * @brief True when every input in [begin, end) of @p t, a record or a
-     * manifest, still has the answer it recorded, misses included.
-     */
-    template <typename Table>
-    [[nodiscard]] bool hold(const Table& t, std::uint32_t begin,
-        std::uint32_t end) const {
-        for (auto i = begin; i < end; ++i) {
-            const types::input_id in{i};
-            const auto now = of(t.input_kinds[in], t.input_keys[in]);
-            if (now.has_value() != (t.input_found[in] != 0) ||
-                (now && *now != t.input_values[in]))
-                return false;
-        }
-        return true;
-    }
-};
 
 bool reusable(const types::dependency_record& previous,
     types::record_unit_id u, const types::descriptor& d,
@@ -411,19 +601,21 @@ void open_unit(types::dependency_record& to, std::string_view codec,
 
 /**
  * @brief Adds rows [begin, end) of @p files to @p to with the blob ID of
- * each, hashed on up to @p threads threads, as codegen's unit alone holds
- * about 190 MB of files.
+ * each: that of its row in @p known when given, or else hashed on up to
+ * @p threads threads, as a unit may hold many megabytes of files.
  */
 void add_record_files(types::dependency_record& to,
     const types::file_table& files, std::uint32_t begin, std::uint32_t end,
-    unsigned threads) {
+    unsigned threads, std::span<const blob_id> known = {}) {
     std::vector<blob_id> ids(end - begin);
     const auto hash = [&](std::size_t i) {
         ids[i] = compass::store::ops::blob_id_of(
             files.contents[types::file_id{static_cast<std::uint32_t>(
                 begin + i)}]);
     };
-    if (ids.size() < 256) {
+    if (!known.empty()) {
+        std::ranges::copy(known.subspan(begin, end - begin), ids.begin());
+    } else if (ids.size() < 256) {
         for (std::size_t i = 0; i < ids.size(); ++i)
             hash(i);
     } else {
@@ -507,12 +699,32 @@ void add_called_unit(types::dependency_record& to, const types::corpus& c,
     if (log.registry)
         add_input(to, types::input_kind::type_registry, {}, 1, registry);
     add_record_files(to, p.files, rows.files_begin, rows.files_end,
-        threads);
+        threads, p.ids);
     add_record_findings(to, encode_diagnostics(c, p.diagnostics,
         rows.diagnostics_begin, rows.diagnostics_end),
         rows.diagnostics_end - rows.diagnostics_begin);
     to.manifests.values.push_back(manifest);
     to.results.values.push_back(result_key(manifest, to, unit));
+}
+
+/**
+ * @brief Drops each row of @p files whose path a later row has, as the
+ * files of a staged codec are those of the later part.
+ */
+void keep_last_of_each_path(types::file_table& files) {
+    std::unordered_map<std::string_view, std::uint32_t> last;
+    last.reserve(files.size());
+    for (std::uint32_t f = 0; f < files.size(); ++f)
+        last.insert_or_assign(files.paths[types::file_id{f}], f);
+    if (last.size() == files.size())
+        return;
+    types::file_table kept;
+    for (std::uint32_t f = 0; f < files.size(); ++f) {
+        const types::file_id file{f};
+        if (last.find(files.paths[file])->second == f)
+            kept.add(files.paths[file], files.contents[file]);
+    }
+    files = std::move(kept);
 }
 
 double since(std::chrono::steady_clock::time_point start) {
@@ -559,15 +771,41 @@ types::run_result run(const types::registry& r, const types::corpus& c,
     std::vector<codec_key> keys(r.size());
     std::vector<types::corpus_view> views;
     views.reserve(r.size());
+    std::vector<std::unique_ptr<staging>> staged(r.size());
     const auto answers_of = [&](types::codec_id codec) {
+        const auto& s = staged[codec.value];
         return answers{c, index, flags_of(r, codec), keys[codec.value],
-            registry};
+            registry, s ? &s->facts : nullptr};
     };
+    const auto prepare = [&](std::uint32_t i, staging& s, types::read_log& log,
+        types::stage& out) {
+        const auto began = std::chrono::steady_clock::now();
+        auto view = views[i];
+        log.corpus = true;
+        view.record_to(&log);
+        s.state = std::get<types::staged_function>(r.codecs[i].run).prepare(
+            view, out);
+        s.ms += since(began);
+    };
+
     unit_table units;
+    std::vector<std::pair<std::uint32_t, cache_hit>> stage_hits;
+    const auto add_unit = [&](types::codec_id codec, unit_kind kind,
+        std::uint32_t visible, std::uint32_t previous_unit,
+        const blob_id& manifest) {
+        units.codecs.push_back(codec);
+        units.kinds.push_back(kind);
+        units.visible.push_back(visible);
+        units.previous.push_back(previous_unit);
+        units.manifests.push_back(manifest);
+        units.seeds.emplace_back();
+        units.last.push_back(no_unit);
+        units.changed.emplace_back();
+    };
     for (std::uint32_t i = 0; i < r.size(); ++i) {
         const types::codec_id codec{i};
         const auto& d = r.codecs[i];
-        const auto corpus_unit = unit_of(d) == types::unit::corpus;
+        const auto kind = unit_of(d);
         if (r.enabled[i] != 0)
             rows[i] = visible_rows(r, codec, c);
         views.emplace_back(c, types, index, rows[i], flags_of(r, codec),
@@ -575,6 +813,94 @@ types::run_result run(const types::registry& r, const types::corpus& c,
         if (r.enabled[i] == 0)
             continue;
         result.documents[i] = rows[i].size();
+
+        if (kind == types::unit::staged) {
+            if (only && !only(codec, {}))
+                continue;
+            keys[i].configuration = configuration_hash(r, codec);
+            keys[i].type_set = type_set_hash(c, rows[i]);
+            staged[i] = std::make_unique<staging>();
+            auto& s = *staged[i];
+            const auto now = answers_of(codec);
+            const auto manifest = manifest_key(d.name, d.version,
+                keys[i].configuration, {}, {});
+            const auto published = [&](std::string_view body) {
+                const auto decoded = decode_result(body);
+                auto stage = decoded ? decode_stage(decoded->scan)
+                    : std::nullopt;
+                if (stage)
+                    s.stage = std::move(*stage);
+                return stage.has_value();
+            };
+            auto previous_unit = no_unit;
+            bool known = false;
+            const auto it = recorded.find(unit_name(d.name, {}));
+            if (it != recorded.end() &&
+                reusable(previous, {it->second}, d, now)) {
+                // The row stands in whether or not its result object is
+                // there to say what it published: with the same inputs,
+                // calling prepare publishes the same.
+                previous_unit = it->second;
+                known = true;
+                const auto body = cache ? cache(
+                    store::types::action_kind::result,
+                    previous.results[{it->second}]) : std::nullopt;
+                if (!body || !published(*body)) {
+                    types::read_log log;
+                    prepare(i, s, log, s.stage);
+                }
+            }
+            if (!known && cache) {
+                if (auto hit = look_up(cache, manifest, now);
+                    hit && published(hit->body)) {
+                    stage_hits.emplace_back(
+                        static_cast<std::uint32_t>(units.size()),
+                        std::move(*hit));
+                    known = true;
+                }
+            }
+            if (!known) {
+                prepare(i, s, s.log, s.stage);
+                s.called = true;
+            }
+            s.index();
+            add_unit(codec, unit_kind::stage, 0, previous_unit, manifest);
+
+            for (std::uint32_t v = 0; v < s.stage.parts.size(); ++v) {
+                const std::string_view part = s.stage.parts[v];
+                if (part.empty())
+                    throw std::logic_error(std::string(d.name) +
+                        " listed a part with no key");
+                if (only && !only(codec, part))
+                    continue;
+                auto stands_in = no_unit;
+                auto last = no_unit;
+                std::vector<types::changed_input> changed;
+                const auto at = recorded.find(unit_name(d.name, part));
+                if (at != recorded.end() &&
+                    previous.versions[{at->second}] == d.version &&
+                    previous.configurations[{at->second}] ==
+                        keys[i].configuration) {
+                    const auto end = end_of(previous.input_firsts, at->second,
+                        previous.input_count());
+                    for (auto in = previous.input_firsts[{at->second}].value;
+                         in < end; ++in) {
+                        if (!now.holds(previous, types::input_id{in}))
+                            changed.push_back({previous.input_kinds[{in}],
+                                previous.input_keys[{in}]});
+                    }
+                    (changed.empty() ? stands_in : last) = at->second;
+                }
+                add_unit(codec, unit_kind::part, v, stands_in,
+                    manifest_key(d.name, d.version, keys[i].configuration,
+                        part, {}));
+                units.last.back() = last;
+                units.changed.back() = std::move(changed);
+            }
+            continue;
+        }
+
+        const auto corpus_unit = kind == types::unit::corpus;
         const auto count = corpus_unit ? 1 : rows[i].size();
         std::vector<std::uint32_t> taken;
         for (std::uint32_t v = 0; v < count; ++v) {
@@ -599,28 +925,41 @@ types::run_result run(const types::registry& r, const types::corpus& c,
             if (it != recorded.end() &&
                 reusable(previous, {it->second}, d, now))
                 previous_unit = it->second;
-            units.codecs.push_back(codec);
-            units.visible.push_back(v);
-            units.previous.push_back(previous_unit);
-            units.manifests.push_back(manifest_key(d.name, d.version,
-                keys[i].configuration, document, subject));
-            std::optional<blob_id> seed;
+            add_unit(codec, corpus_unit ? unit_kind::corpus
+                : unit_kind::document, v, previous_unit,
+                manifest_key(d.name, d.version, keys[i].configuration,
+                    document, subject));
             if (std::holds_alternative<types::scan_function>(d.run) &&
                 it != recorded.end() &&
                 previous.versions[{it->second}] == d.version &&
                 previous.configurations[{it->second}] ==
                     keys[i].configuration)
-                seed = previous.results[{it->second}];
-            units.seeds.push_back(seed);
+                units.seeds.back() = previous.results[{it->second}];
         }
     }
+    const auto document_of = [&](std::uint32_t u) -> std::string_view {
+        const auto codec = units.codecs[u].value;
+        switch (units.kinds[u]) {
+        case unit_kind::document:
+            return c.paths[rows[codec][units.visible[u]].value];
+        case unit_kind::part:
+            return staged[codec]->stage.parts[units.visible[u]];
+        case unit_kind::corpus:
+        case unit_kind::stage:
+            break;
+        }
+        return {};
+    };
 
     const auto lookup_start = std::chrono::steady_clock::now();
     std::vector<std::optional<cache_hit>> hits(units.size());
+    for (auto& [unit, hit] : stage_hits)
+        hits[unit] = std::move(hit);
     if (cache) {
         std::vector<std::uint32_t> unknown;
         for (std::uint32_t u = 0; u < units.size(); ++u) {
-            if (units.previous[u] == no_unit)
+            if (units.previous[u] == no_unit &&
+                units.kinds[u] != unit_kind::stage)
                 unknown.push_back(u);
         }
         parallel_for(unknown.size(), threads, [&](std::size_t i) {
@@ -637,18 +976,26 @@ types::run_result run(const types::registry& r, const types::corpus& c,
         const auto codec = units.codecs[u];
         const auto first = called.size();
         for (; u < units.size() && units.codecs[u] == codec; ++u) {
-            if (units.previous[u] == no_unit && !hits[u])
+            if (units.previous[u] == no_unit && !hits[u] &&
+                units.kinds[u] != unit_kind::stage)
                 called.push_back(u);
         }
         const auto count = called.size() - first;
         if (count == 0)
             continue;
+        if (auto& s = staged[codec.value]; s && !s->state) {
+            // The record or the cache stood in for prepare, so it is
+            // called for the state its parts run from.
+            types::read_log log;
+            types::stage again;
+            prepare(codec.value, *s, log, again);
+        }
         const auto parts = unit_of(r.codecs[codec.value]) ==
             types::unit::corpus ? 1 : std::min(count,
                 threads * pieces_per_thread);
         for (std::size_t i = 0; i < parts; ++i)
             pieces.push_back({codec, first + count * i / parts,
-                first + count * (i + 1) / parts, {}, {}, 0});
+                first + count * (i + 1) / parts, {}, {}, 0, {}, {}});
     }
 
     std::vector<types::read_log> logs(units.size());
@@ -660,20 +1007,24 @@ types::run_result run(const types::registry& r, const types::corpus& c,
         const auto began = std::chrono::steady_clock::now();
         std::visit(call{p, static_cast<std::uint32_t>(i),
             views[p.codec.value], called, units, logs, call_outputs,
-            scanning, scans}, r.codecs[p.codec.value].run);
+            scanning, scans, previous, staged[p.codec.value].get(),
+            answers_of(p.codec)}, r.codecs[p.codec.value].run);
         p.ms = since(began);
     });
 
     for (const auto& p : pieces)
         result.ms[p.codec.value] += p.ms;
+    for (std::size_t i = 0; i < staged.size(); ++i) {
+        if (staged[i])
+            result.ms[i] += staged[i]->ms;
+    }
+    const piece nothing{};
     for (std::uint32_t u = 0; u < units.size(); ++u) {
         const auto codec = units.codecs[u];
         const auto& d = r.codecs[codec.value];
         auto& files = result.files[codec.value];
         auto& diagnostics = result.diagnostics[codec.value];
-        const auto document = unit_of(d) == types::unit::corpus
-            ? std::string_view{}
-            : c.paths[rows[codec.value][units.visible[u]].value];
+        const auto document = document_of(u);
         if (units.previous[u] != no_unit) {
             const types::record_unit_id from{units.previous[u]};
             add_files(files, previous.files,
@@ -698,17 +1049,28 @@ types::run_result run(const types::registry& r, const types::corpus& c,
             ++result.cached[codec.value];
             continue;
         }
+        result.fresh.push_back(
+            {static_cast<std::uint32_t>(result.record.size())});
+        ++result.ran[codec.value];
+        if (units.kinds[u] == unit_kind::stage) {
+            const auto& s = *staged[codec.value];
+            result.scans.push_back(encode_stage(s.stage));
+            add_called_unit(result.record, c, d, keys[codec.value], document,
+                units.manifests[u], s.log, nothing, {}, registry, threads);
+            continue;
+        }
         const auto& at = call_outputs[u];
         const auto& p = pieces[at.piece];
         add_files(files, p.files, at.files_begin, at.files_end);
         add_diagnostics(diagnostics, p.diagnostics, at.diagnostics_begin,
             at.diagnostics_end);
-        result.fresh.push_back(
-            {static_cast<std::uint32_t>(result.record.size())});
         result.scans.push_back(std::move(scans[u]));
         add_called_unit(result.record, c, d, keys[codec.value], document,
             units.manifests[u], logs[u], p, at, registry, threads);
-        ++result.ran[codec.value];
+    }
+    for (std::size_t i = 0; i < staged.size(); ++i) {
+        if (staged[i])
+            keep_last_of_each_path(result.files[i]);
     }
     const auto skipped = std::ranges::fold_left(result.skipped,
         std::uint64_t{0}, std::plus<>{});

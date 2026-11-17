@@ -722,8 +722,9 @@ void write_codecs_report(std::ostream& os, const types::codecs_result& stage,
     const auto& codecs = stage.registry.codecs;
     for (std::size_t c = 0; c < codecs.size(); ++c) {
         const auto& d = codecs[c];
-        const auto unit = ct::unit_of(d) == ct::unit::document
-            ? "document" : "corpus";
+        const auto kind = ct::unit_of(d);
+        const auto unit = kind == ct::unit::document ? "document"
+            : kind == ct::unit::staged ? "staged" : "corpus";
         const auto output = ct::output_of(d) == ct::output_kind::files
             ? "files" : "diagnostics";
         if (stage.registry.enabled[c] == 0) {

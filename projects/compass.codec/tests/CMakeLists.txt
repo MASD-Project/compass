@@ -38,6 +38,7 @@ add_executable(${tests_target_name}
     ops_rule_table_tests.cpp
     ops_run_tests.cpp
     ops_scan_tests.cpp
+    ops_staged_tests.cpp
     ops_unified_diff_tests.cpp
     ops_unit_index_tests.cpp)
 

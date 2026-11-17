@@ -33,6 +33,12 @@ using compass::store::types::blob_id;
 
 constexpr std::size_t hash_size = 20;
 
+/**
+ * @brief What an encoded stage starts with, "STG1" little-endian, so the
+ * table of a scan is never read as one.
+ */
+constexpr std::uint32_t stage_magic = 0x31475453;
+
 void put(std::string& out, std::uint8_t v) {
     out.push_back(static_cast<char>(v));
 }
@@ -321,6 +327,38 @@ decode_scan(std::string_view bytes) {
     if (!r.done())
         return std::nullopt;
     return out;
+}
+
+std::string encode_stage(const types::stage& s) {
+    std::string out;
+    put(out, stage_magic);
+    put(out, static_cast<std::uint32_t>(s.parts.size()));
+    for (const auto& part : s.parts)
+        put_text(out, part);
+    put(out, static_cast<std::uint32_t>(s.facts.size()));
+    for (const auto& [name, value] : s.facts) {
+        put_text(out, name);
+        put(out, value);
+    }
+    return out;
+}
+
+std::optional<types::stage> decode_stage(std::string_view bytes) {
+    reader r(bytes);
+    if (r.u32() != stage_magic)
+        return std::nullopt;
+    types::stage s;
+    const auto parts = r.u32();
+    for (std::uint32_t i = 0; i < parts && r.ok(); ++i)
+        s.parts.emplace_back(r.text());
+    const auto facts = r.u32();
+    for (std::uint32_t i = 0; i < facts && r.ok(); ++i) {
+        std::string name(r.text());
+        s.facts.emplace_back(std::move(name), r.id());
+    }
+    if (!r.done())
+        return std::nullopt;
+    return s;
 }
 
 }

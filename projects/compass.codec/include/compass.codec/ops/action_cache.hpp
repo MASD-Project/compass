@@ -28,6 +28,7 @@
 #include <unordered_map>
 #include "compass.codec/types/action_manifest.hpp"
 #include "compass.codec/types/dependency_record.hpp"
+#include "compass.codec/types/descriptor.hpp"
 #include "compass.codec/types/file_table.hpp"
 #include "compass.store/types/blob_id.hpp"
 
@@ -141,6 +142,21 @@ void put_scan_entry(std::string& out, std::string_view path,
  */
 [[nodiscard]] std::optional<std::unordered_map<std::string_view, scan_entry>>
 decode_scan(std::string_view bytes);
+
+/**
+ * @brief The bytes of @p s, which the result object of a staged codec's
+ * prepare step keeps where a scan keeps its table, so that a run whose
+ * record stands in for prepare knows the parts and the facts without
+ * calling it.
+ */
+[[nodiscard]] std::string encode_stage(const types::stage& s);
+
+/**
+ * @brief The stage encode_stage wrote as @p bytes, or nothing when they
+ * are not one.
+ */
+[[nodiscard]] std::optional<types::stage> decode_stage(
+    std::string_view bytes);
 
 }
 

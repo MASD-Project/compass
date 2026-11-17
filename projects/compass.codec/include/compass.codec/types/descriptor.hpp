@@ -23,12 +23,16 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <memory>
+#include <optional>
 #include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <variant>
 #include <vector>
+#include "compass.codec/types/dependency_record.hpp"
 #include "compass.codec/types/diagnostic_table.hpp"
 #include "compass.codec/types/file_table.hpp"
 #include "compass.codec/types/formatter.hpp"
@@ -171,16 +175,92 @@ struct scan_function {
 };
 
 /**
+ * @brief What the prepare step of a staged codec published: the key of
+ * each part, each once, in the order their files are joined, and the
+ * facts the parts may read, each a name and the hash of its value.
+ */
+struct stage {
+    std::vector<std::string> parts;
+    std::vector<std::pair<std::string, compass::store::types::blob_id>>
+        facts;
+};
+
+/**
+ * @brief An input of a unit whose answer is no longer the one its last
+ * call recorded.
+ */
+struct changed_input {
+    input_kind kind;
+    std::string_view key;
+};
+
+/**
+ * @brief Where the run step of a staged codec puts what each part emits
+ * and says what it read besides the view.
+ *
+ * begin starts a part, which must be the next of those the step was
+ * given: until the next begin, what is read through the view and through
+ * read is recorded as the inputs of that part, and add and keep emit its
+ * files. read records that the part depends on the fact @p name, whether
+ * or not the prepare step published one.
+ *
+ * changed lists the inputs of the part whose answers differ from those
+ * its last call recorded, or nothing when no call of it is on record
+ * under this version and these options. keep emits the file its last call
+ * emitted at @p path, unchanged, and returns false when there is none. A
+ * part that keeps a file inherits every input its last call recorded, so
+ * it may skip the work that file took, but only when no changed input
+ * could alter the file or what producing it reads.
+ */
+class part_sink {
+public:
+    virtual ~part_sink() = default;
+    virtual void begin(std::string_view part) = 0;
+    virtual void read(std::string_view fact) = 0;
+    virtual void add(std::string_view path, std::string_view bytes) = 0;
+    [[nodiscard]] virtual std::optional<std::span<const changed_input>>
+    changed() const = 0;
+    virtual bool keep(std::string_view path) = 0;
+};
+
+/**
+ * @brief A corpus codec of files split into a prepare step and one part
+ * per key, so that a run calls again only the parts whose inputs changed.
+ *
+ * prepare reads through the view what every part shares, lists the parts
+ * and publishes the facts it derived, and returns the state the parts
+ * run from. It is a unit of its own, with an empty document, that emits
+ * nothing. run is called with that state and a run of parts; each part is
+ * a unit named by its key, whose inputs are what it read through the view
+ * and the facts it read. A part is called again when one of those has
+ * another answer, so an edit that changes one fact runs only the parts
+ * that read it. The files of the codec are those of its parts, in the
+ * order prepare listed them; a path two parts emit is the later part's,
+ * as the later write wins on disk.
+ *
+ * The state is shared by every thread that runs parts and is not changed
+ * by them. prepare is called again, for its state alone, when a part must
+ * run and the record or the cache stood in for prepare.
+ */
+struct staged_function {
+    std::shared_ptr<const void> (*prepare)(const corpus_view& view,
+        stage& out) = nullptr;
+    void (*run)(const void* state, std::span<const std::string_view> parts,
+        const corpus_view& view, part_sink& out) = nullptr;
+};
+
+/**
  * @brief The function of a codec. Its type says what one call works on, a
  * document or the corpus, and what it emits, files or diagnostics. A scan
- * is a corpus function of diagnostics.
+ * is a corpus function of diagnostics, and a staged function a corpus
+ * function of files.
  *
  * A function reads only through its arguments and writes only to its
  * output table, so calls may run on any thread, in any order.
  */
 using codec_function = std::variant<document_function<file_table>,
     document_function<diagnostic_table>, corpus_function<file_table>,
-    corpus_function<diagnostic_table>, scan_function>;
+    corpus_function<diagnostic_table>, scan_function, staged_function>;
 
 /**
  * @brief The formatters the files of a codec go through before they are
@@ -219,13 +299,15 @@ struct descriptor {
     formatters_function formatters = nullptr;
 };
 
-enum class unit : std::uint8_t { document, corpus };
+enum class unit : std::uint8_t { document, corpus, staged };
 enum class output_kind : std::uint8_t { files, diagnostics };
 
 /**
  * @brief What one call of the codec works on.
  */
 [[nodiscard]] constexpr unit unit_of(const descriptor& d) noexcept {
+    if (std::holds_alternative<staged_function>(d.run))
+        return unit::staged;
     return std::holds_alternative<document_function<file_table>>(d.run) ||
         std::holds_alternative<document_function<diagnostic_table>>(d.run)
         ? unit::document : unit::corpus;
@@ -236,7 +318,8 @@ enum class output_kind : std::uint8_t { files, diagnostics };
  */
 [[nodiscard]] constexpr output_kind output_of(const descriptor& d) noexcept {
     return std::holds_alternative<document_function<file_table>>(d.run) ||
-        std::holds_alternative<corpus_function<file_table>>(d.run)
+        std::holds_alternative<corpus_function<file_table>>(d.run) ||
+        std::holds_alternative<staged_function>(d.run)
         ? output_kind::files : output_kind::diagnostics;
 }
 

@@ -40,8 +40,9 @@ inline constexpr std::uint32_t written_outputs_version = 1;
 /**
  * @brief The files of @p result with their codecs and blob IDs, taken from
  * its record, but for a codec whose files were formatted, whose files and
- * IDs are its formatted ones. Every enabled codec of @p r is complete: a
- * run either calls a unit or reuses its recorded outputs.
+ * IDs are its formatted ones. A path two parts of a staged codec emit
+ * is taken once, from the later part. Every enabled codec of @p r is
+ * complete: a run either calls a unit or reuses its recorded outputs.
  */
 [[nodiscard]] types::output_set outputs_of(const types::registry& r,
     const types::run_result& result);

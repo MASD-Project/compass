@@ -46,26 +46,29 @@ using input_id = compass::org::types::handle<struct input_tag>;
  * the key holds; the value is all zeros. listing: the paths of the files of
  * the checkout that match the pattern the key holds, a prefix and a suffix
  * joined by '*'; the value is the SHA-1 of those paths in byte order.
+ * fact: the fact the key names among those the prepare step of the unit's
+ * staged codec published; the value is the hash it published for it.
  * Only documents of the codec's declared types answer a path or ID lookup,
  * so a document of another type is a miss. File inputs see every file of
  * the checkout.
  */
 enum class input_kind : std::uint8_t {
-    path, id, type_set, type_registry, file, file_exists, listing
+    path, id, type_set, type_registry, file, file_exists, listing, fact
 };
 
 /**
  * @brief The last input kind, which bounds what a record or a manifest may
  * hold.
  */
-inline constexpr input_kind last_input_kind = input_kind::listing;
+inline constexpr input_kind last_input_kind = input_kind::fact;
 
 /**
  * @brief What the codecs of a run read and produced, one row per unit: one
  * call of a document codec, for one document, or the call of a corpus
  * codec.
  * A unit is named by its codec and, for a document codec, the path of its
- * document; documents is empty for a corpus codec. versions and
+ * document; documents is empty for a corpus codec and for the prepare step
+ * of a staged codec, and holds the part's key for a part of one. versions and
  * configurations hold the codec's version and the SHA-1 of its option
  * values when the unit ran. The inputs of unit u are the rows from
  * input_firsts[u] up to input_firsts of the next unit, or the end; found is
