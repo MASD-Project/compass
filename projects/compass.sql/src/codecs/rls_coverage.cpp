@@ -21,21 +21,22 @@
 
 #include <algorithm>
 #include <array>
+#include <map>
 #include <set>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
-#include "compass.platform/text/decoding.hpp"
-#include "compass.platform/text/regex.hpp"
-#include "compass.sql/ops/er_model.hpp"
+#include "compass.codec/types/fact.hpp"
+#include "compass.sql/ops/scripts.hpp"
+#include "compass.sql/ops/sql_model.hpp"
 
 namespace compass::sql::codecs {
 
 namespace {
 
 namespace ct = compass::codec::types;
-namespace pt = compass::platform::text;
 
 constexpr std::array<std::string_view, 1> sources{
     "46AC210B-6BDF-49D2-BA47-35404AAEBA18"};
@@ -131,95 +132,107 @@ std::vector<std::pair<std::string, std::string>> ignore_rules(
     return out;
 }
 
-/**
- * @brief The byte offset of the start of the 1-based @p line of @p bytes.
- */
-std::uint32_t line_start(std::string_view bytes, std::uint32_t line) {
-    std::size_t at = 0;
-    for (std::uint32_t l = 1; l < line && at != std::string_view::npos; ++l) {
-        at = bytes.find('\n', at);
-        if (at != std::string_view::npos)
-            ++at;
-    }
-    return static_cast<std::uint32_t>(at == std::string_view::npos
-        ? bytes.size() : at);
-}
-
-void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
-    static const pt::regex enable(
-        R"re(alter\s+table\s+"?(\w+)"?\s+enable\s+row\s+level\s+security)re",
-        {.ignorecase = true});
-    static const pt::regex restrictive(
-        R"re(create\s+policy\s+\S+\s+on\s+"?(\w+)"?)re"
-        R"re((?:(?!;).)*?as\s+restrictive(?:(?!;).)*?party_id)re",
-        {.dotall = true, .ignorecase = true});
-
+std::vector<std::string_view> scanned(const ct::corpus_view& v) {
     auto paths = v.list_files(std::string(v.option("create_dir")) + "/",
         "_create.sql");
-    // The script reads them in pathlib's order, part by part, which decides
-    // which definition of a table defined twice is the one kept.
-    std::ranges::sort(paths, [](std::string_view x, std::string_view y) {
-        while (!x.empty() && !y.empty()) {
-            const auto a = x.substr(0, x.find('/'));
-            const auto b = y.substr(0, y.find('/'));
-            if (a != b)
-                return a < b;
-            x.remove_prefix(std::min(x.size(), a.size() + 1));
-            y.remove_prefix(std::min(y.size(), b.size() + 1));
-        }
-        return x.empty() && !y.empty();
-    });
-    std::vector<std::string> texts;
-    texts.reserve(paths.size());
-    std::vector<ops::er_script> scripts;
-    std::set<std::string, std::less<>> enabled;
-    std::set<std::string, std::less<>> isolated;
-    for (const auto p : paths) {
-        const auto bytes = v.read_file(p);
-        if (!bytes)
-            continue;
-        texts.push_back(pt::universal_newlines(pt::decode_replacing(*bytes)));
-        scripts.push_back({p, texts.back()});
-        for (const auto& m : enable.find_all(texts.back()))
-            enabled.emplace(m.group(1));
-        for (const auto& m : restrictive.find_all(texts.back()))
-            isolated.emplace(m.group(1));
+    // The script reads them in pathlib's order, which decides which
+    // definition of a table defined twice is the one kept.
+    std::ranges::sort(paths, ops::component_less);
+    return paths;
+}
+
+/**
+ * @brief The fact of a script: each table it creates, with the start of
+ * the line that creates it and its columns' names; the tables it enables
+ * row-level security on; and those a restrictive policy that names
+ * party_id is on.
+ */
+void map(std::string_view, std::string_view bytes, const ct::option_values&,
+    ct::file_scan& out) {
+    const auto model = ops::model_of(bytes);
+    ct::fact_writer fact(out.fact);
+    fact.number(static_cast<std::uint32_t>(model.tables.size()));
+    for (const auto& t : model.tables) {
+        const auto line = bytes.rfind('\n', t.offset);
+        fact.text(t.name).number(line == std::string_view::npos ? 0
+            : static_cast<std::uint32_t>(line + 1))
+            .number(static_cast<std::uint32_t>(t.columns.size()));
+        for (const auto& c : t.columns)
+            fact.text(c.name);
     }
-    const auto model = ops::er_model_of(scripts, {});
+    fact.number(static_cast<std::uint32_t>(model.row_level_security.size()));
+    for (const auto& t : model.row_level_security)
+        fact.text(t);
+    std::uint32_t isolated = 0;
+    for (const auto& p : model.policies)
+        isolated += p.restrictive && p.names_party_id ? 1 : 0;
+    fact.number(isolated);
+    for (const auto& p : model.policies) {
+        if (p.restrictive && p.names_party_id)
+            fact.text(p.table);
+    }
+}
+
+struct table {
+    std::string_view path;
+    std::uint32_t offset = 0;
+    std::vector<std::string_view> columns;
+};
+
+void reduce(std::span<const ct::scanned_file> files,
+    const ct::corpus_view& v, ct::diagnostic_table& out) {
+    std::map<std::string_view, table, std::less<>> tables;
+    std::set<std::string_view, std::less<>> enabled;
+    std::set<std::string_view, std::less<>> isolated;
+    for (const auto& f : files) {
+        ct::fact_reader fact(f.fact);
+        for (auto n = fact.number(); n > 0; --n) {
+            const auto name = fact.text();
+            table t{f.path, fact.number(), {}};
+            t.columns.resize(fact.number());
+            for (auto& c : t.columns)
+                c = fact.text();
+            tables.insert_or_assign(name, std::move(t));
+        }
+        for (auto n = fact.number(); n > 0; --n)
+            enabled.insert(fact.text());
+        for (auto n = fact.number(); n > 0; --n)
+            isolated.insert(fact.text());
+    }
     const auto ignores = ignore_rules(
         v.read_file(v.option("ignore_file")).value_or(""));
-    const auto ignored = [&](std::string_view code, std::string_view table) {
+    const auto ignored = [&](std::string_view code, std::string_view name) {
         return std::ranges::any_of(ignores, [&](const auto& r) {
-            return fnmatch(r.first, code) && fnmatch(r.second, table);
+            return fnmatch(r.first, code) && fnmatch(r.second, name);
         });
     };
 
-    for (const auto& t : model.tables) {
+    for (const auto& [name, t] : tables) {
         const auto has = [&](std::string_view column) {
             return std::ranges::contains(t.columns, column);
         };
         if (!has("tenant_id"))
             continue;
-        const auto at = line_start(v.read_file(t.path).value_or(""), t.line);
         const auto report = [&](std::uint32_t rule, std::string message,
             std::string fix) {
             out.add({.document = compass::org::types::document_id::none(),
-                .range = {at, at},
+                .range = {t.offset, t.offset},
                 .rule = ct::rule_id{rule},
                 .level = ct::severity::error,
                 .message = std::move(message),
                 .fix = std::move(fix),
                 .file = t.path});
         };
-        if (!enabled.contains(t.name) && !ignored("RLS_001", t.name))
-            report(0, "Table '" + t.name + "' has tenant_id but no ENABLE "
-                "ROW LEVEL SECURITY found in any *_create.sql file",
+        const std::string table_name(name);
+        if (!enabled.contains(name) && !ignored("RLS_001", name))
+            report(0, "Table '" + table_name + "' has tenant_id but no "
+                "ENABLE ROW LEVEL SECURITY found in any *_create.sql file",
                 "enable row level security on the table and give it a "
                 "tenant isolation policy, or list it under RLS_001 in the "
                 "ignore file with its reason");
-        if (has("party_id") && !isolated.contains(t.name) &&
-            !ignored("RLS_002", t.name))
-            report(1, "Table '" + t.name + "' has party_id but no AS "
+        if (has("party_id") && !isolated.contains(name) &&
+            !ignored("RLS_002", name))
+            report(1, "Table '" + table_name + "' has party_id but no AS "
                 "RESTRICTIVE party isolation policy found in any "
                 "*_create.sql file",
                 "add a restrictive policy on party_id, or list the table "
@@ -231,7 +244,7 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
 
 const ct::descriptor rls_coverage{
     .name = "rls_coverage",
-    .version = 1,
+    .version = 2,
     .summary = "Reports each table with tenant_id that does not enable "
         "row-level security, and each with party_id that has no "
         "restrictive party policy, as the er-diagram gate does.",
@@ -239,6 +252,6 @@ const ct::descriptor rls_coverage{
     .options = options,
     .rules = rules,
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::diagnostic_table>{run}};
+    .run = ct::scan_function{scanned, map, reduce}};
 
 }
