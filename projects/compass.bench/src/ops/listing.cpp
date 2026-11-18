@@ -19,12 +19,14 @@
  */
 #include "compass.bench/ops/listing.hpp"
 
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
 #include <string>
-#include <sys/stat.h>
-#include <unistd.h>
+#include <system_error>
+#include "compass.platform/filesystem/file_status.hpp"
+#include "compass.platform/process/environment.hpp"
 #include "compass.platform/process/run_program.hpp"
 
 namespace compass::bench::ops {
@@ -37,7 +39,7 @@ namespace {
  */
 std::string run_git(const std::filesystem::path& checkout,
     std::vector<std::string> args, const std::filesystem::path& input = {}) {
-    const std::string dir = checkout.string();
+    const std::string dir = checkout.generic_string();
     const auto command = args.front();
     args.insert(args.begin(), {"git", "-C", dir});
     auto r = platform::process::run_program({std::move(args), {}, input});
@@ -56,13 +58,15 @@ std::vector<std::string> git_hash_objects(
     const std::filesystem::path& checkout,
     std::span<const std::string_view> paths) {
     const auto input = std::filesystem::temp_directory_path() /
-        ("compass-bench." + std::to_string(::getpid()) + ".paths");
+        ("compass-bench." +
+            std::to_string(platform::process::current_process_id()) +
+            ".paths");
     {
         std::ofstream os(input, std::ios::binary);
         for (const auto path : paths)
             os << path << '\n';
         if (!os)
-            throw std::runtime_error("cannot write " + input.string());
+            throw std::runtime_error("cannot write " + input.generic_string());
     }
     std::string output;
     try {
@@ -129,19 +133,20 @@ types::file_table build_file_table(const std::filesystem::path& checkout,
     table.sizes.reserve(entries.size());
     table.extension_ids.reserve(entries.size());
 
-    std::string full = checkout.string() + "/";
+    std::string full = checkout.generic_string() + "/";
     const auto prefix = full.size();
     for (const auto entry : entries) {
         full.resize(prefix);
         full.append(entry);
-        struct stat info {};
-        if (::lstat(full.c_str(), &info) == -1) {
-            add_file(table, entry, 0);
+        const auto status = platform::filesystem::regular_file_status(full);
+        if (!status) {
+            std::error_code error;
+            if (!std::filesystem::exists(std::filesystem::symlink_status(
+                    full, error)))
+                add_file(table, entry, 0);
             continue;
         }
-        if (!S_ISREG(info.st_mode))
-            continue;
-        add_file(table, entry, static_cast<std::uint64_t>(info.st_size));
+        add_file(table, entry, status->size);
     }
     return table;
 }

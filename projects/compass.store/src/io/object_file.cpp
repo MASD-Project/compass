@@ -25,6 +25,8 @@
 #include <random>
 #include <string>
 #include <system_error>
+#include "compass.platform/filesystem/file_status.hpp"
+#include "compass.platform/filesystem/new_file.hpp"
 
 namespace compass::store::io {
 
@@ -57,8 +59,13 @@ void write_object(const std::filesystem::path& target,
     std::error_code error;
     if (!os)
         error = std::make_error_code(std::errc::io_error);
-    else
-        std::filesystem::rename(temporary, target, error);
+    else {
+        try {
+            platform::filesystem::replace_file(temporary, target);
+        } catch (const std::system_error& e) {
+            error = e.code();
+        }
+    }
     if (error) {
         std::error_code ignored;
         std::filesystem::remove(temporary, ignored);
@@ -68,16 +75,12 @@ void write_object(const std::filesystem::path& target,
 }
 
 std::optional<std::string> read_file(const std::filesystem::path& path) {
-    std::ifstream is(path, std::ios::binary | std::ios::ate);
-    if (!is)
+    std::string bytes;
+    try {
+        platform::filesystem::read_file(path, bytes);
+    } catch (const std::system_error&) {
         return std::nullopt;
-    const auto size = is.tellg();
-    if (size < 0)
-        return std::nullopt;
-    std::string bytes(static_cast<std::size_t>(size), '\0');
-    is.seekg(0);
-    if (!is.read(bytes.data(), size))
-        return std::nullopt;
+    }
     return bytes;
 }
 

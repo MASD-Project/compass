@@ -32,10 +32,10 @@ namespace compass::store::io {
  * @brief Puts @p bytes at @p target, whole or not at all.
  *
  * The bytes go to a temporary file in the directory of @p target, which is
- * created when missing, and the file is then renamed over @p target. A
- * reader therefore maps the old object, the new one or none, never part of
- * one, and any number of writers of the same object all succeed and leave
- * one. An object that is already there is replaced.
+ * created when missing, and the file then replaces @p target in one step.
+ * A reader therefore maps the old object, the new one or none, never part
+ * of one, and any number of writers of the same object all succeed and
+ * leave one. An object that is already there is replaced.
  *
  * The file is not synced: the store is a cache, and an object a crash left
  * incomplete is rejected when it is loaded and written again. A crash can

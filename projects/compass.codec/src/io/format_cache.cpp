@@ -21,19 +21,19 @@
 
 #include <atomic>
 #include <chrono>
-#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <iterator>
 #include <span>
 #include <stdexcept>
+#include <system_error>
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <unistd.h>
 #include "compass.codec/ops/format_cache.hpp"
 #include "compass.codec/ops/parallel_for.hpp"
 #include "compass.codec/ops/registry.hpp"
+#include "compass.platform/process/environment.hpp"
 #include "compass.platform/process/run_program.hpp"
 #include "compass.store/io/location.hpp"
 #include "compass.store/io/pack_store.hpp"
@@ -58,7 +58,7 @@ struct key_hash {
 std::string read_file(const std::filesystem::path& path) {
     std::ifstream is(path, std::ios::binary);
     if (!is)
-        throw std::runtime_error("cannot read " + path.string());
+        throw std::runtime_error("cannot read " + path.generic_string());
     return {std::istreambuf_iterator<char>(is), {}};
 }
 
@@ -67,7 +67,7 @@ void write_file(const std::filesystem::path& path, std::string_view text) {
     std::ofstream os(path, std::ios::binary);
     os << text;
     if (!os)
-        throw std::runtime_error("cannot write " + path.string());
+        throw std::runtime_error("cannot write " + path.generic_string());
 }
 
 /**
@@ -79,7 +79,8 @@ public:
     scratch_dir() {
         static std::atomic<unsigned> counter{0};
         path_ = std::filesystem::temp_directory_path() /
-            ("compass-format." + std::to_string(::getpid()) + "." +
+            ("compass-format." +
+                std::to_string(platform::process::current_process_id()) + "." +
                 std::to_string(counter++));
         std::filesystem::remove_all(path_);
         std::filesystem::create_directories(path_);
@@ -107,16 +108,16 @@ std::string program_version(const store::io::pack_reader& store,
     const auto resolved = std::filesystem::canonical(program);
     const auto mtime = std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::filesystem::last_write_time(resolved).time_since_epoch()).count();
-    const auto key = ops::program_key(resolved.string(),
+    const auto key = ops::program_key(resolved.generic_string(),
         std::filesystem::file_size(resolved), mtime);
     if (auto version = store.read_action(result, key))
         return std::move(*version);
     ++runs;
     auto r = platform::process::run_program(
-        {{program.string(), "--version"}, {}, {}});
+        {{program.generic_string(), "--version"}, {}, {}});
     if (r.exit_code != 0)
-        throw std::runtime_error(program.string() + " --version exited with " +
-            std::to_string(r.exit_code));
+        throw std::runtime_error(program.generic_string() +
+            " --version exited with " + std::to_string(r.exit_code));
     writes.add_action(result, key, r.output);
     return std::move(r.output);
 }
@@ -175,32 +176,6 @@ void format_misses(store::io::pack_writer& writes,
     });
 }
 
-}
-
-std::optional<std::filesystem::path> find_program(std::string_view name) {
-    if (name.empty())
-        return std::nullopt;
-    const auto executable = [](const std::filesystem::path& p) {
-        return std::filesystem::is_regular_file(p) &&
-            ::access(p.c_str(), X_OK) == 0;
-    };
-    if (name.find('/') != std::string_view::npos) {
-        const std::filesystem::path p(name);
-        return executable(p) ? std::optional(p) : std::nullopt;
-    }
-    const char* path = std::getenv("PATH");
-    std::string_view dirs = path == nullptr ? "" : path;
-    while (true) {
-        const auto colon = dirs.find(':');
-        const auto dir = dirs.substr(0, colon);
-        const auto candidate = std::filesystem::path(dir.empty() ? "." : dir) /
-            name;
-        if (executable(candidate))
-            return candidate;
-        if (colon == std::string_view::npos)
-            return std::nullopt;
-        dirs.remove_prefix(colon + 1);
-    }
 }
 
 formatted_files format_files(const std::filesystem::path& git_common_dir,

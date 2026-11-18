@@ -92,8 +92,8 @@ outcome run(std::vector<std::string> args,
 }
 
 outcome run_on(const scoped_git_repo& repo, const std::string& command) {
-    return run({command, "-C", repo.checkout().string(), "--out",
-        repo.output_root().string(), "-j", "2"});
+    return run({command, "-C", repo.checkout().generic_string(), "--out",
+        repo.output_root().generic_string(), "-j", "2"});
 }
 
 }
@@ -223,8 +223,8 @@ TEST_CASE("config prints every value with where it came from",
         "| name | enabled | options |\n|-\n"
         "| document_index | yes | path=index.tsv |\n");
 
-    const auto r = run({"config", "-C", repo.checkout().string(), "--set",
-        "required_sections.enabled=false"});
+    const auto r = run({"config", "-C", repo.checkout().generic_string(),
+        "--set", "required_sections.enabled=false"});
 
     CHECK(r.status == 0);
     CHECK(r.err.empty());
@@ -262,7 +262,7 @@ TEST_CASE("an error in the configuration file exits 2 naming the line and "
         "* Codecs\n| document_index | yes | colour=red |\n");
 
     for (const auto* command : {"check", "config"}) {
-        const auto r = run({command, "-C", repo.checkout().string()});
+        const auto r = run({command, "-C", repo.checkout().generic_string()});
         CHECK(r.status == 2);
         CHECK(r.out.empty());
         CHECK(r.err == "compass: .compass.org:2: codec 'document_index' has "
@@ -270,7 +270,7 @@ TEST_CASE("an error in the configuration file exits 2 naming the line and "
     }
 
     repo.write(".compass.org", "* Codecs\n| html | maybe | |\n");
-    const auto r = run({"gen", "-C", repo.checkout().string()});
+    const auto r = run({"gen", "-C", repo.checkout().generic_string()});
     CHECK(r.status == 2);
     CHECK(r.err == "compass: .compass.org:2: enabled is 'maybe'; fix: write "
         "yes or no\n");
@@ -282,12 +282,12 @@ TEST_CASE("the configuration file sets the output root and which codecs "
     repo.write(".compass.org", "#+output: generated\n* Codecs\n"
         "| required_sections | no | |\n");
 
-    const auto generated = run({"gen", "-C", repo.checkout().string()});
+    const auto generated = run({"gen", "-C", repo.checkout().generic_string()});
     CHECK(generated.status == 0);
     CHECK(std::filesystem::exists(
         repo.checkout() / "generated" / "doc" / "document_index.tsv"));
 
-    const auto checked = run({"check", "-C", repo.checkout().string()});
+    const auto checked = run({"check", "-C", repo.checkout().generic_string()});
     CHECK(checked.status == 0);
     CHECK_THAT(checked.out, StartsWith("0 diagnostics (4 documents, "));
 }
@@ -298,7 +298,7 @@ TEST_CASE("check reports each file generate would change and exits 1 "
     repo.write(".compass.org", "#+output: generated\n* Codecs\n"
         "| required_sections | no | |\n");
     const auto check = [&] {
-        return run({"check", "-C", repo.checkout().string()});
+        return run({"check", "-C", repo.checkout().generic_string()});
     };
 
     const auto missing = check();
@@ -309,7 +309,7 @@ TEST_CASE("check reports each file generate would change and exits 1 "
         "compass generate, or change the model or template that generates "
         "it)\n1 diagnostic ("));
 
-    REQUIRE(run({"gen", "-C", repo.checkout().string()}).status == 0);
+    REQUIRE(run({"gen", "-C", repo.checkout().generic_string()}).status == 0);
     CHECK(check().status == 0);
 
     const auto index = repo.checkout() / "generated" / "doc" /

@@ -308,6 +308,16 @@ if(USE_MEMCHECK)
     set(cmake_args ${cmake_args} "-DWITH_MEMCHECK=ON")
 endif()
 
+# warnings_as_errors=1 or 0 sets COMPASS_WARNINGS_AS_ERRORS; without it the
+# project default applies.
+if(DEFINED warnings_as_errors)
+    if(warnings_as_errors)
+        set(cmake_args ${cmake_args} "-DCOMPASS_WARNINGS_AS_ERRORS=ON")
+    else()
+        set(cmake_args ${cmake_args} "-DCOMPASS_WARNINGS_AS_ERRORS=OFF")
+    endif()
+endif()
+
 # Hosted Linux Debug builds can exhaust disk while linking full DWARF into
 # every executable and shared library. Opt in to lossless compression at link
 # time, preserving compile/cache inputs, debug symbols and coverage data.

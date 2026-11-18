@@ -19,14 +19,13 @@
  */
 #include "compass.codec/ops/unified_diff.hpp"
 
-#include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <iterator>
 #include <optional>
 #include <string>
-#include <unistd.h>
 #include <catch2/catch_test_macros.hpp>
+#include "compass.platform/process/environment.hpp"
+#include "compass.platform/process/run_program.hpp"
 
 namespace {
 
@@ -41,11 +40,6 @@ std::string numbers(int first, int last) {
     for (int i = first; i <= last; ++i)
         out += std::to_string(i) + "\n";
     return out;
-}
-
-std::string read(const std::filesystem::path& p) {
-    std::ifstream is(p, std::ios::binary);
-    return {std::istreambuf_iterator<char>(is), {}};
 }
 
 /**
@@ -75,32 +69,34 @@ std::string git_diff(const std::optional<std::string>& before,
     const std::optional<std::string>& after) {
     static int counter = 0;
     const auto dir = std::filesystem::temp_directory_path() /
-        ("compass.codec.diff." + std::to_string(::getpid()) + "." +
-            std::to_string(counter++));
+        ("compass.codec.diff." +
+            std::to_string(
+                compass::platform::process::current_process_id()) +
+            "." + std::to_string(counter++));
     std::filesystem::create_directories(dir);
     const auto put = [&](const std::optional<std::string>& bytes,
         const char* name) -> std::string {
         if (!bytes)
             return "/dev/null";
         std::ofstream(dir / name, std::ios::binary) << *bytes;
-        return (dir / name).string();
+        return name;
     };
-    const auto a = put(before, "a");
-    const auto b = put(after, "b");
-    const auto out = dir / "out";
-    const auto line = "GIT_CONFIG_NOSYSTEM=1 HOME='" + dir.string() +
-        "' git diff --no-index --no-color --no-ext-diff "
-        "--diff-algorithm=myers --no-indent-heuristic -U3 '" + a + "' '" +
-        b + "' > '" + out.string() + "' 2>&1";
-    const int status = std::system(line.c_str());
-    REQUIRE(WIFEXITED(status));
-    REQUIRE(WEXITSTATUS(status) <= 1);
-    auto text = read(out);
+    const auto a = put(before, "before");
+    const auto b = put(after, "after");
+    using namespace compass::platform::process;
+    set_environment_variable("GIT_CONFIG_NOSYSTEM", "1");
+    set_environment_variable("HOME", dir.generic_string());
+    const auto r = run_program({{"git", "diff", "--no-index", "--no-color",
+        "--no-ext-diff", "--diff-algorithm=myers", "--no-indent-heuristic",
+        "-U3", a, b}, dir, {}});
+    REQUIRE(r.exit_code >= 0);
+    REQUIRE(r.exit_code <= 1);
+    auto text = r.output;
     std::filesystem::remove_all(dir);
     if (before)
-        replace_all(text, "a" + a, "a/doc/f.org");
+        replace_all(text, "a/" + a, "a/doc/f.org");
     if (after)
-        replace_all(text, "b" + b, "b/doc/f.org");
+        replace_all(text, "b/" + b, "b/doc/f.org");
     return text;
 }
 

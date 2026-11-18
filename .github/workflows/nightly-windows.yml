@@ -102,6 +102,11 @@ jobs:
             family: windows
             compiler: clang
     steps:
+      # Git for Windows checks text files out with CRLF line endings, but the
+      # tests compare files byte for byte with the LF the repository holds.
+      - name: Keep the repository's line endings
+        run: git config --global core.autocrlf false
+
       - uses: actions/checkout@v7
         with:
           submodules: true
@@ -124,8 +129,11 @@ jobs:
       - name: Install Clang
         uses: KyleMayes/install-llvm-action@v2
         if: ${{ matrix.compiler == 'clang' }}
+        # The MSVC standard library of the image, 14.52 on, refuses Clang
+        # before 22, and the action's list of releases stops at 21.
         with:
-          version: "20"
+          version: "22.1.8"
+          force-url: https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.8/LLVM-22.1.8-win64.exe
           arch: x64
 
       - name: Install NSIS

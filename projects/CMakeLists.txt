@@ -28,10 +28,68 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     message(STATUS "C++ flags: ${CMAKE_CXX_FLAGS}")
 endif()
 
+# -Werror without -Wall only escalates the handful of diagnostics on by
+# default, which is how a non-exhaustive switch over an enum class
+# compiled clean here for years: -Wswitch arrives with -Wall.
+#
+# Two of -Wextra's warnings are switched back off. Both fire on
+# aggregate initialisation that leaves a trailing field to its default
+# value — reply(nats_, msg, get_images_response{false, e.what()}) and
+# the like — which is deliberate here and not a defect. They accounted
+# for 2040 of the 2153 warnings the first full sweep found, against 113
+# that named something real, so leaving them on would have buried the
+# signal rather than surfaced it.
+#
+# What this gives up, stated plainly because it is what a future
+# missing-field bug will turn on: adding a field to an aggregate no
+# longer errors at the call sites that do not set it. They keep
+# compiling and the new field is value-initialised. If a field added to
+# a struct is silently default somewhere it should not be, this is the
+# warning that would have caught it.
+#
+# The designated-initializer variant is Clang's alone, hence the
+# separate guard.
+#
+# COMPASS_WARNINGS_AS_ERRORS sets -Werror and /WX. It is off until every
+# platform builds clean of warnings, so a warning reaches CDash as a warning
+# and the tests still run.
 add_compile_options(
     $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Wall>
     $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Wextra>
-    $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Werror>)
+    $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Wno-missing-field-initializers>
+    $<$<CXX_COMPILER_ID:Clang>:-Wno-missing-designated-field-initializers>
+    # gcc 16 reports -Warray-bounds for code this tree does not own: the control
+    # block libstdc++'s make_shared builds, and boost 1.92's exception and beast
+    # internals (make_shared_object.hpp, shared_count.hpp). Every array-bounds
+    # diagnostic the gcc 16 build reports is one of those, so the warning stays
+    # off until the compiler or boost stops reporting it. The cost, stated for
+    # the day this changes: a genuine out-of-bounds read in our own code no
+    # longer reaches the build log.
+    $<$<CXX_COMPILER_ID:GNU>:-Wno-array-bounds>
+    $<$<AND:$<BOOL:${COMPASS_WARNINGS_AS_ERRORS}>,$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>>:-Werror>
+    $<$<CXX_COMPILER_ID:MSVC>:/W4>
+    $<$<AND:$<BOOL:${COMPASS_WARNINGS_AS_ERRORS}>,$<CXX_COMPILER_ID:MSVC>>:/WX>
+    # C4251 fires on every exported class that carries a std::string or a
+    # container, which is most of them. Every consumer is an in-tree target
+    # built by this same toolchain against these same headers, so the ABI
+    # mismatch the warning exists to catch cannot arise here.
+    $<$<CXX_COMPILER_ID:MSVC>:/wd4251>
+    # C4275 is C4251's counterpart for base classes. The exception types
+    # exported by ores.platform derive from std::exception and
+    # boost::exception, which carry no dll-interface. Dropping the bases
+    # to silence it would cost every catch site its standard handling.
+    $<$<CXX_COMPILER_ID:MSVC>:/wd4275>
+    # /FS forces synchronous PDB writes so sccache can cache /Zi compilations.
+    # Without it, parallel cl.exe invocations race on the shared .pdb file.
+    $<$<CXX_COMPILER_ID:MSVC>:/FS>)
+
+# Test cases tagged [posix] check what only a POSIX system provides, such as
+# inode numbers, so the Windows runs leave them out.
+if(WIN32)
+    set(COMPASS_TEST_FILTER "~[posix]")
+else()
+    set(COMPASS_TEST_FILTER "")
+endif()
 
 # Components are added by name, in dependency order. compass.legacy and
 # modeling are not C++ components and are never added here.

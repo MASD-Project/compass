@@ -21,16 +21,17 @@
 
 #include <cstdint>
 #include <functional>
+#include <filesystem>
+#include <system_error>
 #include <unordered_map>
-#include <sys/stat.h>
 
 namespace compass::bench::ops {
 
 namespace {
 
 bool is_regular_file(const std::string& path) {
-    struct stat info {};
-    return ::stat(path.c_str(), &info) == 0 && S_ISREG(info.st_mode);
+    std::error_code ignored;
+    return std::filesystem::is_regular_file(path, ignored);
 }
 
 class resolver final {

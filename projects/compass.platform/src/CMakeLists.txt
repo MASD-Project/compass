@@ -19,9 +19,14 @@ set(name "compass.platform")
 set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
+    filesystem/file_lock.cpp
+    filesystem/file_status.cpp
     filesystem/mapped_file.cpp
+    filesystem/new_file.cpp
+    process/environment.cpp
     process/executable.cpp
     process/run_program.cpp
+    process/standard_streams.cpp
     text/decoding.cpp
     text/regex.cpp
     text/xml.cpp)

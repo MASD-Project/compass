@@ -21,8 +21,21 @@ cmake_minimum_required(VERSION 3.28 FATAL_ERROR)
 # must come first.
 set(VCPKG_OVERLAY_PORTS "${CMAKE_CURRENT_SOURCE_DIR}/build/cmake/overlays/common")
 
+# CMake 4.4 enforces the warnings.uninitialized preset inside project()'s own
+# compiler detection and vcpkg's toolchain file, neither of which this
+# repository owns, as ORE Studio found. Silence it only around project(), so our
+# own CMake code still reports genuine uninitialized variables.
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "4.4")
+    cmake_diagnostic(PUSH)
+    cmake_diagnostic(SET CMD_UNINITIALIZED IGNORE)
+endif()
+
 project(compass VERSION 0.0.1 LANGUAGES CXX
     DESCRIPTION "Data-oriented codegen, gates and analysis for MASD.")
+
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "4.4")
+    cmake_diagnostic(POP)
+endif()
 
 enable_testing()
 
@@ -38,6 +51,7 @@ endif()
 
 option(WITH_PROFILING "Generate profiling information for code coverage." OFF)
 option(WITH_MEMCHECK "Configure the tests for a run under valgrind." OFF)
+option(COMPASS_WARNINGS_AS_ERRORS "Treat compiler warnings as errors." OFF)
 
 #
 # Compiler cache. CI always uses sccache. A local build uses the tool named by
@@ -84,6 +98,13 @@ else()
     message(STATUS "No compiler cache configured.")
 endif()
 
+# The package configurations vcpkg installs, and CMake's own Find modules, read
+# variables before setting them in the same way, so the same silence covers
+# the find_package calls.
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "4.4")
+    cmake_diagnostic(PUSH)
+    cmake_diagnostic(SET CMD_UNINITIALIZED IGNORE)
+endif()
 find_package(Catch2 3 CONFIG REQUIRED)
 find_package(Threads REQUIRED)
 find_package(expat CONFIG REQUIRED)
@@ -92,6 +113,45 @@ find_package(ZLIB REQUIRED)
 find_package(unofficial-tree-sitter CONFIG REQUIRED)
 find_package(unofficial-tree-sitter-cpp CONFIG REQUIRED)
 find_package(unofficial-tree-sitter-sql CONFIG REQUIRED)
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "4.4")
+    cmake_diagnostic(POP)
+endif()
+
+macro(get_win_hex outvar)
+    string(REGEX MATCH "^([0-9]+)\\.([0-9]+)" ${outvar} ${CMAKE_SYSTEM_VERSION})
+    math(EXPR ${outvar} "(${CMAKE_MATCH_1} << 8) + ${CMAKE_MATCH_2}" OUTPUT_FORMAT HEXADECIMAL)
+endmacro()
+
+if(WIN32)
+    get_win_hex(winver)
+    add_compile_definitions(_WIN32_WINNT=${winver})
+    # Prevent Windows.h from including the legacy WinSock.h header, which
+    # conflicts with WinSock2.h pulled in by Boost.ASIO (socket_types.hpp).
+    add_compile_definitions(WIN32_LEAN_AND_MEAN)
+    # Keep Windows.h from defining min and max as function-like macros. A unity
+    # unit that includes Windows.h makes std::numeric_limits<T>::max() expand
+    # as a macro call with no arguments.
+    add_compile_definitions(NOMINMAX)
+    if(MSVC)
+        # Allow object files with more than 65535 addressable sections.
+        # Required by large translation units (e.g. registrar.cpp with many
+        # template instantiations from Boost headers).
+        add_compile_options(/bigobj)
+    endif()
+endif()
+
+if(APPLE)
+    # Apple's linker warns when a static library appears twice on one link
+    # line. CMake repeats static libraries on purpose so their dependencies
+    # resolve in any order. The flag is passed only when the linker accepts it,
+    # because linkers before Xcode 15 do not know it.
+    include(CheckLinkerFlag)
+    check_linker_flag(CXX "LINKER:-no_warn_duplicate_libraries"
+        compass_ld_no_warn_duplicates)
+    if(compass_ld_no_warn_duplicates)
+        add_link_options("LINKER:-no_warn_duplicate_libraries")
+    endif()
+endif()
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/code_hash.cmake)
 

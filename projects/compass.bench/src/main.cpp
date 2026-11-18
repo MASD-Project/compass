@@ -29,6 +29,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <thread>
 #include <vector>
 #include "compass.bench/io/compile_commands.hpp"
@@ -55,6 +56,7 @@
 #include "compass.codec/ops/registry.hpp"
 #include "compass.codegen/codecs/codegen.hpp"
 #include "compass.platform/filesystem/mapped_file.hpp"
+#include "compass.platform/process/standard_streams.hpp"
 #include "compass.store/io/location.hpp"
 
 namespace {
@@ -276,7 +278,7 @@ std::optional<options> parse_options(int argc, char** argv) {
         o.compile_commands = absolute_path(o.compile_commands);
         o.source_root = absolute_path(o.source_root);
         for (auto& dir : o.implicit_system)
-            dir = absolute_path(dir).string();
+            dir = absolute_path(dir).generic_string();
     }
     return o;
 }
@@ -503,6 +505,7 @@ int run(const options& o) {
 }
 
 int main(int argc, char** argv) {
+    compass::platform::process::use_binary_standard_streams();
     const auto o = parse_options(argc, argv);
     if (!o) {
         std::cerr << usage;

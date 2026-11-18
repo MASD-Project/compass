@@ -73,8 +73,8 @@ std::set<std::string> files_of(const std::filesystem::path& root) {
     for (const auto& entry :
         std::filesystem::recursive_directory_iterator(root)) {
         if (entry.is_regular_file() &&
-            entry.path().string().find("/.git/") == std::string::npos)
-            out.insert(entry.path().lexically_relative(root).string());
+            entry.path().generic_string().find("/.git/") == std::string::npos)
+            out.insert(entry.path().lexically_relative(root).generic_string());
     }
     return out;
 }
@@ -141,7 +141,7 @@ TEST_CASE("writing the outputs of the codecs stage writes the index once "
     const auto second = write();
     CHECK(second.sink.written + second.sink.restored == 0);
     CHECK(second.sink.unchanged == 1);
-    CHECK(std::filesystem::last_write_time(index) == written_at);
+    CHECK((std::filesystem::last_write_time(index) == written_at));
     std::ostringstream os;
     io::write_codecs_report(os, second, {}, repo.packs());
     CHECK_THAT(os.str(), ContainsSubstring("outputs: 0 written, 1 unchanged"));
@@ -263,7 +263,7 @@ std::map<std::string, std::pair<std::string, std::int64_t>> snapshot(
     const std::filesystem::path& dir) {
     std::map<std::string, std::pair<std::string, std::int64_t>> out;
     for (const auto& e : std::filesystem::recursive_directory_iterator(dir)) {
-        const auto name = e.path().string();
+        const auto name = e.path().generic_string();
         if (!e.is_regular_file()) {
             out[name] = {"directory", 0};
             continue;

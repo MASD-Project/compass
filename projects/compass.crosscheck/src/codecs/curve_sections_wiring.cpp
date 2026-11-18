@@ -29,11 +29,11 @@
 #include <string>
 #include <string_view>
 #include <vector>
-#include "compass.codec/io/format_cache.hpp"
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.cpp/ops/report.hpp"
 #include "compass.crosscheck/ops/curve_wiring.hpp"
 #include "compass.crosscheck/ops/projection_columns.hpp"
+#include "compass.platform/process/executable.hpp"
 
 namespace compass::crosscheck::codecs {
 
@@ -940,8 +940,9 @@ std::vector<ct::formatter> formatters_of(const ct::option_values& o,
     if (name.empty())
         return {};
     const auto program = name.find('/') == std::string_view::npos
-        ? compass::codec::io::find_program(name)
-        : compass::codec::io::find_program((checkout / name).string());
+        ? compass::platform::process::find_program(name)
+        : compass::platform::process::find_program(
+            (checkout / name).generic_string());
     if (!program)
         throw std::runtime_error("curve_sections_wiring: " +
             std::string(name) + " is not a program, for the option "

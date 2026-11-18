@@ -20,6 +20,7 @@
 #ifndef COMPASS_CROSSCHECK_OPS_ORE_SCHEMA_HPP
 #define COMPASS_CROSSCHECK_OPS_ORE_SCHEMA_HPP
 
+#include <functional>
 #include <map>
 #include <optional>
 #include <string>

@@ -19,6 +19,7 @@
  */
 #include "compass.codegen/ops/entity_steps.hpp"
 
+#include <chrono>
 #include <set>
 #include <string>
 #include <vector>

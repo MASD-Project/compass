@@ -26,10 +26,10 @@
 #include <string>
 #include <string_view>
 #include <vector>
-#include <unistd.h>
 #include <catch2/catch_test_macros.hpp>
 #include "compass.bench/ops/listing.hpp"
 #include "compass.bench/ops/search_paths.hpp"
+#include "compass.platform/process/environment.hpp"
 
 namespace {
 
@@ -43,8 +43,10 @@ public:
     scoped_directory() {
         static int counter = 0;
         root_ = std::filesystem::temp_directory_path() /
-            ("compass.bench.resolve." + std::to_string(::getpid()) + "." +
-                std::to_string(counter++));
+            ("compass.bench.resolve." +
+                std::to_string(
+                    compass::platform::process::current_process_id()) +
+                "." + std::to_string(counter++));
         std::filesystem::create_directories(root_);
     }
     ~scoped_directory() { std::filesystem::remove_all(root_); }
@@ -57,7 +59,7 @@ public:
         std::ofstream(path) << "\n";
     }
 
-    std::string path() const { return root_.string(); }
+    std::string path() const { return root_.generic_string(); }
 
 private:
     std::filesystem::path root_;

@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <array>
+#include <iterator>
 #include "compass.codegen/ops/values.hpp"
 
 namespace compass::codegen::ops::wire {

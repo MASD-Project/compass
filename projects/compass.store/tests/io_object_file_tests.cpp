@@ -21,6 +21,7 @@
 
 #include <atomic>
 #include <cstddef>
+#include <exception>
 #include <span>
 #include <string>
 #include <thread>
@@ -96,7 +97,7 @@ TEST_CASE("concurrent writers of one object all succeed and leave it whole",
     {
         std::jthread reader([&] {
             while (!done)
-                if (tests::read(target) != content)
+                if (io::read_file(target) != content)
                     ++torn;
         });
         {

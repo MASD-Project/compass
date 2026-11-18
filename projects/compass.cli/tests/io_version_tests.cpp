@@ -24,13 +24,14 @@
 #include <fstream>
 #include <string>
 #include <string_view>
-#include <unistd.h>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 #include "compass.codec/ops/action_cache.hpp"
 #include "compass.codec/ops/dependencies.hpp"
 #include "compass.codec/ops/format_cache.hpp"
 #include "compass.codec/ops/outputs.hpp"
+#include "compass.platform/filesystem/file_status.hpp"
+#include "compass.platform/process/environment.hpp"
 #include "compass.store/ops/pack.hpp"
 #include "compass.store/ops/worktree_index.hpp"
 
@@ -49,8 +50,10 @@ public:
     scoped_bin() {
         static int counter = 0;
         root_ = std::filesystem::temp_directory_path() /
-            ("compass.cli.version." + std::to_string(::getpid()) + "." +
-                std::to_string(counter++));
+            ("compass.cli.version." +
+                std::to_string(
+                    compass::platform::process::current_process_id()) +
+                "." + std::to_string(counter++));
         std::filesystem::create_directories(root_);
     }
     ~scoped_bin() { std::filesystem::remove_all(root_); }
@@ -67,8 +70,8 @@ public:
         std::ofstream(executable()) << "binary";
         using namespace std::chrono;
         const auto at = sys_days{2026y / January / 2} + 3h + 4min + 5s;
-        std::filesystem::last_write_time(
-            executable(), clock_cast<std::filesystem::file_time_type::clock>(at));
+        compass::platform::filesystem::set_modified_time(executable(),
+            {at.time_since_epoch().count(), 0});
     }
 
     void write_manifest(std::string_view content) const {

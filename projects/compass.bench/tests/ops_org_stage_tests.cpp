@@ -26,11 +26,12 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <unistd.h>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 #include "compass.bench/ops/listing.hpp"
 #include "compass.bench/ops/org_dump.hpp"
+#include "compass.platform/process/environment.hpp"
+#include "compass.platform/process/run_program.hpp"
 
 namespace {
 
@@ -41,8 +42,10 @@ public:
     scoped_git_repo() {
         static int counter = 0;
         root_ = std::filesystem::temp_directory_path() /
-            ("compass.bench.org.tests." + std::to_string(::getpid()) + "." +
-                std::to_string(counter++));
+            ("compass.bench.org.tests." +
+                std::to_string(
+                    compass::platform::process::current_process_id()) +
+                "." + std::to_string(counter++));
         std::filesystem::create_directories(root_);
     }
     ~scoped_git_repo() { std::filesystem::remove_all(root_); }
@@ -57,9 +60,10 @@ public:
     }
 
     void track_all() {
-        const auto command = "git -C '" + root_.string() +
-            "' init -q && git -C '" + root_.string() + "' add -A";
-        REQUIRE(std::system(command.c_str()) == 0);
+        const auto command = "git -C '" + root_.generic_string() +
+            "' init -q && git -C '" + root_.generic_string() + "' add -A";
+        REQUIRE(compass::platform::process::run_program(
+            {{"sh", "-c", command}, {}, {}}).exit_code == 0);
     }
 
     std::string read(const std::string& relative) const {
@@ -146,7 +150,7 @@ TEST_CASE("org dump writes one output per line of a list",
     scoped_git_repo repo;
     repo.write("a.org", "* H\n");
     repo.write("b.org", "");
-    const auto root = repo.root().string();
+    const auto root = repo.root().generic_string();
     repo.write("list", root + "/a.org\t" + root + "/a.dump\n" + root +
         "/b.org\t" + root + "/b.dump\n");
 

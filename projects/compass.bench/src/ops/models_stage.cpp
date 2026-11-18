@@ -51,7 +51,7 @@ void dump(const std::filesystem::path& root,
         std::ofstream os(path, std::ios::binary);
         os << text;
         if (!os)
-            throw std::runtime_error("cannot write " + path.string());
+            throw std::runtime_error("cannot write " + path.generic_string());
     }
 }
 

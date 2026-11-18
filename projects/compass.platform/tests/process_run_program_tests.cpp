@@ -23,8 +23,8 @@
 #include <fstream>
 #include <string>
 #include <system_error>
-#include <unistd.h>
 #include <catch2/catch_test_macros.hpp>
+#include "compass.platform/process/environment.hpp"
 
 namespace {
 
@@ -34,7 +34,9 @@ class scoped_temp_dir final {
 public:
     scoped_temp_dir() {
         path_ = std::filesystem::temp_directory_path() /
-            ("compass.platform.process." + std::to_string(::getpid()));
+            ("compass.platform.process." +
+                std::to_string(
+                    compass::platform::process::current_process_id()));
         std::filesystem::create_directories(path_);
     }
     ~scoped_temp_dir() { std::filesystem::remove_all(path_); }
@@ -51,9 +53,18 @@ private:
 
 TEST_CASE("run_program returns the standard output of a program found on PATH",
     "[process]") {
-    const auto r = run_program({{"printf", "a\\0b"}, {}, {}});
+    const auto r = run_program({{"sh", "-c", "printf 'a\\0b'"}, {}, {}});
     CHECK(r.exit_code == 0);
     CHECK(r.output == std::string("a\0b", 3));
+}
+
+TEST_CASE("run_program passes each argument through unchanged", "[process]") {
+    const auto r = run_program({{"git", "rev-parse", "--sq-quote", "a b",
+        "tab\there", "quote\"d", "back\\slash", "trailing\\", "",
+        "\\\"mixed\\\\\""}, {}, {}});
+    CHECK(r.exit_code == 0);
+    CHECK(r.output == " 'a b' 'tab\there' 'quote\"d' 'back\\slash' "
+        "'trailing\\' '' '\\\"mixed\\\\\"'\n");
 }
 
 TEST_CASE("run_program reports a failing exit code instead of throwing",
@@ -66,15 +77,17 @@ TEST_CASE("run_program reports a failing exit code instead of throwing",
 TEST_CASE("run_program runs the program in the directory it is given",
     "[process]") {
     const scoped_temp_dir dir;
-    const auto r = run_program({{"pwd", "-P"}, dir.path(), {}});
-    CHECK(r.output == std::filesystem::canonical(dir.path()).string() + "\n");
+    std::ofstream(dir.path() / "marker") << "here";
+    const auto r = run_program({{"sh", "-c", "cat marker"}, dir.path(), {}});
+    CHECK(r.exit_code == 0);
+    CHECK(r.output == "here");
 }
 
 TEST_CASE("run_program feeds the input file to standard input", "[process]") {
     const scoped_temp_dir dir;
     const auto input = dir.path() / "input";
     std::ofstream(input) << "fed";
-    const auto r = run_program({{"cat"}, {}, input});
+    const auto r = run_program({{"sh", "-c", "cat"}, {}, input});
     CHECK(r.output == "fed");
 }
 

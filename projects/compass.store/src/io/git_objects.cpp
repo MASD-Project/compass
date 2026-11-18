@@ -72,7 +72,7 @@ using shared_object = std::shared_ptr<const types::git_object>;
 std::runtime_error damaged(const types::object_id& id, const pack& p,
     std::string_view why) {
     return std::runtime_error("git object " + ops::to_hex(id) + " in " +
-        p.path.string() + ": " + std::string(why));
+        p.path.generic_string() + ": " + std::string(why));
 }
 
 bool is_whole(ops::pack_entry_kind k) noexcept {
@@ -131,12 +131,12 @@ struct git_objects::state {
                 mapped_file(index), mapped_file(pack_path), {}});
             const auto parsed = ops::parse_pack_index(p->index_file.bytes());
             if (!parsed)
-                throw std::runtime_error(index.string() + ": " +
+                throw std::runtime_error(index.generic_string() + ": " +
                     parsed.error());
             p->index = *parsed;
             const auto bytes = p->pack_file.text();
             if (bytes.size() < 12 || !bytes.starts_with("PACK"))
-                throw std::runtime_error(pack_path.string() +
+                throw std::runtime_error(pack_path.generic_string() +
                     ": not a pack file");
             packs.push_back(std::move(p));
         }
@@ -196,7 +196,7 @@ struct git_objects::state {
             auto object = ops::parse_loose_object(file->bytes());
             if (!object)
                 throw std::runtime_error("git object " + hex + " at " +
-                    path.string() + ": " + object.error());
+                    path.generic_string() + ": " + object.error());
             return std::move(*object);
         }
         return std::nullopt;

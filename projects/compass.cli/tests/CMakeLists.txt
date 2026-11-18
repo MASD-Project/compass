@@ -40,14 +40,17 @@ target_link_libraries(${tests_target_name}
         Catch2::Catch2WithMain)
 
 add_test(NAME ${tests_target_name}
-    COMMAND ${tests_target_name}
+    COMMAND ${tests_target_name} ${COMPASS_TEST_FILTER}
     WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
 add_test(NAME ${name}.end_to_end
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/end_to_end.sh
         $<TARGET_FILE:${name}.exe>)
 
-add_test(NAME ${name}.install
-    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/install_compass.sh
-        ${CMAKE_SOURCE_DIR}/build/scripts/install_compass.sh
-        $<TARGET_FILE:${name}.exe>)
+# The install script lays compass out in a POSIX home directory.
+if(NOT WIN32)
+    add_test(NAME ${name}.install
+        COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/install_compass.sh
+            ${CMAKE_SOURCE_DIR}/build/scripts/install_compass.sh
+            $<TARGET_FILE:${name}.exe>)
+endif()

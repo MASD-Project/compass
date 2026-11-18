@@ -24,6 +24,7 @@
 #include <fstream>
 #include <stdexcept>
 #include <string>
+#include <system_error>
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
 #include "compass.store/io/location.hpp"
@@ -146,9 +147,9 @@ public:
      */
     std::filesystem::path add_linked_worktree() const {
         const auto linked = repo_.root().parent_path() / "linked";
-        repo_.git("worktree add -q '" + linked.string() + "'");
+        repo_.git("worktree add -q '" + linked.generic_string() + "'");
         std::ofstream(linked / "b.txt", std::ios::binary) << "B";
-        repo_.git("-C '" + linked.string() + "' add b.txt");
+        repo_.git("-C '" + linked.generic_string() + "' add b.txt");
         return linked;
     }
 

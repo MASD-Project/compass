@@ -26,7 +26,6 @@
 #include <optional>
 #include <span>
 #include <string>
-#include <string_view>
 #include <vector>
 #include "compass.codec/types/file_table.hpp"
 #include "compass.codec/types/formatter.hpp"
@@ -34,14 +33,6 @@
 #include "compass.codec/types/run_result.hpp"
 
 namespace compass::codec::io {
-
-/**
- * @brief The program @p name as a shell finds it: @p name itself when it
- * holds a slash, else the first executable regular file of that name in a
- * directory of PATH. Nothing when there is none. Runs nothing.
- */
-[[nodiscard]] std::optional<std::filesystem::path> find_program(
-    std::string_view name);
 
 /**
  * @brief What formatting a file table did.

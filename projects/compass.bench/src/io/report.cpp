@@ -486,7 +486,7 @@ void write_store_report(std::ostream& os, const types::store_result& stage,
     os << std::format(
         "git ls-files: {:.2f} ms  file table (lstat): {:.2f} ms\n",
         setup.listing_ms, setup.table_ms);
-    os << std::format("store: {}\n", objects.string());
+    os << std::format("store: {}\n", objects.generic_string());
 
     os << std::format("\n{:<14}{:>12}{:>10}{:>10}\n", "run", "median_ms",
         "min_ms", "max_ms");
@@ -613,7 +613,7 @@ void write_warm_report(std::ostream& os, const types::warm_result& stage,
     os << std::format(
         "git ls-files: {:.2f} ms  file table (lstat): {:.2f} ms\n",
         setup.listing_ms, setup.table_ms);
-    os << std::format("store: {}\n", objects.string());
+    os << std::format("store: {}\n", objects.generic_string());
     os << std::format("worktree index entries: {}\n", stage.index_entries);
     if (!stage.git_index_problem.empty())
         os << std::format("git index unusable: {}\n", stage.git_index_problem);
@@ -682,7 +682,7 @@ void write_codecs_report(std::ostream& os, const types::codecs_result& stage,
     os << std::format(
         "git ls-files: {:.2f} ms  file table (lstat): {:.2f} ms\n",
         setup.listing_ms, setup.table_ms);
-    os << std::format("store: {}\n", objects.string());
+    os << std::format("store: {}\n", objects.generic_string());
     os << std::format("type registry: {} types, {:.2f} ms\n",
         stage.registered_types, stage.registry_ms);
     os << std::format("corpus load: {:.2f} ms  objects loaded: {}  "
@@ -837,12 +837,12 @@ void write_gc_report(std::ostream& os,
     const store::types::collection_result& result,
     const store::types::collection_options& options,
     const std::filesystem::path& objects) {
-    os << std::format("store: {}\n", objects.string());
+    os << std::format("store: {}\n", objects.generic_string());
     os << std::format("cap: {} bytes  grace: {} s  dry run: {}\n",
         options.cap, options.grace.count(), options.dry_run ? "yes" : "no");
     os << std::format("worktrees: {}\n", result.worktrees.size());
     for (const auto& dir : result.worktrees)
-        os << std::format("  {}\n", dir.string());
+        os << std::format("  {}\n", dir.generic_string());
     os << std::format("live IDs: {}  live action keys: {}\n",
         result.live_ids, result.live_keys);
 

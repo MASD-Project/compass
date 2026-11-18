@@ -25,9 +25,8 @@
 #include <string>
 #include <string_view>
 #include <vector>
-#include <fcntl.h>
-#include <sys/stat.h>
 #include <catch2/catch_test_macros.hpp>
+#include "compass.platform/filesystem/file_status.hpp"
 #include "compass.store/io/git_files.hpp"
 #include "compass.store/io/location.hpp"
 #include "compass.store/ops/blob_hash.hpp"
@@ -67,9 +66,7 @@ void overwrite(const std::filesystem::path& file, std::string_view bytes) {
 }
 
 void set_mtime(const std::filesystem::path& file, types::index_time t) {
-    const struct timespec times[2] = {{0, UTIME_OMIT},
-        {static_cast<time_t>(t.sec), static_cast<long>(t.nsec)}};
-    REQUIRE(::utimensat(AT_FDCWD, file.c_str(), times, 0) == 0);
+    compass::platform::filesystem::set_modified_time(file, {t.sec, t.nsec});
 }
 
 io::id_source source_of(const std::filesystem::path& checkout,
@@ -113,31 +110,28 @@ TEST_CASE("a hashed file is resolved from the worktree index without being "
 }
 
 TEST_CASE("a run that changes no entry leaves the worktree index untouched",
-    "[io][worktree_index]") {
+    "[io][worktree_index][posix]") {
     git_repository repo;
     add_untracked(repo, "a.org", "* A\n");
     run(repo.root(), {"a.org"});
-    const auto inode_before = [&] {
-        struct stat s {};
-        ::stat(index_of(repo.root()).c_str(), &s);
-        return s.st_ino;
-    }();
+    const auto inode = [&] {
+        const auto s = compass::platform::filesystem::regular_file_status(
+            index_of(repo.root()));
+        REQUIRE(s);
+        return s->inode;
+    };
+    const auto inode_before = inode();
 
     run(repo.root(), {"a.org"});
-
-    struct stat after {};
-    REQUIRE(::stat(index_of(repo.root()).c_str(), &after) == 0);
-    CHECK(after.st_ino == inode_before);
+    CHECK(inode() == inode_before);
 
     overwrite(repo.root() / "a.org", "* B, changed\n");
     run(repo.root(), {"a.org"});
-    struct stat changed {};
-    REQUIRE(::stat(index_of(repo.root()).c_str(), &changed) == 0);
-    CHECK(changed.st_ino != inode_before);
+    CHECK(inode() != inode_before);
 }
 
 TEST_CASE("a file modified since it was hashed is hashed again, even with "
-    "its size and mtime unchanged", "[io][worktree_index]") {
+    "its size and mtime unchanged", "[io][worktree_index][posix]") {
     git_repository repo;
     add_untracked(repo, "a.org", "aaaa\n");
     run(repo.root(), {"a.org"});
@@ -245,7 +239,7 @@ TEST_CASE("a linked worktree writes its own worktree index",
     repo.git("add -A");
     repo.git("commit -q -m base");
     const auto linked = repo.root().parent_path() / "linked";
-    repo.git("worktree add -q '" + linked.string() + "'");
+    repo.git("worktree add -q '" + linked.generic_string() + "'");
     {
         std::ofstream os(linked / "only_here.org");
         os << "here\n";

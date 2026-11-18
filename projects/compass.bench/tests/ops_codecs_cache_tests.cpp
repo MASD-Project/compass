@@ -73,7 +73,7 @@ public:
         repo_.git("add -A");
         repo_.git("-c user.name=t -c user.email=t@example.org "
                   "-c commit.gpgsign=false commit -q -m base");
-        repo_.git("worktree add -q '" + second().string() + "'");
+        repo_.git("worktree add -q '" + second().generic_string() + "'");
     }
 
     [[nodiscard]] const scoped_git_repo& repo() const { return repo_; }
@@ -139,7 +139,7 @@ std::map<std::string, std::string> contents(const std::filesystem::path& root) {
         if (!e.is_regular_file())
             continue;
         std::ifstream is(e.path(), std::ios::binary);
-        out[e.path().lexically_relative(root).string()] =
+        out[e.path().lexically_relative(root).generic_string()] =
             std::string(std::istreambuf_iterator<char>(is), {});
     }
     return out;

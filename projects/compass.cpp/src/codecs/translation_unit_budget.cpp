@@ -25,6 +25,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <system_error>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.cpp/ops/lexer.hpp"

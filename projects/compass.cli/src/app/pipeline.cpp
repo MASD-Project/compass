@@ -103,8 +103,8 @@ std::filesystem::path in_commit(const std::filesystem::path& path,
     const std::filesystem::path& checkout) {
     auto relative = path.lexically_relative(checkout);
     if (relative.empty() || *relative.begin() == "..")
-        throw std::runtime_error(path.string() + " is outside the checkout, "
-            "so a commit cannot hold it");
+        throw std::runtime_error(path.generic_string() +
+            " is outside the checkout, so a commit cannot hold it");
     return relative == "." ? std::filesystem::path{} : relative;
 }
 
@@ -350,7 +350,8 @@ std::vector<types::finding> drift_of(const codec::io::output_plan& plan,
         }
         const auto relative = file.lexically_relative(checkout);
         out.push_back(drift_finding(relative.empty() ||
-                *relative.begin() == ".." ? file.string() : relative.string(),
+                *relative.begin() == ".." ? file.generic_string()
+                                          : relative.generic_string(),
             disk.value_or(""), at, codec, std::move(message),
             std::move(sides)));
     }

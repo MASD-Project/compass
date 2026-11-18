@@ -20,6 +20,7 @@
 #include "compass.codegen/ops/entity_steps.hpp"
 
 #include <algorithm>
+#include <iterator>
 #include <string>
 #include <vector>
 #include "compass.codegen/ops/values.hpp"
