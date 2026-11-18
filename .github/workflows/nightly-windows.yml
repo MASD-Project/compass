@@ -102,6 +102,11 @@ jobs:
             family: windows
             compiler: clang
     steps:
+      # Git for Windows checks text files out with CRLF line endings, but the
+      # tests compare files byte for byte with the LF the repository holds.
+      - name: Keep the repository's line endings
+        run: git config --global core.autocrlf false
+
       - uses: actions/checkout@v7
         with:
           submodules: true

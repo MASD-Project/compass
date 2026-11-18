@@ -33,6 +33,20 @@ add_compile_options(
     $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Wextra>
     $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Werror>)
 
+# The Microsoft C runtime deprecates standard functions such as getenv in
+# favour of its own, and clang's -Werror turns that into an error.
+if(WIN32)
+    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+endif()
+
+# Test cases tagged [posix] check what only a POSIX system provides, such as
+# inode numbers, so the Windows runs leave them out.
+if(WIN32)
+    set(COMPASS_TEST_FILTER "~[posix]")
+else()
+    set(COMPASS_TEST_FILTER "")
+endif()
+
 # Components are added by name, in dependency order. compass.legacy and
 # modeling are not C++ components and are never added here.
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/compass.platform)
