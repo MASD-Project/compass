@@ -15,6 +15,19 @@
 # this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
 # Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    set(flags "")
+    if(WITH_PROFILING)
+        if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+            set(flags "${flags} -fprofile-abs-path")
+        endif()
+        set(flags "${flags} -fprofile-arcs")
+        set(flags "${flags} -ftest-coverage")
+    endif()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${flags}")
+    message(STATUS "C++ flags: ${CMAKE_CXX_FLAGS}")
+endif()
+
 add_compile_options(
     $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Wall>
     $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Wextra>

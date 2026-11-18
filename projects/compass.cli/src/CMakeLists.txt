@@ -84,3 +84,6 @@ add_custom_target(${name}.version ALL
     VERBATIM)
 
 add_dependencies(${exe_target_name} ${name}.version)
+
+install(TARGETS ${exe_target_name} RUNTIME DESTINATION bin)
+install(FILES ${COMPASS_PUBLISH_DIRECTORY}/bin/compass.manifest DESTINATION bin)
