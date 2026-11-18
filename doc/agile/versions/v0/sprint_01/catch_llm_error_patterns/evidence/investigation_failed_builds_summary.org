@@ -1,0 +1,490 @@
+:PROPERTIES:
+:ID: 6947B0D8-A1AE-4180-B2D9-D33FF02C1A3B
+:END:
+#+title: Investigation: ORE Studio failed build patterns
+#+description: The patterns behind ORE Studio's failed CI runs from 2026-09-19 to 2026-11-18, ranked by count and CI minutes, with compass's verdict on each and the candidates for new checks.
+#+type: investigation
+#+level: s1
+#+filetags: :gates:llm:catch_llm_error_patterns:sprint_01:v0:evidence:
+#+created: 2026-11-18
+#+updated: 2026-11-18
+
+A point-in-time record, written while the story that commissioned it was open, of an [[id:A7F8D9E2-3C4B-4A5D-B67C-8E9F0A1B2C3D][investigation]] into the patterns behind ORE Studio's failed CI runs and which of them compass could catch before a build. It is evidence for the [[id:694CC015-2319-4A60-A912-C47D01BA70E1][Mine failed builds]] task and was written on 2026-11-18.
+
+It is a snapshot, not a description of the system. The run-by-run record
+is [[id:080067B0-D941-4D41-9388-24E39AD37E9C][Investigation: ORE Studio failed builds by day]].
+
+* Context
+
+The [[id:63D5482E-E1E7-45B0-883F-3B2DDFA2B447][Catch the errors LLMs introduce]] story wants checks that stop the
+errors LLMs introduce into ORE Studio before a build. To choose them it
+needs to know why ORE Studio's CI failed over the last two months, how
+often and at what cost, and which failures a compass check could have
+caught. Most of ORE Studio's commits in the window carry a model's
+co-author trailer, so most failures are LLM-authored changes; the question
+this page answers is which of them a check before the build would stop.
+
+* Methodology
+
+The data came from GitHub through the =gh= CLI and was classified offline.
+
+#+begin_src sh
+python3 -I build/scripts/mine_failed_builds.py --cache "$CACHE" fetch \
+    --since 2026-09-19 --until 2026-11-18 --delay 1.0 --workers 6
+python3 -I build/scripts/mine_failed_builds.py --cache "$CACHE" report \
+    --clone ~/Development/OreStudio/ores.git
+#+end_src
+
+- =fetch= ran on 2026-11-18 from 14:43 to 16:26 UTC against
+  =OreStudio/OreStudio=, restarted along the way as the task's Notes
+  record; the last run made 3,523 requests and waited 21 minutes once for
+  the rate-limit reset. It lists, one UTC day at a time, every run whose
+  conclusion is =failure= or =startup_failure=, then fetches the jobs of
+  each run's latest attempt and the log of each failed job. A cancelled
+  run is not listed; a job cancelled because a sibling failed is listed
+  only when no job of its run failed.
+- The cache was =$CACHE= in the session scratchpad on tmpfs. Logs are
+  trimmed to the failing step's tail and the error lines, then gzipped,
+  so the cache stayed small; Counts gives its size. It is not committed.
+  A rerun of =fetch= over the same range fetches only today's and
+  yesterday's listings and any run it has not seen.
+- =report= reads only the cache and the local clone of ORE Studio. It
+  rewrites the generated blocks of this page and of
+  [[id:080067B0-D941-4D41-9388-24E39AD37E9C][Investigation: ORE Studio failed builds by day]].
+- A failure is one failed job, or one run that failed with no failed job.
+  Its step is the first step of the job that failed, its reason the first
+  real error of that step, normalised. The pattern is the first entry of
+  the script's =PATTERNS= table whose workflow, step and error expressions
+  all match.
+- Minutes are failed-job minutes: the wall time of the failed jobs. They
+  leave out the passing and cancelled jobs of the same runs, so they
+  understate what a failure cost. Heads count distinct head commits, and
+  Days the days the pattern appeared on.
+
+Each verdict means one thing.
+
+- already caught :: a compass codec catches it today; the Codec column
+  names it. Those failures reached CI because compass did not run before
+  the push, not because a check is missing.
+- could be caught :: a compass check could catch it before a build, from
+  data compass loads or could load; the column names that data.
+- not catchable :: only a compiler, a test run or the runner shows it;
+  the column gives the reason.
+- (guess) :: the verdict was inferred from the error message alone,
+  without reading the tree at that commit.
+
+* Paths taken
+
+- A single query over the window reported 2,500 runs whether or not it
+  filtered on failure, a capped figure, and a filtered listing returns at
+  most 1,000 runs. The script lists one day at a time instead and found
+  2,888 failed runs; no day came near the cap.
+- The first log trimming kept the tail before the last =##[error]=. That
+  annotation is usually written by a clean-up step that runs after the
+  failure (a cache save, =sccache --show-stats=), so the tail missed the
+  failing step. The tail now ends at the first =##[error]=.
+- The first error was first taken as the first line matching "error".
+  That picked up file names in the site build's publishing log
+  (=trade-import-failed-state.org=), test names, application log lines and
+  CTest's post-failure messages. Tiers, path stripping and a list of
+  pointer lines replaced it; the task's Notes give the order.
+- A commit was first called LLM-authored only on a Claude trailer. ORE
+  Studio's commits also carry DeepSeek trailers, so any model named in a
+  =Co-Authored-By:= trailer now counts. A merge is judged by the commits it
+  brought in.
+
+* Conclusions
+
+** Findings
+
+ORE Studio's CI failed 2,889 times in the 61 days from 2026-09-19 to
+2026-11-18. Those runs held 13,973 jobs, 4,774 of which failed, for 4,841
+classified failures once the runs that failed with no failed job are
+added. Every failure but 63 matched one of 94 patterns; the 63 are 31
+jobs whose log GitHub no longer served and 32 listed under Unclassified.
+
+- *Most failed runs were already catchable.* Patterns compass catches
+  today account for 1,925 runs, two runs in three. Nearly all of them are
+  ORE Studio's own gates: generated output drifting from its model (810
+  runs), the shell recipe inventory (442), the ER diagram (347) and
+  unseeded handler permissions (197, and 196 more through the codegen
+  suite). These fail fast and cheaply, 11,935 failed-job minutes in all,
+  but each is a round trip: the gate existed, and nobody ran it before
+  pushing. A run counts under every verdict its jobs fail with, so the
+  verdict rows add up to more than 2,889.
+- *The catchable patterns compass lacks cost more per run.* The 24
+  could-be-caught patterns account for 650 runs and 31,349 minutes. By
+  count they are led by TypeScript formatting (229 runs), a generated
+  domain header's includes (93), site links (52), MSVC's reflection depth
+  limit (50, a guess), standard-library facilities a platform lacks (34, a
+  guess) and pasted blocks that name a missing symbol (33). By cost they
+  are led by the portability failures that only Windows and macOS builds
+  show: the standard-library facilities (9,533 minutes), includes that do
+  not resolve (7,756; 24 of their 47 jobs are =unistd.h= on Windows) and
+  the reflection limit (6,076). A failed job of these three patterns
+  ran for 70 to 165 minutes on average before it failed.
+- *What compass cannot catch costs the most.* 540 runs and 113,878
+  minutes went to test failures (39,084 minutes), step time-outs (17,344),
+  compilers out of memory (13,636), compile errors (9,510), full disks
+  (8,249) and a lost or stopped runner. Nothing in the tree predicts most
+  of them; the time-outs and memory failures may follow the tree's
+  growth, which this page did not test.
+- *The codegen suite is mostly tree checks.* Of the 491 failures of =Run
+  the codegen suite=, 448 come from test files that check the tree, not
+  the generator: =test_handler_permissions= (196),
+  =test_domain_includes= (93) and others; 43 come from tests of the
+  generator itself. Eleven of the tree-checking files that failed have a
+  compass codec. Four do not, =test_domain_includes=,
+  =test_provision_step_words=, =test_sql_name_base= and
+  =test_entity_typescript=, and they appear among the candidates below.
+  A suite failure is classified by the first entry of =PATTERNS= whose
+  test failed, so a run that broke two such files counts once.
+- *The LLM trailer does not single out the failing commits.* 1,503 of
+  the 1,754 distinct head commits of failed runs (86%) carry a model's
+  co-author trailer or merge commits that do. Across all 14,839
+  non-merge commits in ORE Studio's clone over the window the share is
+  79%. On this evidence the failures track the volume of LLM-written
+  change rather than a higher error rate per change; the trailer cannot
+  tell the two apart.
+
+** Counts
+
+# BEGIN generated provenance (build/scripts/mine_failed_builds.py)
+
+| What | Count |
+|------+-------|
+| Days listed | 2026-09-19 to 2026-11-18 (61) |
+| Failed runs listed | 2889 |
+| Runs whose jobs were fetched | 2889 |
+| Jobs in those runs | 13973 |
+| Failures classified (failed jobs, or runs with none) | 4841 |
+| Logs cached | 4743 |
+| Logs unavailable | 31 |
+| Cache size | 55.8 MB |
+# END generated provenance
+
+** Verdicts
+
+# BEGIN generated verdicts (build/scripts/mine_failed_builds.py)
+
+| Verdict | Patterns | Runs | Jobs | Minutes |
+|---------+----------+------+------+---------|
+| already caught | 48 | 1925 | 3064 | 11935 |
+| could be caught | 24 | 650 | 892 | 31349 |
+| not catchable | 22 | 540 | 822 | 113878 |
+| unclassified | 2 | 62 | 63 | 9946 |
+# END generated verdicts
+
+** Patterns
+
+# BEGIN generated ranking (build/scripts/mine_failed_builds.py)
+
+Ranked by failed runs.
+
+| Pattern | Verdict | Runs | Jobs | Minutes | Heads | Days | Codec, data or reason |
+|---------+---------+------+------+---------+-------+------+-----------------------|
+| generated output drifted from its model | already caught | 810 | 810 | 5182 | 728 | 46 | codegen and component_files (diff mode) |
+| recipe inventory stale | already caught | 442 | 442 | 250 | 442 | 35 | recipe_inventories |
+| ER diagram stale | already caught | 347 | 347 | 2044 | 345 | 33 | er_diagram |
+| TypeScript format | could be caught | 229 | 229 | 340 | 229 | 26 | hand-written TypeScript: prettier --check over the changed files, as compass's codegen already runs prettier over generated ones |
+| handler permission not seeded | already caught | 197 | 197 | 108 | 197 | 15 | handler_permissions |
+| suite: handler permission not seeded | already caught | 196 | 196 | 454 | 196 | 15 | handler_permissions |
+| shell script differs from its recipe | already caught | 171 | 171 | 305 | 171 | 38 | tangle_check |
+| CTest test failed | not catchable | 130 | 206 | 39084 | 88 | 41 | behaviour only running the code shows |
+| entity table written outside its repository | already caught | 99 | 99 | 54 | 99 | 14 | entity_writes |
+| suite: domain header includes | could be caught | 93 | 93 | 210 | 93 | 9 | org models and generated C++: a generated header's declared standard includes are the ones its members use |
+| pending-change model not derived | already caught | 90 | 90 | 42 | 90 | 3 | pending_models |
+| dangling or malformed id link | already caught | 78 | 78 | 108 | 76 | 15 | lint (dangling_link, malformed_link) |
+| C++ compile error | not catchable | 53 | 78 | 9510 | 44 | 28 | a compiler diagnostic; compass reads C++ facts but does not type-check |
+| site link does not resolve | could be caught | 52 | 87 | 711 | 52 | 5 | org documents: every link target resolves the way the site export resolves it (fuzzy, file and custom links, such as a C++ attribute in double square brackets; id links are lint's) |
+| MSVC reflection depth limit | could be caught (guess) | 50 | 86 | 6076 | 45 | 33 | C++ facts: the member count of every struct or variant reflect-cpp reflects, against a ceiling |
+| runner out of memory | not catchable | 49 | 69 | 13636 | 30 | 14 | the compiler ran out of memory or crashed on the runner |
+| codegen tool test failed | not catchable | 43 | 43 | 100 | 43 | 9 | a test of the generator itself; it tests the tool, not the tree |
+| job timed out | not catchable | 42 | 51 | 17344 | 32 | 15 | the job hit its time limit |
+| bot action failed | not catchable | 42 | 42 | 47 | 31 | 13 | a third-party bot (Claude Code review, Dependabot) failed; it does not build the tree |
+| event registrar not composed | already caught | 41 | 41 | 25 | 41 | 8 | event_registrars |
+| TypeScript test failed | not catchable | 38 | 41 | 1121 | 38 | 8 | behaviour only running the code shows |
+| runner shut down or lost | not catchable | 37 | 37 | 5957 | 31 | 19 | runner or GitHub infrastructure; nothing in the tree predicts it |
+| site id link does not resolve | already caught | 36 | 70 | 929 | 33 | 14 | lint (dangling_link, malformed_link) |
+| structure note not linked back | already caught | 35 | 35 | 34 | 35 | 13 | lint (missing_backlink) |
+| standard library feature a platform lacks | could be caught (guess) | 34 | 62 | 9533 | 32 | 19 | C++ facts: no use of a standard facility on a list of ones some platform's library lacks or deprecates (atomic shared_ptr, floating from_chars, getenv, sscanf, formatting std::quoted) |
+| TypeScript type error | not catchable | 33 | 36 | 699 | 32 | 9 | a tsc diagnostic; compass does not type-check TypeScript |
+| pasted block names a missing symbol | could be caught | 33 | 33 | 39 | 33 | 1 | org models and C++ sources: every symbol a pasted block names exists |
+| MSVC warning treated as error | not catchable | 32 | 50 | 3147 | 32 | 19 | a compiler diagnostic; compass reads C++ facts but does not type-check; MSVC's warnings differ from clang's and gcc's |
+| SQL table without row-level security | already caught | 32 | 58 | 207 | 25 | 9 | rls_coverage |
+| log unavailable | unclassified | 31 | 31 | 6149 | 29 | 17 | the job's log could not be fetched |
+| unclassified | unclassified | 31 | 32 | 3796 | 29 | 17 |  |
+| network or service error | not catchable | 31 | 38 | 1193 | 25 | 16 | a network fetch or remote service failed |
+| run started no job | could be caught (guess) | 31 | 31 | 0 | 12 | 11 | workflow files: a run that starts no job has an invalid workflow or a job condition no event meets |
+| coverage collection error | not catchable | 30 | 30 | 6866 | 16 | 10 | gcov could not match coverage data to sources; a tooling fault |
+| include not found | could be caught | 29 | 47 | 7756 | 24 | 16 | C++ facts and CMake: every #include resolves to a file in the tree or a declared dependency |
+| prototype missing from its inventory | already caught | 26 | 26 | 129 | 26 | 1 | prototypes (unlisted) |
+| disk full | not catchable | 25 | 25 | 8249 | 25 | 11 | runner or GitHub infrastructure; nothing in the tree predicts it |
+| suite: trade type routed twice | already caught (guess) | 25 | 25 | 71 | 25 | 3 | trade_type_coverage |
+| exported type not compiled by its library | already caught | 25 | 25 | 27 | 25 | 1 | exported_types (uncompiled_exported_type) |
+| suite: translation unit over budget | already caught | 24 | 24 | 55 | 24 | 1 | translation_unit_budget |
+| model contradicts its profile | already caught | 24 | 24 | 9 | 24 | 2 | model_rules |
+| suite: provisioning step words disagree | could be caught | 22 | 22 | 54 | 22 | 5 | C++ and TypeScript facts: the step labels the server declares are the sentences the screen catalogue translates |
+| job cancelled | not catchable | 21 | 36 | 924 | 5 | 1 | a sibling job failed or a newer run superseded it |
+| protocol header without TypeScript twin | already caught | 21 | 21 | 105 | 21 | 8 | protocol_twins |
+| filetag malformed | already caught | 21 | 21 | 28 | 19 | 1 | lint (bad_filetag) |
+| shell command unit not registered | already caught | 21 | 21 | 13 | 21 | 6 | shell_command_composition |
+| suite: SQL identifier over 63 bytes | could be caught | 19 | 19 | 31 | 19 | 2 | org models and SQL facts: every identifier an entity derives fits PostgreSQL's 63 bytes |
+| suite: event registrar not composed | already caught | 17 | 17 | 27 | 17 | 3 | event_registrars |
+| SQL file not wired into create.sql | already caught | 16 | 52 | 158 | 12 | 6 | sql_reachability |
+| suite: stop type outside the platform | already caught | 14 | 14 | 36 | 14 | 3 | portable_stop |
+| core links another component's core | already caught | 14 | 14 | 8 | 14 | 8 | core_link_edges |
+| undefined symbol at link | could be caught (guess) | 13 | 23 | 4010 | 12 | 11 | CMake and C++ facts: a library that uses a symbol links the target that defines it, and an exported class is compiled into its library |
+| suite: subject outside its protocol | already caught | 13 | 13 | 43 | 13 | 2 | subject_conformance |
+| SQL schema convention | could be caught | 12 | 30 | 113 | 12 | 6 | SQL facts: temporal, tenant and data-quality column conventions |
+| stop type outside the platform | already caught | 12 | 12 | 10 | 12 | 3 | portable_stop |
+| HTTP route without auth position | already caught | 12 | 12 | 7 | 12 | 1 | route_auth |
+| service failed to start | not catchable | 11 | 11 | 2409 | 11 | 2 | behaviour only running the code shows; the stack must run |
+| site link target begins with a colon | already caught | 11 | 19 | 132 | 11 | 1 | org_links (colon_link) |
+| agent contract out of step | could be caught (guess) | 10 | 18 | 19 | 9 | 8 | C++ and TypeScript facts: the backend contract the agent records matches the backend source |
+| npm lock file out of step | could be caught | 9 | 10 | 575 | 9 | 2 | package manifests: every package.json range is satisfied by its lock file |
+| suite: test case in a conditional block | already caught | 9 | 9 | 17 | 9 | 1 | test_case_reachability |
+| test case inside a conditional block | already caught | 9 | 9 | 5 | 9 | 1 | test_case_reachability |
+| SQL object used before it is created | could be caught | 7 | 10 | 72 | 7 | 3 | SQL facts: a create script names only functions and tables a script before it creates |
+| history registrar not composed | already caught | 7 | 7 | 3 | 7 | 2 | history_registrars |
+| missing standard include | could be caught (guess) | 6 | 14 | 1532 | 6 | 4 | C++ facts: a file that names a standard type includes its header |
+| SQL syntax error | could be caught (guess) | 6 | 16 | 85 | 3 | 2 | SQL facts: the scripts parse as PostgreSQL with psql variables |
+| SQL table missing from drop scripts | could be caught | 6 | 20 | 60 | 3 | 3 | SQL facts: every created table is dropped |
+| SQL not re-runnable or malformed | already caught | 6 | 6 | 21 | 6 | 2 | sql_hygiene |
+| suite: workflow triggers on pull requests | already caught | 6 | 6 | 14 | 6 | 1 | no_pr_triggers |
+| page lists a non-pattern under Patterns used | already caught | 6 | 6 | 6 | 6 | 2 | lint (pattern_not_a_pattern) |
+| template differs from its org source | already caught (guess) | 6 | 6 | 5 | 6 | 3 | tangle_check |
+| agent test failed | not catchable | 6 | 6 | 5 | 6 | 6 | behaviour only running the code shows |
+| job stopped mid-step | not catchable (guess) | 5 | 5 | 1579 | 5 | 5 | the log stops with no error; the job hit its time limit or lost its runner |
+| SQL table naming | could be caught | 5 | 18 | 50 | 3 | 1 | SQL facts: table names against the component prefixes |
+| skill type tables stale | already caught | 5 | 5 | 2 | 5 | 3 | skill_type_tables |
+| C++20 stop type outside the platform | already caught | 4 | 7 | 984 | 4 | 2 | portable_stop |
+| suite: shell command unit not registered | already caught | 4 | 4 | 7 | 4 | 1 | shell_command_composition |
+| shell menu name collision | already caught | 4 | 4 | 1 | 4 | 1 | shell_menus |
+| open read not allow-listed | already caught | 4 | 4 | 1 | 4 | 1 | open_reads |
+| build cache tool failed | not catchable | 3 | 3 | 987 | 3 | 3 | sccache failed on the runner |
+| packaging failed | not catchable (guess) | 3 | 3 | 985 | 3 | 2 | cpack failed after a successful build |
+| Boost header without a vcpkg port | could be caught | 3 | 12 | 57 | 3 | 2 | C++ facts and vcpkg.json: every Boost header a source includes has its port declared |
+| SQL unterminated block comment | already caught | 3 | 6 | 32 | 3 | 2 | sql_hygiene (unterminated_block_comment) |
+| populate row violates its table's checks | could be caught (guess) | 3 | 6 | 22 | 3 | 3 | SQL facts: every populate row meets its table's check constraints and the validations its insert trigger applies |
+| suite: SQL file unreachable | already caught | 3 | 3 | 8 | 3 | 1 | sql_reachability |
+| database role missing in CI | not catchable (guess) | 2 | 6 | 21 | 1 | 1 | the CI database lacks a role the scripts expect; environment set-up, not the tree |
+| suite: TypeScript protocol disagrees with C++ | could be caught (guess) | 2 | 2 | 2 | 2 | 1 | org models, C++ and TypeScript facts: the derived TypeScript messages are the C++ protocol's |
+| version out of step | could be caught | 2 | 2 | 1 | 1 | 1 | package manifests and the product version: every manifest carries the product version |
+| skill catalogue stale | already caught | 2 | 2 | 1 | 2 | 1 | skill_catalogue |
+| other test failed | not catchable (guess) | 2 | 2 | 1 | 2 | 1 | behaviour only running the code shows |
+| storage macro on an enum | already caught (guess) | 1 | 2 | 220 | 1 | 1 | exported_types (visibility_macro_on_enum) |
+| checkout of a vanished commit | not catchable (guess) | 1 | 4 | 14 | 1 | 1 | the commit a run was asked to check out no longer exists |
+| SQL include names a missing file | already caught | 1 | 2 | 9 | 1 | 1 | sql_reachability (missing_include) |
+| SQL foreign key without unique target | could be caught | 1 | 2 | 3 | 1 | 1 | SQL facts: a foreign key references a primary or unique key |
+| suite: open read not allow-listed | already caught | 1 | 1 | 1 | 1 | 1 | open_reads |
+| link target begins with a colon | already caught | 1 | 1 | 1 | 1 | 1 | org_links (colon_link) |
+
+The fifteen costliest, ranked by failed-job minutes.
+
+| Pattern | Verdict | Minutes | Runs |
+|---------+---------+---------+------|
+| CTest test failed | not catchable | 39084 | 130 |
+| job timed out | not catchable | 17344 | 42 |
+| runner out of memory | not catchable | 13636 | 49 |
+| standard library feature a platform lacks | could be caught (guess) | 9533 | 34 |
+| C++ compile error | not catchable | 9510 | 53 |
+| disk full | not catchable | 8249 | 25 |
+| include not found | could be caught | 7756 | 29 |
+| coverage collection error | not catchable | 6866 | 30 |
+| log unavailable | unclassified | 6149 | 31 |
+| MSVC reflection depth limit | could be caught (guess) | 6076 | 50 |
+| runner shut down or lost | not catchable | 5957 | 37 |
+| generated output drifted from its model | already caught | 5182 | 810 |
+| undefined symbol at link | could be caught (guess) | 4010 | 13 |
+| unclassified | unclassified | 3796 | 31 |
+| MSVC warning treated as error | not catchable | 3147 | 32 |
+# END generated ranking
+
+** Catchable patterns
+
+The could-be-caught patterns come first, by runs, then the already-caught
+ones. The example run is the pattern's earliest pull-request run, or its
+earliest run when it never failed a pull request; the event is given when
+it is not a pull request. A push or schedule run's head is main's tip,
+usually a merge, so the commit that introduced the error is among those
+the merge brought in rather than the merge itself. LLM heads counts the
+distinct head commits that carry a model's co-author trailer, or merge
+commits that do, out of the heads the local clone holds.
+
+# BEGIN generated candidates (build/scripts/mine_failed_builds.py)
+
+| Pattern | Verdict | Runs | Example run | Its head commit | LLM heads | Codec or data | ORE code or project data |
+|---------+---------+------+-------------+-----------------+-----------+---------------+--------------------------|
+| TypeScript format | could be caught | 229 | [[https://github.com/OreStudio/OreStudio/actions/runs/36359361505][36359361505]] | =5efdf21e55= [reporting] Regenerate the shell recipe index after the rebase (LLM co-authored) | 199 of 229 | hand-written TypeScript: prettier --check over the changed files, as compass's codegen already runs prettier over generated ones | project data (the formatter, its style file and the globs) |
+| suite: domain header includes | could be caught | 93 | [[https://github.com/OreStudio/OreStudio/actions/runs/37811487307][37811487307]] (push) | =9aff426f08= Merge pull request #2826 from OreStudio/feature/structure-anchor (merges LLM co-authored commits) | 90 of 93 | org models and generated C++: a generated header's declared standard includes are the ones its members use | project data (the type-to-header map) |
+| site link does not resolve | could be caught | 52 | [[https://github.com/OreStudio/OreStudio/actions/runs/36228592274][36228592274]] (push) | =89cc8d8acd= Merge pull request #2148 from OreStudio/feature/clean-platform (merges LLM co-authored commits) | 51 of 52 | org documents: every link target resolves the way the site export resolves it (fuzzy, file and custom links, such as a C++ attribute in double square brackets; id links are lint's) | project data |
+| MSVC reflection depth limit | could be caught (guess) | 50 | [[https://github.com/OreStudio/OreStudio/actions/runs/35754584869][35754584869]] (schedule) | =38c73d459a= Merge pull request #2129 from OreStudio/feature/add-screens-for-every- (merges LLM co-authored commits) | 41 of 45 | C++ facts: the member count of every struct or variant reflect-cpp reflects, against a ceiling | project data (the ceiling) |
+| standard library feature a platform lacks | could be caught (guess) | 34 | [[https://github.com/OreStudio/OreStudio/actions/runs/36325659481][36325659481]] (schedule) | =1961f78f1a= Merge pull request #2277 from OreStudio/fix/plantuml-nested-paren-para (merges LLM co-authored commits) | 29 of 32 | C++ facts: no use of a standard facility on a list of ones some platform's library lacks or deprecates (atomic shared_ptr, floating from_chars, getenv, sscanf, formatting std::quoted) | project data (the list of facilities) |
+| pasted block names a missing symbol | could be caught | 33 | [[https://github.com/OreStudio/OreStudio/actions/runs/40628936127][40628936127]] (push) | =ed16054a05= Merge pull request #3974 from OreStudio/feature/move-ores-reporting-re (merges LLM co-authored commits) | 28 of 33 | org models and C++ sources: every symbol a pasted block names exists | project data |
+| run started no job | could be caught (guess) | 31 | [[https://github.com/OreStudio/OreStudio/actions/runs/36302987599][36302987599]] | =f46e7a1076= [format] Nightly clang-format run (no LLM trailer) | 1 of 12 | workflow files: a run that starts no job has an invalid workflow or a job condition no event meets | project data |
+| include not found | could be caught | 29 | [[https://github.com/OreStudio/OreStudio/actions/runs/36468160845][36468160845]] (schedule) | =9631df6bff= Merge pull request #2333 from OreStudio/feature/model-missing-trading- (merges LLM co-authored commits) | 20 of 24 | C++ facts and CMake: every #include resolves to a file in the tree or a declared dependency | project data (the include roots) |
+| suite: provisioning step words disagree | could be caught | 22 | [[https://github.com/OreStudio/OreStudio/actions/runs/37517919299][37517919299]] | =e6be21305d= [sql,iam] Publish the system's own datasets at bring-up (LLM co-authored) | 20 of 22 | C++ and TypeScript facts: the step labels the server declares are the sentences the screen catalogue translates | ORE code |
+| suite: SQL identifier over 63 bytes | could be caught | 19 | [[https://github.com/OreStudio/OreStudio/actions/runs/37849331255][37849331255]] (push) | =0ee366febb= Merge pull request #2889 from OreStudio/hotfix/the-tenantless-catalogu (merges LLM co-authored commits) | 17 of 19 | org models and SQL facts: every identifier an entity derives fits PostgreSQL's 63 bytes | project data |
+| undefined symbol at link | could be caught (guess) | 13 | [[https://github.com/OreStudio/OreStudio/actions/runs/35419268140][35419268140]] (schedule) | =6217f8bf54= Merge pull request #2105 from OreStudio/feature/codegen-ts-ui-metadata (merges LLM co-authored commits) | 12 of 12 | CMake and C++ facts: a library that uses a symbol links the target that defines it, and an exported class is compiled into its library | project data |
+| SQL schema convention | could be caught | 12 | [[https://github.com/OreStudio/OreStudio/actions/runs/36374354611][36374354611]] (schedule) | =b49cc5078d= Merge pull request #2319 from OreStudio/feature/add-the-generic-provis (merges LLM co-authored commits) | 12 of 12 | SQL facts: temporal, tenant and data-quality column conventions | ORE code (ORE's temporal and tenancy conventions) |
+| agent contract out of step | could be caught (guess) | 10 | [[https://github.com/OreStudio/OreStudio/actions/runs/43009507062][43009507062]] (schedule) | =dc4f76c84a= Merge pull request #4606 from OreStudio/feature/one-publish-lifecycle- (merges LLM co-authored commits) | 8 of 9 | C++ and TypeScript facts: the backend contract the agent records matches the backend source | ORE code |
+| npm lock file out of step | could be caught | 9 | [[https://github.com/OreStudio/OreStudio/actions/runs/39514612028][39514612028]] (push) | =8186aaa3df= Merge pull request #3594 from OreStudio/dependabot/npm_and_yarn/projec (merges no LLM-trailered commit) | 7 of 9 | package manifests: every package.json range is satisfied by its lock file | project data |
+| SQL object used before it is created | could be caught | 7 | [[https://github.com/OreStudio/OreStudio/actions/runs/36788196510][36788196510]] | =ccd690bdd3= [refdata] Model the curve sections (LLM co-authored) | 7 of 7 | SQL facts: a create script names only functions and tables a script before it creates | project data |
+| SQL table missing from drop scripts | could be caught | 6 | [[https://github.com/OreStudio/OreStudio/actions/runs/35467247429][35467247429]] (schedule) | =fb00531da7= Merge pull request #2111 from OreStudio/hotfix/main-ci-red (merges LLM co-authored commits) | 3 of 3 | SQL facts: every created table is dropped | project data |
+| missing standard include | could be caught (guess) | 6 | [[https://github.com/OreStudio/OreStudio/actions/runs/36333830663][36333830663]] (schedule) | =ef8df25c61= Merge pull request #2282 from OreStudio/chore/close-http-clean (merges LLM co-authored commits) | 6 of 6 | C++ facts: a file that names a standard type includes its header | project data |
+| SQL syntax error | could be caught (guess) | 6 | [[https://github.com/OreStudio/OreStudio/actions/runs/36287850334][36287850334]] (schedule) | =12302dd9df= Merge pull request #2234 from OreStudio/feature/dq-close-artefact-sche (merges LLM co-authored commits) | 3 of 3 | SQL facts: the scripts parse as PostgreSQL with psql variables | project data |
+| SQL table naming | could be caught | 5 | [[https://github.com/OreStudio/OreStudio/actions/runs/35408029209][35408029209]] (schedule) | =6217f8bf54= Merge pull request #2105 from OreStudio/feature/codegen-ts-ui-metadata (merges LLM co-authored commits) | 2 of 3 | SQL facts: table names against the component prefixes | project data (the component prefixes) |
+| Boost header without a vcpkg port | could be caught | 3 | [[https://github.com/OreStudio/OreStudio/actions/runs/37382518135][37382518135]] (schedule) | =a971cb6a3e= Merge pull request #2674 from OreStudio/feature/close-the-super-admini (merges LLM co-authored commits) | 3 of 3 | C++ facts and vcpkg.json: every Boost header a source includes has its port declared | project data (the header-to-port map) |
+| populate row violates its table's checks | could be caught (guess) | 3 | [[https://github.com/OreStudio/OreStudio/actions/runs/37996438345][37996438345]] (schedule) | =2b189f36fb= Merge pull request #3002 from OreStudio/feature/resolve-a-tenor-over-t (merges LLM co-authored commits) | 3 of 3 | SQL facts: every populate row meets its table's check constraints and the validations its insert trigger applies | project data for check constraints; ORE code for trigger validations |
+| suite: TypeScript protocol disagrees with C++ | could be caught (guess) | 2 | [[https://github.com/OreStudio/OreStudio/actions/runs/37054443414][37054443414]] | =d81ac6d8e9= [agile] Close the tenant roster filters task (LLM co-authored) | 1 of 2 | org models, C++ and TypeScript facts: the derived TypeScript messages are the C++ protocol's | project data |
+| version out of step | could be caught | 2 | [[https://github.com/OreStudio/OreStudio/actions/runs/37534239159][37534239159]] (push) | =6f4977673b= Merge pull request #2716 from OreStudio/feature/retire-github-pr-check (merges LLM co-authored commits) | 1 of 1 | package manifests and the product version: every manifest carries the product version | project data |
+| SQL foreign key without unique target | could be caught | 1 | [[https://github.com/OreStudio/OreStudio/actions/runs/36261486171][36261486171]] (schedule) | =b66159ad75= Merge pull request #2181 from OreStudio/feature/scheduler-shell-comman (merges LLM co-authored commits) | 1 of 1 | SQL facts: a foreign key references a primary or unique key | project data |
+| generated output drifted from its model | already caught | 810 | [[https://github.com/OreStudio/OreStudio/actions/runs/35455775993][35455775993]] | =37d9bb72d2= [doc] Record the one-entity-at-a-time codegen rule (LLM co-authored) | 648 of 728 | codegen and component_files (diff mode) | - |
+| recipe inventory stale | already caught | 442 | [[https://github.com/OreStudio/OreStudio/actions/runs/36276920194][36276920194]] | =24af3c8f48= [agile] Record the PR 2 result, its evidence and its new defect (LLM co-authored) | 396 of 442 | recipe_inventories | - |
+| ER diagram stale | already caught | 347 | [[https://github.com/OreStudio/OreStudio/actions/runs/36458634399][36458634399]] | =ec0c04117c= [trading] Address the review, and make every new policy re-runnable (LLM co-authored) | 294 of 345 | er_diagram | - |
+| handler permission not seeded | already caught | 197 | [[https://github.com/OreStudio/OreStudio/actions/runs/36357879333][36357879333]] | =2310bf7892= [reporting] Record PR 2307 on the story tasks (LLM co-authored) | 168 of 197 | handler_permissions | - |
+| suite: handler permission not seeded | already caught | 196 | [[https://github.com/OreStudio/OreStudio/actions/runs/36357879333][36357879333]] | =2310bf7892= [reporting] Record PR 2307 on the story tasks (LLM co-authored) | 167 of 196 | handler_permissions | - |
+| shell script differs from its recipe | already caught | 171 | [[https://github.com/OreStudio/OreStudio/actions/runs/35719353010][35719353010]] | =19ea3ff18d= [iam,codegen] Keep history readable and name the key in the signature (LLM co-authored) | 145 of 171 | tangle_check | - |
+| entity table written outside its repository | already caught | 99 | [[https://github.com/OreStudio/OreStudio/actions/runs/37538449522][37538449522]] | =2941b2b8f3= [doc] State the entity-table write rule (LLM co-authored) | 89 of 99 | entity_writes | - |
+| pending-change model not derived | already caught | 90 | [[https://github.com/OreStudio/OreStudio/actions/runs/41159469562][41159469562]] (push) | =4097a79939= Merge pull request #4182 from OreStudio/feature/move-ores-refdata-code (merges LLM co-authored commits) | 78 of 90 | pending_models | - |
+| dangling or malformed id link | already caught | 78 | [[https://github.com/OreStudio/OreStudio/actions/runs/35802828373][35802828373]] | =f323520834= [inbox] Capture five IAM security and safety defects (LLM co-authored) | 68 of 76 | lint (dangling_link, malformed_link) | - |
+| event registrar not composed | already caught | 41 | [[https://github.com/OreStudio/OreStudio/actions/runs/37516095870][37516095870]] | =07f8b248bd= [marketdata] Regenerate the ER schema after the rebase (LLM co-authored) | 29 of 41 | event_registrars | - |
+| site id link does not resolve | already caught | 36 | [[https://github.com/OreStudio/OreStudio/actions/runs/35667045455][35667045455]] (push) | =4ceba48220= Merge pull request #2120 from OreStudio/feature/adopt-the-protocol-in- (merges LLM co-authored commits) | 28 of 33 | lint (dangling_link, malformed_link) | - |
+| structure note not linked back | already caught | 35 | [[https://github.com/OreStudio/OreStudio/actions/runs/35585190210][35585190210]] | =e53fb9782c= [agile] Close the specification task (LLM co-authored) | 26 of 35 | lint (missing_backlink) | - |
+| SQL table without row-level security | already caught | 32 | [[https://github.com/OreStudio/OreStudio/actions/runs/36702831449][36702831449]] | =9bfadd92ec= [agile] Close the run document task (LLM co-authored) | 21 of 25 | rls_coverage | - |
+| prototype missing from its inventory | already caught | 26 | [[https://github.com/OreStudio/OreStudio/actions/runs/40249594899][40249594899]] (push) | =a1cb9a7c02= [prototype] Build the three arrival prototypes (#3853) (LLM co-authored) | 22 of 26 | prototypes (unlisted) | - |
+| suite: trade type routed twice | already caught (guess) | 25 | [[https://github.com/OreStudio/OreStudio/actions/runs/38042654928][38042654928]] (push) | =fc09a30ec2= Merge pull request #3032 from OreStudio/feature/pin-the-rates-instrume (merges LLM co-authored commits) | 24 of 25 | trade_type_coverage | - |
+| exported type not compiled by its library | already caught | 25 | [[https://github.com/OreStudio/OreStudio/actions/runs/40146631448][40146631448]] (push) | =9b7835a081= Merge pull request #3731 from OreStudio/feature/implement-the-arrival- (merges LLM co-authored commits) | 23 of 25 | exported_types (uncompiled_exported_type) | - |
+| model contradicts its profile | already caught | 24 | [[https://github.com/OreStudio/OreStudio/actions/runs/36357879333][36357879333]] | =2310bf7892= [reporting] Record PR 2307 on the story tasks (LLM co-authored) | 23 of 24 | model_rules | - |
+| suite: translation unit over budget | already caught | 24 | [[https://github.com/OreStudio/OreStudio/actions/runs/41204437411][41204437411]] (push) | =0e1b56b13f= Merge pull request #4235 from OreStudio/feature/populate-the-inflation (merges LLM co-authored commits) | 20 of 24 | translation_unit_budget | - |
+| protocol header without TypeScript twin | already caught | 21 | [[https://github.com/OreStudio/OreStudio/actions/runs/35543307361][35543307361]] | =b0a39ec8f0= [doc] Reconcile the sprint row with the story's own state (LLM co-authored) | 17 of 21 | protocol_twins | - |
+| shell command unit not registered | already caught | 21 | [[https://github.com/OreStudio/OreStudio/actions/runs/37827163868][37827163868]] (push) | =7947687e37= Merge pull request #2851 from OreStudio/feature/record-every-business- (merges LLM co-authored commits) | 18 of 21 | shell_command_composition | - |
+| filetag malformed | already caught | 21 | [[https://github.com/OreStudio/OreStudio/actions/runs/40844376539][40844376539]] (push) | =92758e27b7= Merge pull request #4040 from OreStudio/feature/construct-every-bond-p (merges no LLM-trailered commit) | 13 of 19 | lint (bad_filetag) | - |
+| suite: event registrar not composed | already caught | 17 | [[https://github.com/OreStudio/OreStudio/actions/runs/37516095869][37516095869]] | =07f8b248bd= [marketdata] Regenerate the ER schema after the rebase (LLM co-authored) | 17 of 17 | event_registrars | - |
+| SQL file not wired into create.sql | already caught | 16 | [[https://github.com/OreStudio/OreStudio/actions/runs/35520825778][35520825778]] (schedule) | =0e76cb1255= Merge pull request #2113 from OreStudio/feature/codegen-ts-iam-modelli (merges LLM co-authored commits) | 10 of 12 | sql_reachability | - |
+| suite: stop type outside the platform | already caught | 14 | [[https://github.com/OreStudio/OreStudio/actions/runs/40197320982][40197320982]] (push) | =ec751f7ecd= Merge pull request #3774 from OreStudio/fix/green-the-baseline (merges LLM co-authored commits) | 14 of 14 | portable_stop | - |
+| core links another component's core | already caught | 14 | [[https://github.com/OreStudio/OreStudio/actions/runs/42414485280][42414485280]] (push) | =13c27603fb= Merge pull request #4488 from OreStudio/feature/publish-the-curves-in- (merges LLM co-authored commits) | 14 of 14 | core_link_edges | - |
+| suite: subject outside its protocol | already caught | 13 | [[https://github.com/OreStudio/OreStudio/actions/runs/37663901992][37663901992]] (push) | =f35bec819c= Merge pull request #2757 from OreStudio/feature/give-a-node-a-storage- (merges LLM co-authored commits) | 12 of 13 | subject_conformance | - |
+| stop type outside the platform | already caught | 12 | [[https://github.com/OreStudio/OreStudio/actions/runs/40191913706][40191913706]] (push) | =5f5bfb468c= Merge pull request #3773 from OreStudio/feature/carry-a-shared-market- (merges LLM co-authored commits) | 12 of 12 | portable_stop | - |
+| HTTP route without auth position | already caught | 12 | [[https://github.com/OreStudio/OreStudio/actions/runs/42959260762][42959260762]] (push) | =fa98282fd8= Merge pull request #4580 from OreStudio/feature/serve-the-transport-ro (merges LLM co-authored commits) | 12 of 12 | route_auth | - |
+| site link target begins with a colon | already caught | 11 | [[https://github.com/OreStudio/OreStudio/actions/runs/36350918139][36350918139]] (push) | =c42df555f8= Merge pull request #2291 from OreStudio/feature/dq-clean-batch-2 (merges LLM co-authored commits) | 11 of 11 | org_links (colon_link) | - |
+| suite: test case in a conditional block | already caught | 9 | [[https://github.com/OreStudio/OreStudio/actions/runs/38194222107][38194222107]] (push) | =8df06e6d7d= Merge pull request #3155 from OreStudio/feature/read-the-grid-samples- (merges LLM co-authored commits) | 8 of 9 | test_case_reachability | - |
+| test case inside a conditional block | already caught | 9 | [[https://github.com/OreStudio/OreStudio/actions/runs/38194222107][38194222107]] (push) | =8df06e6d7d= Merge pull request #3155 from OreStudio/feature/read-the-grid-samples- (merges LLM co-authored commits) | 8 of 9 | test_case_reachability | - |
+| history registrar not composed | already caught | 7 | [[https://github.com/OreStudio/OreStudio/actions/runs/40967207085][40967207085]] (push) | =1035f4a595= Merge pull request #4074 from OreStudio/feature/give-the-system-a-lega (merges no LLM-trailered commit) | 2 of 7 | history_registrars | - |
+| SQL not re-runnable or malformed | already caught | 6 | [[https://github.com/OreStudio/OreStudio/actions/runs/36441924041][36441924041]] | =67943e25af= [trading] Catch up the regeneration after the rebase, and close the sh (LLM co-authored) | 6 of 6 | sql_hygiene | - |
+| template differs from its org source | already caught (guess) | 6 | [[https://github.com/OreStudio/OreStudio/actions/runs/36937967882][36937967882]] | =409a7145a3= [agile] Close the stored-identity unit (LLM co-authored) | 4 of 6 | tangle_check | - |
+| page lists a non-pattern under Patterns used | already caught | 6 | [[https://github.com/OreStudio/OreStudio/actions/runs/37510640479][37510640479]] | =d97b78b02c= [agile] Record the inbox screens work on its task (LLM co-authored) | 3 of 6 | lint (pattern_not_a_pattern) | - |
+| suite: workflow triggers on pull requests | already caught | 6 | [[https://github.com/OreStudio/OreStudio/actions/runs/40948322259][40948322259]] (push) | =d6973f4714= Merge pull request #4059 from OreStudio/feature/fail-a-build-that-link (merges LLM co-authored commits) | 6 of 6 | no_pr_triggers | - |
+| skill type tables stale | already caught | 5 | [[https://github.com/OreStudio/OreStudio/actions/runs/35664287762][35664287762]] | =bb887e2534= [agile] Close the IAM protocol conversion (LLM co-authored) | 3 of 5 | skill_type_tables | - |
+| shell menu name collision | already caught | 4 | [[https://github.com/OreStudio/OreStudio/actions/runs/36357879333][36357879333]] | =2310bf7892= [reporting] Record PR 2307 on the story tasks (LLM co-authored) | 4 of 4 | shell_menus | - |
+| C++20 stop type outside the platform | already caught | 4 | [[https://github.com/OreStudio/OreStudio/actions/runs/36749103677][36749103677]] (schedule) | =26d66e6604= Merge pull request #2429 from OreStudio/feature/make-the-seed-profile- (merges LLM co-authored commits) | 4 of 4 | portable_stop | - |
+| open read not allow-listed | already caught | 4 | [[https://github.com/OreStudio/OreStudio/actions/runs/37516095869][37516095869]] | =07f8b248bd= [marketdata] Regenerate the ER schema after the rebase (LLM co-authored) | 3 of 4 | open_reads | - |
+| suite: shell command unit not registered | already caught | 4 | [[https://github.com/OreStudio/OreStudio/actions/runs/37827163836][37827163836]] (push) | =7947687e37= Merge pull request #2851 from OreStudio/feature/record-every-business- (merges LLM co-authored commits) | 4 of 4 | shell_command_composition | - |
+| SQL unterminated block comment | already caught | 3 | [[https://github.com/OreStudio/OreStudio/actions/runs/36271115068][36271115068]] (schedule) | =5119b26ce8= Merge pull request #2191 from OreStudio/feature/dq-record-pr-2190 (merges LLM co-authored commits) | 3 of 3 | sql_hygiene (unterminated_block_comment) | - |
+| suite: SQL file unreachable | already caught | 3 | [[https://github.com/OreStudio/OreStudio/actions/runs/40569202726][40569202726]] (push) | =bc4b7a47af= Merge pull request #3936 from OreStudio/fix/seed-the-structure-identif (merges no LLM-trailered commit) | 2 of 3 | sql_reachability | - |
+| skill catalogue stale | already caught | 2 | [[https://github.com/OreStudio/OreStudio/actions/runs/35876858128][35876858128]] | =7f91fd3527= [cli] Close the ores.cli decommission task (LLM co-authored) | 1 of 2 | skill_catalogue | - |
+| storage macro on an enum | already caught (guess) | 1 | [[https://github.com/OreStudio/OreStudio/actions/runs/36523267921][36523267921]] (schedule) | =3632865c32= Merge pull request #2359 from OreStudio/doc/correct-the-cutover-record (merges LLM co-authored commits) | 1 of 1 | exported_types (visibility_macro_on_enum) | - |
+| suite: open read not allow-listed | already caught | 1 | [[https://github.com/OreStudio/OreStudio/actions/runs/37533479680][37533479680]] | =0ef6d7e0e6= [agile] Record PR #2672 on task (no LLM trailer) | 0 of 1 | open_reads | - |
+| link target begins with a colon | already caught | 1 | [[https://github.com/OreStudio/OreStudio/actions/runs/39084451367][39084451367]] (push) | =89db22a650= [web] Give the web one way to handle time and timestamps (#3473) (merges LLM co-authored commits) | 1 of 1 | org_links (colon_link) | - |
+| SQL include names a missing file | already caught | 1 | [[https://github.com/OreStudio/OreStudio/actions/runs/41403275020][41403275020]] (schedule) | =2c52d7fdfd= Merge pull request #4369 from OreStudio/feature/split-the-conventions- (merges LLM co-authored commits) | 1 of 1 | sql_reachability (missing_include) | - |
+# END generated candidates
+
+** ORE code or project data
+
+The last column of the candidates says what a check for each
+could-be-caught pattern would have to know about ORE Studio, for
+[[id:DAB2F48A-E47A-4895-9026-056AF21E6CCC][Let projects define their own checks]].
+
+- Project data. Most candidates are a generic rule over facts compass
+  loads, parameterised by a list the project owns: the formatter and its
+  globs, the include roots, the facilities a platform lacks, the
+  type-to-header map, the reflection ceiling, the component prefixes, the
+  header-to-port map. The rule is the same for any C++, SQL or org
+  project; only the list is ORE Studio's. Site links, pasted blocks, SQL
+  objects used before they are created, a 63-byte identifier limit, drop
+  scripts, foreign-key targets, lock files and manifest versions need no
+  list at all.
+- ORE code. Three candidates encode ORE Studio's own design and would be
+  hard-coded unless the check language can state them: the SQL schema
+  conventions (temporal and tenant columns, data quality), the
+  provisioning step words shared by the server and the screens, and the
+  agent's recorded backend contract. Insert-trigger validations of
+  populate rows are ORE's as well; check constraints are not.
+
+** Unclassified
+
+# BEGIN generated unclassified (build/scripts/mine_failed_builds.py)
+
+| Jobs | Workflow | Step | Reason | Example |
+|------+----------+------+--------+---------|
+| 8 | Continuous Linux | Run CTest workflow | CMake Error at <path> (message): | [[https://github.com/OreStudio/OreStudio/actions/runs/39478105468][39478105468]] |
+| 4 | Continuous Linux | Run CTest workflow | CMake Error: Submission successful | [[https://github.com/OreStudio/OreStudio/actions/runs/38947981836][38947981836]] |
+| 3 | Continuous Linux | Setup Database | subprocess.CalledProcessError: Command '['psql', '-h', 'localhost', '-U', 'ores_orestudio_ddl_user', '-d', 'ores_ci', '--set', 'ON_ERROR_STO | [[https://github.com/OreStudio/OreStudio/actions/runs/36271115068][36271115068]] |
+| 3 | Nightly Build | Run CTest workflow | CMake Error at <path> (message): | [[https://github.com/OreStudio/OreStudio/actions/runs/41971608394][41971608394]] |
+| 2 | Continuous Linux | Run CTest workflow | CMake Error: Uploaded: <path> | [[https://github.com/OreStudio/OreStudio/actions/runs/38993685071][38993685071]] |
+| 2 | Nightly Build | Run CTest workflow | CMake Error: Uploaded: <path> | [[https://github.com/OreStudio/OreStudio/actions/runs/42562884508][42562884508]] |
+| 1 | Continuous MacOS | Setup Database | subprocess.CalledProcessError: Command '['psql', '-h', 'localhost', '-U', 'ores_orestudio_ddl_user', '-d', 'ores_ci', '--set', 'ON_ERROR_STO | [[https://github.com/OreStudio/OreStudio/actions/runs/36278737624][36278737624]] |
+| 1 | Nightly Include Hygiene | Configure (compile_commands.json only) | Command failed: <path> --build . --config Debug --target install -- -v -j5 | [[https://github.com/OreStudio/OreStudio/actions/runs/41811608153][41811608153]] |
+| 1 | Nightly Windows | Ccache for gh actions | Restoring cache failed: Error: The process '<path> Files\Git\bin\sh.exe' failed with exit code N | [[https://github.com/OreStudio/OreStudio/actions/runs/42579290872][42579290872]] |
+| 1 | Continuous Linux | Run CTest workflow | -- Performing Test Iconv_IS_BUILT_IN - Failed | [[https://github.com/OreStudio/OreStudio/actions/runs/43235197630][43235197630]] |
+| 1 | Nightly Build | Run CTest workflow | -- Performing Test Iconv_IS_BUILT_IN - Failed | [[https://github.com/OreStudio/OreStudio/actions/runs/43221584328][43221584328]] |
+| 1 | Unity batch measurement | Cold build of the base commit | clang++: error: linker command failed with exit code N (use -v to see invocation) | [[https://github.com/OreStudio/OreStudio/actions/runs/43216466419][43216466419]] |
+| 1 | Nightly Build | Make room in the repository cache | <path>: N: Syntax error: redirection unexpected | [[https://github.com/OreStudio/OreStudio/actions/runs/43163241266][43163241266]] |
+| 1 | Unity batch measurement | Compare the batch sizes | Process completed with exit code N. | [[https://github.com/OreStudio/OreStudio/actions/runs/43129066872][43129066872]] |
+| 1 | Product website | Deploy to GitHub Pages | Error: No artifacts named "github-pages" were found for this workflow run. Ensure artifacts are uploaded with <path> or later. | [[https://github.com/OreStudio/OreStudio/actions/runs/43477995908][43477995908]] |
+| 1 | Continuous Linux | Run CTest workflow | Submission successful | [[https://github.com/OreStudio/OreStudio/actions/runs/43848076060][43848076060]] |
+# END generated unclassified
+
+* Recommendations
+
+- Run the checks compass already has before every push. Two runs in
+  three failed on a rule compass enforces today; a pre-push =compass check
+  --ratchet= in ORE Studio would have stopped them without a new check.
+  This outweighs any one candidate below.
+- Ship these five checks in [[id:7BD09169-B1E5-46CA-8D10-4B5FFE681471][Ship checks for the top patterns]], chosen
+  from the could-be-caught patterns by runs and by minutes:
+  1. Portable C++ facilities. No code outside the platform component uses
+     a facility one of the three platforms lacks or rejects: POSIX headers
+     such as =unistd.h=, =getenv= and =sscanf= under MSVC's deprecations,
+     floating =from_chars= on libc++, atomic =shared_ptr=, formatting
+     =std::quoted=. It generalises =portable_stop= from stop types to a
+     list. 34 runs and 9,533 minutes, plus the 24 =unistd.h= jobs of
+     /include not found/. Example run [[https://github.com/OreStudio/OreStudio/actions/runs/36325659481][36325659481]], head =1961f78f1a=.
+  2. TypeScript formatting. Run prettier over the hand-written TypeScript
+     a change touches. 229 runs. Example run [[https://github.com/OreStudio/OreStudio/actions/runs/36359361505][36359361505]], head
+     =5efdf21e55=, LLM co-authored.
+  3. A generated domain header's includes. The standard headers a model's
+     =Domain includes= block declares are the ones its members use, which
+     is =test_domain_includes= as a codec. 93 runs. Example run
+     [[https://github.com/OreStudio/OreStudio/actions/runs/37811487307][37811487307]], head =9aff426f08=.
+  4. Site links. Every link the site export resolves, fuzzy and file links
+     as well as id links, resolves. 52 runs, beside the 47 that lint and
+     =org_links= already catch. Example run [[https://github.com/OreStudio/OreStudio/actions/runs/36228592274][36228592274]], head
+     =89cc8d8acd=.
+  5. Pasted blocks. Every symbol a pasted block names exists, porting the
+     paste-blocks gate the gate classification left as a port. 33 runs.
+     Example run [[https://github.com/OreStudio/OreStudio/actions/runs/40628936127][40628936127]], head =ed16054a05=.
+- Confirm two guesses before building on them. The MSVC reflection limit
+  (50 runs, 6,076 minutes) was classified from =C1202= in reflect-cpp's
+  headers. The one log read in full,
+  [[https://github.com/OreStudio/OreStudio/actions/runs/35754584869][35754584869]], traces it to a =std::visit= over the trade instrument
+  variant in =ores.trading/api/src/domain/instrument_payload.cpp=, so the
+  ceiling may belong on a variant's alternatives rather than on a
+  struct's members; the other runs were not read. The undefined symbols
+  at link time (13 runs, 4,010 minutes) may be one missing link or
+  several.
+- Treat the next tier as candidates for later: a 63-byte SQL identifier
+  limit (19 runs), the provisioning step words (22, ORE code), includes
+  that resolve to no file (29 in all), and SQL objects used before they
+  are created (7).
+- Rerun =report= after changing =PATTERNS=, not =fetch=: the cache holds
+  everything the classification reads. Keep the cache out of the
+  repository; it is 56 MB.
+
+* See also
+
+- [[id:080067B0-D941-4D41-9388-24E39AD37E9C][Investigation: ORE Studio failed builds by day]]: every failed run.
+- [[id:694CC015-2319-4A60-A912-C47D01BA70E1][Mine failed builds]]: the task this page is evidence for.
+- [[id:AFF665C4-739C-4BDB-93BD-9D547351AE4F][Investigation: ORE Studio gate classification]]: the gates the
+  already-caught verdicts map to codecs.
