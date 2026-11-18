@@ -1,0 +1,448 @@
+# -*- mode: cmake; cmake-tab-width: 4; indent-tabs-mode: nil -*-
+#
+# Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+#
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 3 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
+# Street, Fifth Floor, Boston, MA 02110-1301, USA.
+#
+cmake_minimum_required(VERSION 3.29 FATAL_ERROR)
+
+#
+# Handle input parameters to script. Define them as internal CMake
+# variables.
+#
+if(DEFINED CTEST_SCRIPT_ARG)
+    # transform ctest script arguments of the form
+    # script.ctest,var1=value1,var2=value2
+    # to variables with the respective names set to the respective values
+    string(REPLACE "," ";" script_args "${CTEST_SCRIPT_ARG}")
+    foreach(current_var ${script_args})
+        if ("${current_var}" MATCHES "^([^=]+)=(.+)$")
+            set("${CMAKE_MATCH_1}" "${CMAKE_MATCH_2}")
+        endif()
+    endforeach()
+endif()
+
+#
+# Detect if we are in GitHub or not.
+#
+if(NOT DEFINED "ENV{GITHUB_ACTIONS}")
+    message(STATUS "This script is being run outside of GitHub-Actions.")
+else ()
+    message(STATUS "This script is being run inside of GitHub-Actions")
+endif()
+
+#
+# Ensure all mandatory parameters have been set. Handle all optional parameters
+# as well.
+#
+if(NOT DEFINED preset)
+    message(FATAL_ERROR "Parameter preset not defined.")
+endif()
+message(STATUS "CDash preset: ${preset}")
+
+set(build_name ${preset})
+if(DEFINED build_postfix)
+    set(build_name ${build_name}-${build_postfix})
+endif()
+message(STATUS "CDash build name: ${build_name}")
+
+if(NOT DEFINED build_group)
+    message(FATAL_ERROR "Parameter build_group not defined.")
+endif()
+
+if(NOT DEFINED with_memcheck)
+    set(with_memcheck OFF)
+endif()
+message(STATUS "Memory Check: ${with_memcheck}")
+
+#
+# Parse the preset to extract input parameters, and validate them.
+#
+string(TOLOWER "${preset}" preset_lower)
+string(REPLACE "-" ";" preset_list ${preset_lower})
+list(LENGTH preset_list pl_length)
+if (NOT pl_length EQUAL 4)
+    message(FATAL_ERROR "Invalid preset: ${preset}")
+endif()
+
+# Setup the operative system.
+list(GET preset_list 0 operative_system)
+if(NOT DEFINED operative_system)
+    message(FATAL_ERROR "Operative system not supplied.")
+endif()
+
+ if(${operative_system} STREQUAL "linux")
+     message(STATUS "OS: Linux")
+ elseif(${operative_system} STREQUAL "windows")
+     message(STATUS "OS: Windows")
+ elseif(${operative_system} STREQUAL "macos")
+     message(STATUS "OS: Mac OS")
+ else()
+    message(FATAL_ERROR "Unsupported operative system: ${operative_system}")
+endif()
+
+# Setup the compiler.
+list(GET preset_list 1 compiler)
+if(NOT DEFINED compiler)
+    message(FATAL_ERROR "Compiler not supplied.")
+endif()
+
+if(${compiler} STREQUAL "gcc")
+    message(STATUS "Compiler: GCC")
+elseif(${compiler} STREQUAL "clang")
+    message(STATUS "Compiler: Clang")
+elseif(${compiler} STREQUAL "msvc")
+    message(STATUS "Compiler: MSVC")
+elseif(${compiler} STREQUAL "msvc-clang-cl")
+    message(STATUS "Compiler: Clang-CL (MSVC)")
+else()
+    message(FATAL_ERROR "Unsupported compiler: ${compiler}")
+endif()
+
+# Setup the configuration
+list(GET preset_list 2 configuration)
+if(NOT DEFINED configuration)
+     message(FATAL_ERROR "Configuration not supplied.")
+ endif()
+
+if(configuration STREQUAL "debug")
+    message(STATUS "CMake configuration: Debug")
+    set(CTEST_CONFIGURATION_TYPE "Debug")
+elseif(configuration STREQUAL "release")
+    message(STATUS "CMake configuration: Release")
+    set(CTEST_CONFIGURATION_TYPE "Release")
+else()
+    message(FATAL_ERROR "Configuration not supported: ${configuration}")
+endif()
+
+# Setup the build tool.
+list(GET preset_list 3 build_tool)
+if(NOT DEFINED build_tool)
+    message(FATAL_ERROR "Build tool not supplied.")
+endif()
+
+if(build_tool STREQUAL "ninja")
+    message(STATUS "Build tool: Ninja")
+    set(CTEST_CMAKE_GENERATOR "Ninja")
+elseif(build_tool STREQUAL "make")
+    message(STATUS "Build tool: Unix Makefiles")
+    set(CTEST_CMAKE_GENERATOR "Unix Makefiles")
+else()
+    message(FATAL_ERROR "Unsupported build tool: ${build_tool}")
+endif()
+
+# Setup the build group.
+if(build_group STREQUAL "Nightly")
+    message(STATUS "CDash build_group: Nightly")
+elseif(build_group STREQUAL "Continuous")
+    message(STATUS "CDash build_group: Continuous")
+elseif(build_group STREQUAL "Canary")
+    message(STATUS "CDash build_group: Canary")
+elseif(build_group STREQUAL "Experimental")
+    message(STATUS "CDash build_group: Experimental")
+else()
+    message(FATAL_ERROR "Build group not supported: ${build_group}")
+endif()
+
+#
+# Setup CTest variables
+#
+if (DEFINED ENV{COMPASS_BUILD_PROVIDER})
+    set(CTEST_SITE $ENV{COMPASS_BUILD_PROVIDER})
+else()
+    site_name(APP_SITE)
+    set(CTEST_SITE "${APP_SITE}")
+endif()
+
+#
+# Setup the build name
+#
+set(CTEST_BUILD_NAME "${build_name}")
+
+# Note that we expect CTest to be executed at the top-level directory.
+set(CTEST_SOURCE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+message(STATUS "Source directory: ${CTEST_SOURCE_DIRECTORY}")
+
+# Note that we have hard-coded the paths to match the presets. This is not very
+# nice but since it should not change often, it suffices.
+set(CTEST_BINARY_DIRECTORY "${CTEST_SOURCE_DIRECTORY}/build/output/${preset}")
+message(STATUS "Binary directory: ${CTEST_BINARY_DIRECTORY}")
+
+# Determine the number of jobs to run in parallel.
+include(ProcessorCount)
+ProcessorCount(nproc)
+message(STATUS "Available processors: ${nproc}")
+if(NOT "$ENV{CTEST_MAX_PARALLELISM}" STREQUAL "")
+    if(nproc GREATER "$ENV{CTEST_MAX_PARALLELISM}")
+        set(nproc "$ENV{CTEST_MAX_PARALLELISM}")
+    endif()
+endif()
+
+# We assume Ninja, but this also works for make.
+message(STATUS "Number of parallel jobs: ${nproc}")
+set(CTEST_BUILD_FLAGS "-l${nproc}")
+
+# How long to wait between timed-out CTest submissions
+set(retry_delay 300)
+
+# How many times to retry timed-out CTest submissions
+set(retry_count 10)
+
+set(WITH_COVERAGE false)
+if(DEFINED code_coverage)
+    if(${code_coverage} EQUAL 1)
+        if(${compiler} STREQUAL "gcc")
+            message(STATUS "Looking for gcov.")
+            find_program(CTEST_COVERAGE_COMMAND NAMES gcov)
+        elseif(${compiler} STREQUAL "clang")
+            message(STATUS "Looking for llvm-cov.")
+            find_program(CTEST_COVERAGE_COMMAND NAMES llvm-cov)
+            set(CTEST_COVERAGE_EXTRA_FLAGS "gcov")
+        else()
+            message(STATUS "Compiler does not support code coverage.")
+        endif()
+
+        if(NOT CTEST_COVERAGE_COMMAND)
+            message(STATUS "Coverage command not found, disabling coverage.")
+            set(WITH_COVERAGE false)
+        else()
+            message(STATUS "Found coverage command: (${CTEST_COVERAGE_COMMAND}).")
+            set(cmake_args ${cmake_args} "-DWITH_PROFILING=On")
+            set(CTEST_COVERAGE_EXTRA_FLAGS
+                "${CTEST_COVERAGE_EXTRA_FLAGS} --preserve-paths")
+            set(WITH_COVERAGE true)
+        endif()
+    else()
+        message(STATUS "Coverage not enabled.")
+    endif()
+else()
+    message(STATUS "Coverage not enabled.")
+endif()
+
+#
+# Step: start the build
+#
+# Only this repository submits to the compass CDash project. A fork runs
+# the same scheduled workflows on its own code, and its results would sit
+# beside main's as if they were main's. COMPASS_CDASH_NOSUBMIT=1 skips it too.
+set(cdash_submit ON)
+if("$ENV{COMPASS_CDASH_NOSUBMIT}" STREQUAL "1")
+    set(cdash_submit OFF)
+    message(STATUS "COMPASS_CDASH_NOSUBMIT=1: skipping CDash submission.")
+elseif(DEFINED ENV{GITHUB_REPOSITORY}
+        AND NOT "$ENV{GITHUB_REPOSITORY}" STREQUAL "MASD-Project/compass")
+    set(cdash_submit OFF)
+    message(STATUS "Repository $ENV{GITHUB_REPOSITORY} is not MASD-Project/compass: "
+        "skipping CDash submission.")
+endif()
+
+ctest_start(${build_group})
+
+# Read custom files. This must be called after ctest_start() but before other
+# ctest_* commands, to ensure warning exceptions are applied.
+ctest_read_custom_files(${CTEST_SOURCE_DIRECTORY})
+
+#
+# Memory Checks
+#
+set(USE_MEMCHECK OFF)
+if(with_memcheck)
+    # setup valgrind
+    find_program(CTEST_MEMORYCHECK_COMMAND NAMES valgrind)
+    if(NOT CTEST_MEMORYCHECK_COMMAND)
+        message("valgrind not found, disabling it.")
+    else()
+        message("Found valgrind (${CTEST_MEMORYCHECK_COMMAND})...")
+        set(USE_MEMCHECK ON)
+
+        set(valgrind_options "--trace-children=yes")
+        set(valgrind_options "${valgrind_options} --quiet")
+        set(valgrind_options "${valgrind_options} --tool=memcheck")
+        set(valgrind_options "${valgrind_options} --leak-check=full")
+        set(valgrind_options "${valgrind_options} --show-reachable=yes")
+        set(valgrind_options "${valgrind_options} --num-callers=50")
+        set(valgrind_options "${valgrind_options} --demangle=yes")
+        set(valgrind_options "${valgrind_options} --gen-suppressions=all")
+        set(CTEST_MEMORYCHECK_COMMAND_OPTIONS ${valgrind_options})
+        set(CTEST_MEMORYCHECK_SUPPRESSIONS_FILE
+            "${CTEST_SOURCE_DIRECTORY}/build/valgrind/custom.supp")
+    endif()
+endif()
+
+# Track if any step fails so we can still submit results to CDash before
+# exiting with an error.
+set(had_failures OFF)
+
+#
+# Step: Version control.
+#
+find_package(Git)
+set(CTEST_UPDATE_COMMAND "${GIT_EXECUTABLE}")
+
+# In CI, we do not actually want to run an update, just retrieve the current
+# version. On PR builds the checkout is a detached HEAD merge ref so git has
+# no tracking branch; ctest_update() returns non-zero in that situation even
+# though nothing is wrong. Treat a non-zero result here as informational only.
+set(CTEST_UPDATE_VERSION_ONLY ON)
+ctest_update(RETURN_VALUE update_result)
+if(NOT update_result EQUAL 0)
+    message(WARNING "ctest_update returned ${update_result} "
+        "(expected on detached-HEAD PR checkouts — not a build failure).")
+endif()
+
+# Setup the preset for configuration.
+set(cmake_args ${cmake_args} "--preset ${preset}")
+
+if(USE_MEMCHECK)
+    set(cmake_args ${cmake_args} "-DWITH_MEMCHECK=ON")
+endif()
+
+# Hosted Linux Debug builds can exhaust disk while linking full DWARF into
+# every executable and shared library. Opt in to lossless compression at link
+# time, preserving compile/cache inputs, debug symbols and coverage data.
+if(operative_system STREQUAL "linux" AND configuration STREQUAL "debug"
+        AND DEFINED compress_debug_sections AND compress_debug_sections)
+    foreach(link_type EXE SHARED MODULE)
+        list(APPEND cmake_args
+            "-DCMAKE_${link_type}_LINKER_FLAGS_DEBUG=-Wl,--compress-debug-sections=zlib")
+    endforeach()
+endif()
+
+message(STATUS "CMake args: ${cmake_args}")
+ctest_configure(OPTIONS "${cmake_args}" RETURN_VALUE configure_result)
+if(NOT configure_result EQUAL 0)
+    message(WARNING "Failed to configure")
+    set(had_failures ON)
+endif()
+
+#
+# Step: build.
+#
+# Only attempt build if configuration succeeded.
+set(build_result 0)
+if(configure_result EQUAL 0)
+    # A continuous run proves the tree builds and the suites pass, so it passes
+    # package=0 and builds the default target without invoking cpack. The
+    # package is the deliverable of the nightly and tag runs.
+    set(want_package ON)
+    if(DEFINED package)
+        if(${package} EQUAL 0)
+            set(want_package OFF)
+        endif()
+    endif()
+
+    # Release is the only Windows and macOS deliverable, so a Debug build
+    # there builds the default target (everything + tests) without invoking
+    # the package step. On macOS, CPACK_STRIP_FILES is set unconditionally and
+    # Xcode 16.x strip aborts when LC_DYLD_EXPORTS_TRIE grows after pruning.
+    if(NOT want_package)
+        set(CTEST_BUILD_TARGET "all")
+    elseif((operative_system STREQUAL "windows" OR operative_system STREQUAL "macos")
+            AND configuration STREQUAL "debug")
+        set(CTEST_BUILD_TARGET "all")
+    else()
+        set(CTEST_BUILD_TARGET "package")
+    endif()
+    ctest_build(PARALLEL_LEVEL ${nproc} RETURN_VALUE build_result)
+    if(NOT build_result EQUAL 0)
+        message(WARNING "Build failed with error code: ${build_result}")
+        set(had_failures ON)
+    endif()
+endif()
+
+#
+# Step: submit the configure and build.
+#
+# The final submit below is the only other one, and a job that runs out of
+# time before it reaches CDash with nothing at all. The memcheck run is the one
+# that does: a suite that hangs under valgrind can hold the step until the job
+# limit. Sending these parts now keeps the build on CDash whatever the tests do.
+# Two quick retries: the tests wait on this, and the final submit retries in full.
+if(cdash_submit)
+    ctest_submit(PARTS Start Configure Build
+        RETRY_COUNT 2 RETRY_DELAY 30
+        RETURN_VALUE early_submit_result)
+endif()
+if(early_submit_result)
+    message(WARNING "CDash submission of the build failed "
+        "(exit code: ${early_submit_result}).")
+endif()
+
+#
+# Step: test.
+#
+# If memcheck is enabled, run tests with valgrind, otherwise, run them normally.
+# Only run tests if the build succeeded.
+if(configure_result EQUAL 0 AND build_result EQUAL 0)
+    if(USE_MEMCHECK)
+        ctest_memcheck(PARALLEL_LEVEL ${nproc} RETURN_VALUE test_result)
+    else()
+        ctest_test(PARALLEL_LEVEL ${nproc} RETURN_VALUE test_result)
+    endif()
+    if(NOT test_result EQUAL 0)
+        message(WARNING "Tests failed with error code: ${test_result}")
+        set(had_failures ON)
+    endif()
+endif()
+
+#
+# Step: code coverage
+#
+# CAPTURE_CMAKE_ERROR prevents gcov/llvm-cov "no such file" errors on
+# vcpkg headers from propagating to ctest's exit code (which would
+# otherwise produce a spurious exit 255 even when all tests pass).
+if(WITH_COVERAGE AND configure_result EQUAL 0 AND build_result EQUAL 0)
+    ctest_coverage(QUIET CAPTURE_CMAKE_ERROR coverage_error)
+    if(coverage_error)
+        message(WARNING "Coverage collection encountered errors "
+            "(code: ${coverage_error}). Results may be incomplete.")
+    endif()
+endif()
+
+#
+# Step: attach Notes
+#
+# When building a pull request, write the PR URL (and commit) to a notes
+# file so the CDash build entry links straight back to the PR. The build
+# name is unchanged. Must be set before ctest_submit so the Notes part is
+# included.
+if(NOT "$ENV{COMPASS_PR_URL}" STREQUAL "")
+    set(notes_file "${CTEST_BINARY_DIRECTORY}/cdash_notes.txt")
+    file(WRITE "${notes_file}"
+        "Pull request: $ENV{COMPASS_PR_URL}\n"
+        "Commit: $ENV{COMPASS_BUILD_COMMIT}\n")
+    set(CTEST_NOTES_FILES "${notes_file}")
+    message(STATUS "CDash notes: PR $ENV{COMPASS_PR_URL}")
+endif()
+
+#
+# Step: submit build results
+#
+# Always attempt to submit results to CDash, even if there were failures.
+# Capture the return value so that CDash being unreachable does not fail CI.
+if(cdash_submit)
+    ctest_submit(RETRY_COUNT ${retry_count} RETRY_DELAY ${retry_delay}
+        RETURN_VALUE submit_result)
+endif()
+if(submit_result)
+    message(WARNING "CDash submission failed (exit code: ${submit_result}). "
+        "Build and test results are unaffected.")
+endif()
+
+#
+# Exit with error if any step failed
+#
+if(had_failures)
+    message(FATAL_ERROR "Build completed with failures. Results submitted to CDash.")
+endif()
