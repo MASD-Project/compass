@@ -163,7 +163,6 @@ jobs:
         id: ctest
         run: |
           $env:VCPKG_DISABLE_SYSTEM_PACKAGE_CHECK=1
-          $env:COMPASS_CDASH_NOSUBMIT="1"
           $env:COMPASS_BUILD_PROVIDER="github"
           $env:COMPASS_BUILD_COMMIT="$env:GITHUB_SHA"
           $env:COMPASS_BUILD_NUMBER="$env:GITHUB_RUN_NUMBER"
