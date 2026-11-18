@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-178 rules, 43 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
+184 rules, 43 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
 
 ** Rules
 
@@ -36,6 +36,7 @@ memories no rule cites are the candidates for the next checks.
 | =component_docs= | missing_puml | A component's modeling/ directory holds a .puml diagram. |  |
 | =component_docs= | name_collision | No top-level component's dotted name extends another's. |  |
 | =component_docs= | backtick_link | No bracket link a site export cannot resolve sits inside a backtick span of a page under doc/. |  |
+| =convention_kind_terms= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =conventions_coverage= | duplicate_row | Each (kind, id) is one row of the conventions dataset. |  |
 | =conventions_coverage= | no_source | Each row of the conventions dataset names its source. |  |
 | =conventions_coverage= | undefined_index | Each Ibor or overnight index a convention names is defined by an index convention of the dataset. |  |
@@ -46,6 +47,7 @@ memories no rule cites are the candidates for the next checks.
 | =core_link_edges= | forbidden_edge | No component's core links another component's core or service library; it links the api contract. |  |
 | =core_link_edges= | unresolved_link | Every library a core links names no variable the check cannot resolve. |  |
 | =core_link_edges= | unnamed_core | Every core library file states its name. |  |
+| =curve_column_guards= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =curve_parameter_paths= | undeclared_path | Every curve parameter path the artefact names is one the ORE curve schema declares, or an exemption explains. |  |
 | =curve_parameter_paths= | stale_exemption | Every exemption explains some path of the artefact. |  |
 | =curve_parameter_paths= | unreadable_input | The schema declares the root element, and the exemptions read. |  |
@@ -63,6 +65,8 @@ memories no rule cites are the candidates for the next checks.
 | =exported_types= | visibility_macro_on_enum | No symbol visibility or DLL storage macro decorates an enum. |  |
 | =forward_declarable_includes= | includes_definition_it_only_names | A header that only names a listed type includes its declaration, not its definition. |  |
 | =forward_declarable_includes= | bad_type_list | The list of forward-declarable types is readable and not empty. |  |
+| =forward_declarable_includes= | stale_type_list | The types option lists what the tree's own list file lists. |  |
+| =forward_declarable_includes= | type_not_defined | A listed type's defining header, where the tree has it, defines the type. |  |
 | =generated_column_refs= | not_a_member | What a generated table writer streams of its entity is a member of the entity. |  |
 | =generated_column_refs= | not_a_column | A generated index names only columns of the table it indexes, and a table the file creates. |  |
 | =handler_permissions= | unseeded_permission | Every permission code a handler of a checked component checks is seeded. | =7B477025-132E-4B20-80B4-D8C9420880B8= |
@@ -71,6 +75,8 @@ memories no rule cites are the candidates for the next checks.
 | =heading_numbers= | unreadable_document | Every document under doc/ and projects/ is UTF-8, which the script's strict read needs. |  |
 | =history_registrars= | uncomposed_registrar | Every generated registrar of a checked component is called from its composition file. | =B5492D6C-7C18-4723-BA47-232AEAA13314= |
 | =history_registrars= | missing_composition | A checked component that generates registrars has its composition file. | =B5492D6C-7C18-4723-BA47-232AEAA13314= |
+| =http_areas= | unpublished_area | Every #+http_area: a model declares is a published area. |  |
+| =http_areas= | unreadable_areas | The route classification module states AREAS and NO_AREA as literals. |  |
 | =lint= | bad_filetag | Every tag of a page's first #+filetags: is lowercase: a letter, then letters, digits, _, . or -. |  |
 | =lint= | unclosed_marker | Every '# BEGIN generated X' comment has a matching '# END generated X' comment. |  |
 | =lint= | marker_without_writer | A '# BEGIN generated X (script)' marker names a script that exists and writes the page. |  |
@@ -87,16 +93,13 @@ memories no rule cites are the candidates for the next checks.
 | =marketdata_identity_columns= | views | Each asset class with series has one view exposing the context, its identity fields and its instrument types. |  |
 | =marketdata_identity_columns= | index_mapping | The projector places exactly the index names the grammar declares, each in a column the table has. |  |
 | =marketdata_identity_columns= | unreadable_source | The schema, projector, SQL and index grammar have the shapes the check reads. |  |
-| =model_rules= | money_not_exact | A money column is numeric in SQL and a decimal in C++, never a binary float or text. | =E47BAF35-066F-4EF2-BA3D-522AED44FF33=, =B9DAC38A-BEB1-4658-87BC-DFF901033E84= |
-| =model_rules= | continuous_exact | A continuous quantity is not typed numeric or decimal, an exactness it does not have. | =B9DAC38A-BEB1-4658-87BC-DFF901033E84= |
-| =model_rules= | unpublished_area | Every #+http_area: a model declares is a published area. |  |
-| =model_rules= | unreadable_areas | The route classification module states AREAS and NO_AREA as literals. |  |
-| =model_rules= | contradicted | A model does not redeclare a feature its profile fixes to another value. |  |
-| =model_rules= | unset_required | A model sets every feature its profile requires. |  |
-| =model_rules= | self_contradicting | A model states a feature once, or always with one value. |  |
-| =model_rules= | opt_out | No model switches the TypeScript protocol facet off. |  |
-| =model_rules= | outside_protocol | Every NATS subject a model declares is inside the entity protocol. |  |
-| =model_rules= | unreadable_model | Every model is UTF-8. |  |
+| =model_drift= | contradicted | A model does not redeclare a feature its profile fixes to another value. |  |
+| =model_drift= | unset_required | A model sets every feature its profile requires. |  |
+| =model_drift= | self_contradicting | A model states a feature once, or always with one value. |  |
+| =model_drift= | no_profiles | The tree has profiles to bind to. |  |
+| =money_decimal_columns= | money_not_exact | A money column is numeric in SQL and a decimal in C++, never a binary float or text. | =E47BAF35-066F-4EF2-BA3D-522AED44FF33=, =B9DAC38A-BEB1-4658-87BC-DFF901033E84= |
+| =money_decimal_columns= | continuous_exact | A continuous quantity is not typed numeric or decimal, an exactness it does not have. | =B9DAC38A-BEB1-4658-87BC-DFF901033E84= |
+| =money_decimal_columns= | too_few_columns | The models yield at least min_columns columns, so the check is reading them. |  |
 | =no_pr_triggers= | pull_request_trigger | No workflow triggers on a pull request. | =B83064E5-6357-4FC6-A8BE-395DD429ED2A=, =BC85C0DF-99BE-4079-A649-88A236AE0ACF= |
 | =no_pr_triggers= | no_workflows | The repository has workflow files to read. |  |
 | =open_reads= | open_read | A generated handler's read checks a permission, or Authorised reads allow-lists its subject. |  |
@@ -123,6 +126,7 @@ memories no rule cites are the candidates for the next checks.
 | =populate_refs= | unread_function | Every function a populate lookup involves is named *_fn, as the check reads only those calls. |  |
 | =portable_stop= | stop_type_outside_platform | No code outside ores.platform names a C++20 stop type or includes <stop_token>. | [[id:B4E38241-6AD1-4859-9610-033CC39C0AF4][Use ores.platform for cross-platform functionality]] |
 | =protocol_twins= | missing_twin | Every generated protocol header of a listed component with committed TypeScript protocol output has its TypeScript twin. | =7B477025-132E-4B20-80B4-D8C9420880B8= |
+| =protocol_twins= | opt_out | No model switches the TypeScript protocol facet off. |  |
 | =protocol_twins= | unreadable_inputs | The template library and the component registry read as the check expects. |  |
 | =prototypes= | unlisted | Every prototype is listed on its group's page. | [[id:708C2462-C1F8-455B-B091-9D9690FEEAAB][Keep journey prototypes on main]], =D913FE21-6CF6-439A-89CF-6A1928AFA094= |
 | =prototypes= | missing | Every prototype a group page lists exists. | =D913FE21-6CF6-439A-89CF-6A1928AFA094= |
@@ -177,7 +181,9 @@ memories no rule cites are the candidates for the next checks.
 | =stream_coverage= | uncovered_subject | Every durable subject is matched by a stream. | =05B6C7D8-E9F0-4A1B-8C3D-4E5F60718293= |
 | =stream_coverage= | many_streams | No durable subject is matched by two streams. |  |
 | =stream_coverage= | unensured_stream | A consumer names a stream something ensures, whose filters cover its subject. | =C0B3C6F4-62DC-4DEA-966D-A84108AAB9AE=, =F4A5B6C7-D8E9-4F0A-9B2C-3D4E5F607182=, =05B6C7D8-E9F0-4A1B-8C3D-4E5F60718293= |
-| =subject_conformance= | outside_protocol | Every NATS subject the data-quality seed spells is inside the entity protocol. |  |
+| =subject_conformance= | outside_protocol | Every NATS subject a model declares or the data-quality seed spells is inside the entity protocol. |  |
+| =subject_conformance= | no_declaration | Some model declares a :subject:. |  |
+| =subject_conformance= | unreadable_model | Every model is UTF-8, which the script's strict read needs. |  |
 | =tangle_check= | unsupported_header_argument | A tangled block sets nothing whose effect on the bytes tangling does not reproduce. |  |
 | =tangle_check= | target_outside_checkout | A tangled block names a target under the root of the checkout. |  |
 | =template_sections= | chained_tags | A template line that opens or closes a section spanning lines holds that one tag, so the renderer strips it. |  |

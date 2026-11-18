@@ -52,6 +52,8 @@ using finding = std::tuple<std::string, std::uint32_t, std::string>;
  */
 struct outcome {
     std::vector<finding> findings;
+    /** The fix of each finding, in the same order. */
+    std::vector<std::string> fixes;
     std::uint64_t ran = 0;
     compass::codec::types::dependency_record record;
 };
@@ -97,6 +99,7 @@ inline outcome run(const compass::codec::types::descriptor& codec,
         out.findings.emplace_back(std::string(d.file), file == all.end()
                 ? 0 : ops::line_of(file->second, d.range.begin),
             std::string(d.message));
+        out.fixes.emplace_back(d.fix);
     }
     out.ran = r.ran[0];
     out.record = std::move(r.record);
