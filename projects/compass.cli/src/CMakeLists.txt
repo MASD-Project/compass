@@ -25,6 +25,8 @@ add_library(${lib_target_name}
     app/pipeline.cpp
     app/steps.cpp
     config/arguments.cpp
+    config/check_documents.cpp
+    config/org_reader.cpp
     config/precedence.cpp
     config/repository_file.cpp
     io/hook_payload.cpp
