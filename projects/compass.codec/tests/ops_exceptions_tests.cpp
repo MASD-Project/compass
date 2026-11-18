@@ -153,6 +153,27 @@ TEST_CASE("an org file opens an exception only with a comment line",
     CHECK(r.malformed.empty());
 }
 
+TEST_CASE("an org file ignores a comment line inside a block, which belongs "
+          "to the file the block becomes", "[ops_exceptions]") {
+    const auto text = "#+begin_src cmake :name extra_dependencies\n"
+        "        # " + except("sql/not_re_runnable") + "\n"
+        "        ores.dq.core.lib\n#+END_SRC\n"
+        "#+begin_src mustache :tangle a.mustache\n{{! why\n# " +
+        except("sql/duplicate_index") + "\n}}\n#+end_src\n"
+        "  #+BEGIN_EXAMPLE\n# compass:except\n  #+end_example\n"
+        "# " + except("sql/duplicate_index") + "\nx\n";
+    const auto r = parse("doc/a.org", text);
+    CHECK(r.malformed.empty());
+    REQUIRE(r.exceptions.size() == 1);
+    CHECK(r.exceptions[0].line == 13);
+    CHECK(r.exceptions[0].covers == 14);
+
+    const auto cmake = parse("CMakeLists.txt", "        # " +
+        except("sql/not_re_runnable") + "\n        ores.dq.core.lib\n");
+    REQUIRE(cmake.exceptions.size() == 1);
+    CHECK(cmake.exceptions[0].covers == 2);
+}
+
 TEST_CASE("prose that names the marker outside a comment is not an "
           "exception", "[ops_exceptions]") {
     const auto r = parse("a.cpp", "auto s = \"" +

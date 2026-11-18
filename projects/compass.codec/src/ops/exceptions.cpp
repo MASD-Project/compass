@@ -83,6 +83,44 @@ placement placement_of(std::string_view path, std::string_view before) {
         ? placement::alone : placement::trailing;
 }
 
+bool starts_with_folded(std::string_view s, std::string_view prefix) {
+    return s.size() >= prefix.size() && std::ranges::equal(
+        s.substr(0, prefix.size()), prefix, {},
+        [](char c) {
+            return c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c;
+        });
+}
+
+/**
+ * @brief Whether the lines of an org file lie inside a block, read
+ * forward: a line from #+begin_ up to its #+end_, in any case, belongs to
+ * the block, not to the org document.
+ */
+class org_blocks {
+public:
+    explicit org_blocks(std::string_view text) : text_(text) {}
+
+    [[nodiscard]] bool inside(std::size_t line_begin) {
+        while (read_ < line_begin) {
+            auto end = text_.find('\n', read_);
+            if (end == std::string_view::npos)
+                end = text_.size();
+            const auto line = trim(text_.substr(read_, end - read_));
+            if (starts_with_folded(line, "#+begin_"))
+                inside_ = true;
+            else if (starts_with_folded(line, "#+end_"))
+                inside_ = false;
+            read_ = end + 1;
+        }
+        return inside_;
+    }
+
+private:
+    std::string_view text_;
+    std::size_t read_ = 0;
+    bool inside_ = false;
+};
+
 bool is_rule_name(std::string_view rule) {
     const auto slash = rule.find('/');
     if (slash == 0 || slash == std::string_view::npos ||
@@ -201,6 +239,8 @@ ct::exception_set parse_exceptions(std::string_view path,
     std::size_t counted = 0;
     std::vector<std::uint32_t> alone;
     std::vector<std::size_t> to_cover;
+    const bool org = path.ends_with(".org");
+    org_blocks blocks(text);
     for (; at != std::string_view::npos;
          at = text.find(exception_marker, at + 1)) {
         line += static_cast<std::uint32_t>(
@@ -211,6 +251,8 @@ ct::exception_set parse_exceptions(std::string_view path,
         auto line_end = text.find('\n', at);
         if (line_end == std::string_view::npos)
             line_end = text.size();
+        if (org && blocks.inside(line_begin))
+            continue;
         const auto where = placement_of(path,
             text.substr(line_begin, at - line_begin));
         if (where == placement::not_comment)

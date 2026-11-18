@@ -97,8 +97,10 @@ inline constexpr types::rule drift_rule{"drift", "Every file a codec "
  * reason=<text>, with compass:except-file( for one of file scope. The
  * reason runs to the end of the line, less the closer of a block comment
  * or of an HTML comment. The marker counts only right after a comment
- * opener: in an org file a # that starts the line, elsewhere a line
- * comment (//, --, #, ;) or a block or HTML comment opener. An exception
+ * opener: in an org file a # that starts a line outside any #+begin_ ...
+ * #+end_ block, whose lines belong to the file the block becomes;
+ * elsewhere a line comment (//, --, #, ;) or a block or HTML comment
+ * opener. An exception
  * with code before its opener covers its own line; one alone on its line
  * covers the next line that is not itself such a comment, so exceptions
  * stack.
