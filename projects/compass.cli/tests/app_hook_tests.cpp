@@ -316,6 +316,26 @@ TEST_CASE("inline exceptions apply to the hook's findings", "[app][hook]") {
         "sql/a.sql:2:sql_hygiene/not_re_runnable"});
 }
 
+TEST_CASE("the exceptions table of .compass.org applies to the hook's "
+          "findings", "[app][hook]") {
+    scoped_git_repo repo;
+    setup(repo);
+    repo.write(".compass.org", std::string(configuration) +
+        "\n* Exceptions\n\n"
+        "| path | line | rule | expires | approver | reason |\n"
+        "| sql/a.sql | 2 | sql_hygiene/not_re_runnable | 2026-12-31 | marco "
+        "| generated |\n");
+    REQUIRE(check(repo).status == 1);
+    repo.write("sql/a.sql", "select 1;\ncreate table t (x int);\n");
+    const auto excused = hook(repo, "sql/a.sql");
+    CHECK(excused.status == 0);
+    CHECK(excused.out.empty());
+
+    repo.write("sql/a.sql", "select 1;\nselect 2;\ncreate table t (x int);\n");
+    CHECK(findings_of(hook(repo, "sql/a.sql").out) == lines{
+        "sql/a.sql:3:sql_hygiene/not_re_runnable"});
+}
+
 TEST_CASE("a file no codec reads, or outside any checkout, prints nothing",
     "[app][hook]") {
     scoped_git_repo repo;

@@ -27,6 +27,7 @@
 #include <string>
 #include "compass.cli/types/configuration.hpp"
 #include "compass.codec/types/configuration.hpp"
+#include "compass.codec/types/exception.hpp"
 #include "compass.store/types/collection.hpp"
 #include "compass.store/types/git_object.hpp"
 
@@ -74,8 +75,10 @@ struct invocation {
  * commit, and the checkout only locates the repository, its store, and
  * the programs and style files of formatters. today is the date check
  * judges the expiry of exceptions against, for a commit as for the
- * checkout. all_findings makes hook report every finding on the edited
- * file, not only those the last check did not record.
+ * checkout. exceptions are those the exceptions table of the
+ * configuration file in effect states, applied with the exception
+ * comments of the files. all_findings makes hook report every finding on
+ * the edited file, not only those the last check did not record.
  */
 struct options {
     command which = command::generate;
@@ -86,6 +89,7 @@ struct options {
     unsigned threads = 1;
     std::chrono::year_month_day today;
     codec::types::configuration settings;
+    codec::types::exception_set exceptions;
     store::types::collection_options collection;
     bool all_findings = false;
 };

@@ -2,12 +2,12 @@
 :ID: 995ECC12-860C-4009-B9A2-8CA1A6102BD6
 :END:
 #+title: compass.codec
-#+description: The codec runtime: a codec as a descriptor and one function, the view of the corpus it reads through, the tables of files and diagnostics it fills, the registry the configuration enables codecs in, the runner, the dependency record that lets a run call only the units whose inputs changed, the result cache that lets one worktree reuse the units another ran, the output sink that plans and then writes only the files that changed, the unified diff that shows such a plan without writing, the inline exceptions that excuse findings, and the codecs that need only the org tables: the document index, the required sections check and tangling.
+#+description: The codec runtime: a codec as a descriptor and one function, the view of the corpus it reads through, the tables of files and diagnostics it fills, the registry the configuration enables codecs in, the runner, the dependency record that lets a run call only the units whose inputs changed, the result cache that lets one worktree reuse the units another ran, the output sink that plans and then writes only the files that changed, the unified diff that shows such a plan without writing, the exceptions, from comments and from the table of .compass.org, that excuse findings, and the codecs that need only the org tables: the document index, the required sections check and tangling.
 #+type: component
 #+level: cross
 #+filetags: :codec:pipeline:gates:component:
 #+created: 2026-11-16
-#+updated: 2026-11-17
+#+updated: 2026-11-18
 
 This page is the component overview for =compass.codec=, a simple component in
 the domain layer of the
@@ -434,25 +434,37 @@ others is in its descriptor, so adding a codec adds a row to a list.
   as an empty record, with the reason when there was a file.
   =io::write_written_outputs= writes by temporary file and rename, and only
   when the bytes differ.
-- *Inline exceptions.* An exception is a comment
+- *Exceptions.* An exception is a comment
   =compass:except(<codec>/<rule>) expires=<YYYY-MM-DD> approver=<name>
   reason=<text>=, or =compass:except-file(= for one that covers a whole
-  file. =ops::parse_exceptions= reads them from the bytes of a file into
-  =types::file_exceptions=: per exception (=types::exception=) its line,
-  the line it covers, its scope, rule, reason, approver and expiry, and
-  per comment that does not parse (=types::malformed_exception=) its line
-  and why. The marker counts only right after a comment opener (=//=,
-  =/*=, =--=, =#=, =;=, =<!--=), and in an org file only on an org comment
-  line, so prose and examples are not exceptions. One after code covers
-  its own line; one alone covers the next line that is not itself an
-  exception comment, so exceptions stack. =ops::excuse= takes the sites
-  of the findings (path, line, rule), the exceptions, the registry and
-  today's date, and returns which sites are excused and the findings
-  about the exceptions: =exception/malformed= (did not parse, unknown
-  rule, or an =exception/= rule), =exception/incomplete= (no reason,
-  approver or expiry), =exception/expired= (on the line it covers, valid
-  through its expiry date) and =exception/stale= (valid, of an enabled
-  codec, excuses nothing). =ops::status_of= says whether a rule is one an
+  file, or a row of the exceptions table of =.compass.org=. Both land in
+  one =types::exception_set=: per exception (=types::exception=) the file
+  it is written in and its line there, the file whose findings it
+  excuses and the line it covers, its scope, rule, reason, approver and
+  expiry, and per one that does not parse (=types::malformed_exception=)
+  where it is written and why. =ops::parse_exceptions= reads the comments
+  of a file, each written in and excusing that file. The marker counts
+  only right after a comment opener (=//=, =/*=, =--=, =#=, =;=, =<!--=),
+  and in an org file only on an org comment line outside any
+  =#+begin_= ... =#+end_= block, so prose, examples and the lines a block
+  renders into another file are not exceptions of the org file. One after
+  code covers its own line; one alone covers the next line that is not
+  itself an exception comment, so exceptions stack.
+  =ops::add_exception_row= reads the cells of a table row (path, line or
+  empty for the whole file, rule, expires, approver, reason), written in
+  the configuration file, with the checks a comment gets: a path inside
+  the checkout, normalised as findings name it; a positive line; a rule
+  name; a date. =ops::append= joins sets. =ops::excuse= takes the sites
+  of the findings (path, line, rule), the set, the registry and today's
+  date, and returns which sites are excused and the findings about the
+  exceptions, in the file each is written in: =exception/malformed= (did
+  not parse, unknown rule, or an =exception/= rule),
+  =exception/incomplete= (no reason, approver or expiry),
+  =exception/expired= (valid through its expiry date; on the line a
+  comment covers, on its own line for a file-scope comment or a row) and
+  =exception/stale= (valid, of an enabled codec, excuses nothing). A row
+  that names a line covers that line only, so a finding that moves leaves
+  the row stale and is reported again. =ops::status_of= says whether a rule is one an
   enabled codec declares; a files codec declares =drift=. The runtime
   applies exceptions after a run, not inside a unit, so a result from the
   record or the cache never hides an expiry.
@@ -545,8 +557,8 @@ others is in its descriptor, so adding a codec adds a row to a list.
 | =include/compass.codec/ops/outputs.hpp=             | =outputs_of=, =check_outputs= and the record encoding.                                 |
 | =include/compass.codec/io/output_sink.hpp=          | The plan, its apply and diff, =write_outputs= and the written-outputs file.            |
 | =include/compass.codec/ops/unified_diff.hpp=        | =unified_diff= of two texts.                                                           |
-| =include/compass.codec/types/exception.hpp=         | An exception comment, a malformed one, those of a file.                                |
-| =include/compass.codec/ops/exceptions.hpp=          | =parse_exceptions=, =excuse=, =status_of= and =parse_date=.                            |
+| =include/compass.codec/types/exception.hpp=         | An exception from a comment or a table row, a malformed one, a set of them.            |
+| =include/compass.codec/ops/exceptions.hpp=          | =parse_exceptions=, =add_exception_row=, =append=, =excuse=, =status_of=, =parse_date= |
 | =include/compass.codec/io/unmarked_file.hpp=        | The record of contents with no exception marker.                                       |
 | =include/compass.codec/ops/tangle.hpp=              | =tangle= of a document and =tangle_body= of a block.                                   |
 | =include/compass.codec/codecs/catalogue.hpp=        | The codecs this component ships, and its code hash.                                    |

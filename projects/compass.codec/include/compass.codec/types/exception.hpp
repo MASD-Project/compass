@@ -35,16 +35,22 @@ namespace compass::codec::types {
 enum class exception_scope : std::uint8_t { line, file };
 
 /**
- * @brief One exception comment that parsed.
+ * @brief One exception that parsed, from a comment or from a row of the
+ * exceptions table of the configuration file.
  *
- * line is the 1-based line of the comment and covers the line whose
- * findings it excuses, or 0 for an exception of file scope. rule is the
- * codec and rule name as codec/rule. reason and approver are empty and
- * expires none when the comment does not give them; such an exception is
- * incomplete and excuses nothing.
+ * written_in is the path of the file the exception is written in and
+ * line its 1-based line there, where the findings about it go. path is
+ * the file whose findings it excuses, the same as written_in for a
+ * comment. covers is the 1-based line of path it excuses findings on, or
+ * 0 for an exception of file scope. rule is the codec and rule name as
+ * codec/rule. reason and approver are empty and expires none when the
+ * exception does not give them; such an exception is incomplete and
+ * excuses nothing. Paths are relative to the root of the checkout.
  */
 struct exception {
+    std::string written_in;
     std::uint32_t line = 0;
+    std::string path;
     std::uint32_t covers = 0;
     exception_scope scope = exception_scope::line;
     std::string rule;
@@ -54,20 +60,20 @@ struct exception {
 };
 
 /**
- * @brief An exception comment that did not parse: the 1-based line of the
- * comment and why.
+ * @brief An exception that did not parse: the file it is written in, its
+ * 1-based line there and why.
  */
 struct malformed_exception {
+    std::string written_in;
     std::uint32_t line = 0;
     std::string why;
 };
 
 /**
- * @brief The exception comments of one file, named by its path relative
- * to the root of the checkout, each list in line order.
+ * @brief Exceptions from any number of sources, comments and table rows
+ * alike.
  */
-struct file_exceptions {
-    std::string path;
+struct exception_set {
     std::vector<exception> exceptions;
     std::vector<malformed_exception> malformed;
 };

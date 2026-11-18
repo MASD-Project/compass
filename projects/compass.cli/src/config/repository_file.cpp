@@ -26,6 +26,7 @@
 #include <iterator>
 #include <optional>
 #include <vector>
+#include "compass.codec/ops/exceptions.hpp"
 #include "compass.ingest/org/parser.hpp"
 #include "compass.org/ops/document_fields.hpp"
 #include "compass.org/types/tables.hpp"
@@ -39,6 +40,16 @@ namespace ot = compass::org::types;
 using compass::org::ops::trimmed;
 
 using failure = std::unexpected<std::string>;
+
+/**
+ * @brief @p cell without the = or ~ that mark it verbatim in org.
+ */
+std::string_view verbatim(std::string_view cell) {
+    for (const char mark : {'=', '~'})
+        if (cell.size() >= 2 && cell.front() == mark && cell.back() == mark)
+            return cell.substr(1, cell.size() - 2);
+    return cell;
+}
 
 std::uint32_t line_of(std::string_view text, std::uint32_t offset) {
     return static_cast<std::uint32_t>(
@@ -83,13 +94,13 @@ struct reader {
     }
 
     /**
-     * @brief The first table under the level-1 heading Codecs, or none.
+     * @brief The first table under the level-1 heading @p title, or none.
      */
-    [[nodiscard]] ot::element_id codecs_table() const {
+    [[nodiscard]] ot::element_id table_under(std::string_view title) const {
         for (std::uint32_t h = 0; h < t.headings.size(); ++h) {
             const ot::heading_id id{h};
             if (t.headings.levels[id] != 1 ||
-                trimmed(text, t.headings.titles[id]).of(text) != "Codecs")
+                trimmed(text, t.headings.titles[id]).of(text) != title)
                 continue;
             const auto heading = t.headings.elements[id];
             for (auto e = heading.next();
@@ -124,6 +135,44 @@ struct reader {
             o = t.objects.subtree_ends[id].value;
         }
         return r;
+    }
+
+    /**
+     * @brief The rows of @p table but a first row whose first cell is
+     * @p header, in order.
+     */
+    [[nodiscard]] std::vector<ot::element_id> rows(ot::element_id table,
+        std::string_view header) const {
+        std::vector<ot::element_id> out;
+        bool first = true;
+        for (auto row = table.next();
+             row.value < t.elements.subtree_ends[table].value;
+             row = t.elements.subtree_ends[row]) {
+            if (t.elements.kinds[row] != ot::element_kind::table_row)
+                continue;
+            const auto c = cells(row);
+            const auto is_header = first && !c.empty() && c[0] == header;
+            first = false;
+            if (!is_header)
+                out.push_back(row);
+        }
+        return out;
+    }
+
+    void exception_row(ot::element_id row,
+        codec::types::exception_set& out) const {
+        const auto line = line_of(text, t.elements.ranges[row].begin);
+        const auto c = cells(row);
+        if (c.size() != 6) {
+            out.malformed.push_back({std::string(repository_file_name), line,
+                std::format("the row has {} cells, not 6; write | path | "
+                    "line | rule | expires | approver | reason |",
+                    c.size())});
+            return;
+        }
+        codec::ops::add_exception_row(out, repository_file_name, line, {
+            .path = verbatim(c[0]), .line = c[1], .rule = verbatim(c[2]),
+            .expires = c[3], .approver = c[4], .reason = c[5]});
     }
 
     [[nodiscard]] std::expected<void, std::string> codec_row(
@@ -191,25 +240,18 @@ std::expected<types::layer, std::string> parse_repository_file(
         return failure(meta.error());
     out.meta = *meta;
 
-    const auto table = r.codecs_table();
+    const auto table = r.table_under("Codecs");
     if (table.is_none())
         return failure(std::format("{}: no table under a level-1 heading "
             "\"* Codecs\"; fix: add the heading and a | name | enabled | "
             "options | table under it", label));
-    bool first = true;
-    for (auto row = table.next();
-         row.value < r.t.elements.subtree_ends[table].value;
-         row = r.t.elements.subtree_ends[row]) {
-        if (r.t.elements.kinds[row] != ot::element_kind::table_row)
-            continue;
-        const auto c = r.cells(row);
-        const auto is_header = first && !c.empty() && c[0] == "name";
-        first = false;
-        if (is_header)
-            continue;
+    for (const auto row : r.rows(table, "name"))
         if (auto ok = r.codec_row(row, out); !ok)
             return failure(ok.error());
-    }
+    if (const auto exceptions = r.table_under("Exceptions");
+        !exceptions.is_none())
+        for (const auto row : r.rows(exceptions, "path"))
+            r.exception_row(row, out.exceptions);
     return out;
 }
 

@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :cli:application:pipeline:component:
 #+created: 2026-11-16
-#+updated: 2026-11-17
+#+updated: 2026-11-18
 
 This page is the component overview for =compass.cli=, a simple component
 in the application layer of the
@@ -124,11 +124,14 @@ the checkout and 1.8 s for the merge base, 0.8 s of each reading the
 dependency record. The same line added to a generated SQL file failed
 twice: on the line, and on the drift the edit caused.
 
-After the codecs, =check= excuses the findings a valid inline exception
-covers (step =exceptions=). It reads the exception comments of every
-document, every file a codec read (the =file= inputs of the run's record)
-and every file with a finding, and hands them with the findings and
-=options::today= to =ops::excuse= of =compass.codec=. The findings it
+After the codecs, =check= excuses the findings a valid exception covers
+(step =exceptions=). It reads the exception comments of every document,
+every file a codec read (the =file= inputs of the run's record) and every
+file with a finding, adds the rows of the exceptions table of
+=.compass.org= (=options::exceptions=), and hands that one
+=exception_set= with the findings and =options::today= to =ops::excuse= of
+=compass.codec=. A row is judged as a comment is; its problems are
+findings on its line of =.compass.org=. The findings it
 excuses are dropped and counted in =check_result::excused=; the problems
 of the exceptions are added as =exception/...= findings. Exceptions are
 read after the run and never recorded, so a reused or cached result does
@@ -136,8 +139,10 @@ not hide one that has since expired. A file whose content ID
 =compass/unmarked= lists is not read: =io::read_unmarked_file= and
 =io::write_unmarked_file= keep the IDs of the files with no marker, and
 only a check of the checkout writes them. A check of a commit reads the
-exceptions of the commit, and ratchet mode checks both sides with the
-same =today=, so an exception that expires is not new. On the ORE Studio
+exception comments and the table of the commit (or the working tree's
+table when the commit has no =.compass.org=), and ratchet mode checks
+both sides with the checkout's table and the same =today=, so an
+exception that expires is not new. On the ORE Studio
 copy the step took about 130 ms reading 28,421 files (269 MB) and
 10,927 documents, and about 22 ms once the record listed them; the warm
 check went from 2.63 s to 2.66 s.
@@ -198,9 +203,11 @@ recorded on the file and that =compass check= lists them, in
 =additionalContext= when nothing is new, so it does not block, and after
 the new findings when something is.
 
-Valid inline exceptions excuse findings as =check= excuses them, reading
-only the edited file and the files with findings; the exception findings
-reported are those of the edited file. The hook writes nothing and exits
+Valid exceptions excuse findings as =check= excuses them, reading the
+comments of only the edited file and the files with findings, and the
+table of the checkout's =.compass.org=; the exception findings reported
+are those of the edited file, so a row's own problems wait for
+=compass check=. The hook writes nothing and exits
 0 whatever happens. A missing record (with a =.compass.org=), a damaged
 or replaced one, a configuration or load error, an edit to =.compass.org=
 or a contract page, and any exception become a note in
@@ -300,7 +307,7 @@ record again, and 0.8 s reading it.
 | =--timings=                     | no                                       | =generate=, =diff=, =check=, =hook=: print each step's time and what each codec ran or reused, and how long its units ran. |
 | =--commit <rev>=                | the files on disk                        | =check= only: check the commit =<rev>= names, as =git rev-parse <rev>^{commit}= resolves it, with that commit's =.compass.org=, or, when the commit has none, the working tree's, with a warning on standard error. The output root and meta directory must be under the checkout. |
 | =--ratchet [<base>]=            | the upstream, else =origin/main=         | =check= only: fail only on findings the merge base of HEAD and =<base>= lacks. The next argument is the base unless it starts with =-= or names a command; =--ratchet=<base>= always takes one. Not with =--commit=. |
-| =--today <YYYY-MM-DD>=          | today in UTC                             | =check= and =hook=: the date the expiry of inline exceptions is judged against, for the checkout, a commit and both sides of a ratchet. |
+| =--today <YYYY-MM-DD>=          | today in UTC                             | =check= and =hook=: the date the expiry of exceptions, comments and table rows alike, is judged against, for the checkout, a commit and both sides of a ratchet. |
 | =--all-findings=                | no                                       | =hook= only: report every finding on the edited file, not only those the last check did not record. |
 | =--dry-run=, =--cap=, =--grace= | no, 0 bytes, 3600 s                      | =gc= only.                                      |
 | =--help=, =-h=, =--version=     |                                          | Print and exit 0, whatever else is there.       |
@@ -327,7 +334,12 @@ the name keeps it apart from ORE Studio's Python =compass=.
   the level-1 heading =* Codecs= has one row per codec: its name, =yes= or
   =no= for enabled, and its options as space-separated =key=value= pairs.
   A first row whose first cell is =name= is a header, and separator lines
-  are skipped. A codec with no row keeps its defaults.
+  are skipped. A codec with no row keeps its defaults. The first table
+  under the level-1 heading =* Exceptions=, which is optional, has one
+  exception per row: path, line (empty for the whole file), rule,
+  expires, approver and reason. =config::parse_repository_file= reads it
+  into =layer::exceptions= with =codec::ops::add_exception_row=; a row
+  that does not hold is a malformed exception on its line, not an error.
 
 #+begin_example
 #+output: build/output/compass
@@ -339,6 +351,12 @@ the name keeps it apart from ORE Studio's Python =compass=.
 |-------------------+---------+-----------------------------|
 | document_index    | yes     | path=doc/document_index.tsv |
 | required_sections | yes     |                             |
+
+,* Exceptions
+
+| path          | line | rule                              | expires    | approver | reason            |
+|---------------+------+-----------------------------------+------------+----------+-------------------|
+| doc/task_b.org |    2 | required_sections/missing_section | 2027-06-30 | marco    | written elsewhere |
 #+end_example
 
 - Precedence, key by key: the codec's and compass's defaults, then the
@@ -360,7 +378,8 @@ the name keeps it apart from ORE Studio's Python =compass=.
 - The store and the result cache under the git common directory, and the
   worktree index, dependency record and written-outputs record under the
   checkout's own git directory, and =compass/unmarked= beside them.
-- The inline exceptions of the files =check= reads; see
+- The exception comments of the files =check= reads and the exceptions
+  table of =.compass.org=; see
   [[id:5B528519-8BCE-4CB8-A48E-B525FD71F873][How do I excuse a finding?]].
 
 * Outputs

@@ -2,12 +2,12 @@
 :ID: 5B528519-8BCE-4CB8-A48E-B525FD71F873
 :END:
 #+title: How do I excuse a finding?
-#+description: Write an inline exception comment that names the rule, a reason, an expiry and an approver, so compass check excuses one finding until a date.
+#+description: Write an exception, as a comment beside the finding or as a row of the exceptions table in .compass.org, that names the rule, a reason, an expiry and an approver, so compass check excuses the finding until a date.
 #+type: recipe
 #+level: cross
 #+filetags: :compass:cli:
 #+created: 2026-11-16
-#+updated: 2026-11-16
+#+updated: 2026-11-18
 
 An exception is a comment beside the code it excuses. The check of
 [[id:45FA67C9-60BC-420D-BB66-8A272CB1106C][compass.cli]] reads it and the
@@ -54,8 +54,8 @@ Where the exception applies:
 
 The marker counts only right after a comment opener: =//=, =/*=, =--=,
 =#=, =;= or =<!--=. In an org file it counts only on an org comment line,
-a line that starts with =#= and a space, so an example in a source block,
-like those above, is not an exception. Text that names the marker
+a line that starts with =#= and a space outside any block, so an example
+in a source block, like those above, is not an exception. Text that names the marker
 anywhere else, such as a string literal or prose, is ignored.
 
 =compass check= then prints the finding no longer and counts it:
@@ -96,8 +96,8 @@ How exceptions meet the rest of the check:
 
 - =check --commit= reads the exceptions of that commit, and judges them
   against today, not the date of the commit.
-- =check --ratchet= checks the merge base with its own exceptions and the
-  same today. An exception that expires is then expired on both sides and
+- =check --ratchet= checks the merge base with its own exception
+  comments, the checkout's exceptions table and the same today. An exception that expires is then expired on both sides and
   is not new; the plain check still fails on it.
 - Exceptions are read after the codecs run, never from the record or the
   result cache, so a reused result never hides an exception that has
@@ -109,20 +109,136 @@ How exceptions meet the rest of the check:
   of files with no marker, so a warm check reads only files that changed.
   On ORE Studio that takes about 22 ms.
 
+** In =.compass.org=
+
+A comment cannot stand beside every finding. A comment in a file that
+=compass generate= writes is erased by the next generate. A comment in the
+template that writes the file excuses the rule in every file the template
+writes, for every model to come. A comment in an org model can leak into
+the code generated from it. For those findings, state the exception in a
+table under the level-1 heading =* Exceptions= of =.compass.org=:
+
+#+begin_example
+,* Exceptions
+
+| path                                                                         | line | rule                                  | expires    | approver | reason                                     |
+|------------------------------------------------------------------------------+------+---------------------------------------+------------+----------+--------------------------------------------|
+| projects/ores.sql/create/marketdata/marketdata_delivery_counts_create.sql    |  172 | rls_widenings/system_tenant_widening  | 2027-06-30 | marco    | the model sets :rls_system_tenant_visible: |
+| projects/ores.marketdata/modeling/ores.marketdata.fx_forward_publish.org     |  129 | money_decimal_columns/money_not_exact | 2027-06-30 | marco    | a rate, not an amount                      |
+| projects/ores.codegen/library/templates/cpp_domain_type_entity.hpp.mustache |      | template_sections/chained_tags        | 2027-06-30 | marco    | each chain renders one expression          |
+#+end_example
+
+The columns are:
+
+- =path=, the file the finding is in, relative to the checkout, as the
+  finding prints it. Org verbatim marks (=~= or ===) around it are dropped.
+- =line=, the line the exception covers. Empty covers every finding of the
+  rule in the file, as =compass:except-file= does.
+- =rule=, =expires=, =approver= and =reason=, as in a comment. The approver
+  may hold spaces. The reason cannot hold a =|=, which ends the cell.
+
+A first row whose first cell is =path= is a header, and separator lines are
+skipped. Each row is checked as a comment is, with the same findings, but
+they are reported on the row's line of =.compass.org=:
+
+- =exception/malformed= for a row that does not have six cells, names no
+  path or one outside the checkout, gives a line that is not a positive
+  number, or names a rule or date that does not parse, an unknown rule or
+  an =exception/= rule. A malformed row is a finding, not a configuration
+  error, so the rest of the check still runs.
+- =exception/incomplete= for a row without a reason, an expiry or an
+  approver.
+- =exception/expired= for a row past its expiry. The finding it covered is
+  reported again on its own line.
+- =exception/stale= for a valid row that covers no finding.
+
+A row that names a line covers that line and no other. When the file
+changes and the finding moves, the row excuses nothing: the finding is
+reported again on its new line and the row is =exception/stale=, and
+=--ratchet= reports both as new. compass does not follow the finding to its
+new line. A generated file changes only when its model or template does,
+which is when the excuse should be read again. For a finding whose line
+moves often, leave =line= empty.
+
+Rows and comments are one set of exceptions, and a finding is excused by
+either. The table is read with the rest of =.compass.org=:
+
+- =check= uses the checkout's table.
+- =check --commit= uses the commit's, or the working tree's when the commit
+  has no =.compass.org=.
+- =check --ratchet= uses the checkout's table for both sides, as it does
+  for the codecs. A row added for a finding the merge base already had is
+  not new.
+- The hook uses the checkout's table, and reports only the findings on the
+  edited file, so a row's own problems show at the next =compass check=.
+  An edit to =.compass.org= is not checked by the hook.
+
+On the ORE Studio copy at 545cafca45, checked as a commit with a table of
+17 rows, the check went from 243 diagnostics to 223, with 22 excused. 14
+rows by line covered seven =money_decimal_columns/money_not_exact= findings
+on org models, four =rls_widenings/system_tenant_widening= findings on
+generated create scripts and three =core_link_edges/forbidden_edge=
+findings in a =CMakeLists.txt=. One row for the whole of
+=cpp_domain_type_entity.hpp.mustache= covered its eight
+=template_sections/chained_tags= findings. Of the two rows planted to
+fail, one named a file that does not exist and one had expired:
+
+: .compass.org:103:1: exception/stale: the exception for sql_hygiene/not_re_runnable covers no finding (fix: remove the exception)
+: .compass.org:104:1: exception/expired: the exception for rls_widenings/system_tenant_widening approved by marco expired on 2026-01-01 (fix: fix the finding, or renew the exception on line 104 with a new expiry and approver)
+
+** Exception comments in org blocks
+
+In an org file, a line inside a =#+begin_= ... =#+end_= block belongs to
+the file the block becomes, not to the org document. compass ignores the
+marker there, in any block. Two placements rely on it, both tested on the
+ORE Studio copy at 545cafca45:
+
+- A =# compass:except(core_link_edges/forbidden_edge) ...= line, indented
+  inside the =#+begin_src cmake :name extra_dependencies= block of
+  =projects/ores.workflow/core/modeling/component_overview.org=, above
+  =ores.dq.core.lib=. codegen renders it into
+  =projects/ores.workflow/core/src/CMakeLists.txt= as a CMake comment on
+  the line above the link, with no =codegen/drift=, and it excuses
+  =CMakeLists.txt:70: core_link_edges/forbidden_edge= (=ores.dq.core.lib=).
+- A =# compass:except-file(template_sections/chained_tags) ...= line inside
+  a multi-line mustache comment ={{! ... }}= in the =#+begin_src mustache=
+  block of =ores.cpp.repository.entity_header.org=. The tangled
+  =cpp_domain_type_entity.hpp.mustache= holds it with no =tangle_check=
+  drift, it excuses the eight =template_sections/chained_tags= findings of
+  that template, and no file the template renders changes, so the comment
+  renders nothing.
+
+Before compass ignored org blocks, each of these was also read as an org
+comment of the model or template and reported stale there:
+
+: projects/ores.workflow/core/modeling/component_overview.org:85:1: exception/stale: the exception for core_link_edges/forbidden_edge covers no finding (fix: remove the exception)
+: projects/ores.codegen/library/templates/ores.cpp.repository.entity_header.org:28:1: exception/stale: the exception for template_sections/chained_tags covers no finding (fix: remove the exception)
+
+Both placements work. The CMake one belongs to one component. The mustache
+one sits in a shared template, but it excuses the rule only in the
+template, not in what the template renders. Prefer the table when the
+finding is in a file generated from a shared template or in an org model.
+
 * Script
 
 =compass check= (=projects/compass.cli=, =app::check=), with parsing and
-the decision in =ops::parse_exceptions= and =ops::excuse= of
-=projects/compass.codec=.
+the decision in =ops::parse_exceptions=, =ops::add_exception_row= and
+=ops::excuse= of =projects/compass.codec=, and the table read by
+=config::parse_repository_file=.
 
 * Tested by
 
 =compass.codec.tests= (=[ops_exceptions]=, =[io_unmarked_file]=): each
-comment syntax, the org rule, stacking, file scope, each malformed form,
-the expiry day, stale and disabled codecs, and a damaged record.
-=compass.cli.tests= (=[exceptions]=): a valid, an expired, a stale and an
-added exception, a reused result after expiry, =--commit=, =--ratchet=
-and =--today=, each on a temporary git repository.
+comment syntax, the org rule and org blocks, stacking, file scope, each
+malformed form, the expiry day, stale and disabled codecs, rows by line
+and by file, each malformed row, rows and comments in one set, and a
+damaged record. =compass.cli.tests= (=[exceptions]=, =[repository_file]=,
+=[hook]=): a valid, an expired, a stale and an added exception, a reused
+result after expiry, =--commit=, =--ratchet= and =--today=; the table
+parsed, with a malformed row; a row on an org document by line and by
+file; rows that do not hold; the table of a commit; the table on both
+sides of a ratchet, including a row whose line moved; and the hook, each
+on a temporary git repository.
 
 * See also
 

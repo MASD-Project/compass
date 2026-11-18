@@ -22,7 +22,9 @@
 #include <algorithm>
 #include <array>
 #include <charconv>
+#include <filesystem>
 #include <format>
+#include <iterator>
 #include <optional>
 #include <ranges>
 #include <tuple>
@@ -80,6 +82,44 @@ placement placement_of(std::string_view path, std::string_view before) {
     return code.find_first_not_of(" \t/*#-;!<") == std::string_view::npos
         ? placement::alone : placement::trailing;
 }
+
+bool starts_with_folded(std::string_view s, std::string_view prefix) {
+    return s.size() >= prefix.size() && std::ranges::equal(
+        s.substr(0, prefix.size()), prefix, {},
+        [](char c) {
+            return c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c;
+        });
+}
+
+/**
+ * @brief Whether the lines of an org file lie inside a block, read
+ * forward: a line from #+begin_ up to its #+end_, in any case, belongs to
+ * the block, not to the org document.
+ */
+class org_blocks {
+public:
+    explicit org_blocks(std::string_view text) : text_(text) {}
+
+    [[nodiscard]] bool inside(std::size_t line_begin) {
+        while (read_ < line_begin) {
+            auto end = text_.find('\n', read_);
+            if (end == std::string_view::npos)
+                end = text_.size();
+            const auto line = trim(text_.substr(read_, end - read_));
+            if (starts_with_folded(line, "#+begin_"))
+                inside_ = true;
+            else if (starts_with_folded(line, "#+end_"))
+                inside_ = false;
+            read_ = end + 1;
+        }
+        return inside_;
+    }
+
+private:
+    std::string_view text_;
+    std::size_t read_ = 0;
+    bool inside_ = false;
+};
 
 bool is_rule_name(std::string_view rule) {
     const auto slash = rule.find('/');
@@ -188,10 +228,9 @@ std::optional<std::chrono::year_month_day> parse_date(
     return date.ok() ? std::optional(date) : std::nullopt;
 }
 
-ct::file_exceptions parse_exceptions(std::string_view path,
+ct::exception_set parse_exceptions(std::string_view path,
     std::string_view text) {
-    ct::file_exceptions out;
-    out.path = path;
+    ct::exception_set out;
     auto at = text.find(exception_marker);
     if (at == std::string_view::npos)
         return out;
@@ -200,6 +239,8 @@ ct::file_exceptions parse_exceptions(std::string_view path,
     std::size_t counted = 0;
     std::vector<std::uint32_t> alone;
     std::vector<std::size_t> to_cover;
+    const bool org = path.ends_with(".org");
+    org_blocks blocks(text);
     for (; at != std::string_view::npos;
          at = text.find(exception_marker, at + 1)) {
         line += static_cast<std::uint32_t>(
@@ -210,6 +251,8 @@ ct::file_exceptions parse_exceptions(std::string_view path,
         auto line_end = text.find('\n', at);
         if (line_end == std::string_view::npos)
             line_end = text.size();
+        if (org && blocks.inside(line_begin))
+            continue;
         const auto where = placement_of(path,
             text.substr(line_begin, at - line_begin));
         if (where == placement::not_comment)
@@ -220,11 +263,14 @@ ct::file_exceptions parse_exceptions(std::string_view path,
         auto parsed = parse_one(trim_right(
             text.substr(after, line_end - after), " \t\r"));
         if (auto* why = std::get_if<std::string>(&parsed)) {
-            out.malformed.push_back({line, std::move(*why)});
+            out.malformed.push_back({std::string(path), line,
+                std::move(*why)});
             continue;
         }
         auto& e = std::get<ct::exception>(parsed);
+        e.written_in = path;
         e.line = line;
+        e.path = path;
         if (e.scope == ct::exception_scope::line) {
             e.covers = line;
             if (where == placement::alone)
@@ -239,6 +285,56 @@ ct::file_exceptions parse_exceptions(std::string_view path,
         while (std::ranges::binary_search(alone, covers));
     }
     return out;
+}
+
+void add_exception_row(ct::exception_set& out, std::string_view written_in,
+    std::uint32_t line, const exception_row& row) {
+    const auto malformed = [&](std::string why) {
+        out.malformed.push_back({std::string(written_in), line,
+            std::move(why)});
+    };
+    const auto written_path = trim(row.path);
+    if (written_path.empty())
+        return malformed("the row names no path");
+    const std::filesystem::path normal =
+        std::filesystem::path(written_path).lexically_normal();
+    const auto path = normal.generic_string();
+    if (normal.is_absolute() || path == ".." || path.starts_with("../"))
+        return malformed(std::format("{} is not a path inside the checkout",
+            written_path));
+
+    ct::exception e;
+    e.written_in = written_in;
+    e.line = line;
+    e.path = path;
+    if (const auto covers = trim(row.line); covers.empty()) {
+        e.scope = ct::exception_scope::file;
+    } else {
+        const auto [end, ec] = std::from_chars(covers.data(),
+            covers.data() + covers.size(), e.covers);
+        if (ec != std::errc{} || end != covers.data() + covers.size() ||
+            e.covers == 0)
+            return malformed(std::format("line {} is not a line number; "
+                "leave it empty for the whole file", covers));
+    }
+    e.rule = trim(row.rule);
+    if (!is_rule_name(e.rule))
+        return malformed(std::format("{} is not a rule name of the form "
+            "codec/rule", e.rule.empty() ? "an empty name" : e.rule));
+    if (const auto expires = trim(row.expires); !expires.empty()) {
+        e.expires = parse_date(expires);
+        if (!e.expires)
+            return malformed(std::format("expires {} is not a date of the "
+                "form YYYY-MM-DD", expires));
+    }
+    e.approver = trim(row.approver);
+    e.reason = trim(row.reason);
+    out.exceptions.push_back(std::move(e));
+}
+
+void append(ct::exception_set& to, ct::exception_set&& from) {
+    std::ranges::move(from.exceptions, std::back_inserter(to.exceptions));
+    std::ranges::move(from.malformed, std::back_inserter(to.malformed));
 }
 
 rule_status status_of(const ct::registry& codecs, std::string_view rule) {
@@ -263,17 +359,11 @@ rule_status status_of(const ct::registry& codecs, std::string_view rule) {
 }
 
 excusal excuse(std::span<const finding_site> sites,
-    std::span<const ct::file_exceptions> files, const ct::registry& codecs,
+    const ct::exception_set& set, const ct::registry& codecs,
     std::chrono::year_month_day today) {
     excusal out;
     out.excused.assign(sites.size(), 0);
 
-    struct judged {
-        const ct::exception* exception;
-        bool valid;
-        bool used;
-    };
-    std::unordered_map<std::string_view, std::vector<judged>> by_path;
     const auto problem = [&](std::string_view path, std::uint32_t line,
                              exception_rule kind, std::string message,
                              std::string fix) {
@@ -282,81 +372,84 @@ excusal excuse(std::span<const finding_site> sites,
             std::move(message), std::move(fix)});
     };
 
-    for (const auto& f : files) {
-        for (const auto& m : f.malformed)
-            problem(f.path, m.line, exception_rule::malformed, m.why,
+    for (const auto& m : set.malformed)
+        problem(m.written_in, m.line, exception_rule::malformed, m.why,
+            std::string(written_as));
+
+    const auto& all = set.exceptions;
+    std::vector<std::uint8_t> valid(all.size(), 0);
+    std::vector<std::uint8_t> used(all.size(), 0);
+    std::unordered_map<std::string_view, std::vector<std::size_t>> by_path;
+    for (std::size_t i = 0; i < all.size(); ++i) {
+        const auto& e = all[i];
+        const auto status = is_exception_rule(e.rule)
+            ? rule_status::unknown : status_of(codecs, e.rule);
+        if (is_exception_rule(e.rule)) {
+            problem(e.written_in, e.line, exception_rule::malformed,
+                std::format("{} is a finding about exceptions, which no "
+                    "exception excuses", e.rule),
+                "fix the exception it reports");
+        } else if (status == rule_status::unknown) {
+            problem(e.written_in, e.line, exception_rule::malformed,
+                std::format("the exception names {}, a rule no codec "
+                    "declares", e.rule),
+                "name the rule as the finding does, codec/rule");
+        } else if (e.reason.empty() || e.approver.empty() || !e.expires) {
+            std::string missing;
+            for (const auto& [absent, field] : {
+                     std::pair{e.reason.empty(), "a reason"},
+                     std::pair{e.approver.empty(), "an approver"},
+                     std::pair{!e.expires.has_value(), "an expiry"}})
+                if (absent)
+                    missing += (missing.empty() ? "" : ", ") +
+                        std::string(field);
+            problem(e.written_in, e.line, exception_rule::incomplete,
+                std::format("the exception for {} lacks {}", e.rule,
+                    missing),
                 std::string(written_as));
-        auto& judgements = by_path[f.path];
-        for (const auto& e : f.exceptions) {
-            const auto status = is_exception_rule(e.rule)
-                ? rule_status::unknown : status_of(codecs, e.rule);
-            bool valid = false;
-            if (is_exception_rule(e.rule)) {
-                problem(f.path, e.line, exception_rule::malformed,
-                    std::format("{} is a finding about exceptions, which no "
-                        "exception excuses", e.rule),
-                    "fix the exception it reports");
-            } else if (status == rule_status::unknown) {
-                problem(f.path, e.line, exception_rule::malformed,
-                    std::format("the exception names {}, a rule no codec "
-                        "declares", e.rule),
-                    "name the rule as the finding does, codec/rule");
-            } else if (e.reason.empty() || e.approver.empty() || !e.expires) {
-                std::string missing;
-                for (const auto& [absent, field] : {
-                         std::pair{e.reason.empty(), "a reason"},
-                         std::pair{e.approver.empty(), "an approver"},
-                         std::pair{!e.expires.has_value(), "an expiry"}})
-                    if (absent)
-                        missing += (missing.empty() ? "" : ", ") +
-                            std::string(field);
-                problem(f.path, e.line, exception_rule::incomplete,
-                    std::format("the exception for {} lacks {}", e.rule,
-                        missing),
-                    std::string(written_as));
-            } else if (std::chrono::sys_days(*e.expires) <
-                       std::chrono::sys_days(today)) {
-                problem(f.path, e.scope == ct::exception_scope::line
-                        ? e.covers : e.line, exception_rule::expired,
-                    std::format(
-                    "the exception for {} approved by {} expired on {}",
-                    e.rule, e.approver, date_text(*e.expires)),
-                    std::format("fix the finding, or renew the exception "
-                                "on line {} with a new expiry and approver",
-                        e.line));
-            } else {
-                valid = status == rule_status::enabled;
-            }
-            judgements.push_back({&e, valid, false});
+        } else if (std::chrono::sys_days(*e.expires) <
+                   std::chrono::sys_days(today)) {
+            // A comment beside the line it covers is reported there, so
+            // the expiry shows next to the finding it no longer excuses.
+            const bool beside = e.scope == ct::exception_scope::line &&
+                e.written_in == e.path;
+            problem(e.written_in, beside ? e.covers : e.line,
+                exception_rule::expired, std::format(
+                "the exception for {} approved by {} expired on {}",
+                e.rule, e.approver, date_text(*e.expires)),
+                std::format("fix the finding, or renew the exception "
+                            "on line {} with a new expiry and approver",
+                    e.line));
+        } else {
+            valid[i] = status == rule_status::enabled;
         }
+        if (valid[i])
+            by_path[e.path].push_back(i);
     }
 
-    for (std::size_t i = 0; i < sites.size(); ++i) {
-        const auto& s = sites[i];
-        const auto found = by_path.find(s.path);
+    for (std::size_t s = 0; s < sites.size(); ++s) {
+        const auto& site = sites[s];
+        const auto found = by_path.find(site.path);
         if (found == by_path.end())
             continue;
-        for (auto& j : found->second) {
-            const auto& e = *j.exception;
-            if (!j.valid || e.rule != s.rule)
-                continue;
-            if (e.scope == ct::exception_scope::file || e.covers == s.line) {
-                out.excused[i] = 1;
-                j.used = true;
+        for (const auto i : found->second) {
+            const auto& e = all[i];
+            if (e.rule == site.rule && (e.scope == ct::exception_scope::file
+                    || e.covers == site.line)) {
+                out.excused[s] = 1;
+                used[i] = 1;
             }
         }
     }
 
-    for (const auto& f : files)
-        for (const auto& j : by_path[f.path])
-            if (j.valid && !j.used)
-                problem(f.path, j.exception->line, exception_rule::stale,
-                    std::format("the exception for {} covers no finding",
-                        j.exception->rule), "remove the exception");
+    for (std::size_t i = 0; i < all.size(); ++i)
+        if (valid[i] && !used[i])
+            problem(all[i].written_in, all[i].line, exception_rule::stale,
+                std::format("the exception for {} covers no finding",
+                    all[i].rule), "remove the exception");
 
     std::ranges::stable_sort(out.findings, {},
         [](const exception_finding& f) { return std::tie(f.path, f.line); });
     return out;
 }
-
 }

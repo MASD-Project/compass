@@ -25,6 +25,7 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include "compass.codec/types/exception.hpp"
 
 namespace compass::cli::types {
 
@@ -65,12 +66,14 @@ struct sourced_path {
 /**
  * @brief What one source of configuration sets, as written: the output
  * root and the contract directory, relative to the checkout unless
- * absolute, and codec settings in the order they appear.
+ * absolute, codec settings in the order they appear, and the exceptions
+ * its table states.
  */
 struct layer {
     std::optional<sourced_path> output;
     std::optional<sourced_path> meta;
     std::vector<setting> settings;
+    codec::types::exception_set exceptions;
 };
 
 /**

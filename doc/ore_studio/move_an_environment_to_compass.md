@@ -39,9 +39,11 @@ mattered):
   and compass says so on standard error
   (`compass: warning: the commit <rev> has no .compass.org; using the working
   tree's`); it never falls back to the defaults.
-- **Inline exceptions.** A comment excuses one finding:
+- **Exceptions.** A comment excuses one finding:
   `compass:except(<codec>/<rule>) expires=<YYYY-MM-DD> approver=<name> reason=<text>`.
-  Expired, incomplete, malformed and stale exceptions are findings themselves.
+  A row of the `* Exceptions` table in `.compass.org` does the same for a
+  file that cannot carry a comment. Expired, incomplete, malformed and stale
+  exceptions are findings themselves.
 - **Edit hook.** `compass-ng hook` checks the one file Claude Code just edited, in
   well under a second for most edits on a quiet machine.
 
@@ -350,6 +352,49 @@ This is ordinary ORE Studio work, done on a branch and merged through a PR.
   whole-file entries such as entity writers in C++ files. Give each one a
   real reason, an approver and an expiry. Then delete the baseline file once
   the script that reads it is no longer run.
+- **Use the table where a comment does not fit.** Some findings sit in files
+  that cannot hold their own exception. A comment in a generated file, such
+  as the four `rls_widenings/system_tenant_widening` create scripts that
+  `sql_schema_domain_entity_create.mustache` writes, is erased by the next
+  generate. A comment in that template would excuse every model to come. A
+  comment in an org model leaks into the code generated from it, so it
+  cannot excuse the `money_decimal_columns/money_not_exact` findings on
+  model headings. State these in `.compass.org` instead, one row each:
+
+  ```org
+  * Exceptions
+
+  | path                                                                      | line | rule                                  | expires    | approver | reason                                     |
+  |---------------------------------------------------------------------------+------+---------------------------------------+------------+----------+--------------------------------------------|
+  | projects/ores.sql/create/marketdata/marketdata_delivery_counts_create.sql |  172 | rls_widenings/system_tenant_widening  | 2027-06-30 | marco    | the model sets :rls_system_tenant_visible: |
+  | projects/ores.marketdata/modeling/ores.marketdata.fx_forward_publish.org  |  129 | money_decimal_columns/money_not_exact | 2027-06-30 | marco    | a rate, not an amount                      |
+  ```
+
+  `path` is relative to the checkout, as the finding prints it. An empty
+  `line` covers the whole file. Each row is checked as a comment is, and its
+  problems are findings on its line of `.compass.org`. A row covers its line
+  only: when the file changes and the finding moves, the finding comes back
+  and the row is reported stale, so update the line. `check --commit` uses
+  the commit's table, and `--ratchet` uses the working tree's for both sides.
+  On this copy, a table of 17 rows (seven money findings on models, the four
+  create scripts, three core-link edges in one `CMakeLists.txt`, the eight
+  `template_sections/chained_tags` findings of one template by file, and two
+  planted to fail) took the check from 243 diagnostics to 223, with 22
+  excused and the two planted rows reported stale and expired.
+- **Two comment placements that work.** Both were tested on this copy:
+  - A `# compass:except(core_link_edges/forbidden_edge) ...` line, indented
+    inside a model's `#+begin_src cmake :name extra_dependencies` block above
+    the link it excuses. codegen renders it into the component's
+    `CMakeLists.txt` above the link, and it excuses the finding there.
+  - A `# compass:except-file(template_sections/chained_tags) ...` line inside
+    a multi-line mustache comment `{{! ... }}` in a template's
+    `#+begin_src mustache` block. The tangled `.mustache` file holds it and
+    it excuses the template's findings; the template renders nothing for it.
+
+  A compass older than this change also read each of these as an org comment
+  of the model or template and reported `exception/stale` there. compass now
+  ignores exception markers inside org blocks. Prefer the table for findings
+  in a file generated from a shared template.
 - After this step, `compass-ng check` should report nothing on that branch.
 
 ## Step 4: switch the environment over

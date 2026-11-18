@@ -128,6 +128,41 @@ TEST_CASE("each malformed row names the file, the line and the fix",
         "on line 7; fix: keep one row per codec");
 }
 
+TEST_CASE("the table under Exceptions states one exception per row, and a "
+    "row that does not hold is a malformed exception on its line",
+    "[config][repository_file]") {
+    const auto r = config::parse_repository_file(std::string(head) +
+        "| document_index | yes | |\n"
+        "* Exceptions\n"
+        "| path | line | rule | expires | approver | reason |\n"
+        "|------+------+------+---------+----------+--------|\n"
+        "| =sql/a.sql= | 12 | ~sql_hygiene/not_re_runnable~ | 2026-12-31 "
+        "| Marco C | made by =generate=, see a \\vert b |\n"
+        "| doc/a.org | | required_sections/missing_section | | | |\n"
+        "| doc/b.org | 3 | required_sections/missing_section |\n"
+        "** Not this one\n"
+        "| x.sql | 1 | not-a-rule | | | |\n",
+        "abc1234:.compass.org");
+    REQUIRE(r);
+    const auto& s = r->exceptions;
+    REQUIRE(s.exceptions.size() == 2);
+    CHECK(s.exceptions[0].written_in == ".compass.org");
+    CHECK(s.exceptions[0].line == 11);
+    CHECK(s.exceptions[0].path == "sql/a.sql");
+    CHECK(s.exceptions[0].covers == 12);
+    CHECK(s.exceptions[0].rule == "sql_hygiene/not_re_runnable");
+    CHECK(s.exceptions[0].approver == "Marco C");
+    CHECK(s.exceptions[0].reason == "made by =generate=, see a \\vert b");
+    CHECK(s.exceptions[1].path == "doc/a.org");
+    CHECK(s.exceptions[1].covers == 0);
+    CHECK(s.exceptions[1].reason.empty());
+    CHECK_FALSE(s.exceptions[1].expires);
+    REQUIRE(s.malformed.size() == 1);
+    CHECK(s.malformed[0].written_in == ".compass.org");
+    CHECK(s.malformed[0].line == 13);
+    CHECK_THAT(s.malformed[0].why, StartsWith("the row has 3 cells, not 6"));
+}
+
 TEST_CASE("an empty path keyword is an error", "[config][repository_file]") {
     const auto r = config::parse_repository_file(
         "#+title: x\n#+output:\n* Codecs\n| a | yes | |\n", "f.org");
