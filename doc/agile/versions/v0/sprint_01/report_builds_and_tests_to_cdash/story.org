@@ -7,7 +7,7 @@
 #+level: s2
 #+filetags: :ci:cdash:testing:sprint_01:v0:
 #+created: 2026-11-17
-#+updated: 2026-11-17
+#+updated: 2026-11-18
 #+environment:
 #+todo: BACKLOG STARTED | DONE ABANDONED
 
@@ -21,12 +21,12 @@ Every CI build of compass submits its configure, build, test and coverage result
 
 | Field         | Value                                  |
 |---------------+----------------------------------------|
-| State         | BACKLOG                              |
+| State         | DONE |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
-| Now           | Not yet started.                       |
+| Now           | Done by Build and package compass as ORE Studio does. |
 | Waiting on    | Nothing.                               |
-| Next          | Break the story into tasks.            |
-| Last touched  | 2026-11-17                               |
+| Next          | Nothing. |
+| Last touched  | 2026-11-18 |
 
 * Acceptance
 
@@ -43,6 +43,20 @@ Every CI build of compass submits its configure, build, test and coverage result
 |      |       |       |     |             |
 
 * Decisions
+
+* Result
+
+The work was done by [[id:C83C8A4A-1924-4145-82D2-FD30DEECEC87][Build and package compass as ORE Studio does]] in
+Publish installable binaries, which ported ORE Studio's =CTestConfig.cmake=,
+=CTest.cmake= and workflows. Continuous Linux run 44343643894 on main
+(fd886e7) passed both builds with 15/15 tests and submitted each to the Compass
+project on my.cdash.org; Nightly Windows and macOS submit there too, with
+warnings, failed tests and test times shown.
+
+Closed without two lines, moved to [[id:2D1222E9-5C3B-46BC-A3B2-A0B3149A10AF][Submit coverage and memcheck, and document CDash]]:
+coverage and memcheck submissions, which come from Nightly Linux, not yet run
+on main, and the developer recipe. Pull requests are not built, as in ORE
+Studio, whose =no_pr_triggers= rule compass now enforces.
 
 * Out of scope
 
