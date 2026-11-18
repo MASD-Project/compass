@@ -25,6 +25,7 @@ add_executable(${tests_target_name}
     filesystem_new_file_tests.cpp
     process_environment_tests.cpp
     process_executable_tests.cpp
+    process_liveness_tests.cpp
     process_run_program_tests.cpp
     text_decoding_tests.cpp
     text_regex_tests.cpp
