@@ -22,15 +22,11 @@
 #include <array>
 #include <map>
 #include <optional>
-#include <set>
 #include <string>
-#include <vector>
 #include "compass.codec/types/corpus_view.hpp"
-#include "compass.cpp/ops/glob.hpp"
-#include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
+#include "compass.crosscheck/ops/generated_shape.hpp"
 #include "compass.crosscheck/ops/words.hpp"
-#include "compass.platform/text/decoding.hpp"
 #include "compass.platform/text/regex.hpp"
 
 namespace compass::crosscheck::codecs {
@@ -41,24 +37,14 @@ namespace ct = compass::codec::types;
 namespace co = compass::cpp::ops;
 namespace pt = compass::platform::text;
 
-constexpr std::uint32_t wire_mismatch = 0;
-constexpr std::uint32_t unclassified = 1;
-constexpr std::uint32_t no_table = 2;
-constexpr std::uint32_t too_few_compared = 3;
+enum rule : std::uint32_t { wire_mismatch, unclassified };
 
-constexpr std::array<ct::rule, 4> rules{{
+constexpr std::array<ct::rule, 2> rules{{
     {"wire_mismatch", "A generated row binds each column in the binary "
-        "format its column's type defines, to a column its table creates "
-        "and a member its struct declares."},
+        "format its column's type defines, to a member its struct "
+        "declares."},
     {"unclassified", "Every bound member and column has a type the check "
-        "can place on the wire, or both are text."},
-    {"no_table", "Every generated row's table is created by some create "
-        "script, or is a view."},
-    {"too_few_compared", "At least min_compared binary columns are "
-        "compared, so the check is reading the tree."}}};
-
-constexpr std::array<ct::option, 1> options{{
-    {"min_compared", "500", "The fewest binary columns a run may compare."}}};
+        "can place on the wire, or both are text."}}};
 
 /**
  * @brief A wire format: the type class, and the width of an integer.
@@ -150,156 +136,69 @@ std::string describe(const wire& w) {
         : " " + std::to_string(w.second));
 }
 
-std::string read(const ct::corpus_view& v, std::string_view path) {
-    return pt::universal_newlines(pt::decode_replacing(
-        v.read_file(path).value_or("")));
+void report(ct::diagnostic_table& out, const ct::document& d,
+    const ops::bound_column& c, rule r, std::string_view message,
+    std::string_view fix) {
+    const auto at = c.heading.empty() ? 0
+        : static_cast<std::uint32_t>(c.heading.data() - d.source.data());
+    out.add({d.row, {at, at}, ct::rule_id{r}, ct::severity::error, message,
+        fix});
 }
 
-void created_columns(const ct::corpus_view& v,
-    std::map<std::string, std::map<std::string, std::string>>& tables,
-    std::set<std::string>& views) {
-    static const pt::regex create_table(
-        R"re(create +table +(?:if +not +exists +)?"?([a-z0-9_]+)"? *\((.*?)\) *;)re",
-        {.dotall = true, .ignorecase = true});
-    static const pt::regex create_view(
-        R"re(create +(?:or +replace +)?view +"?([a-z0-9_]+)"?)re",
-        {.ignorecase = true});
-    static const pt::regex create_column(R"re(^ *,? *"([a-z0-9_]+)" +(.+)$)re",
-        {.ignorecase = true});
-    static const pt::regex constraint(
-        R"( +(?:not +null|null|default|primary +key|references|check|unique|generated|collate|constraint)\b)",
-        {.ignorecase = true});
-    for (const auto path : co::glob(v,
-             "projects/ores.sql/create/*/*_create.sql")) {
-        const auto text = read(v, path);
-        for (const auto& m : create_view.find_all(text))
-            views.emplace(m.group(1));
-        for (const auto& m : create_table.find_all(text)) {
-            auto& columns = tables[std::string(m.group(1))];
-            for (const auto line : co::split_lines(m.group(2))) {
-                const auto c = create_column.match(line);
-                if (!c)
-                    continue;
-                auto declared = c->group(2);
-                if (const auto k = constraint.search(declared))
-                    declared = declared.substr(0, k->start());
-                columns.emplace(std::string(c->group(1)), rstrip_commas(
-                    co::strip(ops::collapse_spaces(declared))));
-            }
+/**
+ * @brief Each column the repository row of the model @p d binds in binary,
+ * against the type the model's create script gives it. A row on a table
+ * the model does not create, such as a view, is not compared.
+ */
+void run(const ct::document& d, const ct::corpus_view& v,
+    ct::diagnostic_table& out) {
+    const auto shape = ops::generated_shape_of(v, d);
+    if (!shape || !shape->has_row || !shape->creates_table)
+        return;
+    for (const auto& c : shape->bound) {
+        if (c.member_type.empty()) {
+            report(out, d, c, wire_mismatch, "the row binds '" + c.column +
+                "' but the member is not declared in the struct",
+                "Give the key column a type the row declares a member for.");
+            continue;
         }
+        const auto cpp_wire = wire_of_cpp(c.member_type);
+        const auto sql_wire = wire_of_sql(c.sql_type);
+        if (!cpp_wire) {
+            report(out, d, c, unclassified, "'" + c.column + "' holds " +
+                c.member_type + ", which this check cannot place on the "
+                "wire", "Teach the check the type's format.");
+            continue;
+        }
+        if (!sql_wire) {
+            if (*cpp_wire == wire{"text", 0})
+                continue;
+            report(out, d, c, unclassified, "'" + c.column + "' holds " +
+                c.member_type + " but " + shape->table + " declares it " +
+                c.sql_type + ", a type this check cannot place on the wire",
+                "Teach the check the type's format.");
+            continue;
+        }
+        if (*cpp_wire != *sql_wire)
+            report(out, d, c, wire_mismatch, "'" + c.column + "' holds " +
+                c.member_type + " (" + describe(*cpp_wire) + ") but " +
+                shape->table + " creates it " + c.sql_type + " (" +
+                describe(*sql_wire) + ")", "Make the model's C++ and SQL "
+                "types agree, then regenerate.");
     }
-}
-
-void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
-    static const pt::regex tablename(
-        R"re(constexpr static const char\* tablename = "(\w+)")re");
-    static const pt::regex member(
-        R"(^ {4}([A-Za-z_][A-Za-z0-9_:<>, ]*?) +([a-z_][A-Za-z0-9_]*)(?:\{\}| *= *[^;]*)?;$)",
-        {.multiline = true});
-    static const pt::regex binding(
-        R"re(query_builder::(bind|bind_text|key|key_text)\("([a-z0-9_]+)" *, *&e::([a-z_][a-z0-9_]*) *\))re");
-
-    std::map<std::string, std::map<std::string, std::string>> tables;
-    std::set<std::string> views;
-    created_columns(v, tables, views);
-
-    std::size_t compared = 0;
-    for (const auto path : co::glob(v,
-             "projects/**/repository/*_entity.hpp")) {
-        const auto text = read(v, path);
-        if (!text.contains("AUTO-GENERATED FILE") ||
-            !text.contains("static constexpr auto columns()"))
-            continue;
-        const auto found = tablename.search(text);
-        if (!found)
-            continue;
-        const std::string table(found->group(1));
-        if (views.contains(table))
-            continue;
-        const auto created = tables.find(table);
-        if (created == tables.end()) {
-            co::report(out, path, 0, no_table, "no create script creates " +
-                table, "Generate the table's create script, or name the "
-                "table the script creates.");
-            continue;
-        }
-        const auto& columns = created->second;
-        std::map<std::string, std::string> members;
-        for (const auto& m : member.find_all(text)) {
-            const auto type = co::strip(m.group(1));
-            if (type.starts_with("constexpr") || type.starts_with("static") ||
-                type.starts_with("using") || type.starts_with("return") ||
-                type.starts_with("struct"))
-                continue;
-            members.emplace(std::string(m.group(2)), std::string(type));
-        }
-        const auto flat = ops::collapse_spaces(text);
-        for (const auto& b : binding.find_all(flat)) {
-            const auto kind = b.group(1);
-            const std::string column(b.group(2));
-            const std::string name(b.group(3));
-            if (kind != "bind" && kind != "key")
-                continue;
-            const auto declared = columns.find(column);
-            if (declared == columns.end()) {
-                co::report(out, path, 0, wire_mismatch, "the row binds '" +
-                    column + "', which " + table + " does not create",
-                    "Regenerate the row and the table from one model.");
-                continue;
-            }
-            const auto cpp = members.find(name);
-            if (cpp == members.end()) {
-                co::report(out, path, 0, wire_mismatch, "the row binds '" +
-                    name + "' but the member is not declared in the struct",
-                    "Regenerate the row from its model.");
-                continue;
-            }
-            const auto cpp_wire = wire_of_cpp(cpp->second);
-            const auto sql_wire = wire_of_sql(declared->second);
-            if (!cpp_wire) {
-                co::report(out, path, 0, unclassified, "'" + column +
-                    "' holds " + cpp->second + ", which this check cannot "
-                    "place on the wire", "Teach the check the type's "
-                    "format.");
-                continue;
-            }
-            if (!sql_wire) {
-                if (*cpp_wire == wire{"text", 0})
-                    continue;
-                co::report(out, path, 0, unclassified, "'" + column +
-                    "' holds " + cpp->second + " but " + table +
-                    " declares it " + declared->second + ", a type this "
-                    "check cannot place on the wire", "Teach the check the "
-                    "type's format.");
-                continue;
-            }
-            ++compared;
-            if (*cpp_wire != *sql_wire)
-                co::report(out, path, 0, wire_mismatch, "'" + column +
-                    "' holds " + cpp->second + " (" + describe(*cpp_wire) +
-                    ") but " + table + " creates it " + declared->second +
-                    " (" + describe(*sql_wire) + ")", "Make the model's C++ "
-                    "and SQL types agree, then regenerate.");
-        }
-    }
-    if (compared < std::stoul(std::string(v.option("min_compared"))))
-        co::report(out, "projects", 0, too_few_compared, "compared only " +
-            std::to_string(compared) + " binary columns, below the floor: "
-            "the check is no longer reading the tree", "Teach the check the "
-            "format, or lower min_compared for a subtree.");
 }
 
 }
 
 const ct::descriptor entity_binary_types{
     .name = "entity_binary_types",
-    .version = 1,
-    .summary = "Reports each generated row that binds a column in a binary "
-        "format its table's type does not define.",
-    .reads = ct::inputs::of_types({}),
-    .options = options,
+    .version = 2,
+    .summary = "Reports each column a model's generated row binds in a "
+        "binary format its create script's type does not define.",
+    .reads = ct::inputs::every_document(),
+    .options = {},
     .rules = rules,
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::diagnostic_table>{run}};
+    .run = ct::document_function<ct::diagnostic_table>{run}};
 
 }

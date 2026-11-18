@@ -28,15 +28,15 @@ namespace compass::crosscheck::codecs {
  * @brief ORE Studio's entity-binary-types gate: a generated row binds
  * each column in the binary format its column's type defines.
  *
- * Reads every generated repository/<name>_entity.hpp with a columns() list, its
- * tablename, the members of its row struct and its bind and key bindings,
- * and the CREATE TABLE and CREATE VIEW statements of the create scripts one
- * directory under projects/ores.sql/create/. Rule wire_mismatch: a binding
- * whose member's C++ type and column's SQL type travel in different
- * formats, or that names a column or member that does not exist. Rule
- * unclassified: a type the check cannot place, unless both are text. Rule
- * no_table: no create script creates the row's table. Rule
- * too_few_compared: fewer than min_compared binary columns compared.
+ * A document codec over the entity and junction models directly under a
+ * modeling/ directory of projects/ whose repository row and create script
+ * code generation renders, each read as code generation reads it
+ * (ops::generated_shape_of): every column the model states that the row
+ * binds with key or bind, with the member type the row's template gives
+ * it and the type the create script gives it. Rule wire_mismatch: the two
+ * travel in different formats, or the row declares no member for a key
+ * column. Rule unclassified: a type the check cannot place, unless the
+ * member is text. Both are reported on the column's heading.
  */
 extern const compass::codec::types::descriptor entity_binary_types;
 

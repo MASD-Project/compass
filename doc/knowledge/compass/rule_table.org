@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-180 rules, 43 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
+178 rules, 43 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
 
 ** Rules
 
@@ -50,10 +50,8 @@ memories no rule cites are the candidates for the next checks.
 | =curve_parameter_paths= | stale_exemption | Every exemption explains some path of the artefact. |  |
 | =curve_parameter_paths= | unreadable_input | The schema declares the root element, and the exemptions read. |  |
 | =curve_sections_wiring= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
-| =entity_binary_types= | wire_mismatch | A generated row binds each column in the binary format its column's type defines, to a column its table creates and a member its struct declares. |  |
+| =entity_binary_types= | wire_mismatch | A generated row binds each column in the binary format its column's type defines, to a member its struct declares. |  |
 | =entity_binary_types= | unclassified | Every bound member and column has a type the check can place on the wire, or both are text. |  |
-| =entity_binary_types= | no_table | Every generated row's table is created by some create script, or is a view. |  |
-| =entity_binary_types= | too_few_compared | At least min_compared binary columns are compared, so the check is reading the tree. |  |
 | =entity_writes= | sql_writer | No SQL function but the purge writes an entity table with INSERT, UPDATE or DELETE. | =5724BDE2-7FA4-4667-9129-2D9DD7783AB2= |
 | =entity_writes= | cpp_writer | No hand-written C++ file but the repository of each table it names writes an entity table in raw SQL. | =5724BDE2-7FA4-4667-9129-2D9DD7783AB2= |
 | =er_diagram= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
