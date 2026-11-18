@@ -20,8 +20,8 @@
 #include "compass.codec/io/output_sink.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
-#include <ctime>
 #include <fstream>
 #include <iterator>
 #include <optional>
@@ -51,10 +51,14 @@ std::optional<std::string> read_file(const std::filesystem::path& path) {
 }
 
 st::index_time now() noexcept {
-    timespec t{};
-    ::clock_gettime(CLOCK_REALTIME, &t);
-    return {static_cast<std::uint32_t>(t.tv_sec),
-        static_cast<std::uint32_t>(t.tv_nsec)};
+    const auto since_epoch = std::chrono::system_clock::now().time_since_epoch();
+    const auto seconds =
+        std::chrono::duration_cast<std::chrono::seconds>(since_epoch);
+    const auto nanoseconds =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+            since_epoch - seconds);
+    return {static_cast<std::uint32_t>(seconds.count()),
+        static_cast<std::uint32_t>(nanoseconds.count())};
 }
 
 struct entry {

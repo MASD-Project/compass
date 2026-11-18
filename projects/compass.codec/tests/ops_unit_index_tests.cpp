@@ -28,7 +28,6 @@
 #include <string>
 #include <string_view>
 #include <vector>
-#include <unistd.h>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 #include "compass.codec/codecs/document_index.hpp"
@@ -39,6 +38,7 @@
 #include "compass.codec/ops/run.hpp"
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.org/ops/document_fields.hpp"
+#include "compass.platform/process/environment.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 #include "test_corpus.hpp"
 
@@ -246,8 +246,10 @@ public:
     scoped_file() {
         static int counter = 0;
         path_ = std::filesystem::temp_directory_path() /
-            ("compass.codec.unit_index." + std::to_string(::getpid()) + "." +
-                std::to_string(counter++));
+            ("compass.codec.unit_index." +
+                std::to_string(
+                    compass::platform::process::current_process_id()) +
+                "." + std::to_string(counter++));
     }
     ~scoped_file() { std::filesystem::remove(path_); }
     scoped_file(const scoped_file&) = delete;

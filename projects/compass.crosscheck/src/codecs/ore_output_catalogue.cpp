@@ -28,12 +28,12 @@
 #include <string>
 #include <string_view>
 #include <vector>
-#include "compass.codec/io/format_cache.hpp"
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
 #include "compass.crosscheck/ops/csv.hpp"
 #include "compass.crosscheck/ops/python_literals.hpp"
+#include "compass.platform/process/executable.hpp"
 #include "compass.platform/text/decoding.hpp"
 #include "compass.platform/text/regex.hpp"
 
@@ -845,8 +845,9 @@ std::vector<ct::formatter> formatters_of(const ct::option_values& o,
     if (name.empty())
         return {};
     const auto program = name.find('/') == std::string_view::npos
-        ? compass::codec::io::find_program(name)
-        : compass::codec::io::find_program((checkout / name).string());
+        ? compass::platform::process::find_program(name)
+        : compass::platform::process::find_program(
+            (checkout / name).string());
     if (!program)
         throw std::runtime_error("ore_output_catalogue: " + std::string(name) +
             " is not a program, for the option clang_format");

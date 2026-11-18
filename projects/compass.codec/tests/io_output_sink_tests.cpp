@@ -30,14 +30,14 @@
 #include <tuple>
 #include <utility>
 #include <vector>
-#include <sys/stat.h>
-#include <unistd.h>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 #include "compass.codec/ops/outputs.hpp"
 #include "compass.codec/ops/registry.hpp"
 #include "compass.codec/ops/run.hpp"
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.platform/filesystem/file_status.hpp"
+#include "compass.platform/process/environment.hpp"
 #include "compass.store/io/git_files.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 #include "test_corpus.hpp"
@@ -86,13 +86,14 @@ void write(const std::filesystem::path& p, const std::string& bytes) {
  * @brief Everything a write would change about a file: its inode, its
  * modification and change times to the nanosecond, and its size.
  */
-using stamp = std::tuple<ino_t, long, long, long, long, off_t>;
+using stamp = std::tuple<std::uint64_t, std::int64_t, std::uint32_t,
+    std::int64_t, std::uint32_t, std::uint64_t>;
 
 stamp stamp_of(const std::filesystem::path& p) {
-    struct stat st {};
-    REQUIRE(::stat(p.c_str(), &st) == 0);
-    return {st.st_ino, st.st_mtim.tv_sec, st.st_mtim.tv_nsec,
-        st.st_ctim.tv_sec, st.st_ctim.tv_nsec, st.st_size};
+    const auto st = compass::platform::filesystem::regular_file_status(p);
+    REQUIRE(st);
+    return {st->inode, st->modified.seconds, st->modified.nanoseconds,
+        st->changed.seconds, st->changed.nanoseconds, st->size};
 }
 
 /**
@@ -104,8 +105,10 @@ public:
     sink() {
         static int counter = 0;
         dir_ = std::filesystem::temp_directory_path() /
-            ("compass.codec.sink.tests." + std::to_string(::getpid()) + "." +
-                std::to_string(counter++));
+            ("compass.codec.sink.tests." +
+                std::to_string(
+                    compass::platform::process::current_process_id()) +
+                "." + std::to_string(counter++));
         std::filesystem::create_directories(root());
     }
     ~sink() { std::filesystem::remove_all(dir_); }

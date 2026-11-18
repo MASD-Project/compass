@@ -21,7 +21,6 @@
 
 #include <atomic>
 #include <chrono>
-#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <iterator>
@@ -30,10 +29,10 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <unistd.h>
 #include "compass.codec/ops/format_cache.hpp"
 #include "compass.codec/ops/parallel_for.hpp"
 #include "compass.codec/ops/registry.hpp"
+#include "compass.platform/process/environment.hpp"
 #include "compass.platform/process/run_program.hpp"
 #include "compass.store/io/location.hpp"
 #include "compass.store/io/pack_store.hpp"
@@ -79,7 +78,7 @@ public:
     scratch_dir() {
         static std::atomic<unsigned> counter{0};
         path_ = std::filesystem::temp_directory_path() /
-            ("compass-format." + std::to_string(::getpid()) + "." +
+            ("compass-format." + std::to_string(platform::process::current_process_id()) + "." +
                 std::to_string(counter++));
         std::filesystem::remove_all(path_);
         std::filesystem::create_directories(path_);
@@ -175,32 +174,6 @@ void format_misses(store::io::pack_writer& writes,
     });
 }
 
-}
-
-std::optional<std::filesystem::path> find_program(std::string_view name) {
-    if (name.empty())
-        return std::nullopt;
-    const auto executable = [](const std::filesystem::path& p) {
-        return std::filesystem::is_regular_file(p) &&
-            ::access(p.c_str(), X_OK) == 0;
-    };
-    if (name.find('/') != std::string_view::npos) {
-        const std::filesystem::path p(name);
-        return executable(p) ? std::optional(p) : std::nullopt;
-    }
-    const char* path = std::getenv("PATH");
-    std::string_view dirs = path == nullptr ? "" : path;
-    while (true) {
-        const auto colon = dirs.find(':');
-        const auto dir = dirs.substr(0, colon);
-        const auto candidate = std::filesystem::path(dir.empty() ? "." : dir) /
-            name;
-        if (executable(candidate))
-            return candidate;
-        if (colon == std::string_view::npos)
-            return std::nullopt;
-        dirs.remove_prefix(colon + 1);
-    }
 }
 
 formatted_files format_files(const std::filesystem::path& git_common_dir,

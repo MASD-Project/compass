@@ -26,8 +26,8 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include "compass.codec/io/format_cache.hpp"
 #include "compass.codegen/ops/context.hpp"
+#include "compass.platform/process/executable.hpp"
 
 namespace compass::codegen::codecs {
 
@@ -71,8 +71,9 @@ std::optional<std::filesystem::path> first_program(
         candidates = comma == std::string_view::npos ? std::string_view{}
             : candidates.substr(comma + 1);
         const auto found = name.find('/') == std::string_view::npos
-            ? compass::codec::io::find_program(name)
-            : compass::codec::io::find_program((checkout / name).string());
+            ? compass::platform::process::find_program(name)
+            : compass::platform::process::find_program(
+                (checkout / name).string());
         if (found)
             return found;
     }
