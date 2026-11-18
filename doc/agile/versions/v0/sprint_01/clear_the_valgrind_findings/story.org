@@ -1,0 +1,99 @@
+:PROPERTIES:
+:ID: 8647D3BB-1F11-40BF-BA8B-57D65D08BC35
+:END:
+#+title: Story: Clear the valgrind findings
+#+description: Make the debug nightly's memcheck report nothing: suppress what is not compass's, with ORE Studio's suppression file and its reasons, and fix the rest.
+#+type: story
+#+level: s2
+#+filetags: :valgrind:memcheck:ci:sprint_01:v0:
+#+created: 2026-11-18
+#+updated: 2026-11-18
+#+environment:
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+The debug nightly runs every test under valgrind's memcheck and submits
+what it finds to CDash. Its findings should mean something: zero on a
+clean tree, so a new one is a defect someone introduced. Today it reports
+1,722, and almost none of them are compass's. ORE Studio solved the same
+problem with a suppression file whose every entry says why it is there,
+and a script that checks the file against a run. This story brings that
+over, keeps the programs the tests start out of memcheck, and fixes
+whatever is left that is compass's own.
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | BACKLOG                              |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | Not yet started.                       |
+| Waiting on    | Nothing.                               |
+| Next          | Port ORE Studio's suppressions.        |
+| Last touched  | 2026-11-18                               |
+
+* Acceptance
+
+- The debug nightly's memcheck reports no defect on CDash.
+- Every suppression names the library it covers and says why it is not
+  compass's defect.
+- Every finding that was compass's is fixed, with a test.
+- A new defect shows on the next nightly: nothing suppresses compass's
+  own frames wholesale.
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+| [[id:3BA44CE7-4575-4F7A-9E5D-AA01190E1A06][Port ORE Studio's suppressions]] | BACKLOG | | | Bring over ORE Studio's valgrind suppression file, its memcheck options (--demangle, --gen-suppressions=all) and its suppression checker script, keeping each suppression that matches a library compass links and its reason. |
+| [[id:2A0E9B81-1427-401A-B4BA-8C3D97749F5E][Keep child processes out of memcheck]] | BACKLOG | | | Stop the end-to-end and install tests reporting the shells, git and other programs they start as compass's leaks: trace only compass's own binaries, or suppress the rest with a reason. |
+| [[id:E569C248-7645-40B7-9F02-D8BF0B791C20][Triage what remains]] | BACKLOG | | | Classify every finding left after the suppressions as a compass defect or another library's, from the per-case memcheck results, and record each with its stack and verdict. |
+| [[id:BA8872C3-92F2-4B36-A211-DF3ABE7A79CB][Fix compass's memory defects]] | BACKLOG | | | Fix each finding the triage put on compass, starting with the uninitialised reads in compass.cpp and compass.crosscheck and the store and platform tests that fail under memcheck, each with a test that reproduces it. |
+
+* Baseline
+
+The debug nightly of 2026-11-18, build 4571451 on CDash, ran each suite
+as one test, before tests were reported case by case. Defects by test:
+memory leak, potential leak, uninitialised conditional, uninitialised
+read.
+
+| Test | Leak | Potential | Cond. | Read |
+|------+------+-----------+-------+------|
+| compass.cli.end_to_end | 1 | 502 | 0 | 0 |
+| compass.cli.install | 1 | 514 | 0 | 0 |
+| compass.cpp.tests | 0 | 0 | 153 | 190 |
+| compass.crosscheck.tests | 0 | 0 | 44 | 107 |
+| compass.cli.tests | 0 | 45 | 0 | 0 |
+| compass.store.tests | 0 | 44 | 0 | 0 |
+| compass.bench.tests | 0 | 40 | 0 | 0 |
+| compass.codec.tests | 1 | 27 | 0 | 0 |
+| compass.docs.tests | 0 | 0 | 14 | 8 |
+| compass.codegen.tests | 0 | 0 | 8 | 5 |
+| compass.sql.tests | 0 | 0 | 0 | 12 |
+| compass.platform.tests | 0 | 6 | 0 | 0 |
+| Total | 3 | 1,178 | 219 | 322 |
+
+compass.store.tests and compass.platform.tests failed under memcheck.
+compass's =build/valgrind/custom.supp= holds 4 suppressions; ORE
+Studio's holds 204. ORE Studio's memcheck options add =--demangle=yes=
+and =--gen-suppressions=all=, which compass's =CTest.cmake= lacks.
+
+Source: =https://my.cdash.org/api/v1/viewDynamicAnalysis.php?buildid=4571451=.
+
+Guesses, to be settled by the triage. The potential leaks of the
+end-to-end and install tests are the shells and git the scripts start,
+traced because of =--trace-children=yes=. The uninitialised reads in the
+regex-heavy suites (cpp, crosscheck, docs, codegen, sql) are PCRE2's JIT,
+which valgrind cannot follow.
+
+* Decisions
+
+* Out of scope
+
+- Coverage, and documenting how to read CDash. Those are the task
+  /Submit coverage and memcheck and document CDash/ of
+  [[id:EB6AF798-D472-4CC2-B97C-FC2BD9FD1FDE][Publish installable binaries]].
+- Running memcheck on macOS or Windows.
