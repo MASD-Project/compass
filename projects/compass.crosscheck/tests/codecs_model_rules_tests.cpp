@@ -1,0 +1,117 @@
+/* -*- mode: c++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+#include <string>
+#include <vector>
+#include <catch2/catch_test_macros.hpp>
+#include "compass.crosscheck/codecs/model_rules.hpp"
+#include "test_checkout.hpp"
+
+namespace {
+
+using namespace compass::crosscheck;
+using tests::files;
+
+std::vector<std::string> messages(const tests::outcome& r) {
+    std::vector<std::string> out;
+    for (const auto& [path, line, message] : r.findings)
+        out.push_back(path + ":" + std::to_string(line) + ": " + message);
+    return out;
+}
+
+std::string column(std::string_view name, std::string_view drawer) {
+    return "** " + std::string(name) + "\n:PROPERTIES:\n" +
+        std::string(drawer) + ":END:\n";
+}
+
+const std::string swap = "projects/ores.trading/modeling/ores.trading.swap.org";
+
+}
+
+TEST_CASE("a money column typed inexactly and a continuous one typed exact "
+    "are reported on their headings", "[codecs][model_rules]") {
+    const files t{
+        {swap,
+         "#+title: swap\n#+type: ores.codegen.entity\n\n* Columns\n" +
+         column("notional_amount", ":type: double precision\n"
+             ":cpp_type: double\n") +
+         column("strike", ":type: numeric(38,12)\n:cpp_type: decimal\n") +
+         column("face_value", ":type: text\n:cpp_type: std::string\n") +
+         column("recovery_rate", ":type: numeric\n") +
+         column("premium_date", ":type: date\n") +
+         column("price", ":type: NUMERIC(38, 12)\n"
+             ":cpp_type: std::optional<double>\n")},
+        {"projects/ores.trading/core/modeling/ores.trading.fee_field_group.org",
+         "#+type: ores.codegen.field_group\n* Fields\n" +
+         column("fee", ":cpp_type: std::string\n") +
+         column("weight", ":cpp_type: decimal\n")},
+        {"projects/ores.trading/modeling/ores.trading.fx_variance_swap_instrument.org",
+         "#+type: ores.codegen.entity\n* Columns\n" +
+         column("strike", ":type: numeric\n")},
+        {"projects/ores.synthetic/modeling/ores.synthetic.ir_curve_generation_config.org",
+         "#+type: ores.codegen.entity\n* Columns\n" +
+         column("initial_rate", ":type: double precision\n")}};
+    CHECK(messages(tests::run(codecs::model_rules, t)) ==
+        std::vector<std::string>{
+        "projects/ores.trading/core/modeling/ores.trading.fee_field_group.org:3: "
+        "fee is money, typed sql=(embedded) cpp=std::string",
+        "projects/ores.trading/core/modeling/ores.trading.fee_field_group.org:7: "
+        "weight is a continuous quantity, typed sql=(embedded) cpp=decimal",
+        "projects/ores.trading/modeling/ores.trading.fx_variance_swap_instrument.org:3: "
+        "strike is a continuous quantity, typed sql=numeric cpp=-",
+        "projects/ores.trading/modeling/ores.trading.swap.org:5: "
+        "notional_amount is money, typed sql=double precision cpp=double",
+        "projects/ores.trading/modeling/ores.trading.swap.org:15: "
+        "face_value is money, typed sql=text cpp=std::string",
+        "projects/ores.trading/modeling/ores.trading.swap.org:20: "
+        "recovery_rate is a continuous quantity, typed sql=numeric cpp=-",
+        "projects/ores.trading/modeling/ores.trading.swap.org:28: "
+        "price is money, typed sql=NUMERIC(38, 12) "
+        "cpp=std::optional<double>"});
+}
+
+TEST_CASE("only the columns the loader reads are money columns",
+    "[codecs][model_rules]") {
+    const auto drawer = ":type: double precision\n";
+    const files t{
+        {swap,
+         "#+type: ores.codegen.entity\n* Notes\n" + column("price", drawer) +
+         "#+begin_src org\n** amount\n:type: real\n#+end_src\n"
+         "* Columns\n" + column("trade_date", ":type: date\n")},
+        {"projects/modeling/swap_view.org",
+         "#+type: entity_view\n* Columns\n" + column("price", drawer)},
+        {"projects/ores.trading/modeling/notes.org",
+         "#+type: knowledge\n* Columns\n" + column("price", drawer)}};
+    CHECK(tests::run(codecs::model_rules, t).findings.empty());
+}
+
+TEST_CASE("an edit to one model reports what a run from scratch reports",
+    "[codecs][model_rules]") {
+    const files before{
+        {swap, "#+type: ores.codegen.entity\n* Columns\n" +
+             column("notional", ":type: numeric\n")},
+        {"projects/ores.trading/modeling/ores.trading.leg.org",
+         "#+type: ores.codegen.entity\n* Columns\n" +
+         column("spread", ":type: real\n")}};
+    auto after = before;
+    after[swap] = "#+type: ores.codegen.entity\n* Columns\n" +
+        column("notional", ":type: real\n");
+    const auto r = tests::run_after_edit(codecs::model_rules, before, after);
+    CHECK(r.findings.size() == 2);
+}

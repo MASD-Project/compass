@@ -31,7 +31,7 @@ add_library(${lib_target_name}
     codecs/generated_column_refs.cpp
     codecs/marketdata_identity_columns.cpp
     codecs/model_drift.cpp
-    codecs/money_decimal_columns.cpp
+    codecs/model_rules.cpp
     codecs/open_reads.cpp
     codecs/ore_output_catalogue.cpp
     codecs/ore_renderings_tables.cpp

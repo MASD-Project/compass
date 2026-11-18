@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-182 rules, 43 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
+181 rules, 43 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
 
 ** Rules
 
@@ -95,9 +95,8 @@ memories no rule cites are the candidates for the next checks.
 | =model_drift= | unset_required | A model sets every feature its profile requires. |  |
 | =model_drift= | self_contradicting | A model states a feature once, or always with one value. |  |
 | =model_drift= | no_profiles | The tree has profiles to bind to. |  |
-| =money_decimal_columns= | money_not_exact | A money column is numeric in SQL and a decimal in C++, never a binary float or text. | =E47BAF35-066F-4EF2-BA3D-522AED44FF33=, =B9DAC38A-BEB1-4658-87BC-DFF901033E84= |
-| =money_decimal_columns= | continuous_exact | A continuous quantity is not typed numeric or decimal, an exactness it does not have. | =B9DAC38A-BEB1-4658-87BC-DFF901033E84= |
-| =money_decimal_columns= | too_few_columns | The models yield at least min_columns columns, so the check is reading them. |  |
+| =model_rules= | money_not_exact | A money column is numeric in SQL and a decimal in C++, never a binary float or text. | =E47BAF35-066F-4EF2-BA3D-522AED44FF33=, =B9DAC38A-BEB1-4658-87BC-DFF901033E84= |
+| =model_rules= | continuous_exact | A continuous quantity is not typed numeric or decimal, an exactness it does not have. | =B9DAC38A-BEB1-4658-87BC-DFF901033E84= |
 | =no_pr_triggers= | pull_request_trigger | No workflow triggers on a pull request. | =B83064E5-6357-4FC6-A8BE-395DD429ED2A=, =BC85C0DF-99BE-4079-A649-88A236AE0ACF= |
 | =no_pr_triggers= | no_workflows | The repository has workflow files to read. |  |
 | =open_reads= | open_read | A generated handler's read checks a permission, or Authorised reads allow-lists its subject. |  |

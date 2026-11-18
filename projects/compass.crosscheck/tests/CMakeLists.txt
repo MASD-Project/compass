@@ -30,6 +30,7 @@ add_executable(${tests_target_name}
     codecs_marketdata_identity_columns_tests.cpp
     codecs_ore_output_catalogue_tests.cpp
     codecs_model_columns_tests.cpp
+    codecs_model_rules_tests.cpp
     codecs_ore_renderings_tables_tests.cpp
     codecs_protocol_twins_tests.cpp
     codecs_refusals_tests.cpp
@@ -43,6 +44,7 @@ target_link_libraries(${tests_target_name}
     PRIVATE
         ${lib_target_name}
         compass.store.lib
+        compass.ingest.lib
         Catch2::Catch2WithMain)
 
 add_test(NAME ${tests_target_name}
