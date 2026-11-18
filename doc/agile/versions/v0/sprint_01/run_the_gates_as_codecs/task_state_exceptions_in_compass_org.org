@@ -26,11 +26,11 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-18                               |
 
 * Acceptance
@@ -58,7 +58,10 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| 17-row table on the ORE copy | 243 diagnostics to 223, 22 excused; a planted stale and expired row each reported on its row | =check --commit= on a plumbing commit | c111a1e |
+| CMake src block placement | the rendered CMake comment excuses the core_link finding; before the fix the model got exception/stale | =placements/= | bd9a309 |
+| Mustache comment placement | excuses all 8 chained_tags findings, renders nothing; before the fix the org source got exception/stale | =placements/= | bd9a309 |
+| ctest | 15 of 15 suites pass | =ctest --preset linux-clang-release= | de74267 |
 
 * Notes
 
@@ -86,3 +89,18 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+A =* Exceptions= table in =.compass.org= (path, line or empty for the whole
+file, rule, expires, approver, reason) excuses findings the way an inline
+exception does, through one exception set and one =excuse= step, with the
+same malformed, incomplete, expired and stale findings reported on the row's
+line. It applies in check, ratchet, =--commit= (the commit's table, or the
+working tree's) and the hook. A row naming a line covers exactly that line:
+if the finding moves, the finding returns and the row goes stale, which makes
+a regenerated file's excuses get reviewed.
+
+The pilot's two placements work, and a scanner fix made them clean: in an org
+file, exception markers between =#+begin_= and =#+end_= are ignored, because
+they belong to the file the block becomes. Without it, an exception in a
+model's cmake block or a template's mustache comment was also reported as
+stale in its org source.
