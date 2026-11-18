@@ -8,7 +8,7 @@
 #+filetags: :let_projects_define_their_checks:sprint_01:v0:
 #+owner: marco
 #+branch: feature/check-one-codec
-#+pr: https://github.com/MASD-Project/compass/pull/92
+#+pr: https://github.com/MASD-Project/compass/pull/93
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-18
@@ -153,6 +153,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
+| [[https://github.com/MASD-Project/compass/pull/93][#93]] | Let check run one codec or check with --codec |
 | [[https://github.com/MASD-Project/compass/pull/92][#92]] | Run each check's examples as its tests |
 | [[https://github.com/MASD-Project/compass/pull/90][#90]] | Run the checks a project's check documents define |
 | [[https://github.com/MASD-Project/compass/pull/89][#89]] | Add the forbid engine checks are built on |
