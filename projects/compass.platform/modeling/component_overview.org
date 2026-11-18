@@ -39,6 +39,8 @@ beside it, so it finds the manifest even when it runs through a link, and
 =find_program=, which finds a program on PATH as a shell does.
 =environment= gives the process ID, sets environment variables for the
 process and the programs it runs, and finds the home directory as git does.
+=liveness= tells whether a process is running, which =compass.testing= asks
+of the process that left a temporary directory behind.
 =standard_streams= makes the standard streams carry bytes unchanged, which
 on Windows stops LF being written as CRLF. =compiler= holds
 =COMPASS_ALWAYS_INLINE=, the inlining request MSVC has no spelling for.
@@ -96,6 +98,7 @@ systems and Windows.
 | =include/compass.platform/filesystem/file_lock.hpp=   | Public type.          |
 | =include/compass.platform/process/environment.hpp=    | Public functions.     |
 | =include/compass.platform/process/executable.hpp=     | Public functions.     |
+| =include/compass.platform/process/liveness.hpp=       | Public function.      |
 | =include/compass.platform/process/run_program.hpp=    | Public function.      |
 | =include/compass.platform/text/regex.hpp=             | Public type.          |
 | =include/compass.platform/text/decoding.hpp=          | Public functions.     |
@@ -109,8 +112,8 @@ systems and Windows.
 * Dependencies
 
 - The C++23 standard library, and POSIX (=open=, =fstat=, =mmap=,
-  =flock=, =posix_spawnp=) or the Win32 API (=CreateFileW=, =LockFileEx=,
-  =CreateProcessW=).
+  =flock=, =posix_spawnp=, =kill=) or the Win32 API (=CreateFileW=,
+  =LockFileEx=, =CreateProcessW=, =OpenProcess=).
 - PCRE2 (8-bit, with JIT), for =text::regex=.
 - expat, for =text::xml_document=. ElementTree runs on expat, so the text
   of CDATA, references and line ends is what the ported scripts read; a
