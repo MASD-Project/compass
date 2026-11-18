@@ -29,9 +29,7 @@
 #include <string>
 #include <string_view>
 #include <system_error>
-#include <sys/stat.h>
-#include <time.h>
-#include <unistd.h>
+#include "compass.platform/filesystem/file_status.hpp"
 #include "compass.store/io/git_files.hpp"
 #include "compass.store/io/location.hpp"
 #include "compass.store/io/pack_store.hpp"
@@ -66,17 +64,7 @@ std::optional<types::blob_id> parse_hex(std::string_view hex) {
     return id;
 }
 
-std::int64_t to_ns(const struct timespec& t) noexcept {
-    return std::int64_t{t.tv_sec} * 1'000'000'000 + t.tv_nsec;
-}
-
-std::optional<struct stat> regular_file_status(
-    const std::filesystem::path& file) {
-    struct stat st{};
-    if (::lstat(file.c_str(), &st) == -1 || !S_ISREG(st.st_mode))
-        return std::nullopt;
-    return st;
-}
+using platform::filesystem::regular_file_status;
 
 std::runtime_error unreadable(const std::filesystem::path& file,
     const std::exception& e) {
@@ -111,9 +99,8 @@ void add_worktree_index(const std::filesystem::path& file,
 }
 
 std::int64_t now() noexcept {
-    struct timespec t{};
-    ::clock_gettime(CLOCK_REALTIME, &t);
-    return to_ns(t);
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
 double since(std::chrono::steady_clock::time_point start) {
@@ -124,10 +111,10 @@ double since(std::chrono::steady_clock::time_point start) {
 bool remove_unchanged(const std::filesystem::path& file,
     std::uint64_t size, std::int64_t mtime) {
     const auto st = regular_file_status(file);
-    if (!st || static_cast<std::uint64_t>(st->st_size) != size ||
-        to_ns(st->st_mtim) != mtime)
+    if (!st || st->size != size || st->modified.count_ns() != mtime)
         return false;
-    return ::unlink(file.c_str()) == 0;
+    std::error_code error;
+    return std::filesystem::remove(file, error);
 }
 
 /**
@@ -248,8 +235,8 @@ types::stored_objects list_objects(const std::filesystem::path& objects_dir) {
             objects.names.push_back(prefix + "/" + name);
             objects.ids.push_back(id.value_or(types::blob_id{}));
             objects.temporary.push_back(temporary ? 1 : 0);
-            objects.sizes.push_back(static_cast<std::uint64_t>(st->st_size));
-            objects.mtimes.push_back(to_ns(st->st_mtim));
+            objects.sizes.push_back(st->size);
+            objects.mtimes.push_back(st->modified.count_ns());
         }
     }
     return objects;
@@ -316,8 +303,8 @@ types::collection_result collect(const std::filesystem::path& checkout,
         stored.names.push_back(file.filename().string());
         stored.ids.push_back({});
         stored.temporary.push_back(1);
-        stored.sizes.push_back(static_cast<std::uint64_t>(st->st_size));
-        stored.mtimes.push_back(to_ns(st->st_mtim));
+        stored.sizes.push_back(st->size);
+        stored.mtimes.push_back(st->modified.count_ns());
     }
     std::vector<types::stored_objects> legacy;
     for (const auto& d : legacy_store_dirs(common)) {

@@ -23,6 +23,7 @@
 #include <stdexcept>
 #include <string>
 #include <catch2/catch_test_macros.hpp>
+#include "compass.platform/process/run_program.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 #include "scoped_directory.hpp"
 
@@ -35,7 +36,8 @@ void git(const std::filesystem::path& directory, const std::string& command) {
     const auto line = "git -C '" + directory.string() +
         "' -c user.name=t -c user.email=t@example.org " + command +
         " >/dev/null 2>&1";
-    REQUIRE(std::system(line.c_str()) == 0);
+    REQUIRE(compass::platform::process::run_program(
+        {{"sh", "-c", line}, {}, {}}).exit_code == 0);
 }
 
 }

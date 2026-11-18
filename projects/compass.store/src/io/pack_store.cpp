@@ -21,16 +21,13 @@
 
 #include <algorithm>
 #include <array>
-#include <cerrno>
+#include <chrono>
 #include <format>
 #include <functional>
 #include <random>
 #include <system_error>
 #include <utility>
-#include <fcntl.h>
-#include <sys/file.h>
-#include <time.h>
-#include <unistd.h>
+#include "compass.platform/process/environment.hpp"
 #include "compass.store/ops/action_object.hpp"
 
 namespace compass::store::io {
@@ -48,10 +45,11 @@ constexpr int attempts = 1000;
  * parent and its siblings draw.
  */
 std::uint64_t random_word() {
-    thread_local pid_t owner = 0;
+    thread_local std::uint64_t owner = 0;
     thread_local std::mt19937_64 generator;
-    if (owner != ::getpid()) {
-        owner = ::getpid();
+    if (const auto pid = platform::process::current_process_id();
+        owner != pid) {
+        owner = pid;
         std::random_device device;
         generator.seed((std::uint64_t{device()} << 32) | device());
     }
@@ -59,30 +57,22 @@ std::uint64_t random_word() {
 }
 
 std::int64_t now_ns() noexcept {
-    struct timespec t{};
-    ::clock_gettime(CLOCK_REALTIME, &t);
-    return std::int64_t{t.tv_sec} * 1'000'000'000 + t.tv_nsec;
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
-[[noreturn]] void fail(std::string_view what,
-    const std::filesystem::path& path) {
-    throw std::system_error(errno, std::generic_category(),
-        std::string(what) + " " + path.string());
+/**
+ * @brief Removes @p file, ignoring failure: what is left behind is a
+ * temporary or a merged pack, which collection removes later.
+ */
+void remove_quietly(const std::filesystem::path& file) noexcept {
+    std::error_code ignored;
+    std::filesystem::remove(file, ignored);
 }
 
-void write_all(int fd, const void* data, std::size_t size,
-    const std::filesystem::path& path) {
-    const auto* p = static_cast<const char*>(data);
-    while (size != 0) {
-        const auto n = ::write(fd, p, size);
-        if (n < 0) {
-            if (errno == EINTR)
-                continue;
-            fail("cannot write", path);
-        }
-        p += n;
-        size -= static_cast<std::size_t>(n);
-    }
+std::filesystem::path lock_file(const std::filesystem::path& packs_dir) {
+    std::filesystem::create_directories(packs_dir);
+    return packs_dir / "lock";
 }
 
 std::vector<std::filesystem::path> pack_paths(
@@ -205,33 +195,34 @@ pack_writer::pack_writer(std::filesystem::path packs_dir)
     : dir_(std::move(packs_dir)) {}
 
 pack_writer::~pack_writer() {
-    if (fd_ != -1) {
-        ::close(fd_);
-        ::unlink(temporary_.c_str());
+    if (file_) {
+        file_.reset();
+        remove_quietly(temporary_);
     }
 }
 
 void pack_writer::add(types::entry_kind kind, const types::blob_id& key,
     std::span<const std::byte> bytes, std::int64_t written) {
     const std::scoped_lock lock(mutex_);
-    if (fd_ == -1) {
+    if (!file_) {
         std::filesystem::create_directories(dir_);
-        for (int attempt = 0; fd_ == -1; ++attempt) {
+        for (int attempt = 0; !file_; ++attempt) {
             temporary_ = dir_ / std::format("tmp_{:016x}", random_word());
-            fd_ = ::open(temporary_.c_str(),
-                O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0644);
-            if (fd_ == -1 && (errno != EEXIST || attempt == attempts))
-                fail("cannot create", temporary_);
+            file_ = platform::filesystem::new_file::create(temporary_);
+            if (!file_ && attempt == attempts)
+                throw std::system_error(
+                    std::make_error_code(std::errc::file_exists),
+                    "cannot create " + temporary_.string());
         }
         const auto header = ops::encode_pack_header();
-        write_all(fd_, header.data(), header.size(), temporary_);
+        file_->write(std::as_bytes(std::span(header)));
         offset_ = header.size();
     }
-    static constexpr std::array<char, ops::pack_alignment> zeros{};
+    static constexpr std::array<std::byte, ops::pack_alignment> zeros{};
     const auto pad = ops::padding_for(offset_);
-    write_all(fd_, zeros.data(), pad, temporary_);
+    file_->write(std::span(zeros).first(pad));
     offset_ += pad;
-    write_all(fd_, bytes.data(), bytes.size(), temporary_);
+    file_->write(bytes);
     entries_.push_back({key, kind, offset_, bytes.size(),
         written != 0 ? written : now_ns()});
     offset_ += bytes.size();
@@ -250,25 +241,28 @@ std::size_t pack_writer::size() const {
 
 std::optional<std::filesystem::path> pack_writer::publish_only() {
     const std::scoped_lock lock(mutex_);
-    if (fd_ == -1)
+    if (!file_)
         return std::nullopt;
-    static constexpr std::array<char, ops::pack_alignment> zeros{};
+    static constexpr std::array<std::byte, ops::pack_alignment> zeros{};
     const auto pad = ops::padding_for(offset_);
-    write_all(fd_, zeros.data(), pad, temporary_);
+    file_->write(std::span(zeros).first(pad));
     const auto index = ops::encode_pack_index(entries_, offset_ + pad);
-    write_all(fd_, index.data(), index.size(), temporary_);
-    const int fd = std::exchange(fd_, -1);
-    if (::close(fd) != 0) {
-        ::unlink(temporary_.c_str());
-        fail("cannot write", temporary_);
+    file_->write(std::as_bytes(std::span(index)));
+    auto file = std::move(*file_);
+    file_.reset();
+    try {
+        file.close();
+    } catch (...) {
+        remove_quietly(temporary_);
+        throw;
     }
     const auto target = dir_ / std::format("{}{:016x}{:016x}{}", pack_prefix,
         static_cast<std::uint64_t>(now_ns()), random_word(), pack_suffix);
-    if (::rename(temporary_.c_str(), target.c_str()) != 0) {
-        const auto error = errno;
-        ::unlink(temporary_.c_str());
-        errno = error;
-        fail("cannot publish", target);
+    std::error_code error;
+    std::filesystem::rename(temporary_, target, error);
+    if (error) {
+        remove_quietly(temporary_);
+        throw std::system_error(error, "cannot publish " + target.string());
     }
     entries_.clear();
     offset_ = 0;
@@ -288,29 +282,8 @@ std::optional<std::filesystem::path> pack_writer::publish() {
     return published;
 }
 
-pack_lock::pack_lock(const std::filesystem::path& packs_dir, bool wait) {
-    std::filesystem::create_directories(packs_dir);
-    const auto path = packs_dir / "lock";
-    fd_ = ::open(path.c_str(), O_RDWR | O_CREAT | O_CLOEXEC, 0644);
-    if (fd_ == -1)
-        fail("cannot open", path);
-    while (true) {
-        if (::flock(fd_, LOCK_EX | (wait ? 0 : LOCK_NB)) == 0) {
-            held_ = true;
-            return;
-        }
-        if (errno == EINTR)
-            continue;
-        if (errno == EWOULDBLOCK && !wait)
-            return;
-        fail("cannot lock", path);
-    }
-}
-
-pack_lock::~pack_lock() {
-    if (fd_ != -1)
-        ::close(fd_);
-}
+pack_lock::pack_lock(const std::filesystem::path& packs_dir, bool wait)
+    : lock_(lock_file(packs_dir), wait) {}
 
 std::optional<std::filesystem::path> rewrite_packs(
     const std::filesystem::path& packs_dir, std::span<const open_pack> packs,
@@ -346,7 +319,7 @@ std::optional<std::filesystem::path> rewrite_packs(
             ops::bytes_of(packs[k.pack].view, k.entry), k.entry.written);
     auto published = writer.publish_only();
     for (const auto& p : packs)
-        ::unlink(p.path.c_str());
+        remove_quietly(p.path);
     return published;
 }
 

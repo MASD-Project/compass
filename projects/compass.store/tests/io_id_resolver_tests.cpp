@@ -24,8 +24,6 @@
 #include <initializer_list>
 #include <stdexcept>
 #include <string>
-#include <fcntl.h>
-#include <sys/stat.h>
 #include <catch2/catch_test_macros.hpp>
 #include "compass.store/io/git_files.hpp"
 #include "compass.store/ops/blob_hash.hpp"
@@ -50,9 +48,10 @@ void add_clean(const git_repository& repo,
 }
 
 void set_mtime(const std::filesystem::path& file, types::index_time t) {
-    const struct timespec times[2] = {{0, UTIME_OMIT},
-        {static_cast<time_t>(t.sec), static_cast<long>(t.nsec)}};
-    REQUIRE(::utimensat(AT_FDCWD, file.c_str(), times, 0) == 0);
+    using namespace std::chrono;
+    const sys_time<nanoseconds> at{seconds(t.sec) + nanoseconds(t.nsec)};
+    std::filesystem::last_write_time(file,
+        clock_cast<std::filesystem::file_time_type::clock>(at));
 }
 
 io::id_source source_of(const io::id_resolver& r, const std::string& path) {

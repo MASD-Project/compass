@@ -29,7 +29,9 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include "compass.platform/filesystem/file_lock.hpp"
 #include "compass.platform/filesystem/mapped_file.hpp"
+#include "compass.platform/filesystem/new_file.hpp"
 #include "compass.store/ops/pack.hpp"
 #include "compass.store/types/pack.hpp"
 
@@ -150,16 +152,16 @@ public:
 private:
     std::filesystem::path dir_;
     std::filesystem::path temporary_;
-    int fd_ = -1;
+    std::optional<platform::filesystem::new_file> file_;
     std::uint64_t offset_ = 0;
     std::vector<types::pack_entry> entries_;
     mutable std::mutex mutex_;
 };
 
 /**
- * @brief An exclusive hold on the lock file of a packs directory, taken
- * with flock(2) so the kernel releases it when its holder dies. Repacking
- * and collection take it; writing and reading never do.
+ * @brief An exclusive hold on the lock file of a packs directory, which
+ * the system releases when its holder dies. Repacking and collection take
+ * it; writing and reading never do.
  */
 class pack_lock final {
 public:
@@ -168,16 +170,11 @@ public:
      * else giving up at once when another process holds it.
      */
     pack_lock(const std::filesystem::path& packs_dir, bool wait);
-    ~pack_lock();
 
-    pack_lock(const pack_lock&) = delete;
-    pack_lock& operator=(const pack_lock&) = delete;
-
-    [[nodiscard]] bool held() const noexcept { return held_; }
+    [[nodiscard]] bool held() const noexcept { return lock_.held(); }
 
 private:
-    int fd_ = -1;
-    bool held_ = false;
+    platform::filesystem::file_lock lock_;
 };
 
 /**

@@ -21,12 +21,14 @@
 #define COMPASS_STORE_TESTS_GIT_REPOSITORY_HPP
 
 #include <chrono>
-#include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <catch2/catch_test_macros.hpp>
+#include "compass.platform/process/environment.hpp"
+#include "compass.platform/process/run_program.hpp"
 #include "scoped_directory.hpp"
 
 namespace compass::store::tests {
@@ -40,9 +42,11 @@ public:
     git_repository() {
         const auto home = dir_.root() / "home";
         std::filesystem::create_directories(home);
-        ::setenv("HOME", home.c_str(), 1);
-        ::setenv("XDG_CONFIG_HOME", (home / ".config").c_str(), 1);
-        ::setenv("GIT_CONFIG_NOSYSTEM", "1", 1);
+        using platform::process::set_environment_variable;
+        set_environment_variable("HOME", home.string());
+        set_environment_variable("XDG_CONFIG_HOME",
+            (home / ".config").string());
+        set_environment_variable("GIT_CONFIG_NOSYSTEM", "1");
         std::filesystem::create_directories(root());
         git("init -q");
     }
@@ -74,13 +78,9 @@ public:
         const auto line = "git -C '" + root().string() +
             "' -c user.name=t -c user.email=t@example.org"
             " -c commit.gpgsign=false " + command + " 2>/dev/null";
-        FILE* pipe = ::popen(line.c_str(), "r");
-        REQUIRE(pipe != nullptr);
-        std::string out;
-        char buffer[4096];
-        for (std::size_t n; (n = std::fread(buffer, 1, sizeof buffer, pipe)) > 0;)
-            out.append(buffer, n);
-        last_status_ = ::pclose(pipe);
+        auto r = platform::process::run_program({{"sh", "-c", line}, {}, {}});
+        auto out = std::move(r.output);
+        last_status_ = r.exit_code;
         while (!out.empty() && out.back() == '\n')
             out.pop_back();
         return out;

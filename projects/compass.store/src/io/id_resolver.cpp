@@ -24,8 +24,9 @@
 #include <fstream>
 #include <iterator>
 #include <set>
-#include <time.h>
 #include <unordered_set>
+#include "compass.platform/filesystem/file_status.hpp"
+#include "compass.platform/process/environment.hpp"
 #include "compass.store/io/git_files.hpp"
 #include "compass.store/io/location.hpp"
 #include "compass.store/io/object_file.hpp"
@@ -52,10 +53,8 @@ std::optional<std::string> read_text(const std::filesystem::path& file) {
  * modification time no earlier than the answer.
  */
 types::index_time now() noexcept {
-    struct timespec t{};
-    ::clock_gettime(CLOCK_REALTIME_COARSE, &t);
-    return {static_cast<std::uint32_t>(t.tv_sec),
-        static_cast<std::uint32_t>(t.tv_nsec)};
+    const auto t = platform::filesystem::file_clock_now();
+    return {static_cast<std::uint32_t>(t.seconds), t.nanoseconds};
 }
 
 std::filesystem::path environment(const char* name) {
@@ -70,7 +69,7 @@ std::filesystem::path environment(const char* name) {
 std::filesystem::path expand(std::string_view named,
     const std::filesystem::path& directory) {
     if (named.starts_with("~/"))
-        return environment("HOME") / named.substr(2);
+        return platform::process::home_directory() / named.substr(2);
     const std::filesystem::path p(named);
     return p.is_absolute() ? p : directory / p;
 }
@@ -79,7 +78,7 @@ std::filesystem::path xdg_git_dir() {
     const auto xdg = environment("XDG_CONFIG_HOME");
     if (!xdg.empty())
         return xdg / "git";
-    const auto home = environment("HOME");
+    const auto home = platform::process::home_directory();
     return home.empty() ? home : home / ".config" / "git";
 }
 
@@ -113,7 +112,8 @@ types::git_config read_config(const std::filesystem::path& git_dir,
         files.emplace_back("/etc/gitconfig");
     if (const auto xdg = xdg_git_dir(); !xdg.empty())
         files.push_back(xdg / "config");
-    if (const auto home = environment("HOME"); !home.empty())
+    if (const auto home = platform::process::home_directory();
+        !home.empty())
         files.push_back(home / ".gitconfig");
     files.push_back(common_dir / "config");
     files.push_back(git_dir / "config.worktree");
