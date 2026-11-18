@@ -1,0 +1,26 @@
+tangle: generator wrote 171, compass emitted 171, identical 171, different 0, missing 0; plants 171, rewritten by the generator 171, drift 171, agreeing 171; probed 0; clean drift 0
+shell_recipe_library: generator wrote 5065, compass emitted 5065, identical 5065, different 0, missing 0; plants 5065, rewritten by the generator 5065, drift 5065, agreeing 5065; probed 0; clean drift 0
+http_recipe_library: generator wrote 414, compass emitted 414, identical 414, different 0, missing 0; plants 414, rewritten by the generator 414, drift 414, agreeing 414; probed 0; clean drift 0
+component_files: generator wrote 204, compass emitted 204, identical 204, different 0, missing 0; plants 204, rewritten by the generator 204, drift 204, agreeing 204; probed 131; clean drift 0
+skill_catalogue: generator wrote 1, compass emitted 1, identical 1, different 0, missing 0; plants 1, rewritten by the generator 1, drift 1, agreeing 1; probed 76; clean drift 0
+skill_type_tables: generator wrote 2, compass emitted 2, identical 2, different 0, missing 0; plants 2, rewritten by the generator 2, drift 2, agreeing 2; probed 0; clean drift 0
+skill_levels: generator wrote 1, compass emitted 1, identical 1, different 0, missing 0; plants 1, rewritten by the generator 1, drift 1, agreeing 1; probed 76; clean drift 0
+recipe_inventories: generator wrote 2, compass emitted 2, identical 2, different 0, missing 0; plants 2, rewritten by the generator 2, drift 2, agreeing 2; probed 635; clean drift 0
+backlog_indexes: generator wrote 4, compass emitted 4, identical 4, different 0, missing 0; plants 4, rewritten by the generator 4, drift 4, agreeing 4; probed 1415; clean drift 0
+physical_inventory: generator wrote 54, compass emitted 54, identical 54, different 0, missing 0; plants 54, rewritten by the generator 54, drift 54, agreeing 54; probed 172; clean drift 0
+pending_models: generator wrote 4, compass emitted 4, identical 4, different 0, missing 0; plants 4, rewritten by the generator 4, drift 4, agreeing 4; probed 726; clean drift 0
+trade_type_coverage: generator wrote 1, compass emitted 1, identical 1, different 0, missing 0; plants 1, rewritten by the generator 1, drift 1, agreeing 1; probed 45; clean drift 0
+route_inventory: generator wrote 1, compass emitted 1, identical 1, different 0, missing 0; plants 1, rewritten by the generator 1, drift 1, agreeing 1; probed 1800; clean drift 0
+ore_renderings_tables: generator wrote 1, compass emitted 1, identical 1, different 0, missing 0; plants 1, rewritten by the generator 1, drift 1, agreeing 1; probed 0; clean drift 0
+script_library_seed: generator wrote 1, compass emitted 1, identical 1, different 0, missing 0; plants 1, rewritten by the generator 1, drift 1, agreeing 1; probed 0; clean drift 0
+curve_sections_wiring: generator wrote 7, compass emitted 7, identical 7, different 0, missing 0; plants 7, rewritten by the generator 7, drift 7, agreeing 7; probed 25; clean drift 0
+ore_output_catalogue: generator wrote 3, compass emitted 3, identical 3, different 0, missing 0; plants 3, rewritten by the generator 3, drift 3, agreeing 3; probed 1; clean drift 0
+er_diagram: generator wrote 22, compass emitted 22, identical 22, different 0, missing 0; plants 22, rewritten by the generator 22, drift 22, agreeing 22; probed 3403; clean drift 0
+conventions_dataset: generator wrote 1, compass emitted 1, identical 1, different 0, missing 0; plants 1, rewritten by the generator 1, drift 1, agreeing 1; probed 1; clean drift 0
+ore_value_sets: generator wrote 6, compass emitted 6, identical 6, different 0, missing 0; plants 6, rewritten by the generator 6, drift 6, agreeing 6; probed 87; clean drift 0
+codegen: drift 0
+
+real	5m38.977s
+user	5m26.470s
+sys	1m24.742s
+exit 0
