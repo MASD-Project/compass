@@ -47,6 +47,7 @@ A person or a CI job installs a named compass release with one command, without 
 | [[id:C83C8A4A-1924-4145-82D2-FD30DEECEC87][Build and package compass as ORE Studio does]] | STARTED | 2026-11-18 | | Port ORE Studio's CI to compass: the CTest dashboard script submitting to CDash, CPack packages, continuous Linux builds and nightly Linux, macOS and Windows builds that attach their packages to a tagged release. |
 | [[id:88BBB6AA-BC95-4C95-AFBF-B8CCE22EFB88][Show build status badges in the readme]] | DONE | 2026-11-18 | 2026-11-18 | Put ORE Studio's badge block at the top of readme.org, adapted to compass, so a reader sees which workflows are red, the CDash dashboard, the latest release and the project's activity. |
 | [[id:D2B95893-E950-4542-8490-949429A95033][Turn warnings into errors on every build]] | BACKLOG | | | Once the Linux, macOS and Windows builds on CDash have shown no warnings for several days, set COMPASS_WARNINGS_AS_ERRORS on by default so a new warning fails the build everywhere. |
+| [[id:CBCD81E9-C210-4150-A201-54CE1434A9A7][Clean up the tests' temporary directories]] | BACKLOG | | | Give compass one scoped temporary directory in a compass.testing component, as ORE Studio has ores.testing, so a fixture that throws in its constructor or a test process that is killed leaves nothing in /tmp. |
 
 * Decisions
 
