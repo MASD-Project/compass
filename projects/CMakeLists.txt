@@ -91,6 +91,22 @@ else()
     set(COMPASS_TEST_FILTER "")
 endif()
 
+# Each Catch2 test case is registered as its own CTest test, named
+# <suite>.<test case>, so CDash reports every case's result and time rather than
+# one entry per suite. Discovery runs at test time, so building never runs a
+# test binary.
+include(Catch)
+function(compass_add_catch2_tests suite target)
+    if(COMPASS_TEST_FILTER)
+        set(spec TEST_SPEC ${COMPASS_TEST_FILTER})
+    endif()
+    catch_discover_tests(${target}
+        ${spec}
+        TEST_PREFIX "${suite}."
+        WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+        DISCOVERY_MODE PRE_TEST)
+endfunction()
+
 # Components are added by name, in dependency order. compass.legacy and
 # modeling are not C++ components and are never added here.
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/compass.platform)
