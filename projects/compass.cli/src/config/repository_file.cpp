@@ -18,6 +18,7 @@
  *
  */
 #include "compass.cli/config/repository_file.hpp"
+#include "compass.cli/config/org_reader.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -42,34 +43,10 @@ using compass::org::ops::trimmed;
 using failure = std::unexpected<std::string>;
 
 /**
- * @brief @p cell without the = or ~ that mark it verbatim in org.
- */
-std::string_view verbatim(std::string_view cell) {
-    for (const char mark : {'=', '~'})
-        if (cell.size() >= 2 && cell.front() == mark && cell.back() == mark)
-            return cell.substr(1, cell.size() - 2);
-    return cell;
-}
-
-std::uint32_t line_of(std::string_view text, std::uint32_t offset) {
-    return static_cast<std::uint32_t>(
-        1 + std::ranges::count(text.substr(0, offset), '\n'));
-}
-
-std::string_view trim(std::string_view s) {
-    const auto first = s.find_first_not_of(" \t\r\n");
-    if (first == std::string_view::npos)
-        return {};
-    return s.substr(first, s.find_last_not_of(" \t\r\n") + 1 - first);
-}
-
-/**
  * @brief Reads the document after parsing: knows the text, the tables
  * and the label errors start with.
  */
-struct reader {
-    std::string_view text;
-    ot::tables_view t;
+struct reader : org_reader {
     std::string_view label;
 
     [[nodiscard]] failure error(std::uint32_t offset,
@@ -91,72 +68,6 @@ struct reader {
                             "checkout", key));
         return types::sourced_path{std::string(value.of(text)),
             {types::origin_kind::file, line_of(text, begin)}};
-    }
-
-    /**
-     * @brief The first table under the level-1 heading @p title, or none.
-     */
-    [[nodiscard]] ot::element_id table_under(std::string_view title) const {
-        for (std::uint32_t h = 0; h < t.headings.size(); ++h) {
-            const ot::heading_id id{h};
-            if (t.headings.levels[id] != 1 ||
-                trimmed(text, t.headings.titles[id]).of(text) != title)
-                continue;
-            const auto heading = t.headings.elements[id];
-            for (auto e = heading.next();
-                 e.value < t.elements.subtree_ends[heading].value;
-                 e = e.next()) {
-                if (t.elements.kinds[e] == ot::element_kind::table)
-                    return e;
-            }
-        }
-        return ot::element_id::none();
-    }
-
-    /**
-     * @brief The text of each cell of @p row, trimmed, without its bar.
-     */
-    [[nodiscard]] std::vector<std::string_view> cells(ot::element_id row) const {
-        const auto first = t.elements.object_firsts[row].value;
-        const auto end = row.next().value < t.elements.size()
-            ? t.elements.object_firsts[row.next()].value
-            : static_cast<std::uint32_t>(t.objects.size());
-        std::vector<std::string_view> r;
-        for (auto o = first; o < end;) {
-            const ot::object_id id{o};
-            if (t.objects.kinds[id] != ot::object_kind::table_cell) {
-                ++o;
-                continue;
-            }
-            auto cell = trim(t.objects.ranges[id].of(text));
-            if (cell.ends_with('|'))
-                cell.remove_suffix(1);
-            r.push_back(trim(cell));
-            o = t.objects.subtree_ends[id].value;
-        }
-        return r;
-    }
-
-    /**
-     * @brief The rows of @p table but a first row whose first cell is
-     * @p header, in order.
-     */
-    [[nodiscard]] std::vector<ot::element_id> rows(ot::element_id table,
-        std::string_view header) const {
-        std::vector<ot::element_id> out;
-        bool first = true;
-        for (auto row = table.next();
-             row.value < t.elements.subtree_ends[table].value;
-             row = t.elements.subtree_ends[row]) {
-            if (t.elements.kinds[row] != ot::element_kind::table_row)
-                continue;
-            const auto c = cells(row);
-            const auto is_header = first && !c.empty() && c[0] == header;
-            first = false;
-            if (!is_header)
-                out.push_back(row);
-        }
-        return out;
     }
 
     void exception_row(ot::element_id row,
@@ -228,7 +139,7 @@ std::expected<types::layer, std::string> parse_repository_file(
     std::string_view text, std::string_view label) {
     ot::tables tables;
     ingest::org::parse(text, tables);
-    const reader r{text, ot::view(tables), label};
+    const reader r{{text, ot::view(tables)}, label};
 
     types::layer out;
     auto output = r.path("output");
