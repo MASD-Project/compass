@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :publish_installable_binaries:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/clean-up-test-temporary-directories
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -27,11 +27,11 @@ pass, fail, throw or are killed.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED |
 | Parent story | [[id:EB6AF798-D472-4CC2-B97C-FC2BD9FD1FDE][Publish installable binaries]] |
-| Now          | Not yet started.                       |
-| Waiting on   | Port compass to Windows, which rewrites the same fixtures. |
-| Next         | Start when the Windows port merges. |
+| Now          | Adding compass.testing and moving the fixtures onto it. |
+| Waiting on   | Nothing. |
+| Next         | Prove a failing git leaves nothing behind. |
 | Last touched | 2026-11-18                               |
 
 * Acceptance
