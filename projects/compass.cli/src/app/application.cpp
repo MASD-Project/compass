@@ -30,7 +30,9 @@
 #include "compass.cli/app/pipeline.hpp"
 #include "compass.cli/config/arguments.hpp"
 #include "compass.cli/config/precedence.hpp"
+#include "compass.cli/config/check_documents.hpp"
 #include "compass.cli/config/repository_file.hpp"
+#include "compass.codec/ops/exceptions.hpp"
 #include "compass.cli/io/hook_payload.hpp"
 #include "compass.cli/io/listing.hpp"
 #include "compass.cli/io/report.hpp"
@@ -135,6 +137,21 @@ std::expected<types::options, std::vector<std::string>> options_of(
     c.warnings = std::move(warnings);
     if (!c.problems.empty())
         return std::unexpected(c.problems);
+    auto checks = commit
+        ? config::read_check_documents(store::io::git_objects(
+              store::io::git_objects_dir(
+                  store::io::git_common_dir(i.checkout))), *commit)
+        : config::read_check_documents(i.checkout);
+    if (commit && checks && checks->checks.empty()) {
+        checks = config::read_check_documents(i.checkout);
+        if (checks && !checks->checks.empty())
+            c.warnings.push_back("the commit " + i.revision + " has no "
+                "check documents; using the working tree's");
+    }
+    if (!checks)
+        return std::unexpected(std::vector<std::string>{checks.error()});
+    auto exceptions = file->exceptions;
+    codec::ops::append(exceptions, std::move(checks->exceptions));
     return types::options{.which = i.which,
         .checkout = i.checkout,
         .commit = commit,
@@ -145,7 +162,9 @@ std::expected<types::options, std::vector<std::string>> options_of(
             std::chrono::floor<std::chrono::days>(
                 std::chrono::system_clock::now())}),
         .settings = config::settings_of(c),
-        .exceptions = file->exceptions,
+        .exceptions = std::move(exceptions),
+        .checks = std::make_shared<const config::check_set>(
+            std::move(*checks)),
         .collection = i.collection,
         .all_findings = i.all_findings};
 }

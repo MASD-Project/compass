@@ -158,7 +158,12 @@ void list_files(pipeline& p, const types::options& o,
         }
         list(p.listed, o.checkout);
     });
-    p.codecs = codec::ops::make_registry(codecs(), p.types, o.settings);
+    std::vector<codec::types::descriptor> all(codecs().begin(),
+        codecs().end());
+    if (o.checks)
+        for (const auto& c : o.checks->checks)
+            all.push_back(c->codec);
+    p.codecs = codec::ops::make_registry(all, p.types, o.settings);
     p.summary.problems = p.codecs.problems;
 }
 

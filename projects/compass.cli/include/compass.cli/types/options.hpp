@@ -23,8 +23,10 @@
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <string>
+#include "compass.cli/config/check_documents.hpp"
 #include "compass.cli/types/configuration.hpp"
 #include "compass.codec/types/configuration.hpp"
 #include "compass.codec/types/exception.hpp"
@@ -79,6 +81,10 @@ struct invocation {
  * configuration file in effect states, applied with the exception
  * comments of the files. all_findings makes hook report every finding on
  * the edited file, not only those the last check did not record.
+ * checks are the checks the project's check documents define, at the
+ * commit, or in the checkout when there is no commit or it has none, so
+ * today's checks can judge an old commit; their exceptions are among
+ * exceptions.
  */
 struct options {
     command which = command::generate;
@@ -90,6 +96,7 @@ struct options {
     std::chrono::year_month_day today;
     codec::types::configuration settings;
     codec::types::exception_set exceptions;
+    std::shared_ptr<const config::check_set> checks;
     store::types::collection_options collection;
     bool all_findings = false;
 };

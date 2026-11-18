@@ -104,7 +104,9 @@ compass/                      committed; published with the site
 
 A check's definition sits in property drawers: the =* Definition= heading
 carries the settings every rule shares, and each rule is a subheading
-whose drawer holds that rule's parameters. A drawer puts one key on one
+whose drawer holds that rule's parameters. The drawer sits on the line
+right under its heading, because org reads a property drawer nowhere
+else, and the heading's prose follows it. A drawer puts one key on one
 line, so a finding about a broken definition points at that line, and a
 review diff shows the key that changed. compass's org parser already
 keeps every property with its source range
@@ -440,10 +442,6 @@ One heading per codec whose settings differ from compass's defaults, or
 that has exceptions. The drawer is what compass reads; the prose is why.
 
 ,** codegen
-
-The generator reads ORE Studio's template library and formats what it
-writes with the project's own formatters.
-
 :PROPERTIES:
 :LIBRARY: projects/ores.codegen/library
 :YEAR: 2026
@@ -452,37 +450,36 @@ writes with the project's own formatters.
 :PRETTIER_STYLE: .prettierrc.yaml
 :END:
 
+The generator reads ORE Studio's template library and formats what it
+writes with the project's own formatters.
+
 The formatter executables are a machine's, so they live in =local.org=.
 
 ,** tangle
-
 :PROPERTIES:
 :DIRECTORY: projects/ores.codegen/library/templates
 :END:
 
 ,** tangle_check
-
 :PROPERTIES:
 :DIRECTORY: projects/ores.codegen/library/templates
 :END:
 
 ,** component_files
-
 :PROPERTIES:
 :YEAR: 2026
 :END:
 
 ,** translation_unit_budget
-
-These four translation units compile the convention families, and each
-family adds to their size. The ceilings stop a family landing in a file
-that is already at its budget.
-
 :PROPERTIES:
 :REGISTRY: projects/ores.refdata/api/include/ores.refdata.api/domain/convention_family_registry.hpp
 :SCOPES: projects/ores.refdata/core/src projects/ores.refdata/core/include projects/ores.ore/core/src projects/ores.ore/core/include projects/ores.ore/service/src
 :CEILINGS: projects/ores.ore/core/src/domain/conventions_family_tenor_basis_swap.cpp=3 projects/ores.ore/core/src/domain/conventions_family_commodity_future.cpp=6 projects/ores.ore/core/src/domain/conventions_family_cross_currency_basis.cpp=4 projects/ores.ore/core/src/domain/conventions_family_cross_currency_fix_float.cpp=4
 :END:
+
+These four translation units compile the convention families, and each
+family adds to their size. The ceilings stop a family landing in a file
+that is already at its budget.
 
 ,** model_rules
 
@@ -593,19 +590,15 @@ The stop types were the first of these. They were a codec of their own,
   check enforces.
 
 ,* Definition
-
-The settings every rule below inherits.
-
 :PROPERTIES:
 :ENGINE: forbid
 :FILES: projects/**/*.{cpp,cc,cxx,hpp,h,hxx,ipp,inc}
 :OUTSIDE: projects/ores.platform/**
 :END:
 
+The settings every rule below inherits.
+
 ,** stop_types
-
-Apple's libc++ has no C++20 stop types.
-
 :PROPERTIES:
 :CPP_NAME: std::jthread std::stop_token std::stop_source std::stop_callback
 :CPP_INCLUDE: <stop_token>
@@ -613,35 +606,34 @@ Apple's libc++ has no C++20 stop types.
 :FIX: use the same name in ores::platform::concurrency from stoppable_thread.hpp
 :END:
 
+Apple's libc++ has no C++20 stop types.
+
 ,** posix_headers
-
-MSVC has no POSIX headers.
-
 :PROPERTIES:
 :CPP_INCLUDE: <unistd.h> <sys/time.h> <dirent.h>
 :MESSAGE: {match} is a POSIX header, which MSVC lacks
 :FIX: use the facility ores.platform gives for it
 :END:
 
+MSVC has no POSIX headers.
+
 ,** deprecated_c_calls
-
-MSVC deprecates these calls, and the build treats its warnings as errors.
-
 :PROPERTIES:
 :CPP_NAME: getenv sscanf
 :MESSAGE: {match} is deprecated under MSVC
 :FIX: use ores::platform::environment for getenv, and std::from_chars for sscanf
 :END:
 
+MSVC deprecates these calls, and the build treats its warnings as errors.
+
 ,** atomic_shared_ptr
-
-Apple's libc++ has no =std::atomic<std::shared_ptr>=.
-
 :PROPERTIES:
 :CPP_TEXT: \batomic\s*<\s*(std\s*::\s*)?shared_ptr\b
 :MESSAGE: std::atomic<std::shared_ptr> is not portable: Apple's libc++ lacks it
 :FIX: guard the pointer with a mutex, or use std::atomic_load on a plain shared_ptr
 :END:
+
+Apple's libc++ has no =std::atomic<std::shared_ptr>=.
 
 ,* Examples
 
@@ -718,13 +710,11 @@ This check was the =handler_permissions= codec of compass, with these
 components and this script as its built-in defaults.
 
 ,* Definition
-
 :PROPERTIES:
 :ENGINE: resolve
 :END:
 
 ,** unseeded_permission
-
 :PROPERTIES:
 :USES: projects/ores.{refdata,analytics,compute,assets,storage,reporting,dq,trading,marketdata,inbox}/**/messaging/*_handler.{hpp,cpp}
 :USE_TEXT: has_permission\(\s*[^,]+,\s*"([^"]+)"(\s*\+)?

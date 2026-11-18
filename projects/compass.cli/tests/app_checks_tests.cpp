@@ -1,0 +1,186 @@
+/* -*- mode: c++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+#include <regex>
+#include <sstream>
+#include <string>
+#include <string_view>
+#include <vector>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_string.hpp>
+#include "compass.cli/app/application.hpp"
+#include "scoped_git_repo.hpp"
+
+namespace {
+
+using namespace compass::cli;
+using tests::scoped_git_repo;
+using Catch::Matchers::ContainsSubstring;
+
+constexpr std::string_view configuration =
+    "#+output: out\n\n* Codecs\n\n"
+    "| name | enabled | options |\n"
+    "| document_index | no | |\n"
+    "| required_sections | no | |\n";
+
+std::string check_document(std::string_view exceptions = {}) {
+    return "#+title: Check: portable C++\n\n"
+        "* Definition\n"
+        ":PROPERTIES:\n"
+        ":ENGINE: forbid\n"
+        ":FILES: src/**/*.cpp\n"
+        ":OUTSIDE: src/platform/**\n"
+        ":END:\n\n"
+        "** atomic_shared_ptr\n"
+        ":PROPERTIES:\n"
+        ":CPP_TEXT: \\batomic\\s*<\\s*(std\\s*::\\s*)?shared_ptr\\b\n"
+        ":MESSAGE: std::atomic<std::shared_ptr> is not portable\n"
+        ":END:\n\n"
+        "Apple's libc++ lacks it.\n\n"
+        "* Exceptions\n\n"
+        "| path | line | rule | expires | approver | reason |\n" +
+        std::string(exceptions);
+}
+
+constexpr std::string_view violation =
+    "std::atomic<std::shared_ptr<int>> current;\n";
+
+void commit_all(const scoped_git_repo& repo) {
+    repo.git("add -A");
+    repo.git("-c user.name=t -c user.email=t@example.org "
+             "-c commit.gpgsign=false commit -q -m c");
+}
+
+struct outcome {
+    int status = -1;
+    std::string out;
+    std::string err;
+
+    [[nodiscard]] std::vector<std::string> findings() const {
+        static const std::regex finding(
+            "^([^: ]+:[0-9]+):[0-9]+: ([^: ]+): .*");
+        std::vector<std::string> lines;
+        std::istringstream in(out);
+        std::smatch m;
+        for (std::string line; std::getline(in, line);) {
+            if (std::regex_match(line, m, finding))
+                lines.push_back(m[1].str() + ":" + m[2].str());
+        }
+        return lines;
+    }
+};
+
+outcome check(const scoped_git_repo& repo,
+    std::vector<std::string> extra = {}) {
+    std::vector<std::string> args{"check", "-C",
+        repo.checkout().generic_string(), "-j", "2", "--today",
+        "2026-11-18"};
+    args.insert(args.end(), extra.begin(), extra.end());
+    const std::vector<std::string_view> views(args.begin(), args.end());
+    std::istringstream in;
+    std::ostringstream out;
+    std::ostringstream err;
+    const auto status = app::run(views, "/", in, out, err);
+    return {status, out.str(), err.str()};
+}
+
+void write_checkout(const scoped_git_repo& repo) {
+    repo.write(".compass.org", configuration);
+    repo.write("compass/checks/portable_cpp.org", check_document());
+    repo.write("src/core/cache.cpp", std::string("int a;\n") +
+        std::string(violation));
+    repo.write("src/platform/atomic.cpp", violation);
+}
+
+}
+
+TEST_CASE("a check document runs as a codec over the files it covers",
+    "[app][checks]") {
+    scoped_git_repo repo;
+    write_checkout(repo);
+
+    const auto r = check(repo);
+    CHECK(r.status == 1);
+    CHECK(r.findings() == std::vector<std::string>{
+        "src/core/cache.cpp:2:portable_cpp/atomic_shared_ptr"});
+}
+
+TEST_CASE("an exception in the check's own table excuses its finding",
+    "[app][checks]") {
+    scoped_git_repo repo;
+    write_checkout(repo);
+    repo.write("compass/checks/portable_cpp.org", check_document(
+        "| src/core/cache.cpp | 2 | atomic_shared_ptr | 2027-01-31 | marco "
+        "| guarded by a mutex until the platform wrapper lands |\n"));
+
+    const auto r = check(repo);
+    CHECK(r.status == 0);
+    CHECK_THAT(r.out, ContainsSubstring("1 excused by exception"));
+}
+
+TEST_CASE("editing a check's prose runs nothing again; editing its "
+    "definition runs it again", "[app][checks]") {
+    scoped_git_repo repo;
+    write_checkout(repo);
+    CHECK(check(repo).status == 1);
+
+    auto prose = check_document();
+    prose.replace(prose.find("lacks it."), 9, "has none.");
+    repo.write("compass/checks/portable_cpp.org", prose);
+    const auto unchanged = check(repo);
+    CHECK(unchanged.findings().size() == 1);
+    CHECK_THAT(unchanged.out, ContainsSubstring(" portable_cpp 0"));
+
+    auto definition = prose;
+    definition.replace(definition.find(":OUTSIDE: src/platform/**"), 25,
+        ":OUTSIDE: src/none/**");
+    repo.write("compass/checks/portable_cpp.org", definition);
+    const auto changed = check(repo);
+    CHECK(changed.findings().size() == 2);
+    CHECK_THAT(changed.out, ContainsSubstring(" portable_cpp 1"));
+}
+
+TEST_CASE("check of a commit with no check documents uses the working "
+    "tree's", "[app][checks]") {
+    scoped_git_repo repo;
+    repo.write(".compass.org", configuration);
+    repo.write("src/core/cache.cpp", violation);
+    commit_all(repo);
+    repo.write("compass/checks/portable_cpp.org", check_document());
+
+    const auto r = check(repo, {"--commit", "HEAD"});
+    CHECK(r.findings() == std::vector<std::string>{
+        "src/core/cache.cpp:1:portable_cpp/atomic_shared_ptr"});
+    CHECK_THAT(r.err, ContainsSubstring("has no check documents; using the "
+        "working tree's"));
+}
+
+TEST_CASE("a check document that cannot run fails the command and says "
+    "why", "[app][checks]") {
+    scoped_git_repo repo;
+    write_checkout(repo);
+    auto broken = check_document();
+    broken.replace(broken.find(":ENGINE: forbid"), 15, ":ENGINE: limit");
+    repo.write("compass/checks/portable_cpp.org", broken);
+
+    const auto r = check(repo);
+    CHECK(r.status == 2);
+    CHECK_THAT(r.err, ContainsSubstring("compass/checks/portable_cpp.org:5: "
+        "the engine is 'limit'"));
+}
