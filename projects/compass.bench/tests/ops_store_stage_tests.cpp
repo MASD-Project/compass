@@ -27,7 +27,6 @@
 #include <sstream>
 #include <string>
 #include <string_view>
-#include <unistd.h>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 #include "compass.bench/io/report.hpp"
@@ -36,6 +35,8 @@
 #include "compass.org/io/dump.hpp"
 #include "compass.org/io/object.hpp"
 #include "compass.platform/filesystem/mapped_file.hpp"
+#include "compass.platform/process/environment.hpp"
+#include "compass.platform/process/run_program.hpp"
 #include "compass.store/io/pack_store.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 
@@ -49,8 +50,10 @@ public:
     scoped_git_repo() {
         static int counter = 0;
         root_ = std::filesystem::temp_directory_path() /
-            ("compass.bench.store.tests." + std::to_string(::getpid()) + "." +
-                std::to_string(counter++));
+            ("compass.bench.store.tests." +
+                std::to_string(
+                    compass::platform::process::current_process_id()) +
+                "." + std::to_string(counter++));
         std::filesystem::create_directories(root_ / "checkout");
     }
     ~scoped_git_repo() { std::filesystem::remove_all(root_); }
@@ -65,9 +68,10 @@ public:
     }
 
     void track_all() {
-        const auto command = "git -C '" + checkout().string() +
-            "' init -q && git -C '" + checkout().string() + "' add -A";
-        REQUIRE(std::system(command.c_str()) == 0);
+        const auto command = "git -C '" + checkout().generic_string() +
+            "' init -q && git -C '" + checkout().generic_string() + "' add -A";
+        REQUIRE(compass::platform::process::run_program(
+            {{"sh", "-c", command}, {}, {}}).exit_code == 0);
     }
 
     types::file_table list() const {

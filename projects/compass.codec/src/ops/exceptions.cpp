@@ -27,6 +27,7 @@
 #include <iterator>
 #include <optional>
 #include <ranges>
+#include <system_error>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
@@ -299,7 +300,7 @@ void add_exception_row(ct::exception_set& out, std::string_view written_in,
     const std::filesystem::path normal =
         std::filesystem::path(written_path).lexically_normal();
     const auto path = normal.generic_string();
-    if (normal.is_absolute() || path == ".." || path.starts_with("../"))
+    if (normal.has_root_path() || path == ".." || path.starts_with("../"))
         return malformed(std::format("{} is not a path inside the checkout",
             written_path));
 

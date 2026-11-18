@@ -19,6 +19,8 @@
  */
 #include "compass.crosscheck/ops/python_literals.hpp"
 
+#include <functional>
+
 #include "compass.cpp/ops/text.hpp"
 
 namespace compass::crosscheck::ops {

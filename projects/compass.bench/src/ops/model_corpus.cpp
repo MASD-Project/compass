@@ -20,6 +20,7 @@
 #include "compass.bench/ops/model_corpus.hpp"
 
 #include <optional>
+#include <system_error>
 #include "compass.ingest/org/parser.hpp"
 
 namespace compass::bench::ops {

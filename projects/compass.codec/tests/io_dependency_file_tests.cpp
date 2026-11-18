@@ -26,14 +26,14 @@
 #include <iterator>
 #include <string>
 #include <vector>
-#include <sys/stat.h>
-#include <unistd.h>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 #include "compass.codec/codecs/catalogue.hpp"
 #include "compass.codec/ops/dependencies.hpp"
 #include "compass.codec/ops/registry.hpp"
 #include "compass.codec/ops/run.hpp"
+#include "compass.platform/filesystem/file_status.hpp"
+#include "compass.platform/process/environment.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 #include "test_corpus.hpp"
 
@@ -52,8 +52,10 @@ public:
     scoped_directory() {
         static int counter = 0;
         root_ = std::filesystem::temp_directory_path() /
-            ("compass.codec.tests." + std::to_string(::getpid()) + "." +
-                std::to_string(counter++));
+            ("compass.codec.tests." +
+                std::to_string(
+                    compass::platform::process::current_process_id()) +
+                "." + std::to_string(counter++));
         std::filesystem::create_directories(root_);
     }
     ~scoped_directory() { std::filesystem::remove_all(root_); }
@@ -76,10 +78,10 @@ void write(const std::filesystem::path& p, const std::string& bytes) {
     os << bytes;
 }
 
-ino_t inode_of(const std::filesystem::path& p) {
-    struct stat st {};
-    REQUIRE(::stat(p.c_str(), &st) == 0);
-    return st.st_ino;
+std::uint64_t inode_of(const std::filesystem::path& p) {
+    const auto st = compass::platform::filesystem::regular_file_status(p);
+    REQUIRE(st);
+    return st->inode;
 }
 
 void fill(tests::test_corpus& t) {

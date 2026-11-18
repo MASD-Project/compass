@@ -260,7 +260,9 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
             if (route) {
                 std::string method(route->group(1));
                 std::ranges::transform(method, method.begin(),
-                    [](unsigned char ch) { return std::toupper(ch); });
+                    [](unsigned char ch) {
+                        return static_cast<char>(std::toupper(ch));
+                    });
                 where = method + " " + std::string(route->group(2));
             }
             ops::report(out, path, static_cast<std::uint32_t>(m.start()), 0,

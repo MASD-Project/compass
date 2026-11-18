@@ -92,9 +92,11 @@ private:
         }
         if (a_lo == a_hi || b_lo == b_hi) {
             std::fill(deleted_.begin() + static_cast<std::ptrdiff_t>(a_lo),
-                deleted_.begin() + static_cast<std::ptrdiff_t>(a_hi), 1);
+                deleted_.begin() + static_cast<std::ptrdiff_t>(a_hi),
+                std::uint8_t{1});
             std::fill(inserted_.begin() + static_cast<std::ptrdiff_t>(b_lo),
-                inserted_.begin() + static_cast<std::ptrdiff_t>(b_hi), 1);
+                inserted_.begin() + static_cast<std::ptrdiff_t>(b_hi),
+                std::uint8_t{1});
             return;
         }
         const auto s = middle(a_lo, a_hi, b_lo, b_hi);

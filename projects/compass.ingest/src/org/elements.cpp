@@ -615,7 +615,8 @@ private:
                 return npos;
             bool same = true;
             for (std::size_t k = 0; k < name.size() && same; ++k)
-                same = to_lower(src_[a + k]) == to_lower(name[k]);
+                same = to_lower(src_[a + static_cast<pos>(k)]) ==
+                    to_lower(name[k]);
             const pos close = a + static_cast<pos>(name.size());
             if (!same || src_[close] != '}')
                 continue;
@@ -798,7 +799,8 @@ private:
                 continue;
             bool same = true;
             for (std::size_t k = 0; k < suffix.size() && same; ++k)
-                same = to_lower(src_[a + k]) == to_lower(suffix[k]);
+                same = to_lower(src_[a + static_cast<pos>(k)]) ==
+                    to_lower(suffix[k]);
             const pos e = src_.skip_blank(a + static_cast<pos>(suffix.size()));
             if (same && src_.at_eol(e) && e <= limit)
                 return l;

@@ -21,6 +21,8 @@
 
 #include <algorithm>
 #include <array>
+#include <functional>
+#include <iterator>
 #include <set>
 #include <utility>
 #include "compass.cpp/ops/lexer.hpp"
@@ -295,7 +297,7 @@ scan_result scan_source(std::string_view text) {
     const auto l = lex(text);
     std::vector<std::pair<std::uint32_t, std::string>> logical;
     std::string current;
-    std::uint32_t line = 1;
+    std::uint32_t physical_line = 1;
     std::uint32_t first = 1;
     std::size_t splice = 0;
     for (std::size_t i = 0; i < l.code.size(); ++i) {
@@ -304,7 +306,7 @@ scan_result scan_source(std::string_view text) {
             current.push_back(c);
             continue;
         }
-        ++line;
+        ++physical_line;
         if (splice < l.splices.size() && l.splices[splice] == i) {
             ++splice;
             current.pop_back();
@@ -314,7 +316,7 @@ scan_result scan_source(std::string_view text) {
         }
         logical.emplace_back(first, std::move(current));
         current.clear();
-        first = line;
+        first = physical_line;
     }
     if (!current.empty())
         logical.emplace_back(first, std::move(current));

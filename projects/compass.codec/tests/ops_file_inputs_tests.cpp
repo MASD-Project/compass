@@ -25,7 +25,6 @@
 #include <string>
 #include <string_view>
 #include <vector>
-#include <unistd.h>
 #include <catch2/catch_test_macros.hpp>
 #include "compass.codec/codecs/document_index.hpp"
 #include "compass.codec/io/action_cache.hpp"
@@ -33,6 +32,7 @@
 #include "compass.codec/ops/registry.hpp"
 #include "compass.codec/ops/run.hpp"
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.platform/process/environment.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 #include "test_corpus.hpp"
 
@@ -154,8 +154,10 @@ public:
     scoped_cache() {
         static int counter = 0;
         root_ = std::filesystem::temp_directory_path() /
-            ("compass.codec.file_inputs." + std::to_string(::getpid()) + "." +
-                std::to_string(counter++));
+            ("compass.codec.file_inputs." +
+                std::to_string(
+                    compass::platform::process::current_process_id()) +
+                "." + std::to_string(counter++));
         std::filesystem::create_directories(root_);
     }
     ~scoped_cache() { std::filesystem::remove_all(root_); }

@@ -42,8 +42,8 @@ struct outcome {
 
 outcome run_on(const scoped_git_repo& repo, const std::string& command) {
     const std::vector<std::string> args{command, "-C",
-        repo.checkout().string(), "--out", repo.output_root().string(),
-        "-j", "2", "--timings"};
+        repo.checkout().generic_string(), "--out",
+        repo.output_root().generic_string(), "-j", "2", "--timings"};
     const std::vector<std::string_view> views(args.begin(), args.end());
     std::istringstream in;
     std::ostringstream out;
@@ -103,7 +103,7 @@ std::filesystem::path header(const scoped_git_repo& repo) {
 }
 
 TEST_CASE("generate writes the codegen outputs as the configured formatter "
-    "leaves them", "[app][codegen]") {
+    "leaves them", "[app][codegen][posix]") {
     scoped_git_repo repo;
     set_up(repo);
 
@@ -117,7 +117,7 @@ TEST_CASE("generate writes the codegen outputs as the configured formatter "
 }
 
 TEST_CASE("a second generate reuses the codegen units and its formatted "
-    "output, and an unread file changes nothing", "[app][codegen]") {
+    "output, and an unread file changes nothing", "[app][codegen][posix]") {
     scoped_git_repo repo;
     set_up(repo);
     REQUIRE(run_on(repo, "gen").status == 0);
@@ -134,7 +134,7 @@ TEST_CASE("a second generate reuses the codegen units and its formatted "
 }
 
 TEST_CASE("editing a template runs codegen again and diff shows the "
-    "formatted change", "[app][codegen]") {
+    "formatted change", "[app][codegen][posix]") {
     scoped_git_repo repo;
     set_up(repo);
     REQUIRE(run_on(repo, "gen").status == 0);

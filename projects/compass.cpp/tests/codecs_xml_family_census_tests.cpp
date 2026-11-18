@@ -19,6 +19,8 @@
  */
 #include "compass.cpp/codecs/xml_family_census.hpp"
 
+#include <algorithm>
+
 #include <catch2/catch_test_macros.hpp>
 #include "compass.codec/ops/registry.hpp"
 #include "test_checkout.hpp"

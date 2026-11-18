@@ -20,6 +20,7 @@
 #include "compass.store/ops/pack.hpp"
 
 #include <cstdint>
+#include <initializer_list>
 #include <span>
 #include <string>
 #include <vector>
@@ -76,7 +77,8 @@ TEST_CASE("every entry of a pack is found by kind and key and nothing else is",
     "[ops][pack]") {
     built_pack b;
     std::vector<types::blob_id> keys;
-    for (const std::uint8_t first : {0x00, 0x00, 0x7f, 0xff, 0xff}) {
+    for (const std::uint8_t first :
+         std::initializer_list<std::uint8_t>{0x00, 0x00, 0x7f, 0xff, 0xff}) {
         keys.push_back(key_starting(first, static_cast<std::uint8_t>(
             keys.size())));
         b.add(entry_kind::result, keys.back(),

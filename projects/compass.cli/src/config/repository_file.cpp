@@ -263,7 +263,7 @@ std::expected<types::layer, std::string> read_repository_file(
         if (!std::filesystem::exists(path))
             return types::layer{};
         return failure(std::format("{}: cannot be read; fix: make it "
-            "readable", path.string()));
+            "readable", path.generic_string()));
     }
     const std::string text{std::istreambuf_iterator<char>(is), {}};
     return parse_repository_file(text, repository_file_name);

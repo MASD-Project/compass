@@ -482,8 +482,9 @@ static std::vector<std::string> filter_columns(const builder& b,
             parent = text_value(b, v);
         else if (!presentation.is_none()) {
             for (const auto key : {"parent_id_field", "parent_key_field"}) {
-                if (const auto v = b.find(presentation, key); truthy(b, v)) {
-                    parent = text_value(b, v);
+                if (const auto field = b.find(presentation, key);
+                    truthy(b, field)) {
+                    parent = text_value(b, field);
                     break;
                 }
             }

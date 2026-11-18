@@ -23,7 +23,6 @@
 #include <algorithm>
 #include <array>
 #include <filesystem>
-#include <unistd.h>
 #include <catch2/catch_test_macros.hpp>
 #include "compass.codec/io/action_cache.hpp"
 #include <cstdint>
@@ -35,6 +34,7 @@
 #include "compass.codec/ops/registry.hpp"
 #include "compass.codec/ops/run.hpp"
 #include "compass.codec/types/corpus.hpp"
+#include "compass.platform/process/environment.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 
 namespace compass::sql::tests {
@@ -116,8 +116,10 @@ inline outcome run_after_edit(const compass::codec::types::descriptor& codec,
     const files& before, const files& after) {
     static int counter = 0;
     const auto cache = std::filesystem::temp_directory_path() /
-        ("compass.tests.edit." + std::to_string(::getpid()) + "." +
-            std::to_string(counter++));
+        ("compass.tests.edit." +
+            std::to_string(
+                compass::platform::process::current_process_id()) +
+            "." + std::to_string(counter++));
     std::filesystem::create_directories(cache);
     const auto first = run(codec, before, {}, cache);
     auto second = run(codec, after, first.record, cache);

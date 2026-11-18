@@ -20,6 +20,7 @@
 #ifndef COMPASS_CODEGEN_TYPES_PHYSICAL_SPACE_HPP
 #define COMPASS_CODEGEN_TYPES_PHYSICAL_SPACE_HPP
 
+#include <functional>
 #include <map>
 #include <set>
 #include <string>

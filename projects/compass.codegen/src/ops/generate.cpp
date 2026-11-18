@@ -329,8 +329,8 @@ std::map<std::string, std::set<std::string>, std::less<>> shell_units(
         if (name.empty())
             continue;
         const std::filesystem::path file(path);
-        out[file.parent_path().string()].emplace(name);
-        out[file.parent_path().parent_path().string()].emplace(name);
+        out[file.parent_path().generic_string()].emplace(name);
+        out[file.parent_path().parent_path().generic_string()].emplace(name);
     }
     return out;
 }

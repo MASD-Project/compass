@@ -84,7 +84,7 @@ mv -f "$opt/.compass.tmp.$$" "$opt/compass"
 } >"$opt/.compass.manifest.tmp.$$"
 mv -f "$opt/.compass.manifest.tmp.$$" "$opt/compass.manifest"
 ln -s "$opt/compass" "$link.tmp.$$"
-mv -T "$link.tmp.$$" "$link"
+mv -f "$link.tmp.$$" "$link"
 if [ -L "$old_link" ] && [ "$(readlink "$old_link")" = "$opt/compass" ]; then
     rm -f "$old_link"
     echo "removed the old link $old_link"

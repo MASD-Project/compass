@@ -112,7 +112,7 @@ types::configuration resolve(
         }
     }
 
-    const auto label = file.lexically_relative(checkout).string();
+    const auto label = file.lexically_relative(checkout).generic_string();
     for (const auto* layer : {&from_file, &command_line}) {
         apply(c.output, layer->output);
         apply(c.meta, layer->meta);

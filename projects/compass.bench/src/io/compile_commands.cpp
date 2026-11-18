@@ -89,7 +89,8 @@ private:
             c.arguments = split_command(*command);
         const std::filesystem::path file(c.file);
         if (file.is_relative())
-            c.file = (std::filesystem::path(c.directory) / file).string();
+            c.file = (std::filesystem::path(c.directory) / file)
+                .generic_string();
         return c;
     }
 

@@ -87,7 +87,7 @@ constexpr std::array<ct::rule, 13> rules{{
     {"missing_unit", "Every unit an aggregate registers has its source in "
         "the component."}}};
 
-constexpr std::array<ct::option, 3> options{{
+constexpr std::array<ct::option, 3> declared_options{{
     {"excluded_columns",
         "projects/ores.refdata/modeling/"
         "ores.refdata.bond_future_volatility_config.org::strike_factor,"
@@ -717,7 +717,7 @@ const ct::descriptor model_rules{
     .summary = "Reports each codegen model that breaks a rule ORE Studio's "
         "gates state about one model.",
     .reads = ct::inputs::of_types({}),
-    .options = options,
+    .options = declared_options,
     .rules = rules,
     .enabled_by_default = false,
     .run = ct::scan_function{.files = models, .reduce = reduce,

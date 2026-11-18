@@ -27,10 +27,10 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
-#include <unistd.h>
 #include <catch2/catch_test_macros.hpp>
 #include "compass.codec/ops/outputs.hpp"
 #include "compass.codec/ops/registry.hpp"
+#include "compass.platform/process/environment.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 #include "compass.codec/types/corpus_view.hpp"
 
@@ -52,8 +52,10 @@ public:
     fixture() {
         static int counter = 0;
         root_ = std::filesystem::temp_directory_path() /
-            ("compass.codec.format." + std::to_string(::getpid()) + "." +
-                std::to_string(counter++));
+            ("compass.codec.format." +
+                std::to_string(
+                    compass::platform::process::current_process_id()) +
+                "." + std::to_string(counter++));
         std::filesystem::remove_all(root_);
         std::filesystem::create_directories(root_ / "git");
         write_file(style(), "upper");
@@ -72,8 +74,9 @@ public:
         const auto script = program();
         write_file(script, "#!/bin/sh\n"
             "if [ \"$1\" = --version ]; then cat '" +
-                (root_ / "version").string() + "'; exit 0; fi\n"
-            "echo run >> '" + log().string() + "'\n" + std::string(extra) +
+                (root_ / "version").generic_string() + "'; exit 0; fi\n"
+            "echo run >> '" + log().generic_string() + "'\n" +
+            std::string(extra) +
             "style=$(cat \"${1#--style=}\"); shift\n"
             "for f in \"$@\"; do\n"
             "  body=$(cat \"$f\"); printf '[%s:%s]%s' \"$style\" "
@@ -126,7 +129,7 @@ std::string text(const types::file_table& t, std::uint32_t row) {
 }
 
 TEST_CASE("format_files formats each file and keeps rows in order",
-    "[format_cache]") {
+    "[format_cache][posix]") {
     const fixture f;
     const std::array formatters{f.formatter()};
     const auto raw = table_of({{"a/x.hpp", "one"}, {"y.sql", "two"},
@@ -145,7 +148,7 @@ TEST_CASE("format_files formats each file and keeps rows in order",
 }
 
 TEST_CASE("format_files runs no program when every formatted form is stored",
-    "[format_cache]") {
+    "[format_cache][posix]") {
     const fixture f;
     const std::array formatters{f.formatter()};
     const auto raw = table_of({{"a/x.hpp", "one"}, {"b/z.hpp", "three"}});
@@ -162,7 +165,7 @@ TEST_CASE("format_files runs no program when every formatted form is stored",
 }
 
 TEST_CASE("format_files formats only the files whose raw bytes changed",
-    "[format_cache]") {
+    "[format_cache][posix]") {
     const fixture f;
     const std::array formatters{f.formatter()};
     (void)io::format_files(f.git(), formatters,
@@ -177,7 +180,7 @@ TEST_CASE("format_files formats only the files whose raw bytes changed",
 }
 
 TEST_CASE("format_files reformats a stored file when the style file changes",
-    "[format_cache]") {
+    "[format_cache][posix]") {
     const fixture f;
     const std::array formatters{f.formatter()};
     const auto raw = table_of({{"x.hpp", "one"}});
@@ -192,7 +195,7 @@ TEST_CASE("format_files reformats a stored file when the style file changes",
 }
 
 TEST_CASE("format_files reformats when a replaced program reports a new "
-    "version", "[format_cache]") {
+    "version", "[format_cache][posix]") {
     fixture f;
     const std::array formatters{f.formatter()};
     const auto raw = table_of({{"x.hpp", "one"}});
@@ -207,7 +210,7 @@ TEST_CASE("format_files reformats when a replaced program reports a new "
 }
 
 TEST_CASE("format_files keeps the stored version of an unchanged program",
-    "[format_cache]") {
+    "[format_cache][posix]") {
     const fixture f;
     const std::array formatters{f.formatter()};
     const auto raw = table_of({{"x.hpp", "one"}});
@@ -221,7 +224,7 @@ TEST_CASE("format_files keeps the stored version of an unchanged program",
 }
 
 TEST_CASE("format_files runs each pass over a batch in one process",
-    "[format_cache]") {
+    "[format_cache][posix]") {
     const fixture f;
     auto two = f.formatter();
     two.passes = 2;
@@ -240,7 +243,7 @@ TEST_CASE("format_files runs each pass over a batch in one process",
 }
 
 TEST_CASE("format_files formats each row of a path its own bytes give",
-    "[format_cache]") {
+    "[format_cache][posix]") {
     const fixture f;
     const std::array formatters{f.formatter()};
     const auto raw = table_of({{"a/x.hpp", "one"}, {"a/x.hpp", "two"}});
@@ -256,7 +259,7 @@ TEST_CASE("format_files formats each row of a path its own bytes give",
 }
 
 TEST_CASE("format_files formats rows of one path and bytes once",
-    "[format_cache]") {
+    "[format_cache][posix]") {
     const fixture f;
     const std::array formatters{f.formatter()};
     const auto raw = table_of({{"a/x.hpp", "one"}, {"a/x.hpp", "one"}});
@@ -270,7 +273,7 @@ TEST_CASE("format_files formats rows of one path and bytes once",
 }
 
 TEST_CASE("format_files does not reuse the form of the same bytes at another "
-    "path", "[format_cache]") {
+    "path", "[format_cache][posix]") {
     const fixture f;
     const std::array formatters{f.formatter()};
     (void)io::format_files(f.git(), formatters,
@@ -284,7 +287,7 @@ TEST_CASE("format_files does not reuse the form of the same bytes at another "
 }
 
 TEST_CASE("format_files runs nothing when no file selects a formatter",
-    "[format_cache]") {
+    "[format_cache][posix]") {
     const fixture f;
     const std::array formatters{f.formatter()};
     const auto r = io::format_files(f.git(), formatters,
@@ -294,7 +297,7 @@ TEST_CASE("format_files runs nothing when no file selects a formatter",
 }
 
 TEST_CASE("format_files throws and stores nothing when the formatter fails",
-    "[format_cache]") {
+    "[format_cache][posix]") {
     fixture f;
     f.set_script("exit 3\n");
     const std::array formatters{f.formatter()};
@@ -306,14 +309,6 @@ TEST_CASE("format_files throws and stores nothing when the formatter fails",
     const auto r = io::format_files(f.git(), formatters, raw, 1);
     CHECK(r.stats.formatted == 1);
     CHECK(text(r.files, 0) == "[upper:x.hpp]one");
-}
-
-TEST_CASE("find_program searches PATH and accepts a path with a slash",
-    "[format_cache]") {
-    const fixture f;
-    CHECK(io::find_program("sh").has_value());
-    CHECK(io::find_program(f.program().string()) == f.program());
-    CHECK_FALSE(io::find_program("compass-no-such-program").has_value());
 }
 
 namespace {
@@ -343,7 +338,7 @@ types::descriptor files_codec(std::string_view name,
 
 TEST_CASE("format_outputs formats the files of the enabled codecs that "
     "have formatters, with the formatters their options give",
-    "[format_cache]") {
+    "[format_cache][posix]") {
     const fixture f;
     const auto checkout = f.git().parent_path();
     write_file(checkout / "style2", "lower");

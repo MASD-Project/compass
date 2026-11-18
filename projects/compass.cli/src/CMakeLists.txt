@@ -87,3 +87,9 @@ add_dependencies(${exe_target_name} ${name}.version)
 
 install(TARGETS ${exe_target_name} RUNTIME DESTINATION bin)
 install(FILES ${COMPASS_PUBLISH_DIRECTORY}/bin/compass.manifest DESTINATION bin)
+
+# Windows looks for a program's DLLs beside it, so the package carries the
+# DLLs of the libraries compass links.
+if(WIN32)
+    install(FILES $<TARGET_RUNTIME_DLLS:${exe_target_name}> DESTINATION bin)
+endif()

@@ -20,6 +20,8 @@
 #include "compass.crosscheck/ops/ore_schema.hpp"
 
 #include <algorithm>
+#include <cstddef>
+#include <functional>
 
 namespace compass::crosscheck::ops::ore_schema {
 

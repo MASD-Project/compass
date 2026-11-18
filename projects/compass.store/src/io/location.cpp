@@ -52,11 +52,12 @@ std::filesystem::path git_dir(const std::filesystem::path& checkout) {
     if (std::filesystem::is_directory(dot_git))
         return dot_git.lexically_normal();
     if (!std::filesystem::is_regular_file(dot_git))
-        throw std::runtime_error("not a git checkout: " + checkout.string());
+        throw std::runtime_error(
+            "not a git checkout: " + checkout.generic_string());
 
     const auto line = first_line(dot_git);
     if (!line.starts_with(prefix) || line.size() == prefix.size())
-        throw std::runtime_error("no gitdir in " + dot_git.string());
+        throw std::runtime_error("no gitdir in " + dot_git.generic_string());
     return resolve(checkout, line.substr(prefix.size()));
 }
 

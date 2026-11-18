@@ -87,7 +87,7 @@ lines findings_of(std::string text) {
 }
 
 outcome check(const scoped_git_repo& repo) {
-    return run({"check", "-C", repo.checkout().string(), "-j", "2",
+    return run({"check", "-C", repo.checkout().generic_string(), "-j", "2",
         "--today", std::string(today)});
 }
 
@@ -108,7 +108,7 @@ std::string payload(const std::string& file, const std::string& cwd,
 
 outcome hook(const scoped_git_repo& repo, const std::string& file) {
     return run({"hook", "-j", "2", "--today", std::string(today)},
-        payload((repo.checkout() / file).string(), "/"));
+        payload((repo.checkout() / file).generic_string(), "/"));
 }
 
 /**
@@ -193,8 +193,8 @@ TEST_CASE("an edit to a file with recorded findings does not block on them, "
         "recorded on sql/a.sql is not shown"));
 
     const auto all = run({"hook", "-j", "2", "--today", std::string(today),
-        "--all-findings"}, payload((repo.checkout() / "sql/a.sql").string(),
-        "/"));
+        "--all-findings"},
+        payload((repo.checkout() / "sql/a.sql").generic_string(), "/"));
     CHECK(findings_of(all.out) == lines{
         "sql/a.sql:2:sql_hygiene/not_re_runnable",
         "sql/a.sql:3:sql_hygiene/not_re_runnable"});
@@ -222,7 +222,7 @@ TEST_CASE("an edit to a document reports the drift of the output it feeds",
     "[app][hook]") {
     scoped_git_repo repo;
     setup(repo);
-    REQUIRE(run({"generate", "-C", repo.checkout().string(), "-j", "2"})
+    REQUIRE(run({"generate", "-C", repo.checkout().generic_string(), "-j", "2"})
         .status == 0);
     const auto before = findings_of(check(repo).out);
     repo.write("doc/task_a.org", ":PROPERTIES:\n:ID: A-1\n:END:\n"
@@ -237,7 +237,7 @@ TEST_CASE("an edit to a document reports the drift of the output it feeds",
 TEST_CASE("an edit to a generated file reports its drift", "[app][hook]") {
     scoped_git_repo repo;
     setup(repo);
-    REQUIRE(run({"generate", "-C", repo.checkout().string(), "-j", "2"})
+    REQUIRE(run({"generate", "-C", repo.checkout().generic_string(), "-j", "2"})
         .status == 0);
     REQUIRE(check(repo).status == 1);
     repo.write("index.tsv", "edited by hand\n");
@@ -251,13 +251,13 @@ TEST_CASE("a new document is checked by every document codec",
     "[app][hook]") {
     scoped_git_repo repo;
     setup(repo);
-    REQUIRE(run({"generate", "-C", repo.checkout().string(), "-j", "2"})
+    REQUIRE(run({"generate", "-C", repo.checkout().generic_string(), "-j", "2"})
         .status == 0);
     const auto before = findings_of(check(repo).out);
     repo.write("doc/task_c.org",
         "#+title: Task: c\n#+type: task\n* Goal\n");
-    auto write = payload((repo.checkout() / "doc/task_c.org").string(), "/",
-        "Write");
+    auto write = payload(
+        (repo.checkout() / "doc/task_c.org").generic_string(), "/", "Write");
     write.replace(write.find("\"update\""), 8, "\"create\"");
 
     const auto r = run({"hook", "-j", "2", "--today", std::string(today)},
@@ -282,7 +282,7 @@ TEST_CASE("a generator that refuses after a good run is reported and keeps "
         "projects/ores.ore/core/src/domain/conventions_renderings.hpp";
     repo.write(json, "{\"tables\": {\"a\": {\"A\": [\"A\"]}}}");
     repo.git("add -A");
-    REQUIRE(run({"generate", "-C", repo.checkout().string(), "-j", "2"})
+    REQUIRE(run({"generate", "-C", repo.checkout().generic_string(), "-j", "2"})
         .status == 0);
     const auto good = scoped_git_repo::read_file(repo.checkout() / header);
     REQUIRE_FALSE(good.empty());
@@ -292,7 +292,7 @@ TEST_CASE("a generator that refuses after a good run is reported and keeps "
     const lines refused{header + ":1:ore_renderings_tables/refused"};
     CHECK(findings_of(hook(repo, json).out) == refused);
     CHECK(findings_of(check(repo).out) == refused);
-    CHECK(run({"generate", "-C", repo.checkout().string(), "-j", "2"})
+    CHECK(run({"generate", "-C", repo.checkout().generic_string(), "-j", "2"})
         .status == 0);
     CHECK(scoped_git_repo::read_file(repo.checkout() / header) == good);
 }
@@ -361,7 +361,7 @@ TEST_CASE("a relative file path is taken against the payload's cwd",
     repo.write("sql/a.sql", "create table t (x int);\n");
 
     const auto r = run({"hook", "--today", std::string(today)},
-        payload("sql/a.sql", repo.checkout().string()));
+        payload("sql/a.sql", repo.checkout().generic_string()));
     CHECK(findings_of(r.out) == lines{"sql/a.sql:1:sql_hygiene/"
         "not_re_runnable"});
 }
@@ -492,7 +492,7 @@ void setup_codegen(const scoped_git_repo& repo) {
     repo.write("projects/ores.b/modeling/component_overview.org",
         component_model("b"));
     repo.git("add -A");
-    REQUIRE(run({"generate", "-C", repo.checkout().string(), "-j", "2"})
+    REQUIRE(run({"generate", "-C", repo.checkout().generic_string(), "-j", "2"})
         .status == 0);
 }
 

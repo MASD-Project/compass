@@ -45,7 +45,7 @@ constexpr std::array<ct::rule, 1> rules{{
     {"unseeded_permission", "Every permission code a handler of a checked "
         "component checks is seeded.", unseeded_permission_sources}}};
 
-constexpr std::array<ct::option, 2> options{{
+constexpr std::array<ct::option, 2> declared_options{{
     {"components", "refdata,analytics,compute,assets,storage,reporting,dq,"
         "trading,marketdata,inbox",
         "The components, by bare name, whose handler permission codes are "
@@ -194,7 +194,7 @@ const ct::descriptor handler_permissions{
     .summary = "Reports each permission code a handler checks that no "
         "populate script seeds.",
     .reads = ct::inputs::of_types({}),
-    .options = options,
+    .options = declared_options,
     .rules = rules,
     .enabled_by_default = false,
     .run = ct::scan_function{scanned, map, reduce}};

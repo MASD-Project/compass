@@ -33,11 +33,17 @@ add_executable(${tests_target_name}
     ops_git_settings_tests.cpp
     ops_pack_tests.cpp)
 
+# These tests fork, which Windows cannot.
+if(NOT WIN32)
+    target_sources(${tests_target_name} PRIVATE
+        io_pack_store_process_tests.cpp)
+endif()
+
 target_link_libraries(${tests_target_name}
     PRIVATE
         ${lib_target_name}
         Catch2::Catch2WithMain)
 
 add_test(NAME ${tests_target_name}
-    COMMAND ${tests_target_name}
+    COMMAND ${tests_target_name} ${COMPASS_TEST_FILTER}
     WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})

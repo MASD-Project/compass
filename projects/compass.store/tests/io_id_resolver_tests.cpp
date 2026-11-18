@@ -24,9 +24,8 @@
 #include <initializer_list>
 #include <stdexcept>
 #include <string>
-#include <fcntl.h>
-#include <sys/stat.h>
 #include <catch2/catch_test_macros.hpp>
+#include "compass.platform/filesystem/file_status.hpp"
 #include "compass.store/io/git_files.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 #include "git_repository.hpp"
@@ -50,9 +49,7 @@ void add_clean(const git_repository& repo,
 }
 
 void set_mtime(const std::filesystem::path& file, types::index_time t) {
-    const struct timespec times[2] = {{0, UTIME_OMIT},
-        {static_cast<time_t>(t.sec), static_cast<long>(t.nsec)}};
-    REQUIRE(::utimensat(AT_FDCWD, file.c_str(), times, 0) == 0);
+    compass::platform::filesystem::set_modified_time(file, {t.sec, t.nsec});
 }
 
 io::id_source source_of(const io::id_resolver& r, const std::string& path) {
@@ -87,10 +84,12 @@ TEST_CASE("a clean file takes its ID from a version 2 index",
 TEST_CASE("a version 4 index decodes prefix-compressed paths and IDs",
     "[io][id_resolver]") {
     git_repository repo;
+    // The long name makes the next entry strip more than 127 bytes, two
+    // bytes of varint, and stays within Windows' 260-character paths.
     add_clean(repo, {{"src/a/one.cpp", "1\n"}, {"src/a/one.hpp", "2\n"},
         {"src/a/two.cpp", "3\n"}, {"src/b/three.cpp", "4\n"},
         {"src/b/three/four.cpp", "5\n"}, {"top.txt", "6\n"},
-        {std::string(200, 'd') + "/deep.txt", "7\n"}, {"z.txt", "8\n"}});
+        {std::string(130, 'd') + "/deep.txt", "7\n"}, {"z.txt", "8\n"}});
     repo.git("update-index --index-version 4");
 
     const io::id_resolver r(repo.root());
@@ -104,7 +103,7 @@ TEST_CASE("a version 4 index decodes prefix-compressed paths and IDs",
 }
 
 TEST_CASE("a file rewritten with the same size and mtime is hashed",
-    "[io][id_resolver]") {
+    "[io][id_resolver][posix]") {
     git_repository repo;
     add_clean(repo, {{"a.txt", "aaaa\n"}});
     const auto entry = io::read_git_index(repo.index_file()).stats.at(0);
@@ -249,17 +248,17 @@ TEST_CASE("a linked worktree reads the index of its own git directory",
     add_clean(repo, {{"a.txt", "a\n"}});
     repo.git("commit -q -m base");
     const auto linked = repo.root().parent_path() / "linked";
-    repo.git("worktree add -q '" + linked.string() + "'");
+    repo.git("worktree add -q '" + linked.generic_string() + "'");
     std::filesystem::last_write_time(linked / "a.txt",
         std::filesystem::file_time_type::clock::now() - std::chrono::hours(1));
-    repo.git("-C '" + linked.string() + "' update-index --refresh");
+    repo.git("-C '" + linked.generic_string() + "' update-index --refresh");
     {
         std::ofstream os(linked / "only_here.txt");
         os << "here\n";
     }
     std::filesystem::last_write_time(linked / "only_here.txt",
         std::filesystem::file_time_type::clock::now() - std::chrono::hours(1));
-    repo.git("-C '" + linked.string() + "' add only_here.txt");
+    repo.git("-C '" + linked.generic_string() + "' add only_here.txt");
 
     const io::id_resolver r(linked);
     CHECK(source_of(r, "only_here.txt") == io::id_source::git_index);

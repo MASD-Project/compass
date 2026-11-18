@@ -21,6 +21,8 @@
 #define COMPASS_PLATFORM_PROCESS_EXECUTABLE_HPP
 
 #include <filesystem>
+#include <optional>
+#include <string_view>
 
 namespace compass::platform::process {
 
@@ -30,6 +32,16 @@ namespace compass::platform::process {
  * sit beside its real binary. Empty when the system cannot say.
  */
 [[nodiscard]] std::filesystem::path executable_path();
+
+/**
+ * @brief The program @p name as a shell finds it: @p name itself when it
+ * holds a directory separator, else the first executable regular file of
+ * that name in a directory of PATH. On Windows a name without an extension
+ * also matches that name with each extension in PATHEXT. Nothing when there
+ * is none. Runs nothing.
+ */
+[[nodiscard]] std::optional<std::filesystem::path> find_program(
+    std::string_view name);
 
 }
 

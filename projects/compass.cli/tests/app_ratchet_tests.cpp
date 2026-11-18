@@ -85,8 +85,8 @@ struct outcome {
 
 outcome ratchet(const scoped_git_repo& repo,
     std::vector<std::string> extra = {"--ratchet", "base"}) {
-    std::vector<std::string> args{"check", "-C", repo.checkout().string(),
-        "-j", "2"};
+    std::vector<std::string> args{"check", "-C",
+        repo.checkout().generic_string(), "-j", "2"};
     args.insert(args.end(), extra.begin(), extra.end());
     const std::vector<std::string_view> views(args.begin(), args.end());
     std::istringstream in;

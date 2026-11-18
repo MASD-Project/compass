@@ -30,7 +30,6 @@
 #include <string_view>
 #include <utility>
 #include <vector>
-#include <unistd.h>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 #include "compass.codec/ops/outputs.hpp"
@@ -38,6 +37,7 @@
 #include "compass.codec/ops/run.hpp"
 #include "compass.ingest/meta/type_registry_builder.hpp"
 #include "compass.ingest/org/parser.hpp"
+#include "compass.platform/process/environment.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 
 namespace {
@@ -215,7 +215,9 @@ class scoped_bin final {
 public:
     scoped_bin() {
         root_ = std::filesystem::temp_directory_path() /
-            ("compass.codegen.bin." + std::to_string(::getpid()));
+            ("compass.codegen.bin." +
+                std::to_string(
+                    compass::platform::process::current_process_id()));
         std::filesystem::create_directories(root_ / "bin");
         const auto program = root_ / "bin/fake-format";
         std::ofstream(program) << "#!/bin/sh\n";

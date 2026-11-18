@@ -25,7 +25,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
-#include <unistd.h>
+#include "compass.platform/process/environment.hpp"
 
 namespace compass::store::tests {
 
@@ -38,9 +38,14 @@ public:
     scoped_directory() {
         static int counter = 0;
         root_ = std::filesystem::temp_directory_path() /
-            ("compass.store.tests." + std::to_string(::getpid()) + "." +
-                std::to_string(counter++));
+            ("compass.store.tests." +
+                std::to_string(
+                    compass::platform::process::current_process_id()) +
+                "." + std::to_string(counter++));
         std::filesystem::create_directories(root_);
+        // Windows may name the temporary directory by its short 8.3 name,
+        // and git prints the long one.
+        root_ = std::filesystem::canonical(root_);
     }
     ~scoped_directory() { std::filesystem::remove_all(root_); }
     scoped_directory(const scoped_directory&) = delete;
