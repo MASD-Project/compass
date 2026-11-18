@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/finish-the-model-rules-pass
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -39,9 +39,13 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Follow =evidence/gate_review/crosscheck.md= for each gate and the Result
+  of [[id:FA2071BD-7E67-4632-A4EB-40C7B40D537A][Run model rules over loaded models]].
+- Move generated_column_refs and entity_binary_types to rules over the model
+  or the codegen context (dropping =too_few_compared=), open_reads to the org
+  table it reads, marketdata_identity_columns to the model's columns, and
+  route_units' model opt-in to =model_rules=, one at a time, comparing
+  findings on ORE Studio after each.
 
 * Measurements
 
