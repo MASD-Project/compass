@@ -1,0 +1,880 @@
+:PROPERTIES:
+:ID: 225B524C-1638-4A03-B02F-66EB6759619D
+:END:
+#+title: Design: literate project checks
+#+description: How a project states its compass configuration and checks as literate org documents in a committed compass/ directory, and how ORE Studio moves there.
+#+type: design
+#+level: s2
+#+filetags: :gates:checks:design:let_projects_define_their_checks:sprint_01:v0:
+#+created: 2026-11-18
+#+updated: 2026-11-18
+#+todo: DRAFT STARTED | LANDED SUPERSEDED ABANDONED
+#+outcome:
+
+#+begin_note
+*This document describes a transition, not the current state.* It argues
+from "compass carries ORE Studio's specifics in its codecs" to "each
+project states its configuration and checks in its own =compass/=
+directory", and it expires when the
+[[id:DAB2F48A-E47A-4895-9026-056AF21E6CCC][Let projects define their own checks]] story lands. Do not link to this
+page from durable documentation.
+#+end_note
+
+* Status
+
+| Field        | Value |
+|--------------+-------|
+| State        | DRAFT |
+| Parent story | [[id:DAB2F48A-E47A-4895-9026-056AF21E6CCC][Let projects define their own checks]] |
+| Last touched | 2026-11-18 |
+
+The format and the layout are the product owner's decision. This page
+designs within it; nothing here is built.
+
+* Summary
+
+- A project keeps a committed =compass/= directory of org documents: a
+  readme, its configuration, and one document per check.
+- A check document says in prose why the check exists and holds its
+  definition in property drawers, one heading per rule.
+- A definition names an /engine/ compass implements and the parameters
+  the project gives it. The engines cover the forbidden-pattern family
+  whole, most of the inventory and reference families, and the
+  threshold half of code facts. Generators and rules that parse a project's own grammar
+  stay code.
+- A check's examples are its tests. Its exceptions sit in its own
+  document.
+- A check is keyed by its drawers and examples, never its prose.
+- ORE Studio moves first by stating the 46 option values it takes from
+  compass's defaults today, which needs no new format. Check documents
+  follow, starting with =portable_stop=.
+
+The inventory this rests on is
+[[id:5C4E5883-CBA5-4018-9A65-1CFD276AF198][Investigation: what compass hard-codes to ORE Studio]].
+
+* The decision
+
+The product owner decided on 2026-11-18:
+
+- Each project has a compass directory, committed to git.
+- Its files are literate org configuration: each gives the rationale for
+  its checks and gates in prose, beside their machine-readable
+  definitions.
+- The files link to each other with org-roam ID links.
+- They are published as HTML with the rest of the project's site.
+- The directory has a readme that explains what compass is, links to the
+  upstream compass repository (MASD-Project/compass), and explains how the
+  project uses compass.
+
+* The directory
+
+#+begin_example
+compass/                      committed; published with the site
+├── readme.org                #+type: compass_readme
+├── configuration.org         #+type: compass_configuration
+├── checks/
+│   ├── portable_cpp.org      #+type: check
+│   └── handler_permissions.org
+└── local.org                 git-ignored; this machine's settings
+.git/compass/                 the store, as today; never in the checkout
+#+end_example
+
+- Name. =compass/=, not =.compass/=. The directory is published with the
+  site, and a dot directory is hidden from =ls=, from most file finders
+  and from agents' default globs, and some static hosts skip dot paths.
+  ORE Studio's root has no =compass/= today, and compass's own root has
+  none either.
+- Subdirectories. Only =checks/=. The contracts stay where the project
+  keeps them (=#+meta:=, =doc/meta= for both projects), templates stay
+  where the generator's library option points, and the store stays in
+  =.git/compass/= (=compass.store/src/io/location.cpp=). A directory per
+  kind of file earns its place only when there are many of that kind.
+- Local state. =compass/local.org= holds what differs per machine: the
+  formatter executables (=clang_format=, =prettier=), and any option a
+  developer overrides. The project's =.gitignore= lists it. It is not
+  published and has no contract.
+- Precedence. =--set=, then =local.org=, then =configuration.org=, then
+  compass's default. =compass config= already prints each value's origin;
+  it prints =compass/configuration.org:42= in place of =.compass.org:42=.
+- Discovery. compass reads =compass/= at the root of the checkout only.
+  There is no per-directory cascade: every rule names its paths with
+  globs, so a nested file would add a second way to scope a rule.
+
+* Where the definition sits
+
+A check's definition sits in property drawers: the =* Definition= heading
+carries the settings every rule shares, and each rule is a subheading
+whose drawer holds that rule's parameters. A drawer puts one key on one
+line, so a finding about a broken definition points at that line, and a
+review diff shows the key that changed. compass's org parser already
+keeps every property with its source range
+(=compass.org/types/property_table.hpp=), so no new parser is needed. A
+drawer needs no escaping: an org table would need =\vert= for every =|=
+in a regular expression, and a source block in TOML or a rule syntax of
+our own would bring a parser and a second syntax into one document. Each
+rule's heading also gives it a place for its own sentence of prose, and
+its title is the rule's name in findings and exceptions. The cost is
+that a drawer is flat: a value is one line, and a list is a
+space-separated value. A check that needs nesting is a sign it should
+be code. Org's exporter hides drawers by default, so the contract
+requires =#+options: prop:t=, and the site shows the definition.
+
+* Document types
+
+compass's contract wants every document typed. Three new types, each a
+=doc/meta/document_type_<name>.org= page in the project, as every type
+is.
+
+| Type | File | Level | Required sections | Notes |
+|------+------+-------+-------------------+-------|
+| =compass_readme= | =compass/readme.org= | =cross= | What compass is; How <project> uses it; What lives here; Precedence; Exceptions; Adding a check; See also | Links =https://github.com/MASD-Project/compass=. One per project. |
+| =compass_configuration= | =compass/configuration.org= | =cross= | Paths; Codecs; Settings; See also | Keywords =#+output:=, =#+meta:=, =#+product:=, =#+ignore:=. =#+options: prop:t=. One per project. |
+| =check= | =compass/checks/<slug>.org= | =cross= | Rule; Why; Definition; Examples; Exceptions; See also | Title =Check: <title>=. =#+options: prop:t=. Not stateful: a check is on while its document exists. =Why= links the memory, story or mined failure behind it. |
+
+All three take the standard frontmatter (=:ID:=, =#+title:=,
+=#+description:=, =#+filetags:=, =#+created:=, =#+updated:=), so lint
+and =required_sections= check them like any other document, and the
+document index lists them. =compass add check --slug <name>= scaffolds
+one. =local.org= is not a document: it is ignored and unpublished.
+
+* Engines and facts
+
+A definition's =ENGINE= names one of four engines compass implements.
+Each is a generic codec; the drawers are its options.
+
+| Engine | Families | It reports | Parameters |
+|--------+----------+------------+------------|
+| =forbid= | F1, part of F6 | each match in files matching =FILES= outside =OUTSIDE= | =FILES=, =OUTSIDE=, one or more match keys, =MESSAGE=, =FIX= |
+| =resolve= | F4 | each use with no definition | =USES=, a use key, =DEFINED_IN=, =DEFINED_AS=, =PREFIX_WHEN=, =MESSAGE=, =FIX= |
+| =inventory= | F2 | each row with no file, and each file with no row | =TABLE= (document ID and table name), =COLUMN=, =FILES=, =NAME= (a capture of the path) |
+| =limit= | part of F6 | each fact over its ceiling | =FILES=, a counted fact, =CEILING=, per-file overrides |
+
+A match key names a fact compass already parses, and a pattern:
+
+| Key | Fact | Parsed by |
+|-----+------+-----------|
+| =TEXT= | a regular expression over the file | the file |
+| =CPP_NAME= | a name a C++ file uses, matched by its trailing components | the shared C++ pass (=compass.cpp/ops/source_model.hpp=) |
+| =CPP_INCLUDE= | an =#include= target | the same |
+| =CPP_TEXT= | a regular expression over C++ code, comments and strings blanked | the same lexer |
+| =SQL_STRING=, =SQL_IDENTIFIER= | a string literal or identifier of a SQL script | the shared SQL pass |
+| =ORG_KEYWORD=, =ORG_LINK=, =ORG_CELL= | a keyword, link or table cell of an org document | =compass.org= |
+
+The set is closed: a new key is compass code, reviewed like a codec. A
+definition has no variables, no boolean operators and no conditions. That
+is the line that keeps the format from growing into a language; a check
+that needs more is a codec.
+
+* What the families need
+
+| Family | Codecs | Covered by | Stays code |
+|--------+--------+------------+------------|
+| F1 forbidden pattern | 3 | =forbid= | nothing |
+| F2 inventory | 7 | =inventory= | inventories whose rows come from a parser of the project's grammar (=xml_family_census=) |
+| F3 generator | 23 | nothing | all; their data (templates, paths, years) moves to =configuration.org= |
+| F4 reference | 9 | =resolve= | references that resolve through a project grammar (=curve_parameter_paths= against an XSD) |
+| F5 org rule | 7 | the =doc/meta= contracts, already data | =model_rules=' profile and subject grammar |
+| F6 code facts | 20 | =forbid= and =limit= for a forbidden or counted fact | rules over cross-file resolution |
+| F7 other | 2 | nothing | both |
+
+The engines can replace whole codecs only in F1, F2 and F4, and in the
+threshold half of F6: about 20 of the 71 codecs, by the family counts
+(a guess until each is ported). Every other codec keeps its code and
+moves its specifics into =configuration.org=. That is still most of
+the 381 could-be-data specifics.
+
+* Exceptions
+
+- A check's exceptions are the =* Exceptions= table of its own document,
+  with today's columns (=path=, =line=, =rule=, =expires=, =approver=,
+  =reason=). =rule= is the rule's heading, without the check's name.
+- A built-in codec's exceptions are an =*** Exceptions= table under its
+  heading in =configuration.org=. The global table of =.compass.org=
+  splits into these by the codec its =rule= names.
+- Inline markers stay as they are, =compass:except(<check>/<rule>)= with
+  =expires=, =approver= and =reason=. A data-defined check's name is its
+  file's slug, so =portable_cpp/stop_types= reads like =codec/rule=
+  today.
+- Exceptions cost no cache: compass excuses findings after the run
+  (=excuse_findings=, =compass.cli/src/app/pipeline.cpp:611=), so editing
+  an exception re-runs nothing.
+
+* Examples as tests
+
+A check's =* Examples= are source blocks with two header arguments:
+=:compass= is =fires=<rule>=, =quiet= or =defines=, and =:path= is the
+path the block stands for. On every run compass runs the check's engine
+over its examples alone, as a small corpus of those paths, and reports
+=<check>/example= at the block's line when a =fires= block raises no
+finding of its rule or a =quiet= block raises any. =defines= blocks
+supply the definitions a =resolve= example needs. The examples are part
+of the definition, so they run only when the definition changes.
+
+A mined candidate is proven on its past commit, not by its examples:
+=compass check --commit 1961f78f1a= must report the check at the line
+that broke the build, and =--commit= on the fix must not.
+
+* Cache keys
+
+compass keys a codec by its code and its option values
+(=configuration_hash=, =compass.codec/src/ops/dependencies.cpp=), and a
+changed value re-runs that codec alone: changing one option of
+=translation_unit_budget= over ORE Studio re-ran only it, in 100 ms, in a
+7.1 s warm check (measured; see the investigation). A check document
+becomes a codec built at load time: its name is the slug, its code is
+its engine's code hash, and its option values are the canonical bytes of
+its definition: each =Definition= heading's title and its drawer's keys
+and values, in order, and each example block's header arguments and
+body. Prose, =Why=, =See also= and =Exceptions= are not in those bytes,
+so editing them re-runs nothing. compass reads the check documents
+before the run, as it reads =.compass.org= today, so the documents are
+not inputs the runner records.
+
+Cost of a check's scan: =portable_stop= scans ORE Studio's C++ in 3.4 s
+cold, because it lexes only files that contain one of its names
+(measured). A =forbid= check keeps that: every =CPP_NAME= and
+=CPP_INCLUDE= gives a literal to prefilter on. A =CPP_TEXT= or =TEXT=
+pattern has no literal unless compass extracts one from the regular
+expression; such a check may cost a full pass over every file it
+matches (a guess, not measured).
+
+* Worked examples
+
+The documents of ORE Studio's =compass/= directory, in full. They are examples: no project holds them yet.
+
+** The readme
+
+=compass/readme.org=. What compass is, the upstream link, and how ORE Studio uses it.
+
+#+begin_src org
+:PROPERTIES:
+:ID: 47F7BE94-A6D8-4549-A17A-1A13555749F3
+:END:
+,#+title: Compass in ORE Studio
+,#+description: What compass is, where it comes from, and how ORE Studio configures it: its codecs, its checks and their exceptions.
+,#+type: compass_readme
+,#+level: cross
+,#+filetags: :compass:configuration:checks:
+,#+created: 2026-11-18
+,#+updated: 2026-11-18
+
+This directory configures compass for ORE Studio. compass reads it before
+every run, and the site publishes it with the rest of the documentation.
+
+,* What compass is
+
+compass loads a project's org documents and source code into memory and
+runs codecs over them. A codec generates code or pages, or checks a rule
+and reports each place that breaks it. compass caches each codec's result
+by the code that produced it and the data it read, so a second run
+re-checks only what changed. Its source and its manual live upstream at
+[[https://github.com/MASD-Project/compass][MASD-Project/compass]].
+
+,* How ORE Studio uses it
+
+- Run =compass check --ratchet= before every push. It fails on a finding
+  the merge base does not have.
+- =compass generate= writes the generated C++, SQL, TypeScript and the
+  generated pages under =doc/=. Never edit a generated file by hand.
+- =build/scripts/compass_ng.pin= names the compass commit ORE Studio
+  needs. Raise it when this directory starts to use a newer compass.
+
+,* What lives here
+
+| Path                 | Holds                                                         |
+|----------------------+---------------------------------------------------------------|
+| =readme.org=         | This page.                                                    |
+| =configuration.org=  | The paths compass uses, and each built-in codec's settings and exceptions. |
+| =checks/=            | One document per project check: its rule in prose, its definition, examples and exceptions. |
+| =local.org=          | Settings for this machine only. Git ignores it.               |
+
+compass keeps its store under =.git/compass/=, never in this directory.
+
+,* Precedence
+
+A value comes from the first of these that sets it: =--set= on the command
+line, =local.org=, =configuration.org=, compass's own default. =compass
+config= prints every value with the file and line it came from.
+
+,* Exceptions
+
+A finding that cannot be fixed yet is excused in one of two places:
+
+- An inline marker on the line, =compass:except(<codec>/<rule>)= with
+  =expires=, =approver= and =reason=, where the file takes comments.
+- The =* Exceptions= table of the check or codec that owns the rule,
+  for a file that takes no comment, such as a generated file or a model.
+
+Every exception expires. =compass check= reports one that has expired.
+
+,* Adding a check
+
+Run =compass add check --slug <name>= and fill in its sections. The
+document's =* Definition= holds one heading per rule; its property drawer
+is what compass runs. Its =* Examples= blocks are the check's tests:
+compass runs the check over each of them on every run. See
+[[id:BDBA01F6-BF2F-4DA2-81F2-86A23DBB127F][Check: portable C++ facilities]] for a complete one.
+
+,* See also
+
+- [[https://github.com/MASD-Project/compass][MASD-Project/compass]]: the compass repository and its manual.
+- [[id:1A9121E6-369E-4755-890D-9264B8604672][Compass configuration]]: the codec settings.
+#+end_src
+
+** The configuration
+
+=compass/configuration.org=. ORE Studio's =.compass.org= moved into the directory. The codec table keeps =name= and =enabled=; each option string becomes a drawer; the global exceptions split under the codecs they name. =translation_unit_budget= shows one of the 46 values ORE Studio takes from compass's defaults today, now stated; the other 45 move the same way, and the inventory's ORE default rows list them. =portable_stop= and =handler_permissions= have left the codec table: they are check documents now.
+
+#+begin_src org
+:PROPERTIES:
+:ID: 1A9121E6-369E-4755-890D-9264B8604672
+:END:
+,#+title: Compass configuration
+,#+description: The paths compass uses in ORE Studio, which built-in codecs run, and each codec's settings and exceptions.
+,#+type: compass_configuration
+,#+level: cross
+,#+filetags: :compass:configuration:
+,#+created: 2026-11-18
+,#+updated: 2026-11-18
+,#+options: prop:t
+,#+output: .
+,#+meta: doc/meta
+,#+product: ores
+,#+ignore: node_modules venv .venv build external tmp vcpkg
+
+This page configures compass's built-in codecs for ORE Studio. The
+project's own checks are documents under =checks/=; see
+[[id:47F7BE94-A6D8-4549-A17A-1A13555749F3][Compass in ORE Studio]].
+
+,* Paths
+
+- =#+output:= :: The output root. It is the checkout, so a generated file
+  lands where it is committed.
+- =#+meta:= :: The directory of the document contracts.
+- =#+product:= :: The prefix of ORE Studio's components, tables and
+  namespaces: =projects/ores.<component>=, =ores_<component>_<entity>_tbl=,
+  =ores::=. Every codec that names a component reads it.
+- =#+ignore:= :: Directories no codec walks into, wherever they sit.
+
+,* Codecs
+
+The built-in codecs and whether each runs. A codec with no row does not
+run. =document_index=, =required_sections= and =rule_table= stay off,
+because ORE Studio has its own index and contract checks.
+
+| codec | enabled |
+|-------+---------|
+| document_index | no |
+| required_sections | no |
+| tangle | yes |
+| tangle_check | yes |
+| codegen | yes |
+| ore_output_catalogue | yes |
+| rule_table | no |
+| component_files | yes |
+| pending_models | yes |
+| bff_list_requests | yes |
+| core_link_edges | yes |
+| event_registrars | yes |
+| exported_types | yes |
+| forward_declarable_includes | yes |
+| handler_registrars | yes |
+| history_registrars | yes |
+| route_auth | yes |
+| shell_command_composition | yes |
+| shell_command_units | yes |
+| shell_menus | yes |
+| stream_coverage | yes |
+| test_case_reachability | yes |
+| translation_unit_budget | yes |
+| unique_type_names | yes |
+| unity_collisions | yes |
+| xml_family_census | yes |
+| curve_parameter_paths | yes |
+| populate_refs | yes |
+| rls_widenings | yes |
+| sql_hygiene | yes |
+| sql_reachability | yes |
+| conventions_coverage | yes |
+| conventions_dataset | yes |
+| curve_sections_wiring | yes |
+| model_rules | yes |
+| entity_binary_types | yes |
+| entity_writes | yes |
+| er_diagram | yes |
+| generated_column_refs | yes |
+| marketdata_identity_columns | yes |
+| open_reads | yes |
+| ore_renderings_tables | yes |
+| ore_value_sets | yes |
+| parameter_value_sets | yes |
+| protocol_twins | yes |
+| registry_exceptions | yes |
+| route_inventory | yes |
+| script_library_seed | yes |
+| subject_conformance | yes |
+| template_sections | yes |
+| backlog_indexes | yes |
+| component_docs | yes |
+| heading_numbers | yes |
+| http_recipe_library | yes |
+| lint | yes |
+| no_pr_triggers | yes |
+| org_links | yes |
+| physical_inventory | yes |
+| prototypes | yes |
+| recipe_inventories | yes |
+| rule_identifiers | yes |
+| shell_recipe_library | yes |
+| shell_recipe_provenance | yes |
+| skill_catalogue | yes |
+| skill_levels | yes |
+| skill_namespace | yes |
+| skill_type_tables | yes |
+| trade_type_coverage | yes |
+| rls_coverage | yes |
+
+,* Settings
+
+One heading per codec whose settings differ from compass's defaults, or
+that has exceptions. The drawer is what compass reads; the prose is why.
+
+,** codegen
+
+The generator reads ORE Studio's template library and formats what it
+writes with the project's own formatters.
+
+:PROPERTIES:
+:LIBRARY: projects/ores.codegen/library
+:YEAR: 2026
+:CONVENTION_COMPONENT: refdata
+:CLANG_FORMAT_STYLE: .clang-format
+:PRETTIER_STYLE: .prettierrc.yaml
+:END:
+
+The formatter executables are a machine's, so they live in =local.org=.
+
+,** tangle
+
+:PROPERTIES:
+:DIRECTORY: projects/ores.codegen/library/templates
+:END:
+
+,** tangle_check
+
+:PROPERTIES:
+:DIRECTORY: projects/ores.codegen/library/templates
+:END:
+
+,** component_files
+
+:PROPERTIES:
+:YEAR: 2026
+:END:
+
+,** translation_unit_budget
+
+These four translation units compile the convention families, and each
+family adds to their size. The ceilings stop a family landing in a file
+that is already at its budget.
+
+:PROPERTIES:
+:REGISTRY: projects/ores.refdata/api/include/ores.refdata.api/domain/convention_family_registry.hpp
+:SCOPES: projects/ores.refdata/core/src projects/ores.refdata/core/include projects/ores.ore/core/src projects/ores.ore/core/include projects/ores.ore/service/src
+:CEILINGS: projects/ores.ore/core/src/domain/conventions_family_tenor_basis_swap.cpp=3 projects/ores.ore/core/src/domain/conventions_family_commodity_future.cpp=6 projects/ores.ore/core/src/domain/conventions_family_cross_currency_basis.cpp=4 projects/ores.ore/core/src/domain/conventions_family_cross_currency_fix_float.cpp=4
+:END:
+
+,** model_rules
+
+,*** Exceptions
+
+These models type a money column inexactly until they move to an exact
+decimal. Each is recorded in =money_decimal_columns.baseline=.
+
+| path | line | rule | expires | approver | reason |
+|------+------+------+---------+----------+--------|
+| projects/ores.marketdata/modeling/ores.marketdata.fx_forward_publish.org | | money_not_exact | 2027-05-18 | marco | the column is typed inexactly until its model moves to an exact decimal |
+| projects/ores.marketdata/modeling/ores.marketdata.fx_forward_publish_point.org | | money_not_exact | 2027-05-18 | marco | the column is typed inexactly until its model moves to an exact decimal |
+| projects/ores.marketdata/modeling/ores.marketdata.market_series_identity.org | | money_not_exact | 2027-05-18 | marco | the column is typed inexactly until its model moves to an exact decimal |
+| projects/ores.refdata/modeling/ores.refdata.base_correlation_config.org | | money_not_exact | 2027-05-18 | marco | the column is typed inexactly until its model moves to an exact decimal |
+| projects/ores.refdata/modeling/ores.refdata.curve_segment_cross_currency_terms.org | | money_not_exact | 2027-05-18 | marco | the column is typed inexactly until its model moves to an exact decimal |
+| projects/ores.refdata/modeling/ores.refdata.inflation_curve_config.org | | money_not_exact | 2027-05-18 | marco | the column is typed inexactly until its model moves to an exact decimal |
+
+,** rls_widenings
+
+,*** Exceptions
+
+The platform pays the vendors for the usage of every tenant, so the
+system tenant reads the usage events of all of them.
+
+| path | line | rule | expires | approver | reason |
+|------+------+------+---------+----------+--------|
+| projects/ores.sql/create/compute/compute_workflow_batch_links_create.sql | | system_tenant_widening | 2027-05-18 | marco | under audit in 'Audit the policies that let the system tenant read every tenant' |
+| projects/ores.sql/create/marketdata/marketdata_delivery_counts_create.sql | | system_tenant_widening | 2027-05-18 | marco | the system tenant reads the usage events of every tenant |
+| projects/ores.sql/create/marketdata/marketdata_demand_intervals_create.sql | | system_tenant_widening | 2027-05-18 | marco | the system tenant reads the usage events of every tenant |
+| projects/ores.sql/create/marketdata/marketdata_subscription_intervals_create.sql | | system_tenant_widening | 2027-05-18 | marco | the system tenant reads the usage events of every tenant |
+
+,** template_sections
+
+,*** Exceptions
+
+| path | line | rule | expires | approver | reason |
+|------+------+------+---------+----------+--------|
+| projects/ores.codegen/library/templates/cpp_domain_type_entity.hpp.mustache | | chained_tags | 2027-05-18 | marco | 8 chained section lines, recorded in template_section_baseline.json until the tags are split |
+
+,* See also
+
+- [[id:47F7BE94-A6D8-4549-A17A-1A13555749F3][Compass in ORE Studio]]: what compass is and how ORE Studio uses it.
+#+end_src
+
+** Local settings
+
+=compass/local.org=. The formatter executables, which differ per machine. Git ignores this file.
+
+#+begin_src org
+,#+title: Compass settings for this machine
+
+,* codegen
+:PROPERTIES:
+:CLANG_FORMAT: clang-format-19
+:PRETTIER: projects/ores.web/node_modules/.bin/prettier
+:END:
+
+,* ore_output_catalogue
+:PROPERTIES:
+:CLANG_FORMAT: clang-format-19
+:END:
+
+,* curve_sections_wiring
+:PROPERTIES:
+:CLANG_FORMAT: clang-format-19
+:END:
+#+end_src
+
+** A mined candidate: portable C++ facilities
+
+=compass/checks/portable_cpp.org=. The first of the five mined candidates, a =forbid= check. It absorbs the existing =portable_stop= codec as its =stop_types= rule, with the same message, fix and memory.
+
+#+begin_src org
+:PROPERTIES:
+:ID: BDBA01F6-BF2F-4DA2-81F2-86A23DBB127F
+:END:
+,#+title: Check: portable C++ facilities
+,#+description: No code outside ores.platform uses a standard facility one of ORE Studio's three platforms lacks or rejects.
+,#+type: check
+,#+level: cross
+,#+filetags: :compass:check:cpp:portability:
+,#+created: 2026-11-18
+,#+updated: 2026-11-18
+,#+options: prop:t
+
+This page defines a =check= that compass runs over ORE Studio. Its
+=* Definition= is what compass runs; the rest says why.
+
+,* Rule
+
+No C++ source outside =ores.platform= names a standard facility that one
+of the three platforms ORE Studio builds on lacks, deprecates or rejects.
+Code that needs one calls the wrapper =ores.platform= gives instead, which
+picks the right implementation for each platform.
+
+,* Why
+
+Each of these compiled on the platform the author built on and failed on
+another. Between 2026-09-19 and 2026-11-18 they failed 34 CI runs and cost
+9,533 CI minutes; 29 of the 32 head commits were LLM co-authored. The
+=<unistd.h>= rule adds the 24 failed jobs of /include not found/ that
+named it. Example run [[https://github.com/OreStudio/OreStudio/actions/runs/36325659481][36325659481]], head =1961f78f1a=.
+
+The stop types were the first of these. They were a codec of their own,
+=portable_stop=, until this page replaced it.
+
+- [[id:B4E38241-6AD1-4859-9610-033CC39C0AF4][Use ores.platform for cross-platform functionality]]: the memory this
+  check enforces.
+
+,* Definition
+
+The settings every rule below inherits.
+
+:PROPERTIES:
+:ENGINE: forbid
+:FILES: projects/**/*.{cpp,cc,cxx,hpp,h,hxx,ipp,inc}
+:OUTSIDE: projects/ores.platform/**
+:END:
+
+,** stop_types
+
+Apple's libc++ has no C++20 stop types.
+
+:PROPERTIES:
+:CPP_NAME: std::jthread std::stop_token std::stop_source std::stop_callback
+:CPP_INCLUDE: <stop_token>
+:MESSAGE: {match} is not portable: Apple's libc++ has no C++20 stop types
+:FIX: use the same name in ores::platform::concurrency from stoppable_thread.hpp
+:END:
+
+,** posix_headers
+
+MSVC has no POSIX headers.
+
+:PROPERTIES:
+:CPP_INCLUDE: <unistd.h> <sys/time.h> <dirent.h>
+:MESSAGE: {match} is a POSIX header, which MSVC lacks
+:FIX: use the facility ores.platform gives for it
+:END:
+
+,** deprecated_c_calls
+
+MSVC deprecates these calls, and the build treats its warnings as errors.
+
+:PROPERTIES:
+:CPP_NAME: getenv sscanf
+:MESSAGE: {match} is deprecated under MSVC
+:FIX: use ores::platform::environment for getenv, and std::from_chars for sscanf
+:END:
+
+,** atomic_shared_ptr
+
+Apple's libc++ has no =std::atomic<std::shared_ptr>=.
+
+:PROPERTIES:
+:CPP_TEXT: \batomic\s*<\s*(std\s*::\s*)?shared_ptr\b
+:MESSAGE: std::atomic<std::shared_ptr> is not portable: Apple's libc++ lacks it
+:FIX: guard the pointer with a mutex, or use std::atomic_load on a plain shared_ptr
+:END:
+
+,* Examples
+
+compass runs the check over each block as if it were the file =:path=
+names, and reports =portable_cpp/example= when a =fires= block raises no
+finding of its rule or a =quiet= block raises any.
+
+,#+begin_src cpp :compass fires=stop_types :path projects/ores.trading/core/src/worker.cpp
+std::jthread worker([](std::stop_token t) { run(t); });
+,#+end_src
+
+,#+begin_src cpp :compass quiet :path projects/ores.trading/core/src/worker.cpp
+ores::platform::concurrency::stoppable_thread worker(run);
+,#+end_src
+
+,#+begin_src cpp :compass quiet :path projects/ores.platform/src/concurrency/stoppable_thread.cpp
+#include <stop_token>
+,#+end_src
+
+,#+begin_src cpp :compass fires=deprecated_c_calls :path projects/ores.http/core/src/server.cpp
+const char* port = std::getenv("ORES_PORT");
+,#+end_src
+
+,#+begin_src cpp :compass fires=atomic_shared_ptr :path projects/ores.compute/core/src/cache.hpp
+std::atomic<std::shared_ptr<snapshot>> current_;
+,#+end_src
+
+,* Exceptions
+
+| path | line | rule | expires | approver | reason |
+|------+------+------+---------+----------+--------|
+
+,* See also
+
+- [[id:47F7BE94-A6D8-4549-A17A-1A13555749F3][Compass in ORE Studio]]: how ORE Studio configures compass.
+#+end_src
+
+** An existing check rewritten: handler permissions
+
+=compass/checks/handler_permissions.org=. The =handler_permissions= codec (=compass.sql/src/codecs/handler_permissions.cpp=) as a =resolve= check. Its two ORE defaults, the component list and the seeds script, and its two literals, the handler file pattern and the permission-code shape, are the drawer's values.
+
+#+begin_src org
+:PROPERTIES:
+:ID: 817C0294-4825-4865-A29F-EAE3B7D7053C
+:END:
+,#+title: Check: handler permissions are seeded
+,#+description: Every permission code a message handler checks is a code the IAM populate script seeds.
+,#+type: check
+,#+level: cross
+,#+filetags: :compass:check:iam:sql:cpp:
+,#+created: 2026-11-18
+,#+updated: 2026-11-18
+,#+options: prop:t
+
+This page defines a =check= that compass runs over ORE Studio. Its
+=* Definition= is what compass runs; the rest says why.
+
+,* Rule
+
+Every permission code a message handler of a clean component checks with
+=has_permission= is seeded by the IAM populate script. A code built at run
+time, ="prefix" + name=, passes when some seeded code starts with its
+prefix.
+
+,* Why
+
+A handler that checks a code nobody seeds refuses every caller, including
+the system's own roles, and nothing fails until a user meets the refusal.
+ORE Studio's Component Clean Standard requires every code to be seeded before a
+component joins the codegen gates, so the =USES= glob lists the clean
+components only.
+
+This check was the =handler_permissions= codec of compass, with these
+components and this script as its built-in defaults.
+
+,* Definition
+
+:PROPERTIES:
+:ENGINE: resolve
+:END:
+
+,** unseeded_permission
+
+:PROPERTIES:
+:USES: projects/ores.{refdata,analytics,compute,assets,storage,reporting,dq,trading,marketdata,inbox}/**/messaging/*_handler.{hpp,cpp}
+:USE_TEXT: has_permission\(\s*[^,]+,\s*"([^"]+)"(\s*\+)?
+:PREFIX_WHEN: 2
+:DEFINED_IN: projects/ores.sql/populate/iam/iam_permissions_populate.sql
+:DEFINED_AS: sql_string ^[a-z_]+::[a-z_]+:[a-z_-]+$
+:MESSAGE: {use} is checked but never seeded
+:FIX: seed the code in {defined_in}
+:END:
+
+=USE_TEXT= captures the code in group 1. =PREFIX_WHEN= names the group
+that, when it matched, makes the capture a prefix rather than a whole
+code. =sql_string= reads the string literals of the script, in dollar
+quoted bodies too.
+
+,* Examples
+
+,#+begin_src cpp :compass fires=unseeded_permission :path projects/ores.refdata/core/src/messaging/x_handler.cpp
+if (!has_permission(ctx, "refdata::nowhere:write")) return deny();
+,#+end_src
+
+,#+begin_src sql :compass defines :path projects/ores.sql/populate/iam/iam_permissions_populate.sql
+select ores_iam_permissions_upsert_fn('refdata::calendars:write', 'Write calendars');
+,#+end_src
+
+,#+begin_src cpp :compass quiet :path projects/ores.refdata/core/src/messaging/calendar_materialisation_handler.cpp
+if (!has_permission(req_ctx, "refdata::calendars:write")) return deny();
+if (!has_permission(req_ctx, "refdata::" + entity + ":read")) return deny();
+,#+end_src
+
+,* Exceptions
+
+| path | line | rule | expires | approver | reason |
+|------+------+------+---------+----------+--------|
+
+,* See also
+
+- [[id:47F7BE94-A6D8-4549-A17A-1A13555749F3][Compass in ORE Studio]]: how ORE Studio configures compass.
+#+end_src
+
+* The mined candidates
+
+The five checks [[id:6947B0D8-A1AE-4180-B2D9-D33FF02C1A3B][Investigation: ORE Studio failed build patterns]]
+recommends, against the engines.
+
+| Candidate | Engine | Written as data | What the format lacks |
+|-----------+--------+-----------------+-----------------------|
+| Portable C++ facilities | =forbid= | Yes, in full above, for the stop types, POSIX headers, =getenv=, =sscanf= and =atomic<shared_ptr>= | Floating =from_chars= needs the argument's type, and formatting =std::quoted= needs to know the call is a format. Neither is a fact compass parses; both need a C++ type fact or stay code. |
+| TypeScript formatting | none | The formatter, its style file and the globs are data | An engine that runs an external tool: =format=, keyed by the file's hash and the tool's version. The codegen codec already runs prettier, so this is compass code to share, not a format gap. |
+| A generated domain header's includes | =resolve=, both ways | The model's =Domain includes= block and the type-to-header map as an org table | =resolve= maps a use to a definition by equality. This needs the use mapped through a table first (member type to header), and a check in both directions. One parameter, =THROUGH=, naming the table, would close it. |
+| Site links | none | The link types and the site's roots are data | The resolution is org-export's: fuzzy, file and custom links. It stays code, as an extension of =org_links=. |
+| Pasted blocks | =resolve= | Uses are the C++ names of the org source blocks of models; definitions are the tree's C++ declarations | Resolving a name needs its namespace and its =using= declarations. Equality on the trailing name gives false passes. It stays code unless a declaration fact carries its qualified name, which the C++ pass does not give today. |
+
+One of five is data in full, two more need one engine feature each, and
+two stay code.
+
+* Migration
+
+** What maps where
+
+| Today | Moves to |
+|-------+----------|
+| =.compass.org= | =compass/configuration.org=, then deleted |
+| =#+output:=, =#+meta:= | the same keywords of =configuration.org= |
+| The =* Codecs= table, =name= and =enabled= | the =* Codecs= table of =configuration.org= |
+| The =options= column | a drawer under the codec's heading in =* Settings=, one key per line |
+| The 46 values ORE Studio takes from compass's defaults | stated in ORE Studio's =configuration.org=; compass's defaults become empty, and a codec with an unset required path refuses to run with a finding that names the option |
+| Machine paths (=clang_format=, =prettier=) | =compass/local.org= |
+| The global =* Exceptions= table | the =Exceptions= table of the check or codec its =rule= names |
+| Inline =compass:except= markers | unchanged; a ported codec's markers are renamed to its check's name in the same change |
+| Literals of a ported codec | its check document under =checks/= |
+| Rule provenance (=enforces= IDs) | the =* Why= links of the check document |
+
+The old layout is not read during a transition. compass has two
+clients, ORE Studio pins the compass commit it needs
+(=build/scripts/compass_ng.pin=), and compass's own repository moves in
+the same change as its reader, so one pin bump moves ORE Studio across
+in one commit.
+
+** What compass must change
+
+1. The configuration reader. Read =compass/configuration.org= and
+   =compass/local.org=, with drawers under =* Settings= for options,
+   =#+product:= and =#+ignore:= as settings every codec reads, and the
+   precedence above. Delete the =.compass.org= reader.
+2. The exceptions reader. Read the =Exceptions= tables of the
+   configuration's codec headings and of the check documents.
+3. Runtime codecs. Today a descriptor's name, options and rules are
+   =string_view=s into static storage (=types/descriptor.hpp=). A codec
+   built from a check document needs storage the registry owns.
+4. The engines =forbid=, =resolve=, =inventory= and =limit=, over the
+   facts the shared C++, SQL and org passes already give.
+5. The examples runner.
+6. =rule_table= lists data-defined rules with a link to their check
+   document.
+7. =compass add check=, =compass_readme= and =compass_configuration=
+   scaffolds, and the three type contracts.
+8. Each codec reads =#+product:= and =#+ignore:= instead of its own
+   literal.
+
+** Order
+
+Each step leaves ORE Studio's verdicts unchanged: =compass check= over
+ORE Studio reports the same findings before and after, which is the
+story's third acceptance criterion.
+
+1. The reader, the three document types and =local.org=, with compass's
+   own repository moved to =compass/=. Steps 1, 2 and 7 above.
+2. ORE Studio's directory, with its 46 defaulted values stated, through
+   a pin bump. Then empty compass's ORE defaults.
+3. =#+product:= and =#+ignore:=, codec by codec.
+4. Runtime codecs, the =forbid= engine and the examples runner. Port
+   =portable_stop= as =checks/portable_cpp.org=, delete the codec, and
+   add the mined rules.
+5. =resolve=; port =handler_permissions=. Then =inventory= and =limit=,
+   each with the first codec it replaces.
+6. A second project, compass itself, writes a check of its own: the
+   story's fourth acceptance criterion.
+7. The could-be-data specifics of the remaining parameterised codecs, by
+   codec, into =configuration.org=.
+
+The codecs of ORE Studio's design wait for the product owner's call on
+their home.
+
+* Least certain
+
+- The engines replace about 20 codecs (a guess from the families); the
+  number holds only when each is ported and gives the same verdicts.
+- The cost of a =TEXT= pattern with no literal to prefilter on is not
+  measured.
+- Drawers are flat. Lists as space-separated values break on a path with
+  a space. compass's repository tracks none; ORE Studio tracks 5, all
+  logs and chat notes no check names (=git ls-files | grep -c ' '=).
+
+* Open questions for the product owner
+
+1. Where the 24 codecs of ORE Studio's design live: in compass as today,
+   in a compass component for ORE Studio, or in ORE Studio's checkout as
+   its own code. Making their 178 specifics data serves only ORE Studio.
+2. Whether the three new type contracts are copied into each project's
+   =doc/meta=, as every contract is today, or shipped inside compass so a
+   project carries only its own types.
+3. Whether a MASD standard set of checks ships with compass, for a
+   project to take as it is, and how a project pins it.
+4. Whether a check document may switch a rule off with =:ENABLED: no=, or
+   is on while it exists, which this design assumes.
+
+* See also
+
+- [[id:5C4E5883-CBA5-4018-9A65-1CFD276AF198][Investigation: what compass hard-codes to ORE Studio]]: the inventory.
+- [[id:6947B0D8-A1AE-4180-B2D9-D33FF02C1A3B][Investigation: ORE Studio failed build patterns]]: the mined candidates.
+- [[id:48CE7287-45FE-4E96-8FA0-8D109C9411C8][Design: the codec interface]]: the descriptor and the cache this
+  design extends.

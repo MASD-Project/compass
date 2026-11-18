@@ -23,11 +23,11 @@ the same speed, caching and exception handling as its built-in codecs.
 
 | Field         | Value                                  |
 |---------------+----------------------------------------|
-| State         | BACKLOG                              |
+| State         | STARTED |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
-| Now           | Not yet started.                       |
-| Waiting on    | Nothing.                               |
-| Next          | Break the story into tasks.            |
+| Now           | The analysis is done: the inventory, and a design for literate check documents in a committed compass/ directory. |
+| Waiting on    | The product owner's calls on the open questions of the design. |
+| Next          | Break the design's migration order into tasks. |
 | Last touched  | 2026-11-18                               |
 
 * Acceptance
@@ -46,9 +46,26 @@ the same speed, caching and exception handling as its built-in codecs.
 
 | Task | State | Start | End | Description |
 |------+-------+-------+-----+-------------|
-| [[id:6E3237E7-C57A-4CD8-97D5-DA32BAA4359E][Analyse what is hard-coded to ORE Studio]] | BACKLOG | | | Classify every codec's ORE Studio specifics (paths, names, type lists, patterns, thresholds) as already data, could be data, or must stay code, and propose the data format projects use to define their own checks. |
+| [[id:6E3237E7-C57A-4CD8-97D5-DA32BAA4359E][Analyse what is hard-coded to ORE Studio]] | DONE | 2026-11-18 | 2026-11-18 | Classify every codec's ORE Studio specifics (paths, names, type lists, patterns, thresholds) as already data, could be data, or must stay code, and propose the data format projects use to define their own checks. |
+
+* Documents
+
+| Document | Kind | Description |
+|----------+------+-------------|
+| [[id:225B524C-1638-4A03-B02F-66EB6759619D][Design: literate project checks]] | design | The compass/ directory, the check document, its engines, exceptions, examples and cache key, and the migration. |
+| [[id:5C4E5883-CBA5-4018-9A65-1CFD276AF198][Investigation: what compass hard-codes to ORE Studio]] | investigation | Every ORE Studio specific in the 71 codecs, classified, with each codec's family. |
 
 * Decisions
+
+- The product owner decided on 2026-11-18 that each project has a compass
+  directory, committed to git, of literate org configuration: each file
+  gives the rationale for its checks and gates in prose beside their
+  machine-readable definitions, links to the others with org-roam ID
+  links, and is published as HTML with the project's site. The directory
+  has a readme that explains what compass is, links to the upstream
+  repository (MASD-Project/compass), and explains how the project uses
+  compass. The alternatives (TOML, YAML, rule files, tree-sitter queries)
+  are not weighed further.
 
 * Out of scope
 
