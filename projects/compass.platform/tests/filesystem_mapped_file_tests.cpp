@@ -29,9 +29,9 @@
 #include <system_error>
 #include <utility>
 #include <vector>
-#include <unistd.h>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
+#include "compass.platform/process/environment.hpp"
 
 namespace {
 
@@ -42,8 +42,10 @@ public:
     explicit scoped_temp_file(std::span<const std::byte> content) {
         static int counter = 0;
         path_ = std::filesystem::temp_directory_path() /
-            ("compass.platform.tests." + std::to_string(::getpid()) + "." +
-                std::to_string(counter++));
+            ("compass.platform.tests." +
+                std::to_string(
+                    compass::platform::process::current_process_id()) +
+                "." + std::to_string(counter++));
         std::ofstream os(path_, std::ios::binary);
         os.write(reinterpret_cast<const char*>(content.data()),
             static_cast<std::streamsize>(content.size()));

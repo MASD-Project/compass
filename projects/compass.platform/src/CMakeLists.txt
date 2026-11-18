@@ -19,9 +19,14 @@ set(name "compass.platform")
 set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
+    filesystem/file_lock.cpp
+    filesystem/file_status.cpp
     filesystem/mapped_file.cpp
+    filesystem/new_file.cpp
+    process/environment.cpp
     process/executable.cpp
     process/run_program.cpp
+    process/standard_streams.cpp
     text/decoding.cpp
     text/regex.cpp
     text/xml.cpp)
@@ -35,3 +40,11 @@ target_link_libraries(${lib_target_name}
     PRIVATE
         PCRE2::8BIT
         expat::expat)
+
+# The Windows implementations include windows.h, which without these defines
+# pulls in most of the API and defines min and max as macros.
+if(WIN32)
+    target_compile_definitions(${lib_target_name} PRIVATE
+        WIN32_LEAN_AND_MEAN
+        NOMINMAX)
+endif()

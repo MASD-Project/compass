@@ -26,7 +26,16 @@ TEST_CASE("executable_path names this test binary by its real path",
     "[process]") {
     const auto path = compass::platform::process::executable_path();
     CHECK(path.is_absolute());
-    CHECK(path.filename() == "compass.platform.tests");
+    CHECK(path.filename().string().starts_with("compass.platform.tests"));
     CHECK(std::filesystem::is_regular_file(path));
     CHECK_FALSE(std::filesystem::is_symlink(path));
+}
+
+TEST_CASE("find_program searches PATH and accepts a path with a separator",
+    "[process]") {
+    using compass::platform::process::find_program;
+    const auto self = compass::platform::process::executable_path();
+    CHECK(find_program("sh").has_value());
+    CHECK(find_program(self.string()) == self);
+    CHECK_FALSE(find_program("compass-no-such-program").has_value());
 }
