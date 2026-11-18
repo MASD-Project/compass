@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/finish-the-model-rules-pass
+#+pr: https://github.com/MASD-Project/compass/pull/69
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-18
@@ -20,18 +20,20 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Goal
 
-(Describe what user-visible-or-internal change this task produces.)
+The last five model gates that read regexes read the model, the model outline,
+the codegen context or a parsed org table, so each finding names the model
+line to change.
 
 * Status
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Merged. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
-| Last touched | 2026-11-18                               |
+| Next         | Nothing. |
+| Last touched | 2026-11-18 |
 
 * Acceptance
 
@@ -39,9 +41,13 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Follow =evidence/gate_review/crosscheck.md= for each gate and the Result
+  of [[id:FA2071BD-7E67-4632-A4EB-40C7B40D537A][Run model rules over loaded models]].
+- Move generated_column_refs and entity_binary_types to rules over the model
+  or the codegen context (dropping =too_few_compared=), open_reads to the org
+  table it reads, marketdata_identity_columns to the model's columns, and
+  route_units' model opt-in to =model_rules=, one at a time, comparing
+  findings on ORE Studio after each.
 
 * Measurements
 
@@ -55,7 +61,10 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Computed shape vs ORE's generated files | 0 disagreements over 579 create scripts, 4666 bound columns, 442 table writers | scratchpad =verify_shape.py= over a dump of =ops::generated_shape_of= | ORE c25e952663 |
+| Warm =compass check= on ORE | 3.55 s before, 3.62 to 3.65 s after (load 16 to 25) | =compass check= | ORE c25e952663 |
+| Hook, model edit, median of 9 | 659 ms before, 581 ms after | =compass hook= on a model edit | ORE c25e952663 |
+| Verdict on ORE main, route_units row removed | 0 diagnostics, 201 excused, old and new binary | =compass check= | ORE e8154d3533 |
 
 * Notes
 
@@ -74,7 +83,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/69][#69]] | Finish the model rules pass |
 
 * Review
 
@@ -83,3 +92,25 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+The five gates read structure instead of regexes. Findings on ORE Studio are
+unchanged except where a regex was wrong.
+
+- open_reads reads its allow-list from the parsed org table.
+- route_units' rules moved into =model_rules=: =route_units/unregistered_unit=,
+  =twice_registered= and =missing_unit= are now =model_rules/...=. An opt-in
+  in a heading drawer no longer counts, since codegen reads only the file
+  drawer.
+- generated_column_refs and entity_binary_types are per-model document codecs
+  over =ops::generated_shape_of=, which loads the model and runs codegen's own
+  context steps. Findings sit on the model's headings. =too_few_compared=,
+  =min_compared= and =no_table= are gone.
+- marketdata_identity_columns reads the identity table's columns from its
+  model, so it fires before code is regenerated.
+
+An install needs ORE Studio's =.compass.org= to drop its =route_units= row and
+its runner map to send route-units to =model_rules=.
+
+generated_shape mirrors three things from ORE's templates by hand: the
+repository row's member types, the create script's column list and the class
+members. A template change there needs a matching edit in compass.

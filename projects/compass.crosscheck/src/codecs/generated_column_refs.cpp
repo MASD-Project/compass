@@ -19,18 +19,13 @@
  */
 #include "compass.crosscheck/codecs/generated_column_refs.hpp"
 
+#include <algorithm>
 #include <array>
-#include <map>
-#include <set>
 #include <string>
-#include <vector>
 #include "compass.codec/types/corpus_view.hpp"
-#include "compass.cpp/ops/glob.hpp"
-#include "compass.cpp/ops/paths.hpp"
-#include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
+#include "compass.crosscheck/ops/generated_shape.hpp"
 #include "compass.crosscheck/ops/words.hpp"
-#include "compass.platform/text/decoding.hpp"
 #include "compass.platform/text/regex.hpp"
 
 namespace compass::crosscheck::codecs {
@@ -41,141 +36,99 @@ namespace ct = compass::codec::types;
 namespace co = compass::cpp::ops;
 namespace pt = compass::platform::text;
 
-constexpr std::uint32_t not_a_member = 0;
-constexpr std::uint32_t not_a_column = 1;
+enum rule : std::uint32_t { not_a_member, not_a_column };
 
 constexpr std::array<ct::rule, 2> rules{{
     {"not_a_member", "What a generated table writer streams of its entity "
         "is a member of the entity."},
     {"not_a_column", "A generated index names only columns of the table it "
-        "indexes, and a table the file creates."}}};
+        "indexes."}}};
 
 /**
- * @brief Whether the generator's marker is in the first 1500 characters
- * of @p text.
+ * @brief The offset in @p source of @p heading, a view into it, or 0 when
+ * the model states no such heading.
  */
-bool generated(std::string_view text) {
-    return text.substr(0, co::byte_of_character(text, 1500)).contains(
-        "AUTO-GENERATED FILE");
+std::uint32_t offset_of(std::string_view source, std::string_view heading) {
+    return heading.empty() ? 0
+        : static_cast<std::uint32_t>(heading.data() - source.data());
 }
 
-std::string read(const ct::corpus_view& v, std::string_view path) {
-    return pt::universal_newlines(pt::decode_replacing(
-        v.read_file(path).value_or("")));
+void report(ct::diagnostic_table& out, const ct::document& d,
+    std::string_view heading, rule r, std::string_view message,
+    std::string_view fix) {
+    const auto at = offset_of(d.source, heading);
+    out.add({d.row, {at, at}, ct::rule_id{r}, ct::severity::error, message,
+        fix});
 }
 
-std::string without_comments(std::string_view text) {
-    static const pt::regex comment(R"(/\*.*?\*/|//[^\n]*)", {.dotall = true});
-    return comment.substitute(text, " ");
-}
-
-void table_writers(const ct::corpus_view& v, ct::diagnostic_table& out) {
-    static const pt::regex iterator(R"(const\s+auto&\s+(\w+)\s*:)");
-    static const pt::regex access(R"(\b(\w+)\.(\w+)\b(?!\s*\())");
-    static const pt::regex word(R"(\w+)");
-    constexpr std::string_view fix = "Regenerate the writer and the entity "
-        "from one model, or drop the name from the model's table display.";
-    for (const auto path : co::glob(v,
-             "projects/*/api/src/domain/*_table.cpp")) {
-        const auto text = read(v, path);
-        if (!generated(text))
-            continue;
-        const auto body = without_comments(text);
-        const auto binding = iterator.search(body);
-        if (!binding) {
-            co::report(out, path, 0, not_a_member, "no `const auto& x : v` "
-                "loop to check", fix);
-            continue;
-        }
-        const std::string var(binding->group(1));
-        const auto name = co::components_of(path).back();
-        const auto entity = name.substr(0, name.size() -
-            std::string_view("_table.cpp").size());
-        const auto component = co::parent_of(co::parent_of(co::parent_of(
-            path)));
-        const auto headers = co::glob(v, std::string(component) +
-            "/include/*/domain/" + std::string(entity) + ".hpp");
-        if (headers.size() != 1) {
-            co::report(out, path, 0, not_a_member, std::to_string(
-                headers.size()) + " headers match " + std::string(entity) +
-                ".hpp, expected 1", fix);
-            continue;
-        }
-        std::set<std::string> members;
-        const auto header = without_comments(read(v, headers.front()));
-        for (const auto& m : word.find_all(header))
-            members.emplace(m.group());
-        for (const auto& a : access.find_all(body)) {
-            if (a.group(1) != var || members.contains(std::string(a.group(2))))
-                continue;
-            co::report(out, path, 0, not_a_member, "`" + var + "." +
-                std::string(a.group(2)) + "` is not a member of " +
-                std::string(entity), fix);
+/**
+ * @brief The columns an index's column list names: each part between the
+ * commas outside parentheses that is a column, quoted or not, with its
+ * ordering after it. A part that is an expression names no column this
+ * check can read.
+ */
+std::vector<std::string> indexed_columns(std::string_view list) {
+    static const pt::regex column(
+        R"re(^"?([A-Za-z_][A-Za-z0-9_]*)"?(?:\s+[A-Za-z_ ]+)?$)re");
+    std::vector<std::string> out;
+    int depth = 0;
+    std::size_t start = 0;
+    for (std::size_t i = 0; i <= list.size(); ++i) {
+        if (i < list.size() && list[i] == '(')
+            ++depth;
+        else if (i < list.size() && list[i] == ')')
+            --depth;
+        else if (i == list.size() || (list[i] == ',' && depth == 0)) {
+            const auto part = co::strip(list.substr(start, i - start));
+            if (const auto m = column.match(part))
+                out.push_back(ops::lowered(m->group(1)));
+            start = i + 1;
         }
     }
+    return out;
 }
 
-void sql_indexes(const ct::corpus_view& v, ct::diagnostic_table& out) {
-    static const pt::regex create_table(
-        R"re(create\s+table\s+(?:if\s+not\s+exists\s+)?"?(ores_\w+_tbl)"?\s*\((.*?)\n\)\s*;)re",
-        {.dotall = true, .ignorecase = true});
-    static const pt::regex column_def(
-        R"re(^\s*,?\s*"([a-z_][a-z0-9_]*)"\s+[a-z])re",
-        {.multiline = true, .ignorecase = true});
-    static const pt::regex create_index(
-        R"re(create\s+(?:unique\s+)?index\s+(?:if\s+not\s+exists\s+)?"?(\w+)"?\s+on\s+"?(ores_\w+_tbl)"?\s*\((.*?)\))re",
-        {.dotall = true, .ignorecase = true});
-    static const pt::regex index_column(R"re("?([a-z_][a-z0-9_]*)"?)re");
-    constexpr std::string_view fix = "Remove the column from the model's "
-        "Indexes table, or add it to the entity.";
-    for (const auto path : co::glob(v, "projects/ores.sql/create/**/*.sql")) {
-        const auto text = read(v, path);
-        if (!generated(text))
+void run(const ct::document& d, const ct::corpus_view& v,
+    ct::diagnostic_table& out) {
+    const auto shape = ops::generated_shape_of(v, d);
+    if (!shape)
+        return;
+    for (const auto& column : shape->display) {
+        if (!shape->has_table_writer || shape->members.contains(column))
             continue;
-        std::map<std::string, std::set<std::string>> columns;
-        for (const auto& t : create_table.find_all(text)) {
-            std::set<std::string> names;
-            for (const auto& c : column_def.find_all(t.group(2)))
-                names.emplace(ops::lowered(c.group(1)));
-            columns[ops::lowered(t.group(1))] = std::move(names);
-        }
-        for (const auto& i : create_index.find_all(text)) {
-            const std::string name(i.group(1));
-            const std::string table(i.group(2));
-            const auto known = columns.find(ops::lowered(table));
-            if (known == columns.end()) {
-                co::report(out, path, 0, not_a_column, "index " + name +
-                    " on unknown table " + table, fix);
+        report(out, d, shape->display_heading, not_a_member, "`" +
+            shape->iterator + "." + column + "` is not a member of " +
+            shape->name, "Name a column of the model in its table display, "
+            "or add the column to the model.");
+    }
+    if (!shape->creates_table)
+        return;
+    std::vector<std::string> table;
+    for (const auto& c : shape->table_columns)
+        table.push_back(ops::lowered(c));
+    for (const auto& index : shape->indexes) {
+        for (const auto& column : indexed_columns(index.columns)) {
+            if (std::ranges::find(table, column) != table.end())
                 continue;
-            }
-            for (const auto raw : ops::split(i.group(3), ',')) {
-                const auto column = index_column.search(co::strip(raw));
-                if (column && !known->second.contains(ops::lowered(
-                        column->group(1))))
-                    co::report(out, path, 0, not_a_column, "index " + name +
-                        " names " + std::string(column->group(1)) + ", which "
-                        "is not a column of " + table, fix);
-            }
+            report(out, d, index.heading, not_a_column, "index " +
+                index.name + " names " + column + ", which is not a column "
+                "of " + shape->table, "Remove the column from the model's "
+                "index, or add it to the entity.");
         }
     }
-}
-
-void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
-    table_writers(v, out);
-    sql_indexes(v, out);
 }
 
 }
 
 const ct::descriptor generated_column_refs{
     .name = "generated_column_refs",
-    .version = 1,
-    .summary = "Reports each column a generated writer or index names that "
-        "its entity or table does not have.",
-    .reads = ct::inputs::of_types({}),
+    .version = 2,
+    .summary = "Reports each column a model's table display or index names "
+        "that its generated struct or table does not have.",
+    .reads = ct::inputs::every_document(),
     .options = {},
     .rules = rules,
     .enabled_by_default = false,
-    .run = ct::corpus_function<ct::diagnostic_table>{run}};
+    .run = ct::document_function<ct::diagnostic_table>{run}};
 
 }

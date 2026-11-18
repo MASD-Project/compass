@@ -28,6 +28,7 @@
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
+#include "compass.crosscheck/ops/generated_shape.hpp"
 #include "compass.crosscheck/ops/words.hpp"
 #include "compass.platform/text/decoding.hpp"
 #include "compass.platform/text/regex.hpp"
@@ -59,8 +60,8 @@ constexpr std::string_view schema_path = "projects/ores.marketdata/api/"
     "include/ores.marketdata.api/datum/schema.hpp";
 constexpr std::string_view projector_path = "projects/ores.marketdata/core/"
     "src/repository/market_series_identity_projector.cpp";
-constexpr std::string_view create_path = "projects/ores.sql/create/"
-    "marketdata/marketdata_market_series_identity_create.sql";
+constexpr std::string_view model_path = "projects/ores.marketdata/modeling/"
+    "ores.marketdata.market_series_identity.org";
 constexpr std::string_view views_path = "projects/ores.sql/create/"
     "marketdata/marketdata_series_identity_views_create.sql";
 constexpr std::string_view grammar_path = "projects/ores.marketdata/api/"
@@ -196,32 +197,17 @@ read_views(const ct::corpus_view& v) {
     return out;
 }
 
+/**
+ * @brief The columns the identity table's model gives its create script,
+ * as code generation reads the model.
+ */
 names read_table_columns(const ct::corpus_view& v) {
-    static const pt::regex column(R"re(\s*"([a-z_0-9]+)"\s)re");
-    const auto text = read(v, create_path);
-    const auto quoted = "\"" + std::string(table) + "\" (";
-    const auto at = text.find(quoted);
-    if (at == std::string::npos)
-        throw unreadable{create_path, "does not create " +
-            std::string(table)};
-    const auto body = std::string_view(text).substr(text.find('(', at) + 1);
-    std::int64_t depth = 1;
-    names out;
-    for (const auto line : co::split_lines(body)) {
-        depth += std::ranges::count(line, '(') - std::ranges::count(line, ')');
-        if (depth <= 0)
-            break;
-        const auto stripped = co::strip(line);
-        const auto m = column.match(line);
-        if (m && !stripped.starts_with("primary key") &&
-            !stripped.starts_with("check") &&
-            !stripped.starts_with("exclude") &&
-            !stripped.starts_with("unique"))
-            out.emplace(m->group(1));
-    }
-    if (out.empty())
-        throw unreadable{create_path, "yields no columns"};
-    return out;
+    const auto d = v.find_path(model_path);
+    const auto shape = d ? ops::generated_shape_of(v, *d) : std::nullopt;
+    if (!shape || !shape->creates_table || shape->table != table)
+        throw unreadable{model_path, "does not load as the model whose "
+            "create script makes " + std::string(table)};
+    return names(shape->table_columns.begin(), shape->table_columns.end());
 }
 
 std::map<std::string, std::string> read_switch(std::string_view text) {
@@ -302,10 +288,10 @@ void check(const ct::corpus_view& v, ct::diagnostic_table& out) {
     expected.insert(s.identity.begin(), s.identity.end());
     expected.insert(index_columns.begin(), index_columns.end());
     for (const auto& m : minus(expected, columns))
-        report(table_columns, create_path, std::string(table) +
+        report(table_columns, model_path, std::string(table) +
             " has no column '" + m + "'.");
     for (const auto& e : minus(columns, expected))
-        report(table_columns, create_path, std::string(table) +
+        report(table_columns, model_path, std::string(table) +
             " has column '" + e + "', which is neither a context column, nor "
             "an identity field, nor an index field.");
 
@@ -405,10 +391,10 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
 
 const ct::descriptor marketdata_identity_columns{
     .name = "marketdata_identity_columns",
-    .version = 1,
+    .version = 2,
     .summary = "Reports each way the series identity projection disagrees "
         "with the codec schema and the index grammar.",
-    .reads = ct::inputs::of_types({}),
+    .reads = ct::inputs::every_document(),
     .options = {},
     .rules = rules,
     .enabled_by_default = false,

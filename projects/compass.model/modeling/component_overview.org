@@ -44,7 +44,9 @@ included.
   of =projects/modeling/=, and the field groups an entity's domain groups
   name. A host that records reads, such as a codec's corpus view, sees every
   one, because the finder is asked for each read even when the
-  =load_cache= spares parsing the document again.
+  =load_cache= spares parsing the document again. =ops::field_group_path=
+  says where a field group a model names is found: beside the model, else
+  under the modeling directory of the component its name begins with.
 - A =document_lister= that lists the paths of the checkout under a prefix.
   A model that reads the models beside it finds them through it, as
   ores.codegen globs the directories: a =family= lists its own directory

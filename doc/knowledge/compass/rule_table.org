@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-180 rules, 43 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
+178 rules, 43 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
 
 ** Rules
 
@@ -50,10 +50,8 @@ memories no rule cites are the candidates for the next checks.
 | =curve_parameter_paths= | stale_exemption | Every exemption explains some path of the artefact. |  |
 | =curve_parameter_paths= | unreadable_input | The schema declares the root element, and the exemptions read. |  |
 | =curve_sections_wiring= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
-| =entity_binary_types= | wire_mismatch | A generated row binds each column in the binary format its column's type defines, to a column its table creates and a member its struct declares. |  |
+| =entity_binary_types= | wire_mismatch | A generated row binds each column in the binary format its column's type defines, to a member its struct declares. |  |
 | =entity_binary_types= | unclassified | Every bound member and column has a type the check can place on the wire, or both are text. |  |
-| =entity_binary_types= | no_table | Every generated row's table is created by some create script, or is a view. |  |
-| =entity_binary_types= | too_few_compared | At least min_compared binary columns are compared, so the check is reading the tree. |  |
 | =entity_writes= | sql_writer | No SQL function but the purge writes an entity table with INSERT, UPDATE or DELETE. | =5724BDE2-7FA4-4667-9129-2D9DD7783AB2= |
 | =entity_writes= | cpp_writer | No hand-written C++ file but the repository of each table it names writes an entity table in raw SQL. | =5724BDE2-7FA4-4667-9129-2D9DD7783AB2= |
 | =er_diagram= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
@@ -66,7 +64,7 @@ memories no rule cites are the candidates for the next checks.
 | =forward_declarable_includes= | stale_type_list | The types option lists what the tree's own list file lists. |  |
 | =forward_declarable_includes= | type_not_defined | A listed type's defining header, where the tree has it, defines the type. |  |
 | =generated_column_refs= | not_a_member | What a generated table writer streams of its entity is a member of the entity. |  |
-| =generated_column_refs= | not_a_column | A generated index names only columns of the table it indexes, and a table the file creates. |  |
+| =generated_column_refs= | not_a_column | A generated index names only columns of the table it indexes. |  |
 | =handler_permissions= | unseeded_permission | Every permission code a handler of a checked component checks is seeded. | =7B477025-132E-4B20-80B4-D8C9420880B8= |
 | =handler_registrars= | registrar_without_responder | Every generated handler registrar is called, or every subject it subscribes is subscribed by hand. |  |
 | =heading_numbers= | numbered_heading | No org heading carries its own number. | [[id:177EDB1C-6241-45AA-81B1-46C4B9D6329D][Do not number org headings]] |
@@ -99,6 +97,9 @@ memories no rule cites are the candidates for the next checks.
 | =model_rules= | opt_out | No model switches the TypeScript protocol facet off. |  |
 | =model_rules= | outside_protocol | Every NATS subject a model declares is inside the entity protocol. |  |
 | =model_rules= | unreadable_model | Every model is UTF-8. |  |
+| =model_rules= | unregistered_unit | A component's route aggregate registers the route unit of every model that opts into one. |  |
+| =model_rules= | twice_registered | An aggregate registers each unit once. |  |
+| =model_rules= | missing_unit | Every unit an aggregate registers has its source in the component. |  |
 | =no_pr_triggers= | pull_request_trigger | No workflow triggers on a pull request. | =B83064E5-6357-4FC6-A8BE-395DD429ED2A=, =BC85C0DF-99BE-4079-A649-88A236AE0ACF= |
 | =no_pr_triggers= | no_workflows | The repository has workflow files to read. |  |
 | =open_reads= | open_read | A generated handler's read checks a permission, or Authorised reads allow-lists its subject. |  |
@@ -144,9 +145,6 @@ memories no rule cites are the candidates for the next checks.
 | =route_auth= | route_without_auth | Every add_route call states its authentication position: auth_required, auth_optional or roles. |  |
 | =route_auth= | too_few_routes | The scan finds at least 20 add_route calls, so a pattern that stops matching fails rather than passes. |  |
 | =route_inventory= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
-| =route_units= | unregistered_unit | A component's route aggregate registers the route unit of every model that opts into one. |  |
-| =route_units= | twice_registered | An aggregate registers each unit once. |  |
-| =route_units= | missing_unit | Every unit an aggregate registers has its source in the component. |  |
 | =rule_identifiers= | unkeyed_section | No rule carries an identifier in a section the pages do not key. |  |
 | =rule_identifiers= | no_identifier | Every rule of a keyed section starts with its identifier. | =00BA1689-B060-4BD8-BC46-67034D663B7F= |
 | =rule_identifiers= | foreign_code | A rule's identifier carries its own page's code. |  |

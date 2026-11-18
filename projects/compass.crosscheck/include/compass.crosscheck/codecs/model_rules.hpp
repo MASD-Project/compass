@@ -67,6 +67,14 @@ namespace compass::crosscheck::codecs {
  * Rule outside_protocol (subject-conformance): a :subject: of a model's
  * drawer that is not inside the entity protocol (ops::classify_subject).
  * Rule unreadable_model: a model that is not UTF-8.
+ *
+ * Rules unregistered_unit, twice_registered and missing_unit
+ * (route-units): a model directly under projects/ores.<c>/modeling/ whose
+ * file drawer switches ores.cpp.http-route on, as code generation reads
+ * the override, owns the route unit its #+entity_singular: or
+ * #+name_singular: names. The aggregate
+ * projects/ores.http/<c>/src/routes/<c>/<c>_routes.cpp registers every
+ * such unit, each unit once, and only units with a source beside it.
  */
 extern const compass::codec::types::descriptor model_rules;
 

@@ -19,54 +19,62 @@
  */
 #include <catch2/catch_test_macros.hpp>
 #include "compass.crosscheck/codecs/entity_binary_types.hpp"
+#include "entity_model.hpp"
 #include "test_checkout.hpp"
 
 namespace {
 
 using namespace compass::crosscheck;
 using tests::files;
+using tests::model_column;
+
+const std::string path = "projects/ores.iam/modeling/ores.iam.role.org";
 
 }
 
 TEST_CASE("a row binds each column in its table's binary format",
     "[codecs][entity_binary_types]") {
-    const files t{
-        {"projects/ores.sql/create/iam/iam_roles_create.sql",
-         "create table \"ores_iam_roles_tbl\" (\n"
-         "  \"id\" uuid not null,\n  \"version\" integer not null,\n"
-         "  \"amount\" numeric(38,12),\n  \"kind\" ores_kind_t,\n"
-         "  \"size\" bigint\n);\n"
-         "create or replace view ores_iam_roles_vw as select 1;\n"},
-        {"projects/ores.iam/core/include/ores.iam.core/repository/role_entity.hpp",
-         "// AUTO-GENERATED FILE\nstruct role_entity {\n"
-         "    constexpr static const char* tablename = \"ores_iam_roles_tbl\";\n"
-         "    static constexpr auto columns() {\n"
-         "        query_builder::key(\"id\", &e::id),\n"
-         "        query_builder::bind(\"version\", &e::version),\n"
-         "        query_builder::bind(\"amount\",\n            &e::amount),\n"
-         "        query_builder::bind_text(\"kind\", &e::kind),\n"
-         "        query_builder::bind(\"size\", &e::size),\n"
-         "        query_builder::bind(\"missing\", &e::id),\n"
-         "    }\n"
-         "    boost::uuids::uuid id;\n    std::int64_t version = 0;\n"
-         "    std::optional<double> amount;\n    std::string kind;\n"
-         "    int size{};\n};\n"},
-        {"projects/ores.iam/core/include/ores.iam.core/repository/view_entity.hpp",
-         "// AUTO-GENERATED FILE\n"
-         "constexpr static const char* tablename = \"ores_iam_roles_vw\";\n"
-         "static constexpr auto columns()\n"},
-        {"projects/ores.iam/core/include/ores.iam.core/repository/lost_entity.hpp",
-         "// AUTO-GENERATED FILE\n"
-         "constexpr static const char* tablename = \"ores_iam_lost_tbl\";\n"
-         "static constexpr auto columns()\n"}};
-    CHECK(tests::messages_of(tests::run(codecs::entity_binary_types, t,
-            {{"min_compared", "1"}})) == std::vector<std::string>{
-        "no create script creates ores_iam_lost_tbl",
-        "'version' holds std::int64_t (integer 64) but ores_iam_roles_tbl "
-        "creates it integer (integer 32)",
-        "'amount' holds std::optional<double> (double precision) but "
-        "ores_iam_roles_tbl creates it numeric(38,12) (numeric)",
+    const auto columns =
+        model_column("id", ":type: bigint\n:cpp_type: std::int64_t\n"
+            ":primary_key: true\n") +
+        model_column("size", ":type: bigint\n:cpp_type: int\n") +
+        model_column("flag", ":type: text\n:cpp_type: bool\n") +
+        model_column("stamp", ":type: timestamp\n"
+            ":cpp_type: std::chrono::system_clock::time_point\n") +
+        model_column("owner", ":type: uuid\n:cpp_type: std::string\n") +
+        model_column("amount", ":type: numeric(38,12)\n:cpp_type: double\n") +
+        model_column("ratio", ":type: double precision\n:cpp_type: double\n") +
+        model_column("thing", ":type: text\n:cpp_type: my::thing\n") +
+        model_column("shape", ":type: geometry\n:cpp_type: int\n");
+    const files t{{path, tests::entity_model("iam", "role",
+        "ores_iam_roles_tbl", columns)}};
+    const auto r = tests::run(codecs::entity_binary_types, t);
+    CHECK(tests::messages_of(r) == std::vector<std::string>{
+        "the row binds 'id' but the member is not declared in the struct",
         "'size' holds int (integer 32) but ores_iam_roles_tbl creates it "
         "bigint (integer 64)",
-        "the row binds 'missing', which ores_iam_roles_tbl does not create"});
+        "'flag' holds bool (boolean) but ores_iam_roles_tbl creates it text "
+        "(text)",
+        "'stamp' holds db_timestamp (timestamptz) but ores_iam_roles_tbl "
+        "creates it timestamp (timestamp)",
+        "'thing' holds my::thing, which this check cannot place on the wire",
+        "'shape' holds int but ores_iam_roles_tbl declares it geometry, a "
+        "type this check cannot place on the wire"});
+    CHECK(tests::places(r.findings).front() ==
+        std::pair<std::string, std::uint32_t>{path, 20});
+}
+
+TEST_CASE("a row on a table its model does not create is not compared",
+    "[codecs][entity_binary_types]") {
+    const auto columns = model_column("id", ":type: uuid\n"
+        ":cpp_type: boost::uuids::uuid\n:primary_key: true\n") +
+        model_column("size", ":type: bigint\n:cpp_type: int\n");
+    const files t{
+        {path, tests::entity_model("iam", "role", "ores_iam_roles_vw",
+            columns, {}, {}, ":ores.sql.schema.domain_entity_create.enabled: "
+            "false\n")},
+        {"projects/ores.iam/modeling/ores.iam.store.org",
+         tests::entity_model("iam", "store", "ores_iam_stores_tbl", columns,
+             {}, ":sql_only: true\n")}};
+    CHECK(tests::run(codecs::entity_binary_types, t).findings.empty());
 }

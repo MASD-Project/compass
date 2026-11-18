@@ -31,33 +31,6 @@ using places = std::vector<place>;
 
 }
 
-TEST_CASE("a route unit a model opts into is registered once",
-    "[codecs][route_units]") {
-    const files t{
-        {"projects/ores.http/refdata/src/routes/refdata/refdata_routes.cpp",
-         "void register_all() {\n    currency_routes::register_routes(r);\n"
-         "    currency_routes::register_routes(r);\n"
-         "    ghost_routes::register_routes(r);\n"
-         "    // party_routes::register_routes(r);\n}\n"},
-        {"projects/ores.http/refdata/src/routes/refdata/currency_routes.cpp",
-         ""},
-        {"projects/ores.http/iam/src/other.cpp", ""},
-        {"projects/ores.refdata/modeling/ores.refdata.currency.org",
-         "#+entity_singular: currency\n:ores.cpp.http-route.enabled: true\n"},
-        {"projects/ores.refdata/modeling/ores.refdata.party.org",
-         "#+name_singular: party\n:ores.cpp.http-route.enabled: true\n"},
-        {"projects/ores.refdata/modeling/ores.refdata.book.org",
-         "#+entity_singular: book\n:ores.cpp.http-route.enabled: false\n"}};
-    CHECK(tests::messages_of(tests::run(codecs::route_units, t)) ==
-        std::vector<std::string>{
-            "never registers party_routes, which "
-            "projects/ores.refdata/modeling/ores.refdata.party.org opts into; "
-            "the gateway answers nothing for it and nothing reports it",
-            "registers currency_routes 2 times; the second registration "
-            "claims routes the first stated",
-            "registers ghost_routes, which has no unit in this component"});
-}
-
 TEST_CASE("an accepted exception must be justified",
     "[codecs][registry_exceptions]") {
     const files t{

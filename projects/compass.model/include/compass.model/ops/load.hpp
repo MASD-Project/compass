@@ -123,6 +123,16 @@ types::model_id load_model(builder& b, const document& d, types::model_type t,
     load_cache& cache, std::string* error = nullptr);
 
 /**
+ * @brief The path of the field group @p group that the model at
+ * @p model_path names, as _resolve_domain_group_fields finds it: beside
+ * the model when @p find finds it there, else, for a name of three
+ * segments, under the modeling directory of the component its first two
+ * name.
+ */
+[[nodiscard]] std::string field_group_path(std::string_view model_path,
+    std::string_view group, const document_finder& find);
+
+/**
  * @brief read_physical_space_overrides for the model whose outline is
  * @p o: the | Address | Enabled | rows of the * Physical space tables of
  * the profiles its * Flags drawer binds, then of its own, each as

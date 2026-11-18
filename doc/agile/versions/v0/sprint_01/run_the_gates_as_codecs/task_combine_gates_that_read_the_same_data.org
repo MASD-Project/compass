@@ -12,7 +12,7 @@
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-17
-#+updated: 2026-11-17
+#+updated: 2026-11-18
 #+environment:
 #+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
 
@@ -20,18 +20,18 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Goal
 
-(Describe what user-visible-or-internal change this task produces.)
+Each file is read and tokenised once per run, however many gates read it.
 
 * Status
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Done through its four shared-pass tasks. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
-| Last touched | 2026-11-17                               |
+| Next         | Nothing. |
+| Last touched | 2026-11-18 |
 
 * Acceptance
 
@@ -41,9 +41,9 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+The gate review (=evidence/gate_review/=) grouped the gates by the data they
+read. The work was split into four tasks, one per kind of data, in the order
+the product owner chose: SQL, C++, org documents, models.
 
 * Measurements
 
@@ -100,3 +100,16 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+Done by four tasks, each with its own measurements:
+
+- [[id:6462BCC8-0BD3-4FD3-8058-A0D5F11825F9][Share one SQL pass]]
+- [[id:DAFC0050-BA23-43F7-97DA-8C3BC819CDC3][Share one C++ pass]]
+- [[id:BF5D53B7-95EF-4632-97D2-05774E4020C4][Share passes over org documents]]
+- [[id:FA2071BD-7E67-4632-A4EB-40C7B40D537A][Run model rules over loaded models]] and
+  [[id:7EFC3933-2682-4BB7-89E4-64C78CE1E5BB][Finish the model rules pass]]
+
+Left open: sharing one fact across codecs needs runtime support, so
+curve_sections_wiring's wiring is still computed three times per run and the
+terms twice, and generated_column_refs and entity_binary_types each load a
+model.

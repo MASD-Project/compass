@@ -53,7 +53,8 @@ namespace pt = compass::platform::text;
 
 enum rule : std::uint32_t { money_not_exact, continuous_exact,
     unpublished_area, unreadable_areas, contradicted, unset_required,
-    self_contradicting, opt_out, outside_protocol, unreadable_model };
+    self_contradicting, opt_out, outside_protocol, unreadable_model,
+    unregistered_unit, twice_registered, missing_unit };
 
 constexpr std::array<std::string_view, 2> money_not_exact_sources{
     "E47BAF35-066F-4EF2-BA3D-522AED44FF33",
@@ -62,7 +63,7 @@ constexpr std::array<std::string_view, 2> money_not_exact_sources{
 constexpr std::array<std::string_view, 1> continuous_exact_sources{
     "B9DAC38A-BEB1-4658-87BC-DFF901033E84"};
 
-constexpr std::array<ct::rule, 10> rules{{
+constexpr std::array<ct::rule, 13> rules{{
     {"money_not_exact", "A money column is numeric in SQL and a decimal in "
         "C++, never a binary float or text.", money_not_exact_sources},
     {"continuous_exact", "A continuous quantity is not typed numeric or "
@@ -79,7 +80,12 @@ constexpr std::array<ct::rule, 10> rules{{
     {"opt_out", "No model switches the TypeScript protocol facet off."},
     {"outside_protocol", "Every NATS subject a model declares is inside the "
         "entity protocol."},
-    {"unreadable_model", "Every model is UTF-8."}}};
+    {"unreadable_model", "Every model is UTF-8."},
+    {"unregistered_unit", "A component's route aggregate registers the "
+        "route unit of every model that opts into one."},
+    {"twice_registered", "An aggregate registers each unit once."},
+    {"missing_unit", "Every unit an aggregate registers has its source in "
+        "the component."}}};
 
 constexpr std::array<ct::option, 3> options{{
     {"excluded_columns",
@@ -359,6 +365,108 @@ void write_areas(const ct::document& d, const mo::outline& o,
 }
 
 /**
+ * @brief The route unit a model opts into: 1 and the singular that names
+ * it, the first #+entity_singular: or #+name_singular:, when its file
+ * drawer switches ores.cpp.http-route on as code generation reads an
+ * override; 0 otherwise.
+ */
+void write_route(const mo::outline& o, ct::fact_writer& fact) {
+    const auto enabled = mo::file_property(o, "ores.cpp.http-route.enabled");
+    const auto value = ops::lowered(co::strip(enabled.value));
+    const bool on = enabled.found && (value == "true" || value == "t" ||
+        value == "yes" || value == "1");
+    std::string_view singular;
+    for (std::size_t i = 0; i < o.frontmatter_keys.size(); ++i) {
+        if (o.frontmatter_keys[i] == "entity_singular" ||
+            o.frontmatter_keys[i] == "name_singular") {
+            singular = co::strip(o.frontmatter_values[i]);
+            break;
+        }
+    }
+    if (!on || singular.empty()) {
+        fact.number(0);
+        return;
+    }
+    fact.number(1).text(singular);
+}
+
+/**
+ * @brief The route units the models of each component opt into, by
+ * component and singular, with the model that opts in; a later model of
+ * one singular wins.
+ */
+using route_opt_ins = std::map<std::string,
+    std::map<std::string, std::string_view>, std::less<>>;
+
+/**
+ * @brief The component of a model directly under projects/ores.<c>/modeling/,
+ * or empty for a model elsewhere.
+ */
+std::string_view component_of(std::string_view model) {
+    const auto parts = co::components_of(model);
+    if (parts.size() != 4 || parts[2] != "modeling" ||
+        !parts[1].starts_with("ores."))
+        return {};
+    return parts[1].substr(std::string_view("ores.").size());
+}
+
+/**
+ * @brief route-units: each aggregate
+ * projects/ores.http/<c>/src/routes/<c>/<c>_routes.cpp registers the unit
+ * of every model of ores.<c> that opts into one, once, and each unit it
+ * registers has its source beside it.
+ */
+void check_routes(const ct::corpus_view& v, const route_opt_ins& opted,
+    ct::diagnostic_table& out) {
+    static const pt::regex registers(R"(^\s*(\w+)_routes::register_routes\()");
+    for (const auto aggregate : v.list_files("projects/ores.http/",
+             "_routes.cpp")) {
+        const auto parts = co::components_of(aggregate);
+        if (parts.size() != 7 || parts[3] != "src" || parts[4] != "routes" ||
+            parts[5] != parts[2] ||
+            parts[6] != std::string(parts[2]) + "_routes.cpp")
+            continue;
+        const auto dir = co::parent_of(aggregate);
+        const auto text = pt::universal_newlines(pt::decode_replacing(
+            v.read_file(aggregate).value_or("")));
+        std::vector<std::string> called;
+        for (const auto line : co::split_lines(text)) {
+            if (const auto m = registers.match(line))
+                called.emplace_back(m->group(1));
+        }
+        if (const auto it = opted.find(parts[2]); it != opted.end()) {
+            for (const auto& [unit, model] : it->second) {
+                if (std::ranges::find(called, unit) == called.end())
+                    co::report(out, aggregate, 0, unregistered_unit,
+                        "never registers " + unit + "_routes, which " +
+                        std::string(model) + " opts into; the gateway "
+                        "answers nothing for it and nothing reports it",
+                        "Register the unit, or remove the model's "
+                        ":ores.cpp.http-route.enabled: opt-in.");
+            }
+        }
+        std::vector<std::string> seen;
+        for (const auto& unit : called) {
+            if (std::ranges::find(seen, unit) != seen.end())
+                continue;
+            seen.push_back(unit);
+            const auto n = std::ranges::count(called, unit);
+            if (n > 1)
+                co::report(out, aggregate, 0, twice_registered, "registers " +
+                    unit + "_routes " + std::to_string(n) + " times; the "
+                    "second registration claims routes the first stated",
+                    "Register each unit once.");
+        }
+        for (const auto& unit : called) {
+            if (!v.file_exists(std::string(dir) + "/" + unit + "_routes.cpp"))
+                co::report(out, aggregate, 0, missing_unit, "registers " +
+                    unit + "_routes, which has no unit in this component",
+                    "Remove the registration, or restore the unit.");
+        }
+    }
+}
+
+/**
  * @brief What a model states for a feature: its one value, none, or every
  * statement when they disagree.
  */
@@ -522,6 +630,7 @@ void map(const ct::document& d, const ct::option_values& options,
         co::report(out.findings, d.path, 0, unreadable_model, "the model is "
             "not UTF-8", "Save the model as UTF-8.");
     write_areas(d, o, fact);
+    write_route(o, fact);
     write_features(o, fact);
     check_money(d, o, *type, options, out.findings);
     check_drawers(d, o, out.findings);
@@ -558,6 +667,7 @@ void reduce(std::span<const ct::scanned_file> files, const ct::corpus_view& v,
     bool areas_read = false;
     std::optional<std::set<std::string>> published;
     std::string listed;
+    route_opt_ins opted;
     for (const auto& f : files) {
         ct::fact_reader fact(f.fact);
         if (static_cast<fact_kind>(fact.number()) != fact_kind::profile)
@@ -589,15 +699,21 @@ void reduce(std::span<const ct::scanned_file> files, const ct::corpus_view& v,
                 "published areas: " + listed, "Add the area to "
                 "route_classification.AREAS, or use a published one.");
         }
+        if (fact.number() == 1) {
+            const auto singular = fact.text();
+            if (const auto c = component_of(f.path); !c.empty())
+                opted[std::string(c)][std::string(singular)] = f.path;
+        }
         check_drift(f.path, read_features(fact), profiles, out);
     }
+    check_routes(v, opted, out);
 }
 
 }
 
 const ct::descriptor model_rules{
     .name = "model_rules",
-    .version = 3,
+    .version = 4,
     .summary = "Reports each codegen model that breaks a rule ORE Studio's "
         "gates state about one model.",
     .reads = ct::inputs::of_types({}),

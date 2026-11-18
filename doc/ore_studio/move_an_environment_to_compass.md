@@ -334,6 +334,39 @@ replaced in this step.
      three convention kind term files from the terms it already resolves.
      Drop the `convention_kind_terms` row. Its `refused` finding is now
      `ore_value_sets/refused`.
+   - `route-units` is part of `model_rules`, which reads each model's
+     opt-in, `:ores.cpp.http-route.enabled:` in its file drawer, as code
+     generation reads it, so a model edit no longer reads every model of
+     its component. Its rules keep their names under `model_rules/`:
+     `unregistered_unit`, `twice_registered` and `missing_unit`. Drop the
+     `route_units` row, map `route-units` to `model_rules` in the runner,
+     and rename any exception that names `route_units/`. An opt-in in a
+     heading's drawer, which code generation does not read, no longer
+     counts.
+   The gates that read generated code to re-check what a model states now
+   read the model instead, as code generation reads it, with the steps of
+   its context that decide what it generates. At `c25e952663` their
+   findings are the same as before, none on the clean tree and the same
+   when a model is broken, but each is reported on the model's heading,
+   not on the generated file, and before the model is regenerated. An
+   exception that names one of these rules on a generated file moves to
+   the model's line:
+   - `generated_column_refs` checks each model's Table display against
+     the members its domain struct gets, and the columns its indexes name
+     against those its create script makes. An index expression such as
+     `lower(name)` is no longer read as a column.
+   - `entity_binary_types` compares the member type the repository row
+     gives each column with the type the create script gives it. Its rules
+     `too_few_compared` (and its option `min_compared`) and `no_table` are
+     gone; drop `min_compared=` from its row if set. The rows of seven
+     models whose tablename clang-format wraps, which the old pattern
+     skipped, are now compared; the three `ores.dq` staging rows and the
+     two view rows are not.
+   - `marketdata_identity_columns` reads the identity table's columns from
+     `ores.marketdata.market_series_identity.org`, and reports
+     `table_columns` there.
+   - `open_reads` reads the allow-list from the parsed table of
+     Authorised reads.
    Some gates and rules have no codec because
    another check covers them; see "Gates compass dropped" below. Compare
    their verdict with the check that covers them.
@@ -457,7 +490,9 @@ remove it too.
 | The C++ half of `subject-conformance` | Nothing; its pattern opens on `"` and closes on `'`, so it matched no C++ in ORE Studio. The models and the data-quality seed are still checked. |
 | `model-sql-types` (codec `model_sql_types`) | `codegen/drift` on the generated `*_create.sql`. At `545cafca45` 1,307 of 1,470 create scripts are generated, and every one of the 577 a model claims is among them. |
 | `model-drift`'s unknown profile and conflicting profiles (rules `model_drift/unknown_profile`, `model_drift/profile_conflict`) | `codegen`'s model loader, which stops `compass-ng check` with exit 2 and `unknown profile '<slug>'` or `<model>: conflicting profiles on '<feature>'`. |
-| The floors `money_decimal_columns/too_few_columns`, `model_drift/no_profiles` and `subject_conformance/no_declaration` | Nothing; each asked a run to read enough to prove its line patterns still matched the model format. `model_rules` reads the parsed models, which cannot go blind that way. |
+| The floors `money_decimal_columns/too_few_columns`, `model_drift/no_profiles`, `subject_conformance/no_declaration` and `entity_binary_types/too_few_compared` | Nothing; each asked a run to read enough to prove its line patterns still matched the format it read. The codecs read the parsed models, which cannot go blind that way. |
+| `entity_binary_types/no_table` | Nothing; the row and the create script it compares are generated from one model, and a row on a table its model does not create, a view or a staging table, is not compared. |
+| `route_units` (codec) | `model_rules`, whose `unregistered_unit`, `twice_registered` and `missing_unit` are its rules. |
 | `link_skill_recipes.py --check` (codec `skill_recipes`) | `lint/dangling_link`, for a recipe link that no longer resolves. The links were applied once and are in the skill pages; removing one is a reviewed change, not a finding. |
 | `check_pattern_uses.py` (codec `pattern_uses`) | `lint`, whose rules `pattern_unknown_use`, `pattern_one_way`, `pattern_not_a_pattern` and `pattern_shared_id` replace `pattern_uses/unknown_use`, `one_way`, `not_a_pattern` and `shared_id`. |
 | `link_structure_notes.py` (codec `structure_notes`) | `lint/missing_backlink`, a finding with the line to add, instead of a generator that rewrote the pages. |

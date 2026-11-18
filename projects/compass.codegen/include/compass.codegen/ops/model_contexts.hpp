@@ -75,6 +75,17 @@ compass::model::types::value_id operation_context(
     const types::entity_registry& registry, const types::entity_site& site);
 
 /**
+ * @brief The flags junction_context gives the junction @p junction's
+ * columns and its left and right sides, from their types: the ones its
+ * templates choose each member's type by (is_uuid, is_optional_uuid,
+ * is_date, is_optional_timestamp, is_required_timestamp, is_base64 and the
+ * rest), with has_base64_columns and has_uuid_left_or_right. Reads no
+ * other model.
+ */
+void flag_junction_columns(compass::model::ops::builder& b,
+    compass::model::types::value_id junction);
+
+/**
  * @brief The entity models a family names, its central row's and its
  * parts', by entity singular: each the domain_entity object of the
  * ores.codegen.entity model beside the family that declares that

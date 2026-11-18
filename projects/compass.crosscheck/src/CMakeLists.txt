@@ -42,6 +42,7 @@ add_library(${lib_target_name}
     ops/convention_kind_terms.cpp
     ops/csv.cpp
     ops/curve_wiring.cpp
+    ops/generated_shape.cpp
     ops/json_value.cpp
     ops/md5.cpp
     ops/ore_schema.cpp
