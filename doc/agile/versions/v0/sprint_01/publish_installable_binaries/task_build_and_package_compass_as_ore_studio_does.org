@@ -64,7 +64,7 @@ differs, and record each change under Notes.
   =projects/= takes the coverage flags.
 - Dashboard client. Port =CTest.cmake=, =CTestConfig.cmake= and
   =CTestCustom.cmake= with ORE's environment variables renamed to =COMPASS_=,
-  the drop location =project=compass= and the fork guard on
+  the drop location =project=Compass= and the fork guard on
   =MASD-Project/compass=. Keep the valgrind suppressions that are not about
   ORE's libraries.
 - CI image. Port =build/docker/ci= and =ci-image.yml=, publishing
