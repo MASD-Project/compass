@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :publish_installable_binaries:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/show-build-status-badges-in-the-readme
+#+pr: https://github.com/MASD-Project/compass/pull/75
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-18
@@ -29,11 +29,11 @@ this the way ORE Studio's readme does.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG |
+| State        | DONE |
 | Parent story | [[id:EB6AF798-D472-4CC2-B97C-FC2BD9FD1FDE][Publish installable binaries]] |
-| Now          | Not started. |
+| Now          | Merged. |
 | Waiting on   | Nothing.                               |
-| Next         | Copy ORE Studio's badge block into readme.org and adapt each badge. |
+| Next         | Nothing. |
 | Last touched | 2026-11-18                               |
 
 * Acceptance
@@ -85,6 +85,22 @@ task and name that file in the Command column.
 
 * Notes
 
+Versions come from the repository: C++23 from =CMakePresets.json=, clang 21
+and GCC 16 from =build/docker/ci/versions.env=, MSVC from the
+=windows-latest= runner, so its badge says =latest= rather than a year. The
+sprint badge links to =sprint.org= on GitHub, since compass has no website.
+
+Left out of ORE Studio's block:
+
+- Doxygen, Website and Discord: compass has no Doxygen site, website or
+  Discord server.
+- Contributing: compass has no =CONTRIBUTING.md=.
+- PRs since and Commits since the last release: both name a release tag, and
+  compass has none yet. Add them with the first release.
+
+Every badge image and link returned HTTP 200 except gnu.org, which timed out
+from the development machine; ORE Studio links to the same page.
+
 * Test Scenarios
 
 Manual QA scenarios (scaffolded via =compass add test_scenario=)
@@ -100,7 +116,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/75][#75]] | Show build status badges in the readme |
 
 * Review
 

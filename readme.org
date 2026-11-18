@@ -3,6 +3,33 @@
 #+attr_html: :width 180px :alt A compass rose
 [[file:assets/images/compass_rose.svg]]
 
+#+HTML: <div class="badge-wrapper">
+#+html: <a href="https://github.com/MASD-Project/compass/graphs/commit-activity"><img alt="Maintenance" src="https://img.shields.io/badge/Maintained%3F-yes-green.svg"/></a>
+#+html: <a href="https://github.com/MASD-Project/compass/blob/main/LICENSE"><img alt="Licence" src="https://img.shields.io/badge/License-GPLv3-blue.svg"/></a>
+#+html: <a href="https://en.wikipedia.org/wiki/C%2B%2B23"><img alt="C++ Version" src="https://img.shields.io/badge/std-C++23-blue.svg"/></a>
+#+html: <a href="https://gcc.gnu.org/gcc-16/"><img alt="GCC Version" src="https://img.shields.io/badge/GCC-16-blue.svg"/></a>
+#+html: <a href="https://releases.llvm.org/"><img alt="Clang Version" src="https://img.shields.io/badge/CLANG-21-blue.svg"/></a>
+#+html: <a href="https://visualstudio.microsoft.com/vs/whatsnew/"><img alt="MSVC Version" src="https://img.shields.io/badge/MSVC-latest-blue.svg"/></a>
+#+html: <a href="https://github.com/MASD-Project/compass/blob/main/doc/agile/versions/v0/sprint_01/sprint.org"><img alt="Agile Sprint" src="https://img.shields.io/badge/Sprint-1-blue.svg"/></a>
+#+html: <a href="https://www.gnu.org/software/emacs/"><img alt="GNU Emacs" src="https://img.shields.io/static/v1?logo=gnuemacs&logoColor=fafafa&label=Made%20with&message=GNU%20Emacs&color=7F5AB6&style=flat"/></a>
+#+html: <a href="https://github.com/MASD-Project/compass/pulse"><img alt="Commit Activity" src="https://img.shields.io/github/commit-activity/m/MASD-Project/compass"/></a>
+#+html: <a href="https://github.com/MASD-Project/compass/pulse/monthly"><img alt="Status" src="https://img.shields.io/badge/status-active-brightgreen.svg"/></a>
+#+html: <a href="https://github.com/MASD-Project/compass/pulse"><img alt="Last Commit" src="https://img.shields.io/github/last-commit/MASD-Project/compass"/></a>
+#+html: <a href="https://github.com/MASD-Project/compass/issues"><img alt="Open Issues" src="https://img.shields.io/github/issues/MASD-Project/compass"/></a>
+#+html: <a href="https://github.com/MASD-Project/compass/issues?q=is%3Aissue+is%3Aclosed"><img alt="Closed Issues" src="https://img.shields.io/github/issues-closed/MASD-Project/compass"/></a>
+#+html: <a href="https://github.com/MASD-Project/compass/pulls"><img alt="Open PRs" src="https://img.shields.io/github/issues-pr/MASD-Project/compass"/></a>
+#+html: <a href="https://github.com/MASD-Project/compass/pulls?q=is%3Apr+is%3Aclosed"><img alt="Closed PRs" src="https://img.shields.io/github/issues-pr-closed/MASD-Project/compass"/></a>
+#+html: <a href="https://github.com/MASD-Project/compass/graphs/contributors"><img alt="Contributors" src="https://img.shields.io/github/contributors/MASD-Project/compass.svg"/></a>
+#+html: <a href="https://my.cdash.org/index.php?project=Compass"><img alt="CDash Dashboard" src="https://img.shields.io/badge/cdash-dashboard-00cc00.svg"/></a>
+#+html: <a href="https://github.com/MASD-Project/compass/actions/workflows/continuous-linux.yml"><img alt="Continuous Linux" src="https://github.com/MASD-Project/compass/actions/workflows/continuous-linux.yml/badge.svg"/></a>
+#+html: <a href="https://github.com/MASD-Project/compass/actions/workflows/nightly-windows.yml"><img alt="Nightly Windows" src="https://github.com/MASD-Project/compass/actions/workflows/nightly-windows.yml/badge.svg"/></a>
+#+html: <a href="https://github.com/MASD-Project/compass/actions/workflows/nightly-macos.yml"><img alt="Nightly MacOS" src="https://github.com/MASD-Project/compass/actions/workflows/nightly-macos.yml/badge.svg"/></a>
+#+html: <a href="https://github.com/MASD-Project/compass/actions/workflows/nightly-linux.yml"><img alt="Nightly Linux" src="https://github.com/MASD-Project/compass/actions/workflows/nightly-linux.yml/badge.svg"/></a>
+#+html: <a href="https://github.com/MASD-Project/compass/actions/workflows/ci-image.yml"><img alt="CI Image" src="https://github.com/MASD-Project/compass/actions/workflows/ci-image.yml/badge.svg"/></a>
+#+html: <a href="https://github.com/MASD-Project/compass/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/MASD-Project/compass/total.svg"/></a>
+#+html: <a href="https://github.com/MASD-Project/compass/releases"><img alt="Releases" src="https://img.shields.io/github/release/MASD-Project/compass.svg"/></a>
+#+HTML: </div>
+
 compass-ng keeps a model-driven code base consistent with its own models,
 documents and rules, fast enough to run on every edit. It reads a project's
 org documents, models, C++ and SQL into memory once, then runs /codecs/ over
