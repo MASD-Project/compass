@@ -7,7 +7,7 @@
 #+level: s2
 #+filetags: :gates:checks:sprint_01:v0:
 #+created: 2026-11-16
-#+updated: 2026-11-16
+#+updated: 2026-11-18
 #+environment:
 #+todo: BACKLOG STARTED | DONE ABANDONED
 
@@ -21,12 +21,12 @@ One compass check command runs every ORE Studio gate that needs no build in seco
 
 | Field         | Value                                  |
 |---------------+----------------------------------------|
-| State         | STARTED                              |
+| State         | DONE |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
-| Now           | Not yet started.                       |
-| Waiting on    | Nothing.                               |
-| Next          | Break the story into tasks.            |
-| Last touched  | 2026-11-16                               |
+| Now           | Done. ORE Studio runs compass-ng e689a2e. |
+| Waiting on    | Nothing. |
+| Next          | Nothing. |
+| Last touched  | 2026-11-18 |
 
 * Acceptance
 
@@ -73,6 +73,30 @@ One compass check command runs every ORE Studio gate that needs no build in seco
 | [[id:F86B6DED-00E9-45DA-9C39-804A3647FA0F][Re-verify generators on current ORE Studio]] | DONE | 2026-11-18 | 2026-11-18 | Check every generator codec byte-identical to its Python generator on ORE Studio's current main, since the ports were verified on 545cafca45 and ORE's generators have moved on. |
 
 * Decisions
+
+- Gates are codecs: generators are checked by diff mode, scans by map and
+  reduce over per-file facts, and results are keyed by a hash of the codec's
+  code.
+- Gates that read the same data share one pass: one SQL lexer and model, one
+  C++ lexer and model, one org link graph and one per-model rules codec.
+- The product owner dropped every gate the review found redundant or dead.
+- One shared compass-ng binary serves every environment. Its --version names
+  the commit, dirty flag, times and store formats, and an install follows the
+  pilot's go-ahead.
+- Exceptions are stated inline or in .compass.org's Exceptions table, each
+  with a reason, an expiry and an approver.
+
+* Result
+
+ORE Studio's =./compass.sh check= runs =compass-ng check --ratchet=. On ORE
+Studio main after PR #4846, compass-ng e689a2e reports 0 diagnostics with 201
+excused and exits 0; the pilot proved the route-units gate with a planted
+duplicate registration. The edit hook is live in ORE Studio (#4841) and ORE
+pins compass-ng e689a2e.
+
+Open beyond this story: CI and external developers wait on Publish installable
+binaries, and retiring the Python gates waits on a week of agreement, so
+2026-11-25 at the earliest.
 
 * Out of scope
 
