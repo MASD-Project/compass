@@ -170,8 +170,9 @@ Not ported:
 
 - =install_llvm.sh=: no workflow calls it; the CI image installs clang from the
   Ubuntu archive.
-- The =no_pr_triggers= gate. The rule holds (no workflow triggers on a pull
-  request), but ORE runs the gate from =local_checks.py=, which compass lacks.
+- ORE's =check_no_pr_triggers.py=. compass already has the gate as its
+  =no_pr_triggers= codec, now enabled in =.compass.org=, so =compass check=
+  enforces ORE's rule that no workflow triggers on a pull request.
 
 * Test Scenarios
 

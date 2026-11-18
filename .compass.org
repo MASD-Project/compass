@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :meta:configuration:compass:
 #+created: 2026-11-16
-#+updated: 2026-11-17
+#+updated: 2026-11-18
 #+output: .
 #+meta: doc/meta
 
@@ -38,3 +38,4 @@ defaults. =tangle= is off: the files it writes are not committed here.
 | tangle            | no      |                                                  |
 | tangle_check      | yes     |                                                  |
 | rule_table        | yes     | path=doc/knowledge/compass/rule_table.org        |
+| no_pr_triggers    | yes     |                                                  |
