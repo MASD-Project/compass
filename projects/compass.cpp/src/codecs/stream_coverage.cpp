@@ -1085,12 +1085,12 @@ void reduce(std::span<const ct::scanned_file> files,
                 report(c.where, 7, "durable subject with more than one "
                     "stream: '" + subject + "' is covered by " +
                     join(covering_streams), "let one stream claim it");
-            const auto named = streams.find(c.named_stream);
-            if (named == streams.end()) {
+            const auto stream = streams.find(c.named_stream);
+            if (stream == streams.end()) {
                 report(c.where, 8, "durable consumer on an unensured stream: '" +
                     c.named_stream + "' for '" + subject + "'",
                     "ensure the stream the consumer names");
-            } else if (std::ranges::none_of(named->second.filters,
+            } else if (std::ranges::none_of(stream->second.filters,
                            [&](const auto& f) {
                                return filter_matches(f, subject); })) {
                 report(c.where, 8, "durable consumer outside its stream: '" +

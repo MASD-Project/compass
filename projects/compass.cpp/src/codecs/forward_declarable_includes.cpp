@@ -56,7 +56,7 @@ constexpr std::array<ct::rule, 4> rules{{
     {"type_not_defined", "A listed type's defining header, where the tree "
         "has it, defines the type."}}};
 
-constexpr std::array<ct::option, 2> options{{
+constexpr std::array<ct::option, 2> declared_options{{
     {"types",
         "ores::database::context;class;ores.database/domain/context.hpp;"
         "ores.database/domain/context_fwd.hpp,"
@@ -566,7 +566,7 @@ const ct::descriptor forward_declarable_includes{
     .summary = "Reports each header that includes the definition of a "
         "listed type it only names.",
     .reads = ct::inputs::of_types({}),
-    .options = options,
+    .options = declared_options,
     .rules = rules,
     .enabled_by_default = false,
     .run = ct::scan_function{scanned, map, reduce}};

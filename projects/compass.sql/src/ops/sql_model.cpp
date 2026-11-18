@@ -206,7 +206,7 @@ struct walker {
      */
     std::vector<tokens_t> elements(tokens_t s, std::size_t open,
         std::size_t close) const {
-        std::vector<tokens_t> out;
+        std::vector<tokens_t> parts;
         int depth = 0;
         auto start = open + 1;
         for (auto i = open + 1; i < close; ++i) {
@@ -218,12 +218,12 @@ struct walker {
             else if (c == ')' || c == ']')
                 --depth;
             else if (c == ',' && depth == 0) {
-                out.push_back(s.subspan(start, i - start));
+                parts.push_back(s.subspan(start, i - start));
                 start = i + 1;
             }
         }
-        out.push_back(s.subspan(start, close - start));
-        return out;
+        parts.push_back(s.subspan(start, close - start));
+        return parts;
     }
 
     std::string_view span_text(tokens_t s) const noexcept {
