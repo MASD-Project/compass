@@ -122,9 +122,12 @@ task and name that file in the Command column.
   or one open, =fstat= and read, and one =mmap= on Linux. =strace -c= of
   a warm =compass check= on an ORE Studio export counts the same system
   calls for the base and the port (newfstatat 336747 both, openat 55010
-  both, read 66112 against 66121). Ten alternated warm runs each took a
-  median 6.82 s (base) and 7.09 s (port) of CPU, on a machine at a load
-  of 16 to 20; wall times ran 6 to 37 s, set by that load.
+  both, read 66112 against 66121). Callgrind counts 47,083,678,080
+  instructions for the base and 47,138,044,963 for the port in a warm
+  single-threaded check, 0.12% more. Timed runs cannot resolve that on
+  the shared machine: at a load of 16 to 21, fifteen alternated warm runs
+  took a median 6.85 s (base) and 7.13 s (port) of CPU, and wall times
+  ran 6 to 37 s.
 
 * Test Scenarios
 

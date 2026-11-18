@@ -66,10 +66,12 @@ std::uint64_t to_size(DWORD high, DWORD low) noexcept {
 
 class file_handle final {
 public:
+    // Backup semantics open a directory too, so status() refuses it as not
+    // regular, as on POSIX, rather than the open failing as access denied.
     explicit file_handle(const std::filesystem::path& path) : path_(path) {
         handle_ = ::CreateFileW(path.c_str(), GENERIC_READ,
             FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
-            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+            OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
         if (handle_ == INVALID_HANDLE_VALUE)
             throw_last_error("open", path);
     }
