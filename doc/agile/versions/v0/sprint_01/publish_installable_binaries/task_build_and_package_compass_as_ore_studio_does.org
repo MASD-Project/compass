@@ -8,7 +8,7 @@
 #+filetags: :publish_installable_binaries:sprint_01:v0:
 #+owner: marco
 #+branch: feature/build-compass-in-ci-as-ore-studio-does
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/71
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-18
@@ -189,7 +189,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/71][#71]] | Build and package compass as ORE Studio does |
 
 * Review
 
