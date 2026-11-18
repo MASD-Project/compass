@@ -70,7 +70,7 @@ struct file_status {
  * status of the file it read, taken from the open file.
  *
  * @throws std::system_error naming the path when the file cannot be opened
- * or read.
+ * or read, or is not a regular file, which it refuses before reading.
  */
 file_status read_file(const std::filesystem::path& path, std::string& bytes);
 

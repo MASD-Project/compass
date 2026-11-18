@@ -81,6 +81,10 @@ public:
         BY_HANDLE_FILE_INFORMATION info{};
         if (!::GetFileInformationByHandle(handle_, &info))
             throw_last_error("stat", path_);
+        if ((info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0 ||
+            ::GetFileType(handle_) != FILE_TYPE_DISK)
+            throw std::system_error(EINVAL, std::generic_category(),
+                "read of non-regular file " + path_.generic_string());
         file_status s;
         s.size = to_size(info.nFileSizeHigh, info.nFileSizeLow);
         s.modified = to_file_time(info.ftLastWriteTime);
@@ -157,6 +161,9 @@ public:
         struct stat st{};
         if (::fstat(fd_, &st) == -1)
             throw_errno("fstat", path_);
+        if (!S_ISREG(st.st_mode))
+            throw std::system_error(EINVAL, std::generic_category(),
+                "read of non-regular file " + path_.generic_string());
         return to_status(st);
     }
 

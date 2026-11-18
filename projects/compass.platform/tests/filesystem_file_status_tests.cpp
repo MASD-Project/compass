@@ -113,6 +113,18 @@ TEST_CASE("read_file throws ENOENT naming a missing path",
     }
 }
 
+TEST_CASE("read_file refuses a directory before reading it",
+    "[filesystem][file_status]") {
+    const scoped_temp_dir dir;
+    std::string bytes;
+    try {
+        fs::read_file(dir.path(), bytes);
+        FAIL("expected std::system_error");
+    } catch (const std::system_error& e) {
+        CHECK(e.code() == std::errc::invalid_argument);
+    }
+}
+
 TEST_CASE("file_clock_now is the time of day", "[filesystem][file_status]") {
     const auto now = std::chrono::duration_cast<std::chrono::seconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
