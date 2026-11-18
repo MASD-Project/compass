@@ -26,10 +26,11 @@
 #include <fstream>
 #include <string>
 #include <string_view>
-#include <unistd.h>
 #include <catch2/catch_test_macros.hpp>
 #include "compass.bench/ops/listing.hpp"
 #include "compass.bench/types/file_table.hpp"
+#include "compass.platform/process/environment.hpp"
+#include "compass.platform/process/run_program.hpp"
 
 namespace compass::bench::tests {
 
@@ -42,13 +43,17 @@ public:
     scoped_git_repo() {
         static int counter = 0;
         root_ = std::filesystem::temp_directory_path() /
-            ("compass.bench.tests." + std::to_string(::getpid()) + "." +
-                std::to_string(counter++));
+            ("compass.bench.tests." +
+                std::to_string(
+                    compass::platform::process::current_process_id()) +
+                "." + std::to_string(counter++));
         std::filesystem::create_directories(checkout());
         std::filesystem::create_directories(root_ / "home");
-        ::setenv("HOME", (root_ / "home").c_str(), 1);
-        ::setenv("XDG_CONFIG_HOME", (root_ / "home" / ".config").c_str(), 1);
-        ::setenv("GIT_CONFIG_NOSYSTEM", "1", 1);
+        using platform::process::set_environment_variable;
+        set_environment_variable("HOME", (root_ / "home").string());
+        set_environment_variable("XDG_CONFIG_HOME",
+            (root_ / "home" / ".config").string());
+        set_environment_variable("GIT_CONFIG_NOSYSTEM", "1");
         git("init -q");
     }
     ~scoped_git_repo() { std::filesystem::remove_all(root_); }
@@ -75,7 +80,8 @@ public:
     void git(const std::string& command) const {
         const auto line = "git -C '" + checkout().string() + "' " + command +
             " >/dev/null 2>&1";
-        REQUIRE(std::system(line.c_str()) == 0);
+        REQUIRE(compass::platform::process::run_program(
+            {{"sh", "-c", line}, {}, {}}).exit_code == 0);
     }
 
     types::file_table list() const {

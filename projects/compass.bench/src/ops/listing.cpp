@@ -19,12 +19,14 @@
  */
 #include "compass.bench/ops/listing.hpp"
 
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
 #include <string>
-#include <sys/stat.h>
-#include <unistd.h>
+#include <system_error>
+#include "compass.platform/filesystem/file_status.hpp"
+#include "compass.platform/process/environment.hpp"
 #include "compass.platform/process/run_program.hpp"
 
 namespace compass::bench::ops {
@@ -56,7 +58,7 @@ std::vector<std::string> git_hash_objects(
     const std::filesystem::path& checkout,
     std::span<const std::string_view> paths) {
     const auto input = std::filesystem::temp_directory_path() /
-        ("compass-bench." + std::to_string(::getpid()) + ".paths");
+        ("compass-bench." + std::to_string(platform::process::current_process_id()) + ".paths");
     {
         std::ofstream os(input, std::ios::binary);
         for (const auto path : paths)
@@ -134,14 +136,15 @@ types::file_table build_file_table(const std::filesystem::path& checkout,
     for (const auto entry : entries) {
         full.resize(prefix);
         full.append(entry);
-        struct stat info {};
-        if (::lstat(full.c_str(), &info) == -1) {
-            add_file(table, entry, 0);
+        std::error_code error;
+        const auto status = platform::filesystem::regular_file_status(full);
+        if (!status) {
+            if (!std::filesystem::exists(std::filesystem::symlink_status(
+                    full, error)))
+                add_file(table, entry, 0);
             continue;
         }
-        if (!S_ISREG(info.st_mode))
-            continue;
-        add_file(table, entry, static_cast<std::uint64_t>(info.st_size));
+        add_file(table, entry, status->size);
     }
     return table;
 }

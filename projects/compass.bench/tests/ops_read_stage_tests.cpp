@@ -27,11 +27,12 @@
 #include <string>
 #include <string_view>
 #include <vector>
-#include <unistd.h>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 #include "compass.bench/ops/listing.hpp"
 #include "compass.bench/ops/partition.hpp"
+#include "compass.platform/process/environment.hpp"
+#include "compass.platform/process/run_program.hpp"
 
 namespace {
 
@@ -42,8 +43,10 @@ public:
     scoped_git_repo() {
         static int counter = 0;
         root_ = std::filesystem::temp_directory_path() /
-            ("compass.bench.tests." + std::to_string(::getpid()) + "." +
-                std::to_string(counter++));
+            ("compass.bench.tests." +
+                std::to_string(
+                    compass::platform::process::current_process_id()) +
+                "." + std::to_string(counter++));
         std::filesystem::create_directories(root_);
     }
     ~scoped_git_repo() { std::filesystem::remove_all(root_); }
@@ -60,7 +63,8 @@ public:
     void track_all() {
         const auto command = "git -C '" + root_.string() +
             "' init -q && git -C '" + root_.string() + "' add -A";
-        REQUIRE(std::system(command.c_str()) == 0);
+        REQUIRE(compass::platform::process::run_program(
+            {{"sh", "-c", command}, {}, {}}).exit_code == 0);
     }
 
     const std::filesystem::path& root() const { return root_; }

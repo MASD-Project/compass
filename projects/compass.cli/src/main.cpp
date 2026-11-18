@@ -22,8 +22,10 @@
 #include <string_view>
 #include <vector>
 #include "compass.cli/app/application.hpp"
+#include "compass.platform/process/standard_streams.hpp"
 
 int main(int argc, char** argv) {
+    compass::platform::process::use_binary_standard_streams();
     const std::vector<std::string_view> args(argv + 1, argv + argc);
     std::error_code ec;
     const auto working_directory = std::filesystem::current_path(ec);

@@ -42,8 +42,9 @@ std::vector<types::file_range> balance_ranges(
         if (i + 1 == count) {
             end = files;
         } else {
-            const auto target = static_cast<std::uint64_t>(
-                (static_cast<unsigned __int128>(total) * (i + 1)) / count);
+            // total * (i + 1) / count, split so no product overflows.
+            const auto target = total / count * (i + 1) +
+                total % count * (i + 1) / count;
             while (end < files && running < target)
                 running += sizes[end++];
         }

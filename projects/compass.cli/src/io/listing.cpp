@@ -21,10 +21,11 @@
 
 #include <algorithm>
 #include <cstring>
+#include <filesystem>
 #include <span>
 #include <stdexcept>
 #include <string_view>
-#include <sys/stat.h>
+#include <system_error>
 #include "compass.platform/process/run_program.hpp"
 #include "compass.store/io/object_file.hpp"
 #include "compass.store/ops/blob_hash.hpp"
@@ -86,8 +87,9 @@ std::vector<std::string_view> fields_of(std::string_view raw) {
 }
 
 bool is_plain_file(const std::filesystem::path& path) {
-    struct stat st {};
-    return ::lstat(path.c_str(), &st) == 0 && S_ISREG(st.st_mode);
+    std::error_code ignored;
+    return std::filesystem::is_regular_file(
+        std::filesystem::symlink_status(path, ignored));
 }
 
 }

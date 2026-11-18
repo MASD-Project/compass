@@ -55,6 +55,7 @@
 #include "compass.codec/ops/registry.hpp"
 #include "compass.codegen/codecs/codegen.hpp"
 #include "compass.platform/filesystem/mapped_file.hpp"
+#include "compass.platform/process/standard_streams.hpp"
 #include "compass.store/io/location.hpp"
 
 namespace {
@@ -503,6 +504,7 @@ int run(const options& o) {
 }
 
 int main(int argc, char** argv) {
+    compass::platform::process::use_binary_standard_streams();
     const auto o = parse_options(argc, argv);
     if (!o) {
         std::cerr << usage;

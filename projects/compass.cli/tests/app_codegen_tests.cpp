@@ -103,7 +103,7 @@ std::filesystem::path header(const scoped_git_repo& repo) {
 }
 
 TEST_CASE("generate writes the codegen outputs as the configured formatter "
-    "leaves them", "[app][codegen]") {
+    "leaves them", "[app][codegen][posix]") {
     scoped_git_repo repo;
     set_up(repo);
 
@@ -117,7 +117,7 @@ TEST_CASE("generate writes the codegen outputs as the configured formatter "
 }
 
 TEST_CASE("a second generate reuses the codegen units and its formatted "
-    "output, and an unread file changes nothing", "[app][codegen]") {
+    "output, and an unread file changes nothing", "[app][codegen][posix]") {
     scoped_git_repo repo;
     set_up(repo);
     REQUIRE(run_on(repo, "gen").status == 0);
@@ -134,7 +134,7 @@ TEST_CASE("a second generate reuses the codegen units and its formatted "
 }
 
 TEST_CASE("editing a template runs codegen again and diff shows the "
-    "formatted change", "[app][codegen]") {
+    "formatted change", "[app][codegen][posix]") {
     scoped_git_repo repo;
     set_up(repo);
     REQUIRE(run_on(repo, "gen").status == 0);

@@ -27,11 +27,12 @@
 #include <sstream>
 #include <string>
 #include <string_view>
-#include <unistd.h>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 #include "compass.bench/io/report.hpp"
 #include "compass.bench/ops/listing.hpp"
+#include "compass.platform/process/environment.hpp"
+#include "compass.platform/process/run_program.hpp"
 
 namespace {
 
@@ -44,8 +45,10 @@ public:
     scoped_git_repo() {
         static int counter = 0;
         root_ = std::filesystem::temp_directory_path() /
-            ("compass.bench.ids.tests." + std::to_string(::getpid()) + "." +
-                std::to_string(counter++));
+            ("compass.bench.ids.tests." +
+                std::to_string(
+                    compass::platform::process::current_process_id()) +
+                "." + std::to_string(counter++));
         std::filesystem::create_directories(root_);
         git("init -q");
     }
@@ -73,7 +76,8 @@ public:
     void git(const std::string& command) const {
         const auto line = "git -C '" + root_.string() + "' " + command +
             " >/dev/null 2>&1";
-        REQUIRE(std::system(line.c_str()) == 0);
+        REQUIRE(compass::platform::process::run_program(
+            {{"sh", "-c", line}, {}, {}}).exit_code == 0);
     }
 
     types::file_table list() const {
