@@ -48,7 +48,7 @@ std::string parent_id_field(const model_tables& t, value_id entity) {
     if (!values::truthy(t, entity, "has_parent_id"))
         return {};
     const auto presentation = values::member(t, entity, "presentation");
-    for (const auto [object, key] : {std::pair{entity, "parent_id_field"},
+    for (const auto& [object, key] : {std::pair{entity, "parent_id_field"},
              std::pair{presentation, "parent_id_field"},
              std::pair{presentation, "parent_key_field"}}) {
         if (values::truthy(t, object, key))

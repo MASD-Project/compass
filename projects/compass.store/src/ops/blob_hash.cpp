@@ -95,14 +95,14 @@ private:
         auto c = state_[2];
         auto d = state_[3];
         auto e = state_[4];
-        const auto load = [&](int i) COMPASS_ALWAYS_INLINE noexcept {
+        const auto load = [&] COMPASS_ALWAYS_INLINE (int i) noexcept {
             std::uint32_t v;
             std::memcpy(&v, block + 4 * i, 4);
             if constexpr (std::endian::native == std::endian::little)
                 v = std::byteswap(v);
             return w[i] = v;
         };
-        const auto mix = [&](int i) COMPASS_ALWAYS_INLINE noexcept {
+        const auto mix = [&] COMPASS_ALWAYS_INLINE (int i) noexcept {
             return w[i & 15] = std::rotl(w[(i + 13) & 15] ^ w[(i + 8) & 15] ^
                 w[(i + 2) & 15] ^ w[i & 15], 1);
         };
@@ -112,14 +112,14 @@ private:
             std::uint32_t z) noexcept { return x ^ y ^ z; };
         const auto majority = [](std::uint32_t x, std::uint32_t y,
             std::uint32_t z) noexcept { return (x & y) | (z & (x | y)); };
-        const auto round = [](std::uint32_t f, std::uint32_t k,
-            std::uint32_t word, std::uint32_t v, std::uint32_t& x,
-            std::uint32_t& z) COMPASS_ALWAYS_INLINE noexcept {
+        const auto round = [] COMPASS_ALWAYS_INLINE (std::uint32_t f,
+            std::uint32_t k, std::uint32_t word, std::uint32_t v,
+            std::uint32_t& x, std::uint32_t& z) noexcept {
             z += std::rotl(v, 5) + f + k + word;
             x = std::rotl(x, 30);
         };
-        const auto five = [&](auto&& word, auto&& f, std::uint32_t k,
-            int i) COMPASS_ALWAYS_INLINE noexcept {
+        const auto five = [&] COMPASS_ALWAYS_INLINE (auto&& word, auto&& f,
+            std::uint32_t k, int i) noexcept {
             round(f(b, c, d), k, word(i), a, b, e);
             round(f(a, b, c), k, word(i + 1), e, a, d);
             round(f(e, a, b), k, word(i + 2), d, e, c);

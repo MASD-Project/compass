@@ -208,14 +208,16 @@ std::set<std::string> bound_names(const declarable& d,
     qualifiers.emplace_back();
     for (const auto& q : qualifiers) {
         const auto spelling = pt::escape(q) + pt::escape(d.short_name());
-        const auto& parameter = compiled(
-            R"((?<![\w:])(?:const\s+)?)" + spelling +
-            R"(\s*(?:const\s*)?[&*]+\s*(?:const\s+)?([A-Za-z_]\w*))");
+        const auto parameter_pattern = R"((?<![\w:])(?:const\s+)?)" +
+            spelling +
+            R"(\s*(?:const\s*)?[&*]+\s*(?:const\s+)?([A-Za-z_]\w*))";
+        const auto& parameter = compiled(parameter_pattern);
         for (const auto& m : parameter.find_all(text))
             names.emplace(m.group(1));
-        const auto& member = compiled(
+        const auto member_pattern =
             R"(\b(?:shared_ptr|weak_ptr|unique_ptr)\s*<\s*)" + spelling +
-            R"(\s*>\s*([A-Za-z_]\w*))");
+            R"(\s*>\s*([A-Za-z_]\w*))";
+        const auto& member = compiled(member_pattern);
         for (const auto& m : member.find_all(text))
             names.emplace(m.group(1));
     }
@@ -233,14 +235,15 @@ std::optional<verdict> scan(const declarable& d, std::string_view text) {
     std::set<verdict> verdicts;
     const auto short_name = pt::escape(d.short_name());
     for (const auto& q : d.qualifiers()) {
-        const auto& use = compiled(R"((?<![\w:]))" + pt::escape(q) +
-            short_name + R"((?![\w]))");
+        const auto pattern = R"((?<![\w:]))" + pt::escape(q) + short_name +
+            R"((?![\w]))";
+        const auto& use = compiled(pattern);
         for (const auto& m : use.find_all(text))
             verdicts.insert(classify(text, m.start(), m.end()));
     }
     if (opens_namespace(d, text) || binds_short_name(d, text)) {
-        const auto& use = compiled(R"((?<![\w:]))" + short_name +
-            R"((?![\w]))");
+        const auto pattern = R"((?<![\w:]))" + short_name + R"((?![\w]))";
+        const auto& use = compiled(pattern);
         for (const auto& m : use.find_all(text))
             verdicts.insert(classify(text, m.start(), m.end()));
     }
