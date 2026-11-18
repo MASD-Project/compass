@@ -184,6 +184,7 @@ jobs:
           export CTEST_PARALLEL_LEVEL=$(sysctl -n hw.logicalcpu)
           export CTEST_MAX_PARALLELISM=2
           export VCPKG_DISABLE_SYSTEM_PACKAGE_CHECK=1
+          export COMPASS_CDASH_NOSUBMIT=1
           export COMPASS_BUILD_PROVIDER="github"
           export COMPASS_BUILD_COMMIT="${GITHUB_SHA}"
           export COMPASS_BUILD_NUMBER="${GITHUB_RUN_NUMBER}"
