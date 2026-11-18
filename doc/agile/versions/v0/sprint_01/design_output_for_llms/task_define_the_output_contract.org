@@ -59,6 +59,15 @@ task and name that file in the Command column.
 
 * Notes
 
+ORE Studio depends on today's output, from 2026-11-18 (ORE Studio PR #4839):
+its =./compass.sh check= runs =compass-ng check --ratchet <base>= and parses
+the result. A completed check must still end with the summary line
+=N diagnostics (...)=; a run without it fails every gate in ORE Studio's
+runner. Findings keep the =path:line:col: codec/rule: message (fix: ...)=
+form, and codec and rule names may contain digits. The contract this story
+writes must keep both, or ship the machine format first and move ORE
+Studio's runner onto it in the same change.
+
 * Test Scenarios
 
 Manual QA scenarios (scaffolded via =compass add test_scenario=)
