@@ -228,9 +228,12 @@ its engine's code hash, and its option values are the canonical bytes of
 its definition: each =Definition= heading's title and its drawer's keys
 and values, in order, and each example block's header arguments and
 body. Prose, =Why=, =See also= and =Exceptions= are not in those bytes,
-so editing them re-runs nothing. compass reads the check documents
-before the run, as it reads =.compass.org= today, so the documents are
-not inputs the runner records.
+so editing them rescans no source file. compass reads the check
+documents before the run, as it reads =.compass.org= today. Where each
+example sits is not in those bytes either: the step that checks the
+examples reads the document to place its findings, so a prose edit
+re-runs that step alone. Over ORE Studio a prose edit costs 0.19 s and a
+definition edit 1.63 s (measured).
 
 Cost of a check's scan: =portable_stop= scans ORE Studio's C++ in 3.4 s
 cold, because it lexes only files that contain one of its names
