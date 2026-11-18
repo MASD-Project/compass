@@ -27,7 +27,7 @@ the file, which overrides each codec's defaults.
 Show the effective settings and where each came from:
 
 #+begin_src sh :results verbatim
-build/output/linux-clang-release/publish/bin/compass config
+build/output/linux-clang-release-ninja/publish/bin/compass config
 #+end_src
 
 : document_index.path = doc/document_index.tsv (.compass.org:33)

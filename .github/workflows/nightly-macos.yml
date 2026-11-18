@@ -1,0 +1,230 @@
+# Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+#
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 3 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
+# Street, Fifth Floor, Boston, MA 02110-1301, USA.
+#
+# yamllint disable rule:line-length
+---
+name: Nightly MacOS
+
+env:
+  VCPKG_BINARY_SOURCES: 'clear;files,${{ github.workspace }}/vcpkg-cache,readwrite'
+  SCCACHE_DIR: '${{ github.workspace }}/.sccache'
+
+on:  # yamllint disable-line rule:truthy
+  schedule:
+    # Once a night, after the Nightly Build and the Nightly Windows run, as in
+    # ORE Studio.
+    - cron: '0 2 * * *'
+  push:
+    tags:
+      - '*'
+  workflow_dispatch:
+
+jobs:
+  guard:
+    name: relevance-guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      should_build: ${{ steps.check.outputs.should_build }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Check if code changed since last successful run
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "should_build=true" >> "$GITHUB_OUTPUT"
+          if [[ "${{ github.event_name }}" != "schedule" ]]; then
+            exit 0
+          fi
+          workflow_file=$(basename "${GITHUB_WORKFLOW_REF%%@*}")
+          last_sha=$(gh api \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow_file}/runs?branch=main&status=success&per_page=1" \
+            --jq '.workflow_runs[0].head_sha // empty')
+          if [[ -z "$last_sha" ]]; then
+            echo "No prior successful run — building"
+            exit 0
+          fi
+          if [[ "$last_sha" == "$GITHUB_SHA" ]]; then
+            echo "No new commits since last run — skipping"
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          non_doc=$(git diff --name-only "$last_sha" "$GITHUB_SHA" \
+            | { grep -vE '^(doc/|assets/|\.claude/|\.gemini/|projects/compass\.legacy/)' || true; } \
+            | { awk '!/\.(md|org)$/ || /^projects\/[^\/]+\/tests\//' || true; } \
+            | { grep -vE '^projects/([^/]*/)*modeling/' || true; })
+          if [[ -n "$non_doc" ]]; then
+            echo "Code changes found — building"
+          else
+            echo "Doc-only changes — skipping"
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Annotate when the build matrix is skipped
+        if: steps.check.outputs.should_build == 'false'
+        run: |
+          {
+            echo "### :warning: macOS build matrix skipped"
+            echo
+            echo "No relevant code changes since the last build — the"
+            echo "\`build\` job did not run. This workflow's overall"
+            echo "**Success** reflects the guard's decision to skip, not"
+            echo "a verified macOS build."
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+  build:
+    needs: guard
+    if: needs.guard.outputs.should_build == 'true'
+    name: ${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja
+    concurrency:
+      group: ci-${{github.ref}}-${{github.job}}-${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja
+      cancel-in-progress: false
+    runs-on: macos-26
+    environment: CI
+    strategy:
+      fail-fast: false
+      matrix:
+        name: [macos-clang]
+        buildtype: [debug, release]
+        include:
+          - name: macos-clang
+            family: macos
+            compiler: clang
+    steps:
+      - name: Free disk space
+        # The macOS image ships several SDKs and simulator runtimes a C++ build
+        # never touches, and this workflow has no cleanup of its own, so the
+        # debug job has already died linking with "No space left on device".
+        # Xcode 26 is kept: the next step selects it.
+        run: |
+          echo "=== Disk space before cleanup ==="
+          df -h
+          for xcode in /Applications/Xcode_*.app; do
+            case "$xcode" in
+              *Xcode_26*) ;;
+              *) sudo rm -rf "$xcode" ;;
+            esac
+          done
+          # Simulator runtimes are the bulk that a ctest run never loads.
+          sudo rm -rf /Library/Developer/CoreSimulator/Profiles/Runtimes
+          rm -rf ~/Library/Developer/CoreSimulator
+          rm -rf ~/Library/Developer/Xcode/DerivedData
+          rm -rf ~/Library/Developer/Xcode/iOS\ DeviceSupport
+          rm -rf ~/Library/Developer/Xcode/watchOS\ DeviceSupport
+          rm -rf ~/Library/Developer/Xcode/tvOS\ DeviceSupport
+          # Runtimes and SDKs for languages this build does not use.
+          sudo rm -rf ~/Library/Android/sdk
+          sudo rm -rf /usr/local/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/.ghcup
+          brew cleanup -s || true
+          rm -rf ~/Library/Caches/Homebrew || true
+          echo "=== Disk space after cleanup ==="
+          df -h
+
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+
+      - name: Select Xcode 26
+        run: |
+          xcode26=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [[ -z "$xcode26" ]]; then
+            echo "No Xcode 26.x found — keeping default"
+          else
+            echo "Selecting $xcode26"
+            sudo xcode-select -s "$xcode26"
+            xcodebuild -version
+          fi
+
+      - name: Ccache for gh actions
+        uses: hendrikmuhs/ccache-action@v1.2.25
+        with:
+          variant: sccache
+          key: ${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja
+          max-size: 2000M
+          save: false
+
+      - name: get-cmake
+        uses: lukka/get-cmake@v4.4.5
+
+      - name: Cache vcpkg binary packages
+        uses: actions/cache@v6
+        with:
+          path: ${{ github.workspace }}/vcpkg-cache
+          key: vcpkg-${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            vcpkg-${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja-
+
+      - name: run-vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          doNotCache: false
+
+      - name: Run CTest workflow
+        id: ctest
+        run: |
+          brew install autoconf automake libtool autoconf-archive
+          export CMAKE_BUILD_PARALLEL_LEVEL=2
+          export CTEST_PARALLEL_LEVEL=$(sysctl -n hw.logicalcpu)
+          export CTEST_MAX_PARALLELISM=2
+          export VCPKG_DISABLE_SYSTEM_PACKAGE_CHECK=1
+          export COMPASS_BUILD_PROVIDER="github"
+          export COMPASS_BUILD_COMMIT="${GITHUB_SHA}"
+          export COMPASS_BUILD_NUMBER="${GITHUB_RUN_NUMBER}"
+          export COMPASS_BUILD_TIMESTAMP=`date "+%Y/%m/%d %H:%M:%S"`
+          export preset=${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja
+          export cmake_args="build_group=Nightly,preset=${preset}"
+          ctest -VV --preset ${preset} --script "CTest.cmake,${cmake_args}"
+
+      - name: Show sccache statistics
+        # ccache-action installs sccache. If no build ran, it is absent, and
+        # the statistics are not worth a second red step.
+        if: ${{ always() && steps.ctest.outcome != 'skipped' }}
+        run: sccache --show-stats
+
+      - name: Upload a Build Artifact
+        # CTest.cmake builds no package for a macOS debug build.
+        if: ${{ matrix.buildtype == 'release' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja
+          path: ./build/output/${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja/packages/compass-*-Darwin.dmg
+          if-no-files-found: error
+
+  attach_package:
+    name: Attach packages to the release
+    needs: build
+    # Attach what passed, so one failed build does not cost the others.
+    if: ${{ !cancelled() && github.ref_type == 'tag' && needs.build.result != 'skipped' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Download the packages of this run
+        uses: actions/download-artifact@v8
+        with:
+          pattern: macos-*-release-ninja
+          path: packages
+          merge-multiple: true
+
+      - name: Attach the packages to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" packages/* --clobber --repo "$GITHUB_REPOSITORY"

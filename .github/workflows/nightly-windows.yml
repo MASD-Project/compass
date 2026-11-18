@@ -1,0 +1,207 @@
+# Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+#
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 3 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
+# Street, Fifth Floor, Boston, MA 02110-1301, USA.
+#
+# yamllint disable rule:line-length
+---
+name: Nightly Windows
+
+env:
+  VCPKG_BINARY_SOURCES: 'clear;files,${{ github.workspace }}/vcpkg-cache,readwrite'
+  SCCACHE_DIR: '${{ github.workspace }}/.sccache'
+
+on:  # yamllint disable-line rule:truthy
+  schedule:
+    # Once a night, an hour after the Nightly Build, as in ORE Studio.
+    - cron: '0 1 * * *'
+  push:
+    tags:
+      - '*'
+  workflow_dispatch:
+
+jobs:
+  guard:
+    name: relevance-guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      should_build: ${{ steps.check.outputs.should_build }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Check if code changed since last successful run
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "should_build=true" >> "$GITHUB_OUTPUT"
+          if [[ "${{ github.event_name }}" != "schedule" ]]; then
+            exit 0
+          fi
+          workflow_file=$(basename "${GITHUB_WORKFLOW_REF%%@*}")
+          last_sha=$(gh api \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow_file}/runs?branch=main&status=success&per_page=1" \
+            --jq '.workflow_runs[0].head_sha // empty')
+          if [[ -z "$last_sha" ]]; then
+            echo "No prior successful run — building"
+            exit 0
+          fi
+          if [[ "$last_sha" == "$GITHUB_SHA" ]]; then
+            echo "No new commits since last run — skipping"
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          non_doc=$(git diff --name-only "$last_sha" "$GITHUB_SHA" \
+            | { grep -vE '^(doc/|assets/|\.claude/|\.gemini/|projects/compass\.legacy/)' || true; } \
+            | { awk '!/\.(md|org)$/ || /^projects\/[^\/]+\/tests\//' || true; } \
+            | { grep -vE '^projects/([^/]*/)*modeling/' || true; })
+          if [[ -n "$non_doc" ]]; then
+            echo "Code changes found — building"
+          else
+            echo "Doc-only changes — skipping"
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: guard
+    if: needs.guard.outputs.should_build == 'true'
+    name: ${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja
+    concurrency:
+      group: ci-${{github.ref}}-${{github.job}}-${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja
+      cancel-in-progress: false
+    runs-on: windows-latest
+    environment: CI
+    # sccache is deliberately not persisted across runs here (see the Ccache
+    # step's comment), so a cold-cache Release build gets headroom beyond the
+    # default 360 minutes, as in ORE Studio.
+    timeout-minutes: 480
+    strategy:
+      fail-fast: false
+      matrix:
+        name: [windows-msvc, windows-clang]
+        # Release only, as in ORE Studio: Release is the only Windows
+        # deliverable, and the debug legs take the longest.
+        buildtype: [release]
+        include:
+          - name: windows-msvc
+            family: windows
+            compiler: msvc
+          - name: windows-clang
+            family: windows
+            compiler: clang
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+
+      # sccache is NOT cached across runs on this platform (deliberately,
+      # as in ORE Studio): GitHub's actions/cache
+      # is capped at a fixed 10 GB per repository, shared across every
+      # OS/compiler/buildtype variant. Linux CI jobs run on every PR, so
+      # they get the shared quota; Windows only runs on a schedule/tag push
+      # and doesn't need to compete for it. Revisit if/when sccache moves to
+      # an external cache backend that isn't quota-shared.
+      - name: Ccache for gh actions
+        uses: hendrikmuhs/ccache-action@v1.2.25
+        with:
+          variant: sccache
+          key: ${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja
+          max-size: 1000M
+          save: false
+
+      - name: Install Clang
+        uses: KyleMayes/install-llvm-action@v2
+        if: ${{ matrix.compiler == 'clang' }}
+        with:
+          version: "20"
+          arch: x64
+
+      - name: Install NSIS
+        if: ${{ matrix.compiler == 'clang' }}
+        run: choco install nsis
+
+      - name: Enable Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1.13.0
+
+      - name: get-cmake
+        uses: lukka/get-cmake@v4.4.5
+
+      - name: Cache vcpkg binary packages
+        uses: actions/cache@v6
+        with:
+          path: ${{ github.workspace }}/vcpkg-cache
+          key: vcpkg-${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            vcpkg-${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja-
+
+      - name: run-vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          doNotCache: false
+
+      - name: Run CTest workflow
+        id: ctest
+        run: |
+          $env:VCPKG_DISABLE_SYSTEM_PACKAGE_CHECK=1
+          $env:COMPASS_BUILD_PROVIDER="github"
+          $env:COMPASS_BUILD_COMMIT="$env:GITHUB_SHA"
+          $env:COMPASS_BUILD_NUMBER="$env:GITHUB_RUN_NUMBER"
+          $env:COMPASS_BUILD_TIMESTAMP=Get-Date -format "yyyy/MM/dd HH:mm:ss"
+          $preset="${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja"
+          $cmake_args="build_group=Nightly,preset=$preset"
+          ctest -VV --preset $preset --script "CTest.cmake,$cmake_args"
+
+      - name: Show sccache statistics
+        # ccache-action installs sccache. If no build ran, it is absent, and
+        # the statistics are not worth a second red step.
+        if: ${{ always() && steps.ctest.outcome != 'skipped' }}
+        run: sccache --show-stats
+
+      - name: Upload WiX log on failure
+        if: failure() && matrix.compiler == 'msvc'
+        uses: actions/upload-artifact@v7
+        with:
+          name: wix-log-${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja
+          path: ./build/output/${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja/_CPack_Packages/win64/WIX/wix.log
+          if-no-files-found: ignore
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja
+          path: ./build/output/${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja/packages/compass-*-win64.*
+          if-no-files-found: error
+
+  attach_package:
+    name: Attach packages to the release
+    needs: build
+    # Attach what passed, so one failed build does not cost the others.
+    if: ${{ !cancelled() && github.ref_type == 'tag' && needs.build.result != 'skipped' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Download the packages of this run
+        uses: actions/download-artifact@v8
+        with:
+          pattern: windows-*-release-ninja
+          path: packages
+          merge-multiple: true
+
+      - name: Attach the packages to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" packages/* --clobber --repo "$GITHUB_REPOSITORY"

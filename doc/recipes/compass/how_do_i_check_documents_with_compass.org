@@ -22,7 +22,7 @@ Run =compass check=. It prints one line per diagnostic, sorted by path and
 position, then a count:
 
 #+begin_src sh :results verbatim
-build/output/linux-clang-release/publish/bin/compass check
+build/output/linux-clang-release-ninja/publish/bin/compass check
 #+end_src
 
 : doc/agile/agile.org:6:9: required_sections/missing_section: knowledge document has no "Detail" section (fix: Add the heading "* Detail"; the knowledge contract requires it.)

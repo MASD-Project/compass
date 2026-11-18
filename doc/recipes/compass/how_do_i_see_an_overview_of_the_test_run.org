@@ -27,7 +27,7 @@ details, and any ERROR/WARN log lines?
 2. /Specify a preset explicitly/:
 
    #+begin_src sh :results verbatim
-   ./projects/compass.legacy/compass.sh test results --preset linux-clang-debug
+   ./projects/compass.legacy/compass.sh test results --preset linux-clang-debug-ninja
    #+end_src
 
    =compass test results= reads =ORES_PRESET= from =.env= when =--preset=
@@ -49,7 +49,7 @@ details, and any ERROR/WARN log lines?
    For trace-level output also printed to the console:
 
    #+begin_src sh :results verbatim
-   cmake --preset linux-clang-debug \
+   cmake --preset linux-clang-debug-ninja \
      -DORES_TEST_LOG_LEVEL=trace \
      -DORES_TEST_LOG_CONSOLE=ON
    #+end_src

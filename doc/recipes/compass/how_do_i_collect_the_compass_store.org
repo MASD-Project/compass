@@ -24,7 +24,7 @@ objects older than the grace period (an hour by default) are removed, oldest
 first, down to the cap (0 by default). See what would go first:
 
 #+begin_src sh :results verbatim
-build/output/linux-clang-release/publish/bin/compass gc --dry-run
+build/output/linux-clang-release-ninja/publish/bin/compass gc --dry-run
 #+end_src
 
 : would remove 49 files, 274565 bytes; store 2685453 bytes in 1227 files
@@ -32,7 +32,7 @@ build/output/linux-clang-release/publish/bin/compass gc --dry-run
 Then collect:
 
 #+begin_src sh :results verbatim
-build/output/linux-clang-release/publish/bin/compass gc
+build/output/linux-clang-release-ninja/publish/bin/compass gc
 #+end_src
 
 Removing objects costs only speed: the next run parses again what it needs.

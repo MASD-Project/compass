@@ -1,0 +1,58 @@
+# -*- mode: cmake; cmake-tab-width: 4; indent-tabs-mode: nil -*-
+#
+# Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+#
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 3 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
+# Street, Fifth Floor, Boston, MA 02110-1301, USA.
+#
+
+# File sourced from here:
+# - https://github.com/alisw/AliRoot/blob/master/CTestCustom.cmake
+# - https://github.com/Slicer/Slicer/blob/main/CMake/CTestCustom.cmake.in
+
+
+# number of warnings to display
+set(CTEST_CUSTOM_MAXIMUM_NUMBER_OF_WARNINGS "500")
+
+# number of errors to display
+set(CTEST_CUSTOM_MAXIMUM_NUMBER_OF_ERRORS "50")
+
+# Set limits for test output
+set(CTEST_CUSTOM_MAXIMUM_PASSED_TEST_OUTPUT_SIZE 0)
+set(CTEST_CUSTOM_MAXIMUM_FAILED_TEST_OUTPUT_SIZE 0)
+
+# warning exceptions
+list(APPEND CTEST_CUSTOM_WARNING_EXCEPTION
+    # RPath in OSX (install_name_tool can't be redone)
+    "z_vcpkg_fixup_rpath_macho"
+    # boost-system's buildsystem uses very long paths
+    "vcpkg_buildpath_length_warning"
+    # could not find a matching pdb file (Windows)
+    "vcpkg_copy_pdbs"
+    # vcpkg unused variable warnings (e.g. PCRE2_STATIC_RUNTIME)
+    "MAYBE_UNUSED_VARIABLES"
+)
+
+# warning addons
+set(CTEST_CUSTOM_WARNING_MATCH ${CTEST_CUSTOM_WARNING_MATCH})
+set(CTEST_CUSTOM_COVERAGE_EXCLUDE
+  # exclude try_compile sources from coverage results:
+  "/CMakeFiles/CMakeTmp/"
+  # exclude files from the testing directories
+  ".*/Tests/.*"
+  # exclude VCPKG headers
+  "vcpkg_installed/.*"
+  # exclude headers staged into the CPack install prefix (.../output/projects/);
+  # these lack the preset directory component and are not instrumented sources
+  ".*/output/projects/.*"
+)

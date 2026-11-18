@@ -7,7 +7,7 @@
 #+level: s2
 #+filetags: :ci:release:distribution:sprint_01:v0:
 #+created: 2026-11-17
-#+updated: 2026-11-17
+#+updated: 2026-11-18
 #+environment:
 #+todo: BACKLOG STARTED | DONE ABANDONED
 
@@ -21,16 +21,18 @@ A person or a CI job installs a named compass release with one command, without 
 
 | Field         | Value                                  |
 |---------------+----------------------------------------|
-| State         | BACKLOG                              |
+| State         | STARTED |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
-| Now           | Not yet started.                       |
+| Now           | Porting ORE Studio's CI. |
 | Waiting on    | Nothing.                               |
-| Next          | Break the story into tasks.            |
-| Last touched  | 2026-11-17                               |
+| Next          | Build and package compass as ORE Studio does. |
+| Last touched  | 2026-11-18 |
 
 * Acceptance
 
-- CI builds compass on Linux for every pull request and every merge to main, and runs its tests.
+- CI builds and tests compass the way ORE Studio does: a CTest dashboard script, continuous Linux builds, and nightly Linux, macOS and Windows builds.
+- Every CI build submits its configure, build and test results to a compass project on CDash.
+- CPack produces a package for each of Linux, macOS and Windows, and a version tag attaches them to the GitHub release.
 - A version tag produces a GitHub release with a binary archive per supported platform, its compass.manifest, and a SHA-256 checksum.
 - The release binary depends only on the system C and C++ runtimes, proved by running it in a clean container of the oldest supported distribution.
 - An install script downloads a named release, verifies its checksum, installs it under ~/.local/opt/compass and links ~/.local/bin, refusing a checksum mismatch.
@@ -41,12 +43,11 @@ A person or a CI job installs a named compass release with one command, without 
 
 | Task | State | Start | End | Description |
 |------+-------+-------+-----+-------------|
-|      |       |       |     |             |
+| [[id:C83C8A4A-1924-4145-82D2-FD30DEECEC87][Build and package compass as ORE Studio does]] | STARTED | 2026-11-18 | | Port ORE Studio's CI to compass: the CTest dashboard script submitting to CDash, CPack packages, continuous Linux builds and nightly Linux, macOS and Windows builds that attach their packages to a tagged release. |
 
 * Decisions
 
 * Out of scope
 
-- Windows and macOS binaries; Linux x86-64 comes first, and the other platforms are tasks added when a consumer needs them.
 - Packaging for distribution package managers (deb, rpm, Homebrew).
 - Wiring the release into ORE Studio's CI; ORE Studio's own story does that.

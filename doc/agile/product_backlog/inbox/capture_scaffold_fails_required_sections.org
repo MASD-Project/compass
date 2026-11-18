@@ -1,0 +1,28 @@
+:PROPERTIES:
+:ID: 5F0125F2-4B29-4598-827D-414F237D4920
+:END:
+#+title: The capture scaffold fails required_sections
+#+description: compass add capture writes What and Why sections, which the capture contract accepts as synonyms for Note, but required_sections demands a Note section, so every new capture is a diagnostic.
+#+type: capture
+#+level: cross
+#+filetags: :compass:
+#+created: 2026-11-18
+#+updated: 2026-11-18
+
+This page is a [[id:671F18E4-E09C-4B3B-BD24-D33DF8AE38A6][capture]] in the *inbox* bucket of the product backlog — a pre-sprint idea, not yet pulled into a sprint as a story.
+
+* Note
+
+=compass add capture= writes =* What= and =* Why= sections. The capture
+contract (=doc/meta/document_type_capture.org=) accepts those as synonyms for
+=* Note=, but =required_sections= reads only the list's first form and reports
+=missing_section= on every new capture. ORE Studio has the codec off, so only
+compass sees it.
+
+* Actions
+
+- Teach required_sections the contract's synonyms, or make the scaffold write =* Note=.
+
+* See also
+
+-
