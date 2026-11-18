@@ -26,11 +26,11 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-17                               |
 
 * Acceptance
@@ -59,7 +59,12 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Cold CPU of the six org gates | about 8.9 s / 7.8 s before, 1.17 s / 1.15 s after, load 39-47 (agent) | =compass check --timings= | e6a9a7b |
+| Hook, org edit, codecs step | 543 to 327 ms (line at end), 583 to 459 ms (line at top), load 39-47 (agent) | =compass hook --timings= | e6a9a7b |
+| Org findings on ORE, unmutated | identical: 10, and 559 with =strict_links=true= | =compass check= | e6a9a7b |
+| Planted org defects | 18 plants; each change is a place the regex was wrong | =orgw/mutate_org.py= | e6a9a7b |
+| Warm ORE check | 3.83 s at load 37-46; 243 findings | =compass check= | e6a9a7b |
+| ctest | 15 of 15 suites pass | =ctest --preset linux-clang-release= | e6a9a7b |
 
 * Notes
 
@@ -87,3 +92,27 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+The org gates read compass's parsed tables instead of regexes. A scan can now
+map a parsed document (=map_document=) as well as bytes, reusing results by
+the document's content ID. lint's scan is the ID-link graph: each page's fact
+holds its type, title, tags, level-1 sections, =:ID:= properties, generated
+markers and id links, and one reduce runs lint's rules, the pattern rules and
+=missing_backlink=. heading_numbers, org_links and component_docs read the
+tables and keep their own rule names.
+
+- =pattern_uses= is folded into lint: its rules are now
+  =lint/pattern_unknown_use=, =lint/pattern_one_way=,
+  =lint/pattern_not_a_pattern= and =lint/pattern_shared_id=.
+- =structure_notes= no longer rewrites pages; a missing back-link is
+  =lint/missing_backlink=, reported at the page's See also heading with the
+  line to add.
+
+Findings on ORE Studio are unchanged; the changes the planted defects showed
+are places the regexes were wrong (links and markers inside blocks, wrapped
+link labels, =TODO= headings, bare back-links).
+
+An install needs ORE Studio's =.compass.org= to drop its =pattern_uses= and
+=structure_notes= rows; the 417 pages structure_notes wrote stay on disk.
+lint still costs about 190 ms in the hook with an unchanged fact, inferred to
+be the scan table's decoding; cutting it needs runtime work.
