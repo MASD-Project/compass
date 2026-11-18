@@ -128,8 +128,13 @@ file_time to_file_time(const struct timespec& t) noexcept {
 file_status to_status(const struct stat& st) noexcept {
     file_status s;
     s.size = static_cast<std::uint64_t>(st.st_size);
+#if defined(__APPLE__)
+    s.modified = to_file_time(st.st_mtimespec);
+    s.changed = to_file_time(st.st_ctimespec);
+#else
     s.modified = to_file_time(st.st_mtim);
     s.changed = to_file_time(st.st_ctim);
+#endif
     s.device = static_cast<std::uint64_t>(st.st_dev);
     s.inode = static_cast<std::uint64_t>(st.st_ino);
     s.user = static_cast<std::uint32_t>(st.st_uid);
@@ -221,7 +226,12 @@ file_time file_clock_now() noexcept {
     return to_file_time(t);
 #else
     struct timespec t{};
+#if defined(__APPLE__)
+    // macOS stamps files from the precise clock and has no coarse one.
+    ::clock_gettime(CLOCK_REALTIME, &t);
+#else
     ::clock_gettime(CLOCK_REALTIME_COARSE, &t);
+#endif
     return to_file_time(t);
 #endif
 }

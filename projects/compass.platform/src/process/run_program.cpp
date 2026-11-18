@@ -263,8 +263,23 @@ namespace {
 class pipe_ends final {
 public:
     pipe_ends() {
+#if defined(__APPLE__)
+        // macOS has no pipe2, so a program another thread starts between
+        // these calls may inherit the pipe, which only delays end of file.
+        if (::pipe(fds_) == -1)
+            throw_errno(errno, "pipe");
+        for (const int fd : fds_) {
+            if (::fcntl(fd, F_SETFD, FD_CLOEXEC) == -1) {
+                const int error = errno;
+                close_read();
+                close_write();
+                throw_errno(error, "fcntl");
+            }
+        }
+#else
         if (::pipe2(fds_, O_CLOEXEC) == -1)
             throw_errno(errno, "pipe2");
+#endif
     }
     ~pipe_ends() {
         close_read();

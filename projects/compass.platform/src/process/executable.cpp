@@ -19,6 +19,7 @@
  */
 #include "compass.platform/process/executable.hpp"
 
+#include <algorithm>
 #include <cstdlib>
 #include <string>
 #include <system_error>
@@ -27,6 +28,10 @@
 #include <windows.h>
 #else
 #include <unistd.h>
+#endif
+#if defined(__APPLE__)
+#include <cstdint>
+#include <mach-o/dyld.h>
 #endif
 
 namespace compass::platform::process {
@@ -111,6 +116,16 @@ std::filesystem::path executable_path() {
     std::error_code ec;
     auto path = std::filesystem::canonical(buffer, ec);
     return ec ? std::filesystem::path(buffer) : path;
+#elif defined(__APPLE__)
+    std::uint32_t size = 0;
+    ::_NSGetExecutablePath(nullptr, &size);
+    std::string buffer(size, '\0');
+    if (::_NSGetExecutablePath(buffer.data(), &size) != 0)
+        return {};
+    buffer.resize(std::min(buffer.find('\0'), buffer.size()));
+    std::error_code ec;
+    auto path = std::filesystem::canonical(buffer, ec);
+    return ec ? std::filesystem::path() : path;
 #else
     std::error_code ec;
     auto path = std::filesystem::read_symlink("/proc/self/exe", ec);
