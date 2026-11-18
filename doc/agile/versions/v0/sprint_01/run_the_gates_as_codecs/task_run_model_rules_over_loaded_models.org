@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/run-model-rules-over-loaded-models
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,7 +26,7 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
 | Now          | Not yet started.                       |
 | Waiting on   | Nothing.                               |
@@ -35,13 +35,16 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Acceptance
 
--
+- The crosscheck gates that regex raw model files read the models compass.model loads, run per model, incrementally, as one model-rules pass where they share data.
+- Rules about facts the model states (entity binary types, generated column references, protocol twins' model half, money columns, http areas, model drift) are checked against the model or the codegen context, not regexes over generated files.
+- The curve wiring is computed once per run instead of four times, and the convention terms once instead of three.
+- Every moved gate gives the same findings on ORE Studio as before, except where a regex was wrong, each change stated; the hook on a model edit and the cold check are measured before and after.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Follow section 3 of =evidence/gate_review/plan.md= and =crosscheck.md=.
+- Move one gate at a time onto the loaded models, comparing findings on the
+  ORE copy after each; then merge the repeated derivations.
 
 * Measurements
 
