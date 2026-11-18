@@ -27,11 +27,11 @@ clang-cl, so Windows developers can install it.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED |
+| State        | DONE |
 | Parent story | [[id:EB6AF798-D472-4CC2-B97C-FC2BD9FD1FDE][Publish installable binaries]] |
-| Now          | Porting the POSIX-only sources. |
-| Waiting on   | Nothing.                               |
-| Next         | Get nightly-windows green on the branch. |
+| Now          | Merged. |
+| Waiting on   | Nothing. |
+| Next         | Nothing. |
 | Last touched | 2026-11-18                               |
 
 * Acceptance
@@ -180,3 +180,18 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+compass builds, tests and packages on Windows (MSVC and clang) and macOS (debug
+and release), with no compiler errors or warnings: Nightly Windows 44334848271
+(14/14, an msi and an exe), Nightly macOS 44334856261 (15/15, a dmg) and
+Continuous Linux 44334862525 at a64f379. Each OS facility has one seam in
+compass.platform (file status and reads, new files and replacement, file locks,
+the environment, finding programs, standard streams), with the POSIX and Win32
+bodies side by side as ORE Studio has them, and the store, codecs, CLI and bench
+call the seams. Warning flags are ORE Studio's, verbatim. Linux is unchanged:
+the same diagnostics on this repository and ORE Studio, and 0.12% more
+instructions on a warm check.
+
+The port also found two bugs: a dangling view in codegen's TypeScript imports,
+and the install script's Linux-only =mv -T=. The tests skipped on Windows are
+listed under Notes.
