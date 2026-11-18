@@ -59,15 +59,29 @@ struct forbid_rule {
 };
 
 /**
- * @brief A forbid check: the files it covers and its rules. files and
- * outside are globs as glob_matches reads them, with each {a,b} already
- * expanded; a file is covered when it matches one of files and none of
- * outside.
+ * @brief An example of a forbid check: the bytes of a file at path, which
+ * must raise a finding of the rule fires names, or, when fires is empty,
+ * no finding at all.
+ */
+struct forbid_example {
+    std::string fires;
+    std::string path;
+    std::string body;
+};
+
+/**
+ * @brief A forbid check: the files it covers, its rules and its examples.
+ * files and outside are globs as glob_matches reads them, with each {a,b}
+ * already expanded; a file is covered when it matches one of files and
+ * none of outside. source is the checkout file the check is written in,
+ * where findings about its examples go.
  */
 struct forbid_definition {
+    std::string source;
     std::vector<std::string> files;
     std::vector<std::string> outside;
     std::vector<forbid_rule> rules;
+    std::vector<forbid_example> examples;
 };
 
 /**
@@ -78,13 +92,17 @@ struct forbid_definition {
  * lines are skipped. FILES and OUTSIDE take space-separated globs, in
  * which {a,b,c} stands for each of its alternatives and a last ** for
  * every file under its directory. RULE <name> starts a
- * rule; the keys after it are that rule's. CPP_NAME and CPP_INCLUDE take
+ * rule; the keys after it are that rule's. SOURCE, before the first rule,
+ * names the file the check is written in. EXAMPLE <verdict> <path> adds
+ * an example wherever it stands: the verdict is quiet or
+ * fires=<rule>, and the lines after it that start with "> ", or are ">"
+ * alone, are its body, without those marks. CPP_NAME and CPP_INCLUDE take
  * space-separated values; CPP_TEXT and TEXT take one regular expression,
  * spaces and all; MESSAGE and FIX take their text. FILES and at least one
  * rule are required; each rule needs a name unique in the definition, at
  * least one of the four match keys, and a MESSAGE. A key given twice, an
- * unknown key, a nested or unclosed brace and an expression that does not
- * compile are errors.
+ * unknown key, a nested or unclosed brace, an expression that does not
+ * compile and an example that names no rule of the definition are errors.
  */
 [[nodiscard]] std::expected<forbid_definition, std::string>
 parse_forbid_definition(std::string_view text);
@@ -108,6 +126,20 @@ parse_forbid_definition(std::string_view text);
  */
 void forbid_scan(const forbid_definition& d, std::string_view path,
     std::string_view bytes, compass::codec::types::diagnostic_table& out);
+
+/**
+ * @brief Reports, to @p out, each example of @p d that does not do what
+ * it says: one that fires and raises no finding of its rule, and one that
+ * is quiet and raises any. A finding is of the rule after the
+ * definition's own, d.rules.size(), in d.source, whose bytes are
+ * @p source: on the opening line of the source block that holds the
+ * example, the nth after the line "* Examples" whose header names
+ * :compass for the nth example, or on the first byte when there is no
+ * such block. The examples' places are not part of the definition, so
+ * editing the prose around them leaves the definition as it was.
+ */
+void check_examples(const forbid_definition& d, std::string_view source,
+    compass::codec::types::diagnostic_table& out);
 
 }
 

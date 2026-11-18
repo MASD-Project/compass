@@ -39,7 +39,8 @@ constexpr std::string_view configuration =
     "| document_index | no | |\n"
     "| required_sections | no | |\n";
 
-std::string check_document(std::string_view exceptions = {}) {
+std::string check_document(std::string_view exceptions = {},
+    std::string_view examples = {}) {
     return "#+title: Check: portable C++\n\n"
         "* Definition\n"
         ":PROPERTIES:\n"
@@ -52,7 +53,7 @@ std::string check_document(std::string_view exceptions = {}) {
         ":CPP_TEXT: \\batomic\\s*<\\s*(std\\s*::\\s*)?shared_ptr\\b\n"
         ":MESSAGE: std::atomic<std::shared_ptr> is not portable\n"
         ":END:\n\n"
-        "Apple's libc++ lacks it.\n\n"
+        "Apple's libc++ lacks it.\n\n" + std::string(examples) +
         "* Exceptions\n\n"
         "| path | line | rule | expires | approver | reason |\n" +
         std::string(exceptions);
@@ -183,4 +184,47 @@ TEST_CASE("a check document that cannot run fails the command and says "
     CHECK(r.status == 2);
     CHECK_THAT(r.err, ContainsSubstring("compass/checks/portable_cpp.org:5: "
         "the engine is 'limit'"));
+}
+
+TEST_CASE("an example that does not fire is reported on its block, which "
+    "moves with the prose around it, and editing it runs the check again",
+    "[app][checks]") {
+    scoped_git_repo repo;
+    write_checkout(repo);
+    const std::string examples =
+        "* Examples\n\n"
+        "#+begin_src cpp :compass fires=atomic_shared_ptr :path src/a.cpp\n"
+        "std::atomic<std::shared_ptr<int>> p;\n"
+        "#+end_src\n\n"
+        "#+begin_src cpp :compass quiet :path src/platform/a.cpp\n"
+        "std::atomic<std::shared_ptr<int>> p;\n"
+        "#+end_src\n\n"
+        "#+begin_src cpp :compass fires=atomic_shared_ptr :path src/b.cpp\n"
+        "std::shared_ptr<int> p;\n"
+        "#+end_src\n\n";
+    repo.write("compass/checks/portable_cpp.org", check_document({},
+        examples));
+
+    const auto r = check(repo);
+    CHECK(r.findings() == std::vector<std::string>{
+        "compass/checks/portable_cpp.org:28:portable_cpp/example",
+        "src/core/cache.cpp:2:portable_cpp/atomic_shared_ptr"});
+
+    auto moved = check_document({}, examples);
+    moved.replace(moved.find("Apple's libc++ lacks it."), 24,
+        "Apple's libc++\nlacks it.");
+    repo.write("compass/checks/portable_cpp.org", moved);
+    const auto shifted = check(repo);
+    CHECK(shifted.findings() == std::vector<std::string>{
+        "compass/checks/portable_cpp.org:29:portable_cpp/example",
+        "src/core/cache.cpp:2:portable_cpp/atomic_shared_ptr"});
+
+    auto fixed = examples;
+    fixed.replace(fixed.find("std::shared_ptr<int> p;"), 23,
+        "std::atomic<std::shared_ptr<int>> q;");
+    repo.write("compass/checks/portable_cpp.org", check_document({}, fixed));
+    const auto again = check(repo);
+    CHECK(again.findings() == std::vector<std::string>{
+        "src/core/cache.cpp:2:portable_cpp/atomic_shared_ptr"});
+    CHECK_THAT(again.out, ContainsSubstring(" portable_cpp 1"));
 }

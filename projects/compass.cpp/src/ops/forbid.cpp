@@ -141,6 +141,29 @@ std::string_view include_target(std::string_view listed, bool& angled) {
     return listed;
 }
 
+/**
+ * @brief The offset of the opening line of each source block after the
+ * line "* Examples" of @p source whose header names :compass, in order.
+ */
+std::vector<std::uint32_t> example_offsets(std::string_view source) {
+    std::vector<std::uint32_t> out;
+    bool under = false;
+    std::size_t at = 0;
+    while (at < source.size()) {
+        const auto nl = std::min(source.find('\n', at), source.size());
+        const auto l = trimmed(source.substr(at, nl - at));
+        if (l.starts_with("* "))
+            under = trimmed(l.substr(2)) == "Examples";
+        else if (under && (l.starts_with("#+begin_src") ||
+                     l.starts_with("#+BEGIN_SRC")) &&
+            std::ranges::contains(words_of(l.substr(11)),
+                std::string(":compass")))
+            out.push_back(static_cast<std::uint32_t>(at));
+        at = nl + 1;
+    }
+    return out;
+}
+
 struct hit {
     std::uint32_t line;
     std::uint32_t rule;
@@ -172,15 +195,37 @@ parse_forbid_definition(std::string_view text) {
         return std::nullopt;
     };
 
+    std::vector<std::uint32_t> example_lines;
+    bool in_example = false;
     for (const auto raw : split_lines_keeping_ends(text)) {
         ++line;
-        const auto l = trimmed(raw.substr(0, raw.find('\n')));
+        const auto bare = raw.substr(0, raw.find('\n'));
+        if (in_example && (bare == ">" || bare.starts_with("> "))) {
+            d.examples.back().body.append(bare.substr(
+                std::min<std::size_t>(2, bare.size()))).push_back('\n');
+            continue;
+        }
+        in_example = false;
+        const auto l = trimmed(bare);
         if (l.empty())
             continue;
         const auto space = l.find(' ');
         const auto key = l.substr(0, space);
         const auto value = space == std::string_view::npos ? std::string_view{}
             : trimmed(l.substr(space + 1));
+        if (key == "EXAMPLE") {
+            const auto words = words_of(value);
+            if (words.size() != 2 ||
+                (words[0] != "quiet" && !words[0].starts_with("fires=")))
+                return fail(line, "EXAMPLE takes quiet or fires=<rule> and "
+                    "a path");
+            d.examples.push_back({.fires = words[0] == "quiet"
+                    ? std::string() : words[0].substr(6),
+                .path = words[1], .body = {}});
+            example_lines.push_back(line);
+            in_example = true;
+            continue;
+        }
         if (key == "RULE") {
             if (auto problem = finish_rule())
                 return fail(rule_line, *problem);
@@ -198,6 +243,12 @@ parse_forbid_definition(std::string_view text) {
             return fail(line, std::string(key) + " is given twice");
         if (value.empty())
             return fail(line, std::string(key) + " has no value");
+        if (key == "SOURCE") {
+            if (!d.rules.empty())
+                return fail(line, "SOURCE comes before the first RULE");
+            d.source = std::string(value);
+            continue;
+        }
         if (key == "FILES" || key == "OUTSIDE") {
             if (!d.rules.empty())
                 return fail(line, std::string(key) +
@@ -244,6 +295,12 @@ parse_forbid_definition(std::string_view text) {
         return std::unexpected("the definition has no FILES");
     if (d.rules.empty())
         return std::unexpected("the definition has no RULE");
+    for (std::size_t i = 0; i < d.examples.size(); ++i) {
+        const auto& fires = d.examples[i].fires;
+        if (!fires.empty() && !rule_names.contains(fires))
+            return fail(example_lines[i], "the example fires " + fires +
+                ", which is no rule of the definition");
+    }
     return d;
 }
 
@@ -341,6 +398,40 @@ void forbid_scan(const forbid_definition& d, std::string_view path,
         const auto& r = d.rules[h.rule];
         report(out, path, offset_of_line(bytes, h.line), h.rule,
             with_match(r.message, h.match), with_match(r.fix, h.match));
+    }
+}
+
+void check_examples(const forbid_definition& d, std::string_view source,
+    compass::codec::types::diagnostic_table& out) {
+    const auto example_rule = static_cast<std::uint32_t>(d.rules.size());
+    const auto places = example_offsets(source);
+    for (std::size_t i = 0; i < d.examples.size(); ++i) {
+        const auto& e = d.examples[i];
+        const auto offset = i < places.size() ? places[i] : 0u;
+        compass::codec::types::diagnostic_table found;
+        if (covers(d, e.path))
+            forbid_scan(d, e.path, e.body, found);
+        if (e.fires.empty()) {
+            if (found.size() == 0)
+                continue;
+            const auto& rule = d.rules[found.rules.values.front().value].name;
+            report(out, d.source, offset, example_rule,
+                "the quiet example of " + e.path + " raises " + rule,
+                "narrow the rule so the example is quiet, or mark the "
+                "example fires=" + rule);
+            continue;
+        }
+        const bool fired = std::ranges::any_of(found.rules.values,
+            [&](compass::codec::types::rule_id r) {
+                return d.rules[r.value].name == e.fires; });
+        if (!fired)
+            report(out, d.source, offset, example_rule,
+                "the example of " + e.path + " raises no " + e.fires +
+                    " finding",
+                covers(d, e.path) ? "widen the rule so the example fires, "
+                    "or correct the example" : "the definition does not "
+                    "cover " + e.path + "; correct its FILES or OUTSIDE, "
+                    "or the example's path");
     }
 }
 
