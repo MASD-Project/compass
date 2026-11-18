@@ -37,8 +37,8 @@
 #include "compass.codec/ops/run.hpp"
 #include "compass.ingest/meta/type_registry_builder.hpp"
 #include "compass.ingest/org/parser.hpp"
-#include "compass.platform/process/environment.hpp"
 #include "compass.store/ops/blob_hash.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
 
 namespace {
 
@@ -212,26 +212,20 @@ files library_with_family() {
  * @brief A directory with an executable named fake-format in bin/.
  */
 class scoped_bin final {
+    compass::testing::filesystem::scoped_directory dir_{"compass.codegen.bin"};
+
 public:
     scoped_bin() {
-        root_ = std::filesystem::temp_directory_path() /
-            ("compass.codegen.bin." +
-                std::to_string(
-                    compass::platform::process::current_process_id()));
-        std::filesystem::create_directories(root_ / "bin");
-        const auto program = root_ / "bin/fake-format";
+        std::filesystem::create_directories(dir_.path() / "bin");
+        const auto program = dir_.path() / "bin/fake-format";
         std::ofstream(program) << "#!/bin/sh\n";
         std::filesystem::permissions(program,
             std::filesystem::perms::owner_all);
     }
-    ~scoped_bin() { std::filesystem::remove_all(root_); }
-    scoped_bin(const scoped_bin&) = delete;
-    scoped_bin& operator=(const scoped_bin&) = delete;
 
-    [[nodiscard]] const std::filesystem::path& root() const { return root_; }
-
-private:
-    std::filesystem::path root_;
+    [[nodiscard]] const std::filesystem::path& root() const {
+        return dir_.path();
+    }
 };
 
 ct::option_values values_of(const std::array<std::string, 7>& values) {
