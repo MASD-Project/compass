@@ -30,7 +30,6 @@ add_library(${lib_target_name}
     codecs/er_diagram.cpp
     codecs/generated_column_refs.cpp
     codecs/marketdata_identity_columns.cpp
-    codecs/model_drift.cpp
     codecs/model_rules.cpp
     codecs/open_reads.cpp
     codecs/ore_output_catalogue.cpp

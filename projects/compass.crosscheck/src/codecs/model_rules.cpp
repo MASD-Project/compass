@@ -21,18 +21,23 @@
 
 #include <algorithm>
 #include <array>
+#include <map>
 #include <optional>
 #include <set>
+#include <span>
 #include <string>
+#include <utility>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.codec/types/fact.hpp"
 #include "compass.cpp/ops/paths.hpp"
 #include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
+#include "compass.crosscheck/ops/python_literals.hpp"
 #include "compass.crosscheck/ops/words.hpp"
 #include "compass.model/ops/load.hpp"
 #include "compass.model/ops/outline.hpp"
+#include "compass.platform/text/decoding.hpp"
 #include "compass.platform/text/regex.hpp"
 
 namespace compass::crosscheck::codecs {
@@ -45,7 +50,9 @@ namespace mo = compass::model::ops;
 namespace mt = compass::model::types;
 namespace pt = compass::platform::text;
 
-enum rule : std::uint32_t { money_not_exact, continuous_exact };
+enum rule : std::uint32_t { money_not_exact, continuous_exact,
+    unpublished_area, unreadable_areas, contradicted, unset_required,
+    self_contradicting };
 
 constexpr std::array<std::string_view, 2> money_not_exact_sources{
     "E47BAF35-066F-4EF2-BA3D-522AED44FF33",
@@ -54,13 +61,22 @@ constexpr std::array<std::string_view, 2> money_not_exact_sources{
 constexpr std::array<std::string_view, 1> continuous_exact_sources{
     "B9DAC38A-BEB1-4658-87BC-DFF901033E84"};
 
-constexpr std::array<ct::rule, 2> rules{{
+constexpr std::array<ct::rule, 7> rules{{
     {"money_not_exact", "A money column is numeric in SQL and a decimal in "
         "C++, never a binary float or text.", money_not_exact_sources},
     {"continuous_exact", "A continuous quantity is not typed numeric or "
-        "decimal, an exactness it does not have.", continuous_exact_sources}}};
+        "decimal, an exactness it does not have.", continuous_exact_sources},
+    {"unpublished_area", "Every #+http_area: a model declares is a "
+        "published area."},
+    {"unreadable_areas", "The route classification module states AREAS "
+        "and NO_AREA as literals."},
+    {"contradicted", "A model does not redeclare a feature its profile "
+        "fixes to another value."},
+    {"unset_required", "A model sets every feature its profile requires."},
+    {"self_contradicting", "A model states a feature once, or always with "
+        "one value."}}};
 
-constexpr std::array<ct::option, 2> options{{
+constexpr std::array<ct::option, 3> options{{
     {"excluded_columns",
         "projects/ores.refdata/modeling/"
         "ores.refdata.bond_future_volatility_config.org::strike_factor,"
@@ -76,7 +92,10 @@ constexpr std::array<ct::option, 2> options{{
         "projects/ores.trading/modeling/"
         "ores.trading.fx_variance_swap_instrument.org::strike",
         "Model::column keys of continuous quantities whose name reads as "
-        "money."}}};
+        "money."},
+    {"classification", "build/scripts/route_classification.py",
+        "The Python module whose AREAS and NO_AREA name the published "
+        "areas."}}};
 
 /**
  * @brief The models of the checkout: every org file directly under a
@@ -207,28 +226,324 @@ void check_money(const ct::document& d, const mo::outline& o,
     }
 }
 
+/**
+ * @brief Whether @p key is a feature name as model-drift reads one:
+ * lower-case letters and underscores.
+ */
+bool feature_name(std::string_view key) {
+    return !key.empty() && std::ranges::all_of(key, [](char c) {
+        return (c >= 'a' && c <= 'z') || c == '_';
+    });
+}
+
+/**
+ * @brief Each feature a model states in a drawer, with every heading path
+ * and value it is stated with, in document order.
+ */
+using statements = std::map<std::string_view,
+    std::vector<std::pair<std::string, std::string_view>>, std::less<>>;
+
+statements stated_features(const mo::outline& o) {
+    statements out;
+    for (std::size_t i = 0; i < o.file_property_keys.size(); ++i) {
+        const auto value = co::strip(o.file_property_values[i]);
+        if (feature_name(o.file_property_keys[i]) && !value.empty())
+            out[o.file_property_keys[i]].emplace_back("(top)", value);
+    }
+    std::vector<std::string> paths(o.size());
+    for (std::size_t n = 1; n < o.size(); ++n) {
+        std::size_t parent = n - 1;
+        while (parent > 0 && o.levels[parent] >= o.levels[n])
+            --parent;
+        paths[n] = parent == 0 ? std::string(o.titles[n])
+                               : paths[parent] + " / " +
+                std::string(o.titles[n]);
+    }
+    for (std::size_t i = 0; i < o.property_keys.size(); ++i) {
+        const auto value = co::strip(o.property_values[i]);
+        if (feature_name(o.property_keys[i]) && !value.empty())
+            out[o.property_keys[i]].emplace_back(
+                paths[o.property_nodes[i].value], value);
+    }
+    return out;
+}
+
+void write_features(const mo::outline& o, ct::fact_writer& fact) {
+    const auto all = stated_features(o);
+    const auto profile = all.find("profile");
+    if (profile == all.end()) {
+        fact.number(0);
+        return;
+    }
+    fact.number(static_cast<std::uint32_t>(all.size()));
+    for (const auto& [key, entries] : all) {
+        fact.text(key);
+        const bool agree = std::ranges::all_of(entries, [&](const auto& e) {
+            return e.second == entries.front().second; });
+        if (agree) {
+            fact.number(1).text(entries.front().second);
+            continue;
+        }
+        fact.number(static_cast<std::uint32_t>(entries.size()));
+        for (const auto& [where, value] : entries)
+            fact.text(where).text(value);
+    }
+}
+
+/**
+ * @brief The features a profile fixes, from the first two cells of each
+ * row of the tables of its Assignments section, a feature's id link read
+ * as its label; a later row of one feature replaces its value.
+ */
+void write_assignments(const ct::document& d, const mo::outline& o,
+    ct::fact_writer& fact) {
+    auto slug = std::string(co::stem_of(d.path).substr(
+        std::string_view("variability_").size()));
+    std::ranges::replace(slug, '_', '-');
+    std::vector<std::pair<std::string, std::string>> fixed;
+    const auto section = mo::section(o, mo::node_id{0}, "Assignments");
+    for (const auto table : section.is_none() ? std::vector<std::uint32_t>{}
+                                              : mo::tables_of(o, section)) {
+        const auto first = mo::first_row(o, table);
+        for (auto row = first; row < first + mo::row_count(o, table); ++row) {
+            if (mo::cell_count(o, row) != 2)
+                continue;
+            auto feature = co::strip(mo::cell(o, row, 0));
+            if (feature.starts_with("[[id:")) {
+                const auto open = feature.find("][");
+                if (open == std::string_view::npos || !feature.ends_with("]]"))
+                    continue;
+                feature = feature.substr(open + 2, feature.size() - open - 4);
+            }
+            const std::string value(co::strip(mo::cell(o, row, 1)));
+            if (!feature_name(feature) || feature == "feature" ||
+                value.find_first_not_of("-+") == std::string::npos)
+                continue;
+            const auto it = std::ranges::find_if(fixed, [&](const auto& f) {
+                return f.first == feature; });
+            if (it != fixed.end())
+                it->second = value;
+            else
+                fixed.emplace_back(feature, value);
+        }
+    }
+    fact.text(slug).number(static_cast<std::uint32_t>(fixed.size()));
+    for (const auto& [feature, value] : fixed)
+        fact.text(feature).text(value);
+}
+
+/**
+ * @brief The fact of a model: each #+http_area: with the offset of its
+ * line, then, when it binds a profile, the profiles it binds and what it
+ * states of each feature (fact_kind::model); of a profile, its slug and
+ * the features its Assignments table fixes (fact_kind::profile).
+ */
+enum class fact_kind : std::uint32_t { other, model, profile };
+
+void write_areas(const ct::document& d, const mo::outline& o,
+    ct::fact_writer& fact) {
+    std::vector<std::pair<std::uint32_t, std::string_view>> areas;
+    for (std::size_t i = 0; i < o.frontmatter_keys.size(); ++i) {
+        if (o.frontmatter_keys[i] == "http_area")
+            areas.emplace_back(line_start(d.source, o.frontmatter_keys[i]),
+                co::strip(o.frontmatter_values[i]));
+    }
+    fact.number(static_cast<std::uint32_t>(areas.size()));
+    for (const auto& [offset, area] : areas)
+        fact.number(offset).text(area);
+}
+
+/**
+ * @brief What a model states for a feature: its one value, none, or every
+ * statement when they disagree.
+ */
+struct statement {
+    std::optional<std::string_view> value;
+    std::vector<std::pair<std::string_view, std::string_view>> disagreement;
+};
+
+using stated_map = std::map<std::string_view, statement, std::less<>>;
+
+stated_map read_features(ct::fact_reader& fact) {
+    stated_map out;
+    for (auto n = fact.number(); n > 0; --n) {
+        auto& s = out[fact.text()];
+        const auto entries = fact.number();
+        if (entries == 1) {
+            s.value = fact.text();
+            continue;
+        }
+        for (auto i = entries; i > 0; --i) {
+            const auto where = fact.text();
+            s.disagreement.emplace_back(where, fact.text());
+        }
+    }
+    return out;
+}
+
+using profile_table = std::map<std::string_view,
+    std::vector<std::pair<std::string_view, std::string_view>>, std::less<>>;
+
+/**
+ * @brief model-drift for one model that binds profiles: a feature a bound
+ * profile fixes and the model states otherwise, or one it requires and the
+ * model leaves unset, or states two ways.
+ */
+void check_drift(std::string_view path, const stated_map& values,
+    const profile_table& profiles, ct::diagnostic_table& out) {
+    const auto bound = values.find("profile");
+    if (bound == values.end() || !bound->second.value)
+        return;
+    constexpr std::string_view fix = "A model that names a profile must not "
+        "redeclare a feature the profile fixes to another value.";
+    std::map<std::string_view, std::pair<std::string_view, std::string_view>>
+        fixed_by;
+    for (const auto raw : ops::split(*bound->second.value, ',')) {
+        const auto name = co::strip(raw);
+        // codegen's model loader refuses an unknown profile and two
+        // profiles that disagree, and that refusal stops the check.
+        const auto profile = profiles.find(name);
+        if (name.empty() || profile == profiles.end())
+            continue;
+        for (const auto& [feature, expected] : profile->second) {
+            if (const auto it = fixed_by.find(feature);
+                it != fixed_by.end() && it->second.second != expected)
+                continue;
+            fixed_by[feature] = {name, expected};
+            const auto s = values.find(feature);
+            if (s != values.end() && !s->second.disagreement.empty()) {
+                std::string where;
+                for (const auto& [w, value] : s->second.disagreement)
+                    where += (where.empty() ? "" : "; ") + std::string(w) +
+                        "=" + std::string(value);
+                co::report(out, path, 0, self_contradicting, "states " +
+                    std::string(feature) + " twice with different values (" +
+                    where + ")", fix);
+                continue;
+            }
+            const auto actual = s == values.end()
+                ? std::optional<std::string_view>{} : s->second.value;
+            if (expected.starts_with("required")) {
+                if (!actual || actual->empty())
+                    co::report(out, path, 0, unset_required, "profile '" +
+                        std::string(name) + "' requires " +
+                        std::string(feature) + " to be set, model states "
+                        "none", fix);
+                continue;
+            }
+            if (actual && *actual != expected)
+                co::report(out, path, 0, contradicted, "profile '" +
+                    std::string(name) + "' fixes " + std::string(feature) +
+                    "=" + std::string(expected) + ", model declares " +
+                    std::string(*actual), fix);
+        }
+    }
+}
+
 void map(const ct::document& d, const ct::option_values& options,
     ct::file_scan& out) {
     const mo::document doc{d.path, d.source, &d.tables};
-    const auto type = mo::model_type_of(mo::declared_type(doc));
-    if (!type)
+    const auto declared = mo::declared_type(doc);
+    ct::fact_writer fact(out.fact);
+    if (declared == "profile" &&
+        co::stem_of(d.path).starts_with("variability_")) {
+        mo::outline o;
+        mo::build_outline(d.source, d.tables, o);
+        fact.number(static_cast<std::uint32_t>(fact_kind::profile));
+        write_assignments(d, o, fact);
         return;
+    }
+    const auto type = mo::model_type_of(declared);
+    if (!type) {
+        fact.number(static_cast<std::uint32_t>(fact_kind::other));
+        return;
+    }
     mo::outline o;
     mo::build_outline(d.source, d.tables, o);
+    fact.number(static_cast<std::uint32_t>(fact_kind::model));
+    write_areas(d, o, fact);
+    write_features(o, fact);
     check_money(d, o, *type, options, out.findings);
+}
+
+
+/**
+ * @brief The published areas: AREAS less NO_AREA of the route
+ * classification module, or nothing, reported, when they are not
+ * literals.
+ */
+std::optional<std::set<std::string>> published_areas(const ct::corpus_view& v,
+    ct::diagnostic_table& out) {
+    const auto module_path = v.option("classification");
+    const auto module = pt::universal_newlines(pt::decode_replacing(
+        v.read_file(module_path).value_or("")));
+    const auto areas = ops::python_assignment(module, "AREAS");
+    const auto none = ops::python_assignment(module, "NO_AREA");
+    const auto names = areas ? ops::strings_of(*areas) : std::nullopt;
+    if (!names || !none || none->what != ops::python_value::kind::string) {
+        co::report(out, module_path, 0, unreadable_areas, "AREAS or NO_AREA "
+            "is not a literal this check can read", "Keep AREAS a tuple of "
+            "strings and NO_AREA a string.");
+        return std::nullopt;
+    }
+    std::set<std::string> published(names->begin(), names->end());
+    published.erase(none->text);
+    return published;
+}
+
+void reduce(std::span<const ct::scanned_file> files, const ct::corpus_view& v,
+    ct::diagnostic_table& out) {
+    profile_table profiles;
+    bool areas_read = false;
+    std::optional<std::set<std::string>> published;
+    std::string listed;
+    for (const auto& f : files) {
+        ct::fact_reader fact(f.fact);
+        if (static_cast<fact_kind>(fact.number()) != fact_kind::profile)
+            continue;
+        auto& fixed = profiles[fact.text()];
+        for (auto n = fact.number(); n > 0; --n) {
+            const auto feature = fact.text();
+            fixed.emplace_back(feature, fact.text());
+        }
+    }
+    for (const auto& f : files) {
+        ct::fact_reader fact(f.fact);
+        if (static_cast<fact_kind>(fact.number()) != fact_kind::model)
+            continue;
+        for (auto n = fact.number(); n > 0; --n) {
+            const auto offset = fact.number();
+            const std::string area(fact.text());
+            if (!areas_read) {
+                areas_read = true;
+                published = published_areas(v, out);
+                if (published)
+                    for (const auto& a : *published)
+                        listed += (listed.empty() ? "" : ", ") + a;
+            }
+            if (!published || published->contains(area))
+                continue;
+            co::report(out, f.path, offset, unpublished_area, "declares "
+                "http_area '" + area + "', which is not a published area; "
+                "published areas: " + listed, "Add the area to "
+                "route_classification.AREAS, or use a published one.");
+        }
+        check_drift(f.path, read_features(fact), profiles, out);
+    }
 }
 
 }
 
 const ct::descriptor model_rules{
     .name = "model_rules",
-    .version = 1,
+    .version = 2,
     .summary = "Reports each codegen model that breaks a rule ORE Studio's "
         "gates state about one model.",
     .reads = ct::inputs::of_types({}),
     .options = options,
     .rules = rules,
     .enabled_by_default = false,
-    .run = ct::scan_function{.files = models, .map_document = map}};
+    .run = ct::scan_function{.files = models, .reduce = reduce,
+        .map_document = map}};
 
 }

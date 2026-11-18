@@ -115,3 +115,82 @@ TEST_CASE("an edit to one model reports what a run from scratch reports",
     const auto r = tests::run_after_edit(codecs::model_rules, before, after);
     CHECK(r.findings.size() == 2);
 }
+
+TEST_CASE("an HTTP area outside the published ones is reported",
+    "[codecs][model_rules]") {
+    const std::string module = "build/scripts/route_classification.py";
+    const files t{
+        {module,
+         "NO_AREA = \"(none)\"\n\nAREAS = (\n    \"access\",  # people\n"
+         "    \"trading\",\n    'market-data',\n    NO_AREA_SPELLED := 1,\n)\n"},
+        {"projects/ores.a/modeling/a.org",
+         "#+type: ores.codegen.entity\n#+http_area: trading\n"}};
+    CHECK(tests::messages_of(tests::run(codecs::model_rules, t)) ==
+        std::vector<std::string>{"AREAS or NO_AREA is not a literal this "
+            "check can read"});
+    const files u{
+        {module,
+         "NO_AREA = \"(none)\"\n\nAREAS = (\n    \"access\",  # people\n"
+         "    \"(none)\",\n    'market-data',\n)\n"},
+        {"projects/ores.a/modeling/a.org",
+         "#+type: ores.codegen.entity\n#+http_area: access\n"
+         "#+http_area: (none)\n#+http_area: gone \n"
+         "#+begin_src org\n#+http_area: in_a_block\n#+end_src\n"},
+        {"projects/ores.a/modeling/b.org",
+         "#+type: knowledge\n#+http_area: gone\n"},
+        {"projects/ores.a/modeling/deep/c.org",
+         "#+type: ores.codegen.entity\n#+http_area: gone\n"}};
+    CHECK(tests::places(tests::run(codecs::model_rules, u).findings) ==
+        std::vector<std::pair<std::string, std::uint32_t>>{
+            {"projects/ores.a/modeling/a.org", 3},
+            {"projects/ores.a/modeling/a.org", 4}});
+}
+
+TEST_CASE("a model may not contradict the profile it binds to",
+    "[codecs][model_rules]") {
+    const auto drawer = [](std::string_view body) {
+        return ":PROPERTIES:\n" + std::string(body) + ":END:\n";
+    };
+    const files t{
+        {"projects/modeling/variability_uuid_lookup.org",
+         "#+type: profile\n* Assignments\n| Feature | Value |\n|---+---|\n"
+         "| [[id:X][has_tenant_id]] | true |\n| has_pagination | false |\n"
+         "| parent_entity_singular | required |\n| read_only | --- |\n"
+         "* Notes\n| other | x |\n"},
+        {"projects/modeling/variability_paged.org",
+         "#+type: profile\n* Assignments\n| has_pagination | true |\n"},
+        {"projects/ores.a/modeling/ores.a.good.org",
+         "#+type: ores.codegen.entity\n* Flags\n" +
+         drawer(":profile: uuid-lookup\n:has_tenant_id: true\n"
+             ":parent_entity_singular: book\n:read_only: true\n") +
+         "#+begin_src org\n:has_tenant_id: false\n#+end_src\n"},
+        {"projects/ores.a/modeling/ores.a.bad.org",
+         "#+type: ores.codegen.entity\n* Flags\n" +
+         drawer(":profile: uuid-lookup, paged, nope\n:has_tenant_id: false\n") +
+         "* C++\n** Presentation\n" + drawer(":has_pagination: true\n") +
+         "** Other\n" + drawer(":has_pagination: false\n")}};
+    CHECK(tests::messages_of(tests::run(codecs::model_rules, t)) ==
+        std::vector<std::string>{
+            "profile 'uuid-lookup' fixes has_tenant_id=true, model declares "
+            "false",
+            "states has_pagination twice with different values (C++ / "
+            "Presentation=true; C++ / Other=false)",
+            "profile 'uuid-lookup' requires parent_entity_singular to be "
+            "set, model states none"});
+}
+
+TEST_CASE("an edit to a profile reruns the rules of the models that bind it",
+    "[codecs][model_rules]") {
+    const std::string profile = "projects/modeling/variability_paged.org";
+    const files before{
+        {profile, "#+type: profile\n* Assignments\n| has_pagination | true |\n"},
+        {"projects/ores.a/modeling/ores.a.m.org",
+         "#+type: ores.codegen.entity\n* Flags\n:PROPERTIES:\n"
+         ":profile: paged\n:has_pagination: false\n:END:\n"}};
+    auto after = before;
+    after[profile] = "#+type: profile\n* Assignments\n"
+        "| has_pagination | false |\n";
+    CHECK(tests::run(codecs::model_rules, before).findings.size() == 1);
+    CHECK(tests::run_after_edit(codecs::model_rules, before, after)
+        .findings.empty());
+}

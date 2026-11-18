@@ -47,6 +47,20 @@ namespace compass::crosscheck::codecs {
  * typed numeric, or a field group's decimal, is exact. The options
  * excluded_columns and continuous_columns name model::column keys the
  * script lists by hand.
+ *
+ * Rule unpublished_area (http-areas): a #+http_area: of a model's
+ * frontmatter, the keyword its loader reads, that names an area outside
+ * AREAS, less NO_AREA, of the module the option classification names,
+ * read as the Python literals they are. Rule unreadable_areas: they are
+ * not literals. The module is read only when a model declares an area.
+ *
+ * Rules contradicted, unset_required and self_contradicting
+ * (model-drift): the profiles are the documents of type profile named
+ * projects/modeling/variability_<slug>.org, each fixing the features of
+ * the two-cell rows of its Assignments tables. A model binds them by its
+ * profile property and states a feature in any drawer; it may not state
+ * a feature a bound profile fixes with another value, leave unset one the
+ * profile requires, or state one feature with two values.
  */
 extern const compass::codec::types::descriptor model_rules;
 
