@@ -25,7 +25,6 @@ add_library(${lib_target_name}
     codecs/heading_numbers.cpp
     codecs/lint.cpp
     codecs/org_links.cpp
-    codecs/pattern_uses.cpp
     codecs/physical_inventory.cpp
     codecs/prototypes.cpp
     codecs/recipe_inventories.cpp
@@ -33,9 +32,10 @@ add_library(${lib_target_name}
     codecs/rule_identifiers.cpp
     codecs/skill_levels.cpp
     codecs/skill_tables.cpp
-    codecs/structure_notes.cpp
     codecs/trade_type_coverage.cpp
     codecs/tree_gates.cpp
+    ops/link_graph.cpp
+    ops/org_text.cpp
     ops/regions.cpp
     ops/skills.cpp)
 

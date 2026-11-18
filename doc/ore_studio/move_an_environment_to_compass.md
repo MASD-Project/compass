@@ -257,6 +257,32 @@ replaced in this step.
      each `name;key;defining header;forwarding header or -`,
      comma-separated. When the file changes, set the option to match, or
      delete the file and keep the list in `.compass.org`.
+   The org gates read each page as org parses it, from compass's tables,
+   not with the scripts' regexes. At `545cafca45` their findings are the
+   same as the scripts', the 549 `--strict-links` durable links included.
+   They differ where a regex was wrong: an id link, a `:ID:`, a
+   `# BEGIN generated` marker, a `#+type:` or a `#+filetags:` inside a
+   block is text, not a link, an ID, a marker or a keyword; a link whose
+   label wraps a line is resolved; a heading is one where org sees one, so
+   `* TODO 1. Foo` is a numbered heading and an unclosed block hides
+   nothing; an empty `#+description:` in a component overview is reported
+   even when a heading follows it; `=[[x]]=` glued to a backtick is a link,
+   because org reads no verbatim span there.
+   Two org gates changed shape:
+   - `pattern-uses` is part of `lint`, which reads the id links of every
+     page once for both. Its rules are `lint/pattern_unknown_use`,
+     `lint/pattern_one_way`, `lint/pattern_not_a_pattern` and
+     `lint/pattern_shared_id`; there is no `pattern_uses` codec, so drop
+     its row from `.compass.org`. A use that links its pattern back with a
+     bare `[[id:X]]` is no longer reported.
+   - `structure-notes` is no longer a generator: compass does not rewrite
+     the pages a structure note orders. `lint/missing_backlink` reports a
+     page that lacks its back-link, on its `See also` heading, and the fix
+     is the line `link_structure_notes.py` would add. There is no
+     `structure_notes` codec, so drop its row. The 417 pages it wrote stay
+     as they are; `compass-ng generate` neither rewrites nor removes them.
+     A hub that orders a page with a bare `[[id:X]]` now counts it, and an
+     `id:` in a block no longer stands for the back-link.
    Some gates and rules have no codec because
    another check covers them; see "Gates compass dropped" below. Compare
    their verdict with the check that covers them.
@@ -334,6 +360,8 @@ remove it too.
 | `model-sql-types` (codec `model_sql_types`) | `codegen/drift` on the generated `*_create.sql`. At `545cafca45` 1,307 of 1,470 create scripts are generated, and every one of the 577 a model claims is among them. |
 | `model-drift`'s unknown profile and conflicting profiles (rules `model_drift/unknown_profile`, `model_drift/profile_conflict`) | `codegen`'s model loader, which stops `compass-ng check` with exit 2 and `unknown profile '<slug>'` or `<model>: conflicting profiles on '<feature>'`. |
 | `link_skill_recipes.py --check` (codec `skill_recipes`) | `lint/dangling_link`, for a recipe link that no longer resolves. The links were applied once and are in the skill pages; removing one is a reviewed change, not a finding. |
+| `check_pattern_uses.py` (codec `pattern_uses`) | `lint`, whose rules `pattern_unknown_use`, `pattern_one_way`, `pattern_not_a_pattern` and `pattern_shared_id` replace `pattern_uses/unknown_use`, `one_way`, `not_a_pattern` and `shared_id`. |
+| `link_structure_notes.py` (codec `structure_notes`) | `lint/missing_backlink`, a finding with the line to add, instead of a generator that rewrote the pages. |
 | `apply_skill_levels.py --check` (codec `skill_level_tags`) | `skill_levels/refused`, for a skill the level table lacks or an entry with no skill; the refusal names each. A skill page whose `#+level:` differs from the table is no longer reported; review a level change in the page's diff. |
 | `prototypes`' React tree and site discovery checks (rules `prototypes/react_tree`, `prototypes/no_discovery`) | Nothing; they guarded the prototype move finished on 2026-10-06. |
 

@@ -176,6 +176,11 @@ struct scanned_file {
  * is called once with every file in the order files gave them and may
  * read more through the view. The findings of the call are those of the
  * map steps, file by file, then those of reduce.
+ *
+ * A scan of documents sets map_document instead of map: it is called with
+ * the document of the corpus at each path, its tables parsed, whatever
+ * its type, and the codec's options, and reads nothing else either. A
+ * listed path that is no document gets an empty fact and no findings.
  */
 struct scan_function {
     std::vector<std::string_view> (*files)(const corpus_view&) = nullptr;
@@ -183,6 +188,8 @@ struct scan_function {
         const option_values& options, file_scan& out) = nullptr;
     void (*reduce)(std::span<const scanned_file> files,
         const corpus_view& view, diagnostic_table& out) = nullptr;
+    void (*map_document)(const document& d, const option_values& options,
+        file_scan& out) = nullptr;
 };
 
 /**
