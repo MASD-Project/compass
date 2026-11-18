@@ -46,6 +46,35 @@ clang-cl, so Windows developers can install it.
 are distilled into the parent story's =* Decisions= at close, but the
 plan itself stays — it is the historical record of what we did.)
 
+Give each operating-system facility one seam in =compass.platform=, with a
+POSIX and a Win32 implementation side by side in the seam's source file, as
+ORE Studio's =ores.platform= does. Callers in the store, the codecs, the CLI
+and the bench use the seam and include no OS header. Where standard C++ does
+the same work at no cost on Linux, use it instead of a seam.
+
+- Seams. =filesystem/file_status= (=lstat=, =fstat= and read, the coarse
+  file clock), =filesystem/new_file= (=O_EXCL= create and write),
+  =filesystem/file_lock= (=flock=), =process/environment= (=getpid=,
+  =setenv=, the home directory as git finds it),
+  =process/standard_streams= (binary standard streams on Windows),
+  =process/executable= gains =find_program=, moved from =compass.codec=, and
+  =compiler/always_inline= replaces the GNU attribute in the SHA-1 rounds.
+  =mapped_file=, =run_program= and =executable_path= gain Win32 bodies.
+- Standard C++ instead of POSIX: =std::chrono::system_clock= for
+  =clock_gettime(CLOCK_REALTIME)=, =std::filesystem= for =unlink=, =rename=
+  and the bench's and CLI's =stat= and =lstat= checks, which are not on the
+  hot path.
+- Hot paths. =stat_of= and =hash_file= keep one =lstat= or one open, =fstat=
+  and read on Linux; =mapped_file= keeps =mmap=. Measure warm
+  =compass check= on an ORE Studio export before and after.
+- Tests. Shell commands run through =run_program= with =sh -c=, which Git for
+  Windows provides, instead of =std::system= and =popen=. Test cases that
+  need what only POSIX has carry the =[posix]= tag, which the Windows runs
+  filter out; the multi-process pack store test forks, so it is built on
+  POSIX only.
+- CI. Check out with LF line endings. Iterate on the branch with
+  nightly-windows until both legs build, test and package.
+
 * Measurements
 
 Every number this task claims about a tree, with the command that produced it
