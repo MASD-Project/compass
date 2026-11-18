@@ -49,6 +49,14 @@ inline constexpr std::string_view repository_file_name = ".compass.org";
  * other than yes or no, a pair with no key or no "=", the key enabled
  * among the options, a codec named twice and a document with no such
  * table are errors. Codec and option names are not checked here.
+ *
+ * The first table under the level-1 heading "* Exceptions", when there
+ * is one, has one exception per row: path, line, rule, expires, approver
+ * and reason, as codec::ops::add_exception_row reads them, with the = or
+ * ~ that marks a path or rule verbatim dropped. A first row whose first
+ * cell is "path" is a header. A row that does not hold is not an error
+ * but a malformed exception on its line of .compass.org, which check
+ * reports, whatever @p label says.
  */
 [[nodiscard]] std::expected<types::layer, std::string> parse_repository_file(
     std::string_view text, std::string_view label);

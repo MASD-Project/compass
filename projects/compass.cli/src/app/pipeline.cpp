@@ -612,9 +612,10 @@ void excuse_findings(const pipeline& p, const types::options& o,
     const auto record = codec::io::unmarked_file_path(
         store::io::git_dir(o.checkout));
     auto unmarked = codec::io::read_unmarked_file(record);
-    const auto set = exceptions_of(p, r.findings, o.threads, unmarked);
+    auto set = exceptions_of(p, r.findings, o.threads, unmarked);
     if (!p.commit)
         codec::io::write_unmarked_file(record, unmarked);
+    codec::ops::append(set, ct::exception_set(o.exceptions));
 
     std::vector<codec::ops::finding_site> sites;
     sites.reserve(r.findings.size());
@@ -933,7 +934,7 @@ void excuse_hook_findings(const pipeline& p, const types::options& o,
     std::ranges::sort(paths);
     paths.erase(std::unique(paths.begin(), paths.end()), paths.end());
 
-    ct::exception_set set;
+    ct::exception_set set = o.exceptions;
     for (const auto file : paths) {
         std::optional<std::string> bytes;
         std::optional<std::string_view> text;
