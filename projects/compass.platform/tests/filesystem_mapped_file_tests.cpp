@@ -119,7 +119,8 @@ TEST_CASE("mapped_file throws ENOENT naming a missing path",
         FAIL("expected std::system_error");
     } catch (const std::system_error& e) {
         CHECK(e.code() == std::errc::no_such_file_or_directory);
-        CHECK_THAT(e.what(), Catch::Matchers::ContainsSubstring(missing.string()));
+        CHECK_THAT(e.what(),
+            Catch::Matchers::ContainsSubstring(missing.generic_string()));
     }
 }
 
@@ -132,7 +133,8 @@ TEST_CASE("mapped_file refuses a directory",
         FAIL("expected std::system_error");
     } catch (const std::system_error& e) {
         CHECK(e.code() == std::errc::invalid_argument);
-        CHECK_THAT(e.what(), Catch::Matchers::ContainsSubstring(dir.string()));
+        CHECK_THAT(e.what(),
+            Catch::Matchers::ContainsSubstring(dir.generic_string()));
     }
 }
 

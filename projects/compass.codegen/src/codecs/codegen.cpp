@@ -73,7 +73,7 @@ std::optional<std::filesystem::path> first_program(
         const auto found = name.find('/') == std::string_view::npos
             ? compass::platform::process::find_program(name)
             : compass::platform::process::find_program(
-                (checkout / name).string());
+                (checkout / name).generic_string());
         if (found)
             return found;
     }

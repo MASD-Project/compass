@@ -69,7 +69,7 @@ using platform::filesystem::regular_file_status;
 
 std::runtime_error unreadable(const std::filesystem::path& file,
     const std::exception& e) {
-    return std::runtime_error("cannot read " + file.string() + ": " +
+    return std::runtime_error("cannot read " + file.generic_string() + ": " +
         e.what() + "; nothing collected");
 }
 

@@ -148,7 +148,8 @@ std::map<std::string, std::pair<std::string, stamp>> snapshot(
     std::map<std::string, std::pair<std::string, stamp>> out;
     for (const auto& e : std::filesystem::recursive_directory_iterator(dir)) {
         if (e.is_regular_file())
-            out[e.path().string()] = {read(e.path()), stamp_of(e.path())};
+            out[e.path().generic_string()] = {read(e.path()),
+                stamp_of(e.path())};
     }
     return out;
 }
@@ -208,7 +209,7 @@ TEST_CASE("the first write creates every output under the root",
     CHECK(read(s.root() / "deep/dir/model.hpp") == "struct model {};\n");
     CHECK(s.record.paths ==
         std::vector<std::string>{"deep/dir/model.hpp", "index.tsv"});
-    CHECK(s.record.root == s.root().string());
+    CHECK(s.record.root == s.root().generic_string());
 }
 
 TEST_CASE("a run with nothing changed writes nothing and keeps every "
@@ -337,7 +338,7 @@ TEST_CASE("a path escaping the root is rejected and nothing is written",
         CHECK(s.record.size() == 0);
     }
     sink s;
-    const auto absolute = (s.dir() / "abs.txt").string();
+    const auto absolute = (s.dir() / "abs.txt").generic_string();
     CHECK(s.run(outputs({{"gen", absolute, "x\n"}})).problems.size() == 1);
     CHECK_FALSE(std::filesystem::exists(absolute));
 }

@@ -147,9 +147,9 @@ public:
      */
     std::filesystem::path add_linked_worktree() const {
         const auto linked = repo_.root().parent_path() / "linked";
-        repo_.git("worktree add -q '" + linked.string() + "'");
+        repo_.git("worktree add -q '" + linked.generic_string() + "'");
         std::ofstream(linked / "b.txt", std::ios::binary) << "B";
-        repo_.git("-C '" + linked.string() + "' add b.txt");
+        repo_.git("-C '" + linked.generic_string() + "' add b.txt");
         return linked;
     }
 

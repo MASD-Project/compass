@@ -75,6 +75,14 @@ struct file_status {
 file_status read_file(const std::filesystem::path& path, std::string& bytes);
 
 /**
+ * @brief Sets the modification time of the file at @p path to @p t, which
+ * Windows keeps to 100 ns.
+ *
+ * @throws std::system_error naming the path when it cannot be set.
+ */
+void set_modified_time(const std::filesystem::path& path, file_time t);
+
+/**
  * @brief The time as the file system stamps a file it modifies now. It
  * comes from the coarse clock the kernel stamps files with, so a file
  * modified after this call has a modification time no earlier than it.

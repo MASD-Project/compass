@@ -60,8 +60,8 @@ public:
     }
 
     void track_all() {
-        const auto command = "git -C '" + root_.string() +
-            "' init -q && git -C '" + root_.string() + "' add -A";
+        const auto command = "git -C '" + root_.generic_string() +
+            "' init -q && git -C '" + root_.generic_string() + "' add -A";
         REQUIRE(compass::platform::process::run_program(
             {{"sh", "-c", command}, {}, {}}).exit_code == 0);
     }
@@ -150,7 +150,7 @@ TEST_CASE("org dump writes one output per line of a list",
     scoped_git_repo repo;
     repo.write("a.org", "* H\n");
     repo.write("b.org", "");
-    const auto root = repo.root().string();
+    const auto root = repo.root().generic_string();
     repo.write("list", root + "/a.org\t" + root + "/a.dump\n" + root +
         "/b.org\t" + root + "/b.dump\n");
 

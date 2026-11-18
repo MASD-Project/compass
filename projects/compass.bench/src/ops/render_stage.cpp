@@ -74,7 +74,7 @@ void write_file(const std::filesystem::path& target, std::string_view text) {
     std::ofstream os(target, std::ios::binary);
     os << text;
     if (!os)
-        throw std::runtime_error("cannot write " + target.string());
+        throw std::runtime_error("cannot write " + target.generic_string());
 }
 
 /**

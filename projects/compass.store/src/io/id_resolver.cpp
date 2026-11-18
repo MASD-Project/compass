@@ -94,7 +94,7 @@ void read_config_file(const std::filesystem::path& file,
     config.sha1 = config.sha1 && local.sha1;
     for (const auto& named : local.attributes_files)
         config.attributes_files.push_back(
-            expand(named, file.parent_path()).string());
+            expand(named, file.parent_path()).generic_string());
     for (const auto& named : local.includes) {
         config.includes.push_back(named);
         read_config_file(expand(named, file.parent_path()), config,

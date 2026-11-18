@@ -847,7 +847,7 @@ std::vector<ct::formatter> formatters_of(const ct::option_values& o,
     const auto program = name.find('/') == std::string_view::npos
         ? compass::platform::process::find_program(name)
         : compass::platform::process::find_program(
-            (checkout / name).string());
+            (checkout / name).generic_string());
     if (!program)
         throw std::runtime_error("ore_output_catalogue: " + std::string(name) +
             " is not a program, for the option clang_format");

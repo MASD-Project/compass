@@ -51,7 +51,7 @@ using Catch::Matchers::StartsWith;
  */
 std::pair<int, std::string> run(const compass::cli::tests::scoped_git_repo&
     repo, std::vector<std::string> args) {
-    args.insert(args.begin() + 1, {"-C", repo.checkout().string()});
+    args.insert(args.begin() + 1, {"-C", repo.checkout().generic_string()});
     const std::vector<std::string_view> views(args.begin(), args.end());
     std::istringstream in;
     std::ostringstream out;

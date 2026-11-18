@@ -198,7 +198,7 @@ program_result run_program(const program_call& call) {
             FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, &inherit,
             OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
         if (input.get() == INVALID_HANDLE_VALUE)
-            throw_last_error("cannot open " + call.input.string());
+            throw_last_error("cannot open " + call.input.generic_string());
     } else {
         *input.out() = inheritable_standard(STD_INPUT_HANDLE);
     }

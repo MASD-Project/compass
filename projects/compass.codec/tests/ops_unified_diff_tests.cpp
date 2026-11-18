@@ -85,7 +85,7 @@ std::string git_diff(const std::optional<std::string>& before,
     const auto b = put(after, "after");
     using namespace compass::platform::process;
     set_environment_variable("GIT_CONFIG_NOSYSTEM", "1");
-    set_environment_variable("HOME", dir.string());
+    set_environment_variable("HOME", dir.generic_string());
     const auto r = run_program({{"git", "diff", "--no-index", "--no-color",
         "--no-ext-diff", "--diff-algorithm=myers", "--no-indent-heuristic",
         "-U3", a, b}, dir, {}});

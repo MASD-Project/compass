@@ -40,7 +40,7 @@ void dump_org_file(const std::filesystem::path& file, std::ostream& os) {
 std::size_t dump_org_list(const std::filesystem::path& list) {
     std::ifstream lines(list);
     if (!lines)
-        throw std::runtime_error("cannot read " + list.string());
+        throw std::runtime_error("cannot read " + list.generic_string());
     std::size_t written = 0;
     std::string line;
     while (std::getline(lines, line)) {

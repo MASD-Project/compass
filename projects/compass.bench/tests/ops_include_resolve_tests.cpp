@@ -59,7 +59,7 @@ public:
         std::ofstream(path) << "\n";
     }
 
-    std::string path() const { return root_.string(); }
+    std::string path() const { return root_.generic_string(); }
 
 private:
     std::filesystem::path root_;

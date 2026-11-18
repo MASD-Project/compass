@@ -95,7 +95,7 @@ std::string shown(const std::filesystem::path& p,
     const std::filesystem::path& checkout) {
     const auto relative = p.lexically_relative(checkout);
     return relative.empty() || *relative.begin() == ".."
-        ? p.string() : relative.string();
+        ? p.generic_string() : relative.generic_string();
 }
 
 }
@@ -150,7 +150,7 @@ void write_generate(std::ostream& out, std::ostream& err,
     const auto& s = r.sink;
     out << std::format("{} written, {} unchanged, {} restored, {} removed, "
                        "{} kept under {} ({})\n", s.written, s.unchanged,
-        s.restored, s.removed, s.kept, r.root.string(),
+        s.restored, s.removed, s.kept, r.root.generic_string(),
         corpus_note(r.run, r.ms));
 }
 
@@ -162,7 +162,7 @@ void write_diff(std::ostream& out, std::ostream& err,
     const auto& p = r.planned;
     err << std::format("{} to write, {} unchanged, {} to restore, {} to "
                        "remove, {} to keep under {} ({})\n", p.written,
-        p.unchanged, p.restored, p.removed, p.kept, r.root.string(),
+        p.unchanged, p.restored, p.removed, p.kept, r.root.generic_string(),
         corpus_note(r.run, r.ms));
 }
 

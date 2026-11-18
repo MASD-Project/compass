@@ -73,8 +73,8 @@ std::set<std::string> files_of(const std::filesystem::path& root) {
     for (const auto& entry :
         std::filesystem::recursive_directory_iterator(root)) {
         if (entry.is_regular_file() &&
-            entry.path().string().find("/.git/") == std::string::npos)
-            out.insert(entry.path().lexically_relative(root).string());
+            entry.path().generic_string().find("/.git/") == std::string::npos)
+            out.insert(entry.path().lexically_relative(root).generic_string());
     }
     return out;
 }
@@ -263,7 +263,7 @@ std::map<std::string, std::pair<std::string, std::int64_t>> snapshot(
     const std::filesystem::path& dir) {
     std::map<std::string, std::pair<std::string, std::int64_t>> out;
     for (const auto& e : std::filesystem::recursive_directory_iterator(dir)) {
-        const auto name = e.path().string();
+        const auto name = e.path().generic_string();
         if (!e.is_regular_file()) {
             out[name] = {"directory", 0};
             continue;

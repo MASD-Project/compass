@@ -44,14 +44,14 @@ namespace {
 [[noreturn]] void throw_error(int error, const char* operation,
     const std::filesystem::path& path) {
     throw std::system_error(error, std::generic_category(),
-        std::string(operation) + " failed for " + path.string());
+        std::string(operation) + " failed for " + path.generic_string());
 }
 
 [[noreturn]] void throw_last_error(const char* operation,
     const std::filesystem::path& path) {
     throw std::system_error(static_cast<int>(::GetLastError()),
         std::system_category(),
-        std::string(operation) + " failed for " + path.string());
+        std::string(operation) + " failed for " + path.generic_string());
 }
 
 class file_handle final {
@@ -119,7 +119,7 @@ namespace {
 [[noreturn]] void throw_error(int error, const char* operation,
     const std::filesystem::path& path) {
     throw std::system_error(error, std::generic_category(),
-        std::string(operation) + " failed for " + path.string());
+        std::string(operation) + " failed for " + path.generic_string());
 }
 
 [[noreturn]] void throw_errno(const char* operation,

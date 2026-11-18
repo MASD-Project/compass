@@ -74,7 +74,7 @@ public:
     }
 
     void git(const std::string& command) const {
-        const auto line = "git -C '" + root_.string() + "' " + command +
+        const auto line = "git -C '" + root_.generic_string() + "' " + command +
             " >/dev/null 2>&1";
         REQUIRE(compass::platform::process::run_program(
             {{"sh", "-c", line}, {}, {}}).exit_code == 0);

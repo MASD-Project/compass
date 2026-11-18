@@ -52,7 +52,8 @@ types::object_id id_of(const std::string& hex) {
 std::string cat_file(const git_repository& repo, const std::string& type,
     const std::string& hex) {
     const auto out = repo.root().parent_path() / "cat-file.out";
-    repo.git("cat-file " + type + " " + hex + " > '" + out.string() + "'");
+    repo.git("cat-file " + type + " " + hex + " > '" + out.generic_string() +
+        "'");
     REQUIRE(repo.last_status() == 0);
     std::ifstream in(out, std::ios::binary);
     return {std::istreambuf_iterator<char>(in), {}};
@@ -167,8 +168,8 @@ std::array<std::size_t, 3> entry_kinds(const git_repository& repo) {
  * @brief The longest delta chain `git verify-pack -v` reports.
  */
 std::size_t deepest_chain(const git_repository& repo) {
-    const auto out = repo.git("verify-pack -v '" + repo.root().string() +
-        "'/.git/objects/pack/*.idx");
+    const auto out = repo.git("verify-pack -v '" +
+        repo.root().generic_string() + "'/.git/objects/pack/*.idx");
     std::size_t deepest = 0;
     std::istringstream in(out);
     for (std::string line; std::getline(in, line);) {
@@ -293,7 +294,7 @@ TEST_CASE("objects of a repository's alternates are read",
     commit_versions(repo, 3);
     repo.git("gc -q");
     const auto shared = repo.root().parent_path() / "shared";
-    repo.git("clone -q --shared . '" + shared.string() + "'");
+    repo.git("clone -q --shared . '" + shared.generic_string() + "'");
     REQUIRE(std::filesystem::exists(
         shared / ".git" / "objects" / "info" / "alternates"));
 

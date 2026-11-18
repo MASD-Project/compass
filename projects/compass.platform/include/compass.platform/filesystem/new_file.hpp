@@ -74,6 +74,17 @@ private:
     std::intptr_t handle_;
 };
 
+/**
+ * @brief Renames @p from to @p to, replacing any file there, in one step: a
+ * reader opens the old file or the new one, and one already reading the
+ * old file keeps reading it. On Windows a reader must open the file
+ * sharing deletion, as read_file and mapped_file do.
+ *
+ * @throws std::system_error naming the paths when the rename fails.
+ */
+void replace_file(const std::filesystem::path& from,
+    const std::filesystem::path& to);
+
 }
 
 #endif

@@ -59,11 +59,7 @@ private:
  */
 void set_mtime(const std::filesystem::path& file, std::int64_t sec,
     std::uint32_t nsec) {
-    using namespace std::chrono;
-    const sys_time<nanoseconds> at{seconds(sec) + nanoseconds(nsec)};
-    std::filesystem::last_write_time(file,
-        time_point_cast<std::filesystem::file_time_type::duration>(
-            clock_cast<std::filesystem::file_time_type::clock>(at)));
+    fs::set_modified_time(file, {sec, nsec});
 }
 
 }

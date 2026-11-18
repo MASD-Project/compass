@@ -39,7 +39,8 @@ namespace {
 
 [[noreturn]] void fail(const char* what, const std::filesystem::path& path) {
     throw std::system_error(static_cast<int>(::GetLastError()),
-        std::system_category(), std::string(what) + " " + path.string());
+        std::system_category(),
+        std::string(what) + " " + path.generic_string());
 }
 
 }
@@ -76,7 +77,7 @@ namespace {
 
 [[noreturn]] void fail(const char* what, const std::filesystem::path& path) {
     throw std::system_error(errno, std::generic_category(),
-        std::string(what) + " " + path.string());
+        std::string(what) + " " + path.generic_string());
 }
 
 }

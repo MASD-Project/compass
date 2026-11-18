@@ -43,7 +43,7 @@ namespace {
     const std::filesystem::path& path) {
     throw std::system_error(static_cast<int>(::GetLastError()),
         std::system_category(),
-        std::string(operation) + " " + path.string());
+        std::string(operation) + " " + path.generic_string());
 }
 
 /**
@@ -117,7 +117,7 @@ private:
 [[noreturn]] void throw_errno(const char* operation,
     const std::filesystem::path& path) {
     throw std::system_error(errno, std::generic_category(),
-        std::string(operation) + " " + path.string());
+        std::string(operation) + " " + path.generic_string());
 }
 
 file_time to_file_time(const struct timespec& t) noexcept {
@@ -217,6 +217,32 @@ file_status read_file(const std::filesystem::path& path, std::string& bytes) {
     bytes.resize(static_cast<std::size_t>(status.size));
     bytes.resize(file.read_rest(bytes, 0));
     return status;
+}
+
+void set_modified_time(const std::filesystem::path& path, file_time t) {
+#if defined(_WIN32)
+    const HANDLE h = ::CreateFileW(path.c_str(), FILE_WRITE_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+        OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+    if (h == INVALID_HANDLE_VALUE)
+        throw_last_error("set the time of", path);
+    const auto ticks = static_cast<std::uint64_t>(
+        t.seconds * 10'000'000 + t.nanoseconds / 100 + 116'444'736'000'000'000);
+    FILETIME written{static_cast<DWORD>(ticks),
+        static_cast<DWORD>(ticks >> 32)};
+    const BOOL set = ::SetFileTime(h, nullptr, nullptr, &written);
+    const DWORD error = ::GetLastError();
+    ::CloseHandle(h);
+    if (!set) {
+        ::SetLastError(error);
+        throw_last_error("set the time of", path);
+    }
+#else
+    const struct timespec times[2] = {{0, UTIME_OMIT},
+        {static_cast<time_t>(t.seconds), static_cast<long>(t.nanoseconds)}};
+    if (::utimensat(AT_FDCWD, path.c_str(), times, 0) != 0)
+        throw_errno("set the time of", path);
+#endif
 }
 
 file_time file_clock_now() noexcept {

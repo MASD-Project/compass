@@ -66,11 +66,7 @@ void overwrite(const std::filesystem::path& file, std::string_view bytes) {
 }
 
 void set_mtime(const std::filesystem::path& file, types::index_time t) {
-    using namespace std::chrono;
-    const sys_time<nanoseconds> at{seconds(t.sec) + nanoseconds(t.nsec)};
-    std::filesystem::last_write_time(file,
-        time_point_cast<std::filesystem::file_time_type::duration>(
-            clock_cast<std::filesystem::file_time_type::clock>(at)));
+    compass::platform::filesystem::set_modified_time(file, {t.sec, t.nsec});
 }
 
 io::id_source source_of(const std::filesystem::path& checkout,
@@ -243,7 +239,7 @@ TEST_CASE("a linked worktree writes its own worktree index",
     repo.git("add -A");
     repo.git("commit -q -m base");
     const auto linked = repo.root().parent_path() / "linked";
-    repo.git("worktree add -q '" + linked.string() + "'");
+    repo.git("worktree add -q '" + linked.generic_string() + "'");
     {
         std::ofstream os(linked / "only_here.org");
         os << "here\n";

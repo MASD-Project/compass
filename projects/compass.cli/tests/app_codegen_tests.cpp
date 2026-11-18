@@ -42,8 +42,8 @@ struct outcome {
 
 outcome run_on(const scoped_git_repo& repo, const std::string& command) {
     const std::vector<std::string> args{command, "-C",
-        repo.checkout().string(), "--out", repo.output_root().string(),
-        "-j", "2", "--timings"};
+        repo.checkout().generic_string(), "--out",
+        repo.output_root().generic_string(), "-j", "2", "--timings"};
     const std::vector<std::string_view> views(args.begin(), args.end());
     std::istringstream in;
     std::ostringstream out;

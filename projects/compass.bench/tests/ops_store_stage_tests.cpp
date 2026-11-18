@@ -68,8 +68,8 @@ public:
     }
 
     void track_all() {
-        const auto command = "git -C '" + checkout().string() +
-            "' init -q && git -C '" + checkout().string() + "' add -A";
+        const auto command = "git -C '" + checkout().generic_string() +
+            "' init -q && git -C '" + checkout().generic_string() + "' add -A";
         REQUIRE(compass::platform::process::run_program(
             {{"sh", "-c", command}, {}, {}}).exit_code == 0);
     }

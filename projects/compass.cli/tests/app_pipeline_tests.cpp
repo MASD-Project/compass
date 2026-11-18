@@ -66,7 +66,7 @@ TEST_CASE("check loads every org file, stores what it parsed and writes no "
     CHECK_FALSE(first.run.failed());
     REQUIRE(first.findings.size() == 2);
     CHECK(first.findings[0].path ==
-        (repo.output_root() / "doc" / "document_index.tsv").string());
+        (repo.output_root() / "doc" / "document_index.tsv").generic_string());
     CHECK(first.findings[0].rule == "document_index/drift");
     CHECK(first.findings[1].path == "doc/task_b.org");
     CHECK(first.findings[1].line == 2);

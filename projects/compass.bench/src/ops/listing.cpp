@@ -39,7 +39,7 @@ namespace {
  */
 std::string run_git(const std::filesystem::path& checkout,
     std::vector<std::string> args, const std::filesystem::path& input = {}) {
-    const std::string dir = checkout.string();
+    const std::string dir = checkout.generic_string();
     const auto command = args.front();
     args.insert(args.begin(), {"git", "-C", dir});
     auto r = platform::process::run_program({std::move(args), {}, input});
@@ -66,7 +66,7 @@ std::vector<std::string> git_hash_objects(
         for (const auto path : paths)
             os << path << '\n';
         if (!os)
-            throw std::runtime_error("cannot write " + input.string());
+            throw std::runtime_error("cannot write " + input.generic_string());
     }
     std::string output;
     try {
@@ -133,7 +133,7 @@ types::file_table build_file_table(const std::filesystem::path& checkout,
     table.sizes.reserve(entries.size());
     table.extension_ids.reserve(entries.size());
 
-    std::string full = checkout.string() + "/";
+    std::string full = checkout.generic_string() + "/";
     const auto prefix = full.size();
     for (const auto entry : entries) {
         full.resize(prefix);

@@ -278,7 +278,7 @@ std::optional<options> parse_options(int argc, char** argv) {
         o.compile_commands = absolute_path(o.compile_commands);
         o.source_root = absolute_path(o.source_root);
         for (auto& dir : o.implicit_system)
-            dir = absolute_path(dir).string();
+            dir = absolute_path(dir).generic_string();
     }
     return o;
 }

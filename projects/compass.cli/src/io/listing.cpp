@@ -40,7 +40,7 @@ namespace {
  */
 platform::process::program_result git(const std::filesystem::path& checkout,
     std::vector<std::string> args) {
-    args.insert(args.begin(), {"git", "-C", checkout.string()});
+    args.insert(args.begin(), {"git", "-C", checkout.generic_string()});
     return platform::process::run_program({std::move(args), {}, {}});
 }
 
@@ -54,7 +54,7 @@ std::string run_git(const std::filesystem::path& checkout,
     auto r = git(checkout, std::move(args));
     if (r.exit_code != 0)
         throw std::runtime_error("git " + command + " failed for " +
-            checkout.string());
+            checkout.generic_string());
     return std::move(r.output);
 }
 
@@ -133,7 +133,7 @@ store::types::object_id resolve_commit(const std::filesystem::path& checkout,
             "--end-of-options", std::string(revision) + "^{commit}"});
     } catch (const std::runtime_error&) {
         throw std::runtime_error("no commit is named " +
-            std::string(revision) + " in " + checkout.string());
+            std::string(revision) + " in " + checkout.generic_string());
     }
     return id_printed(std::move(out), "rev-parse");
 }
@@ -162,7 +162,7 @@ store::types::object_id merge_base(const std::filesystem::path& checkout,
             store::ops::to_hex(b) + " share no history");
     if (r.exit_code != 0)
         throw std::runtime_error("git merge-base failed for " +
-            checkout.string());
+            checkout.generic_string());
     return id_printed(std::move(r.output), "merge-base");
 }
 

@@ -36,6 +36,6 @@ TEST_CASE("find_program searches PATH and accepts a path with a separator",
     using compass::platform::process::find_program;
     const auto self = compass::platform::process::executable_path();
     CHECK(find_program("sh").has_value());
-    CHECK(find_program(self.string()) == self);
+    CHECK(find_program(self.generic_string()) == self);
     CHECK_FALSE(find_program("compass-no-such-program").has_value());
 }

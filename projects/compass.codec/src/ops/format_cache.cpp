@@ -112,8 +112,8 @@ std::vector<std::string> format_command(const types::formatter& f,
     std::span<const std::string> files) {
     std::vector<std::string> command;
     command.reserve(1 + f.arguments.size() + files.size());
-    command.push_back(f.program.string());
-    const auto style = f.style.string();
+    command.push_back(f.program.generic_string());
+    const auto style = f.style.generic_string();
     for (auto a : f.arguments) {
         for (auto at = a.find(types::style_placeholder);
              at != std::string::npos;

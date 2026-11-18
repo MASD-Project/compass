@@ -59,7 +59,8 @@ inline constexpr std::uint32_t written_outputs_version = 1;
 
 /**
  * @brief True when @p path names a file under an output root and nothing
- * else: relative, not empty, and with no empty, "." or ".." component.
+ * else: relative, not empty, with no empty, "." or ".." component, and
+ * with no backslash or drive letter, which Windows would read as a place.
  */
 [[nodiscard]] bool is_plain_relative(std::string_view path) noexcept;
 

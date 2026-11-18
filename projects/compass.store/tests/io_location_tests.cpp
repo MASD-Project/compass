@@ -33,7 +33,7 @@ using namespace compass::store;
 using tests::scoped_directory;
 
 void git(const std::filesystem::path& directory, const std::string& command) {
-    const auto line = "git -C '" + directory.string() +
+    const auto line = "git -C '" + directory.generic_string() +
         "' -c user.name=t -c user.email=t@example.org " + command +
         " >/dev/null 2>&1";
     REQUIRE(compass::platform::process::run_program(
@@ -58,7 +58,7 @@ TEST_CASE("a linked worktree shares the common directory of its repository",
     std::filesystem::create_directories(main);
     git(main, "init -q");
     git(main, "commit -q --allow-empty -m base");
-    git(main, "worktree add -q '" + linked.string() + "'");
+    git(main, "worktree add -q '" + linked.generic_string() + "'");
 
     CHECK(io::git_common_dir(linked) == main / ".git");
     CHECK(io::packs_dir(io::git_common_dir(linked)) ==

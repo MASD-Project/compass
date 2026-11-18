@@ -95,8 +95,9 @@ std::string row(std::string_view path, std::string_view line,
 
 outcome check(const scoped_git_repo& repo, std::string_view today,
     std::vector<std::string> extra = {}) {
-    std::vector<std::string> args{"check", "-C", repo.checkout().string(),
-        "-j", "2", "--today", std::string(today)};
+    std::vector<std::string> args{"check", "-C",
+        repo.checkout().generic_string(), "-j", "2", "--today",
+        std::string(today)};
     args.insert(args.end(), extra.begin(), extra.end());
     const std::vector<std::string_view> views(args.begin(), args.end());
     std::istringstream in;
@@ -331,7 +332,7 @@ TEST_CASE("--today takes a date and applies to check only",
     std::istringstream in;
     std::ostringstream out;
     std::ostringstream err;
-    const auto checkout = repo.checkout().string();
+    const auto checkout = repo.checkout().generic_string();
 
     const std::vector<std::string_view> bad{"check", "-C", checkout,
         "--today", "2026-02-30"};

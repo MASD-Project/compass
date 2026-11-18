@@ -166,7 +166,9 @@ types::output_set outputs_of(const types::registry& r,
 }
 
 bool is_plain_relative(std::string_view path) noexcept {
-    if (path.empty() || path.front() == '/')
+    if (path.empty() || path.front() == '/' ||
+        path.find('\\') != std::string_view::npos ||
+        (path.size() > 1 && path[1] == ':'))
         return false;
     for (std::size_t first = 0; first <= path.size();) {
         auto end = path.find('/', first);

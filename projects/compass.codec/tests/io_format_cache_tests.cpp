@@ -74,8 +74,9 @@ public:
         const auto script = program();
         write_file(script, "#!/bin/sh\n"
             "if [ \"$1\" = --version ]; then cat '" +
-                (root_ / "version").string() + "'; exit 0; fi\n"
-            "echo run >> '" + log().string() + "'\n" + std::string(extra) +
+                (root_ / "version").generic_string() + "'; exit 0; fi\n"
+            "echo run >> '" + log().generic_string() + "'\n" +
+            std::string(extra) +
             "style=$(cat \"${1#--style=}\"); shift\n"
             "for f in \"$@\"; do\n"
             "  body=$(cat \"$f\"); printf '[%s:%s]%s' \"$style\" "

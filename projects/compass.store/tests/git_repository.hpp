@@ -43,9 +43,9 @@ public:
         const auto home = dir_.root() / "home";
         std::filesystem::create_directories(home);
         using platform::process::set_environment_variable;
-        set_environment_variable("HOME", home.string());
+        set_environment_variable("HOME", home.generic_string());
         set_environment_variable("XDG_CONFIG_HOME",
-            (home / ".config").string());
+            (home / ".config").generic_string());
         set_environment_variable("GIT_CONFIG_NOSYSTEM", "1");
         std::filesystem::create_directories(root());
         git("init -q");
@@ -75,7 +75,7 @@ public:
      * with the trailing newline removed.
      */
     std::string git(const std::string& command) const {
-        const auto line = "git -C '" + root().string() +
+        const auto line = "git -C '" + root().generic_string() +
             "' -c user.name=t -c user.email=t@example.org"
             " -c commit.gpgsign=false " + command + " 2>/dev/null";
         auto r = platform::process::run_program({{"sh", "-c", line}, {}, {}});

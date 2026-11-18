@@ -51,9 +51,9 @@ public:
         std::filesystem::create_directories(checkout());
         std::filesystem::create_directories(root_ / "home");
         using platform::process::set_environment_variable;
-        set_environment_variable("HOME", (root_ / "home").string());
+        set_environment_variable("HOME", (root_ / "home").generic_string());
         set_environment_variable("XDG_CONFIG_HOME",
-            (root_ / "home" / ".config").string());
+            (root_ / "home" / ".config").generic_string());
         set_environment_variable("GIT_CONFIG_NOSYSTEM", "1");
         git("init -q");
         write("doc/meta/document_type_task.org",
@@ -102,8 +102,8 @@ public:
     }
 
     void git(const std::string& command) const {
-        const auto line = "git -C '" + checkout().string() + "' " + command +
-            " >/dev/null 2>&1";
+        const auto line = "git -C '" + checkout().generic_string() + "' " +
+            command + " >/dev/null 2>&1";
         REQUIRE(compass::platform::process::run_program(
             {{"sh", "-c", line}, {}, {}}).exit_code == 0);
     }

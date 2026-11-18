@@ -212,7 +212,7 @@ void pack_writer::add(types::entry_kind kind, const types::blob_id& key,
             if (!file_ && attempt == attempts)
                 throw std::system_error(
                     std::make_error_code(std::errc::file_exists),
-                    "cannot create " + temporary_.string());
+                    "cannot create " + temporary_.generic_string());
         }
         const auto header = ops::encode_pack_header();
         file_->write(std::as_bytes(std::span(header)));
@@ -262,7 +262,8 @@ std::optional<std::filesystem::path> pack_writer::publish_only() {
     std::filesystem::rename(temporary_, target, error);
     if (error) {
         remove_quietly(temporary_);
-        throw std::system_error(error, "cannot publish " + target.string());
+        throw std::system_error(error,
+            "cannot publish " + target.generic_string());
     }
     entries_.clear();
     offset_ = 0;

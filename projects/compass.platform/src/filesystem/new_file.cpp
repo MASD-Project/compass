@@ -21,7 +21,10 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <cstdio>
+#include <cstring>
 #include <string>
+#include <vector>
 #include <system_error>
 #include <utility>
 
@@ -42,7 +45,8 @@ constexpr std::intptr_t no_handle = -1;
 
 [[noreturn]] void fail(const char* what, const std::filesystem::path& path) {
     throw std::system_error(static_cast<int>(::GetLastError()),
-        std::system_category(), std::string(what) + " " + path.string());
+        std::system_category(),
+        std::string(what) + " " + path.generic_string());
 }
 
 HANDLE native(std::intptr_t handle) noexcept {
@@ -53,7 +57,7 @@ HANDLE native(std::intptr_t handle) noexcept {
 
 [[noreturn]] void fail(const char* what, const std::filesystem::path& path) {
     throw std::system_error(errno, std::generic_category(),
-        std::string(what) + " " + path.string());
+        std::string(what) + " " + path.generic_string());
 }
 
 #endif
@@ -145,6 +149,47 @@ void new_file::release() noexcept {
     ::CloseHandle(native(handle));
 #else
     ::close(static_cast<int>(handle));
+#endif
+}
+
+void replace_file(const std::filesystem::path& from,
+    const std::filesystem::path& to) {
+    const auto what = "cannot rename " + from.generic_string() + " to";
+#if defined(_WIN32)
+    // MoveFileEx fails while another process has the target open, so the
+    // rename takes POSIX semantics, which Windows 10 has had since 1607.
+    const HANDLE h = ::CreateFileW(from.c_str(), DELETE | SYNCHRONIZE,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (h == INVALID_HANDLE_VALUE)
+        fail(what.c_str(), to);
+    const std::wstring target = L"\\\\?\\" +
+        std::filesystem::absolute(to).make_preferred().wstring();
+    const auto name_bytes = target.size() * sizeof(wchar_t);
+    std::vector<std::byte> buffer(
+        sizeof(FILE_RENAME_INFO) + name_bytes + sizeof(wchar_t));
+    auto* info = reinterpret_cast<FILE_RENAME_INFO*>(buffer.data());
+    info->Flags = FILE_RENAME_FLAG_REPLACE_IF_EXISTS |
+        FILE_RENAME_FLAG_POSIX_SEMANTICS;
+    info->RootDirectory = nullptr;
+    info->FileNameLength = static_cast<DWORD>(name_bytes);
+    std::memcpy(info->FileName, target.c_str(), name_bytes + sizeof(wchar_t));
+    const BOOL renamed = ::SetFileInformationByHandle(h, FileRenameInfoEx,
+        info, static_cast<DWORD>(buffer.size()));
+    const DWORD error = ::GetLastError();
+    ::CloseHandle(h);
+    if (renamed)
+        return;
+    // A file system without POSIX semantics, such as FAT, takes the
+    // plain replacing move.
+    if ((error == ERROR_INVALID_PARAMETER || error == ERROR_NOT_SUPPORTED) &&
+        ::MoveFileExW(from.c_str(), to.c_str(), MOVEFILE_REPLACE_EXISTING))
+        return;
+    ::SetLastError(error);
+    fail(what.c_str(), to);
+#else
+    if (std::rename(from.c_str(), to.c_str()) != 0)
+        fail(what.c_str(), to);
 #endif
 }
 
