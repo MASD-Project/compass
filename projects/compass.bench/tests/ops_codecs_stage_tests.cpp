@@ -141,7 +141,7 @@ TEST_CASE("writing the outputs of the codecs stage writes the index once "
     const auto second = write();
     CHECK(second.sink.written + second.sink.restored == 0);
     CHECK(second.sink.unchanged == 1);
-    CHECK(std::filesystem::last_write_time(index) == written_at);
+    CHECK((std::filesystem::last_write_time(index) == written_at));
     std::ostringstream os;
     io::write_codecs_report(os, second, {}, repo.packs());
     CHECK_THAT(os.str(), ContainsSubstring("outputs: 0 written, 1 unchanged"));

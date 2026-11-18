@@ -338,9 +338,15 @@ program_result run_program(const program_call& call) {
     if (!call.input.empty())
         posix_spawn_file_actions_addopen(actions.get(), STDIN_FILENO,
             call.input.c_str(), O_RDONLY, 0);
-    if (!call.directory.empty())
+    if (!call.directory.empty()) {
+#if defined(__APPLE__)
+        posix_spawn_file_actions_addchdir(actions.get(),
+            call.directory.c_str());
+#else
         posix_spawn_file_actions_addchdir_np(actions.get(),
             call.directory.c_str());
+#endif
+    }
 
     auto arguments = call.arguments;
     std::vector<char*> argv;

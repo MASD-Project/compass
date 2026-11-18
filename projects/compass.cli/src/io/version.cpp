@@ -29,6 +29,7 @@
 #include "compass.codec/ops/dependencies.hpp"
 #include "compass.codec/ops/format_cache.hpp"
 #include "compass.codec/ops/outputs.hpp"
+#include "compass.platform/filesystem/file_status.hpp"
 #include "compass.store/ops/pack.hpp"
 #include "compass.store/ops/worktree_index.hpp"
 
@@ -91,13 +92,12 @@ std::optional<build_facts> read_manifest(const std::filesystem::path& path) {
  * YYYY-MM-DDThh:mm:ssZ; empty when it cannot be read.
  */
 std::string build_time(const std::filesystem::path& executable) {
-    std::error_code ec;
-    const auto written = std::filesystem::last_write_time(executable, ec);
-    if (ec)
+    const auto status = platform::filesystem::regular_file_status(executable);
+    if (!status)
         return {};
-    const auto utc = std::chrono::clock_cast<std::chrono::system_clock>(written);
-    return std::format("{:%FT%TZ}",
-        std::chrono::floor<std::chrono::seconds>(utc));
+    const std::chrono::sys_seconds written{
+        std::chrono::seconds(status->modified.seconds)};
+    return std::format("{:%FT%TZ}", written);
 }
 
 std::string or_unknown(const std::string& s) {
