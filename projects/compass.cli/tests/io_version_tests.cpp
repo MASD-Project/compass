@@ -31,9 +31,9 @@
 #include "compass.codec/ops/format_cache.hpp"
 #include "compass.codec/ops/outputs.hpp"
 #include "compass.platform/filesystem/file_status.hpp"
-#include "compass.platform/process/environment.hpp"
 #include "compass.store/ops/pack.hpp"
 #include "compass.store/ops/worktree_index.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
 
 namespace {
 
@@ -46,21 +46,10 @@ using Catch::Matchers::StartsWith;
  * the path of a compass binary in it and, when written, its manifest.
  */
 class scoped_bin final {
-public:
-    scoped_bin() {
-        static int counter = 0;
-        root_ = std::filesystem::temp_directory_path() /
-            ("compass.cli.version." +
-                std::to_string(
-                    compass::platform::process::current_process_id()) +
-                "." + std::to_string(counter++));
-        std::filesystem::create_directories(root_);
-    }
-    ~scoped_bin() { std::filesystem::remove_all(root_); }
-    scoped_bin(const scoped_bin&) = delete;
-    scoped_bin& operator=(const scoped_bin&) = delete;
+    compass::testing::filesystem::scoped_directory dir_{"compass.cli.version"};
 
-    std::filesystem::path executable() const { return root_ / "compass"; }
+public:
+    std::filesystem::path executable() const { return dir_.path() / "compass"; }
 
     /**
      * @brief Writes the executable, last written at 2026-01-02 03:04:05
@@ -75,11 +64,8 @@ public:
     }
 
     void write_manifest(std::string_view content) const {
-        std::ofstream(root_ / compass::cli::io::manifest_name) << content;
+        std::ofstream(dir_.path() / compass::cli::io::manifest_name) << content;
     }
-
-private:
-    std::filesystem::path root_;
 };
 
 constexpr std::string_view clean_manifest =
