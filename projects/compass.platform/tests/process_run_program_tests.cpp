@@ -18,36 +18,18 @@
  *
  */
 #include "compass.platform/process/run_program.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
 
 #include <filesystem>
 #include <fstream>
 #include <string>
 #include <system_error>
 #include <catch2/catch_test_macros.hpp>
-#include "compass.platform/process/environment.hpp"
 
 namespace {
 
+using compass::testing::filesystem::scoped_directory;
 using compass::platform::process::run_program;
-
-class scoped_temp_dir final {
-public:
-    scoped_temp_dir() {
-        path_ = std::filesystem::temp_directory_path() /
-            ("compass.platform.process." +
-                std::to_string(
-                    compass::platform::process::current_process_id()));
-        std::filesystem::create_directories(path_);
-    }
-    ~scoped_temp_dir() { std::filesystem::remove_all(path_); }
-    scoped_temp_dir(const scoped_temp_dir&) = delete;
-    scoped_temp_dir& operator=(const scoped_temp_dir&) = delete;
-
-    const std::filesystem::path& path() const { return path_; }
-
-private:
-    std::filesystem::path path_;
-};
 
 }
 
@@ -76,7 +58,7 @@ TEST_CASE("run_program reports a failing exit code instead of throwing",
 
 TEST_CASE("run_program runs the program in the directory it is given",
     "[process]") {
-    const scoped_temp_dir dir;
+    const scoped_directory dir("compass.platform.process");
     std::ofstream(dir.path() / "marker") << "here";
     const auto r = run_program({{"sh", "-c", "cat marker"}, dir.path(), {}});
     CHECK(r.exit_code == 0);
@@ -84,7 +66,7 @@ TEST_CASE("run_program runs the program in the directory it is given",
 }
 
 TEST_CASE("run_program feeds the input file to standard input", "[process]") {
-    const scoped_temp_dir dir;
+    const scoped_directory dir("compass.platform.process");
     const auto input = dir.path() / "input";
     std::ofstream(input) << "fed";
     const auto r = run_program({{"sh", "-c", "cat"}, {}, input});

@@ -28,32 +28,13 @@
 #include <utility>
 #include <catch2/catch_test_macros.hpp>
 #include "compass.platform/filesystem/file_lock.hpp"
-#include "compass.platform/process/environment.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
 
 namespace {
 
+using compass::testing::filesystem::scoped_directory;
+
 namespace fs = compass::platform::filesystem;
-
-class scoped_temp_dir final {
-public:
-    scoped_temp_dir() {
-        static int counter = 0;
-        path_ = std::filesystem::temp_directory_path() /
-            ("compass.platform.new_file." +
-                std::to_string(
-                    compass::platform::process::current_process_id()) +
-                "." + std::to_string(counter++));
-        std::filesystem::create_directories(path_);
-    }
-    ~scoped_temp_dir() { std::filesystem::remove_all(path_); }
-    scoped_temp_dir(const scoped_temp_dir&) = delete;
-    scoped_temp_dir& operator=(const scoped_temp_dir&) = delete;
-
-    const std::filesystem::path& path() const { return path_; }
-
-private:
-    std::filesystem::path path_;
-};
 
 std::string read(const std::filesystem::path& p) {
     std::ifstream is(p, std::ios::binary);
@@ -68,7 +49,7 @@ std::span<const std::byte> bytes_of(std::string_view s) {
 
 TEST_CASE("new_file writes what it is given, byte for byte",
     "[filesystem][new_file]") {
-    const scoped_temp_dir dir;
+    const scoped_directory dir("compass.platform.new_file");
     const auto path = dir.path() / "a";
     auto file = fs::new_file::create(path);
     REQUIRE(file);
@@ -81,7 +62,7 @@ TEST_CASE("new_file writes what it is given, byte for byte",
 
 TEST_CASE("new_file creates no file that already exists",
     "[filesystem][new_file]") {
-    const scoped_temp_dir dir;
+    const scoped_directory dir("compass.platform.new_file");
     const auto path = dir.path() / "a";
     std::ofstream(path) << "kept";
     CHECK_FALSE(fs::new_file::create(path));
@@ -90,7 +71,7 @@ TEST_CASE("new_file creates no file that already exists",
 
 TEST_CASE("a moved new_file keeps writing to the same file",
     "[filesystem][new_file]") {
-    const scoped_temp_dir dir;
+    const scoped_directory dir("compass.platform.new_file");
     const auto path = dir.path() / "a";
     auto first = fs::new_file::create(path);
     REQUIRE(first);
@@ -104,7 +85,7 @@ TEST_CASE("a moved new_file keeps writing to the same file",
 
 TEST_CASE("file_lock is exclusive until its holder goes",
     "[filesystem][file_lock]") {
-    const scoped_temp_dir dir;
+    const scoped_directory dir("compass.platform.new_file");
     const auto path = dir.path() / "lock";
     {
         const fs::file_lock held(path, true);
