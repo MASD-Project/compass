@@ -32,7 +32,9 @@ namespace compass::crosscheck::codecs {
  * Reads the codec schema (datum/schema.hpp: its field enum, identity and
  * coordinate references and per-type rows), the index grammar
  * (datum/market_index.hpp), the projector's field switch and assign_index,
- * the identity table's CREATE TABLE and the per-asset-class views. Rules
+ * the columns the identity table's model gives its create script, as code
+ * generation reads the model (ops::generated_shape_of), and the
+ * per-asset-class views. Rules
  * table_columns, projector_switch, views and index_mapping report each
  * disagreement the script reports; unreadable_source reports a source that
  * lost the shape the script reads, as the script stops on it.

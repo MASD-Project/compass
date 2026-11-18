@@ -20,6 +20,7 @@
 #include "compass.crosscheck/codecs/marketdata_identity_columns.hpp"
 
 #include <catch2/catch_test_macros.hpp>
+#include "entity_model.hpp"
 #include "test_checkout.hpp"
 
 namespace {
@@ -55,14 +56,23 @@ const std::string projector =
     "    case field::strike:\n        break;\n"
     "    }\n}\n";
 
-const std::string table =
-    "create table if not exists \"ores_marketdata_market_series_identity_tbl\" (\n"
-    "    \"series_id\" uuid not null,\n    \"tenant_id\" uuid,\n"
-    "    \"party_id\" uuid,\n    \"identity_kind\" text,\n"
-    "    \"asset_class\" text,\n    \"instrument_type\" text,\n"
-    "    \"quote_type\" text,\n    \"currency\" text,\n    \"tenor\" text,\n"
-    "    \"index_name\" text,\n    \"tenor_label\" text,\n"
-    "    primary key (\"series_id\")\n);\n";
+std::string text_column(std::string_view name) {
+    return tests::model_column(name, ":type: text\n:cpp_type: std::string\n"
+        ":nullable: true\n");
+}
+
+const std::string table = tests::entity_model("marketdata",
+    "market_series_identity", "ores_marketdata_market_series_identity_tbl",
+    tests::model_column("series_id", ":type: uuid\n"
+        ":cpp_type: boost::uuids::uuid\n:primary_key: true\n") +
+    tests::model_column("party_id", ":type: uuid\n"
+        ":cpp_type: boost::uuids::uuid\n") +
+    text_column("identity_kind") + text_column("asset_class") +
+    text_column("instrument_type") + text_column("quote_type") +
+    text_column("currency") + text_column("tenor") +
+    text_column("index_name") + text_column("tenor_label"), {},
+    ":has_tenant_id: true\n", {},
+    ":current_state: true\n:no_audit_columns: true\n");
 
 std::string view(std::string_view asset, std::string_view columns,
     std::string_view types) {
@@ -83,8 +93,8 @@ files tree(std::string s, std::string p, std::string t, std::string views) {
          "market_index.hpp", grammar},
         {"projects/ores.marketdata/core/src/repository/"
          "market_series_identity_projector.cpp", p},
-        {"projects/ores.sql/create/marketdata/"
-         "marketdata_market_series_identity_create.sql", t},
+        {"projects/ores.marketdata/modeling/"
+         "ores.marketdata.market_series_identity.org", t},
         {"projects/ores.sql/create/marketdata/"
          "marketdata_series_identity_views_create.sql", views}};
 }
@@ -111,8 +121,8 @@ TEST_CASE("each disagreement of the projection is reported",
     const auto t = tree(schema,
         replaced(projector, "    case field::strike:\n",
             "    case field::strike:\n        row.strike = text;\n"),
-        replaced(table, "    \"tenor_label\" text,\n",
-            "    \"tenor_label\" text,\n    \"legacy\" text,\n"),
+        replaced(table, "** tenor_label\n", text_column("legacy") +
+            "** tenor_label\n"),
         view("fx", ", currency AS kind", "'fx_spot', 'fx_fwd'") +
         view("rates", ", currency", "'swap'"));
     CHECK(tests::messages_of(tests::run(codecs::marketdata_identity_columns,
@@ -137,4 +147,26 @@ TEST_CASE("a source that lost the shape the check reads is one finding",
     CHECK(tests::messages_of(tests::run(codecs::marketdata_identity_columns,
             t)) == std::vector<std::string>{"does not hold 'using f = "
         "field;', which the check reads through"});
+}
+
+TEST_CASE("the table's columns are those its model gives the create script",
+    "[codecs][marketdata_identity_columns]") {
+    const auto views = view("fx", ", currency", "'fx_spot'") +
+        view("rates", ", currency, \"tenor\"", " 'swap' ");
+    const auto temporal = replaced(table, ":current_state: true\n", "");
+    CHECK(tests::messages_of(tests::run(codecs::marketdata_identity_columns,
+            tree(schema, projector, temporal, views))) ==
+        std::vector<std::string>{
+            "ores_marketdata_market_series_identity_tbl has column "
+            "'valid_from', which is neither a context column, nor an "
+            "identity field, nor an index field.",
+            "ores_marketdata_market_series_identity_tbl has column "
+            "'valid_to', which is neither a context column, nor an "
+            "identity field, nor an index field."});
+    const auto elsewhere = replaced(table,
+        "ores_marketdata_market_series_identity_tbl", "ores_other_tbl");
+    CHECK(tests::messages_of(tests::run(codecs::marketdata_identity_columns,
+            tree(schema, projector, elsewhere, views))) ==
+        std::vector<std::string>{"does not load as the model whose create "
+            "script makes ores_marketdata_market_series_identity_tbl"});
 }
