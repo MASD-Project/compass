@@ -8,7 +8,7 @@
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
 #+branch: feature/state-exceptions-in-compass-org
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/66
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-18
@@ -80,7 +80,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/66][#66]] | [cli] State exceptions in .compass.org |
 
 * Review
 
