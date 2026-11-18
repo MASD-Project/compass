@@ -26,6 +26,7 @@ add_executable(${tests_target_name}
     codecs_curve_wiring_tests.cpp
     codecs_entity_writes_tests.cpp
     codecs_er_diagram_tests.cpp
+    codecs_generated_column_refs_tests.cpp
     codecs_generated_reads_tests.cpp
     codecs_marketdata_identity_columns_tests.cpp
     codecs_ore_output_catalogue_tests.cpp

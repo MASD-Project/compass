@@ -65,6 +65,19 @@ struct drawer_property {
     bool fallback);
 
 /**
+ * @brief Whether the archetype @p address of @p facet, whose technical
+ * space is @p ts, renders for a model whose drawer and overrides are
+ * @p properties, as model_units decides it for an archetype and a facet
+ * the graph enables by default and no gate withholds: the facet is on,
+ * because it or one of its archetypes is switched on or nothing switches
+ * it off, and nothing switches the archetype off, the most specific
+ * address first.
+ */
+[[nodiscard]] bool archetype_enabled(
+    std::span<const drawer_property> properties, std::string_view address,
+    std::string_view facet, std::string_view ts);
+
+/**
  * @brief _protocol_owned_by_operation: whether an operation model in the
  * directory of @p model_path, or the one above it, states the protocol of
  * @p entity, a domain entity or a junction, by its component and its

@@ -714,6 +714,19 @@ bool facet_enabled(std::span<const drawer_property> properties,
     });
 }
 
+bool archetype_enabled(std::span<const drawer_property> properties,
+    std::string_view address, std::string_view facet, std::string_view ts) {
+    const auto o = enabled_overrides(properties);
+    const bool named = std::ranges::any_of(o, [&](const auto& entry) {
+        const std::string_view key = entry.first;
+        return entry.second && key.size() > facet.size() + 1 &&
+            key.starts_with(facet) && key[facet.size()] == '.' &&
+            key.find('.', facet.size() + 1) == std::string_view::npos;
+    });
+    return (named || is_enabled(facet, facet, ts, o, true)) &&
+        is_enabled(address, facet, ts, o, true);
+}
+
 types::physical_space load_physical_space(
     std::span<const node_document> nodes) {
     types::physical_space g;

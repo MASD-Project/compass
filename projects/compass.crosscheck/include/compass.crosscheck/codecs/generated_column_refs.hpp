@@ -25,14 +25,18 @@
 namespace compass::crosscheck::codecs {
 
 /**
- * @brief ORE Studio's generated-column-refs gate: generated code names
- * no column its entity does not have.
+ * @brief ORE Studio's generated-column-refs gate: what a model's free-text
+ * sections hand to generated code names only columns its entity has.
  *
- * Rule not_a_member: a generated projects/<component>/api/src/domain/
- * <entity>_table.cpp streams, through its loop variable, a name the entity's
- * one header under include/<name>/domain/ does not hold, comments aside.
- * Rule not_a_column: a generated create script indexes a column its CREATE
- * TABLE does not declare, or a table it does not create.
+ * A document codec over the entity and junction models directly under a
+ * modeling/ directory of projects/, each read as code generation reads it
+ * (ops::generated_shape_of), so an edit to a model checks that model.
+ * Rule not_a_member: a column of the model's Table display that is not a
+ * member of the domain struct the model generates, a field of a group
+ * reached through its member, when the table writer is generated. Rule
+ * not_a_column: a column an index of the model names, outside an
+ * expression, that the create script the model generates does not make,
+ * when the script is generated. Both are reported on the model's heading.
  */
 extern const compass::codec::types::descriptor generated_column_refs;
 

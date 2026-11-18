@@ -39,18 +39,19 @@ std::vector<value_id> items(const builder& b, value_id list) {
     return out;
 }
 
-std::string field_group_path(load_context& c, std::string_view group) {
-    const auto slash = c.d.path.rfind('/');
+}
+
+std::string field_group_path(std::string_view model_path,
+    std::string_view group, const document_finder& find) {
+    const auto slash = model_path.rfind('/');
     const auto dir = slash == std::string_view::npos
-        ? std::string() : std::string(c.d.path.substr(0, slash + 1));
+        ? std::string() : std::string(model_path.substr(0, slash + 1));
     const auto beside = dir + std::string(group) + "_field_group.org";
-    if (c.find(beside) || std::ranges::count(group, '.') != 2)
+    if (find(beside) || std::ranges::count(group, '.') != 2)
         return beside;
     const auto second = group.find('.', group.find('.') + 1);
     return "projects/" + std::string(group.substr(0, second)) + "/modeling/" +
         std::string(group) + "_field_group.org";
-}
-
 }
 
 void resolve_domain_group_fields(load_context& c, value_id de) {
@@ -73,7 +74,7 @@ void resolve_domain_group_fields(load_context& c, value_id de) {
     for (const auto group : groups) {
         const std::string member(string_of(b, b.find(group, "member")));
         const std::string name(string_of(b, b.find(group, "field_group")));
-        const auto path = field_group_path(c, name);
+        const auto path = field_group_path(c.d.path, name, c.find);
         const auto d = c.find(path);
         if (!d)
             throw model_error("domain group names a missing field group");

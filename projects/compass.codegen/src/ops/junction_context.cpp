@@ -552,6 +552,11 @@ void derive_junction_tenant_scope(builder& b, value_id junction) {
 
 }
 
+void flag_junction_columns(builder& b, value_id junction) {
+    flag_columns(b, junction);
+    flag_sides(b, junction);
+}
+
 junction_contexts junction_context(builder& b, value_id library,
     value_id model, std::string_view model_key,
     const types::entity_registry& registry, const types::entity_site& site) {
@@ -561,8 +566,7 @@ junction_contexts junction_context(builder& b, value_id library,
         return {context, value_id::none()};
     mark_last_item(b, values::member(b.tables(), junction, "artefact_columns"));
     format_columns(b, junction);
-    flag_columns(b, junction);
-    flag_sides(b, junction);
+    flag_junction_columns(b, junction);
     if (values::truthy(b.tables(), junction, "history"))
         derive_history(b, junction);
     if (values::truthy(b.tables(), junction, "events"))

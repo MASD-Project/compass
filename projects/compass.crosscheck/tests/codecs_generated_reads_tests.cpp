@@ -18,7 +18,6 @@
  *
  */
 #include <catch2/catch_test_macros.hpp>
-#include "compass.crosscheck/codecs/generated_column_refs.hpp"
 #include "compass.crosscheck/codecs/open_reads.hpp"
 #include "test_checkout.hpp"
 
@@ -27,37 +26,6 @@ namespace {
 using namespace compass::crosscheck;
 using tests::files;
 
-}
-
-TEST_CASE("a generated writer or index naming a column that does not exist "
-    "is reported", "[codecs][generated_column_refs]") {
-    const files t{
-        {"projects/ores.refdata/api/src/domain/currency_table.cpp",
-         "// AUTO-GENERATED FILE\n"
-         "for (const auto& c : v) {\n"
-         "    // c.commented is prose\n"
-         "    s << c.code << c.name << c.dropped << c.str() << x.other;\n}\n"},
-        {"projects/ores.refdata/api/include/ores.refdata.api/domain/currency.hpp",
-         "struct currency { std::string code; std::string name; };\n"
-         "// dropped\n"},
-        {"projects/ores.refdata/api/src/domain/party_table.cpp",
-         "// AUTO-GENERATED FILE\nfor (const auto& p : v) { p.x; }\n"},
-        {"projects/ores.refdata/api/src/domain/hand_table.cpp",
-         "for (const auto& h : v) { h.nothing; }\n"},
-        {"projects/ores.sql/create/refdata/refdata_currencies_create.sql",
-         "-- AUTO-GENERATED FILE\n"
-         "create table if not exists \"ores_refdata_currencies_tbl\" (\n"
-         "    \"code\" text not null,\n    , \"Name\" text\n);\n"
-         "create unique index if not exists \"ix_code\" on "
-         "\"ores_refdata_currencies_tbl\" (\"code\", \"name\", lower(\"gone\"));\n"
-         "create index ix_other on ores_refdata_other_tbl (code);\n"}};
-    CHECK(tests::messages_of(tests::run(codecs::generated_column_refs, t)) ==
-        std::vector<std::string>{
-            "`c.dropped` is not a member of currency",
-            "0 headers match party.hpp, expected 1",
-            "index ix_code names lower, which is not a column of "
-            "ores_refdata_currencies_tbl",
-            "index ix_other on unknown table ores_refdata_other_tbl"});
 }
 
 TEST_CASE("the allow-list is the parsed table of its section",

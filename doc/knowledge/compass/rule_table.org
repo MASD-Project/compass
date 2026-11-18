@@ -66,7 +66,7 @@ memories no rule cites are the candidates for the next checks.
 | =forward_declarable_includes= | stale_type_list | The types option lists what the tree's own list file lists. |  |
 | =forward_declarable_includes= | type_not_defined | A listed type's defining header, where the tree has it, defines the type. |  |
 | =generated_column_refs= | not_a_member | What a generated table writer streams of its entity is a member of the entity. |  |
-| =generated_column_refs= | not_a_column | A generated index names only columns of the table it indexes, and a table the file creates. |  |
+| =generated_column_refs= | not_a_column | A generated index names only columns of the table it indexes. |  |
 | =handler_permissions= | unseeded_permission | Every permission code a handler of a checked component checks is seeded. | =7B477025-132E-4B20-80B4-D8C9420880B8= |
 | =handler_registrars= | registrar_without_responder | Every generated handler registrar is called, or every subject it subscribes is subscribed by hand. |  |
 | =heading_numbers= | numbered_heading | No org heading carries its own number. | [[id:177EDB1C-6241-45AA-81B1-46C4B9D6329D][Do not number org headings]] |
