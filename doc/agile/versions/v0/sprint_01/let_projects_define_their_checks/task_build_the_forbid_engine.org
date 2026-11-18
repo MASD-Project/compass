@@ -8,7 +8,7 @@
 #+filetags: :let_projects_define_their_checks:sprint_01:v0:
 #+owner: marco
 #+branch: feature/forbid-engine
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/89
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-18
@@ -104,7 +104,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/89][#89]] | Add the forbid engine checks are built on |
 
 * Review
 
