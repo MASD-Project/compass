@@ -46,6 +46,7 @@ target_link_libraries(${tests_target_name}
         ${lib_target_name}
         compass.store.lib
         compass.ingest.lib
+        compass.testing.lib
         Catch2::Catch2WithMain)
 
 add_test(NAME ${tests_target_name}
