@@ -30,6 +30,14 @@ namespace compass::crosscheck::codecs {
  * codec: the value set seed, the element map and its columns, from one
  * resolution of the value sets. Writes nothing where the value sets have a
  * problem, which parameter_value_sets reports.
+ *
+ * It also writes what generate_convention_kind_terms.py writes, the
+ * convention kind terms seed, their validation triggers and the triggers'
+ * drops, from the terms that resolution resolved, or resolves them alone
+ * when it stopped first; where the terms cannot be resolved it refuses
+ * the seed and says why. The script's exemption tables (NOT_A_COLUMN,
+ * FILE_KIND, SPELLED_OTHERWISE, READ_ELSEWHERE, ELEMENT_OF, MEMBER_ENTITY,
+ * the asset classes and the schema name) are read from the script.
  */
 extern const compass::codec::types::descriptor ore_value_sets;
 

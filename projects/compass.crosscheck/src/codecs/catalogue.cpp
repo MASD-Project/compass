@@ -20,7 +20,6 @@
 #include "compass.crosscheck/codecs/catalogue.hpp"
 
 #include <array>
-#include "compass.crosscheck/codecs/convention_kind_terms.hpp"
 #include "compass.crosscheck/codecs/conventions_coverage.hpp"
 #include "compass.crosscheck/codecs/conventions_dataset.hpp"
 #include "compass.crosscheck/codecs/curve_sections_wiring.hpp"
@@ -45,8 +44,8 @@ namespace compass::crosscheck::codecs {
 
 std::span<const compass::codec::types::descriptor> catalogue() noexcept {
     static const auto all = [] {
-        std::array<compass::codec::types::descriptor, 22> out{
-            convention_kind_terms, conventions_coverage, conventions_dataset,
+        std::array<compass::codec::types::descriptor, 21> out{
+            conventions_coverage, conventions_dataset,
             curve_sections_wiring, entity_binary_types,
             entity_writes, er_diagram, generated_column_refs,
             marketdata_identity_columns, model_rules,

@@ -20,7 +20,6 @@ set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
     codecs/catalogue.cpp
-    codecs/convention_kind_terms.cpp
     codecs/conventions_coverage.cpp
     codecs/conventions_dataset.cpp
     codecs/curve_sections_wiring.cpp
@@ -40,6 +39,7 @@ add_library(${lib_target_name}
     codecs/subject_conformance.cpp
     codecs/template_sections.cpp
     codecs/value_sets.cpp
+    ops/convention_kind_terms.cpp
     ops/csv.cpp
     ops/curve_wiring.cpp
     ops/json_value.cpp

@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-179 rules, 43 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
+178 rules, 43 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
 
 ** Rules
 
@@ -36,7 +36,6 @@ memories no rule cites are the candidates for the next checks.
 | =component_docs= | missing_puml | A component's modeling/ directory holds a .puml diagram. |  |
 | =component_docs= | name_collision | No top-level component's dotted name extends another's. |  |
 | =component_docs= | backtick_link | No bracket link a site export cannot resolve sits inside a backtick span of a page under doc/. |  |
-| =convention_kind_terms= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =conventions_coverage= | duplicate_row | Each (kind, id) is one row of the conventions dataset. |  |
 | =conventions_coverage= | no_source | Each row of the conventions dataset names its source. |  |
 | =conventions_coverage= | undefined_index | Each Ibor or overnight index a convention names is defined by an index convention of the dataset. |  |
