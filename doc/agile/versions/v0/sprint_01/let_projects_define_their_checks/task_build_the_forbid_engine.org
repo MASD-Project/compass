@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :let_projects_define_their_checks:sprint_01:v0:
 #+owner: marco
-#+branch: feature/check-examples
+#+branch: feature/check-one-codec
 #+pr: https://github.com/MASD-Project/compass/pull/92
 #+blocked_on:
 #+blocked_since:
@@ -126,6 +126,11 @@ task and name that file in the Command column.
   change and every file rescanned. Now the reduce step reads the document
   and finds the nth =:compass= block under =* Examples=, so a prose edit
   re-runs that step alone.
+- =check --codec <name>=, repeatable, runs only the named codecs and
+  checks, whatever =.compass.org= enables. The product owner asked for it
+  after ORE Studio's proof on =1961f78f1a= stopped at a codegen model that
+  today's rules reject; see the capture
+  [[id:FEC5E7F2-C265-4929-A0E1-8B2A1FBCC3A1][Refuse a model that does not load instead of failing the run]].
 - Not yet done: =compass config= lists only the built-in codecs, and
   =rule_table= does not list a check's rules. The three document types
   and their contracts come with the configuration reader.
