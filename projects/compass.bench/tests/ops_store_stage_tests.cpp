@@ -35,10 +35,10 @@
 #include "compass.org/io/dump.hpp"
 #include "compass.org/io/object.hpp"
 #include "compass.platform/filesystem/mapped_file.hpp"
-#include "compass.platform/process/environment.hpp"
 #include "compass.platform/process/run_program.hpp"
 #include "compass.store/io/pack_store.hpp"
 #include "compass.store/ops/blob_hash.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
 
 namespace {
 
@@ -46,19 +46,13 @@ using namespace compass::bench;
 namespace store = compass::store;
 
 class scoped_git_repo final {
+    compass::testing::filesystem::scoped_directory dir_{
+        "compass.bench.store.tests"};
+
 public:
     scoped_git_repo() {
-        static int counter = 0;
-        root_ = std::filesystem::temp_directory_path() /
-            ("compass.bench.store.tests." +
-                std::to_string(
-                    compass::platform::process::current_process_id()) +
-                "." + std::to_string(counter++));
-        std::filesystem::create_directories(root_ / "checkout");
+        std::filesystem::create_directories(dir_.path() / "checkout");
     }
-    ~scoped_git_repo() { std::filesystem::remove_all(root_); }
-    scoped_git_repo(const scoped_git_repo&) = delete;
-    scoped_git_repo& operator=(const scoped_git_repo&) = delete;
 
     void write(const std::string& relative, std::string_view content) {
         const auto path = checkout() / relative;
@@ -79,11 +73,8 @@ public:
         return ops::build_file_table(checkout(), ops::parse_listing(raw));
     }
 
-    std::filesystem::path checkout() const { return root_ / "checkout"; }
-    std::filesystem::path packs() const { return root_ / "packs"; }
-
-private:
-    std::filesystem::path root_;
+    std::filesystem::path checkout() const { return dir_.path() / "checkout"; }
+    std::filesystem::path packs() const { return dir_.path() / "packs"; }
 };
 
 std::size_t files_under(const std::filesystem::path& directory) {
