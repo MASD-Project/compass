@@ -60,6 +60,42 @@ TEST_CASE("a generated writer or index naming a column that does not exist "
             "index ix_other on unknown table ores_refdata_other_tbl"});
 }
 
+TEST_CASE("the allow-list is the parsed table of its section",
+    "[codecs][open_reads]") {
+    const auto request = [](std::string_view name, std::string_view subject) {
+        return "struct " + std::string(name) + "_request {\n"
+            "    static constexpr std::string_view nats_subject = \"" +
+            std::string(subject) + "\";\n};\n";
+    };
+    const auto read = [](std::string_view method, std::string_view name) {
+        return "    void " + std::string(method) +
+            "(ores::nats::message msg) {\n        decode<" +
+            std::string(name) + "_request>(msg);\n    }\n";
+    };
+    const files t{
+        {"doc/knowledge/security/authorised-reads.org",
+         "* Detail\n** The contract\n| =refdata.v1.books.get= | other |\n"
+         "** The allow-list\n| Subject | Why |\n|---+---|\n"
+         "| =refdata.v1.currencies.list= | why |\n"
+         "| =refdata.v1.parties.get= and =refdata.v1.books.get= | guarded |\n"
+         "*** Self reads\n|=refdata.v1.ops.get_my_desk=|self|\n"},
+        {"projects/ores.refdata/api/include/ores.refdata.api/messaging/"
+         "refdata_protocol.hpp",
+         request("currencies", "refdata.v1.currencies.list") +
+         request("parties", "refdata.v1.parties.get") +
+         request("books", "refdata.v1.books.get") +
+         request("desk", "refdata.v1.ops.get_my_desk")},
+        {"projects/ores.refdata/core/include/ores.refdata.core/messaging/"
+         "refdata_handler.hpp",
+         "// Template: cpp_nats_handler.hpp.mustache\n" +
+         read("list_currencies", "currencies") +
+         read("get_parties", "parties") + read("get_my_desk", "desk")}};
+    CHECK(tests::messages_of(tests::run(codecs::open_reads, t)) ==
+        std::vector<std::string>{
+            "get_parties serves refdata.v1.parties.get with no permission "
+            "check, and Authorised reads does not allow-list it"});
+}
+
 TEST_CASE("an open read that is not allow-listed is reported",
     "[codecs][open_reads]") {
     const files t{

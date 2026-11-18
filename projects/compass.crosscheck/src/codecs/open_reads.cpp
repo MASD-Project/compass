@@ -29,6 +29,7 @@
 #include "compass.cpp/ops/glob.hpp"
 #include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
+#include "compass.model/ops/outline.hpp"
 #include "compass.platform/text/decoding.hpp"
 #include "compass.platform/text/regex.hpp"
 
@@ -38,6 +39,7 @@ namespace {
 
 namespace ct = compass::codec::types;
 namespace co = compass::cpp::ops;
+namespace mo = compass::model::ops;
 namespace pt = compass::platform::text;
 
 constexpr std::uint32_t open_read = 0;
@@ -72,23 +74,40 @@ const pt::regex& nats_subject() {
     return out;
 }
 
-std::optional<std::set<std::string>> allow_list(std::string_view doc) {
-    static const pt::regex heading(R"(^\*\* The allow-list\s*$)",
-        {.multiline = true});
-    static const pt::regex following(R"(^\*\* )", {.multiline = true});
-    static const pt::regex row(R"(^\| =([a-z0-9_.-]+)= \|)",
-        {.multiline = true});
-    const auto h = heading.search(doc);
-    if (!h)
+/**
+ * @brief The subjects of the first level-two "The allow-list" section of
+ * the page at @p path, read from its parsed tables: each row of a table in
+ * the section, or below it, whose first cell is one =subject= alone. None
+ * when the page or the section is missing.
+ */
+std::optional<std::set<std::string>> allow_list(const ct::corpus_view& v,
+    std::string_view path) {
+    static const pt::regex subject(R"(^=([a-z0-9_.-]+)=$)");
+    const auto d = v.find_path(path);
+    if (!d)
         return std::nullopt;
-    const auto rest = doc.substr(h->end());
-    const auto next = following.search(rest);
-    const auto end = next ? h->end() + next->start() : doc.size();
-    std::set<std::string> out;
-    for (const auto& m : row.find_all(doc.substr(h->start(),
-             end - h->start())))
-        out.emplace(m.group(1));
-    return out;
+    mo::outline o;
+    mo::build_outline(d->source, d->tables, o);
+    for (std::uint32_t n = 1; n < o.size(); ++n) {
+        if (o.levels[n] != 2 || co::strip(o.titles[n]) != "The allow-list")
+            continue;
+        std::set<std::string> out;
+        for (std::uint32_t t = 0; t < o.table_nodes.size(); ++t) {
+            const auto node = o.table_nodes[t].value;
+            if (node < n || node >= o.subtree_ends[n].value)
+                continue;
+            const auto first = mo::first_row(o, t);
+            for (auto row = first; row < first + mo::row_count(o, t); ++row) {
+                if (mo::cell_count(o, row) == 0)
+                    continue;
+                if (const auto m = subject.match(co::strip(
+                        mo::cell(o, row, 0))))
+                    out.emplace(m->group(1));
+            }
+        }
+        return out;
+    }
+    return std::nullopt;
 }
 
 /**
@@ -175,7 +194,7 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
     static const pt::regex history_code(
         R"re(register_history_provider\(\s*"[^"]+",\s*"([^"]*)",)re");
     const auto doc_path = v.option("allow_list");
-    const auto allowed = allow_list(read(v, doc_path));
+    const auto allowed = allow_list(v, doc_path);
     if (!allowed) {
         co::report(out, doc_path, 0, no_allow_list, "the page has no '** The "
             "allow-list' section to read", "Restore the allow-list section "
@@ -234,10 +253,10 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
 
 const ct::descriptor open_reads{
     .name = "open_reads",
-    .version = 1,
+    .version = 2,
     .summary = "Reports each generated read with no permission check that "
         "Authorised reads does not allow-list.",
-    .reads = ct::inputs::of_types({}),
+    .reads = ct::inputs::every_document(),
     .options = options,
     .rules = rules,
     .enabled_by_default = false,
