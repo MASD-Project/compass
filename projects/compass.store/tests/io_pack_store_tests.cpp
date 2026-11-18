@@ -28,7 +28,8 @@
 #include <catch2/catch_test_macros.hpp>
 #include "compass.store/io/location.hpp"
 #include "compass.store/ops/blob_hash.hpp"
-#include "scoped_directory.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
+#include "files.hpp"
 
 namespace {
 
@@ -72,8 +73,9 @@ std::string body_of(const std::string& name) {
 
 TEST_CASE("a published pack is read back entry for entry, aligned",
     "[io][pack_store]") {
-    tests::scoped_directory dir;
-    io::pack_writer w(dir.root());
+    const compass::testing::filesystem::scoped_directory dir(
+        "compass.store.tests");
+    io::pack_writer w(dir.path());
     for (int i = 0; i < 50; ++i) {
         const auto name = "entry " + std::to_string(i);
         w.add(entry_kind::object, ops::blob_id_of(name), span_of(body_of(name)));
@@ -81,10 +83,10 @@ TEST_CASE("a published pack is read back entry for entry, aligned",
     w.add_action(action_kind::result, ops::blob_id_of("r"), "result body");
     CHECK(w.size() == 51);
     REQUIRE(w.publish());
-    CHECK(list(dir.root()).packs == 1);
-    CHECK(list(dir.root()).temporaries == 0);
+    CHECK(list(dir.path()).packs == 1);
+    CHECK(list(dir.path()).temporaries == 0);
 
-    const io::pack_reader r(dir.root());
+    const io::pack_reader r(dir.path());
     for (int i = 0; i < 50; ++i) {
         const auto name = "entry " + std::to_string(i);
         const auto bytes = r.find(entry_kind::object, ops::blob_id_of(name));
@@ -100,51 +102,55 @@ TEST_CASE("a published pack is read back entry for entry, aligned",
 
 TEST_CASE("nothing is seen of a pack until it is published, and an "
     "unpublished one leaves nothing", "[io][pack_store]") {
-    tests::scoped_directory dir;
+    const compass::testing::filesystem::scoped_directory dir(
+        "compass.store.tests");
     {
-        io::pack_writer w(dir.root());
+        io::pack_writer w(dir.path());
         w.add_action(action_kind::result, ops::blob_id_of("k"), "v");
-        CHECK(list(dir.root()).temporaries == 1);
-        CHECK_FALSE(io::pack_reader(dir.root()).read_action(
+        CHECK(list(dir.path()).temporaries == 1);
+        CHECK_FALSE(io::pack_reader(dir.path()).read_action(
             action_kind::result, ops::blob_id_of("k")));
     }
-    CHECK(list(dir.root()).temporaries == 0);
-    CHECK(list(dir.root()).packs == 0);
-    io::pack_writer empty(dir.root());
+    CHECK(list(dir.path()).temporaries == 0);
+    CHECK(list(dir.path()).packs == 0);
+    io::pack_writer empty(dir.path());
     CHECK_FALSE(empty.publish());
 }
 
 TEST_CASE("a reader skips a pack that does not parse and keeps the "
     "others", "[io][pack_store]") {
-    tests::scoped_directory dir;
-    io::pack_writer w(dir.root());
+    const compass::testing::filesystem::scoped_directory dir(
+        "compass.store.tests");
+    io::pack_writer w(dir.path());
     w.add_action(action_kind::result, ops::blob_id_of("k"), "v");
     REQUIRE(w.publish_only());
-    dir.write("pack-" + std::string(32, 'f') + ".cpk", "CMPSPAK\n garbage");
+    tests::write(dir.path() / ("pack-" + std::string(32, 'f') + ".cpk"),
+        "CMPSPAK\n garbage");
 
     std::vector<std::filesystem::path> rejected;
-    const auto packs = io::open_packs(dir.root(), &rejected);
+    const auto packs = io::open_packs(dir.path(), &rejected);
     CHECK(packs.size() == 1);
     CHECK(rejected.size() == 1);
-    CHECK(io::pack_reader(dir.root()).read_action(action_kind::result,
+    CHECK(io::pack_reader(dir.path()).read_action(action_kind::result,
         ops::blob_id_of("k")) == "v");
 }
 
 TEST_CASE("the manifest written last is read, through any merge",
     "[io][pack_store]") {
-    tests::scoped_directory dir;
+    const compass::testing::filesystem::scoped_directory dir(
+        "compass.store.tests");
     const auto key = ops::blob_id_of("manifest");
     // Three publishes, each a pack: the second holds the newest manifest
     // and is the largest, so a geometric repack merges the first and the
     // third, whose name is newer than the second's.
     {
-        io::pack_writer w(dir.root());
+        io::pack_writer w(dir.path());
         w.add_action(action_kind::manifest, key, "old");
         REQUIRE(w.publish_only());
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(2));
     {
-        io::pack_writer w(dir.root());
+        io::pack_writer w(dir.path());
         w.add_action(action_kind::manifest, key, "new");
         w.add(entry_kind::object, ops::blob_id_of("big"),
             span_of(std::string(100'000, 'b')));
@@ -152,75 +158,78 @@ TEST_CASE("the manifest written last is read, through any merge",
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(2));
     {
-        io::pack_writer w(dir.root());
+        io::pack_writer w(dir.path());
         w.add(entry_kind::object, ops::blob_id_of("small"),
             span_of(std::string(10, 's')));
         REQUIRE(w.publish_only());
     }
-    CHECK(io::pack_reader(dir.root()).read_action(action_kind::manifest,
+    CHECK(io::pack_reader(dir.path()).read_action(action_kind::manifest,
         key) == "new");
-    CHECK(io::repack(dir.root()) == 2);
-    CHECK(list(dir.root()).packs == 2);
-    CHECK(io::pack_reader(dir.root()).read_action(action_kind::manifest,
+    CHECK(io::repack(dir.path()) == 2);
+    CHECK(list(dir.path()).packs == 2);
+    CHECK(io::pack_reader(dir.path()).read_action(action_kind::manifest,
         key) == "new");
 }
 
 TEST_CASE("a damaged copy of an action object does not hide a sound one",
     "[io][pack_store]") {
-    tests::scoped_directory dir;
+    const compass::testing::filesystem::scoped_directory dir(
+        "compass.store.tests");
     const auto key = ops::blob_id_of("result");
     {
-        io::pack_writer w(dir.root());
+        io::pack_writer w(dir.path());
         w.add_action(action_kind::result, key, "sound");
         REQUIRE(w.publish_only());
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(2));
     {
-        io::pack_writer w(dir.root());
+        io::pack_writer w(dir.path());
         w.add(entry_kind::result, key, span_of(std::string("damaged")));
         REQUIRE(w.publish_only());
     }
-    CHECK(io::pack_reader(dir.root()).read_action(action_kind::result, key) ==
+    CHECK(io::pack_reader(dir.path()).read_action(action_kind::result, key) ==
         "sound");
 }
 
 TEST_CASE("publishing and repacking keeps the pack count logarithmic",
     "[io][pack_store]") {
-    tests::scoped_directory dir;
+    const compass::testing::filesystem::scoped_directory dir(
+        "compass.store.tests");
     std::vector<types::blob_id> keys;
     for (int i = 0; i < 300; ++i) {
-        io::pack_writer w(dir.root());
+        io::pack_writer w(dir.path());
         keys.push_back(ops::blob_id_of("key " + std::to_string(i)));
         w.add_action(action_kind::result, keys.back(),
             std::string(100 + i % 7, 'x'));
         REQUIRE(w.publish());
-        CHECK(list(dir.root()).packs <= 10);
+        CHECK(list(dir.path()).packs <= 10);
     }
-    CHECK(list(dir.root()).temporaries == 0);
-    const io::pack_reader r(dir.root());
+    CHECK(list(dir.path()).temporaries == 0);
+    const io::pack_reader r(dir.path());
     for (const auto& k : keys)
         CHECK(r.read_action(action_kind::result, k));
 }
 
 TEST_CASE("a held lock makes a repack give up and a collection wait",
     "[io][pack_store]") {
-    tests::scoped_directory dir;
+    const compass::testing::filesystem::scoped_directory dir(
+        "compass.store.tests");
     for (int i = 0; i < 2; ++i) {
-        io::pack_writer w(dir.root());
+        io::pack_writer w(dir.path());
         w.add_action(action_kind::result, ops::blob_id_of(std::to_string(i)),
             "same size");
         REQUIRE(w.publish_only());
     }
     bool held = false;
     std::thread holder([&] {
-        const io::pack_lock lock(dir.root(), true);
+        const io::pack_lock lock(dir.path(), true);
         held = lock.held();
         std::this_thread::sleep_for(std::chrono::milliseconds(400));
     });
     std::this_thread::sleep_for(std::chrono::milliseconds(150));
-    CHECK(io::repack(dir.root()) == 0);
-    CHECK(list(dir.root()).packs == 2);
-    const io::pack_lock waited(dir.root(), true);
+    CHECK(io::repack(dir.path()) == 0);
+    CHECK(list(dir.path()).packs == 2);
+    const io::pack_lock waited(dir.path(), true);
     CHECK(waited.held());
     holder.join();
     CHECK(held);

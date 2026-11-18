@@ -25,12 +25,13 @@
 #include <catch2/catch_test_macros.hpp>
 #include "compass.platform/process/run_program.hpp"
 #include "compass.store/ops/blob_hash.hpp"
-#include "scoped_directory.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
+#include "files.hpp"
 
 namespace {
 
 using namespace compass::store;
-using tests::scoped_directory;
+using compass::testing::filesystem::scoped_directory;
 
 void git(const std::filesystem::path& directory, const std::string& command) {
     const auto line = "git -C '" + directory.generic_string() +
@@ -44,17 +45,17 @@ void git(const std::filesystem::path& directory, const std::string& command) {
 
 TEST_CASE("the common directory of a main checkout is its .git",
     "[io][location]") {
-    scoped_directory d;
-    git(d.root(), "init -q");
+    const scoped_directory d("compass.store.tests");
+    git(d.path(), "init -q");
 
-    CHECK(io::git_common_dir(d.root()) == d.root() / ".git");
+    CHECK(io::git_common_dir(d.path()) == d.path() / ".git");
 }
 
 TEST_CASE("a linked worktree shares the common directory of its repository",
     "[io][location]") {
-    scoped_directory d;
-    const auto main = d.root() / "main";
-    const auto linked = d.root() / "linked";
+    const scoped_directory d("compass.store.tests");
+    const auto main = d.path() / "main";
+    const auto linked = d.path() / "linked";
     std::filesystem::create_directories(main);
     git(main, "init -q");
     git(main, "commit -q --allow-empty -m base");
@@ -67,30 +68,30 @@ TEST_CASE("a linked worktree shares the common directory of its repository",
 
 TEST_CASE("a relative gitdir and commondir resolve against their files",
     "[io][location]") {
-    scoped_directory d;
-    d.write("tree/.git", "gitdir: ../repo/worktrees/tree\n");
-    d.write("repo/worktrees/tree/commondir", "../..\n");
+    const scoped_directory d("compass.store.tests");
+    tests::write(d.path() / "tree/.git", "gitdir: ../repo/worktrees/tree\n");
+    tests::write(d.path() / "repo/worktrees/tree/commondir", "../..\n");
 
-    CHECK(io::git_common_dir(d.root() / "tree") == d.root() / "repo");
+    CHECK(io::git_common_dir(d.path() / "tree") == d.path() / "repo");
 }
 
 TEST_CASE("a gitdir with no commondir is its own common directory",
     "[io][location]") {
-    scoped_directory d;
-    d.write("tree/.git", "gitdir: ../modules/tree\n");
-    std::filesystem::create_directories(d.root() / "modules" / "tree");
+    const scoped_directory d("compass.store.tests");
+    tests::write(d.path() / "tree/.git", "gitdir: ../modules/tree\n");
+    std::filesystem::create_directories(d.path() / "modules" / "tree");
 
-    CHECK(io::git_common_dir(d.root() / "tree") ==
-        d.root() / "modules" / "tree");
+    CHECK(io::git_common_dir(d.path() / "tree") ==
+        d.path() / "modules" / "tree");
 }
 
 TEST_CASE("a directory that is not a checkout has no common directory",
     "[io][location]") {
-    scoped_directory d;
-    d.write("broken/.git", "not a gitdir line\n");
+    const scoped_directory d("compass.store.tests");
+    tests::write(d.path() / "broken/.git", "not a gitdir line\n");
 
-    CHECK_THROWS_AS(io::git_common_dir(d.root()), std::runtime_error);
-    CHECK_THROWS_AS(io::git_common_dir(d.root() / "broken"),
+    CHECK_THROWS_AS(io::git_common_dir(d.path()), std::runtime_error);
+    CHECK_THROWS_AS(io::git_common_dir(d.path() / "broken"),
         std::runtime_error);
 }
 

@@ -27,12 +27,13 @@
 #include <thread>
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
-#include "scoped_directory.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
+#include "files.hpp"
 
 namespace {
 
 using namespace compass::store;
-using tests::scoped_directory;
+using compass::testing::filesystem::scoped_directory;
 
 std::span<const std::byte> bytes_of(const std::string& s) {
     return std::as_bytes(std::span(s));
@@ -49,8 +50,8 @@ std::vector<std::string> names_in(const std::filesystem::path& directory) {
 
 TEST_CASE("a written object is read back and nothing else is left",
     "[io][object_file]") {
-    scoped_directory d;
-    const auto target = d.root() / "objects" / "ab" / "cdef";
+    const scoped_directory d("compass.store.tests");
+    const auto target = d.path() / "objects" / "ab" / "cdef";
 
     io::write_object(target, bytes_of("content"));
 
@@ -60,8 +61,8 @@ TEST_CASE("a written object is read back and nothing else is left",
 }
 
 TEST_CASE("writing an object again replaces it", "[io][object_file]") {
-    scoped_directory d;
-    const auto target = d.root() / "ab" / "cdef";
+    const scoped_directory d("compass.store.tests");
+    const auto target = d.path() / "ab" / "cdef";
     io::write_object(target, bytes_of("a stale and longer object"));
 
     io::write_object(target, bytes_of("fresh"));
@@ -72,8 +73,8 @@ TEST_CASE("writing an object again replaces it", "[io][object_file]") {
 
 TEST_CASE("a write that cannot land throws and leaves no temporary file",
     "[io][object_file]") {
-    scoped_directory d;
-    const auto target = d.root() / "ab" / "cdef";
+    const scoped_directory d("compass.store.tests");
+    const auto target = d.path() / "ab" / "cdef";
     std::filesystem::create_directories(target / "in the way");
 
     CHECK_THROWS_AS(io::write_object(target, bytes_of("content")),
@@ -86,8 +87,8 @@ TEST_CASE("concurrent writers of one object all succeed and leave it whole",
     "[io][object_file]") {
     constexpr unsigned writers = 8;
     constexpr unsigned rounds = 50;
-    scoped_directory d;
-    const auto target = d.root() / "ab" / "cdef";
+    const scoped_directory d("compass.store.tests");
+    const auto target = d.path() / "ab" / "cdef";
     const std::string content(64 * 1024, 'x');
     io::write_object(target, bytes_of(content));
 
@@ -126,12 +127,12 @@ TEST_CASE("concurrent writers of one object all succeed and leave it whole",
 
 TEST_CASE("read_file gives every byte of a file and nothing for a missing "
     "one", "[io][object_file]") {
-    scoped_directory d;
-    const auto target = d.root() / "x";
+    const scoped_directory d("compass.store.tests");
+    const auto target = d.path() / "x";
     const std::string content("a\0b\nc", 5);
     io::write_object(target, bytes_of(content));
 
     CHECK(io::read_file(target) == content);
-    CHECK(io::read_file(d.root() / "missing") == std::nullopt);
-    CHECK(io::read_file(d.root()) == std::nullopt);
+    CHECK(io::read_file(d.path() / "missing") == std::nullopt);
+    CHECK(io::read_file(d.path()) == std::nullopt);
 }
