@@ -83,9 +83,16 @@ the codec, set in the checkout's =.compass.org=.
   output's drawer, and the =<<paste:UUID>>= blocks of the model.
 - *Contexts.* =ops::library_values= builds the licence and modeline values;
   =ops::model_context= adds a model and what =generate_from_model= derives
-  for its type.
+  for its type. The steps of an entity's context are public one by one
+  (=entity_steps.hpp=), and =ops::flag_junction_columns= gives a
+  junction's columns and sides their type flags, so a check can run the
+  steps that read no other model without building the whole context.
 - *Graph and units.* =ops::load_physical_space= reads the graph;
   =ops::model_units= lists a model's outputs as =resolve_targets= does.
+  =ops::archetype_enabled= says, without the graph, whether one archetype
+  of a facet both enable by default renders for a model's overrides,
+  which =compass.crosscheck= asks of a model's create script, repository
+  row and table writer.
   =ops::read_component_catalogue= and =ops::regenerated_models= give the
   models =regenerate --all= visits.
 - *Generation.* =ops::checkout_reader= is everything generation reads of a

@@ -23,6 +23,9 @@ the checkout through its view, so a run in which none of them changed
 reuses the findings. =entity_writes=, =subject_conformance= and
 =model_rules= are scans: each file's writers, subjects or model facts are
 kept per content ID, so a run after an edit maps the edited file alone.
+=generated_column_refs= and =entity_binary_types= are document codecs:
+each model is a unit of its own, so an edit to a model checks that model
+and those that read it.
 
 The ports follow their scripts rule for rule, including the order of their
 tests, because the acceptance of a port is the same verdict on the same
@@ -32,7 +35,12 @@ it, from its parsed outline, not with the scripts' line patterns. It
 differs from them only where a pattern was wrong: a heading, a keyword or
 a drawer line inside a source block is text, and a level-two heading of a
 document that is not an entity, junction or field group model is not a
-column. The text helpers of =compass.cpp= (Python's lines,
+column. The gates that read generated code to re-check what a model
+states read the model instead, as code generation reads it
+(=ops::generated_shape_of=): what its create script, repository row,
+domain struct and table writer will hold, and whether code generation
+renders each. Their findings are on the model, before it is regenerated.
+The text helpers of =compass.cpp= (Python's lines,
 spaces, pathlib order and the finding on a byte of a file) are shared, and
 the patterns go through the Python-compatible regular expressions of
 =compass.platform=.
@@ -60,27 +68,34 @@ ported:
   check.
 - The floors that asked a run to read enough to prove its patterns still
   matched: =money_decimal_columns/too_few_columns=,
-  =model_drift/no_profiles= and =subject_conformance/no_declaration=. A
-  parsed model cannot go blind the way a line pattern can.
+  =model_drift/no_profiles=, =subject_conformance/no_declaration= and
+  =entity_binary_types/too_few_compared=. A parsed model cannot go blind
+  the way a line pattern can.
+- =entity_binary_types/no_table=. The row and the create script compared
+  are generated from one model; a row on a table its model does not
+  create, a view or a staging table, is not compared.
 
 * Inputs
 
 - The files of the checkout, through =types::corpus_view=: =list_files=
   for the paths each gate walks and =read_file= for the bytes.
+- The parsed documents of the checkout, through the same view: the models,
+  the profiles and field groups they read, and the Authorised reads page.
 
 * Outputs
 
-- *=model_rules=.* The rules five scripts state about one codegen model
-  (=money-decimal-columns=, =http-areas=, =model-drift=, the model halves
-  of =subject-conformance= and =protocol-twin-coverage=), as one scan of
-  documents. A model is a document directly under a =modeling/= directory
-  of =projects/= whose =#+type:= is one ores.codegen loads; the map builds
-  its =compass.model= outline once and runs the rules that need that model
-  alone, and keeps what the reduce step needs: its =#+http_area:=
-  keywords, and, when it binds a profile, what its drawers state of each
-  feature. A profile's map keeps the rows of its =Assignments= tables. An
-  edit to a model maps that model, and the reduce step runs only when a
-  fact changed.
+- *=model_rules=.* The rules six scripts state about one codegen model
+  (=money-decimal-columns=, =http-areas=, =model-drift=, =route-units=,
+  the model halves of =subject-conformance= and =protocol-twin-coverage=),
+  as one scan of documents. A model is a document directly under a
+  =modeling/= directory of =projects/= whose =#+type:= is one ores.codegen
+  loads; the map builds its =compass.model= outline once and runs the
+  rules that need that model alone, and keeps what the reduce step needs:
+  its =#+http_area:= keywords, the route unit it opts into, and, when it
+  binds a profile, what its drawers state of each feature. A profile's map
+  keeps the rows of its =Assignments= tables. An edit to a model maps
+  that model, and the reduce step runs only when a fact changed or a file
+  it read did.
   - =money_not_exact=, =continuous_exact=: the columns of an entity or
     junction, the children of its =Columns= section, and the fields of a
     field group, with their drawers' =:type:= and =:cpp_type:=. A name is
@@ -104,6 +119,15 @@ ported:
     =list_by_...=, =component.v1.ops.operation= or
     =component.v1.events.collection.action= (=ops::classify_subject=).
   - =unreadable_model=: a model that is not UTF-8.
+  - =unregistered_unit=, =twice_registered=, =missing_unit=
+    (=build/scripts/check_route_units.py=): a model directly under
+    =projects/ores.<c>/modeling/= whose file drawer switches
+    =ores.cpp.http-route= on, read as code generation reads an override,
+    owns the unit its =#+entity_singular:= or =#+name_singular:= names.
+    The aggregate =projects/ores.http/<c>/src/routes/<c>/<c>_routes.cpp=
+    registers each such unit, each once, and only units with a source
+    beside it. The aggregates are read only when the reduce step runs, so
+    a model edit that leaves the opt-in as it was reads none of them.
 - *=subject_conformance=.* The data-quality half of =subject-conformance=
   (=check_subject_conformance.py=): rule =outside_protocol=, a quoted
   subject of the data-quality artefact type seed outside the protocol, by
@@ -118,30 +142,36 @@ ported:
   and is not the repository of every table it writes. The 136 writers of
   the script's baseline are findings, one per function or file.
 - *=entity_binary_types=.* =entity-binary-types=
-  (=check_entity_binary_types.py=). A generated =repository/*_entity.hpp=
-  binds each column with =bind= or =key= in the format its member's C++
-  type travels in; rule =wire_mismatch= reports one that differs from the
-  format of the column's SQL type, or a binding to a column or member that
-  does not exist, =unclassified= a type the check cannot place, =no_table=
-  a row whose table no create script creates, and =too_few_compared= a run
-  that compared fewer than =min_compared=.
+  (=check_entity_binary_types.py=), a document codec over each entity and
+  junction model whose repository row and create script code generation
+  renders. Each column the model states that the row binds with =bind=
+  or =key= has the member type the row's template gives it, from
+  codegen's column flags, and the type the create script gives it; rule
+  =wire_mismatch= reports two that travel in different formats, or a key
+  column the row declares no member for, and =unclassified= a type the
+  check cannot place, on the column's heading. The template's own
+  columns (tenant, version, audit, validity) are not the model's
+  statement and are not compared. At ORE Studio =c25e952663= the member
+  and SQL types agree with the generated code for all 4666 columns of
+  573 rows.
 - *=generated_column_refs=.* =generated-column-refs=
-  (=check_generated_column_refs.py=). Rule =not_a_member=: a generated
-  =*_table.cpp= writer streams a name its entity's header does not hold.
-  Rule =not_a_column=: a generated create script indexes a column or a
-  table it does not create.
+  (=check_generated_column_refs.py=), a document codec over each entity
+  and junction model. Rule =not_a_member=: a column of the model's Table
+  display that is not a member of the domain struct it generates (a field
+  of a domain, identity or audit group as =member.field=), when the table
+  writer is generated. Rule =not_a_column=: a column one of the model's
+  indexes names, outside an expression, that its create script does not
+  make, when the script is generated. At =c25e952663= the create scripts'
+  columns and the writers' members agree with the generated code for 579
+  scripts and 442 writers.
 - *=open_reads=.* =open-reads= (=check_open_reads.py=). Rule =open_read=: a
   read of a generated handler, a =list_= or =get_= method or one that
   decodes a protocol request, that checks no permission and whose subject
-  the =allow_list= page does not name. Rules =unguarded_history= (a
+  the =allow_list= page does not name. The page is read from its parse:
+  the rows of the tables of its first level-two =The allow-list= section
+  whose first cell is one =subject= alone. Rules =unguarded_history= (a
   history registration with no literal read code), =stale_allow= (an
   allowed subject no protocol header defines) and =no_allow_list=.
-
-- *=route_units=.* =route-units= (=build/scripts/check_route_units.py=).
-  For each component of =ores.http= with a route aggregate, the units its
-  models opt into with =:ores.cpp.http-route.enabled: true= are registered
-  once (=unregistered_unit=, =twice_registered=) and every registered unit
-  has its source (=missing_unit=).
 - *=registry_exceptions=.* =registry-exceptions=
   (=check_registry_exceptions.py=). Rule =bad_exception=: an entry of
   =ACCEPTED_EXCEPTIONS= in =component_registry.py=, read as a literal, for
@@ -169,7 +199,10 @@ ported:
   (=build/scripts/check_marketdata_identity_columns.py=). The series
   identity table, the projector's field switch and index mapping and the
   per-asset-class views agree with the codec schema and the index grammar
-  (=table_columns=, =projector_switch=, =views=, =index_mapping=). A source
+  (=table_columns=, =projector_switch=, =views=, =index_mapping=). The
+  table's columns are those its model,
+  =ores.marketdata.market_series_identity.org=, gives its create script,
+  and =table_columns= is reported on the model. A source
   that lost the shape the script reads is one =unreadable_source=
   finding, and nothing else is reported, as the script stops there.
 
@@ -320,7 +353,8 @@ except =model_rules=, which reports such a model.
 | =include/compass.crosscheck/ops/csv.hpp=                | Python's =csv.reader= with the excel dialect and a delimiter.                           |
 | =include/compass.crosscheck/ops/python_numbers.hpp=     | =str(int())= and =repr(float())=.                                                       |
 | =include/compass.crosscheck/ops/md5.hpp=                | =hashlib.md5= as hex, a key some scripts use.                                           |
-| =include/compass.crosscheck/codecs/registry_gates.hpp=  | =route_units= and =registry_exceptions=.                                                |
+| =include/compass.crosscheck/codecs/registry_gates.hpp=  | =registry_exceptions=.                                                                  |
+| =include/compass.crosscheck/ops/generated_shape.hpp=    | What a model's generated table, row, struct and writer hold, from codegen's context.    |
 | =include/compass.crosscheck/ops/subjects.hpp=           | The entity protocol's subject grammar.                                                  |
 | =include/compass.crosscheck/codecs/value_sets.hpp=      | =ore_value_sets= and =parameter_value_sets=.                                            |
 | =include/compass.crosscheck/ops/value_sets.hpp=         | The resolved value sets, the element map and the seeds.                                 |
@@ -340,10 +374,13 @@ except =model_rules=, which reports such a model.
   through and the diagnostic table they fill.
 - =compass.cpp= for its text helpers.
 - =compass.model= for the outline of a model, the view its loaders read,
-  which =model_rules= reads.
+  which =model_rules= and =open_reads= read, and the loaders, which
+  =ops::generated_shape_of= loads a model with.
 - =compass.codegen= for the template library's physical-space graph and
-  the component catalogue, which =protocol_twins= reads, and the pystache
-  renderer =er_diagram= draws through.
+  the component catalogue, which =protocol_twins= reads, the pystache
+  renderer =er_diagram= draws through, and the steps of an entity's and a
+  junction's context and the archetype overrides
+  =ops::generated_shape_of= runs.
 - =compass.sql= for the entity-relationship model of the create scripts.
 - =compass.platform= for regular expressions, Python's decoding and the
   XML reader the ORE schemas are read with.
