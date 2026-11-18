@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-181 rules, 43 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
+183 rules, 43 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
 
 ** Rules
 
@@ -65,6 +65,8 @@ memories no rule cites are the candidates for the next checks.
 | =exported_types= | visibility_macro_on_enum | No symbol visibility or DLL storage macro decorates an enum. |  |
 | =forward_declarable_includes= | includes_definition_it_only_names | A header that only names a listed type includes its declaration, not its definition. |  |
 | =forward_declarable_includes= | bad_type_list | The list of forward-declarable types is readable and not empty. |  |
+| =forward_declarable_includes= | stale_type_list | The types option lists what the tree's own list file lists. |  |
+| =forward_declarable_includes= | type_not_defined | A listed type's defining header, where the tree has it, defines the type. |  |
 | =generated_column_refs= | not_a_member | What a generated table writer streams of its entity is a member of the entity. |  |
 | =generated_column_refs= | not_a_column | A generated index names only columns of the table it indexes, and a table the file creates. |  |
 | =handler_permissions= | unseeded_permission | Every permission code a handler of a checked component checks is seeded. | =7B477025-132E-4B20-80B4-D8C9420880B8= |

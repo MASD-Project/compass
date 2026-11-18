@@ -251,12 +251,21 @@ replaced in this step.
      export macros once for both. Its rule is
      `exported_types/visibility_macro_on_enum`; there is no
      `enum_attributes` codec, so drop its row from `.compass.org`.
-   - `forward_declarable_includes` no longer reads
-     `build/scripts/forward_declarable_types.list`. Its `types` option holds
-     the list, defaulting to the six types the file held at `545cafca45`,
-     each `name;key;defining header;forwarding header or -`,
-     comma-separated. When the file changes, set the option to match, or
-     delete the file and keep the list in `.compass.org`.
+   - `forward_declarable_includes` decides headers from its `types`
+     option, not from `build/scripts/forward_declarable_types.list`. The
+     option defaults to ORE Studio's six types, each
+     `name;key;defining header;forwarding header or -`, comma-separated,
+     with `session_context` in its own header. When the file exists,
+     compass compares it with the option. Any difference is a
+     `forward_declarable_includes/stale_type_list` finding on the file.
+     The finding names each row that differs, and its fix gives the
+     `types=` value to set on the codec's row of `.compass.org`. At
+     `545cafca45` the file still lists `session_context` in
+     `pq/transaction.hpp`, so this finding is expected there. Set the
+     option as the fix says, or set `list_file=` to stop the comparison.
+     The finding also appears when the file cannot be read or parsed.
+     A second rule, `type_not_defined`, reports a defining header that
+     the tree has but that no longer defines its type.
    Some gates and rules have no codec because
    another check covers them; see "Gates compass dropped" below. Compare
    their verdict with the check that covers them.
