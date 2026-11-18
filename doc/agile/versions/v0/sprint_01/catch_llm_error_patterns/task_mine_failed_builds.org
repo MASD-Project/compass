@@ -7,12 +7,12 @@
 #+level: s1
 #+filetags: :catch_llm_error_patterns:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/mine-failed-builds
 #+pr:
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
-#+updated: 2026-11-16
+#+updated: 2026-11-18
 #+environment:
 #+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
 
@@ -20,22 +20,39 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Goal
 
-Collect failures from failed CI runs, fix-up commits, PR reviews and memories.
+Know why ORE Studio's CI builds failed over the last two months, day by day,
+and which of those failures a compass check could have caught before the
+build.
 
 * Status
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED |
 | Parent story | [[id:63D5482E-E1E7-45B0-883F-3B2DDFA2B447][Catch the errors LLMs introduce]] |
-| Now          | Not yet started.                       |
+| Now          | Writing the mining script. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Run it over the last 60 days and write the per-day report. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
 
-- The failure set and its sources are recorded.
+- =build/scripts/mine_failed_builds.py= lists every failed or cancelled-by-failure
+  run of ORE Studio's workflows (=OreStudio/OreStudio=) between two dates,
+  default the last 60 days, and downloads each failed job's log.
+- It is gentle with GitHub: it sleeps between requests, watches =gh api
+  rate_limit= and waits for the reset rather than failing, and caches every
+  listing and log on disk so a rerun fetches only what is new.
+- Each failed job is reduced to its failing step and a normalised reason (the
+  first real error, with paths, numbers and hashes stripped), and reasons are
+  grouped into patterns.
+- A per-day report in =evidence/= lists, for each day: the failed runs, the
+  workflow, job and step, the reason, the pattern, and a verdict on whether
+  compass could catch it before a build: already caught (naming the codec),
+  could be caught (naming the data it would read), or not catchable before a
+  build (infrastructure, flaky tests, runner limits), with the reason.
+- A summary ranks the patterns by count and by CI time lost, and the
+  commit that introduced each catchable pattern is named where the log allows.
 
 * Plan
 
