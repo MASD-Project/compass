@@ -61,6 +61,12 @@ namespace compass::crosscheck::codecs {
  * profile property and states a feature in any drawer; it may not state
  * a feature a bound profile fixes with another value, leave unset one the
  * profile requires, or state one feature with two values.
+ *
+ * Rule opt_out (protocol-twins): a drawer of a model that states
+ * ores.ts.protocol.enabled, the switch of the TypeScript protocol facet.
+ * Rule outside_protocol (subject-conformance): a :subject: of a model's
+ * drawer that is not inside the entity protocol (ops::classify_subject).
+ * Rule unreadable_model: a model that is not UTF-8.
  */
 extern const compass::codec::types::descriptor model_rules;
 

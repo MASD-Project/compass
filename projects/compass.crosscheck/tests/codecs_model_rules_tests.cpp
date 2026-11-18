@@ -194,3 +194,66 @@ TEST_CASE("an edit to a profile reruns the rules of the models that bind it",
     CHECK(tests::run_after_edit(codecs::model_rules, before, after)
         .findings.empty());
 }
+
+TEST_CASE("a declared subject outside the protocol is reported on its line",
+    "[codecs][model_rules]") {
+    const files t{
+        {"projects/ores.refdata/modeling/ores.refdata.currency.org",
+         ":PROPERTIES:\n"
+         ":subject: refdata.v1.currencies.get\n"
+         ":subject: refdata.v1.currencies.list_by_party\n"
+         ":subject: refdata.v1.events.currencies.created\n"
+         ":subject: refdata.v1.ops.rebuild\n"
+         ":subject: {component}.v1.history.get\n"
+         ":subject: refdata.v1.currencies.fetch\n"
+         ":subject: refdata.v2.currencies.get\n"
+         ":subject: refdata.v1.currency_events.updated\n"
+         ":subject: refdata.v1.events.currencies.renamed\n"
+         ":subject: refdata.v1.Currencies.get\n"
+         ":subject: refdata.currencies.get\n"
+         ":END:\n#+type: ores.codegen.operation\n"},
+        {"projects/ores.refdata/modeling/nested/ores.refdata.x.org",
+         "#+type: ores.codegen.operation\n* M\n:PROPERTIES:\n"
+         ":subject: refdata.v1.nested.fetch\n:END:\n"},
+        {"projects/ores.refdata/modeling/ores.refdata.y.org",
+         "#+type: ores.codegen.operation\n#+begin_src org\n"
+         ":subject: refdata.v1.in_a_block.fetch\n#+end_src\n"}};
+    CHECK(messages(tests::run(codecs::model_rules, t)) ==
+        std::vector<std::string>{
+            "projects/ores.refdata/modeling/ores.refdata.currency.org:7: "
+            "refdata.v1.currencies.fetch: the verb 'fetch' is not one of the "
+            "closed set of eight and is not in the reserved ops namespace",
+            "projects/ores.refdata/modeling/ores.refdata.currency.org:8: "
+            "refdata.v2.currencies.get: the version segment is 'v2', not "
+            "'v1'",
+            "projects/ores.refdata/modeling/ores.refdata.currency.org:9: "
+            "refdata.v1.currency_events.updated: the four-segment event "
+            "spelling; an event names the events namespace, as in "
+            "component.v1.events.collection.action",
+            "projects/ores.refdata/modeling/ores.refdata.currency.org:10: "
+            "refdata.v1.events.currencies.renamed: the event action "
+            "'renamed' is not one of created, updated, deleted",
+            "projects/ores.refdata/modeling/ores.refdata.currency.org:11: "
+            "refdata.v1.Currencies.get: the resource segment 'Currencies' is "
+            "not lower snake_case",
+            "projects/ores.refdata/modeling/ores.refdata.currency.org:12: "
+            "refdata.currencies.get: 3 segments, the grammar has four, or "
+            "five for an event"});
+}
+
+TEST_CASE("a drawer that switches the TypeScript protocol facet is an "
+    "opt-out", "[codecs][model_rules]") {
+    const files t{
+        {"projects/ores.refdata/modeling/ores.refdata.x.org",
+         ":PROPERTIES:\n  :ores.ts.protocol.enabled: false\n:END:\n"
+         "#+type: ores.codegen.entity\n"
+         "The key :ores.ts.protocol.enabled: in prose is not a switch.\n"},
+        {"projects/ores.refdata/modeling/notes.org",
+         ":PROPERTIES:\n:ores.ts.protocol.enabled: false\n:END:\n"
+         "#+type: knowledge\n"}};
+    CHECK(messages(tests::run(codecs::model_rules, t)) ==
+        std::vector<std::string>{
+            "projects/ores.refdata/modeling/ores.refdata.x.org:2: the model "
+            "opts out of the TypeScript protocol facet: "
+            ":ores.ts.protocol.enabled: false"});
+}

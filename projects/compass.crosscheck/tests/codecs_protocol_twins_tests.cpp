@@ -55,13 +55,9 @@ TEST_CASE("a protocol header of a committed component needs its "
         {"projects/ores.trading/api/include/ores.trading.api/messaging/"
          "trade_protocol.hpp", ""},
         {"projects/ores.iam/api/include/ores.iam.api/messaging/"
-         "role_protocol.hpp", ""},
-        {"projects/ores.refdata/modeling/nested/ores.refdata.x.org",
-         ":PROPERTIES:\n  :ores.ts.protocol.enabled: false\n:END:\n"}};
+         "role_protocol.hpp", ""}};
     CHECK(tests::messages_of(tests::run(codecs::protocol_twins, t)) ==
         std::vector<std::string>{
             "expected projects/ores.web/generated/refdata/protocol/"
-            "party_protocol.ts (component 'refdata')",
-            "the model opts out of the TypeScript protocol facet: "
-            ":ores.ts.protocol.enabled: false"});
+            "party_protocol.ts (component 'refdata')"});
 }

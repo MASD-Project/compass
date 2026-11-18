@@ -28,16 +28,14 @@ namespace compass::crosscheck::codecs {
  * @brief ORE Studio's subject-conformance gate: every NATS subject is
  * inside the entity protocol.
  *
- * A subject is declared by a :subject: line of an org file directly under
- * projects/<component>/modeling/, or written where no model declares it: a
- * quoted dotted name in the DQ artefact type populate script. The script
- * also read C++ files with a pattern that opens on a double quote and
- * closes on a single one, so it matched nothing; that half is not ported. Rule outside_protocol: a subject that is not
+ * This codec reads the subjects written where no model declares them: a
+ * quoted dotted name in the DQ artefact type populate script. The
+ * subjects the models declare are model_rules' outside_protocol. The
+ * script also read C++ files with a pattern that opens on a double quote
+ * and closes on a single one, so it matched nothing; that half is not
+ * ported. Rule outside_protocol: a subject that is not
  * component.v1.resource.verb with a verb of the closed set or list_by_,
  * component.v1.ops.operation, or component.v1.events.collection.action.
- * Rule no_declaration: no model declares a subject. Rule unreadable_model:
- * a model that is not UTF-8. The script's baseline is replaced by inline
- * exceptions.
  */
 extern const compass::codec::types::descriptor subject_conformance;
 

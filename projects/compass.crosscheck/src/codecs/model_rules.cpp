@@ -34,6 +34,7 @@
 #include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
 #include "compass.crosscheck/ops/python_literals.hpp"
+#include "compass.crosscheck/ops/subjects.hpp"
 #include "compass.crosscheck/ops/words.hpp"
 #include "compass.model/ops/load.hpp"
 #include "compass.model/ops/outline.hpp"
@@ -52,7 +53,7 @@ namespace pt = compass::platform::text;
 
 enum rule : std::uint32_t { money_not_exact, continuous_exact,
     unpublished_area, unreadable_areas, contradicted, unset_required,
-    self_contradicting };
+    self_contradicting, opt_out, outside_protocol, unreadable_model };
 
 constexpr std::array<std::string_view, 2> money_not_exact_sources{
     "E47BAF35-066F-4EF2-BA3D-522AED44FF33",
@@ -61,7 +62,7 @@ constexpr std::array<std::string_view, 2> money_not_exact_sources{
 constexpr std::array<std::string_view, 1> continuous_exact_sources{
     "B9DAC38A-BEB1-4658-87BC-DFF901033E84"};
 
-constexpr std::array<ct::rule, 7> rules{{
+constexpr std::array<ct::rule, 10> rules{{
     {"money_not_exact", "A money column is numeric in SQL and a decimal in "
         "C++, never a binary float or text.", money_not_exact_sources},
     {"continuous_exact", "A continuous quantity is not typed numeric or "
@@ -74,7 +75,11 @@ constexpr std::array<ct::rule, 7> rules{{
         "fixes to another value."},
     {"unset_required", "A model sets every feature its profile requires."},
     {"self_contradicting", "A model states a feature once, or always with "
-        "one value."}}};
+        "one value."},
+    {"opt_out", "No model switches the TypeScript protocol facet off."},
+    {"outside_protocol", "Every NATS subject a model declares is inside the "
+        "entity protocol."},
+    {"unreadable_model", "Every model is UTF-8."}}};
 
 constexpr std::array<ct::option, 3> options{{
     {"excluded_columns",
@@ -440,6 +445,58 @@ void check_drift(std::string_view path, const stated_map& values,
     }
 }
 
+/**
+ * @brief The line of @p source that holds @p at, without the spaces at
+ * either end.
+ */
+std::string_view line_at(std::string_view source, std::string_view at) {
+    const auto begin = line_start(source, at);
+    const auto end = source.find('\n', begin);
+    return co::strip(source.substr(begin, end == std::string_view::npos
+        ? std::string_view::npos : end - begin));
+}
+
+/**
+ * @brief Each drawer property of the model, the file's drawer first, as
+ * its key and value.
+ */
+std::vector<std::pair<std::string_view, std::string_view>> drawer_properties(
+    const mo::outline& o) {
+    std::vector<std::pair<std::string_view, std::string_view>> out;
+    for (std::size_t i = 0; i < o.file_property_keys.size(); ++i)
+        out.emplace_back(o.file_property_keys[i], o.file_property_values[i]);
+    for (std::size_t i = 0; i < o.property_keys.size(); ++i)
+        out.emplace_back(o.property_keys[i], o.property_values[i]);
+    return out;
+}
+
+/**
+ * @brief protocol-twins' opt-out and subject-conformance over a model's
+ * drawers: a drawer that states the TypeScript protocol facet's switch,
+ * and a :subject: outside the entity protocol.
+ */
+void check_drawers(const ct::document& d, const mo::outline& o,
+    ct::diagnostic_table& out) {
+    for (const auto& [key, value] : drawer_properties(o)) {
+        if (key == "ores.ts.protocol.enabled") {
+            co::report(out, d.path, line_start(d.source, key), opt_out,
+                "the model opts out of the TypeScript protocol facet: " +
+                std::string(line_at(d.source, key)), "Remove the key, so no "
+                "model silences the facet.");
+            continue;
+        }
+        const auto subject = co::strip(value);
+        if (key != "subject" || subject.empty() ||
+            subject.find_first_of(" \t") != std::string_view::npos)
+            continue;
+        const auto [ok, reason] = ops::classify_subject(subject);
+        if (!ok)
+            co::report(out, d.path, line_start(d.source, key),
+                outside_protocol, std::string(subject) + ": " + reason,
+                std::string(ops::subject_fix));
+    }
+}
+
 void map(const ct::document& d, const ct::option_values& options,
     ct::file_scan& out) {
     const mo::document doc{d.path, d.source, &d.tables};
@@ -461,9 +518,13 @@ void map(const ct::document& d, const ct::option_values& options,
     mo::outline o;
     mo::build_outline(d.source, d.tables, o);
     fact.number(static_cast<std::uint32_t>(fact_kind::model));
+    if (!pt::is_utf8(d.source))
+        co::report(out.findings, d.path, 0, unreadable_model, "the model is "
+            "not UTF-8", "Save the model as UTF-8.");
     write_areas(d, o, fact);
     write_features(o, fact);
     check_money(d, o, *type, options, out.findings);
+    check_drawers(d, o, out.findings);
 }
 
 
@@ -536,7 +597,7 @@ void reduce(std::span<const ct::scanned_file> files, const ct::corpus_view& v,
 
 const ct::descriptor model_rules{
     .name = "model_rules",
-    .version = 2,
+    .version = 3,
     .summary = "Reports each codegen model that breaks a rule ORE Studio's "
         "gates state about one model.",
     .reads = ct::inputs::of_types({}),

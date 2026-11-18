@@ -49,6 +49,7 @@ add_library(${lib_target_name}
     ops/projection_columns.cpp
     ops/python_numbers.cpp
     ops/python_literals.cpp
+    ops/subjects.cpp
     ops/value_sets.cpp
     ops/words.cpp)
 
