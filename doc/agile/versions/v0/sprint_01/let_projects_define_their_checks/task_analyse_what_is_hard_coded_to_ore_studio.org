@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :let_projects_define_their_checks:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/analyse-what-is-hard-coded-to-ore-studio
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -27,11 +27,11 @@ check would look like, before any of it moves.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED |
 | Parent story | [[id:DAB2F48A-E47A-4895-9026-056AF21E6CCC][Let projects define their own checks]] |
-| Now          | Not yet started.                       |
+| Now          | Classifying each codec's ORE Studio specifics. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Propose the data format and test it on the mined check candidates. |
 | Last touched | 2026-11-18                               |
 
 * Acceptance
