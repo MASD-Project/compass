@@ -64,7 +64,9 @@ TEST_CASE("a BEGIN marker without its END on a line of its own is "
     const files t{{"doc/a.org", page(target_id, "knowledge",
         "# BEGIN generated a\n# END generated b\n"
         "#+BEGIN generated c\nprose # END generated c\n"
-        "# BEGIN generated d\n  # END generated d  \n")}};
+        "# BEGIN generated d\n  # END generated d  \n"
+        "#+begin_example\n# BEGIN generated e (tools/missing.py)\n"
+        "#+end_example\n")}};
     const auto found = tests::run(codecs::lint, t);
     CHECK(tests::messages(found) == std::vector<std::string>{
         "'# BEGIN generated a' has no matching '# END generated a' on its "
@@ -143,4 +145,30 @@ TEST_CASE("a durable page linking an agile one is reported only with "
     CHECK(tests::messages(tests::run(codecs::lint, t,
         {{"strict_links", "true"}})) == std::vector<std::string>{
             "doc/knowledge/k.org -> task: the task"});
+}
+
+TEST_CASE("an id link is one org parses: one whose label wraps a line "
+    "dangles, and one in a block is text", "[codecs][lint]") {
+    const files t{{"doc/a.org", page(target_id, "knowledge",
+        "See [[id:" + task_id + "][a label that\nwraps]].\n"
+        "#+begin_src text\n[[id:" + task_id + "][in a block]]\n#+end_src\n"
+        "#+BEGIN_EXAMPLE\n[[id:" + task_id + "][upper]] [[id:x-y]]\n"
+        "#+END_EXAMPLE\n")}};
+    const auto found = tests::run(codecs::lint, t);
+    CHECK(tests::messages(found) == std::vector<std::string>{
+        "[[id:" + task_id + "]] -> a label that wraps resolves to no :ID: "
+        "in the corpus"});
+    CHECK(tests::places(found) ==
+        std::vector<std::pair<std::string, std::uint32_t>>{{"doc/a.org", 5}});
+}
+
+TEST_CASE("a #+type: or #+filetags: line inside a block is not the page's",
+    "[codecs][lint]") {
+    const files t{
+        {"doc/knowledge/k.org", page(target_id, "knowledge",
+            "Made by [[id:" + task_id + "][the task]].\n")},
+        {"doc/agile/t.org", ":PROPERTIES:\n:ID: " + task_id + "\n:END:\n"
+            "#+begin_example\n#+type: task\n#+filetags: :Bad:\n"
+            "#+end_example\n"}};
+    CHECK(tests::run(codecs::lint, t, {{"strict_links", "true"}}).empty());
 }

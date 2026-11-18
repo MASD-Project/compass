@@ -119,7 +119,12 @@ others is in its descriptor, so adding a codec adds a row to a list.
   which reads every fact (=types::scanned_file=), in the order =files=
   gave, and may read more through the view. =map= reads nothing else, so
   its result depends on those alone. The findings of a call are those of
-  the maps, file by file, then the reduce's. A scan is one corpus unit
+  the maps, file by file, then the reduce's. A /scan of documents/ sets
+  =map_document= instead of =map=: it is given the corpus document at each
+  path, with its parsed tables, whatever its type, so a gate over org pages
+  reads the parse and not the text; the document's content ID is the
+  file input, as reading it would be, and a listed path that is no
+  document gets an empty fact. A scan is one corpus unit
   with the same inputs as before: a listing per pattern and a =file= input
   per file. When the unit is called, =ops::run= starts from the /scan
   table/ in the result object its previous record row names, under the

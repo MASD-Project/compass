@@ -31,8 +31,8 @@ using places = std::vector<place>;
 
 }
 
-TEST_CASE("a numbered heading outside a block is reported on its line",
-    "[codecs][heading_numbers]") {
+TEST_CASE("a heading whose title starts with a number is reported on its "
+    "line", "[codecs][heading_numbers]") {
     const files t{
         {"doc/a.org",
          "* 1. Intro\n"
@@ -40,22 +40,34 @@ TEST_CASE("a numbered heading outside a block is reported on its line",
          "*** 3) Third\n"
          "* 2024 roadmap\n"
          "* 1.Tight\n"
-         "#+BEGIN_SRC org\n* 4. Inside\n#+end_src\n"
-         "* 5. After\n"
+         "* TODO 4. With a keyword :tag:\n"
+         "* [#A] 5) With a priority\n"
          "text #+begin_src is not an opening\n* 6. Still read\n"
-         "#+begin_example\n#+end_example glued * 7. no\n* 8. Read again\n"},
+         "#+begin_example\n* 7. no\n#+end_example\n"
+         "#+begin_src org\n,* 8. Escaped\n#+end_src\n"},
         {"projects/ores.a/modeling/b.org", "* 1. Model\n"},
         {"projects/ores.a/build/c.org", "* 1. Built\n"},
         {"other/d.org", "* 1. Outside\n"}};
     CHECK(tests::places(tests::run(codecs::heading_numbers, t)) ==
         places{{"doc/a.org", 1}, {"doc/a.org", 2}, {"doc/a.org", 3},
-            {"doc/a.org", 9}, {"doc/a.org", 11}, {"doc/a.org", 14},
-            {"projects/ores.a/modeling/b.org", 1}});
+            {"doc/a.org", 6}, {"doc/a.org", 7}, {"doc/a.org", 9},
+            {"doc/a.org", 11}, {"projects/ores.a/modeling/b.org", 1}});
 }
 
-TEST_CASE("an unclosed block hides the headings after it",
+TEST_CASE("a heading is one where org parses one: an unclosed block hides "
+    "nothing, and a heading line ends the block it is in",
     "[codecs][heading_numbers]") {
     const files t{{"doc/a.org",
-        "#+begin_quote\n* 1. Hidden\n"}};
-    CHECK(tests::run(codecs::heading_numbers, t).empty());
+        "#+begin_quote\n* 1. After an unclosed block\n"
+        "#+begin_src text\nx\n* 2. Ends the block\n#+end_src\n"}};
+    CHECK(tests::places(tests::run(codecs::heading_numbers, t)) ==
+        places{{"doc/a.org", 2}, {"doc/a.org", 5}});
+}
+
+TEST_CASE("a page that is not UTF-8 is reported once, at its start",
+    "[codecs][heading_numbers]") {
+    const files t{{"doc/a.org", "* 1. Intro \xff\n"}};
+    CHECK(tests::messages(tests::run(codecs::heading_numbers, t)) ==
+        std::vector<std::string>{
+            "the document is not UTF-8, so its headings cannot be read"});
 }
