@@ -37,8 +37,8 @@
 #include "compass.codec/types/corpus.hpp"
 #include "compass.cpp/ops/text.hpp"
 #include "compass.ingest/org/parser.hpp"
-#include "compass.platform/process/environment.hpp"
 #include "compass.store/ops/blob_hash.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
 
 namespace compass::crosscheck::tests {
 
@@ -133,16 +133,10 @@ inline outcome run(const compass::codec::types::descriptor& codec,
  */
 inline outcome run_after_edit(const compass::codec::types::descriptor& codec,
     const files& before, const files& after) {
-    static int counter = 0;
-    const auto cache = std::filesystem::temp_directory_path() /
-        ("compass.tests.edit." +
-            std::to_string(
-                compass::platform::process::current_process_id()) +
-            "." + std::to_string(counter++));
-    std::filesystem::create_directories(cache);
-    const auto first = run(codec, before, {}, {}, cache);
-    auto second = run(codec, after, {}, first.record, cache);
-    std::filesystem::remove_all(cache);
+    const compass::testing::filesystem::scoped_directory cache(
+        "compass.crosscheck.tests.edit");
+    const auto first = run(codec, before, {}, {}, cache.path());
+    auto second = run(codec, after, {}, first.record, cache.path());
     CHECK(second.findings == run(codec, after).findings);
     return second;
 }

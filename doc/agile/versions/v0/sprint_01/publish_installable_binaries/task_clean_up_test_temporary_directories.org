@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :publish_installable_binaries:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/clean-up-test-temporary-directories
+#+pr: https://github.com/MASD-Project/compass/pull/85
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-18
@@ -27,11 +27,11 @@ pass, fail, throw or are killed.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE |
 | Parent story | [[id:EB6AF798-D472-4CC2-B97C-FC2BD9FD1FDE][Publish installable binaries]] |
-| Now          | Not yet started.                       |
-| Waiting on   | Port compass to Windows, which rewrites the same fixtures. |
-| Next         | Start when the Windows port merges. |
+| Now          | Merged. |
+| Waiting on   | Nothing. |
+| Next         | Nothing. |
 | Last touched | 2026-11-18                               |
 
 * Acceptance
@@ -52,6 +52,37 @@ pass, fail, throw or are killed.
 are distilled into the parent story's =* Decisions= at close, but the
 plan itself stays — it is the historical record of what we did.)
 
+Replace the suites' own temporary-directory classes with one
+=scoped_directory= in a new =compass.testing= component, and make it clean up
+after processes that died, not just after itself.
+
+- Seam. =compass.platform= gains =process/liveness=: =is_running(pid)=, which
+  is =kill(pid, 0)= on POSIX, where =EPERM= still means running, and
+  =OpenProcess= with =GetExitCodeProcess= on Windows, where access denied
+  still means running. IDs 0 and those past =pid_t= are never running, since
+  =kill= reads them as process groups.
+- Component. =compass.testing=, laid out as =component_architecture.org=
+  says: =include/compass.testing/filesystem/scoped_directory.hpp=, its
+  source, its tests and =modeling/component_overview.org=. It sits in the
+  tooling layer and depends only on =compass.platform=.
+- Shape. =scoped_directory(prefix)= creates
+  =<temp>/<prefix>.<pid>.<n>= with =create_directory=, taking the next =n=
+  until one is new, and removes it on destruction, ignoring a failure the
+  next run will clean up. Before creating it, it removes every
+  =<prefix>.<pid>.<n>= whose =pid= is neither this process nor running. The
+  name must have exactly that shape, so another suite's prefix that starts
+  with this one is left alone. The temporary directory is canonical, as the
+  store's tests already made it, because Windows may give its 8.3 name and
+  git prints the long one.
+- Fixtures. A fixture with more to it than a directory holds the
+  =scoped_directory= as its first member, so a throw later in its
+  constructor still removes it; a class that only made and removed a
+  directory is deleted and its tests declare a =scoped_directory=. Two
+  migration scripts do the mechanical part and the rest is by hand. Each
+  fixture keeps its prefix, except =run_after_edit= in the =cpp=, =sql= and
+  =crosscheck= suites, which shared =compass.tests.edit= and now name their
+  suite.
+
 * Measurements
 
 Every number this task claims about a tree, with the command that produced it
@@ -62,9 +93,24 @@ code changing, and the reader of a bare number cannot tell which tree it came
 from. Where the raw output matters, put it in an =evidence/= file beside the
 task and name that file in the Command column.
 
-| What | Value | Command | Commit |
-|------+-------+---------+--------|
-|      |       |         |        |
+| What                                                           | Value                        | Command                                                                                              | Commit    |
+|----------------------------------------------------------------+------------------------------+------------------------------------------------------------------------------------------------------+-----------|
+| =temp_directory_path= in test sources                          | 33                           | =git grep temp_directory_path 69cff10 -- projects \vert grep /tests/=                                 | =69cff10= |
+| Of those, fixtures that make a temporary directory or file     | 31                           | The 33 less =mapped_file='s missing path and its use of the temporary directory itself               | =69cff10= |
+| =temp_directory_path= in test sources, outside compass.testing | 2                            | =git grep temp_directory_path 2e90db3 -- projects \vert grep /tests/=; the two =mapped_file= uses     | =2e90db3= |
+| Directories left by =compass.cli.tests= with a failing =git=   | 67                           | =git= that exits 1 first on =PATH=, run =compass.cli.tests=, count =/tmp/compass.*.<pid>.*=          | =69cff10= |
+| Same, after                                                    | 0                            | Same; 67 of 104 test cases still fail, as before                                                     | =2e90db3= |
+| Directories left by =compass.bench.tests= with a failing =git= | 19                           | Same, with =compass.bench.tests=: 16 =compass.bench.tests.*=, 3 =compass.bench.ids.tests.*=          | =69cff10= |
+| Same, after                                                    | 0                            | Same; 39 of 78 test cases still fail, as before                                                      | =2e90db3= |
+| Directories left by a =compass.store.tests= killed after 3 s   | 1, then 0 after the next run | =kill -KILL= mid-run, count =/tmp/compass.*.<pid>.*=, run the suite again, count again               | =2e90db3= |
+| Directories left by a =compass.codec.tests= killed after 2 s   | 1, then 0 after the next run | Same                                                                                                 | =2e90db3= |
+| =ctest= on Linux, clang release                                | 16 of 16, five runs          | =ctest -j2=; compass.testing.tests is the sixteenth                                                  | =2e90db3= |
+| Directories in =/tmp= after those runs                         | 0                            | =ls -d /tmp/compass.*= after each run                                                                | =2e90db3= |
+| =compass check= diagnostics                                    | 67, the same lines           | =compass check=, diffed against the base                                                             | =2e90db3= |
+| Warnings, Linux clang release with warnings as errors          | 0 in 992 steps               | =cmake --preset linux-clang-release-ninja -DCOMPASS_WARNINGS_AS_ERRORS=ON=, =--clean-first= build     | =2e90db3= |
+| Mutations of the sweep the =scoped_directory= tests catch      | 2 of 2                       | Remove the liveness check (fails line 129); skip the sweep (fails line 105)                           | =2e90db3= |
+| Nightly Windows, clang and MSVC release                        | Pass, 0 warnings, 15 of 15   | Run 44349586854; MSVC passed on its second attempt, see Notes                                        | =2e90db3= |
+| Nightly macOS, clang release and debug                         | Pass, 0 warnings, 16 of 16   | Run 44349592992; debug passed on its second attempt, see Notes                                       | =2e90db3= |
 
 * Notes
 
@@ -75,6 +121,39 @@ Two leak paths were found on 2026-11-18. =scoped_git_repo= in
 process that is killed, crashes or times out leaves its directories too; a
 =compass.store.tests= directory was found that way. A passing run leaves
 nothing (three full =ctest= runs).
+
+- Fixtures moved. All 31: =compass.store= (its =scoped_directory=, which
+  =git_repository= held), =compass.cli= (=scoped_git_repo=, =scoped_bin=),
+  =compass.bench= (=scoped_git_repo= and eight fixtures of its own),
+  =compass.codec= (eleven, =git_diff= among them), =compass.codegen=
+  (=scoped_bin=), =compass.platform= (four, the mapped file tests' file among
+  them), and =run_after_edit= in =compass.cpp=, =compass.sql= and
+  =compass.crosscheck=. A file fixture keeps its file in a =scoped_directory=
+  of its own, so the sweep covers it too.
+- Left alone. The two =temp_directory_path= uses in the =mapped_file= tests
+  make nothing: one names a path that must not exist, the other is the
+  temporary directory itself. =end_to_end.sh= and =install_compass.sh= take
+  =mktemp -d= and remove it on =EXIT=; a =SIGKILL= still leaves that
+  directory, but its =tmp.*= name says nothing of its owner and a sweep needs
+  one.
+- What a sweep cannot see. A directory whose process ID has been reused by a
+  running process stays until that process ends. A directory another user
+  owns stays, since the sweep cannot remove it. Neither is this run's.
+- The first leak path was not the CLI's alone. =scoped_git_repo= and the
+  =ids= stage fixture in =compass.bench= ran =git init= through =REQUIRE= in
+  their constructors as the CLI's did. =git_repository= in =compass.store=
+  did not leak: it already held its directory as a member, which is
+  destroyed when the constructor throws.
+- Two CI legs needed a second attempt. The macOS debug leg was cancelled
+  after 15 minutes in the queue without a runner, and passed when rerun.
+  The MSVC leg's first attempt failed one check in =compass.store.tests=:
+  "concurrent writers of one object all succeed and leave it whole" saw a
+  torn read (=torn == 1=, =io_object_file_tests.cpp= line 122), and the
+  rerun passed. That test races a reader against writers that replace the
+  file; the change here only renames its directory, so the failure is the
+  store's on Windows. A likely cause, not yet confirmed, is that opening a
+  file while a POSIX-semantics rename replaces it can fail on Windows, which
+  =read_file= reports as no file. It needs its own task.
 
 * Test Scenarios
 
@@ -91,7 +170,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/85][#85]] | Clean up the tests' temporary directories |
 
 * Review
 
@@ -100,3 +179,12 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+compass.testing holds one =scoped_directory=, and all 31 fixtures that made a
+temporary directory use it, holding it first so a throwing constructor still
+cleans up. It sweeps leftovers of dead processes through a new
+=compass.platform= liveness seam. With a failing =git=, =compass.cli.tests= went
+from 67 leaked directories to 0 (bench from 19 to 0); a test binary killed with
+SIGKILL is cleaned by its next run. Windows 44349586854 and macOS 44349592992
+pass with 0 warnings. The torn read one MSVC attempt hit is a store race, filed
+as Read store objects while Windows replaces them.

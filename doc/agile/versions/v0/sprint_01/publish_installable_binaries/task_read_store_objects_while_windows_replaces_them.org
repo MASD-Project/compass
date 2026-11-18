@@ -1,0 +1,99 @@
+:PROPERTIES:
+:ID: 92BC3EE7-75EB-4FC1-B37B-A4906CAD6935
+:END:
+#+title: Task: Read store objects while Windows replaces them
+#+description: On Windows a reader of a store object can see it missing while a writer replaces it, as compass.store.tests' concurrent-writers test caught once under MSVC; find the cause and make reads of a replaced object always see a whole object.
+#+type: task
+#+level: s1
+#+filetags: :publish_installable_binaries:sprint_01:v0:
+#+owner: marco
+#+branch:
+#+pr:
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-11-18
+#+updated: 2026-11-18
+#+environment:
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [[id:EB6AF798-D472-4CC2-B97C-FC2BD9FD1FDE][Publish installable binaries]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+On every platform, a process reading a store object never sees it missing or
+torn while another process replaces it with the same content.
+
+* Status
+
+| Field        | Value                                  |
+|--------------+----------------------------------------|
+| State        | BACKLOG                              |
+| Parent story | [[id:EB6AF798-D472-4CC2-B97C-FC2BD9FD1FDE][Publish installable binaries]] |
+| Now          | Not yet started.                       |
+| Waiting on   | Nothing.                               |
+| Next         | Begin implementation.                  |
+| Last touched | 2026-11-18                               |
+
+* Acceptance
+
+- The cause of the torn read is found and recorded: the failing call and its
+  Windows error, not a guess.
+- =io::read_file= on a store object being replaced returns the whole object on
+  Windows, or the store's readers retry in the one case that needs it.
+- The concurrent-writers test in =io_object_file_tests.cpp= passes on MSVC and
+  Windows clang over many repeated runs, recorded under Measurements.
+
+* Plan
+
+(Implementation strategy. Written when work starts; key decisions
+are distilled into the parent story's =* Decisions= at close, but the
+plan itself stays — it is the historical record of what we did.)
+
+* Measurements
+
+Every number this task claims about a tree, with the command that produced it
+and the commit it was measured at. A number without both is not a measurement,
+because a clean-up record describes a tree and trunk moves under a branch: a
+consumer count, a gate's component count and a suite's size all change with no
+code changing, and the reader of a bare number cannot tell which tree it came
+from. Where the raw output matters, put it in an =evidence/= file beside the
+task and name that file in the Command column.
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+|      |       |         |        |
+
+* Notes
+
+Nightly Windows run 44349586854's MSVC leg (first attempt) failed
+"concurrent writers of one object all succeed and leave it whole" with
+=torn == 1= at =io_object_file_tests.cpp:122=; the rerun passed. The test races a
+reader against writers that replace the file. The guess, not confirmed, is that
+opening the file while =replace_file= renames over it fails with a sharing
+violation, which =read_file= reports as no file. Found by Clean up the tests'
+temporary directories, whose change only renamed the test's directory.
+
+* Test Scenarios
+
+Manual QA scenarios (scaffolded via =compass add test_scenario=)
+that verify this task. Link
+new ones here as they're created; the scenario doc itself links back
+via its "Verifies task" field.
+
+| Scenario | State | Notes |
+|----------+-------+-------|
+|          |       |       |
+
+* PRs
+
+| PR | Title |
+|----+-------|
+|    |       |
+
+* Review
+
+| # | Comment summary | File | Decision | Notes |
+|---+-----------------+------+----------+-------|
+|   |                 |      |          |       |
+
+* Result

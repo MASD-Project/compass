@@ -33,40 +33,16 @@
 #include "compass.codec/ops/registry.hpp"
 #include "compass.codec/ops/run.hpp"
 #include "compass.platform/filesystem/file_status.hpp"
-#include "compass.platform/process/environment.hpp"
 #include "compass.store/ops/blob_hash.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
 #include "test_corpus.hpp"
 
 namespace {
 
+using compass::testing::filesystem::scoped_directory;
 using namespace compass::codec;
 using Catch::Matchers::ContainsSubstring;
 using counts = std::vector<std::uint64_t>;
-
-/**
- * @brief A fresh git directory stand-in under the system temporary
- * directory, removed on destruction.
- */
-class scoped_directory final {
-public:
-    scoped_directory() {
-        static int counter = 0;
-        root_ = std::filesystem::temp_directory_path() /
-            ("compass.codec.tests." +
-                std::to_string(
-                    compass::platform::process::current_process_id()) +
-                "." + std::to_string(counter++));
-        std::filesystem::create_directories(root_);
-    }
-    ~scoped_directory() { std::filesystem::remove_all(root_); }
-    scoped_directory(const scoped_directory&) = delete;
-    scoped_directory& operator=(const scoped_directory&) = delete;
-
-    [[nodiscard]] const std::filesystem::path& root() const { return root_; }
-
-private:
-    std::filesystem::path root_;
-};
 
 std::string read(const std::filesystem::path& p) {
     std::ifstream is(p, std::ios::binary);
@@ -99,19 +75,19 @@ TEST_CASE("the dependency file lives under compass in the git directory",
 
 TEST_CASE("a missing dependency file is an empty record with no problem",
     "[io][dependency_file]") {
-    scoped_directory dir;
-    const auto loaded = io::read_dependency_file(dir.root() / "deps");
+    const scoped_directory dir("compass.codec.tests");
+    const auto loaded = io::read_dependency_file(dir.path() / "deps");
     CHECK(loaded.record.size() == 0);
     CHECK(loaded.problem.empty());
 }
 
 TEST_CASE("the dependency file is written when it changes and left alone "
     "when it does not", "[io][dependency_file]") {
-    scoped_directory dir;
+    const scoped_directory dir("compass.codec.tests");
     tests::test_corpus t;
     fill(t);
     const auto r = ops::make_registry(codecs::catalogue(), t.types(), {});
-    const auto path = io::dependency_file_path(dir.root());
+    const auto path = io::dependency_file_path(dir.path());
     const auto first = ops::run(r, t.corpus(), t.types(), 2);
 
     CHECK(io::write_dependency_file(path, first.record));
@@ -138,11 +114,11 @@ TEST_CASE("the dependency file is written when it changes and left alone "
 
 TEST_CASE("a damaged dependency file, or one of another version, runs "
     "every unit again", "[io][dependency_file]") {
-    scoped_directory dir;
+    const scoped_directory dir("compass.codec.tests");
     tests::test_corpus t;
     fill(t);
     const auto r = ops::make_registry(codecs::catalogue(), t.types(), {});
-    const auto path = io::dependency_file_path(dir.root());
+    const auto path = io::dependency_file_path(dir.path());
     const auto first = ops::run(r, t.corpus(), t.types(), 2);
     REQUIRE(io::write_dependency_file(path, first.record));
     const auto good = read(path);

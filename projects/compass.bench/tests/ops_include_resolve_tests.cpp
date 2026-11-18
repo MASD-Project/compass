@@ -29,7 +29,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include "compass.bench/ops/listing.hpp"
 #include "compass.bench/ops/search_paths.hpp"
-#include "compass.platform/process/environment.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
 
 namespace {
 
@@ -38,31 +38,18 @@ using namespace compass::bench;
 constexpr auto quoted = types::include_kind::quoted;
 constexpr auto angle = types::include_kind::angle;
 
-class scoped_directory final {
-public:
-    scoped_directory() {
-        static int counter = 0;
-        root_ = std::filesystem::temp_directory_path() /
-            ("compass.bench.resolve." +
-                std::to_string(
-                    compass::platform::process::current_process_id()) +
-                "." + std::to_string(counter++));
-        std::filesystem::create_directories(root_);
-    }
-    ~scoped_directory() { std::filesystem::remove_all(root_); }
-    scoped_directory(const scoped_directory&) = delete;
-    scoped_directory& operator=(const scoped_directory&) = delete;
+class include_tree final {
+    compass::testing::filesystem::scoped_directory dir_{
+        "compass.bench.resolve"};
 
+public:
     void touch(const std::string& relative) {
-        const auto path = root_ / relative;
+        const auto path = dir_.path() / relative;
         std::filesystem::create_directories(path.parent_path());
         std::ofstream(path) << "\n";
     }
 
-    std::string path() const { return root_.generic_string(); }
-
-private:
-    std::filesystem::path root_;
+    std::string path() const { return dir_.path().generic_string(); }
 };
 
 /**
@@ -146,9 +133,9 @@ TEST_CASE("quoted includes search the includer's directory and -iquote; "
 TEST_CASE("include directories are rebased onto the checkout and contexts "
           "follow the component",
     "[ops][include_resolve]") {
-    scoped_directory external;
+    include_tree external;
     external.touch("e.hpp");
-    scoped_directory implicit;
+    include_tree implicit;
     implicit.touch("vector");
 
     fixture f({"projects/p/src/p.cpp", "projects/p/include/p/p.hpp",

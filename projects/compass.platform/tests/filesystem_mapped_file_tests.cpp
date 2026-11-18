@@ -31,33 +31,25 @@
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
-#include "compass.platform/process/environment.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
 
 namespace {
 
 using compass::platform::filesystem::mapped_file;
 
 class scoped_temp_file final {
+    compass::testing::filesystem::scoped_directory dir_{
+        "compass.platform.tests"};
+    std::filesystem::path path_ = dir_.path() / "file";
+
 public:
     explicit scoped_temp_file(std::span<const std::byte> content) {
-        static int counter = 0;
-        path_ = std::filesystem::temp_directory_path() /
-            ("compass.platform.tests." +
-                std::to_string(
-                    compass::platform::process::current_process_id()) +
-                "." + std::to_string(counter++));
         std::ofstream os(path_, std::ios::binary);
         os.write(reinterpret_cast<const char*>(content.data()),
             static_cast<std::streamsize>(content.size()));
     }
-    ~scoped_temp_file() { std::filesystem::remove(path_); }
-    scoped_temp_file(const scoped_temp_file&) = delete;
-    scoped_temp_file& operator=(const scoped_temp_file&) = delete;
 
     const std::filesystem::path& path() const { return path_; }
-
-private:
-    std::filesystem::path path_;
 };
 
 std::vector<std::byte> patterned_bytes(std::size_t n, unsigned seed) {

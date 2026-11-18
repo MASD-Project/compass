@@ -31,12 +31,13 @@
 #include "compass.codec/ops/registry.hpp"
 #include "compass.codec/ops/run.hpp"
 #include "compass.codec/types/corpus_view.hpp"
-#include "compass.platform/process/environment.hpp"
 #include "compass.store/ops/blob_hash.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
 #include "test_corpus.hpp"
 
 namespace {
 
+using compass::testing::filesystem::scoped_directory;
 using namespace compass::codec;
 
 using sources = std::map<std::string, std::string, std::less<>>;
@@ -156,27 +157,6 @@ std::vector<finding> expected() {
             {"story.org", false, 0, 1, "the story says bad"}};
 }
 
-class scoped_cache final {
-public:
-    scoped_cache() {
-        static int counter = 0;
-        root_ = std::filesystem::temp_directory_path() /
-            ("compass.codec.file_findings." +
-                std::to_string(
-                    compass::platform::process::current_process_id()) +
-                "." + std::to_string(counter++));
-        std::filesystem::create_directories(root_);
-    }
-    ~scoped_cache() { std::filesystem::remove_all(root_); }
-    scoped_cache(const scoped_cache&) = delete;
-    scoped_cache& operator=(const scoped_cache&) = delete;
-
-    [[nodiscard]] const std::filesystem::path& root() const { return root_; }
-
-private:
-    std::filesystem::path root_;
-};
-
 }
 
 TEST_CASE("a finding about a file that is not a document names the file",
@@ -194,9 +174,9 @@ TEST_CASE("a unit the record stands in for gives back its file findings",
 
 TEST_CASE("a unit taken from the cache gives back its file findings",
     "[ops][file_findings]") {
-    scoped_cache cache;
-    (void)run(plain(), {}, cache.root());
-    const auto second = run(plain(), {}, cache.root());
+    const scoped_directory cache("compass.codec.file_findings");
+    (void)run(plain(), {}, cache.path());
+    const auto second = run(plain(), {}, cache.path());
     CHECK(second.cached == counts{1});
     CHECK(second.findings == expected());
 }

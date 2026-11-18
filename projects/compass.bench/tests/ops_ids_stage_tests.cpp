@@ -31,8 +31,8 @@
 #include <catch2/matchers/catch_matchers_string.hpp>
 #include "compass.bench/io/report.hpp"
 #include "compass.bench/ops/listing.hpp"
-#include "compass.platform/process/environment.hpp"
 #include "compass.platform/process/run_program.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
 
 namespace {
 
@@ -41,27 +41,20 @@ using namespace compass::bench;
 constexpr auto all = std::numeric_limits<std::uint64_t>::max();
 
 class scoped_git_repo final {
+    compass::testing::filesystem::scoped_directory dir_{
+        "compass.bench.ids.tests"};
+
 public:
     scoped_git_repo() {
-        static int counter = 0;
-        root_ = std::filesystem::temp_directory_path() /
-            ("compass.bench.ids.tests." +
-                std::to_string(
-                    compass::platform::process::current_process_id()) +
-                "." + std::to_string(counter++));
-        std::filesystem::create_directories(root_);
         git("init -q");
     }
-    ~scoped_git_repo() { std::filesystem::remove_all(root_); }
-    scoped_git_repo(const scoped_git_repo&) = delete;
-    scoped_git_repo& operator=(const scoped_git_repo&) = delete;
 
     /**
      * @brief Writes a file an hour in the past, so the index git writes
      * next is not racy for it.
      */
     void write(const std::string& relative, std::string_view content) {
-        const auto path = root_ / relative;
+        const auto path = dir_.path() / relative;
         std::filesystem::create_directories(path.parent_path());
         {
             std::ofstream os(path, std::ios::binary);
@@ -74,21 +67,18 @@ public:
     }
 
     void git(const std::string& command) const {
-        const auto line = "git -C '" + root_.generic_string() + "' " + command +
-            " >/dev/null 2>&1";
+        const auto line = "git -C '" + dir_.path().generic_string() + "' " +
+            command + " >/dev/null 2>&1";
         REQUIRE(compass::platform::process::run_program(
             {{"sh", "-c", line}, {}, {}}).exit_code == 0);
     }
 
     types::file_table list() const {
-        const auto raw = ops::git_ls_files(root_);
-        return ops::build_file_table(root_, ops::parse_listing(raw));
+        const auto raw = ops::git_ls_files(dir_.path());
+        return ops::build_file_table(dir_.path(), ops::parse_listing(raw));
     }
 
-    const std::filesystem::path& root() const { return root_; }
-
-private:
-    std::filesystem::path root_;
+    const std::filesystem::path& root() const { return dir_.path(); }
 };
 
 }

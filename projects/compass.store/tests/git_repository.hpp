@@ -29,7 +29,8 @@
 #include <catch2/catch_test_macros.hpp>
 #include "compass.platform/process/environment.hpp"
 #include "compass.platform/process/run_program.hpp"
-#include "scoped_directory.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
+#include "files.hpp"
 
 namespace compass::store::tests {
 
@@ -38,9 +39,11 @@ namespace compass::store::tests {
  * global configuration out of reach of both git and the code under test.
  */
 class git_repository final {
+    compass::testing::filesystem::scoped_directory dir_{"compass.store.tests"};
+
 public:
     git_repository() {
-        const auto home = dir_.root() / "home";
+        const auto home = dir_.path() / "home";
         std::filesystem::create_directories(home);
         using platform::process::set_environment_variable;
         set_environment_variable("HOME", home.generic_string());
@@ -52,11 +55,11 @@ public:
     }
 
     [[nodiscard]] std::filesystem::path root() const {
-        return dir_.root() / "repo";
+        return dir_.path() / "repo";
     }
 
     void write(const std::string& path, std::string_view content) const {
-        dir_.write("repo/" + path, content);
+        tests::write(root() / path, content);
     }
 
     /**
@@ -101,7 +104,6 @@ public:
     }
 
 private:
-    scoped_directory dir_;
     mutable int last_status_ = 0;
 };
 

@@ -37,9 +37,9 @@
 #include "compass.codec/ops/run.hpp"
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.platform/filesystem/file_status.hpp"
-#include "compass.platform/process/environment.hpp"
 #include "compass.store/io/git_files.hpp"
 #include "compass.store/ops/blob_hash.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
 #include "test_corpus.hpp"
 
 namespace {
@@ -101,22 +101,20 @@ stamp stamp_of(const std::filesystem::path& p) {
  * record of what the sink wrote there, carried from run to run.
  */
 class sink final {
+    compass::testing::filesystem::scoped_directory dir_{
+        "compass.codec.sink.tests"};
+
 public:
     sink() {
-        static int counter = 0;
-        dir_ = std::filesystem::temp_directory_path() /
-            ("compass.codec.sink.tests." +
-                std::to_string(
-                    compass::platform::process::current_process_id()) +
-                "." + std::to_string(counter++));
         std::filesystem::create_directories(root());
     }
-    ~sink() { std::filesystem::remove_all(dir_); }
-    sink(const sink&) = delete;
-    sink& operator=(const sink&) = delete;
 
-    [[nodiscard]] std::filesystem::path root() const { return dir_ / "out"; }
-    [[nodiscard]] const std::filesystem::path& dir() const { return dir_; }
+    [[nodiscard]] std::filesystem::path root() const {
+        return dir_.path() / "out";
+    }
+    [[nodiscard]] const std::filesystem::path& dir() const {
+        return dir_.path();
+    }
 
     io::sink_result run(const types::output_set& s) {
         auto r = io::write_outputs(root(), s, record);
@@ -135,9 +133,6 @@ public:
     }
 
     types::written_outputs record;
-
-private:
-    std::filesystem::path dir_;
 };
 
 /**

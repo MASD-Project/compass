@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :modeling:architecture:system_model:masd:
 #+created: 2026-10-27
-#+updated: 2026-11-17
+#+updated: 2026-11-18
 
 compass-ng follows the ORE Studio system model: components grouped into layers,
 with one invariant --- *a layer depends only on layers below it*. In MASD terms
@@ -174,9 +174,13 @@ of work is a document with a lifecycle state, read through the same tables.
 | =compass.cli= | The =compass= executable: loads the corpus, runs codecs, writes outputs or prints diffs, collects the store, and checks one edited file for a Claude Code hook. The one host of the pipeline. |
 
 * Tooling layer
-| Component       | Role                                                                                   |
-|-----------------+----------------------------------------------------------------------------------------|
-| =compass.bench= | The frozen measurement harness: wall time, bytes and counts per stage of the pipeline. |
+| Component         | Role                                                                                   |
+|-------------------+----------------------------------------------------------------------------------------|
+| =compass.bench=   | The frozen measurement harness: wall time, bytes and counts per stage of the pipeline. |
+| =compass.testing= | Test infrastructure: a temporary directory that removes itself and what dead test runs left behind. |
+
+=compass.testing= is linked only by test binaries. It depends on
+=compass.platform= for the process ID and whether a process is running.
 
 =compass.cli= exists and hosts the pipeline behind =compass generate=,
 =diff=, =check=, =gc= and =hook= (see

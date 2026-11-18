@@ -30,9 +30,9 @@
 #include <catch2/catch_test_macros.hpp>
 #include "compass.codec/ops/outputs.hpp"
 #include "compass.codec/ops/registry.hpp"
-#include "compass.platform/process/environment.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
 
 namespace {
 
@@ -48,23 +48,15 @@ void write_file(const std::filesystem::path& p, std::string_view text) {
  * log file and reports the version held in a file of its own.
  */
 class fixture final {
+    compass::testing::filesystem::scoped_directory dir_{"compass.codec.format"};
+
 public:
     fixture() {
-        static int counter = 0;
-        root_ = std::filesystem::temp_directory_path() /
-            ("compass.codec.format." +
-                std::to_string(
-                    compass::platform::process::current_process_id()) +
-                "." + std::to_string(counter++));
-        std::filesystem::remove_all(root_);
-        std::filesystem::create_directories(root_ / "git");
+        std::filesystem::create_directories(dir_.path() / "git");
         write_file(style(), "upper");
-        write_file(root_ / "version", "fake 1\n");
+        write_file(dir_.path() / "version", "fake 1\n");
         set_script("");
     }
-    ~fixture() { std::filesystem::remove_all(root_); }
-    fixture(const fixture&) = delete;
-    fixture& operator=(const fixture&) = delete;
 
     /**
      * @brief Rewrites the script with @p extra spliced in before the files
@@ -74,7 +66,7 @@ public:
         const auto script = program();
         write_file(script, "#!/bin/sh\n"
             "if [ \"$1\" = --version ]; then cat '" +
-                (root_ / "version").generic_string() + "'; exit 0; fi\n"
+                (dir_.path() / "version").generic_string() + "'; exit 0; fi\n"
             "echo run >> '" + log().generic_string() + "'\n" +
             std::string(extra) +
             "style=$(cat \"${1#--style=}\"); shift\n"
@@ -95,11 +87,13 @@ public:
             .passes = 1, .style = style()};
     }
 
-    std::filesystem::path git() const { return root_ / "git"; }
-    std::filesystem::path style() const { return root_ / "style"; }
-    std::filesystem::path program() const { return root_ / "fake-format"; }
-    std::filesystem::path log() const { return root_ / "log"; }
-    std::filesystem::path version() const { return root_ / "version"; }
+    std::filesystem::path git() const { return dir_.path() / "git"; }
+    std::filesystem::path style() const { return dir_.path() / "style"; }
+    std::filesystem::path program() const {
+        return dir_.path() / "fake-format";
+    }
+    std::filesystem::path log() const { return dir_.path() / "log"; }
+    std::filesystem::path version() const { return dir_.path() / "version"; }
 
     std::size_t processes() const {
         std::ifstream is(log());
@@ -110,7 +104,6 @@ public:
     }
 
 private:
-    std::filesystem::path root_;
     int touches_ = 0;
 };
 

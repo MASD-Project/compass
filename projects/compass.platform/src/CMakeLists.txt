@@ -25,6 +25,7 @@ add_library(${lib_target_name}
     filesystem/new_file.cpp
     process/environment.cpp
     process/executable.cpp
+    process/liveness.cpp
     process/run_program.cpp
     process/standard_streams.cpp
     text/decoding.cpp

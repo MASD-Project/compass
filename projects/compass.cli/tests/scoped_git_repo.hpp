@@ -30,6 +30,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include "compass.platform/process/environment.hpp"
 #include "compass.platform/process/run_program.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
 
 namespace compass::cli::tests {
 
@@ -40,20 +41,17 @@ namespace compass::cli::tests {
  * added to the index.
  */
 class scoped_git_repo final {
+    compass::testing::filesystem::scoped_directory dir_{"compass.cli.tests"};
+
 public:
     scoped_git_repo() {
-        static int counter = 0;
-        root_ = std::filesystem::temp_directory_path() /
-            ("compass.cli.tests." +
-                std::to_string(
-                    compass::platform::process::current_process_id()) +
-                "." + std::to_string(counter++));
         std::filesystem::create_directories(checkout());
-        std::filesystem::create_directories(root_ / "home");
+        std::filesystem::create_directories(dir_.path() / "home");
         using platform::process::set_environment_variable;
-        set_environment_variable("HOME", (root_ / "home").generic_string());
+        set_environment_variable("HOME",
+            (dir_.path() / "home").generic_string());
         set_environment_variable("XDG_CONFIG_HOME",
-            (root_ / "home" / ".config").generic_string());
+            (dir_.path() / "home" / ".config").generic_string());
         set_environment_variable("GIT_CONFIG_NOSYSTEM", "1");
         git("init -q");
         write("doc/meta/document_type_task.org",
@@ -69,9 +67,6 @@ public:
         write("readme.org", "Plain text.\n");
         git("add -A");
     }
-    ~scoped_git_repo() { std::filesystem::remove_all(root_); }
-    scoped_git_repo(const scoped_git_repo&) = delete;
-    scoped_git_repo& operator=(const scoped_git_repo&) = delete;
 
     /**
      * @brief Writes a file under the checkout an hour in the past, so no
@@ -108,11 +103,8 @@ public:
             {{"sh", "-c", line}, {}, {}}).exit_code == 0);
     }
 
-    std::filesystem::path checkout() const { return root_ / "checkout"; }
-    std::filesystem::path output_root() const { return root_ / "out"; }
-
-private:
-    std::filesystem::path root_;
+    std::filesystem::path checkout() const { return dir_.path() / "checkout"; }
+    std::filesystem::path output_root() const { return dir_.path() / "out"; }
 };
 
 }

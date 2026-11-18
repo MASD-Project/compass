@@ -32,12 +32,13 @@
 #include "compass.codec/ops/registry.hpp"
 #include "compass.codec/ops/run.hpp"
 #include "compass.codec/types/corpus_view.hpp"
-#include "compass.platform/process/environment.hpp"
 #include "compass.store/ops/blob_hash.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
 #include "test_corpus.hpp"
 
 namespace {
 
+using compass::testing::filesystem::scoped_directory;
 using namespace compass::codec;
 
 using sources = std::map<std::string, std::string>;
@@ -149,27 +150,6 @@ outcome run(const sources& docs, const sources& plain,
         std::move(result.record), result.same_record};
 }
 
-class scoped_cache final {
-public:
-    scoped_cache() {
-        static int counter = 0;
-        root_ = std::filesystem::temp_directory_path() /
-            ("compass.codec.file_inputs." +
-                std::to_string(
-                    compass::platform::process::current_process_id()) +
-                "." + std::to_string(counter++));
-        std::filesystem::create_directories(root_);
-    }
-    ~scoped_cache() { std::filesystem::remove_all(root_); }
-    scoped_cache(const scoped_cache&) = delete;
-    scoped_cache& operator=(const scoped_cache&) = delete;
-
-    [[nodiscard]] const std::filesystem::path& root() const { return root_; }
-
-private:
-    std::filesystem::path root_;
-};
-
 }
 
 TEST_CASE("a corpus codec reads files, listings and existence of the "
@@ -268,14 +248,14 @@ TEST_CASE("a corpus codec that enumerates runs again for any document",
 
 TEST_CASE("another worktree whose other documents differ takes a corpus "
     "unit that only looked up from the cache", "[ops][file_inputs]") {
-    scoped_cache cache;
-    const auto first = run(documents(), files(), {}, cache.root());
+    const scoped_directory cache("compass.codec.file_inputs");
+    const auto first = run(documents(), files(), {}, cache.path());
     auto docs = documents();
     docs["task.org"] += "Only in this worktree.\n";
     auto plain = files();
     plain["src/main.cpp"] += "// and this\n";
 
-    const auto second = run(docs, plain, {}, cache.root());
+    const auto second = run(docs, plain, {}, cache.path());
 
     CHECK(second.cached == counts{1, 0});
     CHECK(second.ran == counts{0, 1});

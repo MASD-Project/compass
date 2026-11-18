@@ -35,12 +35,13 @@
 #include "compass.codec/ops/run.hpp"
 #include "compass.codec/types/configuration.hpp"
 #include "compass.codec/types/corpus_view.hpp"
-#include "compass.platform/process/environment.hpp"
 #include "compass.store/ops/blob_hash.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
 #include "test_corpus.hpp"
 
 namespace {
 
+using compass::testing::filesystem::scoped_directory;
 using namespace compass::codec;
 
 using sources = std::map<std::string, std::string>;
@@ -159,27 +160,6 @@ private:
     types::corpus view_;
 };
 
-class scoped_cache final {
-public:
-    scoped_cache() {
-        static int counter = 0;
-        root_ = std::filesystem::temp_directory_path() /
-            ("compass.codec.staged." +
-                std::to_string(
-                    compass::platform::process::current_process_id()) +
-                "." + std::to_string(counter++));
-        std::filesystem::create_directories(root_);
-    }
-    ~scoped_cache() { std::filesystem::remove_all(root_); }
-    scoped_cache(const scoped_cache&) = delete;
-    scoped_cache& operator=(const scoped_cache&) = delete;
-
-    [[nodiscard]] const std::filesystem::path& root() const { return root_; }
-
-private:
-    std::filesystem::path root_;
-};
-
 std::vector<std::pair<std::string, std::string>> files_of(
     const types::file_table& t) {
     std::vector<std::pair<std::string, std::string>> out;
@@ -205,19 +185,19 @@ struct outcome {
  * record but for its cache keys' order of inputs, are those of a run with
  * neither, which calls every part.
  */
-outcome run(const sources& plain, const scoped_cache& cache,
+outcome run(const sources& plain, const scoped_directory& cache,
     const types::dependency_record& previous = {}) {
     const checkout c(plain);
     const std::array<types::descriptor, 1> codecs{sheets};
     const auto r = ops::make_registry(codecs, c.types(), {});
     prepared = summed = copied = 0;
     auto result = ops::run(r, c.corpus(), c.types(), 2, previous,
-        io::action_source_of(cache.root()));
+        io::action_source_of(cache.path()));
     outcome o;
     o.prepares = prepared;
     o.sums = summed;
     o.copies = copied;
-    (void)io::store_actions(cache.root(), result.record, result.fresh, 2,
+    (void)io::store_actions(cache.path(), result.record, result.fresh, 2,
         result.scans);
     const auto whole = ops::run(r, c.corpus(), c.types(), 2);
     CHECK(files_of(result.files[0]) == files_of(whole.files[0]));
@@ -273,7 +253,7 @@ std::set<std::string> touched(const types::dependency_record& record,
 
 TEST_CASE("a staged codec emits the files of every part, in the order "
     "prepare listed them", "[ops][staged]") {
-    scoped_cache cache;
+    const scoped_directory cache("compass.codec.staged");
 
     const auto r = run(tree(), cache);
 
@@ -287,7 +267,7 @@ TEST_CASE("a staged codec emits the files of every part, in the order "
 
 TEST_CASE("a second run calls neither prepare nor a part",
     "[ops][staged]") {
-    scoped_cache cache;
+    const scoped_directory cache("compass.codec.staged");
     const auto first = run(tree(), cache);
 
     const auto second = run(tree(), cache, first.record);
@@ -299,7 +279,7 @@ TEST_CASE("a second run calls neither prepare nor a part",
 
 TEST_CASE("a fact that changes runs only the parts that read it",
     "[ops][staged]") {
-    scoped_cache cache;
+    const scoped_directory cache("compass.codec.staged");
     const auto first = run(tree(), cache);
     auto files = tree();
     files["rates.txt"] = "eur=2\nusd=4\n";
@@ -313,7 +293,7 @@ TEST_CASE("a fact that changes runs only the parts that read it",
 
 TEST_CASE("a fact a part looked up and missed runs the part when it "
     "appears", "[ops][staged]") {
-    scoped_cache cache;
+    const scoped_directory cache("compass.codec.staged");
     const auto first = run(tree(), cache);
     auto files = tree();
     files["rates.txt"] += "gbp=5\n";
@@ -326,7 +306,7 @@ TEST_CASE("a fact a part looked up and missed runs the part when it "
 
 TEST_CASE("an edit to what one part reads runs that part, with prepare "
     "called only for its state", "[ops][staged]") {
-    scoped_cache cache;
+    const scoped_directory cache("compass.codec.staged");
     const auto first = run(tree(), cache);
     auto files = tree();
     files["src/a.side"] = "another side\n";
@@ -340,7 +320,7 @@ TEST_CASE("an edit to what one part reads runs that part, with prepare "
 
 TEST_CASE("a part that goes takes its files, and a new one is called",
     "[ops][staged]") {
-    scoped_cache cache;
+    const scoped_directory cache("compass.codec.staged");
     const auto first = run(tree(), cache);
     auto files = tree();
     files.erase("src/a.txt");
@@ -356,7 +336,7 @@ TEST_CASE("a part that goes takes its files, and a new one is called",
 
 TEST_CASE("a part keeps a file its changed inputs cannot alter, and still "
     "depends on what producing it read", "[ops][staged]") {
-    scoped_cache cache;
+    const scoped_directory cache("compass.codec.staged");
     const auto first = run(tree(), cache);
     REQUIRE(first.copies == 3);
     auto files = tree();
@@ -376,7 +356,7 @@ TEST_CASE("a part keeps a file its changed inputs cannot alter, and still "
 
 TEST_CASE("the parts of a staged codec come from the cache in a checkout "
     "with no record", "[ops][staged]") {
-    scoped_cache cache;
+    const scoped_directory cache("compass.codec.staged");
     (void)run(tree(), cache);
 
     const auto again = run(tree(), cache);
@@ -388,7 +368,7 @@ TEST_CASE("the parts of a staged codec come from the cache in a checkout "
 
 TEST_CASE("a filter that takes one part runs it and leaves the others out",
     "[ops][staged]") {
-    scoped_cache cache;
+    const scoped_directory cache("compass.codec.staged");
     const auto first = run(tree(), cache);
     auto files = tree();
     files["src/a.side"] = "another side\n";
@@ -397,7 +377,7 @@ TEST_CASE("a filter that takes one part runs it and leaves the others out",
     const auto r = ops::make_registry(codecs, c.types(), {});
 
     const auto result = ops::run(r, c.corpus(), c.types(), 2, first.record,
-        io::action_source_of(cache.root()),
+        io::action_source_of(cache.path()),
         [](types::codec_id, std::string_view document) {
             return document.empty() || document == "src/a.txt";
         });
@@ -410,7 +390,7 @@ TEST_CASE("a filter that takes one part runs it and leaves the others out",
 
 TEST_CASE("an edit to what prepare or a part reads names every unit of "
     "the staged codec", "[ops][staged][unit_index]") {
-    scoped_cache cache;
+    const scoped_directory cache("compass.codec.staged");
     const auto first = run(tree(), cache);
 
     CHECK(touched(first.record, "rates.txt") == std::set<std::string>{"",

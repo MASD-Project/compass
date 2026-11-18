@@ -18,6 +18,7 @@
  *
  */
 #include "compass.platform/filesystem/file_status.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
 
 #include <chrono>
 #include <cstdint>
@@ -26,32 +27,12 @@
 #include <string>
 #include <system_error>
 #include <catch2/catch_test_macros.hpp>
-#include "compass.platform/process/environment.hpp"
 
 namespace {
 
+using compass::testing::filesystem::scoped_directory;
+
 namespace fs = compass::platform::filesystem;
-
-class scoped_temp_dir final {
-public:
-    scoped_temp_dir() {
-        static int counter = 0;
-        path_ = std::filesystem::temp_directory_path() /
-            ("compass.platform.status." +
-                std::to_string(
-                    compass::platform::process::current_process_id()) +
-                "." + std::to_string(counter++));
-        std::filesystem::create_directories(path_);
-    }
-    ~scoped_temp_dir() { std::filesystem::remove_all(path_); }
-    scoped_temp_dir(const scoped_temp_dir&) = delete;
-    scoped_temp_dir& operator=(const scoped_temp_dir&) = delete;
-
-    const std::filesystem::path& path() const { return path_; }
-
-private:
-    std::filesystem::path path_;
-};
 
 /**
  * @brief Sets the modification time of @p file to @p sec seconds and
@@ -66,7 +47,7 @@ void set_mtime(const std::filesystem::path& file, std::int64_t sec,
 
 TEST_CASE("regular_file_status gives the size and modification time of a "
     "regular file", "[filesystem][file_status]") {
-    const scoped_temp_dir dir;
+    const scoped_directory dir("compass.platform.status");
     const auto file = dir.path() / "a";
     std::ofstream(file, std::ios::binary) << "twelve bytes";
     set_mtime(file, 1'700'000'000, 123'456'700);
@@ -81,14 +62,14 @@ TEST_CASE("regular_file_status gives the size and modification time of a "
 
 TEST_CASE("regular_file_status gives nothing for a directory or a missing "
     "path", "[filesystem][file_status]") {
-    const scoped_temp_dir dir;
+    const scoped_directory dir("compass.platform.status");
     CHECK_FALSE(fs::regular_file_status(dir.path()));
     CHECK_FALSE(fs::regular_file_status(dir.path() / "missing"));
 }
 
 TEST_CASE("read_file reads every byte and the status of the file it read",
     "[filesystem][file_status]") {
-    const scoped_temp_dir dir;
+    const scoped_directory dir("compass.platform.status");
     const auto file = dir.path() / "a";
     const std::string content(10'000, 'x');
     std::ofstream(file, std::ios::binary) << content << "\r\n";
@@ -103,7 +84,7 @@ TEST_CASE("read_file reads every byte and the status of the file it read",
 
 TEST_CASE("read_file throws ENOENT naming a missing path",
     "[filesystem][file_status]") {
-    const scoped_temp_dir dir;
+    const scoped_directory dir("compass.platform.status");
     std::string bytes;
     try {
         fs::read_file(dir.path() / "missing", bytes);
@@ -115,7 +96,7 @@ TEST_CASE("read_file throws ENOENT naming a missing path",
 
 TEST_CASE("read_file refuses a directory before reading it",
     "[filesystem][file_status]") {
-    const scoped_temp_dir dir;
+    const scoped_directory dir("compass.platform.status");
     std::string bytes;
     try {
         fs::read_file(dir.path(), bytes);

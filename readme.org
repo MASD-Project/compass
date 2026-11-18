@@ -137,6 +137,7 @@ The recipes in [[file:doc/recipes/compass/compass.org][doc/recipes/compass]] cov
 | Component            | Holds                                                     |
 |----------------------+-----------------------------------------------------------|
 | =compass.platform=   | Mapped files, processes, Python-compatible text and XML   |
+| =compass.testing=    | Test infrastructure: self-removing temporary directories  |
 | =compass.store=      | Git index and object reading, the content-addressed store |
 | =compass.org=        | Org tables and the document type registry                 |
 | =compass.ingest=     | The org parser                                            |

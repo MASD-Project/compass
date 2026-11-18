@@ -31,6 +31,7 @@
 #include "compass.bench/types/file_table.hpp"
 #include "compass.platform/process/environment.hpp"
 #include "compass.platform/process/run_program.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
 
 namespace compass::bench::tests {
 
@@ -39,26 +40,20 @@ namespace compass::bench::tests {
  * system and global configuration out of reach.
  */
 class scoped_git_repo final {
+    compass::testing::filesystem::scoped_directory dir_{"compass.bench.tests"};
+
 public:
     scoped_git_repo() {
-        static int counter = 0;
-        root_ = std::filesystem::temp_directory_path() /
-            ("compass.bench.tests." +
-                std::to_string(
-                    compass::platform::process::current_process_id()) +
-                "." + std::to_string(counter++));
         std::filesystem::create_directories(checkout());
-        std::filesystem::create_directories(root_ / "home");
+        std::filesystem::create_directories(dir_.path() / "home");
         using platform::process::set_environment_variable;
-        set_environment_variable("HOME", (root_ / "home").generic_string());
+        set_environment_variable("HOME",
+            (dir_.path() / "home").generic_string());
         set_environment_variable("XDG_CONFIG_HOME",
-            (root_ / "home" / ".config").generic_string());
+            (dir_.path() / "home" / ".config").generic_string());
         set_environment_variable("GIT_CONFIG_NOSYSTEM", "1");
         git("init -q");
     }
-    ~scoped_git_repo() { std::filesystem::remove_all(root_); }
-    scoped_git_repo(const scoped_git_repo&) = delete;
-    scoped_git_repo& operator=(const scoped_git_repo&) = delete;
 
     /**
      * @brief Writes a file an hour in the past, so no index written from
@@ -89,7 +84,7 @@ public:
         return ops::build_file_table(checkout(), ops::parse_listing(raw));
     }
 
-    std::filesystem::path checkout() const { return root_ / "checkout"; }
+    std::filesystem::path checkout() const { return dir_.path() / "checkout"; }
     /**
      * @brief The packs of the store of the checkout, where app::store_objects
      * and the result cache put them.
@@ -97,9 +92,6 @@ public:
     std::filesystem::path packs() const {
         return checkout() / ".git" / "compass" / "packs";
     }
-
-private:
-    std::filesystem::path root_;
 };
 
 }

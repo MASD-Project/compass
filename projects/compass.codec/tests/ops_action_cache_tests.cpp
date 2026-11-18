@@ -35,9 +35,9 @@
 #include "compass.codec/ops/run.hpp"
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.org/ops/document_fields.hpp"
-#include "compass.platform/process/environment.hpp"
 #include "compass.store/io/location.hpp"
 #include "compass.store/io/pack_store.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
 #include "test_corpus.hpp"
 
 namespace {
@@ -102,21 +102,13 @@ sources base() {
  * cache is concerned.
  */
 class scoped_cache final {
-public:
-    scoped_cache() {
-        static int counter = 0;
-        root_ = std::filesystem::temp_directory_path() /
-            ("compass.codec.cache_tests." +
-                std::to_string(
-                    compass::platform::process::current_process_id()) +
-                "." + std::to_string(counter++));
-        std::filesystem::create_directories(root_);
-    }
-    ~scoped_cache() { std::filesystem::remove_all(root_); }
-    scoped_cache(const scoped_cache&) = delete;
-    scoped_cache& operator=(const scoped_cache&) = delete;
+    compass::testing::filesystem::scoped_directory dir_{
+        "compass.codec.cache_tests"};
 
-    [[nodiscard]] const std::filesystem::path& root() const { return root_; }
+public:
+    [[nodiscard]] const std::filesystem::path& root() const {
+        return dir_.path();
+    }
 
     /**
      * @brief Where each stored action object of @p kind is: its pack and
@@ -126,7 +118,8 @@ public:
         std::uint64_t>> entries(compass::store::types::action_kind kind) const {
         namespace store = compass::store;
         std::vector<std::pair<std::filesystem::path, std::uint64_t>> out;
-        for (const auto& p : store::io::open_packs(store::io::packs_dir(root_))) {
+        for (const auto& p :
+            store::io::open_packs(store::io::packs_dir(dir_.path()))) {
             for (std::uint64_t row = 0; row < p.view.count; ++row) {
                 const auto e = store::ops::entry_at(p.view, row);
                 if (e.kind == store::types::entry_kind_of(kind))
@@ -135,9 +128,6 @@ public:
         }
         return out;
     }
-
-private:
-    std::filesystem::path root_;
 };
 
 /**
