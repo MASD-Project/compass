@@ -1,0 +1,57 @@
+:PROPERTIES:
+:ID: E72BE74F-381C-403E-BCFF-445913C95DEB
+:END:
+#+title: Story: Serve search with Typesense
+#+description: Push compass's search index to a Typesense server, so the exported HTML site and other clients get typo-tolerant, faceted and semantic search over the documents.
+#+type: story
+#+level: s2
+#+filetags: :docs:search:sprint_01:v0:
+#+created: 2026-11-18
+#+updated: 2026-11-18
+#+environment:
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+The exported HTML site, and any other client, searches the documents through a
+Typesense server with typo tolerance, facets and optionally semantic search,
+fed from the same index compass search uses.
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | BACKLOG                              |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | Not yet started.                       |
+| Waiting on    | Nothing.                               |
+| Next          | Break the story into tasks.            |
+| Last touched  | 2026-11-18                               |
+
+* Acceptance
+
+- compass exports its search index as Typesense documents with a schema for
+  title, heading path, type, tags, state, sprint, body and link, and pushes
+  only the documents that changed since the last push.
+- The exported HTML site has a search box that queries Typesense and facets
+  by type, tags and state.
+- A recorded evaluation compares Typesense's results with =compass search= on
+  the same queries, including misspelt ones.
+- Running Typesense locally and in CI is documented, and compass works
+  unchanged when no Typesense server is configured.
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+|      |       |       |     |             |
+
+* Decisions
+
+* Out of scope
+
+- Replacing =compass search=; the CLI stays embedded and serverless, so agents
+  and CI need no running service.
+- Hosting a public Typesense instance.
