@@ -47,6 +47,36 @@ as ORE Studio is, with every build's results on a compass CDash dashboard.
 are distilled into the parent story's =* Decisions= at close, but the
 plan itself stays — it is the historical record of what we did.)
 
+Copy ORE Studio's design and keep its shape; change a file only where compass
+differs, and record each change under Notes.
+
+- Presets. Take ORE's =CMakePresets.json= whole:
+  =<family>-<compiler>-<buildtype>-<tool>= for Linux clang and gcc, macOS clang
+  and Windows msvc, clang-cl and clang, Ninja and Make, with its package and
+  workflow presets. =CTest.cmake= parses the four parts and the workflows'
+  matrices name presets this way, so =linux-clang-release= becomes
+  =linux-clang-release-ninja= and every live reference moves with it. The unix
+  presets launch the compiler through ORE's =compiler_cache_wrapper.sh=.
+- CPack. Port =build/cpack/CMakeLists.txt= through a new =build/CMakeLists.txt=,
+  as ORE adds it. The compass binary and =compass.manifest= install to =bin=.
+  The top level takes ORE's =/opt/<project>/<version>= prefix, the
+  =WITH_PROFILING= and =WITH_MEMCHECK= options and the compiler cache selection;
+  =projects/= takes the coverage flags.
+- Dashboard client. Port =CTest.cmake=, =CTestConfig.cmake= and
+  =CTestCustom.cmake= with ORE's environment variables renamed to =COMPASS_=,
+  the drop location =project=compass= and the fork guard on
+  =MASD-Project/compass=. Keep the valgrind suppressions that are not about
+  ORE's libraries.
+- CI image. Port =build/docker/ci= and =ci-image.yml=, publishing
+  =ghcr.io/masd-project/compass-ci=, without PostgreSQL and Node.js.
+- Workflows. Port continuous-linux, nightly-linux, nightly-macos and
+  nightly-windows with a script that applies each change as an exact
+  replacement, so the result reads as ORE's file minus the service steps.
+- Verify locally: configure and build with the ported presets at =-j2=, run
+  the dashboard script in Experimental mode with submission off, inspect the
+  Linux package, run the installed =compass --version=, lint the workflows,
+  and run ctest, =compass.sh lint=, =compass generate= and =compass check=.
+
 * Measurements
 
 Every number this task claims about a tree, with the command that produced it
@@ -62,6 +92,86 @@ task and name that file in the Command column.
 |      |       |         |        |
 
 * Notes
+
+** What came from where
+
+| ORE Studio                               | compass                                  |
+|------------------------------------------+------------------------------------------|
+| =CTest.cmake=                            | =CTest.cmake=                            |
+| =CTestConfig.cmake=                      | =CTestConfig.cmake=                      |
+| =CTestCustom.cmake=                      | =CTestCustom.cmake=                      |
+| =CMakePresets.json=                      | =CMakePresets.json=                      |
+| =build/CMakeLists.txt=                   | =build/CMakeLists.txt=                   |
+| =build/cpack/CMakeLists.txt=             | =build/cpack/CMakeLists.txt=             |
+| =build/scripts/compiler_cache_wrapper.sh= | =build/scripts/compiler_cache_wrapper.sh= |
+| =build/valgrind/custom.supp=             | =build/valgrind/custom.supp=             |
+| =build/docker/ci/*=                      | =build/docker/ci/*=                      |
+| =.github/workflows/ci-image.yml=         | =.github/workflows/ci-image.yml=         |
+| =.github/workflows/continuous-linux.yml= | =.github/workflows/continuous-linux.yml= |
+| =.github/workflows/nightly-linux.yml=    | =.github/workflows/nightly-linux.yml=    |
+| =.github/workflows/nightly-macos.yml=    | =.github/workflows/nightly-macos.yml=    |
+| =.github/workflows/nightly-windows.yml=  | =.github/workflows/nightly-windows.yml=  |
+| top-level =CMakeLists.txt= (prefix, options, compiler cache) | top-level =CMakeLists.txt= |
+| =projects/CMakeLists.txt= (coverage flags) | =projects/CMakeLists.txt=              |
+
+** Departures from ORE Studio
+
+Dropped because they exist for ORE's services, UI or website:
+
+- The PostgreSQL, NATS, environment (=compass env configure=) and database
+  steps of every workflow, the SQL schema validation job, and =ZIC=1=, which
+  feeds the libpq port's time-zone compiler.
+- The Boost port check (=check_boost_dependencies.py=): compass has no Boost.
+- The macOS libc++ feature report: it reports on fallbacks in =ores.platform=.
+- PostgreSQL and Node.js in the CI image, and their checks in =build.sh=.
+- The Qt coverage exclusions and the generated =version.cpp= exclusion in
+  =CTestCustom.cmake=, and its commented-out Boost error exception.
+- The Boost.Log, GLib/Qt, NATS and libpq valgrind suppressions.
+- =site-cdash.yml= and =CTestSite.cmake=. They build ORE's documentation
+  website (Emacs org-publish of =deploy_site=, then Doxygen) and submit it to
+  CDash as the Site group; their only caller is =build-site.yml=, ORE's GitHub
+  Pages workflow. compass has no site, no =deploy_site= target and no Doxyfile,
+  so the script would build a target that does not exist. The acceptance line
+  that names =CTestSite.cmake= and =site-cdash= needs amending.
+- ORE's =linux-doc-only= preset, which configures for that website build.
+
+Changed because compass differs:
+
+- No =-DBUILD_SHARED_LIBS=ON= in =CTest.cmake=. compass ships one statically
+  linked binary; shared libraries would put =libcompass.*.so= beside it and
+  break the package.
+- No =warnings_as_errors= argument: compass has no such option and always
+  builds with =-Werror=.
+- The memcheck run excludes no label; ORE excludes its Node.js =web= suites.
+- =CTEST_SITE= reads =COMPASS_BUILD_PROVIDER=. ORE's =CTest.cmake= reads
+  =VORE_BUILD_PROVIDER=, which nothing sets, while its =CTestSite.cmake= reads
+  =ORES_BUILD_PROVIDER=; the =VORE= is a typo.
+- Environment variables are =COMPASS_BUILD_*=, =COMPASS_CDASH_NOSUBMIT=,
+  =COMPASS_PR_URL= and =COMPASS_COMPILER_CACHE=, matching
+  =cmake/generate_version.cmake=. The fork guard names =MASD-Project/compass=.
+- No RPATH settings in the top-level =CMakeLists.txt=: there are no shared
+  libraries to find.
+- macOS packages with =DragNDrop=, not =Bundle=. compass is a command-line tool
+  with no application bundle, plist, icon or start script; both write a =.dmg=.
+- WiX and NSIS carry new product and upgrade GUIDs and no icon (compass has
+  none); the WiX cabinet split and the dpkg-shlibdeps plugin directory are gone,
+  because they serve ORE's many DLLs and plugins.
+- The presets keep compass's vcpkg toolchain file in the base preset (ORE sets
+  it in =CMakeLists.txt=) and its two-job caps: =VCPKG_MAX_CONCURRENCY=2= and
+  =jobs: 2= on the build presets.
+- The relevance guard skips =projects/compass.legacy/= where ORE skipped its
+  Python codegen, and does not skip org files under =projects/*/tests/=, which
+  are test data here.
+- The compiler cache is read from =COMPASS_COMPILER_CACHE= in =.env= locally;
+  compass has no =env configure= to write it.
+- Comments that cite ORE run numbers or ORE stories now state the rule alone.
+
+Not ported:
+
+- =install_llvm.sh=: no workflow calls it; the CI image installs clang from the
+  Ubuntu archive.
+- The =no_pr_triggers= gate. The rule holds (no workflow triggers on a pull
+  request), but ORE runs the gate from =local_checks.py=, which compass lacks.
 
 * Test Scenarios
 
