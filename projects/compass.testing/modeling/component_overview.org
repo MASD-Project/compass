@@ -1,0 +1,76 @@
+:PROPERTIES:
+:ID: 0F1D33BA-2BD8-456C-BD71-324C3B46E5FB
+:END:
+#+title: compass.testing
+#+description: Test infrastructure for compass-ng's test suites: a temporary directory that removes itself, and what earlier runs left behind.
+#+type: component
+#+level: cross
+#+filetags: :testing:filesystem:component:
+#+created: 2026-11-18
+#+updated: 2026-11-18
+
+This page is the component overview for =compass.testing=, a simple component
+in the tooling layer of the
+[[id:8A9A460F-8024-4890-B091-C0D02FD84218][System Model]].
+
+* Summary
+
+=compass.testing= is the shared infrastructure compass-ng's test suites build
+on, as =ores.testing= is for ORE Studio. Its consumers are the test binaries of
+the other components, never production code. It holds one facet.
+=filesystem= has =scoped_directory=: a new directory under the system
+temporary directory, named =<prefix>.<process ID>.<number>=, removed with
+everything in it when it is destroyed. The caller gives the prefix, such as
+=compass.store.tests=, so a directory left behind names its suite.
+
+A test run must leave nothing in the temporary directory whether its tests
+pass, fail, throw or are killed. A fixture holds its =scoped_directory= as its
+first member, so a throw later in the fixture's constructor, such as a failing
+=git init=, still removes the directory. A process that is killed, crashes or
+times out runs no destructor, so constructing a =scoped_directory= first
+removes each directory with the same prefix whose process is no longer
+running: the next run of the suite cleans up after the last.
+
+* Inputs
+
+- A prefix naming the suite.
+- The system temporary directory, as =std::filesystem::temp_directory_path=
+  gives it.
+
+* Outputs
+
+- =scoped_directory=: =path()= is the directory's absolute path, by its long
+  name on Windows, where the temporary directory may be named by its short
+  8.3 name and git prints the long one.
+- On construction, every =<prefix>.<process ID>.<number>= in the temporary
+  directory whose process is not running is removed. A name that does not
+  have that exact shape, or that names this process or a running one, is
+  left alone, as is one this user may not remove.
+- On destruction the directory is removed. A failure to remove it, such as
+  a file still open on Windows, is not reported; the next run removes it.
+
+* Entry points
+
+| Path                                                       | Role              |
+|------------------------------------------------------------+-------------------|
+| =include/compass.testing/filesystem/scoped_directory.hpp= | Public type.      |
+| =src/filesystem/scoped_directory.cpp=                     | Implementation.   |
+| =tests/filesystem_scoped_directory_tests.cpp=             | Catch2 tests.     |
+
+| Target                  | Kind                                      |
+|-------------------------+-------------------------------------------|
+| =compass.testing.lib=   | Library.                                  |
+| =compass.testing.tests= | Catch2 executable, registered with CTest. |
+
+* Dependencies
+
+- [[id:73F4046A-896C-4F38-864C-572B10F47389][compass.platform]] --- the
+  process ID, and whether a process is running.
+- Catch2, for the tests only.
+
+* See also
+
+- [[id:8A0E6F32-C4BC-4667-88E8-7F80CA25437C][Component architecture]] --- layout,
+  naming and facets.
+- [[id:8A9A460F-8024-4890-B091-C0D02FD84218][System Model]] --- where the
+  tooling layer sits.
