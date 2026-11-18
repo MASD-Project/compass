@@ -163,7 +163,7 @@ TEST_CASE("a decoded object holds every column byte for byte",
         ++rows;
         for_each_column([&](auto& column) {
             column.values.resize(rows);
-            std::memset(column.values.data(), ++fill,
+            std::memset(static_cast<void*>(column.values.data()), ++fill,
                 column.values.size() * sizeof(column.values[0]));
         }, table);
     }, t);

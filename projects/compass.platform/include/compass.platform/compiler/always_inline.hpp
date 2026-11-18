@@ -21,14 +21,16 @@
 #define COMPASS_PLATFORM_COMPILER_ALWAYS_INLINE_HPP
 
 /**
- * @brief Asks the compiler to inline a function or lambda, placed after a
- * lambda's parameter list. MSVC has no such attribute for a lambda, so
- * there it asks nothing and the optimiser decides.
+ * @brief Asks the compiler to inline a lambda, placed between its capture and
+ * its parameter list, where C++23 applies an attribute to the call operator.
+ * GCC rejects a GNU attribute between the parameter list and noexcept, and
+ * clang one after noexcept. MSVC has no such attribute for a lambda, so there
+ * it asks nothing and the optimiser decides.
  */
 #if defined(_MSC_VER) && !defined(__clang__)
 #define COMPASS_ALWAYS_INLINE
 #else
-#define COMPASS_ALWAYS_INLINE __attribute__((always_inline))
+#define COMPASS_ALWAYS_INLINE [[gnu::always_inline]]
 #endif
 
 #endif
