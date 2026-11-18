@@ -16,8 +16,8 @@
 # Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
 set(CTEST_NIGHTLY_START_TIME "00:00:00 UTC")
-set(CTEST_PROJECT_NAME "compass")
+set(CTEST_PROJECT_NAME "Compass")
 set(CTEST_DROP_METHOD "https")
 set(CTEST_DROP_SITE "my.cdash.org")
-set(CTEST_DROP_LOCATION "/submit.php?project=compass")
+set(CTEST_DROP_LOCATION "/submit.php?project=Compass")
 set(CTEST_DROP_SITE_CDASH TRUE)
