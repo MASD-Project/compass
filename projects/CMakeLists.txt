@@ -31,7 +31,8 @@ endif()
 add_compile_options(
     $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Wall>
     $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Wextra>
-    $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Werror>)
+    $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Werror>
+    $<$<CXX_COMPILER_ID:MSVC>:/W4>)
 
 # The Microsoft C runtime deprecates standard functions such as getenv in
 # favour of its own, and clang's -Werror turns that into an error.
