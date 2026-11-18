@@ -118,6 +118,33 @@ task and name that file in the Command column.
   POSIX home and is registered on POSIX only.
 - CI. The Windows checkout keeps LF; the clang leg installs LLVM 22.1.8,
   because MSVC 14.52's library refuses older Clang.
+- Warnings, copied from ORE Studio (=ores_dev_solid_dirac=) with =ORES_=
+  renamed =COMPASS_=:
+  - =projects/CMakeLists.txt=: the =add_compile_options= block and its
+    comments: =-Wall=, =-Wextra=, =-Wno-missing-field-initializers=,
+    Clang's =-Wno-missing-designated-field-initializers=, GNU's
+    =-Wno-array-bounds=, =-Werror= under =COMPASS_WARNINGS_AS_ERRORS=,
+    =/W4=, =/WX= under =COMPASS_WARNINGS_AS_ERRORS=, =/wd4251=, =/wd4275=
+    and =/FS=. compass therefore no longer builds with =-Werror= unless
+    asked.
+  - Top-level =CMakeLists.txt=: =option(COMPASS_WARNINGS_AS_ERRORS ...
+    OFF)=, and the =get_win_hex= macro and =if(WIN32)= block
+    (=_WIN32_WINNT=, =WIN32_LEAN_AND_MEAN=, =NOMINMAX=, MSVC's =/bigobj=)
+    with their comments.
+  - =CTest.cmake=: the =warnings_as_errors=1|0= argument. No workflow
+    passes it, as in ORE.
+  - Not copied: =BOOST_USE_WINAPI_VERSION=, since compass has no Boost.
+  - Removed: compass's global =_CRT_SECURE_NO_WARNINGS=, which ORE does not
+    have. Environment variables are read through the platform's
+    =environment_variable=, =_dupenv_s= on Windows, so no CRT warning
+    fires.
+  - With =_WIN32_WINNT= set from the system version, the SDK hides
+    =FileRenameInfoEx= and its flags, which it declares for Windows 10
+    1607 on; =replace_file= spells their values itself.
+  - MSVC at =/W4= reported seventeen warnings in compass's code (C4456,
+    C4458, C4459, C4244, C4267). All were real and are fixed; none is
+    suppressed. The Linux clang build has no warnings: it builds with
+    =COMPASS_WARNINGS_AS_ERRORS=ON=.
 - Hot paths. =stat_of=, =hash_file= and =mapped_file= keep one =lstat=,
   or one open, =fstat= and read, and one =mmap= on Linux. =strace -c= of
   a warm =compass check= on an ORE Studio export counts the same system
