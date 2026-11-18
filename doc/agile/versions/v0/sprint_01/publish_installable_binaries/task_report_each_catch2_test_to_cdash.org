@@ -29,9 +29,9 @@ test rather than its suite.
 |--------------+----------------------------------------|
 | State        | STARTED |
 | Parent story | [[id:EB6AF798-D472-4CC2-B97C-FC2BD9FD1FDE][Publish installable binaries]] |
-| Now          | Registering test cases with catch_discover_tests. |
+| Now          | Merged; CDash lists 1228 tests per Linux build. |
 | Waiting on   | Nothing.                               |
-| Next         | Measure ctest and valgrind time, then check CDash. |
+| Next         | Record the valgrind debug nightly's test time, then close. |
 | Last touched | 2026-11-18                               |
 
 * Acceptance
@@ -61,9 +61,18 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Local ctest, suites | 4.5 to 5.3 s, 16 tests, load 20 | =ctest -j2= | d3f3810 |
+| Local ctest, cases | 6.2 to 6.3 s, 1228 tests, load 30 | =ctest -j2= | branch |
+| valgrind, compass.org.tests whole | 2.1 s | =valgrind -q compass.org.tests= | branch |
+| valgrind, the same 38 cases singly | 53.5 s, load 37 | one =valgrind= per case | branch |
+| CDash tests per Continuous Linux build | 1228 passed | run 44363298398 | branch |
 
 * Notes
+
+Three CLI test cases had names beginning with a dash. Run alone through
+=catch_discover_tests=, Catch2 read the name as an option: two failed and the
+=--help= case printed help and exited 0, passing without running. They are
+renamed to start with "The".
 
 * Test Scenarios
 
