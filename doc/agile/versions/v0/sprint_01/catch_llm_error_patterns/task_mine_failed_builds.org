@@ -28,11 +28,11 @@ build.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED |
+| State        | DONE |
 | Parent story | [[id:63D5482E-E1E7-45B0-883F-3B2DDFA2B447][Catch the errors LLMs introduce]] |
-| Now          | Writing the mining script. |
+| Now          | Merged. |
 | Waiting on   | Nothing.                               |
-| Next         | Run it over the last 60 days and write the per-day report. |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
