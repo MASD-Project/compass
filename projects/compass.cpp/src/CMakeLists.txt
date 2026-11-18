@@ -23,6 +23,7 @@ add_library(${lib_target_name}
     codecs/catalogue.cpp
     codecs/core_link_edges.cpp
     codecs/exported_types.cpp
+    codecs/forbid.cpp
     codecs/forward_declarable_includes.cpp
     codecs/portable_stop.cpp
     codecs/registrars.cpp
@@ -36,6 +37,7 @@ add_library(${lib_target_name}
     codecs/xml_family_census.cpp
     ops/declarations.cpp
     ops/exported_types.cpp
+    ops/forbid.cpp
     ops/glob.cpp
     ops/lexer.cpp
     ops/paths.cpp
