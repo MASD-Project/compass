@@ -1,0 +1,825 @@
+:PROPERTIES:
+:ID: 5C4E5883-CBA5-4018-9A65-1CFD276AF198
+:END:
+#+title: Investigation: what compass hard-codes to ORE Studio
+#+description: Every ORE Studio specific in compass's 71 codecs, classified as data, could be data or stays code, with each codec's check family.
+#+type: investigation
+#+level: s1
+#+filetags: :gates:checks:let_projects_define_their_checks:sprint_01:v0:evidence:
+#+created: 2026-11-18
+#+updated: 2026-11-18
+
+A point-in-time record of an [[id:A7F8D9E2-3C4B-4A5D-B67C-8E9F0A1B2C3D][investigation]] into what compass's codecs
+assume about ORE Studio. It is evidence for the
+[[id:6E3237E7-C57A-4CD8-97D5-DA32BAA4359E][Analyse what is hard-coded to ORE Studio]] task and was written on
+2026-11-18, at compass =01415b5= and ORE Studio =cdec0a1daa=.
+
+It is a snapshot, not a description of the system. The design that acts
+on it is [[id:225B524C-1638-4A03-B02F-66EB6759619D][Design: literate project checks]].
+
+* Context
+
+compass's first and only client is ORE Studio, and its codecs grew from
+ORE Studio's Python gates. Many of them carry ORE Studio's paths, names,
+type lists, patterns, thresholds and conventions as C++ literals or as
+option defaults. The product owner wants each project to state these as
+data in its own checkout, so a second project can add or tune a check
+without changing compass. This page counts what there is to move, and
+says which parts should not move at all.
+
+* Methodology
+
+- The registry. =compass check --timings= over an ORE Studio export lists
+  the units of every registered codec: 71 codecs from 67 source files.
+  =registrars.cpp=, =shell.cpp=, =value_sets.cpp=, =recipe_libraries.cpp=,
+  =skill_tables.cpp= and =tree_gates.cpp= register more than one, and
+  =rule_table= is registered in =compass.cli=.
+- The readers. Five readers, one per component group, read every codec
+  source in full, and the =ops/= files those codecs call where they hold
+  ORE literals. They worked to one rubric and wrote one row per specific
+  with its =file:line=, its kind, its class and the reason. A script
+  then opened every cited line: all 527 exist, and in 426 the first
+  quoted literal sits within three lines of it. The other 101 describe a
+  shape rather than quote a literal (=projects/<c>/core/src/CMakeLists.txt=,
+  for example); eight of those were read by hand and point at the right
+  line.
+- The classes.
+  - /data/: the value already comes from the project: an option it sets,
+    a table of =.compass.org=, a =doc/meta= contract, or a file in its
+    checkout that the codec reads.
+  - /ORE default/: an option exists, but its default is ORE Studio's
+    value, so ORE Studio gets it without stating it.
+  - /could be data/: a C++ literal whose check stays the same when
+    another project states a different value.
+  - /stays code/: a parser of ORE Studio's own source or grammar, or an
+    algorithm ported from one of its scripts. Stating it as data would
+    need a language.
+- The nature of a codec.
+  - /generic/: any project could run it as it is.
+  - /parameterised/: generic logic over ORE values.
+  - /ORE's design/: the codec encodes ORE Studio's architecture, schema,
+    templates or domain.
+- ORE Studio's effective settings. =compass config= over the export of
+  =refs/remotes/origin/main= of =ores.git=, with the compass build
+  =49f02e9=.
+
+* Paths taken
+
+The export needed a =git init= first: =compass check= lists files with
+=git ls-files= and stops outside a repository. The ORE Studio export was
+deleted when the task closed.
+
+* Conclusions
+
+** Headline counts
+
+| Class         | Specifics | In codecs of ORE's design | In parameterised codecs | In generic codecs |
+|---------------+-----------+---------------------------+-------------------------+-------------------|
+| data          |        15 |                        15 |                       0 |                 0 |
+| ORE default   |        39 |                        16 |                      21 |                 2 |
+| could be data |       381 |                       178 |                     197 |                 6 |
+| stays code    |        92 |                        72 |                      15 |                 5 |
+| Total         |       527 |                       281 |                     233 |                13 |
+
+| Nature          | Codecs |
+|-----------------+--------|
+| generic         |     10 |
+| parameterised   |     37 |
+| ORE's design    |     24 |
+| Total           |     71 |
+
+- Already data. 54 specifics: 15 that the project states, and 39 option
+  defaults that are ORE Studio's values. ORE Studio's =.compass.org=
+  states 12 option values itself; =compass config= shows 46 more
+  that ORE Studio takes from compass's defaults without stating them.
+- Could be data. 381 specifics. Only 197 of them sit in parameterised
+  codecs, where moving them lets another project run the codec. The
+  other 178 sit in codecs of ORE's design: making them options leaves a
+  codec only ORE Studio can use, with a longer configuration.
+- Stays code. 92 specifics, 72 of them in codecs of ORE's design.
+
+** What stays code, and why data would be worse
+
+- Parsers of ORE Studio's own source. =curve_wiring.cpp= reads ORE's C++
+  projection by regex, =route_inventory= reads its TypeScript registry by
+  indentation, =marketdata_identity_columns= reads its C++ schema DSL,
+  its projector and its view SQL, and =skill_type_tables= reads its
+  Python CLI. Each regex means something only beside the algorithm that
+  uses it.
+- Ported algorithms. The convention variant rules and their MD5 pins in
+  =conventions_coverage=, the commodity decoders in =conventions_dataset=
+  and the value-set generators are ORE Studio's Python, translated.
+- Grammars. The NATS subject grammar of =model_rules= and
+  =stream_coverage=, the tenant widening shape of =rls_widenings= and the
+  guard shape of =populate_refs= have special cases a pattern language
+  would have to grow to state.
+- Third-party APIs. The cli library's menu quirk in =shell_menus=,
+  Catch2's macros in =test_case_reachability= and Boost.Config's symbol
+  macros in =exported_types= describe a library, not ORE Studio. A list
+  option would pretend another framework works; it needs another reader.
+- Generated text that mirrors a generator. =bff_list_requests= and
+  =stream_coverage= restate the naming ORE's own generators use. Making
+  that a template adds a second source to drift; comparing against the
+  generator's output is better.
+
+** Repeated literals
+
+Several literals recur across codecs, each slightly different. Each is
+one project-level setting rather than an option per codec:
+
+- the product prefix =ores= (=projects/ores.<c>=, =ores_*_tbl=, =ores::=):
+  string literals that name it sit on 395 lines of 78 codec and ops
+  sources, 45 of them codec sources;
+- the skipped directories (=node_modules=, =venv=, =build=, =external=),
+  listed in 8 sources, in at least six variants;
+- the =AUTO-GENERATED FILE= marker, in three codecs;
+- the SQL root and its entry points, feeding three codecs;
+- =doc/llm/skills/=, feeding four codecs.
+
+** Rule provenance
+
+Rules cite the ORE Studio memories they enforce by ID (=enforces= of
+=types::rule=), so compass's binary carries IDs that resolve only in ORE
+Studio's tree. Provenance belongs with the rule in the project: a
+check document's =* Why= links it.
+
+** Families
+
+Each codec's primary family, from the per-codec table below. A codec
+that fits two names both there; this counts the first.
+
+| Family                                                      | Codecs | Examples                                              |
+|-------------------------------------------------------------+--------+-------------------------------------------------------|
+| F1 forbidden pattern: a pattern in files outside allowed paths |      3 | =portable_stop=, =no_pr_triggers=, =template_sections= |
+| F2 inventory: a table or listing agrees with files on disk  |      7 | =prototypes=, =protocol_twins=, =xml_family_census=   |
+| F3 generator: the output matches what the generator writes  |     23 | =codegen=, =er_diagram=, =recipe_inventories=         |
+| F4 reference: a name or link resolves to a definition       |      9 | =handler_permissions=, =sql_reachability=, =lint=     |
+| F5 org rule: a rule over org tables, headings or model fields |      7 | =required_sections=, =heading_numbers=, =model_rules= |
+| F6 code facts: a rule over C++ or SQL facts                 |     20 | =core_link_edges=, =rls_coverage=, =unity_collisions= |
+| F7 other                                                    |      2 | =skill_namespace= (a naming rule), =parameter_value_sets= |
+
+F1, F2 and F4 are the families a definition can mostly state: a glob, a
+pattern over facts compass already parses, and a message. The
+exceptions are inventories and references that go through a parser of
+the project's own grammar. F3 stays code
+by nature, and its data (templates, outputs) is already the project's
+or is a path. F5 is mostly data already: the =doc/meta= contracts. F6
+splits: a threshold or a forbidden fact is data; a rule that needs
+cross-file resolution is code.
+
+* Measurements
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+| Codecs registered | 71 | =compass check --timings= (units list) | ORE =cdec0a1daa=, compass =49f02e9= |
+| ORE option values taken from compass's defaults | 46 | =compass config= lines ending =(default)= | same |
+| ORE option values ORE states | 12 | =compass config= lines from =.compass.org=, less =enabled= | same |
+| Lines of string literals naming =ores= | 395 in 78 files (45 codec sources) | =grep -c '"[^"]*ores[._:]' */src/codecs/*.cpp */src/ops/*.cpp= in =projects/= | compass =01415b5= |
+| Cold check, ORE export | 82.5 s | =compass -j 4 check --timings=, empty store | same |
+| Warm check, nothing changed | 6.9 s | the same, run again | same |
+| =portable_stop= scan, cold | 3,377 ms | =--timings= line of the codec | same |
+| One option changed, warm | 7.1 s; only =translation_unit_budget= ran, in 100 ms | =--set translation_unit_budget.ceilings=...= | same |
+
+The last row is the evidence for the design's cache key: an option's
+value is part of a codec's key (=configuration_hash= in
+=compass.codec/src/ops/dependencies.cpp=), and changing one re-ran that
+codec alone. The 6.9 s warm floor is the runner's own (listing, the
+dependency record), not the codecs'.
+
+* Recommendations
+
+- Move the 39 ORE defaults into ORE Studio's configuration first, and
+  empty compass's defaults. It needs no new format and proves the
+  layering.
+- Turn the 197 could-be-data specifics of parameterised codecs into
+  data; leave the 178 in codecs of ORE's design until their codecs'
+  home is decided.
+- Do not make the ORE-design codecs configurable for its own sake. Decide
+  whether they stay in compass, move to an ORE Studio component of
+  compass, or leave it.
+- Add the five repeated literals as project-level settings before any
+  codec option that would restate them.
+
+* See also
+
+- [[id:225B524C-1638-4A03-B02F-66EB6759619D][Design: literate project checks]]: the format and layout this
+  inventory feeds.
+- [[id:6947B0D8-A1AE-4180-B2D9-D33FF02C1A3B][Investigation: ORE Studio failed build patterns]]: the mined check
+  candidates.
+- [[id:AFF665C4-739C-4BDB-93BD-9D547351AE4F][Investigation: ORE Studio gate classification]]: where the codecs came
+  from.
+
+* Detail
+
+** Codecs
+
+One row per registered codec: its nature, its families, and how many of
+its specifics fall in each class.
+
+| Codec | Source | Nature | Family | Data | ORE default | Could be data | Stays code | What it does |
+|-+-+-+-+-+-+-+-+-|
+| =backlog_indexes= | =backlog_indexes.cpp= | parameterised | F3 | 0 | 0 | 11 | 0 | Writes the four product backlog bucket index pages, header text included, from the captures in each bucket. |
+| =bff_list_requests= | =bff_list_requests.cpp= | ore | F6+F3 | 0 | 0 | 10 | 4 | Checks that hand-written BFF TypeScript list requests state the as_of, filter members and reply rows the C++ protocol headers declare, and that the generated list_requests.ts table matches the headers. |
+| =codegen= | =codegen.cpp= | ore | F3 | 5 | 0 | 8 | 6 | Generates everything ores.codegen regenerate --all writes, from ORE's models, physical-space nodes and mustache templates. |
+| =component_docs= | =component_docs.cpp= | parameterised | F5+F2 | 0 | 1 | 7 | 3 | Checks every projects/ores.* component and part has a complete overview and diagram, no dotted-name collisions, and no bare links inside backticks under doc/. |
+| =component_files= | =component_files.cpp= | parameterised | F3 | 0 | 1 | 4 | 0 | Generates component_files.cmake source and header lists for each modelled component from two library templates. |
+| =conventions_coverage= | =conventions_coverage.cpp= | ore | F2+F6 | 1 | 3 | 7 | 5 | Ports extract.py and propose.py --check: resolves the canonical conventions of the ORE examples and engine and reports what the conventions dataset lacks or states otherwise. |
+| =conventions_dataset= | =conventions_dataset.cpp= | ore | F3 | 1 | 2 | 7 | 6 | Ports generate_sql.py: writes the refdata.conventions populate SQL from conventions.tsv, the index map and the script's tables. |
+| =core_link_edges= | =core_link_edges.cpp= | parameterised | F6 | 0 | 0 | 6 | 0 | Checks that no component core library links another component's core or service library in CMake, only its api. |
+| =curve_parameter_paths= | =curve_parameter_paths.cpp= | ore | F4 | 1 | 3 | 2 | 1 | Reports each /CurveConfiguration/ path in a SQL artefact that ORE's curve XSD does not declare, and stale exemptions. |
+| =curve_sections_wiring= | =curve_sections_wiring.cpp= | ore | F3 | 1 | 0 | 16 | 3 | Parses the curve configuration projection C++ and curveconfig.xsd and writes the TS, C++ and SQL curve wiring, part validators, column map and value guard. |
+| =document_index= | =document_index.cpp= | generic | F3 | 0 | 0 | 0 | 0 | Generates a TSV index of every document's ID, title, type and path. |
+| =entity_binary_types= | =entity_binary_types.cpp= | parameterised | F6+F5 | 0 | 0 | 3 | 0 | Reports each column a generated row binds whose C++ member wire format differs from the create script's SQL type. |
+| =entity_writes= | =entity_writes.cpp= | parameterised | F6+F1 | 0 | 0 | 7 | 0 | Reports SQL functions and hand-written C++ files that write an entity table outside its repository. |
+| =er_diagram= | =er_diagram.cpp= | parameterised | F3 | 0 | 5 | 4 | 2 | Generates PlantUML ER diagrams per table group and an index from the SQL create scripts and the parser's style tables. |
+| =event_registrars= | =registrars.cpp= | parameterised | F2+F4 | 0 | 0 | 3 | 0 | Checks that every generated event registrar of listed components is called from the component's event_registrar.cpp. |
+| =exported_types= | =exported_types.cpp= | parameterised | F6 | 0 | 0 | 5 | 1 | Checks that every type a library exports with its export macro is compiled by some translation unit of that library, and that no visibility macro decorates an enum. |
+| =forward_declarable_includes= | =forward_declarable_includes.cpp= | parameterised | F6+F2 | 0 | 2 | 2 | 2 | Checks that a header that only names a listed type includes its forward declaration rather than its definition, and that the type list agrees with the tree's list file and defining headers. |
+| =generated_column_refs= | =generated_column_refs.cpp= | parameterised | F5+F4 | 0 | 0 | 8 | 0 | Reports table-display columns that are not struct members and index columns that are not table columns, from the model as code generation derives it. |
+| =handler_permissions= | =handler_permissions.cpp= | parameterised | F4 | 0 | 2 | 4 | 0 | Reports each permission code a messaging handler checks that the seed script does not seed. |
+| =handler_registrars= | =registrars.cpp= | parameterised | F4+F6 | 0 | 0 | 4 | 1 | Checks that every generated handler registrar of listed components is called, or that its subjects are subscribed by hand elsewhere. |
+| =heading_numbers= | =heading_numbers.cpp= | parameterised | F5 | 0 | 0 | 4 | 0 | Reports org headings under doc/ and projects/ that carry their own number, and non-UTF-8 documents. |
+| =history_registrars= | =registrars.cpp= | parameterised | F2+F4 | 0 | 0 | 2 | 0 | Checks that every generated history-provider registrar of listed components is called from the component's registrar.cpp. |
+| =http_recipe_library= | =recipe_libraries.cpp= | parameterised | F3 | 0 | 1 | 2 | 0 | Tangles hurl blocks of the HTTP recipes into the Hurl library with a GENERATED banner. |
+| =lint= | =lint.cpp= | parameterised | F4+F5 | 0 | 0 | 15 | 0 | Lints org pages: filetags, generated markers and their writers, id links, durable-to-agile links, pattern/use cross-links and structure-note backlinks. |
+| =marketdata_identity_columns= | =marketdata_identity_columns.cpp= | ore | F6+F2 | 0 | 0 | 4 | 5 | Reports disagreements between the market series identity table, its projector, the per-asset-class views, the codec schema and the index grammar. |
+| =model_rules= | =model_rules.cpp= | ore | F5+F4 | 0 | 3 | 23 | 7 | Checks ORE codegen models for money and continuous typing, published http areas, profile feature drift, TS facet opt-outs, NATS subject conformance and route-unit registration in ores.http aggregates. |
+| =no_pr_triggers= | =tree_gates.cpp= | generic | F1 | 0 | 0 | 2 | 2 | Reports each GitHub workflow line that triggers on pull_request or pull_request_target. |
+| =open_reads= | =open_reads.cpp= | parameterised | F6+F4 | 0 | 1 | 8 | 1 | Reports generated read handlers with no permission check that the Authorised reads allow-list does not name, history registrations without a read code, and stale allow-list rows. |
+| =ore_output_catalogue= | =ore_output_catalogue.cpp= | ore | F3 | 2 | 0 | 13 | 5 | Writes the ORE output catalogue data (.cpp/.hpp) and ore_output_formats.org from ORE's sample CSVs, the reporting seed and the script's tables. |
+| =ore_renderings_tables= | =ore_renderings_tables.cpp= | ore | F3 | 0 | 0 | 5 | 0 | Generates the C++ conventions_renderings.hpp code tables from ore_renderings.json. |
+| =ore_value_sets= | =value_sets.cpp= | ore | F3 | 0 | 0 | 8 | 1 | Generates the parameter value set seed, the ORE element map and its columns, and the convention kind terms seed and triggers, from the value set curation. |
+| =org_links= | =org_links.cpp= | generic | F5 | 0 | 0 | 1 | 0 | Reports each bracket link whose raw target begins with a colon, outside unpublished directories. |
+| =parameter_value_sets= | =value_sets.cpp= | ore | F7+F1 | 2 | 0 | 9 | 3 | Reports every problem in resolving ORE's parameter value set curation, plus forbidden per-pair override columns and value checks in named files. |
+| =pending_models= | =pending_models.cpp= | ore | F3 | 0 | 0 | 8 | 3 | Generates the pending-change entity model of every gated ORE model, as derive_pending_models.py did. |
+| =physical_inventory= | =physical_inventory.cpp= | parameterised | F3+F2 | 0 | 0 | 6 | 0 | Writes the child tables (technical spaces, facets, archetypes) of the physical-space documents in ORE's template library. |
+| =populate_refs= | =populate_refs.cpp= | parameterised | F4+F6 | 0 | 0 | 6 | 1 | Reports each populate *_fn call whose lookup values no earlier populate call defines, in psql run order. |
+| =portable_stop= | =portable_stop.cpp= | parameterised | F1 | 0 | 0 | 5 | 0 | Forbids C++20 stop types and <stop_token> outside ores.platform. |
+| =protocol_twins= | =protocol_twins.cpp= | parameterised | F2 | 0 | 2 | 7 | 0 | Reports each protocol header of a listed component with committed TypeScript protocol output that has no TypeScript twin. |
+| =prototypes= | =prototypes.cpp= | parameterised | F2 | 0 | 0 | 6 | 0 | Checks the doc/prototypes tree against its top and group index pages, review cells and shared file copies. |
+| =recipe_inventories= | =recipe_inventories.cpp= | parameterised | F3 | 0 | 0 | 7 | 0 | Writes the shell and HTTP recipe inventory pages, grouping recipes by filetag category and keeping hand-written prose. |
+| =registry_exceptions= | =registry_gates.cpp= | parameterised | F4+F5 | 0 | 2 | 4 | 0 | Reports accepted exceptions in the Python component registry that name an unlisted component or undefined item, repeat, or lack a reason, an acceptor or an ISO date. |
+| =required_sections= | =required_sections.cpp= | generic | F5 | 0 | 0 | 0 | 0 | Reports each level-1 section a document's type contract (doc/meta) requires and the document lacks. |
+| =rls_coverage= | =rls_coverage.cpp= | ore | F6 | 1 | 2 | 3 | 1 | Reports tables with tenant_id lacking RLS and tables with party_id lacking a restrictive party policy. |
+| =rls_widenings= | =rls_widenings.cpp= | ore | F6 | 0 | 0 | 2 | 1 | Reports each RLS policy that equates ORE's current-tenant function with its system-tenant function. |
+| =route_auth= | =route_auth.cpp= | ore | F6 | 0 | 0 | 3 | 1 | Checks that every ores.http add_route builder chain declares auth_required, auth_optional or roles, with a minimum route count tripwire. |
+| =route_inventory= | =route_inventory.cpp= | ore | F3 | 1 | 0 | 15 | 6 | Writes http_route_inventory.org from the routes the BFF (Express TS) and ores.http (C++ router) register, classified and paired by ORE's Python route tables. |
+| =rule_identifiers= | =rule_identifiers.cpp= | parameterised | F4+F5 | 0 | 0 | 6 | 1 | Checks that UX rules in ORE's two keyed UI standards carry unique CODE-SECTION-NN identifiers and that the review checklist cites real ones. |
+| =rule_table= | =codecs.cpp (compass.cli)= | generic | F3 | 0 | 0 | 0 | 0 | Writes the page of every rule the codecs declare and the memories they cite. |
+| =script_library_seed= | =script_library_seed.cpp= | ore | F3 | 0 | 0 | 4 | 5 | Generates the trading script library SQL seed from ORE's scriptlibrary.xml, inferring each script's inputs. |
+| =shell_command_composition= | =shell.cpp= | parameterised | F2+F4 | 0 | 0 | 4 | 0 | Checks that every generated shell command unit of listed components is registered by an ores.shell application source. |
+| =shell_command_units= | =shell.cpp= | ore | F6 | 0 | 0 | 2 | 1 | Checks that ores.shell builds each cli::Menu once and in one file, and registers each command unit once per file. |
+| =shell_menus= | =shell.cpp= | ore | F6 | 0 | 0 | 0 | 1 | Checks that cli::Menu is constructed from its name alone and that no two units own one menu or root command name. |
+| =shell_recipe_library= | =recipe_libraries.cpp= | parameterised | F3 | 0 | 1 | 3 | 0 | Tangles ores-shell blocks of the shell recipes into the .ores script library with a GENERATED banner. |
+| =shell_recipe_provenance= | =tree_gates.cpp= | parameterised | F4 | 0 | 0 | 1 | 1 | Reports each generated shell recipe whose GENERATED header names no existing source document. |
+| =skill_catalogue= | =skill_tables.cpp= | parameterised | F3 | 0 | 0 | 7 | 0 | Writes the skill catalogue region of claude_code_skills.org, grouped by a hard-coded domain list. |
+| =skill_levels= | =skill_levels.cpp= | parameterised | F3+F2 | 0 | 0 | 8 | 0 | Writes the per-System skill counts into skill_systems_levels.org from a hard-coded 76-skill level table, refusing when the table and the skill tree differ. |
+| =skill_namespace= | =tree_gates.cpp= | parameterised | F7 | 0 | 0 | 3 | 0 | Reports each skill directory under doc/llm/skills not named compass-*. |
+| =skill_type_tables= | =skill_tables.cpp= | ore | F3 | 0 | 0 | 9 | 2 | Writes the document-type and read-only-command tables into two skills by scraping ORE's Python CLI and its doc templates. |
+| =sql_hygiene= | =sql_hygiene.cpp= | generic | F6 | 0 | 1 | 0 | 2 | Reports PostgreSQL scripts with open block comments, duplicate indexes, comments between literals and non-idempotent DDL. |
+| =sql_reachability= | =sql_reachability.cpp= | parameterised | F4+F2 | 0 | 0 | 5 | 1 | Reports SQL files no entry point reaches through \i includes and includes that name no file. |
+| =stream_coverage= | =stream_coverage.cpp= | ore | F6+F7 | 0 | 0 | 7 | 3 | Resolves every JetStream stream and durable consumer declared through ores.nats calls and checks that streams do not overlap and that each durable subject is covered by exactly one ensured stream. |
+| =subject_conformance= | =subject_conformance.cpp= | parameterised | F6 | 0 | 0 | 11 | 0 | Reports each quoted NATS subject in the data-quality seed that falls outside the entity protocol grammar. |
+| =tangle= | =tangle.cpp= | generic | F3 | 0 | 0 | 0 | 0 | Writes the files a document's source blocks tangle to, scoped by a directory option. |
+| =tangle_check= | =tangle_check.cpp= | generic | F5 | 0 | 0 | 0 | 0 | Reports source blocks the tangle codec cannot reproduce or that target outside the checkout. |
+| =template_sections= | =template_sections.cpp= | generic | F1 | 0 | 1 | 1 | 0 | Reports mustache template lines that chain several section tags where a section spans lines. |
+| =test_case_reachability= | =test_case_reachability.cpp= | generic | F6 | 0 | 0 | 2 | 1 | Checks that no Catch2 test case sits inside a preprocessor conditional and that test sources' conditionals balance. |
+| =trade_type_coverage= | =trade_type_coverage.cpp= | ore | F3 | 0 | 0 | 11 | 1 | Writes the generated block of ORE's trade type coverage note from the mined engine TSV, the trade catalogue, recorded trades and one sprint story's tasks. |
+| =translation_unit_budget= | =translation_unit_budget.cpp= | parameterised | F6 | 0 | 3 | 3 | 0 | Checks that each unit that includes the convention family pack reflects no more convention families than its budget or recorded ceiling, and that ceilings ratchet down. |
+| =unique_type_names= | =unique_type_names.cpp= | parameterised | F6 | 0 | 0 | 2 | 0 | Checks that no two headers that can meet in one binary define a class or struct with the same qualified name. |
+| =unity_collisions= | =unity_collisions.cpp= | parameterised | F6+F2 | 0 | 0 | 4 | 1 | Checks that no two sources of one CMake target define the same internal-linkage name unless recorded in the unity exclusions file, and that recorded files exist. |
+| =xml_family_census= | =xml_family_census.cpp= | ore | F2 | 0 | 3 | 2 | 1 | Checks that the ORE XML family census agrees with the example corpus root elements, the generated codec tables and the XML test suites. |
+
+** Specifics
+
+One row per ORE Studio specific, by codec. Where is relative to =projects/=.
+
+| Codec | Where | Kind | Specific | Class | Reason |
+|-+-+-+-+-+-|
+| =backlog_indexes= | =compass.docs/src/codecs/backlog_indexes.cpp:40= | path | =doc/agile/product_backlog/= (backlog root) | could be data | ORE's backlog location; a =root= option names it. |
+| =backlog_indexes= | =compass.docs/src/codecs/backlog_indexes.cpp:46= | list | buckets =inbox=, =next=, =deferred=, =discarded= | could be data | ORE's triage buckets; a project table lists them. |
+| =backlog_indexes= | =compass.docs/src/codecs/backlog_indexes.cpp:48= | template | four full index-page headers with ORE IDs (=1B2C3D4E-...= line 49, =9A17E8DF-...= line 81, =C1BF2C4F-...= line 107, =A3F7B201-...= line 133), titles, descriptions, filetags, created dates and prose | could be data | Page text belongs to the project; keep the head of the existing page and regenerate only the region, or read a template file. |
+| =backlog_indexes= | =compass.docs/src/codecs/backlog_indexes.cpp:59= | name | parent backlog ID =D4219199-7B17-4A89-B4BC-6019738642DA= and capture concept ID =671F18E4-E09C-4B3B-BD24-D33DF8AE38A6= (line 92) | could be data | ORE document IDs embedded in the generated text. |
+| =backlog_indexes= | =compass.docs/src/codecs/backlog_indexes.cpp:72= | path | =projects/ores.codegen/scripts/regenerate_backlog_indexes.py= named in each header (also lines 97, 123, 154) | could be data | Names an ORE script inside generated text. |
+| =backlog_indexes= | =compass.docs/src/codecs/backlog_indexes.cpp:77= | contract | section headings =Inbox captures=, =Captures=, =Discarded captures= (lines 77, 103, 129, 160) | could be data | ORE's index-page headings; part of the template. |
+| =backlog_indexes= | =compass.docs/src/codecs/backlog_indexes.cpp:225= | convention | a capture is a top-level =.org= or =<dir>/story.org= in its bucket | could be data | ORE's capture layout; a promoted-capture file name option carries it. |
+| =backlog_indexes= | =compass.docs/src/codecs/backlog_indexes.cpp:247= | list | boilerplate filetags hidden from the Tags column =capture=, =inbox=, =next=, =deferred=, =discarded= | could be data | Derived from the bucket list plus ORE's =capture= tag. |
+| =backlog_indexes= | =compass.docs/src/codecs/backlog_indexes.cpp:284= | threshold | column minimum widths title 7, tags 4, description 50 | could be data | Reproduces the ORE script's padding for byte parity; a generic table writer would not need them. |
+| =backlog_indexes= | =compass.docs/src/codecs/backlog_indexes.cpp:295= | template | =#+ATTR_HTML: :class hug-leading= and header =Capture \\vert{} Tags \\vert{} Description= | could be data | ORE site CSS class and column names. |
+| =backlog_indexes= | =compass.docs/src/codecs/backlog_indexes.cpp:309= | template | region markers =# BEGIN AUTOGENERATED — regenerate_backlog_indexes.py= / =# END AUTOGENERATED= | could be data | Marker names an ORE script. |
+| =bff_list_requests= | =compass.cpp/src/codecs/bff_list_requests.cpp:43= | name | =7E3659C3-356E-4F0F-B4BA-C54050F39A98= (ORE memory doc ID cited as filter_mismatch rule source) | could be data | A rule's provenance ID points into ORE's memory tree; a project could attach sources to rules in its codec table. |
+| =bff_list_requests= | =compass.cpp/src/codecs/bff_list_requests.cpp:54= | path | =projects/ores.web/packages/bff/src/= (BFF TypeScript source dir, top level only) | could be data | A single directory literal; could be an option. |
+| =bff_list_requests= | =compass.cpp/src/codecs/bff_list_requests.cpp:55= | path | =projects/ores.web/packages/wire-protocol/src/generated/list_requests.ts= (generated table path) | could be data | A single output path; could be an option. |
+| =bff_list_requests= | =compass.cpp/src/codecs/bff_list_requests.cpp:58= | list | request keys =filter, as_of, offset, limit, order= (members that mark a literal as a list request) | could be data | ORE's paging/filter member names; a short list option. |
+| =bff_list_requests= | =compass.cpp/src/codecs/bff_list_requests.cpp:71= | convention | protocol headers are =projects/<c>/api/include/<ns>/messaging/*_protocol.hpp= (7 parts, api/include/messaging) | could be data | ORE's component/part layout for protocol headers; a glob option would express it. |
+| =bff_list_requests= | =compass.cpp/src/codecs/bff_list_requests.cpp:68= | pattern | C++ struct regex =struct (\w+) {...\n};= and member grammar (members_of, std::optional filter/as_of) | stays code | It is a parser of ORE's C++ protocol header style; as data it would need a language. |
+| =bff_list_requests= | =compass.cpp/src/codecs/bff_list_requests.cpp:123= | convention | request names =list_\w+_request=, reply name by =_request=->=_response= | could be data | Naming convention pair; two pattern options could express it. |
+| =bff_list_requests= | =compass.cpp/src/codecs/bff_list_requests.cpp:167= | threshold | rows are members whose preceding 60 chars contain =vector<= | stays code | A heuristic inside the C++ member parser, not a project choice. |
+| =bff_list_requests= | =compass.cpp/src/codecs/bff_list_requests.cpp:277= | grammar | TypeScript call grammar =readAll(client, subject, 'rows')= (argument 2 is subject, 3 is rows key) | stays code | Encodes the signature of ORE's BFF helper; data would need a call-shape language. |
+| =bff_list_requests= | =compass.cpp/src/codecs/bff_list_requests.cpp:415= | pattern | ~static constexpr std::string_view nats_subject = "..."~ (subject declaration in protocol structs) | could be data | The subject-declaration shape is ORE's; a regex option could carry it. |
+| =bff_list_requests= | =compass.cpp/src/codecs/bff_list_requests.cpp:444= | template | generated =list_requests.ts= text: header comment, =ListRequestShape= interface, =LIST_REQUESTS= record, layout | stays code | A generator template for ORE's wire-protocol package; moving it to data means a template language. |
+| =bff_list_requests= | =compass.cpp/src/codecs/bff_list_requests.cpp:452= | path | =projects/ores.codegen/scripts/regenerate_list_request_descriptors.py= (named in header and fix hint, also line 509) | could be data | ORE's regeneration script path; part of the template/hint text. |
+| =bff_list_requests= | =compass.cpp/src/codecs/bff_list_requests.cpp:405= | threshold | print width 100 for flat vs wrapped arrays | could be data | ORE's TS formatter width; a numeric option. |
+| =bff_list_requests= | =compass.cpp/src/codecs/bff_list_requests.cpp:503= | convention | skip =*.test.ts= files | could be data | Test file suffix; an exclude glob option. |
+| =codegen= | =compass.codegen/src/codecs/codegen.cpp:39= | path | =library= option (ORE value projects/ores.codegen/library, set in ORE's .compass.org) | data | Option, empty default; the templates, data/ and component_catalogue.org live in ORE's checkout. |
+| =codegen= | =compass.codegen/src/codecs/codegen.cpp:41= | name | =convention_component= option (ORE value refdata) | data | Option, empty default. |
+| =codegen= | =compass.codegen/src/codecs/codegen.cpp:45= | path | clang_format/prettier programs and style files (ORE values clang-format, projects/ores.web/node_modules/.bin/prettier) | data | Options, empty defaults. |
+| =codegen= | =compass.codegen/src/codecs/codegen.cpp:140= | list | Formatter extensions (.cpp .hpp .h .cxx .cc; .ts .tsx) and arguments | stays code | Tool invocation details; generic for those formatters. |
+| =codegen= | =compass.codegen/src/ops/generate.cpp:132= | contract | Physical-space graph read from =<library>/templates/ores.*.org= nodes | data | Facets and archetypes are ORE's org nodes in ORE's checkout; only the =ores.= file prefix is literal. |
+| =codegen= | =compass.codegen/src/ops/generate.cpp:590= | template | Templates are =<library>/templates/*.mustache= (176 in ORE) | data | Templates live in ORE's checkout; compass compiles and renders them with a generic mustache engine. |
+| =codegen= | =compass.codegen/src/ops/generate.cpp:649= | path | =<library>/data/licence-GPL-v3.txt= and =<library>/data/modeline.org= | could be data | Fixed file names under the library; ORE's licence choice baked into a key name (context.cpp:255 =licence-GPL-v3=). |
+| =codegen= | =compass.codegen/src/ops/manifest.cpp:29= | list | Model types =ores.codegen.entity=, junction, field_group, lookup_entity, operation, family, service_registry, component, asset_class_catalogue, trade_type_catalogue, outcome_catalogue | stays code | Each type selects a hand-written C++ context builder (generate.cpp:348); the list is the dispatch table of ORE's meta-model. |
+| =codegen= | =compass.codegen/src/ops/physical_space.cpp:37= | list | Eleven facet/archetype lists (protocol, staging-only, junction messaging/history/event, no-temporal-history, shell aggregator) naming =ores.cpp.*=, =ores.ts.*=, =ores.sql.*=, =ores.doc.*= | could be data | Facet enablement rules are data-shaped (lists of addresses) and could be flags on ORE's physical-space nodes. |
+| =codegen= | =compass.codegen/src/ops/physical_space.cpp:258= | convention | Enablement drawer keys are =ores[.part]*.enabled=; technical space =ores.sql= special-cased (635, 677) | could be data | The product prefix =ores= should be the project's product name. |
+| =codegen= | =compass.codegen/src/ops/physical_space.cpp:785= | path | =projects/ores.shell/= hosts shell command units | could be data | A component name literal. |
+| =codegen= | =compass.codegen/src/ops/entity_names.cpp:83= | convention | Component directories =ores.<component>[/<sub>]=, core/service subdirectories (also context.cpp:204, physical_space.cpp:483, field_group_context.cpp:62, model_steps.cpp:43) | could be data | The =ores.= prefix and part names come from ORE's component layout; a product prefix option covers most. |
+| =codegen= | =compass.codegen/src/ops/entity_messages.cpp:40= | name | C++ vocabulary types =ores::utility::domain::{result,precondition,change_intent,order,scope}= and =ores::<c>::domain::<e>= | stays code | These feed ORE's templates' semantics (message shapes); moving them is moving ORE's codegen design, which compass mirrors from ores.codegen Python. |
+| =codegen= | =compass.codegen/src/ops/entity_columns.cpp:122= | name | =ores::utility::decimal::decimal=, =ores::platform::time::datetime::*= (junction_context.cpp:141, family_context.cpp:99), =ores::presentation::Ore*ComboBox= (entity_presentation.cpp:196) | stays code | Type-mapping rules inside context builders; they encode ORE's runtime libraries. |
+| =codegen= | =compass.codegen/src/ops/entity_primary_key.cpp:78= | name | SQL helper =ores_utility_nil_uuid_fn()= and tenant handling (=tenant_id=, =has_tenant_id=, =nullable_tenant_id=, entity_registry.cpp:102) | stays code | ORE's SQL tenant schema baked into the context the SQL templates read. |
+| =codegen= | =compass.codegen/src/ops/template_context.cpp:414= | template | Template names special-cased in C++ (convention family registry/units/dispatch, ts_protocol, cpp_service, cpp_nats_*, shell/http recipe, aggregator; output.cpp:37 value-init templates) | could be data | A per-template context kind could be declared on the template node instead of named in C++. |
+| =codegen= | =compass.codegen/src/ops/template_context.cpp:181= | template | Generated prose hard-codes =ores-shell>= prompt and =projects/ores.shell/scripts/library/=, =projects/ores.http/scripts/library/= | could be data | Prose belongs in the templates or library data, not C++. |
+| =codegen= | =compass.codegen/src/ops/junction_context.cpp:160= | name | Default product =ores= when a junction omits :product: | could be data | A product option default. |
+| =codegen= | =compass.codegen/src/ops/render.cpp:42= | list | =_VALUE_INIT_CPP_TYPES= scalar C++ types | stays code | Generic C++ fact; mirrors ores.codegen but holds for any C++ project. |
+| =component_docs= | =compass.docs/src/codecs/component_docs.cpp:60= | name | rule source ID =CE17C7BB-C68C-4304-BD3D-92FA5D13272B= | could be data | Rule provenance into ORE's tree. |
+| =component_docs= | =compass.docs/src/codecs/component_docs.cpp:82= | path | exceptions file default =projects/ores.codegen/docs_exceptions.txt= | ORE default | Option exists; default is ORE's path. |
+| =component_docs= | =compass.docs/src/codecs/component_docs.cpp:55= | contract | exception codes =MISSING_OVERVIEW= ... =BACKTICK_LINK= keyed with a component name per line | stays code | The exceptions file's grammar is the codec's own contract; the codes name its rules. |
+| =component_docs= | =compass.docs/src/codecs/component_docs.cpp:86= | list | required level-1 sections =Summary=, =Inputs=, =Outputs=, =Entry points=, =Dependencies=, =See also= | could be data | ORE's component overview contract; doc/meta's component type already has a section list it could read. |
+| =component_docs= | =compass.docs/src/codecs/component_docs.cpp:140= | contract | =#+type:= =component= or =ores.codegen.component= | could be data | ORE's type names; doc/meta lists types. |
+| =component_docs= | =compass.docs/src/codecs/component_docs.cpp:150= | contract | overview at =<component>/modeling/component_overview.org= plus a =.puml= in =modeling/= (line 177) | could be data | ORE's component layout; projects/modeling/component_architecture.org should state it. |
+| =component_docs= | =compass.docs/src/codecs/component_docs.cpp:210= | convention | a component is =projects/ores.*= (line 206 lists =projects/=) | could be data | ORE's component prefix; a component root and prefix option carry it. |
+| =component_docs= | =compass.docs/src/codecs/component_docs.cpp:220= | convention | parts are subdirectories other than =modeling=; a part needs an overview when it has =include/= and =src/= (line 238) | could be data | ORE's part layout; the component architecture document could state it. |
+| =component_docs= | =compass.docs/src/codecs/component_docs.cpp:266= | convention | name_collision: no =ores.a.b= beside =ores.a= | stays code | A dotted-name rule over whatever components are found; generic once the prefix is data. |
+| =component_docs= | =compass.docs/src/codecs/component_docs.cpp:282= | path | backtick rule reads pages under =doc/= | could be data | ORE's exported doc root. |
+| =component_docs= | =compass.docs/src/codecs/component_docs.cpp:295= | grammar | fuzzy-link detection: bare bracket link with no colon, dot or leading star inside a backtick span | stays code | Mirrors org's own link resolution; data cannot express it. |
+| =component_files= | =compass.codegen/src/codecs/component_files.cpp:43= | path | =library= default =projects/ores.codegen/library= | ORE default | Option exists; default is ORE's library (codegen's same option defaults to empty). |
+| =component_files= | =compass.codegen/src/codecs/component_files.cpp:71= | pattern | Components found by =projects/*/modeling/component_overview.org= with =#+full_name:= | could be data | ORE's component layout; should agree with the project's component architecture document. |
+| =component_files= | =compass.codegen/src/codecs/component_files.cpp:83= | path | =data/licence-GPL-v3.txt=, =data/modeline.org= under library | could be data | Fixed file names; licence choice is ORE's. |
+| =component_files= | =compass.codegen/src/codecs/component_files.cpp:90= | template | Templates =cmake_component_files_src.mustache=, =cmake_component_files_tests.mustache= for =src/= and =tests/=, output =component_files.cmake= | could be data | Unit table of (dir, template, output) is data-shaped. |
+| =component_files= | =compass.codegen/src/codecs/component_files.cpp:110= | convention | Headers listed from =<root>/include/*.hpp=, sources =*.cpp= | could be data | Layout globs; would follow from a project component-layout statement. |
+| =conventions_coverage= | =compass.crosscheck/src/codecs/conventions_coverage.cpp:71= | template | Fix text naming =tools/ore_conventions/extract.py=, =projects/ores.seeder/datasets/conventions/propose.py=, =conventions.tsv=, =propose_decisions.tsv= | could be data | Should be built from the options instead of literal. |
+| =conventions_coverage= | =compass.crosscheck/src/codecs/conventions_coverage.cpp:77= | path | examples default =external/ore/examples= | ORE default | Option exists; default is ORE's vendored tree. |
+| =conventions_coverage= | =compass.crosscheck/src/codecs/conventions_coverage.cpp:79= | path | extract_dir default =tools/ore_conventions= | ORE default | Option exists; default is ORE's tool dir. |
+| =conventions_coverage= | =compass.crosscheck/src/codecs/conventions_coverage.cpp:82= | path | propose default =projects/ores.seeder/datasets/conventions/propose.py= | ORE default | Option exists; default is ORE's script. |
+| =conventions_coverage= | =compass.crosscheck/src/codecs/conventions_coverage.cpp:146= | contract | ORE XML root =Conventions=, child =Id=, other children as fields (166) | stays code | ORE's XML schema; the codec exists to read it. |
+| =conventions_coverage= | =compass.crosscheck/src/codecs/conventions_coverage.cpp:204= | list | Legacy markers =Legacy/=, =ORE-API/=, =ORE-Python/=, =ScriptedTrade/=, =MinimalSetup/= | could be data | A path list copied from extract.py. |
+| =conventions_coverage= | =compass.crosscheck/src/codecs/conventions_coverage.cpp:250= | contract | decisions.tsv header =kind, id, decision, signature= | stays code | Port of extract.py's file contract. |
+| =conventions_coverage= | =compass.crosscheck/src/codecs/conventions_coverage.cpp:291= | convention | Variant resolution rule-1..rule-4 (most non-empty fields, most files, non-legacy, least signature) and 10-char md5 pins (333) | stays code | An algorithm ported from extract.py; data cannot express it. |
+| =conventions_coverage= | =compass.crosscheck/src/codecs/conventions_coverage.cpp:350= | convention | Id suffix =-CONVENTIONS= for rename groups | could be data | A single suffix value. |
+| =conventions_coverage= | =compass.crosscheck/src/codecs/conventions_coverage.cpp:442= | contract | Canonical table columns kind, id, signature, source_path, variant_count, decided_by, aliases | stays code | Intermediate table of the port, read back by the same code. |
+| =conventions_coverage= | =compass.crosscheck/src/codecs/conventions_coverage.cpp:557= | path | Beside propose.py: =conventions.tsv=, =propose_decisions.tsv= (597), =oresmd_index_map.tsv= (598); in extract_dir: =builtin_index_fields.tsv= (599), =decisions.tsv= (607) | could be data | File names fixed relative to option dirs; could be options. |
+| =conventions_coverage= | =compass.crosscheck/src/codecs/conventions_coverage.cpp:614= | list | INDEX_FIELDS and BDC tables | data | Read from propose.py, a project file. |
+| =conventions_coverage= | =compass.crosscheck/src/codecs/conventions_coverage.cpp:646= | pattern | oresmd URI family strips ~&tenor=...~; ibor URIs contain ~index=ibor~ (686) | could be data | URI shape of ORE's market data identity; patterns could be options. |
+| =conventions_coverage= | =compass.crosscheck/src/codecs/conventions_coverage.cpp:653= | list | Index kinds =IborIndex=, =OvernightIndex= | could be data | A kind list. |
+| =conventions_coverage= | =compass.crosscheck/src/codecs/conventions_coverage.cpp:697= | name | Origins =ORE examples= and =ORE engine= (718), matched against propose_decisions.tsv | could be data | Labels must equal those in the decisions file. |
+| =conventions_coverage= | =compass.crosscheck/src/codecs/conventions_coverage.cpp:700= | contract | Engine TSV (kind, convention, day_counter, end_of_month, fixing_calendar, settlement_days, name) to ORE fields BusinessDayConvention, DayCounter, EndOfMonth, FixingCalendar, SettlementDays | stays code | A port of propose.py's mapping between ORE's code and XML vocabularies. |
+| =conventions_dataset= | =compass.crosscheck/src/codecs/conventions_dataset.cpp:59= | template | Populate SQL frame calling =ores_dq_methodologies_upsert_fn=, =ores_dq_datasets_upsert_fn= with 'ORE Analytics', 'Trading', 'Reference Data', 'Conventions', the description, 'ORESTUDIO', 'Internal Use Only', 'conventions' | could be data | A template file would hold it; it already has @NAME@ slots. |
+| =conventions_dataset= | =compass.crosscheck/src/codecs/conventions_dataset.cpp:66= | convention | SQL tenant convention =ores_utility_system_tenant_id_fn()=, nil party =ores_utility_nil_uuid_fn()= (106), =ores_dq_datasets_tbl= with ~valid_to = ores_utility_infinity_timestamp_fn()~ (112) | could be data | ORE's bitemporal tenant schema; it belongs in the template. |
+| =conventions_dataset= | =compass.crosscheck/src/codecs/conventions_dataset.cpp:120= | path | script default =projects/ores.seeder/datasets/conventions/generate_sql.py= | ORE default | Option exists; default is ORE's script. |
+| =conventions_dataset= | =compass.crosscheck/src/codecs/conventions_dataset.cpp:123= | path | output default =projects/ores.sql/populate/refdata/refdata_conventions_artefact_populate.sql= | ORE default | Option exists; default is ORE's file. |
+| =conventions_dataset= | =compass.crosscheck/src/codecs/conventions_dataset.cpp:229= | contract | Normaliser tables DAY_COUNTER, BDC, FREQUENCY, COMPOUNDING, DATE_RULE keyed by parser types daycounter, bdc, frequency, compounding, daterule | stays code | Reader of ORE's script layout. |
+| =conventions_dataset= | =compass.crosscheck/src/codecs/conventions_dataset.cpp:238= | list | KINDS, CUT_KINDS, COMPOSITE_KINDS, WORLD_KINDS, INDEX_FIELDS, INDEX_KINDS, PRIMARY_INDEX, NESTED_COLUMNS, HEADER, DATASET_CODE, METHODOLOGY* | data | Read from generate_sql.py, a project file. |
+| =conventions_dataset= | =compass.crosscheck/src/codecs/conventions_dataset.cpp:412= | grammar | CommodityFuture nested-field decoder (AnchorDay/NthWeekday, ValidContractMonths, OffPeakPowerIndexData, AveragingData, ProhibitedExpiries, continuation mappings) to named columns | stays code | Port of the script's decoder for ORE XML; needs a language. |
+| =conventions_dataset= | =compass.crosscheck/src/codecs/conventions_dataset.cpp:516= | grammar | IntradayPowerLoad decoder regexes (LoadProfileDatum, LoadFactor, LoadProfileBusinessDayRule) | stays code | Port of the script's decoder. |
+| =conventions_dataset= | =compass.crosscheck/src/codecs/conventions_dataset.cpp:546= | list | Decoded kinds =CommodityFuture=, =IntradayPowerLoad= | stays code | Each names a ported function. |
+| =conventions_dataset= | =compass.crosscheck/src/codecs/conventions_dataset.cpp:570= | grammar | Parser types text, int, float, bool with Python int/float/bool coercion | stays code | Semantics of the script's types. |
+| =conventions_dataset= | =compass.crosscheck/src/codecs/conventions_dataset.cpp:632= | convention | Ported part functions =tenor_basis_swap_parts= (PayIndex/ReceiveIndex) and =commodity_future_parts= with 10 Option* fields (636) | stays code | Python functions COMPOSITE_KINDS names; porting is the only way. |
+| =conventions_dataset= | =compass.crosscheck/src/codecs/conventions_dataset.cpp:667= | convention | Composite central columns dataset_id, tenant_id, kind_code, name, oresmd_uri; part columns add convention_name (673) | could be data | ORE's artefact table shape. |
+| =conventions_dataset= | =compass.crosscheck/src/codecs/conventions_dataset.cpp:714= | convention | Flat columns dataset_id, tenant_id, id, version, plus party_id unless a world kind | could be data | ORE's artefact table shape. |
+| =conventions_dataset= | =compass.crosscheck/src/codecs/conventions_dataset.cpp:730= | convention | Table name =ores_dq_<stem>_conventions_artefact_tbl= | could be data | A name template. |
+| =conventions_dataset= | =compass.crosscheck/src/codecs/conventions_dataset.cpp:783= | template | Per-block =if not exists (select 1 ...) then insert ... end if;= text | could be data | SQL text a template could hold; the loop stays code. |
+| =conventions_dataset= | =compass.crosscheck/src/codecs/conventions_dataset.cpp:815= | path | =conventions.tsv=, =oresmd_index_map.tsv=, =methodology.txt= beside the script | could be data | File names fixed relative to the option. |
+| =core_link_edges= | =compass.cpp/src/codecs/core_link_edges.cpp:49= | grammar | CMake =set(name ...)= names a library file's component | could be data | ORE's CMake idiom for naming a target; a regex option would cover it. |
+| =core_link_edges= | =compass.cpp/src/codecs/core_link_edges.cpp:114= | list | CMake variables =${lib_target_name}===<c>.lib=, =${lib_binary_name}=, =${name}=, =${component}= | could be data | ORE's CMake template variables; a substitution table. |
+| =core_link_edges= | =compass.cpp/src/codecs/core_link_edges.cpp:152= | name | =ores= (component prefix, name is =ores.<c>.<part>=; also 164, 185) | could be data | The product prefix; one option. |
+| =core_link_edges= | =compass.cpp/src/codecs/core_link_edges.cpp:164= | name | parts =core= (checked part) and =.lib= target suffix | could be data | Part names come from the component architecture; could be options. |
+| =core_link_edges= | =compass.cpp/src/codecs/core_link_edges.cpp:187= | list | forbidden link targets: other components' =core= and =service=; fix hint says =api= | could be data | An allowed/forbidden part-to-part edge table; expressible as data. |
+| =core_link_edges= | =compass.cpp/src/codecs/core_link_edges.cpp:200= | convention | core library file is =projects/<c>/core/src/CMakeLists.txt= (5 parts) | could be data | ORE's part directory layout; a glob option. |
+| =curve_parameter_paths= | =compass.sql/src/codecs/curve_parameter_paths.cpp:49= | path | =artefact= default =projects/ores.sql/populate/reporting/reporting_ore_parameters_artefact_populate.sql= | ORE default | Option exists; default is ORE's artefact script. |
+| =curve_parameter_paths= | =compass.sql/src/codecs/curve_parameter_paths.cpp:53= | path | =schema= default =external/ore/xsd/curveconfig.xsd= | ORE default | Option exists; default is the vendored ORE schema. |
+| =curve_parameter_paths= | =compass.sql/src/codecs/curve_parameter_paths.cpp:55= | path | =exemptions= default =projects/ores.sql/utility/curve_schema_exemptions.json= | ORE default | Option exists; default is ORE's exemptions file. |
+| =curve_parameter_paths= | =compass.sql/src/codecs/curve_parameter_paths.cpp:59= | name | Root element =CurveConfiguration= | could be data | One string; an option makes the codec an XSD-path checker for any root. |
+| =curve_parameter_paths= | =compass.sql/src/codecs/curve_parameter_paths.cpp:171= | grammar | XSD reader regexes assume ORE's xsd layout (complexType closed at two-space indent, xs:include, xs:element name/type) | stays code | A schema reader; making the regexes data would just move a parser into config. |
+| =curve_parameter_paths= | =compass.sql/src/codecs/curve_parameter_paths.cpp:177= | pattern | Paths are quoted literals ='/CurveConfiguration/...'= in the SQL artefact | could be data | Derivable from the root option; the quote convention is ORE's. |
+| =curve_parameter_paths= | =compass.sql/src/codecs/curve_parameter_paths.cpp:100= | contract | Exemptions JSON shape ={"rules":[{"path":[...],"elements":[...]}]}= | data | Exemptions live in the project's file; compass parses it. |
+| =curve_sections_wiring= | =compass.crosscheck/src/codecs/curve_sections_wiring.cpp:46= | path | =projects/ores.web/packages/bff/src/curve-sections.generated.ts= | could be data | Output path without option. |
+| =curve_sections_wiring= | =compass.crosscheck/src/codecs/curve_sections_wiring.cpp:48= | path | =projects/ores.sql/create/refdata/refdata_curve_configuration_parts_validate_fn_create.sql= | could be data | Output path without option. |
+| =curve_sections_wiring= | =compass.crosscheck/src/codecs/curve_sections_wiring.cpp:51= | template | TS licence and header with interfaces CurveParameter, CurveEntity, CurveBlock, CurveCollection(Kind/Leaf), CurveSectionWiring, CURVE_SECTIONS; footer =curveSectionOf= (176) | could be data | Template file. |
+| =curve_sections_wiring= | =compass.crosscheck/src/codecs/curve_sections_wiring.cpp:185= | template | SQL licence and validator functions over =ores_refdata_curve_segments_tbl=, =ores_refdata_curve_segment_types_tbl=, =ores_refdata_default_curve_configurations_tbl=, errcode 23514 (206) | could be data | Template file. |
+| =curve_sections_wiring= | =compass.crosscheck/src/codecs/curve_sections_wiring.cpp:332= | name | Definition key =curve_definition_id= (also 847) | could be data | A single value. |
+| =curve_sections_wiring= | =compass.crosscheck/src/codecs/curve_sections_wiring.cpp:374= | threshold | Owner list filled at 80 columns; C++ braced line width 95 (751) | could be data | Layout widths copied from the script. |
+| =curve_sections_wiring= | =compass.crosscheck/src/codecs/curve_sections_wiring.cpp:379= | convention | Validator names =ores_refdata_validate_<part>_fn= calling =..._default_curve_part_fn= or =..._curve_segment_part_fn= (392, 406) | could be data | Name templates. |
+| =curve_sections_wiring= | =compass.crosscheck/src/codecs/curve_sections_wiring.cpp:410= | path | Map, guard and drop outputs =projects/ores.sql/{populate,create,drop}/refdata/refdata_curve_configuration_columns_*= | could be data | Output paths without options. |
+| =curve_sections_wiring= | =compass.crosscheck/src/codecs/curve_sections_wiring.cpp:416= | name | Trigger =ores_refdata_curve_values_trg= | could be data | A single value. |
+| =curve_sections_wiring= | =compass.crosscheck/src/codecs/curve_sections_wiring.cpp:438= | template | Guard function SQL over =ores_reporting_ore_element_map_columns_tbl=, =ores_reporting_ore_parameter_vocabularies_tbl=, =ores_reporting_value_in_set_fn=, =ores_reporting_canonical_value_fn= | could be data | Template file. |
+| =curve_sections_wiring= | =compass.crosscheck/src/codecs/curve_sections_wiring.cpp:525= | convention | Map rows with =ores_utility_system_tenant_id_fn()=, version 0, =ores_refdata_service=, =system.initial_load=, ~on conflict (tenant_id, code) where valid_to = ...~ (546) | could be data | ORE's SQL tenant and seed convention; template. |
+| =curve_sections_wiring= | =compass.crosscheck/src/codecs/curve_sections_wiring.cpp:589= | template | C++ licence, header (=ores::http::routes::refdata::wiring=, structs, include guard) and footer (729) | could be data | Template file. |
+| =curve_sections_wiring= | =compass.crosscheck/src/codecs/curve_sections_wiring.cpp:743= | path | =projects/ores.http/refdata/include/ores.http/routes/refdata/curve_section_wiring.hpp= and =.../src/routes/refdata/curve_section_wiring.cpp= (745) | could be data | Output paths without options. |
+| =curve_sections_wiring= | =compass.crosscheck/src/codecs/curve_sections_wiring.cpp:931= | name | clang_format =clang-format= and style =.clang-format= | data | Options with generic defaults, set in .compass.org. |
+| =curve_sections_wiring= | =compass.crosscheck/include/compass.crosscheck/ops/curve_wiring.hpp:42= | path | Projection =projects/ores.ore/core/src/domain/curve_configuration_projection.cpp=, schema =external/ore/xsd/curveconfig.xsd= (44), schema name (46), entity =curve_definition= (47) | could be data | Input paths and one name; options would carry them. |
+| =curve_sections_wiring= | =compass.crosscheck/src/ops/curve_wiring.cpp:33= | name | XSD root =CurveConfiguration=, complex type =curveconfiguration= (605) | stays code | ORE's XSD vocabulary, bound to the schema walk. |
+| =curve_sections_wiring= | =compass.crosscheck/src/ops/curve_wiring.cpp:124= | grammar | Regex parser of the projection C++: =*_section= constants, =sections()= of =section_access=, =each(..)= + =import_*=, =add_definition=, =required_text=, =refdata::domain::=, =document_part<>=, =record_reader= | stays code | A parser of ORE's own C++ source; data would need a language. |
+| =curve_sections_wiring= | =compass.crosscheck/src/ops/curve_wiring.cpp:549= | convention | Block presence columns start =has_= | could be data | A prefix value. |
+| =curve_sections_wiring= | =compass.crosscheck/src/ops/curve_wiring.cpp:636= | name | Projection functions =import_segments=, =parts_of_default_curve_type= (670), part prefix =default_curve_= (686) | stays code | Names of the functions the parser walks. |
+| =curve_sections_wiring= | =compass.crosscheck/src/ops/projection_columns.cpp:52= | path | Entity models =projects/ores.refdata/modeling/ores.refdata.<entity>.org=, read for =:tablename:= (337) | could be data | A path template and a key name. |
+| =entity_binary_types= | =compass.crosscheck/src/codecs/entity_binary_types.cpp:54= | list | C++ type to wire format map including db_timestamp, utility::uuid::tenant_id, ores::utility::decimal::decimal, decimal (lines 54-71) | could be data | The std and Boost entries are generic, but the ORE aliases are a type map a project can extend in a table. |
+| =entity_binary_types= | =compass.crosscheck/src/ops/generated_shape.cpp:136= | list | column flag to C++ member type map, e.g. is_required_decimal -> ores::utility::decimal::decimal (lines 136-154; also 101-128, 166-187) | could be data | Mirrors cpp_domain_type_entity.hpp branches; a flag-to-type table is data, though deriving it from the template would be better. |
+| =entity_binary_types= | =compass.crosscheck/src/ops/generated_shape.cpp:448= | name | row and table existence gated on archetypes ores.cpp.repository.entity_header and ores.sql.schema.* (lines 445-450) | could be data | Same archetype names as generated_column_refs; options would generalise them. |
+| =entity_writes= | =compass.crosscheck/src/codecs/entity_writes.cpp:50= | name | rule source document ID 5724BDE2-... | could be data | Rule provenance names an ORE document. |
+| =entity_writes= | =compass.crosscheck/src/codecs/entity_writes.cpp:62= | pattern | entity table name ores_[a-z0-9_]*_tbl after INSERT INTO, UPDATE or DELETE FROM | could be data | The table-name pattern is ORE's prefix and suffix and fits an option. |
+| =entity_writes= | =compass.crosscheck/src/codecs/entity_writes.cpp:82= | convention | a file <name>_repository owns tables ores_<component>_<name>[s]_tbl (lines 82-86) | could be data | The owner naming rule is a template a project can state, though matching it needs placeholders. |
+| =entity_writes= | =compass.crosscheck/src/codecs/entity_writes.cpp:106= | name | SQL functions starting ores_iam_purge_ may write any table | could be data | An exemption prefix list is data. |
+| =entity_writes= | =compass.crosscheck/src/codecs/entity_writes.cpp:119= | list | hand-written code is under projects/ores.*, not ores.testing, not under tests/ or build/ (lines 119-124) | could be data | Include and exclude globs are data. |
+| =entity_writes= | =compass.crosscheck/src/codecs/entity_writes.cpp:145= | path | projects/ores.sql/create/ (SQL scanned) | could be data | A hard-coded directory with no option. |
+| =entity_writes= | =compass.crosscheck/src/codecs/entity_writes.cpp:155= | path | projects/ores. prefix for the C++ scanned | could be data | A hard-coded scan prefix with no option. |
+| =er_diagram= | =compass.crosscheck/src/codecs/er_diagram.cpp:52= | path | create_dir = projects/ores.sql/create | ORE default | The option exists; its default is ORE's. |
+| =er_diagram= | =compass.crosscheck/src/codecs/er_diagram.cpp:54= | path | parser = projects/ores.codegen/src/plantuml_er_parse_sql.py | ORE default | The option exists; its default is ORE's. |
+| =er_diagram= | =compass.crosscheck/src/codecs/er_diagram.cpp:57= | path | template = projects/ores.codegen/library/templates/plantuml_er.mustache | ORE default | The option exists; its default is ORE's. |
+| =er_diagram= | =compass.crosscheck/src/codecs/er_diagram.cpp:59= | path | index_template = projects/ores.codegen/library/templates/plantuml_er_index.mustache | ORE default | The option exists; its default is ORE's. |
+| =er_diagram= | =compass.crosscheck/src/codecs/er_diagram.cpp:62= | path | output = projects/ores.sql/modeling/ores_schema.puml | ORE default | The option exists; its default is ORE's. |
+| =er_diagram= | =compass.crosscheck/src/codecs/er_diagram.cpp:93= | name | Python tables COMPONENT_PREFIXES (name, description, color, order), FK_COLUMNS, TABLE_STYLES (stereotype, color) (lines 93-124) | could be data | The names are fixed but the contents are already data in the parser file; an org table would remove the Python dependency. |
+| =er_diagram= | =compass.crosscheck/src/codecs/er_diagram.cpp:105= | threshold | default package order 99 and default table colour #FFFFFF (line 124) | could be data | Defaults of the style table. |
+| =er_diagram= | =compass.crosscheck/src/codecs/er_diagram.cpp:226= | convention | create scripts end _create.sql | could be data | A file suffix option. |
+| =er_diagram= | =compass.sql/src/ops/er_model.cpp:259= | convention | table kinds: _artefact_ or dataset_id is artefact, two _id columns and no id is junction, valid_from and valid_to is temporal, else current_state (lines 259-279) | stays code | An ordered set of predicates over columns; as data it needs a rule language. |
+| =er_diagram= | =compass.sql/src/ops/er_model.cpp:341= | grammar | soft FK comment '-- Validate X (optional soft FK to Y)' (lines 341-342) | could be data | A comment pattern a project can state as a regex. |
+| =er_diagram= | =compass.sql/src/ops/er_model.cpp:173= | grammar | table description comment blocks: a '-- ====' block starting 'Table:', or a javadoc block containing Table or Artefact (lines 157-196) | stays code | A parser of ORE's SQL comment conventions; a regex option would be as opaque as the code. |
+| =event_registrars= | =compass.cpp/src/codecs/registrars.cpp:117= | name | =B5492D6C-7C18-4723-BA47-232AEAA13314= (ORE doc ID cited by composed_rules; also history_registrars) | could be data | Rule provenance into ORE's doc tree. |
+| =event_registrars= | =compass.cpp/src/codecs/registrars.cpp:126= | list | components =ores.dq, ores.refdata, ores.synthetic= | could be data | A component list; an option or a component-model attribute. |
+| =event_registrars= | =compass.cpp/src/codecs/registrars.cpp:130= | convention | declaration =register_<e>_event_mapping(= in =service/include/**/*_event_registrar.hpp=, composed in =service/src/messaging/event_registrar.cpp= | could be data | ORE codegen naming and file layout; three pattern/path options. |
+| =exported_types= | =compass.cpp/src/codecs/exported_types.cpp:95= | convention | export header is =projects/<c>/<part>/include/<ns>/export.hpp= (6 parts); library dir is three parents up, sources at =<lib>/src= | could be data | ORE's per-part export header placement; a glob option would express it. |
+| =exported_types= | =compass.cpp/src/codecs/exported_types.cpp:186= | convention | include roots are =projects/<c>/<part>/include= | could be data | Include-root layout from the component architecture; a glob option. |
+| =exported_types= | =compass.cpp/src/ops/exported_types.cpp:38= | convention | export macro is =ORES_<X>_EXPORT= (also ops/exported_types.cpp:93, :120) | could be data | The =ORES_= macro prefix is a project name; a pattern option. |
+| =exported_types= | =compass.cpp/src/ops/exported_types.cpp:53= | convention | library guard =#ifdef ORES_<X>_LIBRARY= must accompany the export macro | could be data | ORE's build-guard macro naming; a pattern option. |
+| =exported_types= | =compass.cpp/src/ops/exported_types.cpp:95= | convention | export macro body starts with =BOOST_SYMBOL= (Boost.Config visibility); also codecs/exported_types.cpp:314 | stays code | Boost.Config's macros are a portable C++ toolchain fact, not ORE's. |
+| =exported_types= | =compass.cpp/src/ops/exported_types.cpp:116= | convention | headers containing =AUTO-GENERATED FILE= are skipped | could be data | ORE's generated-file banner; a marker option shared with other codecs. |
+| =forward_declarable_includes= | =compass.cpp/src/codecs/forward_declarable_includes.cpp:61= | list | =types= default: six =ores::database::*= types with defining and =_fwd.hpp= headers | ORE default | The option exists; its default is ORE's list, which ORE never overrides. |
+| =forward_declarable_includes= | =compass.cpp/src/codecs/forward_declarable_includes.cpp:75= | path | =list_file= default =build/scripts/forward_declarable_types.list= | ORE default | The option exists; the default path is ORE's build script tree. |
+| =forward_declarable_includes= | =compass.cpp/src/codecs/forward_declarable_includes.cpp:83= | list | skipped dirs =venv, .venv, node_modules, build, _deps= | could be data | Tree exclusions; a shared ignore list would cover them. |
+| =forward_declarable_includes= | =compass.cpp/src/codecs/forward_declarable_includes.cpp:86= | convention | generated marker =AUTO-GENERATED FILE - DO NOT EDIT MANUALLY= and =* Template: <name>= header line within 2000 chars | could be data | ORE codegen banner shape; a marker and pattern option. |
+| =forward_declarable_includes= | =compass.cpp/src/codecs/forward_declarable_includes.cpp:182= | grammar | C++ usage classifier: class-key, alias, pointer/reference, =shared_ptr=/=weak_ptr= argument count as naming only | stays code | A C++ semantics heuristic, not a project fact; as data it would need a language. |
+| =forward_declarable_includes= | =compass.cpp/src/codecs/forward_declarable_includes.cpp:266= | convention | include path is what follows the last =include/= directory | stays code | Generic include-root convention shared by any C++ tree laid out this way. |
+| =generated_column_refs= | =compass.crosscheck/src/ops/generated_shape.cpp:382= | path | models are org files whose parent directory is projects/*/modeling | could be data | The component layout is in component_architecture.org and could be read from it rather than hard-coded. |
+| =generated_column_refs= | =compass.crosscheck/src/ops/generated_shape.cpp:86= | contract | model heading names Columns, Indexes, SQL/Indexes, C++/Table display (lines 86-93) | could be data | These are the model document contract's section names and belong in doc/meta, not C++. |
+| =generated_column_refs= | =compass.crosscheck/src/ops/generated_shape.cpp:196= | list | audit columns modified_by, performed_by, change_reason_code, change_commentary | could be data | The audit column set is ORE's table convention and is a plain list; better still derived from the templates it mirrors. |
+| =generated_column_refs= | =compass.crosscheck/src/ops/generated_shape.cpp:221= | convention | entity table name is sql_name_base + _tbl | could be data | A table name suffix is a naming convention. |
+| =generated_column_refs= | =compass.crosscheck/src/ops/generated_shape.cpp:231= | list | implicit table columns tenant_id, version, coding_scheme_code, image_id, valid_from, valid_to by entity flag (lines 231-252) | could be data | This restates what ORE's create template emits; it should be derived from the template, or listed as data per flag. |
+| =generated_column_refs= | =compass.crosscheck/src/ops/generated_shape.cpp:260= | convention | struct members identity.*, audit.*, recorded_at from domain_identity_group and domain_audit_group (lines 260-286) | could be data | Mirrors ORE's cpp_domain_type_entity template; a flag-to-members map is data, but it duplicates template logic. |
+| =generated_column_refs= | =compass.crosscheck/src/ops/generated_shape.cpp:329= | convention | junction table name {product}_{component}_{name}_tbl, extra column closed_by when history (line 349) | could be data | A naming template is a string option. |
+| =generated_column_refs= | =compass.crosscheck/src/ops/generated_shape.cpp:446= | name | archetypes ores.sql.schema.domain_entity_create, ores.sql.schema.junction_create, ores.cpp.repository.entity_header, ores.cpp.domain.table_impl (lines 446-453) | could be data | Archetype names are ORE's physical space; options naming the archetypes would generalise it. |
+| =handler_permissions= | =compass.sql/src/codecs/handler_permissions.cpp:49= | list | =components= default refdata,analytics,compute,assets,storage,reporting,dq,trading,marketdata,inbox | ORE default | Option exists; default is ORE's component list. |
+| =handler_permissions= | =compass.sql/src/codecs/handler_permissions.cpp:53= | path | =seeds= default =projects/ores.sql/populate/iam/iam_permissions_populate.sql= | ORE default | Option exists; default is ORE's seed script. |
+| =handler_permissions= | =compass.sql/src/codecs/handler_permissions.cpp:109= | convention | Component root =projects/ores.<name>/= built from bare name | could be data | The =ores.= prefix should come from the project's component layout, not a literal. |
+| =handler_permissions= | =compass.sql/src/codecs/handler_permissions.cpp:113= | pattern | Handler files are =*_handler.hpp=/=*_handler.cpp= under a =/messaging= directory | could be data | File globs a project could state as an option. |
+| =handler_permissions= | =compass.sql/src/codecs/handler_permissions.cpp:60= | pattern | Permission code shape =[a-z_]+::[a-z_]+:[a-z_-]+= | could be data | A regex a project could supply; compass already has a regex engine. |
+| =handler_permissions= | =compass.sql/src/codecs/handler_permissions.cpp:137= | pattern | Check call shape =has_permission(ctx, "code" [+ ...])= with =+= meaning a run-time prefix | could be data | A regex with a group convention; prefix-wildcard semantics would need documenting. |
+| =handler_registrars= | =compass.cpp/src/codecs/registrars.cpp:157= | list | components =ores.assets, compute, dq, marketdata, scheduler, synthetic, trading, variability= | could be data | A component list; an option. |
+| =handler_registrars= | =compass.cpp/src/codecs/registrars.cpp:162= | convention | declaration =register_<e>_handlers(= in =core/include/**/*_registrar.hpp= (excluding =_history_provider_registrar.hpp=), own file =<e>_registrar.cpp= | could be data | ORE codegen naming; pattern options. |
+| =handler_registrars= | =compass.cpp/src/codecs/registrars.cpp:167= | convention | NATS subject reference =<x>_request::nats_subject= | could be data | ORE's protocol idiom for naming a subject; a pattern option. |
+| =handler_registrars= | =compass.cpp/src/codecs/registrars.cpp:258= | convention | files under a =tests= directory are skipped | could be data | Test-directory name; an exclude option. |
+| =handler_registrars= | =compass.cpp/src/codecs/registrars.cpp:280= | grammar | a registrar is satisfied when nothing calls it but every subject it subscribes is subscribed elsewhere by hand | stays code | The satisfaction logic is the check itself, not a value. |
+| =heading_numbers= | =compass.docs/src/codecs/heading_numbers.cpp:38= | name | rule source ID =177EDB1C-6241-45AA-81B1-46C4B9D6329D= (ORE document that states the rule) | could be data | Rule provenance IDs point into ORE's doc tree; they belong in the project's rule table. |
+| =heading_numbers= | =compass.docs/src/codecs/heading_numbers.cpp:47= | list | skipped path components =build=, =external=, =venv=, =node_modules=, =.git=, =.cache= | could be data | ORE's tree layout (external/, venv/); another project names different vendored roots. |
+| =heading_numbers= | =compass.docs/src/codecs/heading_numbers.cpp:51= | path | searched roots =doc/= and =projects/= | could be data | ORE's documentation roots; a scope option would carry them. |
+| =heading_numbers= | =compass.docs/src/codecs/heading_numbers.cpp:105= | path | fix hint =build/scripts/check_heading_numbers.py --write= | could be data | Names an ORE script; the hint should come from the project or name a compass command. |
+| =history_registrars= | =compass.cpp/src/codecs/registrars.cpp:139= | list | components =ores.refdata, ores.reporting= | could be data | A component list; an option. |
+| =history_registrars= | =compass.cpp/src/codecs/registrars.cpp:144= | convention | declaration =register_<e>_history_provider(= in =core/include/**/*_history_provider_registrar.hpp=, composed in =core/src/messaging/registrar.cpp= | could be data | ORE codegen naming and layout; pattern/path options. |
+| =http_recipe_library= | =compass.docs/src/codecs/recipe_libraries.cpp:288= | path | option defaults source =doc/recipes/http=, library =projects/ores.http/scripts/library= (line 290) | ORE default | Options exist; defaults are ORE's paths. |
+| =http_recipe_library= | =compass.docs/src/codecs/recipe_libraries.cpp:58= | name | style: language =hurl=, kind =http=, build target =tangle_http_recipes=, no whole-document script | could be data | The target name is ORE's; hurl is generic but chosen by ORE. |
+| =http_recipe_library= | =compass.docs/src/codecs/recipe_libraries.cpp:139= | convention | folder from filetag =:recipe:http:<category>:=, default =general= (line 144) | could be data | ORE's filetag convention. |
+| =lint= | =compass.docs/src/codecs/lint.cpp:56= | name | rule source ID =470D4571-47A4-4AEF-9A93-2B4DE0279C1E= | could be data | Rule provenance into ORE's tree. |
+| =lint= | =compass.docs/src/codecs/lint.cpp:84= | list | excluded first components =build=, =venv=, =.git= | could be data | ORE's tree layout. |
+| =lint= | =compass.docs/src/codecs/lint.cpp:86= | list | excluded root dirs =build=, =.packages=, =vcpkg=, =external= | could be data | ORE's vendored roots. |
+| =lint= | =compass.docs/src/codecs/lint.cpp:88= | list | excluded anywhere =.git=, =.claude=, =node_modules=, =__pycache__= | could be data | Mostly generic; one exclusion option would cover lines 84-89. |
+| =lint= | =compass.docs/src/codecs/lint.cpp:90= | list | agile types =story=, =task=, =sprint=, =design=, =capture=, =version=, =plan=, =retrospective= | could be data | ORE's #+type: vocabulary; doc/meta could flag a type as ephemeral. |
+| =lint= | =compass.docs/src/codecs/lint.cpp:92= | list | durable dirs =doc/llm/=, =doc/meta/=, =doc/knowledge/=, =doc/recipes/= | could be data | ORE's durable doc tree; a project list states it. |
+| =lint= | =compass.docs/src/codecs/lint.cpp:94= | name | pattern type =service_architecture_pattern= | could be data | ORE's #+type: for patterns; an option or doc/meta flag names it. |
+| =lint= | =compass.docs/src/codecs/lint.cpp:95= | list | pattern-exempt dirs =doc/plans/=, =doc/knowledge/external/=, =doc/agile/= | could be data | ORE's tree. |
+| =lint= | =compass.docs/src/codecs/lint.cpp:136= | path | pattern pages under =doc/= or =projects/=, not =/build/= or =/vcpkg/=; cluster pages under =doc/= or =projects/modeling/= (line 148) | could be data | ORE's doc roots; a scope option carries them. |
+| =lint= | =compass.docs/src/codecs/lint.cpp:415= | contract | section headings =In ORE Studio= (pattern lists its uses) and =Patterns used= (line 439) | could be data | ORE's pattern-page contract; the use-section heading even names ORE; doc/meta could declare both headings. |
+| =lint= | =compass.docs/src/codecs/lint.cpp:214= | pattern | filetag grammar =^[a-z][a-z0-9_.-]*$= | could be data | ORE's tag rule; doc/meta could state it, though most projects would keep it. |
+| =lint= | =compass.docs/src/codecs/lint.cpp:241= | convention | =# BEGIN generated X (script)= / =# END generated X= markers, and a marker's script must mention the page's file name or its SKILL.org directory (line 307) | could be data | ORE's marker convention; once compass writes these regions the named script is ORE's legacy, so the writer check needs a project notion of writer. |
+| =lint= | =compass.docs/src/ops/link_graph.cpp:86= | name | filetag =structure_note= marks a hub page | could be data | ORE's tag name; an option names it. |
+| =lint= | =compass.docs/src/ops/link_graph.cpp:104= | contract | headings =See also= and =What this cluster does not cover= (line 106) end the ordered cluster | could be data | ORE's structure-note contract; doc/meta could name them. |
+| =lint= | =compass.docs/src/ops/link_graph.cpp:50= | convention | a =# aside= comment sets a section's links alongside the sequence | could be data | ORE's authoring convention for structure notes. |
+| =marketdata_identity_columns= | =compass.crosscheck/src/codecs/marketdata_identity_columns.cpp:60= | path | schema.hpp, market_series_identity_projector.cpp, ores.marketdata.market_series_identity.org, marketdata_series_identity_views_create.sql, market_index.hpp (lines 60-69) | could be data | Five input paths with no option; only useful to a project with the same design. |
+| =marketdata_identity_columns= | =compass.crosscheck/src/codecs/marketdata_identity_columns.cpp:70= | name | table ores_marketdata_market_series_identity_tbl | could be data | A table name with no option. |
+| =marketdata_identity_columns= | =compass.crosscheck/src/codecs/marketdata_identity_columns.cpp:72= | list | view and context columns series_id, tenant_id, party_id, instrument_type, quote_type, asset_class, identity_kind (lines 72-77) | could be data | Plain lists of column names. |
+| =marketdata_identity_columns= | =compass.crosscheck/src/codecs/marketdata_identity_columns.cpp:113= | grammar | field accessors id(f::x), id_or_none, at(f::x), at_or_none (line 125) | stays code | A parser of ORE's C++ schema DSL; the patterns only mean something with the algorithm around them. |
+| =marketdata_identity_columns= | =compass.crosscheck/src/codecs/marketdata_identity_columns.cpp:128= | grammar | schema shapes 'inline constexpr std::array', {detail::t::X, detail::Y, asset_class::Z, field::W}, anchors 'using f = field;' and 'enum class field' (lines 128-136) | stays code | A parser of ORE's codec schema header. |
+| =marketdata_identity_columns= | =compass.crosscheck/src/codecs/marketdata_identity_columns.cpp:165= | grammar | view SQL shape with security_invoker = true, identity_kind = 'series', instrument_type in (...) | stays code | A parser of one ORE create script. |
+| =marketdata_identity_columns= | =compass.crosscheck/src/codecs/marketdata_identity_columns.cpp:167= | pattern | view name ores_marketdata_series_identity_<class>_vw | could be data | A naming template a project can state. |
+| =marketdata_identity_columns= | =compass.crosscheck/src/codecs/marketdata_identity_columns.cpp:216= | grammar | projector 'switch (f) {' with 'case field::X: row.Y = text; break;' and 'void assign_index(' with 'name == "N") row.C = text;' (lines 215-229) | stays code | A parser of ORE's projector source. |
+| =marketdata_identity_columns= | =compass.crosscheck/src/codecs/marketdata_identity_columns.cpp:241= | grammar | index grammar {index_family::X, asset_class::Y, "name", detail::Z} and index_field_spec arrays (lines 240-245) | stays code | A parser of ORE's market index header. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:59= | name | Rule source document IDs =E47BAF35-...= and =B9DAC38A-...= (ORE Studio documents) | could be data | Provenance links to ORE's documents belong in ORE's config. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:91= | list | excluded_columns default: four ORE refdata/synthetic model::column keys | ORE default | Option exists; its default is ORE's list. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:102= | list | continuous_columns default =projects/ores.trading/modeling/ores.trading.fx_variance_swap_instrument.org::strike= | ORE default | Option exists; its default is ORE's key. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:107= | path | classification default =build/scripts/route_classification.py= | ORE default | Option exists; its default is ORE's module. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:116= | path | Models are =.org= files directly under a =modeling/= dir below =projects/= | could be data | Model location is a glob a project could state. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:136= | list | money_tokens (rate, spread, notional, amount, price, strike, fee, premium, margin, barrier, face, yield) | could be data | Domain vocabulary; a finance project tunes it, another drops it. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:139= | list | head_qualifiers (value, level, pay, receive, held) | could be data | Vocabulary list. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:141= | list | continuous_tokens (variance, recovery, ratio, tenor, vol, and 12 more) | could be data | Vocabulary list. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:145= | list | float_types (double precision, real, float, double) | stays code | SQL and C++ language facts, not ORE choices. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:197= | contract | Model sections =Columns= (entity, junction) and =Fields= (field group), drawer keys =:type:= and =:cpp_type:= (204) | could be data | ORE codegen model contract; heading and key names could be options. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:219= | convention | Money must be numeric/decimal (float or text offends); continuous must not be numeric | stays code | This is the rule itself; data would need a type-policy language. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:225= | name | Fix text names =ores::utility::decimal::decimal= | could be data | The project's decimal type is a value. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:244= | grammar | A feature name is lower-case letters and underscores | stays code | Mirrors codegen's feature syntax. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:284= | contract | Drawer key =profile= binds a model to profiles (comma list) | could be data | Key name could be an option. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:311= | convention | Profiles are =#+type: profile= docs named =variability_<slug>.org=, slug =_= to =-= (also 613) | could be data | File-name prefix and slug rule could be options. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:315= | contract | Profile section =Assignments=, two-cell rows, header cell =feature=, =-=/=+= values skipped, =[[id:..][label]]= read as label | could be data | Section name could be an option; the row rules stay code. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:358= | contract | Frontmatter keyword =#+http_area:= | could be data | Keyword name could be an option. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:374= | name | File drawer switch =ores.cpp.http-route.enabled= | could be data | A facet switch name of ORE's codegen. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:376= | grammar | Truthy values true, t, yes, 1 | stays code | Mirrors codegen's override parser. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:380= | contract | Unit name from =#+entity_singular:= or =#+name_singular:= | could be data | Keyword names could be options. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:405= | convention | Component of a model is =<c>= in =projects/ores.<c>/modeling/= | could be data | The =ores.= prefix is ORE's naming; a pattern option would carry it. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:421= | pattern | Registration regex =(\w+)_routes::register_routes(= | could be data | Pattern could be an option, coupled with the aggregate layout. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:422= | path | Aggregate =projects/ores.http/<c>/src/routes/<c>/<c>_routes.cpp=, units =<unit>_routes.cpp= beside it (461) | could be data | A path template with a =<c>= placeholder is data. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:539= | grammar | A profile value starting =required= means the feature must be set | stays code | Semantics of ORE's profile tables. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:589= | name | Drawer key =ores.ts.protocol.enabled= (TS protocol facet opt-out) is forbidden | could be data | A forbidden-key list is data. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:597= | contract | Drawer key =subject= holds a NATS subject | could be data | Key name could be an option. |
+| =model_rules= | =compass.crosscheck/src/ops/subjects.cpp:34= | list | Verbs (get, get_many, list, put, put_many, delete, delete_many), =list_by_*= prefix (105), event actions created/updated/deleted (36) | could be data | Closed sets of ORE's entity protocol; lists are data. |
+| =model_rules= | =compass.crosscheck/src/ops/subjects.cpp:66= | grammar | NATS subject grammar ={component}.v1.{resource}.{verb}=, ={component}.v1.events.{collection}.{action}=, =ops= namespace (103), snake_case segments | stays code | A grammar with special cases; data would need a grammar language. |
+| =model_rules= | =compass.crosscheck/src/ops/subjects.cpp:75= | convention | Version segment must be =v1= (also 100) | could be data | A single value. |
+| =model_rules= | =compass.crosscheck/include/compass.crosscheck/ops/subjects.hpp:42= | path | Fix text cites =doc/knowledge/architecture/nats_entity_protocol.org= | could be data | A doc pointer is project data. |
+| =model_rules= | =compass.model/src/ops/load.cpp:32= | name | Model types are =#+type:= values prefixed =ores.codegen.= | could be data | The prefix lives in compass.model and is shared by every model codec. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:650= | contract | Reads =AREAS= (tuple) and =NO_AREA= (string) from the classification module | stays code | Reader of ORE's Python module; the names travel with the module path. |
+| =model_rules= | =compass.crosscheck/src/codecs/model_rules.cpp:699= | name | Fix text =route_classification.AREAS= | could be data | Should follow the classification option instead of being literal. |
+| =no_pr_triggers= | =compass.docs/src/codecs/tree_gates.cpp:116= | name | rule source IDs =B83064E5-6357-4FC6-A8BE-395DD429ED2A=, =BC85C0DF-99BE-4079-A649-88A236AE0ACF= | could be data | Rule provenance into ORE's tree belongs in the project's rule table. |
+| =no_pr_triggers= | =compass.docs/src/codecs/tree_gates.cpp:125= | list | forbidden events =pull_request=, =pull_request_target= | stays code | GitHub Actions vocabulary, the same for every project; the ORE policy is expressed by enabling the codec. |
+| =no_pr_triggers= | =compass.docs/src/codecs/tree_gates.cpp:146= | grammar | YAML top-level =on:= scanner (scalar, flow, block forms) | stays code | A parser of GitHub workflow YAML; expressing it as data needs a language. |
+| =no_pr_triggers= | =compass.docs/src/codecs/tree_gates.cpp:204= | convention | fix hint states ORE's CI policy: the local runner is the gate, keep push to main and dispatch | could be data | Policy prose that holds for ORE only; the rule table or the hint could come from the project. |
+| =open_reads= | =compass.crosscheck/src/codecs/open_reads.cpp:60= | path | allow_list = doc/knowledge/security/authorised-reads.org | ORE default | The option exists; its default is ORE's page. |
+| =open_reads= | =compass.crosscheck/src/codecs/open_reads.cpp:92= | contract | level-two heading 'The allow-list' whose tables hold =subject= alone in the first cell (line 85) | could be data | Heading name and cell shape are a document contract that doc/meta can state. |
+| =open_reads= | =compass.crosscheck/src/codecs/open_reads.cpp:64= | pattern | protocols glob projects/ores.*/api/include/*/messaging/*_protocol.hpp | could be data | A glob with no option. |
+| =open_reads= | =compass.crosscheck/src/codecs/open_reads.cpp:73= | pattern | nats_subject = "..." declares a subject; 'struct X_request {' opens a request (line 119) | could be data | Patterns over generated code a project could state, though they track ORE's templates. |
+| =open_reads= | =compass.crosscheck/src/codecs/open_reads.cpp:149= | grammar | handler method 'void x(ores::nats::message msg) {', decode<X_request>, '@brief Serves subject.' (lines 149-152) | stays code | A parser of ORE's generated handler shape; as data it is three coupled regexes with no gain. |
+| =open_reads= | =compass.crosscheck/src/codecs/open_reads.cpp:167= | list | read methods start list_ or get_ | could be data | A prefix list is data. |
+| =open_reads= | =compass.crosscheck/src/codecs/open_reads.cpp:170= | name | a permission check is a call to has_permission( | could be data | The guard call name is an option. |
+| =open_reads= | =compass.crosscheck/src/codecs/open_reads.cpp:208= | pattern | handlers projects/ores.*/core/include/*/messaging/*_handler.hpp marked 'Template: cpp_nats_handler.hpp.mustache' (lines 207-210) | could be data | Glob and generated-file marker are options. |
+| =open_reads= | =compass.crosscheck/src/codecs/open_reads.cpp:223= | pattern | registrars projects/ores.*/core/src/messaging/*_history_provider_registrar.cpp marked 'Template: cpp_history_provider_registrar.cpp.mustache' (lines 223-227) | could be data | Glob and generated-file marker are options. |
+| =open_reads= | =compass.crosscheck/src/codecs/open_reads.cpp:195= | grammar | register_history_provider("name", "code", call shape (lines 193-195) | could be data | A call name and argument position; data in principle, but coupled to ORE's API. |
+| =ore_output_catalogue= | =compass.crosscheck/src/codecs/ore_output_catalogue.cpp:49= | path | =projects/ores.ore/scripts/generate_output_catalogue.py= (tables) | could be data | Input path without option. |
+| =ore_output_catalogue= | =compass.crosscheck/src/codecs/ore_output_catalogue.cpp:51= | path | =projects/ores.ore/scripts/output_family_docs.py= (FAMILY_DOCS) | could be data | Input path without option. |
+| =ore_output_catalogue= | =compass.crosscheck/src/codecs/ore_output_catalogue.cpp:53= | path | =projects/ores.sql/utility/ore_files.py= (SCHEMAS, FILES) | could be data | Input path without option. |
+| =ore_output_catalogue= | =compass.crosscheck/src/codecs/ore_output_catalogue.cpp:54= | path | =external/ore/examples/= and =projects/ores.ore/data/samples/= (55) | could be data | Sample roots without options. |
+| =ore_output_catalogue= | =compass.crosscheck/src/codecs/ore_output_catalogue.cpp:56= | path | Seed =projects/ores.sql/populate/reporting/reporting_file_types_populate.sql= | could be data | Input path without option. |
+| =ore_output_catalogue= | =compass.crosscheck/src/codecs/ore_output_catalogue.cpp:58= | path | Outputs =doc/knowledge/external/ore_output_formats.org=, =output_catalogue_data.cpp= (60), =output_catalogue_data.hpp= (62) | could be data | Output paths without options. |
+| =ore_output_catalogue= | =compass.crosscheck/src/codecs/ore_output_catalogue.cpp:64= | name | Page ID =34C68112-7A34-4557-835C-BDCAA7BB9C2A= | could be data | Document identity is project data. |
+| =ore_output_catalogue= | =compass.crosscheck/src/codecs/ore_output_catalogue.cpp:138= | list | Tables CONVENTION, NUMERIC_QUALIFIERS, RISK_FACTOR_FAMILIES, NOTEBOOK_FAMILIES, LEGACY_FAMILIES, ALIASES, SAME_REPORT, OUT_OF_SCOPE, KIND_OVERRIDES, KEYS, FAMILY_KEYS, PREFIXES, NULLS | data | Values are read from ORE's script; only their names are code. |
+| =ore_output_catalogue= | =compass.crosscheck/src/codecs/ore_output_catalogue.cpp:200= | grammar | SCHEMAS rows of 3; FILES calls whose args from index 5 and ~patterns=~ are filename globs | stays code | Reader of ORE's Python call shapes. |
+| =ore_output_catalogue= | =compass.crosscheck/src/codecs/ore_output_catalogue.cpp:232= | pattern | Family stem drops a trailing =_<digits>= | could be data | A pattern copied from the script. |
+| =ore_output_catalogue= | =compass.crosscheck/src/codecs/ore_output_catalogue.cpp:292= | path | Suites' =ExpectedOutput=, plus =ORE-Python/Notebooks= and =Legacy= (295) filtered by family lists, then samples =captured= and =synthetic= (309) | could be data | Source dirs and their filters are a list a project could state. |
+| =ore_output_catalogue= | =compass.crosscheck/src/codecs/ore_output_catalogue.cpp:351= | threshold | At most 50 values per column per sample feed kind inference | could be data | A numeric cap copied from the script. |
+| =ore_output_catalogue= | =compass.crosscheck/src/codecs/ore_output_catalogue.cpp:362= | pattern | Kind inference regexes for date, time, integer, decimal | stays code | Generic type inference. |
+| =ore_output_catalogue= | =compass.crosscheck/src/codecs/ore_output_catalogue.cpp:394= | grammar | Seed SQL tuple regex: positional values with ='output'= 4th and pattern 7th | stays code | Parser of ORE's populate SQL row layout. |
+| =ore_output_catalogue= | =compass.crosscheck/src/codecs/ore_output_catalogue.cpp:513= | convention | =*= in a pattern replaced by =KEY= before matching ore_files | stays code | A ported matching trick. |
+| =ore_output_catalogue= | =compass.crosscheck/src/codecs/ore_output_catalogue.cpp:557= | template | Generated =output_catalogue_data.hpp= (GPL licence, =ores::ore::results=, include guard) | could be data | A template file would hold it. |
+| =ore_output_catalogue= | =compass.crosscheck/src/codecs/ore_output_catalogue.cpp:596= | template | Generated source head (licence, field-order description, include, namespace) | could be data | A template file would hold it. |
+| =ore_output_catalogue= | =compass.crosscheck/src/codecs/ore_output_catalogue.cpp:647= | threshold | Raw-string delimiter =CAT<n>= and 4000-character chunks (653) | stays code | Works around C++ string-literal limits, not an ORE choice. |
+| =ore_output_catalogue= | =compass.crosscheck/src/codecs/ore_output_catalogue.cpp:681= | template | Page frontmatter (title, description, =#+filetags: :ore:results:external:knowledge:=, dates 2026-11-02), Summary/Detail prose, linked IDs =8BF75172-...=, =D697A04C-...=, =969C14D2-...=, =CF2C4F3A-...= (776) | could be data | An org template file would hold it. |
+| =ore_output_catalogue= | =compass.crosscheck/src/codecs/ore_output_catalogue.cpp:836= | name | clang_format =clang-format= and style =.clang-format= | data | Options with generic defaults, set in .compass.org. |
+| =ore_renderings_tables= | =compass.crosscheck/src/codecs/ore_renderings_tables.cpp:40= | path | projects/ores.sql/utility/ore_renderings.json (input) | could be data | An input path with no option. |
+| =ore_renderings_tables= | =compass.crosscheck/src/codecs/ore_renderings_tables.cpp:42= | path | projects/ores.ore/core/src/domain/conventions_renderings.hpp (output) | could be data | An output path with no option. |
+| =ore_renderings_tables= | =compass.crosscheck/src/codecs/ore_renderings_tables.cpp:44= | name | include guard ORES_ORE_CORE_SRC_DOMAIN_CONVENTIONS_RENDERINGS_HPP | could be data | Derivable from the output path or stated in a template. |
+| =ore_renderings_tables= | =compass.crosscheck/src/codecs/ore_renderings_tables.cpp:47= | template | GPL licence block with ORE's author and the banner 'Generated by generate_renderings_tables.py' (lines 47-67) | could be data | Boilerplate text belongs in a template file the project owns. |
+| =ore_renderings_tables= | =compass.crosscheck/src/codecs/ore_renderings_tables.cpp:105= | template | #include conventions_fields.hpp, namespace ores::ore::domain::conventions_fields, const code_table entries (lines 105-119) | could be data | The output is a fixed C++ shape; a mustache template over the JSON would make it data. |
+| =ore_value_sets= | =compass.crosscheck/include/compass.crosscheck/ops/value_sets.hpp:44= | path | outputs reporting_ore_parameter_value_sets_populate.sql, reporting_ore_parameter_vocabularies_populate.sql, reporting_ore_element_map_columns_populate.sql under projects/ores.sql/populate/reporting/ (lines 44-49) | could be data | Output paths with no option. |
+| =ore_value_sets= | =compass.crosscheck/src/ops/value_sets.cpp:1736= | template | seed and element map SQL licence headers (lines 1736-1780) | could be data | Boilerplate belongs in a project template. |
+| =ore_value_sets= | =compass.crosscheck/src/ops/value_sets.cpp:1862= | convention | SQL tenant convention ores_utility_system_tenant_id_fn(), version 0, actor 'ores_reporting_service', 'system.initial_load', upsert where valid_to = ores_utility_infinity_timestamp_fn() (lines 1792, 1862-1863, 1923-1927) | could be data | The insert shape is ORE's bitemporal SQL convention and could be a template. |
+| =ore_value_sets= | =compass.crosscheck/src/ops/value_sets.cpp:1900= | name | target tables ores_reporting_ore_parameter_value_set_catalogues_tbl, _value_sets_tbl, _value_set_values_tbl, _setting_value_sets_tbl, ores_reporting_ore_element_map_columns_tbl, ores_reporting_ore_parameter_vocabularies_tbl (lines 1900-1997) | could be data | Table names in generated SQL; a template would carry them. |
+| =ore_value_sets= | =compass.crosscheck/src/ops/convention_kind_terms.cpp:38= | path | outputs refdata_convention_kind_terms_populate.sql, refdata_convention_terms_validate_create.sql, refdata_convention_terms_validate_drop.sql (lines 38-43) | could be data | Output paths with no option. |
+| =ore_value_sets= | =compass.crosscheck/src/ops/convention_kind_terms.cpp:66= | template | plpgsql trigger ores_refdata_validate_convention_terms_fn calling ores_reporting_value_in_set_fn and ores_reporting_canonical_value_fn (lines 66-120) | could be data | A fixed SQL body; a mustache template would make it data. |
+| =ore_value_sets= | =compass.crosscheck/src/ops/convention_kind_terms.cpp:159= | convention | actor 'ores_refdata_service', 'system.initial_load' into ores_refdata_convention_kind_terms_tbl (lines 156-186) | could be data | Same bitemporal insert convention as the value set seed. |
+| =ore_value_sets= | =compass.crosscheck/src/ops/projection_columns.cpp:45= | path | generate_convention_kind_terms.py, convention_terms.json, mapper dir projects/ores.ore/core/src/domain/, refdata_convention_kinds_populate.sql, model prefix projects/ores.refdata/modeling/ores.refdata. (lines 45-53) | could be data | Input paths with no option. |
+| =ore_value_sets= | =compass.crosscheck/src/ops/projection_columns.cpp:294= | grammar | seed row shape (ores_utility_system_tenant_id_fn(), 'CODE', 0, '...', | stays code | A scrape of ORE's own seed format; as data it would be a regex with no gain. |
+| =org_links= | =compass.docs/src/codecs/org_links.cpp:45= | list | excluded directories =.packages=, =vcpkg=, =build=, =tmp=, =.claude/worktrees= (what the site build does not publish) | could be data | The publish exclusion is a property of ORE's site build; a project could state its own unpublished roots. |
+| =parameter_value_sets= | =compass.crosscheck/src/codecs/value_sets.cpp:96= | list | guarded pair setting files (analytics_pricing_pair_settings_create.sql, reporting_engine_settings_group_settings_create.sql and their models) with forbidden columns kind, options, minimum, maximum (lines 96-104) | could be data | A path-to-forbidden-columns table is plain data, a forbidden pattern per file. |
+| =parameter_value_sets= | =compass.crosscheck/src/codecs/value_sets.cpp:106= | list | six engine settings files (fixings, building, execution; SQL and model) that must state no value check (lines 106-112) | could be data | A file list for a forbidden pattern is data. |
+| =parameter_value_sets= | =compass.crosscheck/src/codecs/value_sets.cpp:114= | list | web files bff/src/pricing-engines.ts and web/src/api/pricingEngines.ts with regexes for retired reads (lines 114-119) | could be data | Path and regex pairs are exactly the shape of a forbidden-pattern table. |
+| =parameter_value_sets= | =compass.crosscheck/src/codecs/value_sets.cpp:146= | pattern | a SQL CHECK holding >=, <=, IN ( or BETWEEN is a value check | could be data | The regex is generic SQL but its use is a project rule; it can sit in the same forbidden-pattern table. |
+| =parameter_value_sets= | =compass.crosscheck/include/compass.crosscheck/ops/value_sets.hpp:50= | path | generator paths projects/ores.sql/utility/generate_value_sets.py and generate_ore_element_map.py, where findings are reported (lines 50-53) | could be data | Report locations with no option. |
+| =parameter_value_sets= | =compass.crosscheck/src/ops/value_sets.cpp:39= | path | curation dir projects/ores.seeder/datasets/ore_pricing_engines/curation/, pricing_vocabulary.json, utility dir projects/ores.sql/utility/, xsd dir external/ore/xsd/, curveconfig.xsd, conventions.xsd (lines 39-46) | could be data | Input locations with no option. |
+| =parameter_value_sets= | =compass.crosscheck/src/ops/value_sets.cpp:577= | name | Python modules convention_value_sets.py, curve_value_sets.py, ore_aliases.py, ore_schema_types.py, generate_ore_element_map.py and their tables CATALOGUES, CATALOGUE_OF, RENDERED_OF, WITHOUT_LIST, LIST_OF, SCHEMA_TYPE_SETS, TYPE_SETS, OWN_SETS, TYPE_OVERRIDE, CURATION_KEYS, SOURCES, LIST_ITEM, PERIOD_PATTERN, PARSER_TABLE, SETS, KIND_OF, ITEM_WORDS, SCHEMA_WORDS, SCHEMA_NAMES (lines 577-620) | stays code | Each table name carries a meaning in the resolution algorithm; renaming them through options buys nothing without a second project running the same algorithm. |
+| =parameter_value_sets= | =compass.crosscheck/src/ops/value_sets.cpp:586= | list | contents of the curation tables and JSON files convention_terms.json, curve_terms.json, ore_parameter_vocabularies.json, curve_value_set_curation.json, ore_renderings.json (lines 586-628) | data | The codec reads these values from ORE's own files. |
+| =parameter_value_sets= | =compass.crosscheck/src/ops/value_sets.cpp:621= | threshold | UNREAD_ALLOWED, the count of leaves that may name no authority | data | Read from generate_ore_element_map.py, a project file. |
+| =parameter_value_sets= | =compass.crosscheck/src/ops/value_sets.cpp:1065= | list | built-in curve sets curve.flag, curve.number, curve.integer, curve.period, curve.number_list, curve.period_list, curve.date_list, curve.list with labels and descriptions (lines 1065-1082) | could be data | A fixed list of sets with prose belongs in the curation files beside the others. |
+| =parameter_value_sets= | =compass.crosscheck/src/ops/value_sets.cpp:1148= | list | scope map model -> ModelParameters, engine -> EngineParameters, global -> GlobalParameters | could be data | A three-entry map from ORE's XML vocabulary; data, but tiny. |
+| =parameter_value_sets= | =compass.crosscheck/src/ops/value_sets.cpp:1169= | path | curation files settings-code.json, globals.json, value-sets.json, value-sets-code.json, value-sets-review.json, value-sets-guide-enums.json, engine-settings-groups.json (lines 1169-1292) | could be data | File names with no option. |
+| =parameter_value_sets= | =compass.crosscheck/src/ops/value_sets.cpp:1365= | list | source kinds enumerated, catalogue, range, regex, boolean, integer, number, text | stays code | Each kind carries checking semantics (impossible_set) in code; listing it as data would not let a project add a kind. |
+| =parameter_value_sets= | =compass.crosscheck/src/ops/value_sets.cpp:1687= | convention | source ore_schema marks a leaf with no authority; source_ref external/ore/xsd/<file>:<type> (lines 1477-1500, 1653-1688) | stays code | An internal marker of the element-map algorithm, which is ORE's XSD domain. |
+| =pending_models= | =compass.codegen/src/codecs/pending_models.cpp:593= | pattern | Models are =projects/*/modeling/ores.*.org= | could be data | Glob literal with ORE's product prefix. |
+| =pending_models= | =compass.codegen/src/codecs/pending_models.cpp:258= | contract | A model is gated by =:gated:= or =:pending_change:= true in its =* Flags= section | stays code | Part of ORE's entity meta-model the derivation reads. |
+| =pending_models= | =compass.codegen/src/codecs/pending_models.cpp:53= | template | Embedded org text: line columns (id, request_id, line_no, operation, base_version, applied) | could be data | A literal org template; it could live in ORE's codegen library as a mustache template. |
+| =pending_models= | =compass.codegen/src/codecs/pending_models.cpp:132= | template | Embedded foreign key to =ores_inbox_approval_requests_tbl= with C++ seed code naming ores.iam/ores.inbox repositories and tenant_id::system() | could be data | ORE domain code inside compass; belongs in a library template. |
+| =pending_models= | =compass.codegen/src/codecs/pending_models.cpp:404= | contract | Generated header: #+type ores.codegen.entity, filetags :model:entity:<c>:pending:, =_change=/=_changes= naming, =derive_pending_models.py= provenance text | could be data | ORE's document contract and naming as string concatenation; a template would hold it. |
+| =pending_models= | =compass.codegen/src/codecs/pending_models.cpp:47= | name | UUIDv5 namespace bytes for pending model IDs, and ~derived_on = 2026-10-10~ (line 51) | could be data | Constants frozen for byte parity with ORE's script; an option or library data would carry them. |
+| =pending_models= | =compass.codegen/src/codecs/pending_models.cpp:312= | convention | Table name =ores_<component>_<plural>_tbl= and =ores_<c>_<s>_changes_tbl= (421) | could be data | ORE's SQL naming; a product prefix and table pattern option. |
+| =pending_models= | =compass.codegen/src/codecs/pending_models.cpp:238= | name | Drawer =:ores.cpp.wire-codec.enabled:= inherited | could be data | A facet address literal with ORE's product prefix. |
+| =pending_models= | =compass.codegen/src/codecs/pending_models.cpp:523= | list | Flags removed (gated, pending_change, parent_id_column, hierarchy_name_field, generate_touch_function) and FK keys removed (list_by, bump_parent_version, list_by_as_of, 547) | stays code | Rewrite rules of ORE's model fields; as data they would be a transformation language. |
+| =pending_models= | =compass.codegen/src/codecs/pending_models.cpp:530= | convention | Profile rewritten to =uuid-identified-lookup= with =:client_read_only: true=; subcomponent =api=; schema public, product ores (489) | could be data | ORE profile and part names; template data. |
+| =pending_models= | =compass.codegen/src/codecs/pending_models.cpp:519= | contract | Required sections =Flags=, =Columns=, =C++=; junction =Left=/=Right=; copied =Insert trigger=/=** Validations=, =Domain includes=, =Entity includes= | stays code | The derivation's structural reading of ORE's model contract. |
+| =physical_inventory= | =compass.docs/src/codecs/physical_inventory.cpp:42= | path | =projects/ores.codegen/library/templates/= (physical-space document directory) | could be data | ORE's codegen library path; the tangle codecs already take this as an option. |
+| =physical_inventory= | =compass.docs/src/codecs/physical_inventory.cpp:166= | contract | =#+type:= values =technical_space=, =facet=, =archetype= and parent keywords =facet_group=, =facet= | could be data | ORE's physical-space document contract; a level table (type, parent keyword) states it. |
+| =physical_inventory= | =compass.docs/src/codecs/physical_inventory.cpp:170= | convention | only titles starting =ores.= count as real facets and technical spaces (also lines 186, 211) | could be data | ORE's namespace prefix; a project-stated prefix option replaces it. |
+| =physical_inventory= | =compass.docs/src/codecs/physical_inventory.cpp:189= | name | root technical space titled =ores= | could be data | ORE's root node name; a project option names its root. |
+| =physical_inventory= | =compass.docs/src/codecs/physical_inventory.cpp:198= | contract | section headings =Technical spaces=, =Facets=, =Archetypes= and table headers (lines 199, 208, 217) | could be data | ORE's section contract for the physical-space pages; the same level table would name section and headers. |
+| =physical_inventory= | =compass.docs/src/codecs/physical_inventory.cpp:111= | contract | a missing section is inserted before =* See also= | could be data | ORE's trailing-section contract; doc/meta could name it. |
+| =populate_refs= | =compass.sql/src/codecs/populate_refs.cpp:59= | path | =projects/ores.sql/create/= (function definitions) | could be data | Directory literal, same value as rls_coverage.create_dir. |
+| =populate_refs= | =compass.sql/src/codecs/populate_refs.cpp:60= | path | =projects/ores.sql/populate/= (lookup calls) | could be data | Directory literal; an option would carry it. |
+| =populate_refs= | =compass.sql/src/codecs/populate_refs.cpp:62= | list | Non-identifying guard columns =tenant_id=, =valid_from=, =valid_to= | could be data | ORE's tenancy and bitemporal columns; a list option fits. |
+| =populate_refs= | =compass.sql/src/ops/sql_model.cpp:242= | convention | Only calls to functions named =*_fn= are read; rule unread_function enforces the suffix | could be data | ORE's function suffix; a suffix option fits, though the rule then checks a project convention. |
+| =populate_refs= | =compass.sql/src/ops/sql_model.cpp:438= | convention | Guard parameters are =p_*= | could be data | ORE's parameter prefix; one option. |
+| =populate_refs= | =compass.sql/src/ops/sql_model.cpp:447= | convention | A lookup guard is ~select ... from T where col = p_x~ followed by =raise exception '... not found'= | stays code | A recogniser over PL/pgSQL statement shape; data would need a pattern language over statements. |
+| =populate_refs= | =compass.sql/include/compass.sql/ops/includes.hpp:46= | path | sql_root and extra entry points reused to order populate runs | could be data | Same literals as sql_reachability; one option set would serve both. |
+| =portable_stop= | =compass.cpp/src/codecs/portable_stop.cpp:40= | name | =B4E38241-6AD1-4859-9610-033CC39C0AF4= (ORE doc ID cited as rule source) | could be data | Rule provenance pointing at an ORE document; rule sources could come from the codec table. |
+| =portable_stop= | =compass.cpp/src/codecs/portable_stop.cpp:61= | name | allowed component =ores.platform= (the only place stop types may appear) | could be data | An allowed-paths list; the F1 shape takes it as data. |
+| =portable_stop= | =compass.cpp/src/codecs/portable_stop.cpp:50= | list | skipped dirs =node_modules, venv, .venv, build, external= | could be data | Tree exclusions; a shared ignore list. |
+| =portable_stop= | =compass.cpp/src/codecs/portable_stop.cpp:82= | list | forbidden names =std::jthread, stop_token, stop_source, stop_callback= and =<stop_token>= (line 109) | could be data | The forbidden token list is generic C++ portability knowledge, but which tokens to ban is a project choice. |
+| =portable_stop= | =compass.cpp/src/codecs/portable_stop.cpp:122= | name | fix hint =ores::platform::concurrency= in =stoppable_thread.hpp= | could be data | The replacement location is ORE's; a fix-text option. |
+| =protocol_twins= | =compass.crosscheck/src/codecs/protocol_twins.cpp:49= | name | rule source document ID 7B477025-... | could be data | Rule provenance names an ORE document. |
+| =protocol_twins= | =compass.crosscheck/src/codecs/protocol_twins.cpp:60= | path | library = projects/ores.codegen/library | ORE default | The option exists; its default is ORE's template library. |
+| =protocol_twins= | =compass.crosscheck/src/codecs/protocol_twins.cpp:63= | path | registry = projects/ores.codegen/scripts/component_registry.py | ORE default | The option exists; its default is ORE's registry module. |
+| =protocol_twins= | =compass.crosscheck/src/codecs/protocol_twins.cpp:81= | pattern | template graph files templates/ores.*.org at the top level of the library | could be data | The node-file prefix ores. is a product name and fits an option. |
+| =protocol_twins= | =compass.crosscheck/src/codecs/protocol_twins.cpp:100= | pattern | twin archetypes have facet prefix ores.ts., output ending _protocol.ts and containing {component} (lines 100-102) | could be data | Facet prefix and output suffix are values a project states. |
+| =protocol_twins= | =compass.crosscheck/src/codecs/protocol_twins.cpp:120= | name | Python assignment COMPONENTS_UNDER_TEST | could be data | Same variable name as registry_exceptions; an option or an org table would generalise. |
+| =protocol_twins= | =compass.crosscheck/src/codecs/protocol_twins.cpp:131= | path | library/component_catalogue.org | could be data | A fixed file name inside the library option. |
+| =protocol_twins= | =compass.crosscheck/src/codecs/protocol_twins.cpp:136= | convention | a component named X-cpp also answers to X | could be data | An alias-suffix rule is a small option. |
+| =protocol_twins= | =compass.crosscheck/src/codecs/protocol_twins.cpp:160= | pattern | protocol headers at <project>/api/include/*/messaging/*_protocol.hpp | could be data | A glob option relative to the project. |
+| =prototypes= | =compass.docs/src/codecs/prototypes.cpp:50= | name | rule source IDs =708C2462-C1F8-455B-B091-9D9690FEEAAB=, =D913FE21-6CF6-439A-89CF-6A1928AFA094= | could be data | Rule provenance into ORE's tree. |
+| =prototypes= | =compass.docs/src/codecs/prototypes.cpp:73= | path | =doc/prototypes/= (prototype root) and =doc/prototypes/index.org= (top page, line 131) | could be data | ORE's prototype tree; a =root= option names it. |
+| =prototypes= | =compass.docs/src/codecs/prototypes.cpp:112= | convention | layout =<root>/<group>/<prototype>/index.html=, =<group>/index.org=, =<prototype>/review/index.html= | could be data | ORE's prototype tree shape; fixed depth is tied to it but path templates could state it. |
+| =prototypes= | =compass.docs/src/codecs/prototypes.cpp:98= | pattern | folder-name regexes =[a-z0-9][a-z0-9-]*= (prototype) and =[a-z0-9][a-z0-9_]*= (group, line 99) | could be data | ORE's naming rule for prototype and group folders; a regex option could carry it. |
+| =prototypes= | =compass.docs/src/codecs/prototypes.cpp:85= | list | shared copies: =trades= {=common.js=, =prototype.css= extended by =blotter=}, =conventions= {=management.js=, =management.css=} | could be data | ORE prototype groups and files; a project table (group, file, extender) states them. |
+| =prototypes= | =compass.docs/src/codecs/prototypes.cpp:192= | contract | an unreviewed row ends =\\vert{} none \\vert{}=; a reviewed row links =[[file:<n>/review/= (line 184) | could be data | ORE's group-page table contract; the cell word is a project choice. |
+| =recipe_inventories= | =compass.docs/src/codecs/recipe_inventories.cpp:170= | path | =doc/recipes/shell/= and index =doc/recipes/shell/shell.org= (line 171) | could be data | Duplicates shell_recipe_library's source option as a literal. |
+| =recipe_inventories= | =compass.docs/src/codecs/recipe_inventories.cpp:174= | list | heading overrides =marketdata= -> =Market data=, =ore= -> =ORE documents=, =entity= -> =Entity commands=, =index= -> =Inventory= | could be data | ORE category labels; a project table maps category to heading. |
+| =recipe_inventories= | =compass.docs/src/codecs/recipe_inventories.cpp:213= | pattern | category filetag =:recipe:shell:<c>:= and =:recipe:http:<c>:= (line 334); directory fallback unless the dir is =shell= (line 238); =index= category skipped (line 241) | could be data | ORE's filetag convention, shared with recipe_libraries. |
+| =recipe_inventories= | =compass.docs/src/codecs/recipe_inventories.cpp:309= | path | =doc/recipes/http/= and index =doc/recipes/http/generated_recipes.org= (line 311) | could be data | Duplicates http_recipe_library's source option as a literal. |
+| =recipe_inventories= | =compass.docs/src/codecs/recipe_inventories.cpp:312= | template | HTTP index front matter with ORE ID =3EB4B454-B837-41FA-8A8D-2D9C49DE967A=, facet =ores.doc.http-recipe=, script =projects/ores.codegen/scripts/regenerate_http_recipe_inventory.py=, pointer to =doc/recipes/http/http.org= | could be data | ORE page text; keep the page head and regenerate the body, as the shell index already does. |
+| =recipe_inventories= | =compass.docs/src/codecs/recipe_inventories.cpp:67= | convention | shell reads first keyword and stops at the first heading; HTTP reads the last keyword over the whole file | could be data | Byte parity with two ORE scripts' differing quirks; unify rather than parametrise. |
+| =recipe_inventories= | =compass.docs/src/codecs/recipe_inventories.cpp:373= | convention | HTTP recipes are exactly one directory deep under the root | could be data | ORE's HTTP recipe layout. |
+| =registry_exceptions= | =compass.crosscheck/src/codecs/registry_gates.cpp:47= | name | rule source document IDs E22B9A3C-..., 7B477025-... (ORE document UUIDs) | could be data | Rule provenance names ORE documents; a project should state the sources of its rules. |
+| =registry_exceptions= | =compass.crosscheck/src/codecs/registry_gates.cpp:60= | path | registry = projects/ores.codegen/scripts/component_registry.py | ORE default | The option exists; its default is ORE's registry module. |
+| =registry_exceptions= | =compass.crosscheck/src/codecs/registry_gates.cpp:63= | path | standard = doc/knowledge/architecture/component_clean_standard.org | ORE default | The option exists; its default is ORE's standard page. |
+| =registry_exceptions= | =compass.crosscheck/src/codecs/registry_gates.cpp:76= | pattern | checklist item rows \vert{} B01 \vert{} (one capital and two digits) | could be data | The item-id shape is a regex option. |
+| =registry_exceptions= | =compass.crosscheck/src/codecs/registry_gates.cpp:92= | name | Python assignments COMPONENTS_UNDER_TEST and ACCEPTED_EXCEPTIONS (lines 92-97) | could be data | The variable names are ORE's; options naming them, or an org table instead of Python, would generalise. |
+| =registry_exceptions= | =compass.crosscheck/src/codecs/registry_gates.cpp:118= | contract | AcceptedException fields item, reason, accepted_by, accepted_on as ISO date (lines 118-131) | could be data | The record's field names are a contract a project can state; the ISO date check itself is generic. |
+| =rls_coverage= | =compass.sql/src/codecs/rls_coverage.cpp:52= | path | =create_dir= default =projects/ores.sql/create= | ORE default | Option exists; default is ORE's create directory. |
+| =rls_coverage= | =compass.sql/src/codecs/rls_coverage.cpp:55= | path | =ignore_file= default =projects/ores.sql/utility/validation_ignore.txt= | ORE default | Option exists; default is ORE's ignore file. |
+| =rls_coverage= | =compass.sql/src/codecs/rls_coverage.cpp:111= | contract | Ignore file grammar: =<code fnmatch> <table fnmatch>= lines, # comments | data | The project's ignore file carries the exceptions; compass only parses it. |
+| =rls_coverage= | =compass.sql/src/codecs/rls_coverage.cpp:137= | pattern | Scanned files end in =_create.sql= | could be data | ORE naming convention as a literal suffix. |
+| =rls_coverage= | =compass.sql/src/codecs/rls_coverage.cpp:214= | name | =tenant_id= column triggers RLS_001 | could be data | ORE's tenant column name; one option (tenant column) states it. |
+| =rls_coverage= | =compass.sql/src/codecs/rls_coverage.cpp:233= | name | =party_id= column triggers RLS_002 restrictive-policy check | could be data | ORE's party column; option like tenant column (sql_model.cpp:376 also hardcodes it). |
+| =rls_coverage= | =compass.sql/src/codecs/rls_coverage.cpp:227= | name | Rule codes =RLS_001=, =RLS_002= matched in the ignore file | stays code | They are the codec's own rule identifiers kept for parity with ORE's ignore file; renaming is a compatibility break, not tuning. |
+| =rls_widenings= | =compass.sql/src/codecs/rls_widenings.cpp:44= | path | =projects/ores.sql/create/= (scanned create directory, no option) | could be data | A plain directory literal; rls_coverage already exposes the same value as create_dir. |
+| =rls_widenings= | =compass.sql/src/ops/sql_model.cpp:365= | name | =ores_iam_current_tenant_id_fn= and =ores_utility_system_tenant_id_fn= (the two tenant functions whose equality marks a widening) | could be data | Two function names a project could state as options; the matching shape (f() = g()) stays code. |
+| =rls_widenings= | =compass.sql/src/ops/sql_model.cpp:379= | convention | A widening is ~current_tenant() = system_tenant()~ inside a policy body (ORE's tenant model) | stays code | It is a token-shape recogniser over policy bodies; as data it would need a SQL pattern language. |
+| =route_auth= | =compass.cpp/src/codecs/route_auth.cpp:47= | path | =projects/ores.http/= (HTTP server sources scanned) | could be data | A single root path; an option. |
+| =route_auth= | =compass.cpp/src/codecs/route_auth.cpp:48= | threshold | minimum 20 =add_route= calls before the scan is trusted | could be data | A tripwire tuned to ORE's route count; a numeric option. |
+| =route_auth= | =compass.cpp/src/codecs/route_auth.cpp:51= | grammar | route builder API: =.add_route(=, =.auth_required(= / =.auth_optional(= / =.roles(=, =x.build()= alias chains, =get/post/put/patch/delete_/head/options("path")= | stays code | Encodes ORE's ores.http builder API and its alias-following; data would need a call-chain language. |
+| =route_auth= | =compass.cpp/src/codecs/route_auth.cpp:204= | list | skipped dirs =tests, build= | could be data | Exclusions; a shared ignore list. |
+| =route_inventory= | =compass.crosscheck/src/codecs/route_inventory.cpp:47= | path | =doc/knowledge/architecture/http_route_inventory.org= (the page it writes) | could be data | An output path fixed in C++ with no option; one string option would carry it. |
+| =route_inventory= | =compass.crosscheck/src/codecs/route_inventory.cpp:49= | path | =build/scripts/route_inventory.py= (source of HEADER) | could be data | Input path literal; an option like model_rules' classification would carry it. |
+| =route_inventory= | =compass.crosscheck/src/codecs/route_inventory.cpp:50= | path | =build/scripts/route_classification.py= (RULES, EXCEPTIONS, VIEWS, COMPOSED, NO_AREA) | could be data | The same module model_rules already takes as an option; here it is a literal. |
+| =route_inventory= | =compass.crosscheck/src/codecs/route_inventory.cpp:52= | path | =build/scripts/route_pairing.py= (PAIRS, FAMILIES) | could be data | Input path literal with no option. |
+| =route_inventory= | =compass.crosscheck/src/codecs/route_inventory.cpp:154= | list | The route decisions, exceptions, views, pairs, families and page header themselves | data | They are read from ORE's Python modules, so ORE already states them in project files. |
+| =route_inventory= | =compass.crosscheck/src/codecs/route_inventory.cpp:166= | contract | Python names HEADER/COMPOSED/NO_AREA/RULES/EXCEPTIONS/VIEWS/PAIRS/FAMILIES and the positional dataclass shape (name, match, server, kind, area, note) | stays code | It reads ORE's own script layout; stating it as data would need a schema language for Python literals. |
+| =route_inventory= | =compass.crosscheck/src/codecs/route_inventory.cpp:180= | grammar | Match shapes =exact=, =prefix=, else regex | stays code | Semantics of ORE's rule table, not a value a project tunes. |
+| =route_inventory= | =compass.crosscheck/src/codecs/route_inventory.cpp:241= | path | BFF sources =projects/ores.web/packages/bff/src/**/*.ts= minus =.test.ts= | could be data | A glob and an exclusion are plain option values. |
+| =route_inventory= | =compass.crosscheck/src/codecs/route_inventory.cpp:249= | path | C++ route sources =projects/ores.http/*/src/**/*.cpp= minus =/tests/= | could be data | A glob and an exclusion are plain option values. |
+| =route_inventory= | =compass.crosscheck/src/codecs/route_inventory.cpp:257= | convention | Router method =delete_= (C++ keyword escape) mapped to =delete= | stays code | Tied to the regex alternation; a mapping table for one keyword escape is overhead. |
+| =route_inventory= | =compass.crosscheck/src/codecs/route_inventory.cpp:261= | pattern | Express route regex =.(get\vert{}post\vert{}...)('/api/...')= and C++ =router->get("...")= / =router->get(var)= regexes | could be data | Per-server patterns could be options, but their group indices (method, path) stay a fixed convention. |
+| =route_inventory= | =compass.crosscheck/src/codecs/route_inventory.cpp:272= | name | Server labels =bff= and =ores.http=; owner is the file stem (BFF) or the first dir under =projects/ores.http/= (274) | could be data | Server labels and owner rule are per-source settings. |
+| =route_inventory= | =compass.crosscheck/src/codecs/route_inventory.cpp:285= | pattern | C++ declaration regex ~(const)? auto\vert{}std::string\vert{}std::string_view NAME =~ to locate composed paths | stays code | A small C++ fact parser; data would not make it more general. |
+| =route_inventory= | =compass.crosscheck/src/codecs/route_inventory.cpp:365= | template | Area map heading, prose (cites "design section 11.2") and table header | could be data | Fixed page text that a template file could hold. |
+| =route_inventory= | =compass.crosscheck/src/codecs/route_inventory.cpp:392= | path | Client modules =projects/ores.web/packages/**/*.ts= minus =/bff/=, =.test.ts=, =.d.ts= | could be data | Glob plus exclusions as options. |
+| =route_inventory= | =compass.crosscheck/src/codecs/route_inventory.cpp:403= | threshold | A route literal shorter than 6 characters is not looked up in clients | could be data | A numeric heuristic copied from the script. |
+| =route_inventory= | =compass.crosscheck/src/codecs/route_inventory.cpp:426= | template | Composed views heading, prose (K1, port, cutover) and table header | could be data | Fixed page text that a template file could hold. |
+| =route_inventory= | =compass.crosscheck/src/codecs/route_inventory.cpp:481= | grammar | TypeScript registry parser: =key:=, =keyField=, =keyFields: [...]=, =listBy=, =parentField=, =writable=, =writes=, 4/8/12-space indented arrays and =...[...].map(= spreads | stays code | A parser of ORE's TS registry source layout; expressing it as data needs a language. |
+| =route_inventory= | =compass.crosscheck/src/codecs/route_inventory.cpp:543= | grammar | Family =needs= values =every=, =one_key=, =list_by=, =writable= | stays code | Semantics bound to the registry parser above. |
+| =route_inventory= | =compass.crosscheck/src/codecs/route_inventory.cpp:557= | convention | Coverage counts only =bff= routes against C++ pairs | could be data | Which server is the pairing source is a setting. |
+| =route_inventory= | =compass.crosscheck/src/codecs/route_inventory.cpp:576= | template | Coverage and pairing prose citing =build/scripts/route_pairing.py=, table headers | could be data | Fixed page text. |
+| =route_inventory= | =compass.crosscheck/src/codecs/route_inventory.cpp:623= | template | Inventory section, "answered by the BFF and ... by ores.http" sentence, 7-column table | could be data | Fixed page text. |
+| =rule_identifiers= | =compass.docs/src/codecs/rule_identifiers.cpp:43= | name | rule source ID =00BA1689-B060-4BD8-BC46-67034D663B7F= (ORE UX hub) | could be data | Rule provenance into ORE's tree. |
+| =rule_identifiers= | =compass.docs/src/codecs/rule_identifiers.cpp:70= | list | keyed pages: RS =doc/knowledge/ui/record_screen_standard.org= with 16 section-to-code pairs (SCOPE..BUILD); ES =doc/knowledge/ui/entity_screen_specification.org= (line 81) with 22 pairs (JOURNEY..VERIFY) | could be data | ORE's UX standards and their section headings; a project table (page, code, section, section code) states them. |
+| =rule_identifiers= | =compass.docs/src/codecs/rule_identifiers.cpp:107= | list | unkeyed page codes =UXL=, =UDP=, =CFG=, =FSS=, =OLS= | could be data | ORE's other UX page codes. |
+| =rule_identifiers= | =compass.docs/src/codecs/rule_identifiers.cpp:110= | path | checklist =doc/knowledge/ui/screen_review_checklist.org= | could be data | ORE's checklist path. |
+| =rule_identifiers= | =compass.docs/src/codecs/rule_identifiers.cpp:138= | pattern | identifier regexes hard-code the page codes =(?:RS\vert{}ES)= (also lines 185, 186, 187) | could be data | The alternation should be built from the page table; the CODE-SECTION-NN shape stays the codec's contract. |
+| =rule_identifiers= | =compass.docs/src/codecs/rule_identifiers.cpp:237= | grammar | checklist lines are =- [ ]= items citing ids, or naming an unkeyed page as =(X=, =; X=, =, X= (line 250) | stays code | The citation grammar is the codec's own contract over org checkboxes; parametrising it adds nothing. |
+| =rule_identifiers= | =compass.docs/src/codecs/rule_identifiers.cpp:198= | path | fix hint =build/scripts/check_rule_identifiers.py --assign= | could be data | Names an ORE script. |
+| =script_library_seed= | =compass.crosscheck/src/codecs/script_library_seed.cpp:47= | path | external/ore/examples/Products/Input/scriptlibrary.xml | could be data | An input path with no option. |
+| =script_library_seed= | =compass.crosscheck/src/codecs/script_library_seed.cpp:49= | path | projects/ores.sql/populate/trading/trading_script_library_populate.sql | could be data | An output path with no option. |
+| =script_library_seed= | =compass.crosscheck/src/codecs/script_library_seed.cpp:52= | list | ORE script keywords IF, THEN, ELSE, END, FOR, IN, DO, NUMBER, REQUIRE, AND, OR, NOT, TODAY, GEQ, GT, LEQ, LT, EQ | stays code | The keyword set of ORE's scripting language belongs with the type inference that reads it. |
+| =script_library_seed= | =compass.crosscheck/src/codecs/script_library_seed.cpp:55= | list | ORE script built-in functions PAY, LOGPAY, NPV, NPVMEM, HISTFIXING, ... RESETNPVMEM (28 names) | stays code | Part of the scripting language grammar; as data it would be split from the per-function argument typing. |
+| =script_library_seed= | =compass.crosscheck/src/codecs/script_library_seed.cpp:201= | grammar | argument typing per function, e.g. PAY args 1-2 Event and 3 Currency, DATEINDEX array, FWDCOMP Index (lines 201-227) | stays code | Type inference over ORE's language; data would need a signature language. |
+| =script_library_seed= | =compass.crosscheck/src/codecs/script_library_seed.cpp:296= | grammar | comment block before <Script> holds a title, then 'name  description' lines | stays code | A parser of a comment convention in ORE's XML. |
+| =script_library_seed= | =compass.crosscheck/src/codecs/script_library_seed.cpp:349= | grammar | XML elements Script, Name, Code, NPV, Results/Result with rename, CalibrationSpec/Calibration, Strikes/Strike, ScheduleCoarsening/EligibleSchedule, ProductTag, purpose attribute (lines 349-407) | stays code | A reader of ORE's script library schema. |
+| =script_library_seed= | =compass.crosscheck/src/codecs/script_library_seed.cpp:451= | convention | insert shape ores_utility_system_tenant_id_fn(), version 0, current_user, 'system.initial_load', 'Seed the script library', on conflict where valid_to = ores_utility_infinity_timestamp_fn() (lines 451-463) | could be data | ORE's bitemporal seed convention; a template would carry it. |
+| =script_library_seed= | =compass.crosscheck/src/codecs/script_library_seed.cpp:494= | template | banner naming generate_script_library.py, echo heading, seven ores_trading_script*_tbl tables with columns and conflict keys (lines 494-518) | could be data | Output table names and columns belong in a template. |
+| =shell_command_composition= | =compass.cpp/src/codecs/shell.cpp:167= | list | components =refdata, reporting= whose generated shell units must be registered | could be data | A component list; an option. |
+| =shell_command_composition= | =compass.cpp/src/codecs/shell.cpp:173= | path | =projects/ores.shell/application/src/= (where registration happens) | could be data | A path; an option. |
+| =shell_command_composition= | =compass.cpp/src/codecs/shell.cpp:181= | convention | units are =projects/ores.shell/<c>/include/ores.shell/app/commands/<c>/*_commands.hpp=, registered as =<x>_commands::register_commands(= | could be data | ORE layout and naming; a path template and pattern option. |
+| =shell_command_composition= | =compass.cpp/src/codecs/shell.cpp:186= | convention | generated units carry =AUTO-GENERATED FILE= | could be data | ORE codegen banner; a shared marker option. |
+| =shell_command_units= | =compass.cpp/src/codecs/shell.cpp:43= | path | =projects/ores.shell/= (shell sources; also shell_menus) | could be data | A single root path; an option. |
+| =shell_command_units= | =compass.cpp/src/codecs/shell.cpp:70= | grammar | =make_unique<cli::Menu>("name")= builds a menu; =X::register_commands(= registers a unit | stays code | Encodes the cli library API ORE's shell uses; a regex option could hold it but the counting logic is the check. |
+| =shell_command_units= | =compass.cpp/src/codecs/shell.cpp:75= | convention | files under a =tests= directory are skipped | could be data | Test-dir exclusion; option. |
+| =shell_menus= | =compass.cpp/src/codecs/shell.cpp:124= | grammar | =cli::Menu("name", ...)= second argument is a prompt; =root_menu.Insert("name"= is a root command | stays code | Encodes a quirk of the cli library (Menu::Prompt reads back the name); not a value. |
+| =shell_recipe_library= | =compass.docs/src/codecs/recipe_libraries.cpp:282= | path | option defaults source =doc/recipes/shell=, library =projects/ores.shell/scripts/library= (line 284) | ORE default | Options exist; defaults are ORE's paths. |
+| =shell_recipe_library= | =compass.docs/src/codecs/recipe_libraries.cpp:56= | name | style: src language =ores-shell=, filetag kind =shell=, whole-document suffix =.ores=, strips trailing =exit=, writes description | could be data | ORE's shell language name and script suffix; options would carry language and suffix. |
+| =shell_recipe_library= | =compass.docs/src/codecs/recipe_libraries.cpp:57= | name | build target =tangle_shell_scripts= in banner =Regenerate with: ./compass.sh build --direct <target>= (line 183) | could be data | ORE's CMake target and launcher name; the banner text must match ORE's existing scripts. |
+| =shell_recipe_library= | =compass.docs/src/codecs/recipe_libraries.cpp:139= | convention | folder from filetag =:recipe:<kind>:<category>:=, default =general= (line 144) | could be data | ORE's filetag convention for recipe categories. |
+| =shell_recipe_provenance= | =compass.docs/src/codecs/tree_gates.cpp:85= | path | glob =projects/ores.shell/scripts/library/*/*.ores= | could be data | Duplicates shell_recipe_library's library option and =.ores= suffix as a literal; it should read that codec's option. |
+| =shell_recipe_provenance= | =compass.docs/src/codecs/tree_gates.cpp:82= | template | header line =# GENERATED from <path> — do not edit by hand.= | stays code | It is the banner compass's own recipe_libraries writes, so the pattern pairs with compass code, not ORE. |
+| =skill_catalogue= | =compass.docs/include/compass.docs/ops/skills.hpp:33= | path | =doc/llm/skills/= (skills_dir, documented as "where ORE Studio keeps its skills"; shared by skill_catalogue, skill_levels, skill_type_tables) | could be data | One project option would serve all three codecs and skill_namespace. |
+| =skill_catalogue= | =compass.docs/src/codecs/skill_tables.cpp:55= | list | 10 domains (agile, pr, doc, code, codegen, devops, skill, principle, method, helm) with heading and blurb each | could be data | ORE's skill taxonomy; a project table (prefix, heading, blurb) states it. |
+| =skill_catalogue= | =compass.docs/src/codecs/skill_tables.cpp:79= | path | =doc/llm/skills/claude_code_skills.org= (catalogue page) | could be data | ORE's page path. |
+| =skill_catalogue= | =compass.docs/src/codecs/skill_tables.cpp:80= | template | markers =# BEGIN generated catalogue (build/scripts/generate_skills_catalogue.py)= / =# END generated catalogue= (line 82) | could be data | Marker names an ORE script. |
+| =skill_catalogue= | =compass.docs/src/codecs/skill_tables.cpp:83= | threshold | description truncated at 110 characters | could be data | ORE's table-width choice. |
+| =skill_catalogue= | =compass.docs/src/codecs/skill_tables.cpp:91= | contract | SKILL.org must carry =:ID:=, =#+title:= and a bare =description:= line (front-matter style) | could be data | ORE's SKILL.org contract; doc/meta could state the fields. |
+| =skill_catalogue= | =compass.docs/src/codecs/skill_tables.cpp:123= | convention | skill name =compass-<domain>-...=: strip =compass-= then group by first segment | could be data | Same prefix as skill_namespace; one option. |
+| =skill_levels= | =compass.docs/src/codecs/skill_levels.cpp:46= | list | LEVELS: 76 =compass-*= skills each mapped to s1..s5 or cross | could be data | ORE's skill catalogue and level assignment; a =#+level:=-like keyword in each SKILL.org or a project table states it. |
+| =skill_levels= | =compass.docs/src/codecs/skill_levels.cpp:131= | list | Systems: s1 Agent/Hours, s2 Orchestrator/Days, s3 Sprint Planner/Weeks, s3star Auditor/Continuous, s4 Version Planner/Months, s5 Identity Steward/Indefinite | could be data | ORE's viable-system model of agents; a project table states the levels. |
+| =skill_levels= | =compass.docs/src/codecs/skill_levels.cpp:159= | convention | s3star sees skills whose third name segment is =show= or =find=; s3star is binding, the rest advisory (line 212) | could be data | ORE's audit-channel policy; a verb list and a binding flag per level carry it. |
+| =skill_levels= | =compass.docs/src/codecs/skill_levels.cpp:140= | path | =doc/llm/skills/skill_systems_levels.org= (generated page) | could be data | ORE's page path. |
+| =skill_levels= | =compass.docs/src/codecs/skill_levels.cpp:142= | template | region markers =# BEGIN generated inventory (build/scripts/apply_skill_levels.py)=, legacy =(build/scripts/generate_skills_catalogue.py)= (line 144), =# END generated inventory= (line 145) | could be data | Markers name ORE scripts; the legacy marker is a migration aid that can go. |
+| =skill_levels= | =compass.docs/src/codecs/skill_levels.cpp:199= | template | inventory prose, =#+ATTR_HTML: :class hug-leading=, header =\\vert{} Level \\vert{} System \\vert{} Horizon \\vert{} Sees \\vert{} Attenuation \\vert{}=, cross sentence (line 217) | could be data | ORE page text and CSS class; a template in the project would carry it. |
+| =skill_levels= | =compass.docs/src/codecs/skill_levels.cpp:230= | path | fix hint =build/scripts/apply_skill_levels.py= | could be data | Names an ORE script. |
+| =skill_levels= | =compass.docs/include/compass.docs/ops/skills.hpp:33= | path | =doc/llm/skills/= via ops::skill_names | could be data | Same shared literal as skill_catalogue. |
+| =skill_namespace= | =compass.docs/src/codecs/tree_gates.cpp:105= | path | glob =doc/llm/skills/*/SKILL.org= | could be data | The skill tree path; compass-ng uses the same layout, but a project could state it. |
+| =skill_namespace= | =compass.docs/src/codecs/tree_gates.cpp:107= | convention | skill names start =compass-= | could be data | A namespace prefix the project chooses; a =prefix= option carries it. |
+| =skill_namespace= | =compass.docs/src/codecs/tree_gates.cpp:111= | path | fix hint =build/scripts/rename_skills_to_compass_namespace.py= | could be data | Names an ORE script. |
+| =skill_type_tables= | =compass.docs/include/compass.docs/ops/skills.hpp:33= | path | =doc/llm/skills/= via skills_dir | could be data | Same shared literal as skill_catalogue. |
+| =skill_type_tables= | =compass.docs/src/codecs/skill_tables.cpp:162= | path | =build/scripts/generate_skill_type_tables.py= named in markers (lines 223, 282, 326, 329) | could be data | Marker names an ORE script. |
+| =skill_type_tables= | =compass.docs/src/codecs/skill_tables.cpp:164= | path | =projects/ores.codegen/library/templates/= with glob =doc_*.org.mustache= (line 230) | could be data | ORE's template library and naming; the tangle codecs already take the directory as an option. |
+| =skill_type_tables= | =compass.docs/src/codecs/skill_tables.cpp:165= | path | =projects/ores.compass/src/compass.py= (ORE's Python CLI) | could be data | ORE's CLI source path; the dependency should go once the types are data. |
+| =skill_type_tables= | =compass.docs/src/codecs/skill_tables.cpp:168= | list | model_types: 7 types and their homes (=entity_org= -> =projects/ores.<component>/modeling/=, =dataset= -> =projects/ores.seeder/datasets/<name>/=, =facet= -> =projects/ores.codegen/library/templates=, ...) | could be data | ORE's type-to-directory map; doc/meta type contracts could carry the home. |
+| =skill_type_tables= | =compass.docs/src/codecs/skill_tables.cpp:177= | list | 13 read-only commands (=show=, =search=, =list=, =where=, =fleet=, =journal=, ...) | could be data | ORE's CLI surface; a project table lists them. |
+| =skill_type_tables= | =compass.docs/src/codecs/skill_tables.cpp:182= | list | 10 read-only subcommands with blurbs (=sprint status=, =pr checks=, =db sql=, =skills report=, ...) | could be data | ORE's CLI surface with hand-written blurbs. |
+| =skill_type_tables= | =compass.docs/src/codecs/skill_tables.cpp:213= | grammar | regex parse of ORE's compass.py: dict bodies =_STATIC_PARENT=, =_DEFAULTABLE_PARENT= (lines 218, 220) and ~subparsers.add_parser(... help=...)~ (line 266) | stays code | A scraper of ORE's Python source; expressing it as data needs a language, and the right fix is to drop the scrape. |
+| =skill_type_tables= | =compass.docs/src/codecs/skill_tables.cpp:311= | path | target pages =compass-doc-add/SKILL.org= and =compass-doc-show/SKILL.org= (line 328) | could be data | ORE skill names; a project table names the target pages. |
+| =skill_type_tables= | =compass.docs/src/codecs/skill_tables.cpp:224= | template | table prose, =hug-leading=, headers =Type \\vert{} Scaffold \\vert{} Lands in \\vert{} Sections to fill= and =Command \\vert{} Shows= (line 286), cells ~=compass add <type>=~ (line 255) and ~=compass <cmd>=~ (line 298) | could be data | ORE page text and CLI name. |
+| =skill_type_tables= | =compass.docs/src/codecs/skill_tables.cpp:238= | convention | sections tagged =:noexport:= are not listed as sections to fill | stays code | A generic org export convention, not ORE's. |
+| =sql_hygiene= | =compass.sql/src/codecs/sql_hygiene.cpp:43= | path | =roots= default =projects/ores.sql= | ORE default | Option exists; default is ORE's SQL directory. |
+| =sql_hygiene= | =compass.sql/src/ops/hygiene.cpp:88= | list | Re-runnable DDL table: table/sequence/extension/schema/materialized view need IF NOT EXISTS; trigger/rule/view/function/procedure need OR REPLACE | stays code | Idempotent PostgreSQL DDL is generic, not ORE's; keyword sequences are grammar, not configuration. |
+| =sql_hygiene= | =compass.sql/src/ops/hygiene.cpp:181= | convention | =create policy=/=create type=/=create domain= must be preceded by =drop ... if exists= in the same file | stays code | PostgreSQL re-run idiom; generic though ORE chose it, and a data form would restate the grammar. |
+| =sql_reachability= | =compass.sql/include/compass.sql/ops/includes.hpp:46= | path | ~sql_root = projects/ores.sql~ (scan root and base of non-relative \i) | could be data | A directory literal shared by three codecs; one option per project would do. |
+| =sql_reachability= | =compass.sql/include/compass.sql/ops/includes.hpp:48= | list | Extra entry points: drop/drop.sql, drop/drop_database.sql, drop/drop_test_databases.sql, populate/ip2country/ip2country_import.sql | could be data | A list of ORE files; a list option or a project file is a natural fit. |
+| =sql_reachability= | =compass.sql/src/codecs/sql_reachability.cpp:47= | list | Checked trees =create=, =populate=, =drop= | could be data | ORE's SQL directory layout as a literal list. |
+| =sql_reachability= | =compass.sql/src/codecs/sql_reachability.cpp:82= | convention | Every .sql directly under sql_root is a schema entry point | could be data | ORE's layout rule; a glob option for entry points would express it. |
+| =sql_reachability= | =compass.sql/src/ops/includes.cpp:82= | convention | Non-relative =\i= resolves against sql_root (psql launched from projects/ores.sql) | could be data | The psql working directory is a project fact; an include-base option states it. |
+| =sql_reachability= | =compass.sql/src/ops/scripts.cpp:123= | convention | =component_less= path order mirrors pathlib order of ORE's Python script | stays code | An ordering function chosen for parity with the retired script; harmless and generic. |
+| =stream_coverage= | =compass.cpp/src/codecs/stream_coverage.cpp:49= | name | ORE doc IDs =05B6C7D8-...=, =C0B3C6F4-...=, =F4A5B6C7-...= cited as rule sources (lines 49-54) | could be data | Rule provenance into ORE's doc tree. |
+| =stream_coverage= | =compass.cpp/src/codecs/stream_coverage.cpp:73= | path | excluded =projects/ores.nats/= (the transport itself is not scanned) | could be data | A path exclusion; an option. |
+| =stream_coverage= | =compass.cpp/src/codecs/stream_coverage.cpp:74= | path | step helper =projects/ores.service/include/ores.service/messaging/step_command_stream.hpp= (its own calls are ignored) | could be data | A path; an option. |
+| =stream_coverage= | =compass.cpp/src/codecs/stream_coverage.cpp:76= | path | transport headers =ores.nats/service/client.hpp= and =jetstream_admin.hpp= audited for unread entry points (lines 76-79) | could be data | Two paths; options. |
+| =stream_coverage= | =compass.cpp/src/codecs/stream_coverage.cpp:80= | list | skip dirs =venv, node_modules, .venv, build, target, .git= plus =/tests/= (line 765) | could be data | Tree exclusions; a shared ignore list. |
+| =stream_coverage= | =compass.cpp/src/codecs/stream_coverage.cpp:341= | grammar | ORE NATS API: =ensure_stream(name, nats.covering_subjects(...))=, =serve_step_commands(_, service, routes[, n])= with =step_routes x{"group"}= and =.on(subject)=, =js_queue_subscribe[_multi]= (7 args, subject arg 0, stream arg 4), =nats.make_stream_name("x")= | stays code | It is an interpreter of ORE's ores.nats C++ API (argument positions, constant and parameter resolution across callers); data would need a language. |
+| =stream_coverage= | =compass.cpp/src/codecs/stream_coverage.cpp:347= | convention | subject constants ~nats_subject = "..."~ in structs, and ~constexpr std::string_view X = "..."~ constants | stays code | Part of the same resolver of ORE's protocol constant idioms. |
+| =stream_coverage= | =compass.cpp/src/codecs/stream_coverage.cpp:966= | convention | step stream name: strip =ores.= and =.service= from the service name, append =_<group>=, then =_steps= | could be data | ORE's stream-naming rule; a small template option could state it, though it must mirror ores.service code. |
+| =stream_coverage= | =compass.cpp/src/codecs/stream_coverage.cpp:706= | convention | a stream covering subject =s= filters =s= and =s.>= | stays code | Mirrors what =covering_subjects= does in ORE's transport; NATS wildcard semantics are generic. |
+| =stream_coverage= | =compass.cpp/src/codecs/stream_coverage.cpp:998= | pattern | transport audit: calls =js_*= other than =js_publish, js_queue_subscribe, js_queue_subscribe_multi=; entry points =(ensure\vert{}create\vert{}add)_*stream*(= other than =ensure_stream= | could be data | The known-call allowlist and audit patterns could be options, though they track the resolver in code. |
+| =subject_conformance= | =compass.crosscheck/src/codecs/subject_conformance.cpp:48= | path | projects/ores.sql/populate/dq/dq_artefact_types_populate.sql (the only file scanned) | could be data | A hard-coded path with no option; a list option of seed files would serve any project. |
+| =subject_conformance= | =compass.crosscheck/src/codecs/subject_conformance.cpp:64= | pattern | a quoted dotted name 'a_b.c.d' in SQL is taken to be a NATS subject | could be data | The token pattern that identifies a subject in a seed is a project choice and fits a regex option. |
+| =subject_conformance= | =compass.crosscheck/src/ops/subjects.cpp:34= | list | closed verb set get, get_many, list, put, put_many, delete, delete_many | could be data | A closed vocabulary of verbs is a plain list a project can state. |
+| =subject_conformance= | =compass.crosscheck/src/ops/subjects.cpp:36= | list | event actions created, updated, deleted | could be data | A closed vocabulary of event actions is a plain list. |
+| =subject_conformance= | =compass.crosscheck/src/ops/subjects.cpp:66= | grammar | subject shape component.version.resource.verb (4 segments) or component.version.events.collection.action (5 segments) | could be data | The segment layout is expressible as a template of named segments with per-segment sets, though diagnostics would need generic wording. |
+| =subject_conformance= | =compass.crosscheck/src/ops/subjects.cpp:75= | convention | version segment must be v1 (also line 100) | could be data | An allowed-versions list or pattern is data. |
+| =subject_conformance= | =compass.crosscheck/src/ops/subjects.cpp:90= | convention | a {component} placeholder segment is accepted as conforming | could be data | A placeholder token is a project convention that can be an option. |
+| =subject_conformance= | =compass.crosscheck/src/ops/subjects.cpp:103= | name | reserved ops resource namespace accepts any verb | could be data | A reserved-namespace name is a list entry. |
+| =subject_conformance= | =compass.crosscheck/src/ops/subjects.cpp:105= | pattern | list_by_ verb prefix is in the protocol | could be data | An allowed verb prefix is a list entry. |
+| =subject_conformance= | =compass.crosscheck/src/ops/subjects.cpp:107= | convention | a resource ending _events with an event action is the misspelt four-segment event | could be data | A targeted diagnostic for one ORE mistake; data could carry it as a named anti-pattern, but it adds little. |
+| =subject_conformance= | =compass.crosscheck/include/compass.crosscheck/ops/subjects.hpp:42= | path | fix text spells the ORE grammar and cites doc/knowledge/architecture/nats_entity_protocol.org | could be data | A fix message naming an ORE page should come from the project's contract or an option. |
+| =template_sections= | =compass.crosscheck/src/codecs/template_sections.cpp:46= | path | templates = projects/ores.codegen/library/templates | ORE default | The option exists; its default is ORE's template directory. |
+| =template_sections= | =compass.crosscheck/src/codecs/template_sections.cpp:103= | convention | only .mustache files directly in the directory, none in subdirectories | could be data | A recurse flag or a glob option would cover other layouts. |
+| =test_case_reachability= | =compass.cpp/src/ops/test_case_reachability.cpp:36= | list | Catch2 test macros =TEST_CASE, SCENARIO, TEMPLATE_TEST_CASE, ...= (12 names) | stays code | Catch2's public macro set is a framework fact; a project on another framework needs a different reader, not a list. |
+| =test_case_reachability= | =compass.cpp/src/ops/test_case_reachability.cpp:47= | list | skipped dirs =node_modules, venv, .venv, build, external= | could be data | Tree exclusions; a shared ignore list. |
+| =test_case_reachability= | =compass.cpp/src/ops/test_case_reachability.cpp:276= | convention | a test source is under =projects/=, inside a =tests= dir or with stem ending =_tests= | could be data | ORE's test layout; a glob option. |
+| =trade_type_coverage= | =compass.docs/src/codecs/trade_type_coverage.cpp:44= | path | mined TSV =external/ore/catalogue/trade_types.tsv= and version file =external/ore/catalogue/ore_version.txt= (line 46, commit is its third word, line 380) | could be data | ORE's vendored engine catalogue; options would carry the paths, but the codec is ORE-only. |
+| =trade_type_coverage= | =compass.docs/src/codecs/trade_type_coverage.cpp:48= | path | catalogue =projects/ores.trading/modeling/ores.trading.trade_type_catalogue.org= | could be data | ORE's model path. |
+| =trade_type_coverage= | =compass.docs/src/codecs/trade_type_coverage.cpp:50= | path | recorded trades =projects/ores.synthetic/core/tests/data/generated_trades/<code>.xml= | could be data | ORE's test data path. |
+| =trade_type_coverage= | =compass.docs/src/codecs/trade_type_coverage.cpp:51= | path | story =doc/agile/versions/v0/sprint_30/hold_every_product_type_the_engine_supports/= whose task files close rows | could be data | A single historical ORE story hard-wired into a generator; it should be an option or dropped. |
+| =trade_type_coverage= | =compass.docs/src/codecs/trade_type_coverage.cpp:54= | path | output note =doc/knowledge/domain/ore_trade_type_coverage.org= | could be data | ORE's page path. |
+| =trade_type_coverage= | =compass.docs/src/codecs/trade_type_coverage.cpp:55= | name | task IDs =80315472-...= (tag), =8F1B7D90-...= (form, line 56), =589884B5-...= (both forms, line 58) that must exist in the story | could be data | ORE task IDs; the generator refuses if one moves. |
+| =trade_type_coverage= | =compass.docs/src/codecs/trade_type_coverage.cpp:59= | template | markers =# BEGIN GENERATED= / =# END GENERATED= | could be data | ORE page markers. |
+| =trade_type_coverage= | =compass.docs/src/codecs/trade_type_coverage.cpp:168= | contract | catalogue sections =* Trade types= (columns =code=, =construction=, =instrument=, line 171) and =* Unsupported trade types= (line 196) | could be data | ORE's catalogue document contract. |
+| =trade_type_coverage= | =compass.docs/src/codecs/trade_type_coverage.cpp:227= | contract | task =\\vert{} State \\vert{} ABANDONED= skipped; title =#+title: Task:= (line 229) | could be data | ORE's task document contract; doc/meta states it. |
+| =trade_type_coverage= | =compass.docs/src/codecs/trade_type_coverage.cpp:239= | grammar | TSV columns =trade_type=, =registered=, =form=, =in_catalogue=, =element=, =element_in_schema=, =library_scripts=, =script_match=; forms native~{native,container}, scripted~{scripted,script} (line 242) | stays code | The domain rule relating ORE engine forms to catalogue constructions; it is ORE's trade model, and a table of it would still need this logic. |
+| =trade_type_coverage= | =compass.docs/src/codecs/trade_type_coverage.cpp:295= | template | table header =Type \\vert{} ORE form \\vert{} Catalogue form \\vert{} Data element \\vert{} Table \\vert{} Generated \\vert{} Library scripts \\vert{} Match \\vert{} Closed by= and counts prose with ~=ScriptedTrade=~ (line 356) | could be data | ORE page text. |
+| =trade_type_coverage= | =compass.docs/src/codecs/trade_type_coverage.cpp:385= | path | hint =build/scripts/generate_trade_type_coverage.py --write= in generated text (also line 423) | could be data | Names an ORE script. |
+| =translation_unit_budget= | =compass.cpp/src/codecs/translation_unit_budget.cpp:53= | path | =registry= default =projects/ores.refdata/api/include/ores.refdata.api/domain/convention_family_registry.hpp= | ORE default | The option exists; the default is ORE's header. |
+| =translation_unit_budget= | =compass.cpp/src/codecs/translation_unit_budget.cpp:56= | list | =scopes= default: five =ores.refdata=/=ores.ore= core and service dirs | ORE default | The option exists; the default is ORE's. |
+| =translation_unit_budget= | =compass.cpp/src/codecs/translation_unit_budget.cpp:60= | list | =ceilings= default: four =ores.ore= convention-family units with counts 3, 6, 4, 4 | ORE default | The option exists; the default is ORE's baseline. |
+| =translation_unit_budget= | =compass.cpp/src/codecs/translation_unit_budget.cpp:72= | threshold | default budget of 1 family per unit | could be data | A numeric option. |
+| =translation_unit_budget= | =compass.cpp/src/codecs/translation_unit_budget.cpp:74= | name | reflecting header =conventions_family_pack.hpp= (a unit that includes it reflects families) | could be data | A header name; an option. |
+| =translation_unit_budget= | =compass.cpp/src/codecs/translation_unit_budget.cpp:91= | pattern | registry names families as string ="ores::refdata::domain::<name>"=; units name them as =...::domain::<name>= (line 132) | could be data | A namespace pattern; a regex option. |
+| =unique_type_names= | =compass.cpp/src/codecs/unique_type_names.cpp:65= | convention | scanned headers are under =projects/ores.*= (also :90), excluding =build= | could be data | The component prefix =ores.=; a glob option. |
+| =unique_type_names= | =compass.cpp/src/codecs/unique_type_names.cpp:73= | convention | binary model: every =include/= header shares one =public= binary; each =tests= dir is its own binary | could be data | ORE's link model (all public headers can meet); a project with stricter linking would want a different grouping, expressible as globs. |
+| =unity_collisions= | =compass.cpp/src/codecs/unity_collisions.cpp:48= | name | =6C744720-FF73-4895-92E3-24E1E9BF518E= (ORE doc ID cited as rule source) | could be data | Rule provenance into ORE's doc tree. |
+| =unity_collisions= | =compass.cpp/src/codecs/unity_collisions.cpp:57= | path | =cmake/unity_exclusions.cmake= (the recorded exclusions file the codec reads) | could be data | ORE's file path; the file itself is data, but its path is a literal. |
+| =unity_collisions= | =compass.cpp/src/codecs/unity_collisions.cpp:65= | convention | scanned sources are =projects/ores.*/**/*.cpp=, excluding =build=, =node_modules= | could be data | Component prefix and exclusions; options. |
+| =unity_collisions= | =compass.cpp/src/codecs/unity_collisions.cpp:137= | grammar | exclusion entries are ="${CMAKE_SOURCE_DIR}/<path>.cpp"= in the cmake file | could be data | ORE's exclusion file shape; a regex option, or a plain list file instead. |
+| =unity_collisions= | =compass.cpp/src/codecs/unity_collisions.cpp:108= | convention | a target is the nearest ancestor dir holding =CMakeLists.txt= | stays code | Generic CMake mechanics, true of any CMake tree. |
+| =xml_family_census= | =compass.cpp/src/codecs/xml_family_census.cpp:54= | list | =families= default: 20 ORE XML document families with states | ORE default | The option exists; the default is ORE's census. |
+| =xml_family_census= | =compass.cpp/src/codecs/xml_family_census.cpp:65= | path | =corpus= default =external/ore/examples= | ORE default | The option exists; the default is ORE's vendored corpus. |
+| =xml_family_census= | =compass.cpp/src/codecs/xml_family_census.cpp:67= | path | =generated= default =projects/ores.ore/core/src/xml/generated= | ORE default | The option exists; the default is ORE's. |
+| =xml_family_census= | =compass.cpp/src/codecs/xml_family_census.cpp:82= | list | family states =supported, migrating, unused= | stays code | The state vocabulary is the check's own semantics (supported needs a table, unused forbids suite mentions). |
+| =xml_family_census= | =compass.cpp/src/codecs/xml_family_census.cpp:104= | pattern | generated tables bind a family as =document_type doc{"<Root>"= | could be data | ORE codegen idiom; a regex option. |
+| =xml_family_census= | =compass.cpp/src/codecs/xml_family_census.cpp:136= | pattern | XML suites are =projects/**/tests/**/xml_*_tests.cpp= | could be data | ORE test naming; a glob option. |
