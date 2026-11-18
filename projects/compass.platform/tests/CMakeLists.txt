@@ -20,7 +20,10 @@ set(lib_target_name ${name}.lib)
 set(tests_target_name ${name}.tests)
 
 add_executable(${tests_target_name}
+    filesystem_file_status_tests.cpp
     filesystem_mapped_file_tests.cpp
+    filesystem_new_file_tests.cpp
+    process_environment_tests.cpp
     process_executable_tests.cpp
     process_run_program_tests.cpp
     text_decoding_tests.cpp
@@ -33,5 +36,5 @@ target_link_libraries(${tests_target_name}
         Catch2::Catch2WithMain)
 
 add_test(NAME ${tests_target_name}
-    COMMAND ${tests_target_name}
+    COMMAND ${tests_target_name} ${COMPASS_TEST_FILTER}
     WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
