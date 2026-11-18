@@ -30,12 +30,13 @@
 #include "compass.codec/ops/run.hpp"
 #include "compass.codec/types/configuration.hpp"
 #include "compass.codec/types/corpus_view.hpp"
-#include "compass.platform/process/environment.hpp"
 #include "compass.store/ops/blob_hash.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
 #include "test_corpus.hpp"
 
 namespace {
 
+using compass::testing::filesystem::scoped_directory;
 using namespace compass::codec;
 
 using sources = std::map<std::string, std::string>;
@@ -150,27 +151,6 @@ private:
     types::corpus view_;
 };
 
-class scoped_cache final {
-public:
-    scoped_cache() {
-        static int counter = 0;
-        root_ = std::filesystem::temp_directory_path() /
-            ("compass.codec.scan." +
-                std::to_string(
-                    compass::platform::process::current_process_id()) +
-                "." + std::to_string(counter++));
-        std::filesystem::create_directories(root_);
-    }
-    ~scoped_cache() { std::filesystem::remove_all(root_); }
-    scoped_cache(const scoped_cache&) = delete;
-    scoped_cache& operator=(const scoped_cache&) = delete;
-
-    [[nodiscard]] const std::filesystem::path& root() const { return root_; }
-
-private:
-    std::filesystem::path root_;
-};
-
 /**
  * @brief Each finding as its file, rule, offset and message, in order.
  */
@@ -198,7 +178,7 @@ struct outcome {
  * @p cache, then stores what ran there. Checks the findings equal those of
  * a run with neither, which maps every file.
  */
-outcome run(const sources& plain, const scoped_cache& cache,
+outcome run(const sources& plain, const scoped_directory& cache,
     const types::dependency_record& previous = {},
     const types::configuration& settings = {}) {
     const checkout c(plain);
@@ -207,10 +187,10 @@ outcome run(const sources& plain, const scoped_cache& cache,
     mapped = 0;
     reduced = 0;
     auto result = ops::run(r, c.corpus(), c.types(), 2, previous,
-        io::action_source_of(cache.root()));
+        io::action_source_of(cache.path()));
     const auto maps = mapped.load();
     const auto reduces = reduced.load();
-    (void)io::store_actions(cache.root(), result.record, result.fresh, 2,
+    (void)io::store_actions(cache.path(), result.record, result.fresh, 2,
         result.scans);
     const auto plain_run = ops::run(r, c.corpus(), c.types(), 2);
     CHECK(lines_of(result.diagnostics[0]) ==
@@ -230,7 +210,7 @@ sources tree() {
 
 TEST_CASE("a scan maps every listed file, then reports each file's "
     "findings and those of the reduce", "[ops][scan]") {
-    scoped_cache cache;
+    const scoped_directory cache("compass.codec.scan");
     auto files = tree();
     files["src/c.txt"] += "def beta\n";
 
@@ -244,7 +224,7 @@ TEST_CASE("a scan maps every listed file, then reports each file's "
 
 TEST_CASE("after an edit a scan maps only the edited file, and its reduce "
     "sees the new fact beside the stored ones", "[ops][scan]") {
-    scoped_cache cache;
+    const scoped_directory cache("compass.codec.scan");
     const auto first = run(tree(), cache);
     REQUIRE(first.maps == 3);
     auto files = tree();
@@ -267,7 +247,7 @@ TEST_CASE("after an edit a scan maps only the edited file, and its reduce "
 
 TEST_CASE("a scan forgets a removed file and maps a new one",
     "[ops][scan]") {
-    scoped_cache cache;
+    const scoped_directory cache("compass.codec.scan");
     auto files = tree();
     files["src/d.txt"] = "def beta\n";
     const auto first = run(files, cache);
@@ -285,7 +265,7 @@ TEST_CASE("a scan forgets a removed file and maps a new one",
 
 TEST_CASE("a scan whose options changed maps every file again",
     "[ops][scan]") {
-    scoped_cache cache;
+    const scoped_directory cache("compass.codec.scan");
     const auto first = run(tree(), cache);
     types::configuration settings;
     settings.set("names", "marker", "def beta");
@@ -302,12 +282,12 @@ TEST_CASE("a scan whose result object is gone maps every file again",
     std::vector<std::string> findings;
     types::dependency_record record;
     {
-        scoped_cache cache;
+        const scoped_directory cache("compass.codec.scan");
         auto first = run(tree(), cache);
         findings = first.findings;
         record = std::move(first.record);
     }
-    scoped_cache empty;
+    const scoped_directory empty("compass.codec.scan");
     auto files = tree();
     files["src/b.txt"] += "\n";
 
@@ -319,7 +299,7 @@ TEST_CASE("a scan whose result object is gone maps every file again",
 
 TEST_CASE("an edit that leaves a file's fact as it was is mapped and not "
     "reduced", "[ops][scan]") {
-    scoped_cache cache;
+    const scoped_directory cache("compass.codec.scan");
     auto files = tree();
     files["src/c.txt"] = "def alpha\n";
     const auto first = run(files, cache);
@@ -342,7 +322,7 @@ TEST_CASE("an edit that leaves a file's fact as it was is mapped and not "
 
 TEST_CASE("an edit to a file the reduce step read is reduced again though "
     "its fact is as it was", "[ops][scan]") {
-    scoped_cache cache;
+    const scoped_directory cache("compass.codec.scan");
     auto files = tree();
     files["src/c.txt"] = "def alpha\n";
     const auto first = run(files, cache);
@@ -357,7 +337,7 @@ TEST_CASE("an edit to a file the reduce step read is reduced again though "
 
 TEST_CASE("a scan that was not reduced still depends on what its reduce "
     "step read", "[ops][scan]") {
-    scoped_cache cache;
+    const scoped_directory cache("compass.codec.scan");
     auto files = tree();
     files["src/c.txt"] = "def alpha\n";
     const auto first = run(files, cache);
@@ -375,7 +355,7 @@ TEST_CASE("a scan that was not reduced still depends on what its reduce "
 }
 
 TEST_CASE("a file that comes or goes is reduced again", "[ops][scan]") {
-    scoped_cache cache;
+    const scoped_directory cache("compass.codec.scan");
     const auto first = run(tree(), cache);
     auto files = tree();
     files["src/d.txt"] = "a note\n";
@@ -502,7 +482,7 @@ std::vector<std::string> findings_of(const types::diagnostic_table& t,
     return out;
 }
 
-outcome run_headings(const sources& all, const scoped_cache& cache,
+outcome run_headings(const sources& all, const scoped_directory& cache,
     const types::dependency_record& previous = {}) {
     const org_checkout c(all);
     const std::array<types::descriptor, 1> codecs{headings};
@@ -510,10 +490,10 @@ outcome run_headings(const sources& all, const scoped_cache& cache,
     pages_mapped = 0;
     reduced = 0;
     auto result = ops::run(r, c.corpus(), c.types(), 2, previous,
-        io::action_source_of(cache.root()));
+        io::action_source_of(cache.path()));
     const auto maps = pages_mapped.load();
     const auto reduces = reduced.load();
-    (void)io::store_actions(cache.root(), result.record, result.fresh, 2,
+    (void)io::store_actions(cache.path(), result.record, result.fresh, 2,
         result.scans);
     const auto plain_run = ops::run(r, c.corpus(), c.types(), 2);
     const auto findings = findings_of(result.diagnostics[0], c.corpus());
@@ -532,7 +512,7 @@ sources pages() {
 
 TEST_CASE("a scan of documents maps each page from its parsed tables and "
     "reports its findings on the document", "[ops][scan]") {
-    scoped_cache cache;
+    const scoped_directory cache("compass.codec.scan");
     auto files = pages();
     files["doc/c.org"] += "* beta\n";
 
@@ -546,7 +526,7 @@ TEST_CASE("a scan of documents maps each page from its parsed tables and "
 
 TEST_CASE("after an edit a scan of documents maps only the edited page, "
     "and reduces only when its fact changed", "[ops][scan]") {
-    scoped_cache cache;
+    const scoped_directory cache("compass.codec.scan");
     const auto first = run_headings(pages(), cache);
     REQUIRE(first.maps == 3);
     auto files = pages();

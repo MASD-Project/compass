@@ -38,8 +38,8 @@
 #include "compass.codec/ops/run.hpp"
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.org/ops/document_fields.hpp"
-#include "compass.platform/process/environment.hpp"
 #include "compass.store/ops/blob_hash.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
 #include "test_corpus.hpp"
 
 namespace {
@@ -241,29 +241,22 @@ void check_edit(const sources& docs, const sources& plain,
     }
 }
 
+/**
+ * @brief A file that does not exist until it is written, in a temporary
+ * directory of its own.
+ */
 class scoped_file final {
-public:
-    scoped_file() {
-        static int counter = 0;
-        path_ = std::filesystem::temp_directory_path() /
-            ("compass.codec.unit_index." +
-                std::to_string(
-                    compass::platform::process::current_process_id()) +
-                "." + std::to_string(counter++));
-    }
-    ~scoped_file() { std::filesystem::remove(path_); }
-    scoped_file(const scoped_file&) = delete;
-    scoped_file& operator=(const scoped_file&) = delete;
+    compass::testing::filesystem::scoped_directory dir_{
+        "compass.codec.unit_index"};
+    std::filesystem::path path_ = dir_.path() / "record";
 
+public:
     [[nodiscard]] const std::filesystem::path& path() const { return path_; }
 
     void write(const std::string& bytes) const {
         std::ofstream os(path_, std::ios::binary | std::ios::trunc);
         os << bytes;
     }
-
-private:
-    std::filesystem::path path_;
 };
 
 }

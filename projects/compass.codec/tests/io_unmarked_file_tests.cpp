@@ -26,34 +26,14 @@
 #include <string>
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
-#include "compass.platform/process/environment.hpp"
 #include "compass.store/ops/blob_hash.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
 
 namespace {
 
+using compass::testing::filesystem::scoped_directory;
 using namespace compass::codec;
 using compass::store::types::blob_id;
-
-class scoped_directory final {
-public:
-    scoped_directory() {
-        static int counter = 0;
-        root_ = std::filesystem::temp_directory_path() /
-            ("compass.codec.unmarked." +
-                std::to_string(
-                    compass::platform::process::current_process_id()) +
-                "." + std::to_string(counter++));
-        std::filesystem::create_directories(root_);
-    }
-    ~scoped_directory() { std::filesystem::remove_all(root_); }
-    scoped_directory(const scoped_directory&) = delete;
-    scoped_directory& operator=(const scoped_directory&) = delete;
-
-    [[nodiscard]] const std::filesystem::path& root() const { return root_; }
-
-private:
-    std::filesystem::path root_;
-};
 
 std::string read(const std::filesystem::path& p) {
     std::ifstream is(p, std::ios::binary);
@@ -79,8 +59,8 @@ std::vector<blob_id> sorted(std::vector<blob_id> v) {
 
 TEST_CASE("the unmarked record reads back the IDs written, sorted",
     "[io_unmarked_file]") {
-    scoped_directory dir;
-    const auto path = io::unmarked_file_path(dir.root());
+    const scoped_directory dir("compass.codec.unmarked");
+    const auto path = io::unmarked_file_path(dir.path());
     CHECK(io::read_unmarked_file(path).empty());
     CHECK(io::write_unmarked_file(path, ids));
     CHECK(io::read_unmarked_file(path) == sorted(ids));
@@ -88,8 +68,8 @@ TEST_CASE("the unmarked record reads back the IDs written, sorted",
 }
 
 TEST_CASE("a damaged unmarked record holds no ID", "[io_unmarked_file]") {
-    scoped_directory dir;
-    const auto path = io::unmarked_file_path(dir.root());
+    const scoped_directory dir("compass.codec.unmarked");
+    const auto path = io::unmarked_file_path(dir.path());
     REQUIRE(io::write_unmarked_file(path, ids));
     const auto good = read(path);
 

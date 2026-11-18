@@ -26,6 +26,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include "compass.platform/process/environment.hpp"
 #include "compass.platform/process/run_program.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
 
 namespace {
 
@@ -67,13 +68,9 @@ void replace_all(std::string& text, const std::string& from,
  */
 std::string git_diff(const std::optional<std::string>& before,
     const std::optional<std::string>& after) {
-    static int counter = 0;
-    const auto dir = std::filesystem::temp_directory_path() /
-        ("compass.codec.diff." +
-            std::to_string(
-                compass::platform::process::current_process_id()) +
-            "." + std::to_string(counter++));
-    std::filesystem::create_directories(dir);
+    const compass::testing::filesystem::scoped_directory scoped(
+        "compass.codec.diff");
+    const auto& dir = scoped.path();
     const auto put = [&](const std::optional<std::string>& bytes,
         const char* name) -> std::string {
         if (!bytes)
@@ -92,7 +89,6 @@ std::string git_diff(const std::optional<std::string>& before,
     REQUIRE(r.exit_code >= 0);
     REQUIRE(r.exit_code <= 1);
     auto text = r.output;
-    std::filesystem::remove_all(dir);
     if (before)
         replace_all(text, "a/" + a, "a/doc/f.org");
     if (after)
