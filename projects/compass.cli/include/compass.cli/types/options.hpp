@@ -26,6 +26,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 #include "compass.cli/config/check_documents.hpp"
 #include "compass.cli/types/configuration.hpp"
 #include "compass.codec/types/configuration.hpp"
@@ -50,7 +51,8 @@ enum class command : std::uint8_t { generate, diff, check, gc, config, hook };
  * the --commit of check as written, or empty. ratchet, when set, is the
  * base of check --ratchet as written, empty for the default. today is
  * the --today of check, when given. all_findings is the --all-findings of
- * hook.
+ * hook. only holds each --codec of check: when it is not empty, the
+ * codecs and checks it names run and no other does.
  */
 struct invocation {
     command which = command::generate;
@@ -61,6 +63,7 @@ struct invocation {
     unsigned threads = 1;
     bool timings = false;
     bool all_findings = false;
+    std::vector<std::string> only;
     layer command_line;
     store::types::collection_options collection;
 };

@@ -1,0 +1,43 @@
+:PROPERTIES:
+:ID: FEC5E7F2-C265-4929-A0E1-8B2A1FBCC3A1
+:END:
+#+title: Refuse a model that does not load instead of failing the run
+#+description: A codegen model that does not load under today's rules should be a refusal finding on that model, so the other codecs still run, not an exception that makes check exit 2.
+#+type: capture
+#+level: cross
+#+filetags: :codegen:check:
+#+created: 2026-11-18
+#+updated: 2026-11-18
+
+This page is a [[id:671F18E4-E09C-4B3B-BD24-D33DF8AE38A6][capture]] in the *inbox* bucket of the product backlog — a pre-sprint idea, not yet pulled into a sprint as a story.
+
+* What
+
+When a model does not load, codegen throws, and the whole command exits
+2. It should instead refuse that model's outputs with a finding of its
+=refused= rule on the model, the way a generator refuses an output whose
+inputs it cannot resolve, and every other codec should still run. The
+staged codec interface (=part_sink=) has no channel for a refusal, so
+that interface grows one.
+
+* Why
+
+On 2026-11-18 ORE Studio proved the =portable_cpp= check on the old
+commit =1961f78f1a=. =compass check --commit 1961f78f1a= exited 2 before
+the check ran, with "codegen: a model did not load:
+projects/ores.compute/modeling/ores.compute.host.org: nullable bare column
+has no :default_value:". The commit's models break today's codegen rules,
+which is expected of an old commit, but it should cost codegen's findings
+only, not the run. The workaround was =--set codegen.enabled=false=; the
+new =check --codec= option avoids it as well.
+
+* References
+
+- =projects/compass.codegen/src/ops/generate.cpp=, the throw "codegen: a
+  model did not load".
+- =projects/compass.codec/include/compass.codec/types/descriptor.hpp=,
+  =part_sink= and =file_output=.
+
+* See also
+
+-

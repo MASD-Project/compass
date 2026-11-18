@@ -228,3 +228,29 @@ TEST_CASE("an example that does not fire is reported on its block, which "
         "src/core/cache.cpp:2:portable_cpp/atomic_shared_ptr"});
     CHECK_THAT(again.out, ContainsSubstring(" portable_cpp 1"));
 }
+
+TEST_CASE("check --codec runs the named checks and codecs and nothing else",
+    "[app][checks]") {
+    scoped_git_repo repo;
+    write_checkout(repo);
+    repo.write(".compass.org", std::string(configuration) +
+        "| sql_hygiene | yes | roots=sql |\n");
+    repo.write("sql/a.sql", "create table a (x int);\n");
+
+    CHECK(check(repo).findings() == std::vector<std::string>{
+        "sql/a.sql:1:sql_hygiene/not_re_runnable",
+        "src/core/cache.cpp:2:portable_cpp/atomic_shared_ptr"});
+    CHECK(check(repo, {"--codec", "portable_cpp"}).findings() ==
+        std::vector<std::string>{
+            "src/core/cache.cpp:2:portable_cpp/atomic_shared_ptr"});
+    CHECK(check(repo, {"--codec", "sql_hygiene"}).findings() ==
+        std::vector<std::string>{"sql/a.sql:1:sql_hygiene/not_re_runnable"});
+    CHECK(check(repo, {"--codec", "lint", "--codec", "portable_cpp"})
+        .findings() == std::vector<std::string>{
+            "src/core/cache.cpp:2:portable_cpp/atomic_shared_ptr"});
+
+    const auto unknown = check(repo, {"--codec", "portable_c"});
+    CHECK(unknown.status == 2);
+    CHECK_THAT(unknown.err, ContainsSubstring("--codec portable_c: no codec "
+        "or check has that name"));
+}

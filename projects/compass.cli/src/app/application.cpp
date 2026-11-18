@@ -150,6 +150,24 @@ std::expected<types::options, std::vector<std::string>> options_of(
     }
     if (!checks)
         return std::unexpected(std::vector<std::string>{checks.error()});
+    auto settings = config::settings_of(c);
+    if (!i.only.empty()) {
+        std::vector<std::string_view> names;
+        for (const auto& d : codecs())
+            names.push_back(d.name);
+        for (const auto& k : checks->checks)
+            names.push_back(k->codec.name);
+        for (const auto& n : i.only) {
+            if (!std::ranges::contains(names, n))
+                return std::unexpected(std::vector<std::string>{
+                    "--codec " + n + ": no codec or check has that name; "
+                    "fix: name one compass config lists, or a document of " +
+                    std::string(config::checks_directory)});
+        }
+        for (const auto n : names)
+            settings.set(n, codec::types::enabled_key,
+                std::ranges::contains(i.only, n) ? "true" : "false");
+    }
     auto exceptions = file->exceptions;
     codec::ops::append(exceptions, std::move(checks->exceptions));
     return types::options{.which = i.which,
@@ -161,7 +179,7 @@ std::expected<types::options, std::vector<std::string>> options_of(
         .today = i.today.value_or(std::chrono::year_month_day{
             std::chrono::floor<std::chrono::days>(
                 std::chrono::system_clock::now())}),
-        .settings = config::settings_of(c),
+        .settings = std::move(settings),
         .exceptions = std::move(exceptions),
         .checks = std::make_shared<const config::check_set>(
             std::move(*checks)),

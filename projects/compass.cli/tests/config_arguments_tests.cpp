@@ -137,3 +137,18 @@ TEST_CASE("The --help and --version options win over everything else",
     CHECK(std::holds_alternative<config::show_version>(
         parse({"--version"})));
 }
+
+TEST_CASE("check takes each --codec, in order, and no other command does",
+    "[config][arguments]") {
+    const auto parsed = parse({"check", "--codec", "portable_cpp",
+        "--commit", "HEAD", "--codec", "sql_hygiene"});
+    REQUIRE(std::holds_alternative<types::invocation>(parsed));
+    CHECK(std::get<types::invocation>(parsed).only ==
+        std::vector<std::string>{"portable_cpp", "sql_hygiene"});
+    CHECK(std::get<types::invocation>(parse({"check"})).only.empty());
+
+    for (const auto& args : std::vector<std::vector<std::string_view>>{
+             {"generate", "--codec", "x"}, {"check", "--codec"},
+             {"check", "--codec", "--timings"}, {"check", "--codec", ""}})
+        CHECK(std::holds_alternative<config::usage_error>(parse(args)));
+}
