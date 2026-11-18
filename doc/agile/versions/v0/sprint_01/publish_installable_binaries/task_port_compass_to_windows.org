@@ -91,6 +91,41 @@ task and name that file in the Command column.
 
 * Notes
 
+- Seams. =compass.platform= gained =filesystem/file_status= (status,
+  whole-file read, set the modification time, the file clock),
+  =filesystem/new_file= (exclusive create, write, and =replace_file=),
+  =filesystem/file_lock=, =process/environment= (process ID, set a
+  variable, home directory), =process/standard_streams=,
+  =compiler/always_inline=, and =find_program=, moved from
+  =compass.codec=. =mapped_file=, =run_program= and =executable_path= have
+  Win32 bodies; the POSIX bodies have macOS spellings where Linux names
+  differ (=pipe2=, =st_mtim=, =CLOCK_REALTIME_COARSE=, =addchdir_np=).
+- On Windows =mapped_file= reads the bytes instead of mapping them:
+  Windows will not delete a file with a mapped view, and the store deletes
+  packs that other processes read. =replace_file= renames with POSIX
+  semantics, since =MoveFileEx= fails while a reader holds the target.
+- Paths. Windows joins paths with backslashes, so every path compass
+  prints or keys on is =generic_string()=; on POSIX that is the same
+  string. Paths in exceptions rows and codec outputs with a root, a drive
+  letter or a backslash are refused.
+- Left to POSIX, by the =[posix]= tag the Windows suites filter out: the
+  format cache tests and three codegen CLI tests, whose fake formatter is
+  a shell script Windows cannot run; the worktree index's inode test; and
+  the two tests that expect a rewrite to change ctime, which git for
+  Windows does not record (it stores the creation time), so compass, like
+  git, trusts size and mtime there. The multi-process pack store test
+  forks and is built on POSIX only; the install test lays compass out in a
+  POSIX home and is registered on POSIX only.
+- CI. The Windows checkout keeps LF; the clang leg installs LLVM 22.1.8,
+  because MSVC 14.52's library refuses older Clang.
+- Hot paths. =stat_of=, =hash_file= and =mapped_file= keep one =lstat=,
+  or one open, =fstat= and read, and one =mmap= on Linux. =strace -c= of
+  a warm =compass check= on an ORE Studio export counts the same system
+  calls for the base and the port (newfstatat 336747 both, openat 55010
+  both, read 66112 against 66121). Ten alternated warm runs each took a
+  median 6.82 s (base) and 7.09 s (port) of CPU, on a machine at a load
+  of 16 to 20; wall times ran 6 to 37 s, set by that load.
+
 * Test Scenarios
 
 Manual QA scenarios (scaffolded via =compass add test_scenario=)
