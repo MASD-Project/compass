@@ -61,6 +61,8 @@ constexpr std::string_view help =
     "repeatable\n"
     "  --timings                   generate, diff, check, hook: print each step's "
     "time and what each codec ran or reused\n"
+    "  --codec <name>              check: run only this codec or check, "
+    "whatever .compass.org enables; repeatable\n"
     "  --commit <rev>              check: check this commit, read from git's "
     "objects, not the files on disk\n"
     "  --ratchet [<base>]          check: fail only on diagnostics the merge "
@@ -126,7 +128,8 @@ bool add_setting(std::string_view s, std::vector<types::setting>& settings) {
 bool takes_value(std::string_view flag) {
     return flag == "-C" || flag == "--meta" || flag == "--out" ||
         flag == "-j" || flag == "--set" || flag == "--cap" ||
-        flag == "--grace" || flag == "--commit" || flag == "--today";
+        flag == "--grace" || flag == "--commit" || flag == "--today" ||
+        flag == "--codec";
 }
 
 }
@@ -207,6 +210,10 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
         } else if (arg == "--set") {
             if (!add_setting(value, o.command_line.settings))
                 return bad_value();
+        } else if (arg == "--codec") {
+            if (value.empty() || value.starts_with("-"))
+                return bad_value();
+            o.only.emplace_back(value);
         } else if (arg == "--commit") {
             if (value.empty() || value.starts_with("-"))
                 return bad_value();
@@ -232,6 +239,8 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
         return usage_error{std::string(gc_flag) + " applies to gc only"};
     if (!o.revision.empty() && *which != types::command::check)
         return usage_error{"--commit applies to check only"};
+    if (!o.only.empty() && *which != types::command::check)
+        return usage_error{"--codec applies to check only"};
     if (o.ratchet && *which != types::command::check)
         return usage_error{"--ratchet applies to check only"};
     if (o.today && *which != types::command::check &&
