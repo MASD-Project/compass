@@ -99,6 +99,9 @@ memories no rule cites are the candidates for the next checks.
 | =model_rules= | opt_out | No model switches the TypeScript protocol facet off. |  |
 | =model_rules= | outside_protocol | Every NATS subject a model declares is inside the entity protocol. |  |
 | =model_rules= | unreadable_model | Every model is UTF-8. |  |
+| =model_rules= | unregistered_unit | A component's route aggregate registers the route unit of every model that opts into one. |  |
+| =model_rules= | twice_registered | An aggregate registers each unit once. |  |
+| =model_rules= | missing_unit | Every unit an aggregate registers has its source in the component. |  |
 | =no_pr_triggers= | pull_request_trigger | No workflow triggers on a pull request. | =B83064E5-6357-4FC6-A8BE-395DD429ED2A=, =BC85C0DF-99BE-4079-A649-88A236AE0ACF= |
 | =no_pr_triggers= | no_workflows | The repository has workflow files to read. |  |
 | =open_reads= | open_read | A generated handler's read checks a permission, or Authorised reads allow-lists its subject. |  |
@@ -144,9 +147,6 @@ memories no rule cites are the candidates for the next checks.
 | =route_auth= | route_without_auth | Every add_route call states its authentication position: auth_required, auth_optional or roles. |  |
 | =route_auth= | too_few_routes | The scan finds at least 20 add_route calls, so a pattern that stops matching fails rather than passes. |  |
 | =route_inventory= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
-| =route_units= | unregistered_unit | A component's route aggregate registers the route unit of every model that opts into one. |  |
-| =route_units= | twice_registered | An aggregate registers each unit once. |  |
-| =route_units= | missing_unit | Every unit an aggregate registers has its source in the component. |  |
 | =rule_identifiers= | unkeyed_section | No rule carries an identifier in a section the pages do not key. |  |
 | =rule_identifiers= | no_identifier | Every rule of a keyed section starts with its identifier. | =00BA1689-B060-4BD8-BC46-67034D663B7F= |
 | =rule_identifiers= | foreign_code | A rule's identifier carries its own page's code. |  |

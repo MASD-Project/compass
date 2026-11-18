@@ -257,3 +257,71 @@ TEST_CASE("a drawer that switches the TypeScript protocol facet is an "
             "opts out of the TypeScript protocol facet: "
             ":ores.ts.protocol.enabled: false"});
 }
+
+namespace {
+
+std::string routed(std::string_view singular, std::string_view enabled,
+    std::string_view type = "ores.codegen.entity") {
+    return ":PROPERTIES:\n:ores.cpp.http-route.enabled: " +
+        std::string(enabled) + "\n:END:\n#+type: " + std::string(type) +
+        "\n" + std::string(singular) + "\n";
+}
+
+const std::string aggregate =
+    "projects/ores.http/refdata/src/routes/refdata/refdata_routes.cpp";
+
+}
+
+TEST_CASE("a route unit a model opts into is registered once",
+    "[codecs][model_rules]") {
+    const files t{
+        {aggregate,
+         "void register_all() {\n    currency_routes::register_routes(r);\n"
+         "    currency_routes::register_routes(r);\n"
+         "    ghost_routes::register_routes(r);\n"
+         "    // party_routes::register_routes(r);\n}\n"},
+        {"projects/ores.http/refdata/src/routes/refdata/currency_routes.cpp",
+         ""},
+        {"projects/ores.http/iam/src/other.cpp", ""},
+        {"projects/ores.refdata/modeling/ores.refdata.currency.org",
+         routed("#+entity_singular: currency", "true")},
+        {"projects/ores.refdata/modeling/ores.refdata.party.org",
+         routed("#+name_singular: party", "yes")},
+        {"projects/ores.refdata/modeling/ores.refdata.book.org",
+         routed("#+entity_singular: book", "false")},
+        {"projects/ores.refdata/modeling/ores.refdata.desk.org",
+         "#+type: ores.codegen.entity\n#+entity_singular: desk\n* Flags\n"
+         ":PROPERTIES:\n:ores.cpp.http-route.enabled: true\n:END:\n"},
+        {"projects/ores.refdata/modeling/notes.org",
+         routed("#+entity_singular: note", "true", "knowledge")},
+        {"projects/ores.iam/modeling/ores.iam.account.org",
+         routed("#+entity_singular: account", "true")}};
+    CHECK(messages(tests::run(codecs::model_rules, t)) ==
+        std::vector<std::string>{
+            aggregate + ":1: never registers party_routes, which "
+            "projects/ores.refdata/modeling/ores.refdata.party.org opts into; "
+            "the gateway answers nothing for it and nothing reports it",
+            aggregate + ":1: registers currency_routes 2 times; the second "
+            "registration claims routes the first stated",
+            aggregate + ":1: registers ghost_routes, which has no unit in "
+            "this component"});
+}
+
+TEST_CASE("an edit to a model's route opt-in reruns the aggregate's rules",
+    "[codecs][model_rules]") {
+    const auto book = "projects/ores.refdata/modeling/ores.refdata.book.org";
+    const files before{
+        {aggregate, "    party_routes::register_routes(r);\n"},
+        {"projects/ores.http/refdata/src/routes/refdata/party_routes.cpp", ""},
+        {"projects/ores.refdata/modeling/ores.refdata.party.org",
+         routed("#+entity_singular: party", "true")},
+        {book, routed("#+entity_singular: book", "false")}};
+    CHECK(tests::run(codecs::model_rules, before).findings.empty());
+    auto after = before;
+    after[book] = routed("#+entity_singular: book", "true");
+    CHECK(tests::messages_of(tests::run_after_edit(codecs::model_rules,
+        before, after)) == std::vector<std::string>{"never registers "
+            "book_routes, which projects/ores.refdata/modeling/"
+            "ores.refdata.book.org opts into; the gateway answers nothing "
+            "for it and nothing reports it"});
+}

@@ -21,13 +21,10 @@
 
 #include <algorithm>
 #include <array>
-#include <map>
 #include <set>
 #include <string>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
-#include "compass.cpp/ops/glob.hpp"
-#include "compass.cpp/ops/paths.hpp"
 #include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
 #include "compass.crosscheck/ops/python_literals.hpp"
@@ -45,78 +42,6 @@ namespace pt = compass::platform::text;
 std::string read(const ct::corpus_view& v, std::string_view path) {
     return pt::universal_newlines(pt::decode_replacing(
         v.read_file(path).value_or("")));
-}
-
-constexpr std::array<ct::rule, 3> route_rules{{
-    {"unregistered_unit", "A component's route aggregate registers the "
-        "route unit of every model that opts into one."},
-    {"twice_registered", "An aggregate registers each unit once."},
-    {"missing_unit", "Every unit an aggregate registers has its source in "
-        "the component."}}};
-
-void route_unit_run(const ct::corpus_view& v, ct::diagnostic_table& out) {
-    static const pt::regex enabled(
-        R"(^:ores\.cpp\.http-route\.enabled:\s*true\s*$)",
-        {.multiline = true});
-    static const pt::regex singular(
-        R"(^#\+(entity_singular|name_singular):\s*(\S+)\s*$)",
-        {.multiline = true});
-    static const pt::regex registers(R"(^\s*(\w+)_routes::register_routes\()");
-    constexpr std::string_view adapter = "projects/ores.http/";
-    std::set<std::string> components;
-    for (const auto p : v.list_files(adapter)) {
-        const auto parts = co::components_of(p);
-        if (parts.size() > 3)
-            components.emplace(parts[2]);
-    }
-    for (const auto& c : components) {
-        const auto dir = std::string(adapter) + c;
-        const auto aggregate = dir + "/src/routes/" + c + "/" + c +
-            "_routes.cpp";
-        if (!v.file_exists(aggregate))
-            continue;
-        std::map<std::string, std::string_view> expected;
-        for (const auto model : co::glob(v, "projects/ores." + c +
-                 "/modeling/*.org")) {
-            const auto text = read(v, model);
-            if (!enabled.search(text))
-                continue;
-            if (const auto s = singular.search(text))
-                expected[std::string(s->group(2))] = model;
-        }
-        std::vector<std::string> called;
-        for (const auto line : co::split_lines(read(v, aggregate))) {
-            if (const auto m = registers.match(line))
-                called.emplace_back(m->group(1));
-        }
-        for (const auto& [unit, model] : expected) {
-            if (std::ranges::find(called, unit) == called.end())
-                co::report(out, aggregate, 0, 0, "never registers " + unit +
-                    "_routes, which " + std::string(model) + " opts into; "
-                    "the gateway answers nothing for it and nothing reports "
-                    "it", "Register the unit, or remove the model's "
-                    ":ores.cpp.http-route.enabled: opt-in.");
-        }
-        std::vector<std::string> seen;
-        for (const auto& unit : called) {
-            if (std::ranges::find(seen, unit) != seen.end())
-                continue;
-            seen.push_back(unit);
-            const auto n = std::ranges::count(called, unit);
-            if (n > 1)
-                co::report(out, aggregate, 0, 1, "registers " + unit +
-                    "_routes " + std::to_string(n) + " times; the second "
-                    "registration claims routes the first stated",
-                    "Register each unit once.");
-        }
-        for (const auto& unit : called) {
-            if (!v.file_exists(dir + "/src/routes/" + c + "/" + unit +
-                    "_routes.cpp"))
-                co::report(out, aggregate, 0, 2, "registers " + unit +
-                    "_routes, which has no unit in this component",
-                    "Remove the registration, or restore the unit.");
-        }
-    }
 }
 
 constexpr std::array<std::string_view, 2> bad_exception_sources{
@@ -210,17 +135,6 @@ void registry_exception_run(const ct::corpus_view& v,
 }
 
 }
-
-const ct::descriptor route_units{
-    .name = "route_units",
-    .version = 1,
-    .summary = "Reports each route unit a component opts into that its "
-        "aggregate does not register once.",
-    .reads = ct::inputs::of_types({}),
-    .options = {},
-    .rules = route_rules,
-    .enabled_by_default = false,
-    .run = ct::corpus_function<ct::diagnostic_table>{route_unit_run}};
 
 const ct::descriptor registry_exceptions{
     .name = "registry_exceptions",

@@ -25,18 +25,6 @@
 namespace compass::crosscheck::codecs {
 
 /**
- * @brief ORE Studio's route-units gate (check_route_units.py): every route
- * unit a component opts into is registered by its aggregate.
- *
- * For each directory of projects/ores.http with an aggregate
- * src/routes/<c>/<c>_routes.cpp, the models of projects/ores.<c>/modeling
- * that opt in with :ores.cpp.http-route.enabled: true own a unit named by
- * their singular. Rules: unregistered_unit, twice_registered, and
- * missing_unit for a registered unit with no source.
- */
-extern const compass::codec::types::descriptor route_units;
-
-/**
  * @brief ORE Studio's registry-exceptions gate
  * (check_registry_exceptions.py): every accepted exception of the
  * component registry is justified.
