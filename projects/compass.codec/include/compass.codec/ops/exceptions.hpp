@@ -90,7 +90,7 @@ inline constexpr types::rule drift_rule{"drift", "Every file a codec "
 
 /**
  * @brief The exception comments of @p text, the bytes of the file at
- * @p path.
+ * @p path, each written in and excusing findings of @p path.
  *
  * An exception is written in a comment as
  * compass:except(<codec>/<rule>) expires=<YYYY-MM-DD> approver=<name>
@@ -103,8 +103,40 @@ inline constexpr types::rule drift_rule{"drift", "Every file a codec "
  * covers the next line that is not itself such a comment, so exceptions
  * stack.
  */
-[[nodiscard]] types::file_exceptions parse_exceptions(std::string_view path,
+[[nodiscard]] types::exception_set parse_exceptions(std::string_view path,
     std::string_view text);
+
+/**
+ * @brief The cells of one row of an exceptions table, as written.
+ */
+struct exception_row {
+    std::string_view path;
+    std::string_view line;
+    std::string_view rule;
+    std::string_view expires;
+    std::string_view approver;
+    std::string_view reason;
+};
+
+/**
+ * @brief Adds to @p out the exception @p row states, written on line
+ * @p line of @p written_in, or why it is malformed.
+ *
+ * path is relative to the root of the checkout and may not leave it. An
+ * empty line gives the exception file scope; otherwise it is the 1-based
+ * line it covers. rule is codec/rule and expires YYYY-MM-DD, as in a
+ * comment. An empty expires, approver or reason leaves the exception
+ * incomplete, as a comment without the field is.
+ */
+void add_exception_row(types::exception_set& out,
+    std::string_view written_in, std::uint32_t line,
+    const exception_row& row);
+
+/**
+ * @brief Moves the exceptions and malformed ones of @p from to the end
+ * of @p to.
+ */
+void append(types::exception_set& to, types::exception_set&& from);
 
 /**
  * @brief Whether a rule named codec/rule is one no codec of a registry
@@ -148,24 +180,25 @@ struct excusal {
 };
 
 /**
- * @brief Excuses each of @p sites that a valid exception of @p files
+ * @brief Excuses each of @p sites that a valid exception of @p set
  * covers, as of @p today.
  *
  * A valid exception names a rule an enabled codec of @p codecs declares,
  * gives a reason, an approver and an expiry, and has not expired: it is
  * valid up to and including its expiry date. It excuses the sites of its
- * rule in its file on the line it covers, or anywhere for file scope.
- * Every other exception excuses nothing and is a finding:
- * exception/malformed on its line for one that did not parse, names an
- * unknown rule or names an exception rule; exception/incomplete on its
- * line for one missing a field; exception/expired on the line it covers,
- * or its own for file scope, for one past its expiry; exception/stale on
- * its line for a valid one of an enabled codec that excuses no site. An
- * exception of a disabled codec is never stale.
+ * rule in its path on the line it covers, or anywhere for file scope.
+ * Every other exception excuses nothing and is a finding, in the file it
+ * is written in: exception/malformed on its line for one that did not
+ * parse, names an unknown rule or names an exception rule;
+ * exception/incomplete on its line for one missing a field;
+ * exception/expired for one past its expiry, on the line it covers when
+ * it is a comment of line scope and on its own line otherwise;
+ * exception/stale on its line for a valid one of an enabled codec that
+ * excuses no site. An exception of a disabled codec is never stale.
  */
 [[nodiscard]] excusal excuse(std::span<const finding_site> sites,
-    std::span<const types::file_exceptions> files,
-    const types::registry& codecs, std::chrono::year_month_day today);
+    const types::exception_set& set, const types::registry& codecs,
+    std::chrono::year_month_day today);
 
 }
 

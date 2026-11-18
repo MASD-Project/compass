@@ -560,16 +560,16 @@ std::vector<scanned_file> files_to_scan(const pipeline& p,
 }
 
 /**
- * @brief The exception comments of the files of @p p check reads, for
- * the files that hold any. A file whose content ID @p unmarked holds is
- * not read, and one that cannot be read holds none. @p unmarked becomes
- * the content IDs of the files that hold no marker.
+ * @brief The exception comments of the files of @p p check reads. A file
+ * whose content ID @p unmarked holds is not read, and one that cannot be
+ * read holds none. @p unmarked becomes the content IDs of the files that
+ * hold no marker.
  */
-std::vector<ct::file_exceptions> exceptions_of(const pipeline& p,
+ct::exception_set exceptions_of(const pipeline& p,
     const std::vector<types::finding>& findings, unsigned threads,
     std::vector<store::types::blob_id>& unmarked) {
     const auto files = files_to_scan(p, findings);
-    std::vector<ct::file_exceptions> all(files.size());
+    std::vector<ct::exception_set> all(files.size());
     std::vector<std::uint8_t> clean(files.size(), 0);
     codec::ops::parallel_for(files.size(), threads, [&](std::size_t i) {
         const auto& f = files[i];
@@ -595,10 +595,10 @@ std::vector<ct::file_exceptions> exceptions_of(const pipeline& p,
     std::ranges::sort(unmarked);
     unmarked.erase(std::unique(unmarked.begin(), unmarked.end()),
         unmarked.end());
-    std::erase_if(all, [](const ct::file_exceptions& f) {
-        return f.exceptions.empty() && f.malformed.empty();
-    });
-    return all;
+    ct::exception_set out;
+    for (auto& f : all)
+        codec::ops::append(out, std::move(f));
+    return out;
 }
 
 /**
@@ -612,7 +612,7 @@ void excuse_findings(const pipeline& p, const types::options& o,
     const auto record = codec::io::unmarked_file_path(
         store::io::git_dir(o.checkout));
     auto unmarked = codec::io::read_unmarked_file(record);
-    const auto files = exceptions_of(p, r.findings, o.threads, unmarked);
+    const auto set = exceptions_of(p, r.findings, o.threads, unmarked);
     if (!p.commit)
         codec::io::write_unmarked_file(record, unmarked);
 
@@ -620,7 +620,7 @@ void excuse_findings(const pipeline& p, const types::options& o,
     sites.reserve(r.findings.size());
     for (const auto& f : r.findings)
         sites.push_back({f.path, f.line, f.rule});
-    auto e = codec::ops::excuse(sites, files, p.codecs, o.today);
+    auto e = codec::ops::excuse(sites, set, p.codecs, o.today);
     std::vector<types::finding> kept;
     for (std::size_t i = 0; i < r.findings.size(); ++i) {
         if (e.excused[i])
@@ -933,7 +933,7 @@ void excuse_hook_findings(const pipeline& p, const types::options& o,
     std::ranges::sort(paths);
     paths.erase(std::unique(paths.begin(), paths.end()), paths.end());
 
-    std::vector<ct::file_exceptions> files;
+    ct::exception_set set;
     for (const auto file : paths) {
         std::optional<std::string> bytes;
         std::optional<std::string_view> text;
@@ -946,16 +946,14 @@ void excuse_hook_findings(const pipeline& p, const types::options& o,
         if (!text ||
             text->find(codec::ops::exception_marker) == std::string::npos)
             continue;
-        auto e = codec::ops::parse_exceptions(file, *text);
-        if (!e.exceptions.empty() || !e.malformed.empty())
-            files.push_back(std::move(e));
+        codec::ops::append(set, codec::ops::parse_exceptions(file, *text));
     }
 
     std::vector<codec::ops::finding_site> sites;
     sites.reserve(findings.size());
     for (const auto& f : findings)
         sites.push_back({f.path, f.line, f.rule});
-    auto e = codec::ops::excuse(sites, files, p.codecs, o.today);
+    auto e = codec::ops::excuse(sites, set, p.codecs, o.today);
     std::vector<types::finding> kept;
     for (std::size_t i = 0; i < findings.size(); ++i) {
         if (e.excused[i])

@@ -76,7 +76,7 @@ ct::registry registry() {
     return r;
 }
 
-ct::file_exceptions parse(std::string_view path, const std::string& text) {
+ct::exception_set parse(std::string_view path, const std::string& text) {
     return parse_exceptions(path, text);
 }
 
@@ -96,6 +96,8 @@ TEST_CASE("a trailing exception covers its own line",
     REQUIRE(r.malformed.empty());
     REQUIRE(r.exceptions.size() == 1);
     const auto& e = r.exceptions[0];
+    CHECK(e.written_in == "a.sql");
+    CHECK(e.path == "a.sql");
     CHECK(e.line == 2);
     CHECK(e.covers == 2);
     CHECK(e.scope == ct::exception_scope::line);
@@ -190,7 +192,7 @@ TEST_CASE("a comment that is not an exception is malformed, with why",
 
 TEST_CASE("a valid exception excuses only its rule on the line it covers",
     "[ops_exceptions]") {
-    const std::array files{parse("a.sql", "x; -- " +
+    const auto files{parse("a.sql", "x; -- " +
         except("sql/not_re_runnable") + "\ny;\n")};
     const std::array<finding_site, 4> sites{{
         {"a.sql", 1, "sql/not_re_runnable"},
@@ -204,7 +206,7 @@ TEST_CASE("a valid exception excuses only its rule on the line it covers",
 
 TEST_CASE("an exception is valid through its expiry date and reported on "
           "the line it covers after it", "[ops_exceptions]") {
-    const std::array files{parse("a.sql", "-- " + except("sql/not_re_runnable",
+    const auto files{parse("a.sql", "-- " + except("sql/not_re_runnable",
         " expires=2026-11-16 approver=marco reason=r") + "\nx;\n")};
     const std::array<finding_site, 1> sites{{
         {"a.sql", 2, "sql/not_re_runnable"}}};
@@ -225,7 +227,7 @@ TEST_CASE("an exception is valid through its expiry date and reported on "
 
 TEST_CASE("an exception missing a field excuses nothing and names what is "
           "missing", "[ops_exceptions]") {
-    const std::array files{parse("a.sql", "x; -- " +
+    const auto files{parse("a.sql", "x; -- " +
         except("sql/not_re_runnable", " approver=marco") + "\n")};
     const std::array<finding_site, 1> sites{{
         {"a.sql", 1, "sql/not_re_runnable"}}};
@@ -239,7 +241,7 @@ TEST_CASE("an exception missing a field excuses nothing and names what is "
 
 TEST_CASE("an exception that covers no finding is stale, unless its codec "
           "does not run", "[ops_exceptions]") {
-    const std::array files{parse("a.sql", "-- " +
+    const auto files{parse("a.sql", "-- " +
         except("sql/not_re_runnable") + "\nx;\n-- " +
         except("off/not_re_runnable") + "\ny;\n")};
     const auto e = excuse({}, files, registry(), today);
@@ -248,7 +250,7 @@ TEST_CASE("an exception that covers no finding is stale, unless its codec "
 
 TEST_CASE("an exception naming an unknown rule or an exception rule is "
           "malformed and excuses nothing", "[ops_exceptions]") {
-    const std::array files{parse("a.sql", "x; -- " +
+    const auto files{parse("a.sql", "x; -- " +
         except("sql/no_such_rule") + "\ny; -- " +
         except("exception/expired") + "\nz; -- " +
         except("gen/drift") + "\n")};
@@ -271,7 +273,7 @@ TEST_CASE("a codec of files declares drift and the refusals it names",
 
 TEST_CASE("an exception of file scope excuses its rule anywhere in its "
           "file", "[ops_exceptions]") {
-    const std::array files{parse("a.sql",
+    const auto files{parse("a.sql",
         "-- compass:except-file(sql/duplicate_index)" +
         std::string(valid_fields) + "\n")};
     const std::array<finding_site, 3> sites{{
@@ -285,8 +287,116 @@ TEST_CASE("an exception of file scope excuses its rule anywhere in its "
 
 TEST_CASE("a malformed comment is reported on its line",
     "[ops_exceptions]") {
-    const std::array files{parse("a.sql", "x;\n-- compass:except\n")};
+    const auto files{parse("a.sql", "x;\n-- compass:except\n")};
     const auto e = excuse({}, files, registry(), today);
     CHECK(rules_of(e) ==
         std::vector<std::string>{"a.sql:2:exception/malformed"});
+}
+
+namespace {
+
+exception_row row(std::string_view path, std::string_view line,
+    std::string_view rule, std::string_view expires = "2026-12-31",
+    std::string_view approver = "marco",
+    std::string_view reason = "generated from a shared template") {
+    return {path, line, rule, expires, approver, reason};
+}
+
+}
+
+TEST_CASE("a row excuses its rule in its path on its line, or anywhere "
+          "in the file when the line is empty", "[ops_exceptions]") {
+    ct::exception_set set;
+    add_exception_row(set, ".compass.org", 7,
+        row("models/a.org", "129", "sql/not_re_runnable"));
+    add_exception_row(set, ".compass.org", 8,
+        row("models/b.org", "", "sql/duplicate_index"));
+    REQUIRE(set.malformed.empty());
+    REQUIRE(set.exceptions.size() == 2);
+    CHECK(set.exceptions[0].written_in == ".compass.org");
+    CHECK(set.exceptions[0].path == "models/a.org");
+    CHECK(set.exceptions[0].covers == 129);
+    CHECK(set.exceptions[1].scope == ct::exception_scope::file);
+
+    const std::array<finding_site, 5> sites{{
+        {"models/a.org", 129, "sql/not_re_runnable"},
+        {"models/a.org", 130, "sql/not_re_runnable"},
+        {"models/b.org", 3, "sql/duplicate_index"},
+        {"models/b.org", 90, "sql/duplicate_index"},
+        {".compass.org", 7, "sql/not_re_runnable"}}};
+    const auto e = excuse(sites, set, registry(), today);
+    CHECK(e.excused == std::vector<std::uint8_t>{1, 0, 1, 1, 0});
+    CHECK(e.findings.empty());
+}
+
+TEST_CASE("the problems of a row are reported on the row, not in the file "
+          "it names", "[ops_exceptions]") {
+    ct::exception_set set;
+    add_exception_row(set, ".compass.org", 10,
+        row("a.sql", "2", "sql/not_re_runnable", "2026-11-15"));
+    add_exception_row(set, ".compass.org", 11,
+        row("a.sql", "3", "sql/not_re_runnable", "", "marco", ""));
+    add_exception_row(set, ".compass.org", 12,
+        row("a.sql", "4", "sql/not_re_runnable"));
+    add_exception_row(set, ".compass.org", 13,
+        row("a.sql", "", "sql/no_such_rule"));
+    add_exception_row(set, ".compass.org", 14,
+        row("a.sql", "", "off/not_re_runnable"));
+    const std::array<finding_site, 1> sites{{
+        {"a.sql", 2, "sql/not_re_runnable"}}};
+    const auto e = excuse(sites, set, registry(), today);
+    CHECK(e.excused == std::vector<std::uint8_t>{0});
+    CHECK(rules_of(e) == std::vector<std::string>{
+        ".compass.org:10:exception/expired",
+        ".compass.org:11:exception/incomplete",
+        ".compass.org:12:exception/stale",
+        ".compass.org:13:exception/malformed"});
+    CHECK(e.findings[1].message == "the exception for sql/not_re_runnable "
+        "lacks a reason, an expiry");
+}
+
+TEST_CASE("a row that does not parse is malformed on its line, with why",
+    "[ops_exceptions]") {
+    ct::exception_set set;
+    const std::array rows{row("", "1", "sql/x"),
+        row("/etc/a.sql", "1", "sql/x"), row("../a.sql", "1", "sql/x"),
+        row("a.sql", "0", "sql/x"), row("a.sql", "1x", "sql/x"),
+        row("a.sql", "1", "not-a-rule"),
+        row("a.sql", "1", "sql/x", "2027-02-30")};
+    for (std::uint32_t i = 0; i < rows.size(); ++i)
+        add_exception_row(set, ".compass.org", i + 1, rows[i]);
+    CHECK(set.exceptions.empty());
+    REQUIRE(set.malformed.size() == rows.size());
+    CHECK_THAT(set.malformed[0].why, ContainsSubstring("no path"));
+    CHECK_THAT(set.malformed[1].why, ContainsSubstring("inside the checkout"));
+    CHECK_THAT(set.malformed[2].why, ContainsSubstring("inside the checkout"));
+    CHECK_THAT(set.malformed[3].why, ContainsSubstring("line 0"));
+    CHECK_THAT(set.malformed[4].why, ContainsSubstring("line 1x"));
+    CHECK_THAT(set.malformed[5].why, ContainsSubstring("not-a-rule"));
+    CHECK_THAT(set.malformed[6].why, ContainsSubstring("2027-02-30"));
+    for (std::uint32_t i = 0; i < rows.size(); ++i) {
+        CHECK(set.malformed[i].written_in == ".compass.org");
+        CHECK(set.malformed[i].line == i + 1);
+    }
+}
+
+TEST_CASE("a row names its path as findings do", "[ops_exceptions]") {
+    ct::exception_set set;
+    add_exception_row(set, ".compass.org", 1,
+        row("./sql/../sql/a.sql", "1", "sql/not_re_runnable"));
+    REQUIRE(set.exceptions.size() == 1);
+    CHECK(set.exceptions[0].path == "sql/a.sql");
+}
+
+TEST_CASE("rows and comments excuse through one set", "[ops_exceptions]") {
+    auto set = parse("a.sql", "x; -- " + except("sql/not_re_runnable") +
+        "\n");
+    add_exception_row(set, ".compass.org", 5,
+        row("a.sql", "", "sql/duplicate_index"));
+    const std::array<finding_site, 2> sites{{
+        {"a.sql", 1, "sql/not_re_runnable"},
+        {"a.sql", 1, "sql/duplicate_index"}}};
+    const auto e = excuse(sites, set, registry(), today);
+    CHECK(e.excused == std::vector<std::uint8_t>{1, 1});
+    CHECK(e.findings.empty());
 }
