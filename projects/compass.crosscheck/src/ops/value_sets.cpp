@@ -21,6 +21,8 @@
 
 #include <algorithm>
 #include <functional>
+#include <iterator>
+#include <tuple>
 #include "compass.crosscheck/ops/ore_schema.hpp"
 #include "compass.crosscheck/ops/projection_columns.hpp"
 #include "compass.crosscheck/ops/python_numbers.hpp"

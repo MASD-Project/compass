@@ -20,6 +20,8 @@
 #include "compass.sql/ops/er_model.hpp"
 
 #include <algorithm>
+#include <array>
+#include <iterator>
 #include <map>
 #include <optional>
 #include <utility>

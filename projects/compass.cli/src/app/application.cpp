@@ -25,6 +25,7 @@
 #include <iterator>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <variant>
 #include "compass.cli/app/pipeline.hpp"
 #include "compass.cli/config/arguments.hpp"

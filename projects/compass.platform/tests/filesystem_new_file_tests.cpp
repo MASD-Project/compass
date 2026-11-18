@@ -24,6 +24,7 @@
 #include <iterator>
 #include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <catch2/catch_test_macros.hpp>
 #include "compass.platform/filesystem/file_lock.hpp"

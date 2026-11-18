@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <functional>
 #include <map>
 #include <optional>
 #include <set>

@@ -20,6 +20,7 @@
 #include "compass.docs/codecs/recipe_inventories.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <map>
 #include <optional>
 #include <string>

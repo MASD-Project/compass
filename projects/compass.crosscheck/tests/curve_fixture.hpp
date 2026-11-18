@@ -21,6 +21,8 @@
 #define COMPASS_CROSSCHECK_TESTS_CURVE_FIXTURE_HPP
 
 #include <string>
+#include <string_view>
+#include <vector>
 
 /**
  * @brief A curve configuration projection and schema small enough to read,

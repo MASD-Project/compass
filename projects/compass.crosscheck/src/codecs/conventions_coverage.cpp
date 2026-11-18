@@ -25,6 +25,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <tuple>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.codec/types/fact.hpp"

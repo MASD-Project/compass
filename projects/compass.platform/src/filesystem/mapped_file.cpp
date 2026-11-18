@@ -20,6 +20,7 @@
 #include "compass.platform/filesystem/mapped_file.hpp"
 
 #include <cerrno>
+#include <cstdint>
 #include <string>
 #include <system_error>
 #include <utility>

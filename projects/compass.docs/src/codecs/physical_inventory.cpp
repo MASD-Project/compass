@@ -20,6 +20,7 @@
 #include "compass.docs/codecs/physical_inventory.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <map>
 #include <string>
 #include <string_view>

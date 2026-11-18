@@ -20,6 +20,7 @@
 #include "compass.cpp/ops/lexer.hpp"
 
 #include <algorithm>
+#include <iterator>
 
 namespace compass::cpp::ops {
 

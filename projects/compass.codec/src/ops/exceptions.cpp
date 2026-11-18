@@ -27,6 +27,7 @@
 #include <iterator>
 #include <optional>
 #include <ranges>
+#include <system_error>
 #include <tuple>
 #include <unordered_map>
 #include <utility>

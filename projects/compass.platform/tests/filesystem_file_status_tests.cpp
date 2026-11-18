@@ -62,7 +62,8 @@ void set_mtime(const std::filesystem::path& file, std::int64_t sec,
     using namespace std::chrono;
     const sys_time<nanoseconds> at{seconds(sec) + nanoseconds(nsec)};
     std::filesystem::last_write_time(file,
-        clock_cast<std::filesystem::file_time_type::clock>(at));
+        time_point_cast<std::filesystem::file_time_type::duration>(
+            clock_cast<std::filesystem::file_time_type::clock>(at)));
 }
 
 }

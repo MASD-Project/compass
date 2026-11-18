@@ -21,6 +21,7 @@
 
 #include <atomic>
 #include <cstddef>
+#include <exception>
 #include <span>
 #include <string>
 #include <thread>

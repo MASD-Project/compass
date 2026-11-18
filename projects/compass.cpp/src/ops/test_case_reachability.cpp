@@ -21,6 +21,8 @@
 
 #include <algorithm>
 #include <array>
+#include <functional>
+#include <iterator>
 #include <set>
 #include <utility>
 #include "compass.cpp/ops/lexer.hpp"

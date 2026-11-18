@@ -24,6 +24,7 @@
 #include <chrono>
 #include <cstdint>
 #include <optional>
+#include <system_error>
 #include <vector>
 #include "compass.cli/config/precedence.hpp"
 #include "compass.codec/ops/exceptions.hpp"

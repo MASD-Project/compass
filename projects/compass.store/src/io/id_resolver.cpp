@@ -24,6 +24,7 @@
 #include <fstream>
 #include <iterator>
 #include <set>
+#include <stdexcept>
 #include <unordered_set>
 #include "compass.platform/filesystem/file_status.hpp"
 #include "compass.platform/process/environment.hpp"

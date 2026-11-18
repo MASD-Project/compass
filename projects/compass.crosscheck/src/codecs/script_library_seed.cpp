@@ -27,6 +27,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <variant>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"

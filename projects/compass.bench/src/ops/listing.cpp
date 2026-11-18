@@ -58,7 +58,9 @@ std::vector<std::string> git_hash_objects(
     const std::filesystem::path& checkout,
     std::span<const std::string_view> paths) {
     const auto input = std::filesystem::temp_directory_path() /
-        ("compass-bench." + std::to_string(platform::process::current_process_id()) + ".paths");
+        ("compass-bench." +
+            std::to_string(platform::process::current_process_id()) +
+            ".paths");
     {
         std::ofstream os(input, std::ios::binary);
         for (const auto path : paths)
@@ -136,9 +138,9 @@ types::file_table build_file_table(const std::filesystem::path& checkout,
     for (const auto entry : entries) {
         full.resize(prefix);
         full.append(entry);
-        std::error_code error;
         const auto status = platform::filesystem::regular_file_status(full);
         if (!status) {
+            std::error_code error;
             if (!std::filesystem::exists(std::filesystem::symlink_status(
                     full, error)))
                 add_file(table, entry, 0);

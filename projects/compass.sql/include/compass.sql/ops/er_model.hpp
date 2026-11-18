@@ -21,6 +21,7 @@
 #define COMPASS_SQL_OPS_ER_MODEL_HPP
 
 #include <cstdint>
+#include <functional>
 #include <set>
 #include <span>
 #include <string>

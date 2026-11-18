@@ -26,6 +26,7 @@
 #include <iterator>
 #include <span>
 #include <stdexcept>
+#include <system_error>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -78,7 +79,8 @@ public:
     scratch_dir() {
         static std::atomic<unsigned> counter{0};
         path_ = std::filesystem::temp_directory_path() /
-            ("compass-format." + std::to_string(platform::process::current_process_id()) + "." +
+            ("compass-format." +
+                std::to_string(platform::process::current_process_id()) + "." +
                 std::to_string(counter++));
         std::filesystem::remove_all(path_);
         std::filesystem::create_directories(path_);

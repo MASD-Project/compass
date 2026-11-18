@@ -51,7 +51,8 @@ std::optional<std::string> read_file(const std::filesystem::path& path) {
 }
 
 st::index_time now() noexcept {
-    const auto since_epoch = std::chrono::system_clock::now().time_since_epoch();
+    const auto since_epoch =
+        std::chrono::system_clock::now().time_since_epoch();
     const auto seconds =
         std::chrono::duration_cast<std::chrono::seconds>(since_epoch);
     const auto nanoseconds =

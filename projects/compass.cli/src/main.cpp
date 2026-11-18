@@ -20,6 +20,7 @@
 #include <filesystem>
 #include <iostream>
 #include <string_view>
+#include <system_error>
 #include <vector>
 #include "compass.cli/app/application.hpp"
 #include "compass.platform/process/standard_streams.hpp"

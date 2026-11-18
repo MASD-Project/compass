@@ -20,6 +20,7 @@
 #ifndef COMPASS_CROSSCHECK_OPS_PYTHON_LITERALS_HPP
 #define COMPASS_CROSSCHECK_OPS_PYTHON_LITERALS_HPP
 
+#include <functional>
 #include <map>
 #include <optional>
 #include <string>

@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <exception>
 #include <fstream>
 #include <map>
 #include <stdexcept>

@@ -23,6 +23,7 @@
 #include <charconv>
 #include <climits>
 #include <cstring>
+#include <system_error>
 #include <zlib.h>
 
 namespace compass::store::ops {
