@@ -1,0 +1,62 @@
+:PROPERTIES:
+:ID: A99024EF-0A82-4763-A457-D82ABC385E6F
+:END:
+#+title: Story: Search the documents
+#+description: Give compass a search command over the documents it already parses: a ranked full-text index built as a codec output, with filters by type, tags, state and sprint, and related pages from the link graph, replacing compass.legacy's index, search, find and debug.
+#+type: story
+#+level: s2
+#+filetags: :docs:search:sprint_01:v0:
+#+created: 2026-11-18
+#+updated: 2026-11-18
+#+environment:
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+An agent or a person runs =compass search <query>= and gets the few pages that
+answer it, ranked, in well under a second, with no server to run and no index
+to rebuild by hand.
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | BACKLOG                              |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | Not yet started.                       |
+| Waiting on    | Nothing.                               |
+| Next          | Break the story into tasks.            |
+| Last touched  | 2026-11-18                               |
+
+* Acceptance
+
+- =compass search= (alias =find=) answers a query over every document compass
+  parses, ranking title, heading path, tags and body as compass.legacy's
+  scorer does, with snippets and =line=, =pretty= and =json= output.
+- The index is a codec output kept in the store, rebuilt only for documents
+  whose content changed; there is no =index --rebuild= step.
+- Filters by document type, tags, state and sprint; past-sprint stories and
+  tasks are left out unless asked for, as in compass.legacy.
+- =--related= lists each hit's neighbours from the ID-link graph lint already
+  builds.
+- On ORE Studio, a set of recorded queries returns the same top hits as
+  compass.legacy or better, judged hit by hit, and each query answers in
+  under 200 ms warm.
+- compass.legacy's =index=, =search=, =find= and =debug= rows in Retire legacy
+  tooling point here.
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+|      |       |       |     |             |
+
+* Decisions
+
+* Out of scope
+
+- A search server; Serve search with Typesense does that, fed from this
+  story's index.
+- Semantic or embedding search.
