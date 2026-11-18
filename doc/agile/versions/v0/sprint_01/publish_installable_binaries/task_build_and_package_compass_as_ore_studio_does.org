@@ -137,6 +137,11 @@ Dropped because they exist for ORE's services, UI or website:
 
 Changed because compass differs:
 
+- An overlay port for pcre2 carries its sljit gitlink file. ORE Studio does
+  not use pcre2. The upstream port fetches that file from the GitHub API
+  without a token, which shared CI runners' rate limit refused on Linux and
+  macOS; the overlay checks it against the port's pinned SHA-512.
+
 - No =-DBUILD_SHARED_LIBS=ON= in =CTest.cmake=. compass ships one statically
   linked binary; shared libraries would put =libcompass.*.so= beside it and
   break the package.

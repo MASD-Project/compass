@@ -1,0 +1,127 @@
+:PROPERTIES:
+:ID: 88BBB6AA-BC95-4C95-AFBF-B8CCE22EFB88
+:END:
+#+title: Task: Show build status badges in the readme
+#+description: Put ORE Studio's badge block at the top of readme.org, adapted to compass, so a reader sees at a glance which workflows are red, the CDash dashboard, the latest release and the project's activity.
+#+type: task
+#+level: s1
+#+filetags: :publish_installable_binaries:sprint_01:v0:
+#+owner: marco
+#+branch: feature/show-build-status-badges-in-the-readme
+#+pr: https://github.com/MASD-Project/compass/pull/75
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-11-18
+#+updated: 2026-11-18
+#+environment:
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [[id:EB6AF798-D472-4CC2-B97C-FC2BD9FD1FDE][Publish installable binaries]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+A reader of the compass readme on GitHub sees, without opening the Actions
+tab, whether each CI workflow is green or red, where the CDash dashboard is,
+which release is the latest and how active the project is. The readme does
+this the way ORE Studio's readme does.
+
+* Status
+
+| Field        | Value                                  |
+|--------------+----------------------------------------|
+| State        | DONE |
+| Parent story | [[id:EB6AF798-D472-4CC2-B97C-FC2BD9FD1FDE][Publish installable binaries]] |
+| Now          | Merged. |
+| Waiting on   | Nothing.                               |
+| Next         | Nothing. |
+| Last touched | 2026-11-18                               |
+
+* Acceptance
+
+- readme.org opens with a =badge-wrapper= block in ORE Studio's form: one
+  =#+html:= line per badge, each an image inside a link to what it reports.
+- A GitHub Actions status badge for each workflow: Continuous Linux, Nightly
+  Linux, Nightly MacOS, Nightly Windows and CI Image. Each links to its
+  workflow's runs, so a red badge goes to the failing run in one click.
+- A CDash badge links to =https://my.cdash.org/index.php?project=Compass=.
+- The repository badges ORE Studio shows, pointed at =MASD-Project/compass=:
+  maintenance, licence (GPLv3), C++ standard and compiler versions, sprint,
+  GNU Emacs, commit activity, status, last commit, open and closed issues,
+  open and closed PRs, contributors, releases and downloads.
+- No badge is copied that names an ORE Studio resource compass does not have,
+  such as the Doxygen site, the website or the Discord server. Each one left
+  out is listed under Notes with its reason.
+- Each badge renders on the GitHub page of the merged readme, and each link
+  opens the page it names. A badge for a release, or for a workflow that has
+  not run yet, can show "none" until the first release or run.
+- =compass.sh lint= and =compass check= pass on the change.
+
+* Plan
+
+(Implementation strategy. Written when work starts; key decisions
+are distilled into the parent story's =* Decisions= at close, but the
+plan itself stays — it is the historical record of what we did.)
+
+Copy lines 16 to 46 of ORE Studio's =readme.org= and replace =OreStudio/OreStudio=
+with =MASD-Project/compass=. Then check each badge against compass: the C++
+standard and compilers from =CMakePresets.json=, the sprint from
+=doc/agile/versions/v0/=, the CDash project from =CTestConfig.cmake=, and the
+workflow file names from =.github/workflows/=. Add the CI Image badge, which
+ORE Studio does not show.
+
+* Measurements
+
+Every number this task claims about a tree, with the command that produced it
+and the commit it was measured at. A number without both is not a measurement,
+because a clean-up record describes a tree and trunk moves under a branch: a
+consumer count, a gate's component count and a suite's size all change with no
+code changing, and the reader of a bare number cannot tell which tree it came
+from. Where the raw output matters, put it in an =evidence/= file beside the
+task and name that file in the Command column.
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+|      |       |         |        |
+
+* Notes
+
+Versions come from the repository: C++23 from =CMakePresets.json=, clang 21
+and GCC 16 from =build/docker/ci/versions.env=, MSVC from the
+=windows-latest= runner, so its badge says =latest= rather than a year. The
+sprint badge links to =sprint.org= on GitHub, since compass has no website.
+
+Left out of ORE Studio's block:
+
+- Doxygen, Website and Discord: compass has no Doxygen site, website or
+  Discord server.
+- Contributing: compass has no =CONTRIBUTING.md=.
+- PRs since and Commits since the last release: both name a release tag, and
+  compass has none yet. Add them with the first release.
+
+Every badge image and link returned HTTP 200 except gnu.org, which timed out
+from the development machine; ORE Studio links to the same page.
+
+* Test Scenarios
+
+Manual QA scenarios (scaffolded via =compass add test_scenario=)
+that verify this task. Link
+new ones here as they're created; the scenario doc itself links back
+via its "Verifies task" field.
+
+| Scenario | State | Notes |
+|----------+-------+-------|
+|          |       |       |
+
+* PRs
+
+| PR | Title |
+|----+-------|
+| [[https://github.com/MASD-Project/compass/pull/75][#75]] | Show build status badges in the readme |
+
+* Review
+
+| # | Comment summary | File | Decision | Notes |
+|---+-----------------+------+----------+-------|
+|   |                 |      |          |       |
+
+* Result

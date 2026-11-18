@@ -1,0 +1,55 @@
+:PROPERTIES:
+:ID: 42F4ECEE-2049-4226-9716-123BE0C1B9E4
+:END:
+#+title: Story: Query the documents
+#+description: Give compass the read-only document commands agents use to orient themselves: list, show, where, status, bearings and the sprint and story views, replacing their compass.legacy versions.
+#+type: story
+#+level: s2
+#+filetags: :docs:search:sprint_01:v0:
+#+created: 2026-11-18
+#+updated: 2026-11-18
+#+environment:
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+An agent orients itself in a checkout with compass alone: what the current
+sprint holds, what a story or task says, where a document lives and what to do
+next.
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | BACKLOG                              |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | Not yet started.                       |
+| Waiting on    | Nothing.                               |
+| Next          | Break the story into tasks.            |
+| Last touched  | 2026-11-18                               |
+
+* Acceptance
+
+- compass answers the read-only commands compass.legacy offers today: =list=,
+  =show=, =where=, =status=, =sprint status=, =story=, =task=, =journal=,
+  =bearings= and =heading=, from the documents it already parses.
+- Each command's output follows the Design output for LLMs story: short, with
+  a next action.
+- On ORE Studio each command gives the same facts as compass.legacy's
+  version, checked command by command.
+- The matching rows in Retire legacy tooling point here.
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+|      |       |       |     |             |
+
+* Decisions
+
+* Out of scope
+
+- =sprint charts=; charts belong with Export HTML.
+- Commands that write documents; scaffolding is Port ORE Studio codegen's.

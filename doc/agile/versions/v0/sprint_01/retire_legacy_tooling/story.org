@@ -56,9 +56,9 @@ Every legacy capability has a named compass-ng replacement and a removal conditi
 | =add= (scaffolding from the =doc_*.org.mustache= templates) | [[id:4F499B47-4AB8-4049-A72F-495351A6E2C7][Port ORE Studio codegen]], [[id:FEABA8E9-D541-45AA-9278-64DC1264C794][Ship the compass CLI]] | compass renders the same documents from the same templates. |
 | =lint= (filetag validation) | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] | A codec gives the same verdict on this repository. |
 | =sprint audit= (state drift between documents and tables) | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] | A codec reports the same findings. |
-| =list=, =show= | Needs a story | |
-| =index=, =search=, =find=, =debug= (org-roam full-text search) | Needs a story | |
-| =where=, =sprint status=, =sprint charts=, =story=, =task=, =journal=, =bearings=, =heading= | Needs a story | |
+| =list=, =show= | [[id:42F4ECEE-2049-4226-9716-123BE0C1B9E4][Query the documents]] | compass gives the same facts on ORE Studio. |
+| =index=, =search=, =find=, =debug= (org-roam full-text search) | [[id:A99024EF-0A82-4763-A457-D82ABC385E6F][Search the documents]] | compass search returns the same top hits or better on ORE Studio's recorded queries. |
+| =where=, =sprint status=, =sprint charts=, =story=, =task=, =journal=, =bearings=, =heading= | [[id:42F4ECEE-2049-4226-9716-123BE0C1B9E4][Query the documents]]; charts with Export HTML | compass gives the same facts on ORE Studio. |
 
 When the last row of the second table goes, =projects/compass.legacy= and
 =compass.sh='s forwarding go with it.
