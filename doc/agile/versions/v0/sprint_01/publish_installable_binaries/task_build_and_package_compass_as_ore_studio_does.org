@@ -29,16 +29,16 @@ as ORE Studio is, with every build's results on a compass CDash dashboard.
 |--------------+----------------------------------------|
 | State        | STARTED |
 | Parent story | [[id:EB6AF798-D472-4CC2-B97C-FC2BD9FD1FDE][Publish installable binaries]] |
-| Now          | Porting ORE Studio's CTest script, CPack and workflows. |
-| Waiting on   | Nothing.                               |
-| Next         | Land the workflows and see the first CDash submissions. |
+| Now          | Merged; waiting on the compass project on my.cdash.org and the first CI image. |
+| Waiting on   | The product owner creating the compass project on my.cdash.org. |
+| Next         | Dispatch the CI image, then the Linux, macOS and Windows builds, and fix what fails. |
 | Last touched | 2026-11-18                               |
 
 * Acceptance
 
-- CTest.cmake, CTestConfig.cmake, CTestSite.cmake and CTestCustom.cmake follow ORE Studio's, submitting to a compass project on my.cdash.org.
+- CTest.cmake, CTestConfig.cmake and CTestCustom.cmake follow ORE Studio's, submitting to a compass project on my.cdash.org.
 - CPack builds a Linux, a macOS and a Windows package as ORE Studio's does.
-- Workflows mirror ORE Studio's continuous-linux, nightly-linux, nightly-macos, nightly-windows and site-cdash, and a tag attaches the packages to its release.
+- Workflows mirror ORE Studio's continuous-linux, nightly-linux, nightly-macos, and nightly-windows, and a tag attaches the packages to its release.
 - Each departure from ORE Studio is listed with its reason.
 
 * Plan
@@ -132,7 +132,7 @@ Dropped because they exist for ORE's services, UI or website:
   CDash as the Site group; their only caller is =build-site.yml=, ORE's GitHub
   Pages workflow. compass has no site, no =deploy_site= target and no Doxyfile,
   so the script would build a target that does not exist. The acceptance line
-  that names =CTestSite.cmake= and =site-cdash= needs amending.
+  that named them was amended to leave them out.
 - ORE's =linux-doc-only= preset, which configures for that website build.
 
 Changed because compass differs:

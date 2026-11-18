@@ -1,0 +1,31 @@
+:PROPERTIES:
+:ID: B49E3F88-4EE3-42C3-ACDC-2A28FF42E9E5
+:END:
+#+title: Store reference delta test fails under parallel ctest
+#+description: compass.store.tests' 'objects stored as reference deltas read as git prints them' failed once in a ctest dashboard run (kinds[1] == 0 failed, 55 == 0) and passed six runs alone; its synthetic repository sometimes packs offset deltas.
+#+type: capture
+#+level: cross
+#+filetags: :compass:
+#+created: 2026-11-18
+#+updated: 2026-11-18
+
+This page is a [[id:671F18E4-E09C-4B3B-BD24-D33DF8AE38A6][capture]] in the *inbox* bucket of the product backlog — a pre-sprint idea, not yet pulled into a sprint as a story.
+
+* Note
+
+compass.store.tests' "objects stored as reference deltas read as git prints
+them" failed once during a CTest dashboard run of the CI port: =kinds[1] == 0=
+failed with 55 == 0, so the synthetic repository the test builds had packed
+offset deltas where it expects none. Run alone it passed six times out of six.
+The guess is that git's packing depends on load or timing under parallel ctest;
+the test should force the delta kind it means to read rather than rely on git's
+choice.
+
+* Actions
+
+- Reproduce by running the suite under =ctest -j= repeatedly.
+- Pin the pack's delta kind in the test fixture.
+
+* See also
+
+-
