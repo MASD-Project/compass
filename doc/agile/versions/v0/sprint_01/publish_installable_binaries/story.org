@@ -44,6 +44,7 @@ A person or a CI job installs a named compass release with one command, without 
 | Task | State | Start | End | Description |
 |------+-------+-------+-----+-------------|
 | [[id:C83C8A4A-1924-4145-82D2-FD30DEECEC87][Build and package compass as ORE Studio does]] | STARTED | 2026-11-18 | | Port ORE Studio's CI to compass: the CTest dashboard script submitting to CDash, CPack packages, continuous Linux builds and nightly Linux, macOS and Windows builds that attach their packages to a tagged release. |
+| [[id:081E261C-DF05-4E8A-A75C-2FD8EF39B5EF][Port compass to Windows]] | STARTED | 2026-11-18 | | Give compass's POSIX-only code (process spawning, memory-mapped files, file locks, directory listing) Windows implementations, so the nightly Windows builds compile, test and package compass with MSVC and clang-cl. |
 
 * Decisions
 
