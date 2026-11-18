@@ -331,6 +331,15 @@ endif()
 
 message(STATUS "CMake args: ${cmake_args}")
 ctest_configure(OPTIONS "${cmake_args}" RETURN_VALUE configure_result)
+
+# Every test carries its component as a label, and configure lists those
+# components (see projects/CMakeLists.txt). Naming them as subprojects makes
+# CDash group the test cases by component.
+set(subprojects_file "${CTEST_BINARY_DIRECTORY}/cdash_subprojects.txt")
+if(EXISTS "${subprojects_file}")
+    file(STRINGS "${subprojects_file}" CTEST_LABELS_FOR_SUBPROJECTS)
+    message(STATUS "CDash subprojects: ${CTEST_LABELS_FOR_SUBPROJECTS}")
+endif()
 if(NOT configure_result EQUAL 0)
     message(WARNING "Failed to configure")
     set(had_failures ON)
