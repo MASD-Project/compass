@@ -8,7 +8,7 @@
 #+filetags: :publish_installable_binaries:sprint_01:v0:
 #+owner: marco
 #+branch: feature/show-build-status-badges-in-the-readme
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/75
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-18
@@ -116,7 +116,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/75][#75]] | Show build status badges in the readme |
 
 * Review
 
