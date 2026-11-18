@@ -1,0 +1,92 @@
+:PROPERTIES:
+:ID: 6E3237E7-C57A-4CD8-97D5-DA32BAA4359E
+:END:
+#+title: Task: Analyse what is hard-coded to ORE Studio
+#+description: Classify every codec's ORE Studio specifics (paths, names, type lists, patterns, thresholds) as already data, could be data, or must stay code, and propose the data format projects use to define their own checks.
+#+type: task
+#+level: s1
+#+filetags: :let_projects_define_their_checks:sprint_01:v0:
+#+owner: marco
+#+branch:
+#+pr:
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-11-18
+#+updated: 2026-11-18
+#+environment:
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [[id:DAB2F48A-E47A-4895-9026-056AF21E6CCC][Let projects define their own checks]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+Know which parts of compass assume ORE Studio, and what a project-defined
+check would look like, before any of it moves.
+
+* Status
+
+| Field        | Value                                  |
+|--------------+----------------------------------------|
+| State        | BACKLOG                              |
+| Parent story | [[id:DAB2F48A-E47A-4895-9026-056AF21E6CCC][Let projects define their own checks]] |
+| Now          | Not yet started.                       |
+| Waiting on   | Nothing.                               |
+| Next         | Begin implementation.                  |
+| Last touched | 2026-11-18                               |
+
+* Acceptance
+
+- A table lists every codec and the ORE Studio specifics it holds, each
+  classified as already data (an option or table in =.compass.org=), could be
+  data, or must stay code, with the reason.
+- The patterns from Mine failed builds that compass could catch are checked
+  against the proposed format: each is written in it, or the gap is named.
+- A recommended format, with worked examples of three existing checks
+  rewritten in it, and the cost to compass's speed and caching.
+
+* Plan
+
+(Implementation strategy. Written when work starts; key decisions
+are distilled into the parent story's =* Decisions= at close, but the
+plan itself stays — it is the historical record of what we did.)
+
+* Measurements
+
+Every number this task claims about a tree, with the command that produced it
+and the commit it was measured at. A number without both is not a measurement,
+because a clean-up record describes a tree and trunk moves under a branch: a
+consumer count, a gate's component count and a suite's size all change with no
+code changing, and the reader of a bare number cannot tell which tree it came
+from. Where the raw output matters, put it in an =evidence/= file beside the
+task and name that file in the Command column.
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+|      |       |         |        |
+
+* Notes
+
+* Test Scenarios
+
+Manual QA scenarios (scaffolded via =compass add test_scenario=)
+that verify this task. Link
+new ones here as they're created; the scenario doc itself links back
+via its "Verifies task" field.
+
+| Scenario | State | Notes |
+|----------+-------+-------|
+|          |       |       |
+
+* PRs
+
+| PR | Title |
+|----+-------|
+|    |       |
+
+* Review
+
+| # | Comment summary | File | Decision | Notes |
+|---+-----------------+------+----------+-------|
+|   |                 |      |          |       |
+
+* Result

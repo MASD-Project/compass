@@ -7,7 +7,7 @@
 #+level: s2
 #+filetags: :gates:llm:sprint_01:v0:
 #+created: 2026-11-16
-#+updated: 2026-11-16
+#+updated: 2026-11-18
 #+environment:
 #+todo: BACKLOG STARTED | DONE ABANDONED
 
@@ -21,7 +21,7 @@ The five most frequent and costly error patterns LLMs introduce into ORE Studio 
 
 | Field         | Value                                  |
 |---------------+----------------------------------------|
-| State         | BACKLOG                              |
+| State         | STARTED |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
 | Now           | Not yet started.                       |
 | Waiting on    | Nothing.                               |
@@ -30,7 +30,9 @@ The five most frequent and costly error patterns LLMs introduce into ORE Studio 
 
 * Acceptance
 
-- Failures are collected from failed CI runs, fix-up commits after LLM-authored commits, PR review comments and ORE Studio's memories.
+- A rerunnable, rate-limited script collects every failed CI run of ORE Studio over the last two months, caching what it downloads so a rerun fetches only new runs.
+- A per-day report lists each failure, its reason and whether a compass check could have caught it before the build.
+- Failures are also collected from fix-up commits after LLM-authored commits, PR review comments and ORE Studio's memories.
 - Error messages are normalised and grouped into patterns ranked by frequency and cost.
 - A check exists for each of the top five patterns, fires on the commit that introduced the error and stays quiet on the fix.
 
@@ -38,7 +40,7 @@ The five most frequent and costly error patterns LLMs introduce into ORE Studio 
 
 | Task | State | Start | End | Description |
 |------+-------+-------+-----+-------------|
-| [[id:694CC015-2319-4A60-A912-C47D01BA70E1][Mine failed builds]] | BACKLOG | | | Collect failures from failed CI runs, fix-up commits, PR reviews and memories. |
+| [[id:694CC015-2319-4A60-A912-C47D01BA70E1][Mine failed builds]] | STARTED | 2026-11-18 | | Collect failures from failed CI runs, fix-up commits, PR reviews and memories. |
 | [[id:C2E54246-99BD-435E-803E-3C10652B67AB][Rank the patterns]] | BACKLOG | | | Normalise error messages, group them into patterns and rank them by frequency and cost. |
 | [[id:7BD09169-B1E5-46CA-8D10-4B5FFE681471][Ship checks for the top patterns]] | BACKLOG | | | Write a check for each of the top five patterns and prove each against its past failure. |
 
