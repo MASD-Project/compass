@@ -8,7 +8,7 @@
 #+filetags: :publish_installable_binaries:sprint_01:v0:
 #+owner: marco
 #+branch: feature/report-each-catch2-test-to-cdash
-#+pr: https://github.com/MASD-Project/compass/pull/86
+#+pr: https://github.com/MASD-Project/compass/pull/88
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-18
@@ -69,6 +69,13 @@ task and name that file in the Command column.
 
 * Notes
 
+A flat list of 1228 tests is hard to read, so every test carries its
+component as a label, and the dashboard script declares the components as
+CDash subprojects in a Project.xml it submits with each build. CDash does not
+create subprojects from labels alone. After Continuous Linux run 44374781754,
+CDash's subprojects view lists all 14 components, each with its own build and
+test counts.
+
 Three CLI test cases had names beginning with a dash. Run alone through
 =catch_discover_tests=, Catch2 read the name as an option: two failed and the
 =--help= case printed help and exited 0, passing without running. They are
@@ -89,6 +96,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
+| [[https://github.com/MASD-Project/compass/pull/88][#88]] | Group tests by component on CDash |
 | [[https://github.com/MASD-Project/compass/pull/86][#86]] | Report each Catch2 test to CDash |
 
 * Review

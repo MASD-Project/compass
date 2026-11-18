@@ -45,6 +45,7 @@ compass_add_catch2_tests(${name} ${tests_target_name})
 add_test(NAME ${name}.end_to_end
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/end_to_end.sh
         $<TARGET_FILE:${name}.exe>)
+set_tests_properties(${name}.end_to_end PROPERTIES LABELS ${name})
 
 # The install script lays compass out in a POSIX home directory.
 if(NOT WIN32)
@@ -52,4 +53,5 @@ if(NOT WIN32)
         COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/install_compass.sh
             ${CMAKE_SOURCE_DIR}/build/scripts/install_compass.sh
             $<TARGET_FILE:${name}.exe>)
+    set_tests_properties(${name}.install PROPERTIES LABELS ${name})
 endif()

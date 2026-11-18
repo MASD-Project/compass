@@ -93,8 +93,10 @@ endif()
 
 # Each Catch2 test case is registered as its own CTest test, named
 # <suite>.<test case>, so CDash reports every case's result and time rather than
-# one entry per suite. Discovery runs at test time, so building never runs a
-# test binary.
+# one entry per suite. Each is labelled with its component, and the components
+# are written to cdash_subprojects.txt, which CTest.cmake submits as CDash
+# subprojects, so CDash groups the cases by component.
+# Discovery runs at test time, so building never runs a test binary.
 include(Catch)
 function(compass_add_catch2_tests suite target)
     if(COMPASS_TEST_FILTER)
@@ -104,7 +106,9 @@ function(compass_add_catch2_tests suite target)
         ${spec}
         TEST_PREFIX "${suite}."
         WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
-        DISCOVERY_MODE PRE_TEST)
+        DISCOVERY_MODE PRE_TEST
+        PROPERTIES LABELS ${suite})
+    set_property(GLOBAL APPEND PROPERTY COMPASS_TEST_COMPONENTS ${suite})
 endfunction()
 
 # Components are added by name, in dependency order. compass.legacy and
@@ -123,3 +127,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/compass.crosscheck)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/compass.docs)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/compass.cli)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/compass.bench)
+
+get_property(test_components GLOBAL PROPERTY COMPASS_TEST_COMPONENTS)
+list(JOIN test_components "\n" test_components)
+file(WRITE ${CMAKE_BINARY_DIR}/cdash_subprojects.txt "${test_components}\n")
