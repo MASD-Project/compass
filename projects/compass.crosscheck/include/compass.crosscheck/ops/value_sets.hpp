@@ -29,6 +29,7 @@
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.crosscheck/ops/json_value.hpp"
+#include "compass.crosscheck/ops/projection_columns.hpp"
 
 /**
  * @brief ORE Studio's parameter value sets, resolved once: the curation
@@ -164,12 +165,22 @@ struct outcome {
     std::optional<std::vector<map_row>> rows;
     std::optional<std::string> map_stopped;
     long long unread_allowed = 0;
+    std::optional<convention_terms_result> terms;
 };
 
 /**
  * @brief Resolves the value sets and the element map from the checkout.
  */
 [[nodiscard]] outcome evaluate(const compass::codec::types::corpus_view& v);
+
+/**
+ * @brief generate_convention_kind_terms.py's three files, the convention
+ * kind terms seed, their validation triggers and the triggers' drops, from
+ * @p terms, or a refusal of the seed that says why not.
+ */
+void write_convention_kind_terms(const compass::codec::types::corpus_view& v,
+    const std::optional<convention_terms_result>& terms,
+    compass::codec::types::file_output& out);
 
 /**
  * @brief The value set seed, as generate_value_sets.render() writes it.

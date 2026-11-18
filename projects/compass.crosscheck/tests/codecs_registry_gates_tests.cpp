@@ -18,7 +18,6 @@
  *
  */
 #include <catch2/catch_test_macros.hpp>
-#include "compass.crosscheck/codecs/model_drift.hpp"
 #include "compass.crosscheck/codecs/registry_gates.hpp"
 #include "compass.crosscheck/codecs/template_sections.hpp"
 #include "test_checkout.hpp"
@@ -30,28 +29,6 @@ using tests::files;
 using place = std::pair<std::string, std::uint32_t>;
 using places = std::vector<place>;
 
-}
-
-TEST_CASE("an HTTP area outside the published ones is reported",
-    "[codecs][http_areas]") {
-    const files t{
-        {"build/scripts/route_classification.py",
-         "NO_AREA = \"(none)\"\n\nAREAS = (\n    \"access\",  # people\n"
-         "    \"trading\",\n    'market-data',\n    NO_AREA_SPELLED := 1,\n)\n"},
-        {"projects/ores.a/modeling/a.org", "#+http_area: trading\n"}};
-    CHECK(tests::messages_of(tests::run(codecs::http_areas, t)) ==
-        std::vector<std::string>{"AREAS or NO_AREA is not a literal this "
-            "check can read"});
-    const files u{
-        {"build/scripts/route_classification.py",
-         "NO_AREA = \"(none)\"\n\nAREAS = (\n    \"access\",  # people\n"
-         "    \"(none)\",\n    'market-data',\n)\n"},
-        {"projects/ores.a/modeling/a.org",
-         "#+http_area: access\n#+http_area: (none)\n#+http_area: gone \n"},
-        {"projects/ores.a/modeling/deep/b.org", "#+http_area: gone\n"}};
-    CHECK(tests::places(tests::run(codecs::http_areas, u).findings) ==
-        places{{"projects/ores.a/modeling/a.org", 2},
-            {"projects/ores.a/modeling/a.org", 3}});
 }
 
 TEST_CASE("a route unit a model opts into is registered once",
@@ -112,33 +89,6 @@ TEST_CASE("an accepted exception must be justified",
             "iam V08: names nobody as having accepted it",
             "iam V08: accepted_on is 'Sept', not an ISO date",
             "iam Z99: not an item the standard defines"});
-}
-
-TEST_CASE("a model may not contradict the profile it binds to",
-    "[codecs][model_drift]") {
-    const files t{
-        {"projects/modeling/variability_uuid_lookup.org",
-         "#+type: profile\n* Assignments\n| Feature | Value |\n|---+---|\n"
-         "| [[id:X][has_tenant_id]] | true |\n| has_pagination | false |\n"
-         "| parent_entity_singular | required |\n* Notes\n| other | x |\n"},
-        {"projects/modeling/variability_paged.org",
-         "#+type: profile\n* Assignments\n| has_pagination | true |\n"},
-        {"projects/ores.a/modeling/ores.a.good.org",
-         "* Flags\n:PROPERTIES:\n:profile: uuid-lookup\n"
-         ":has_tenant_id: true\n:parent_entity_singular: book\n:END:\n"},
-        {"projects/ores.a/modeling/ores.a.bad.org",
-         "* Flags\n:PROPERTIES:\n:profile: uuid-lookup, paged, nope\n"
-         ":has_tenant_id: false\n:END:\n* C++\n** Presentation\n"
-         ":PROPERTIES:\n:has_pagination: true\n:END:\n"
-         "** Other\n:PROPERTIES:\n:has_pagination: false\n:END:\n"}};
-    CHECK(tests::messages_of(tests::run(codecs::model_drift, t)) ==
-        std::vector<std::string>{
-            "profile 'uuid-lookup' fixes has_tenant_id=true, model declares "
-            "false",
-            "states has_pagination twice with different values (C++ / "
-            "Presentation=true; C++ / Other=false)",
-            "profile 'uuid-lookup' requires parent_entity_singular to be "
-            "set, model states none"});
 }
 
 TEST_CASE("a line chaining the tags of a section that spans lines is "

@@ -30,6 +30,7 @@
 #include <unordered_map>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.cpp/ops/declarations.hpp"
 #include "compass.cpp/ops/lexer.hpp"
 #include "compass.cpp/ops/paths.hpp"
 #include "compass.cpp/ops/report.hpp"
@@ -45,13 +46,17 @@ namespace {
 namespace ct = compass::codec::types;
 namespace pt = compass::platform::text;
 
-constexpr std::array<ct::rule, 2> rules{{
+constexpr std::array<ct::rule, 4> rules{{
     {"includes_definition_it_only_names", "A header that only names a "
         "listed type includes its declaration, not its definition."},
     {"bad_type_list", "The list of forward-declarable types is readable "
-        "and not empty."}}};
+        "and not empty."},
+    {"stale_type_list", "The types option lists what the tree's own list "
+        "file lists."},
+    {"type_not_defined", "A listed type's defining header, where the tree "
+        "has it, defines the type."}}};
 
-constexpr std::array<ct::option, 1> options{{
+constexpr std::array<ct::option, 2> options{{
     {"types",
         "ores::database::context;class;ores.database/domain/context.hpp;"
         "ores.database/domain/context_fwd.hpp,"
@@ -60,12 +65,17 @@ constexpr std::array<ct::option, 1> options{{
         "ores::database::pq::pool;class;ores.database/pq/pool.hpp;-,"
         "ores::database::pq::result;class;ores.database/pq/result.hpp;-,"
         "ores::database::pq::session_context;struct;"
-        "ores.database/pq/transaction.hpp;-,"
+        "ores.database/pq/session_context.hpp;"
+        "ores.database/pq/session_context_fwd.hpp,"
         "ores::database::pq::transaction;class;"
         "ores.database/pq/transaction.hpp;-",
         "The types a header may name without their definition, "
         "comma-separated, each name;class key;defining header;forwarding "
-        "header or -: ORE Studio's forward_declarable_types.list."}}};
+        "header or -: ORE Studio's forward_declarable_types.list."},
+    {"list_file", "build/scripts/forward_declarable_types.list",
+        "The tree's own list of the types, one per line as four fields "
+        "separated by spaces, compared with the types option when the "
+        "tree has it; empty compares nothing."}}};
 
 constexpr std::array<std::string_view, 3> header_suffixes{".hpp", ".h",
     ".ipp"};
@@ -282,6 +292,30 @@ std::vector<std::string_view> scanned(const ct::corpus_view& v) {
 }
 
 /**
+ * @brief The type of one row's four fields, or why it is not one.
+ */
+std::expected<declarable, std::string> declarable_of(
+    const std::vector<std::string>& fields) {
+    if (fields.size() != 4)
+        return std::unexpected("has " + std::to_string(fields.size()) +
+            " fields, not four");
+    if (fields[1] != "class" && fields[1] != "struct")
+        return std::unexpected("gives " + fields[0] + " the class key " +
+            fields[1] + ", which must be class or struct");
+    return declarable{fields[0], fields[1], fields[2],
+        fields[3] == "-" ? std::nullopt
+            : std::optional<std::string>(fields[3])};
+}
+
+/**
+ * @brief The row of @p d as the types option spells it.
+ */
+std::string row_of(const declarable& d) {
+    return d.name + ";" + d.keyword + ";" + d.defining_header + ";" +
+        d.forwarding_header.value_or("-");
+}
+
+/**
  * @brief The types of the types option, or why they cannot be read: each
  * row name;key;defining header;forwarding header or -, rows separated by
  * commas.
@@ -305,19 +339,86 @@ std::expected<std::vector<declarable>, std::string> parse_types(
             fields.emplace_back(row.substr(f, e - f));
             f = e + 1;
         }
-        if (fields.size() != 4)
-            return std::unexpected("the row " + std::string(row) + " has " +
-                std::to_string(fields.size()) + " fields, not four");
-        if (fields[1] != "class" && fields[1] != "struct")
-            return std::unexpected("the class key of " + fields[0] +
-                " must be class or struct, found " + fields[1]);
-        out.push_back({fields[0], fields[1], fields[2],
-            fields[3] == "-" ? std::nullopt
-                : std::optional<std::string>(fields[3])});
+        auto d = declarable_of(fields);
+        if (!d)
+            return std::unexpected("the row " + std::string(row) + " " +
+                d.error());
+        out.push_back(std::move(*d));
     }
     if (out.empty())
         return std::unexpected("no type is listed, so the guard is off");
     return out;
+}
+
+/**
+ * @brief The types of a list file, or why they cannot be read, as ORE
+ * Studio's script reads forward_declarable_types.list: one per line as
+ * four fields separated by whitespace, blank lines and lines starting
+ * with # skipped.
+ */
+std::expected<std::vector<declarable>, std::string> parse_list(
+    std::string_view text) {
+    static const pt::regex field(R"(\S+)");
+    std::vector<declarable> out;
+    std::size_t number = 0;
+    for (std::size_t start = 0; start < text.size();) {
+        auto end = text.find('\n', start);
+        if (end == std::string_view::npos)
+            end = text.size();
+        const auto line = text.substr(start, end - start);
+        start = end + 1;
+        ++number;
+        std::vector<std::string> fields;
+        for (const auto& m : field.find_all(line))
+            fields.emplace_back(m.group(0));
+        if (fields.empty() || fields[0].starts_with('#'))
+            continue;
+        auto d = declarable_of(fields);
+        if (!d)
+            return std::unexpected("line " + std::to_string(number) + " " +
+                d.error());
+        out.push_back(std::move(*d));
+    }
+    if (out.empty())
+        return std::unexpected("no type is listed");
+    return out;
+}
+
+/**
+ * @brief Each type whose row differs between @p file and @p option,
+ * named with both rows; empty when they list the same rows.
+ */
+std::vector<std::string> differences(const std::vector<declarable>& file,
+    const std::vector<declarable>& option) {
+    std::map<std::string, std::pair<std::string, std::string>> rows;
+    for (const auto& d : file)
+        rows[d.name].first = row_of(d);
+    for (const auto& d : option)
+        rows[d.name].second = row_of(d);
+    std::vector<std::string> out;
+    for (const auto& [name, both] : rows) {
+        const auto& [in_file, in_option] = both;
+        if (in_file == in_option)
+            continue;
+        if (in_option.empty())
+            out.push_back(in_file + " is only in the file");
+        else if (in_file.empty())
+            out.push_back(in_option + " is only in the option");
+        else
+            out.push_back("the file has " + in_file + " where the option "
+                "has " + in_option);
+    }
+    return out;
+}
+
+/**
+ * @brief Whether the bytes of the header @p bytes define @p d, as the
+ * model reads the class and struct definitions at namespace scope.
+ */
+bool defines(std::string_view bytes, const declarable& d) {
+    const auto lexed = ops::lex(bytes);
+    return ops::defined_types(ops::model_of(bytes, lexed,
+        ops::model_parts::declarations)).contains(d.name);
 }
 
 /**
@@ -397,24 +498,71 @@ void map(std::string_view path, std::string_view bytes,
 }
 
 /**
- * @brief Reports a types option that cannot be read; the headers are
- * decided in map.
+ * @brief Reports a types option that cannot be read, a list file that
+ * lists other types than the option, and a listed type its defining
+ * header, where the tree has it, does not define. The list file and the
+ * defining headers are read through the view, so an edit to one calls the
+ * reduce again. The headers are decided in map.
  */
-void reduce(std::span<const ct::scanned_file>, const ct::corpus_view& v,
+void reduce(std::span<const ct::scanned_file> files, const ct::corpus_view& v,
     ct::diagnostic_table& out) {
     const auto types = parse_types(v.option("types"));
-    if (!types)
+    if (!types) {
         ops::report(out, ".compass.org", 0, 1, "the forward-declarable "
             "types cannot be read: " + types.error(), "write each type as "
             "name;class or struct;defining header;forwarding header or -, "
             "comma-separated");
+        return;
+    }
+
+    const auto list_file = v.option("list_file");
+    if (!list_file.empty() && v.file_exists(list_file)) {
+        const auto bytes = v.read_file(list_file);
+        const auto file = bytes ? parse_list(*bytes)
+            : std::expected<std::vector<declarable>, std::string>(
+                std::unexpect, "the file cannot be read");
+        if (!file) {
+            ops::report(out, list_file, 0, 2, "the forward-declarable types "
+                "of " + std::string(list_file) + " cannot be read, so the "
+                "types option cannot be compared with them: " +
+                file.error(), "write each type on its own line as name, "
+                "class or struct, defining header and forwarding header or "
+                "-, separated by spaces, or set list_file= to compare "
+                "nothing");
+        } else if (const auto diff = differences(*file, *types);
+                   !diff.empty()) {
+            std::string value;
+            for (const auto& d : *file)
+                value += (value.empty() ? "" : ",") + row_of(d);
+            ops::report(out, list_file, 0, 2, "the types option of "
+                "forward_declarable_includes differs from " +
+                std::string(list_file) + ": " + ops::listed(diff),
+                "set types=" + value + " on the forward_declarable_includes "
+                "row of .compass.org");
+        }
+    }
+
+    for (const auto& d : *types) {
+        std::vector<std::string_view> headers;
+        for (const auto& f : files) {
+            if (relative_include(f.path) == d.defining_header)
+                headers.push_back(f.path);
+        }
+        if (headers.empty() || std::ranges::any_of(headers, [&](auto h) {
+                return defines(v.read_file(h).value_or(""), d); }))
+            continue;
+        ops::report(out, headers.front(), 0, 3, "the types option names " +
+            d.defining_header + " as the defining header of " + d.name +
+            ", but it does not define " + d.name, "set the row of " +
+            d.name + " in the types option to the header that defines it");
+    }
 }
 
 }
 
 const ct::descriptor forward_declarable_includes{
     .name = "forward_declarable_includes",
-    .version = 3,
+    .version = 5,
     .summary = "Reports each header that includes the definition of a "
         "listed type it only names.",
     .reads = ct::inputs::of_types({}),

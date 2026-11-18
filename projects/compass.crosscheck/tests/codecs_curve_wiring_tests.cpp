@@ -214,7 +214,7 @@ void replace(std::string& text, const std::string& from,
 TEST_CASE("the wiring names each section's columns, blocks, segment kinds "
     "and parts as the script writes them", "[codecs][curve_sections_wiring]") {
     const auto out = tests::generate(codecs::curve_sections_wiring, tree());
-    REQUIRE(out.size() == 2);
+    REQUIRE(out.size() == 7);
     CHECK(out.at(module_path).ends_with(sections_tail));
     CHECK(out.at(parts_path).ends_with(R"(
 create or replace function ores_refdata_validate_default_curve_spec_fn(
@@ -247,7 +247,6 @@ TEST_CASE("a column whose leaf the schema does not declare writes nothing",
     replace(t.at("external/ore/xsd/curveconfig.xsd"),
         "<xs:element name=\"DayCounter\" type=\"xs:string\"/>", "");
     CHECK(tests::generate(codecs::curve_sections_wiring, t).empty());
-    CHECK(tests::generate(codecs::curve_column_guards, t).empty());
 }
 
 TEST_CASE("sections the projection and the schema order differently write "
@@ -263,9 +262,9 @@ TEST_CASE("sections the projection and the schema order differently write "
 }
 
 TEST_CASE("the column map holds each family column in code order, with the "
-    "table its model names", "[codecs][curve_column_guards]") {
-    const auto out = tests::generate(codecs::curve_column_guards, tree());
-    REQUIRE(out.size() == 3);
+    "table its model names", "[codecs][curve_sections_wiring]") {
+    const auto out = tests::generate(codecs::curve_sections_wiring, tree());
+    REQUIRE(out.size() == 7);
     CHECK(out.at(map_path).find(") values\n"
         "    ('default_curve|currency', ores_utility_system_tenant_id_fn(), 0, "
         "'default_curve', 'currency', 'ores_refdata_default_curves_tbl', "
@@ -306,14 +305,21 @@ $$;
 }
 
 TEST_CASE("two entities on one table, or an entity with no model, write no "
-    "guard", "[codecs][curve_column_guards]") {
+    "guard, and say so", "[codecs][curve_sections_wiring]") {
     auto shared = tree();
     shared.at("projects/ores.refdata/modeling/ores.refdata.default_curve.org") =
         ":tablename: ores_refdata_yield_curves_tbl\n";
-    CHECK(tests::generate(codecs::curve_column_guards, shared).empty());
     auto missing = tree();
     missing.erase("projects/ores.refdata/modeling/ores.refdata.yield_curve.org");
-    CHECK(tests::generate(codecs::curve_column_guards, missing).empty());
+    for (const auto& t : {shared, missing}) {
+        const auto out = tests::generate(codecs::curve_sections_wiring, t);
+        CHECK(out.size() == 4);
+        CHECK(out.contains(module_path));
+        CHECK_FALSE(out.contains(map_path));
+        const auto r = tests::run(codecs::curve_sections_wiring, t);
+        REQUIRE(r.findings.size() == 1);
+        CHECK(std::get<0>(r.findings[0]) == map_path);
+    }
 }
 
 TEST_CASE("a list is filled to 80 columns as textwrap fills it",
@@ -327,4 +333,25 @@ TEST_CASE("a list is filled to 80 columns as textwrap fills it",
         "            'Alpha6', 'Alpha7', 'Alpha8', 'Alpha9', 'Alpha10', "
         "'Alpha11'");
     CHECK(ops::curve::fill("", 80, "    ").empty());
+}
+
+TEST_CASE("the gateway's wiring is the same table in C++, a row too wide "
+    "for one line broken a value a line", "[codecs][curve_sections_wiring]") {
+    const auto out = tests::generate(codecs::curve_sections_wiring, tree());
+    const auto& header = out.at("projects/ores.http/refdata/include/"
+        "ores.http/routes/refdata/curve_section_wiring.hpp");
+    CHECK(header.starts_with("/* -*- mode: c++;"));
+    CHECK(header.ends_with("\n#endif\n"));
+    const auto& source = out.at("projects/ores.http/refdata/src/routes/"
+        "refdata/curve_section_wiring.cpp");
+    CHECK(source.contains("constexpr std::array<curve_entity, 1> "
+        "curve_entities_0{{\n    {\"yield_curve\", \"yield_curves\"},\n}};\n"));
+    CHECK(source.contains("    {\"curve_definition\",\n"
+        "     \"description\",\n     \"CurveDescription\",\n"
+        "     \"CurveConfiguration/YieldCurves/YieldCurve/"
+        "CurveDescription\"},\n"));
+    CHECK(source.contains("constexpr std::array<curve_section, 2> "
+        "curve_section_table{{\n"));
+    CHECK(source.ends_with("            return &section;\n"
+        "    return nullptr;\n}\n\n}\n"));
 }

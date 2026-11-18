@@ -19,6 +19,7 @@
  */
 #include "compass.cpp/ops/lexer.hpp"
 
+#include <algorithm>
 #include <string>
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
@@ -246,4 +247,20 @@ TEST_CASE("names are identifiers joined by ::, whether they are called",
     CHECK(m.names[2].text == "::ores::f");
     CHECK(m.names[2].called);
     CHECK(m.names[3].text == "x");
+}
+
+TEST_CASE("names in a function template's trailing return type and body "
+    "are read", "[ops][source_model]") {
+    const std::string_view s = "template <typename Work>\n"
+        "auto transact(pool& p, Work&& work)\n"
+        "    -> std::invoke_result_t<Work, transaction&> {\n"
+        "    transaction tx(p.acquire());\n"
+        "    if constexpr (std::is_void_v<std::invoke_result_t<Work, "
+        "transaction&>>)\n"
+        "        work(tx);\n"
+        "}\n";
+    const auto l = lex(s);
+    const auto m = model_of(s, l);
+    CHECK(std::ranges::count(m.names, "transaction",
+        &name_use::text) == 3);
 }

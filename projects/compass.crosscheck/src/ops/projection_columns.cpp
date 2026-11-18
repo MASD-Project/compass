@@ -414,9 +414,14 @@ std::optional<std::vector<projection_column>> curve_columns(
     const auto wired = cw::wiring(*projection, *declared);
     if (!wired || !wired->problems.empty())
         return std::nullopt;
+    return curve_columns(v, wired->sections);
+}
+
+std::optional<std::vector<projection_column>> curve_columns(
+    const ct::corpus_view& v, const std::vector<cw::section>& sections) {
     std::map<std::string, projection_column> found;
     std::map<std::string, std::string> entity_of;
-    for (const auto& s : wired->sections)
+    for (const auto& s : sections)
         for (const auto& p : s.parameters) {
             if (p.entity == cw::definition_entity)
                 continue;

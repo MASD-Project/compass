@@ -31,7 +31,8 @@ stream call, a subject or a string constant, its constants, subject
 members, arrays and stream calls with their arguments, and of every file
 the names it calls; it reads a file only as a caller of a function whose
 parameter names a service. =forward_declarable_includes= decides each
-header in its map, from the types of its option.
+header in its map, from the types of its option, and its reduce compares
+that option with the tree's own list file and defining headers.
 
 The C++ gates read code through one lexer, =ops::lex=: the source, byte
 for byte, with its comments and literals blanked. It knows raw strings
@@ -158,12 +159,25 @@ keeps in its =.compass.org=.
   header of a type of the =types= option only to name it, decided in the
   map step from the header's lexed code, literals and include lines
   blanked. The option holds the types of
-  =build/scripts/forward_declarable_types.list= at =545cafca45= as its
+  =build/scripts/forward_declarable_types.list= at =f8b71f178a= as its
   default, each =name;key;defining header;forwarding header or -=,
-  comma-separated; the file itself is not read. A header that names no
+  comma-separated; the map reads only its own header, so a tree whose
+  list differs sets the option. A header that names no
   defining header is not lexed. Rule =bad_type_list=: the option is
-  malformed or empty, reported on =.compass.org=. The script's baseline is
-  replaced by inline exceptions.
+  malformed or empty, reported on =.compass.org=. The reduce makes the
+  copy's drift loud. Rule =stale_type_list=: the file the =list_file=
+  option names (by default =build/scripts/forward_declarable_types.list=;
+  empty turns the rule off) exists and lists other rows than the option,
+  read as the script reads it; the finding is on the file, names each
+  row that differs, and its fix gives the exact =types= value to set. A
+  file that cannot be read or parsed is reported the same way. Rule
+  =type_not_defined=: a header of the tree whose include path is a listed
+  defining header does not define its type at namespace scope, as
+  =ops::defined_types= reads it; a tree that lacks the header is not
+  judged. The reduce reads the list file and those headers through the
+  view, so they are inputs: an edit to either calls the reduce again,
+  and an edit to any other header still costs one map. The script's
+  baseline is replaced by inline exceptions.
 - *=handler_registrars=, =event_registrars=, =history_registrars=.* The
   three registrar composition gates
   (=check_handler_registrar_composition.py=,

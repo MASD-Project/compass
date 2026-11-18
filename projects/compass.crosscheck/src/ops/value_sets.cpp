@@ -632,9 +632,21 @@ public:
      * @brief The xpaths the convention kind terms carry, read on first use
      * as the script does.
      */
+    /**
+     * @brief The convention kind terms, resolved on first use and kept, so
+     * one evaluation resolves them once.
+     */
+    const std::optional<convention_terms_result>& terms() {
+        if (!terms_read_) {
+            terms_ = ops::convention_terms(v_);
+            terms_read_ = true;
+        }
+        return terms_;
+    }
+
     const std::set<std::string>& convention_drawn() {
         if (!convention_drawn_) {
-            const auto t = ops::convention_terms(v_);
+            const auto& t = terms();
             if (!t)
                 fail("the convention kind terms have problems; "
                     "generate_convention_kind_terms.py reports them");
@@ -674,6 +686,8 @@ public:
 
 private:
     const ct::corpus_view& v_;
+    bool terms_read_ = false;
+    std::optional<convention_terms_result> terms_;
     std::optional<std::set<std::string>> convention_drawn_;
     std::optional<std::vector<projection_column>> curve_rows_;
 };
@@ -1522,7 +1536,7 @@ map_row describe(inputs& in, const std::string& code, const value_set& entry,
 
 std::vector<map_column> column_rows(inputs& in, const ct::corpus_view& v) {
     static const pt::regex element_re(R"(/([^/\[]+)(?:\[[^\]]*\])?$)");
-    const auto terms = ops::convention_terms(v);
+    const auto& terms = in.terms();
     if (!terms)
         fail("the convention kind terms have problems; "
             "generate_convention_kind_terms.py reports them");
@@ -1833,6 +1847,7 @@ outcome evaluate(const ct::corpus_view& v) {
         } catch (const stop& s) {
             out.map_stopped = s.why;
         }
+        out.terms = in.terms();
     } catch (const stop& s) {
         out = outcome{};
         out.stopped = s.why;

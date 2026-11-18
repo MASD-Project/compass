@@ -17,7 +17,7 @@
  * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  */
-#include "compass.crosscheck/codecs/convention_kind_terms.hpp"
+#include "compass.crosscheck/ops/value_sets.hpp"
 
 #include <map>
 #include <set>
@@ -28,7 +28,7 @@
 #include "compass.cpp/ops/report.hpp"
 #include "compass.crosscheck/ops/projection_columns.hpp"
 
-namespace compass::crosscheck::codecs {
+namespace compass::crosscheck::ops::value_sets {
 
 namespace {
 
@@ -187,8 +187,11 @@ where valid_to = ores_utility_infinity_timestamp_fn();
 )SQL";
 }
 
-void run(const ct::corpus_view& v, ct::file_output& out) {
-    const auto terms = ops::convention_terms(v);
+}
+
+void write_convention_kind_terms(const ct::corpus_view& v,
+    const std::optional<ops::convention_terms_result>& terms,
+    ct::file_output& out) {
     if (!terms) {
         co::refuse(out, out_path, "the convention kind terms cannot be read "
             "from the ores.ore mapper and the convention models",
@@ -240,19 +243,5 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
 )SQL" + drops + "drop function if exists "
         "ores_refdata_validate_convention_terms_fn();\n");
 }
-
-
-}
-
-const ct::descriptor convention_kind_terms{
-    .name = "convention_kind_terms",
-    .version = 1,
-    .summary = "Writes the convention kind terms seed, their validation "
-               "triggers and the triggers' drops from the ores.ore mapper.",
-    .reads = ct::inputs::of_types({}),
-    .options = {},
-    .rules = co::refusal_rules,
-    .enabled_by_default = false,
-    .run = ct::corpus_function<ct::file_output>{run}};
 
 }

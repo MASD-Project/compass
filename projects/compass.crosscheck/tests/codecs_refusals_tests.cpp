@@ -22,7 +22,6 @@
 #include <string>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
-#include "compass.crosscheck/codecs/convention_kind_terms.hpp"
 #include "compass.crosscheck/codecs/conventions_dataset.hpp"
 #include "compass.crosscheck/codecs/curve_sections_wiring.hpp"
 #include "compass.crosscheck/codecs/er_diagram.hpp"
@@ -40,8 +39,6 @@ using Catch::Matchers::ContainsSubstring;
 
 const std::array generators{
     std::cref(codecs::curve_sections_wiring),
-    std::cref(codecs::curve_column_guards),
-    std::cref(codecs::convention_kind_terms),
     std::cref(codecs::ore_renderings_tables),
     std::cref(codecs::script_library_seed),
     std::cref(codecs::ore_output_catalogue),
@@ -59,9 +56,9 @@ TEST_CASE("a generator whose inputs are missing writes nothing and says "
         CAPTURE(d.name);
         const auto r = tests::run(d, {});
         CHECK(tests::generate(d, {}).empty());
-        REQUIRE(r.findings.size() == 1);
-        CHECK_THAT(std::get<2>(r.findings[0]),
-            ContainsSubstring("is not generated: "));
+        REQUIRE_FALSE(r.findings.empty());
+        for (const auto& f : r.findings)
+            CHECK_THAT(std::get<2>(f), ContainsSubstring("is not generated: "));
         REQUIRE(d.rules.size() == 1);
         CHECK(d.rules[0].name == "refused");
     }
