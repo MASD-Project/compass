@@ -25,7 +25,7 @@ kept otherwise; a hand-edited or deleted output is restored; a file a codec
 no longer produces is removed.
 
 #+begin_src sh :results verbatim
-build/output/linux-clang-release/publish/bin/compass generate
+build/output/linux-clang-release-ninja/publish/bin/compass generate
 #+end_src
 
 The summary line reads, for example:

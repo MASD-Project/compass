@@ -23,7 +23,7 @@ change as a unified diff in git's format, on standard output, with a summary
 on standard error. It writes nothing: no outputs, no records and no cache.
 
 #+begin_src sh :results verbatim
-build/output/linux-clang-release/publish/bin/compass diff
+build/output/linux-clang-release-ninja/publish/bin/compass diff
 #+end_src
 
 The exit status makes it a drift check: 0 when nothing would change, 1 when
@@ -31,7 +31,7 @@ something would, 2 on failure. Use it before committing, or in CI, to prove
 generated files are up to date:
 
 #+begin_src sh :results verbatim
-build/output/linux-clang-release/publish/bin/compass diff > /dev/null && echo up to date
+build/output/linux-clang-release-ninja/publish/bin/compass diff > /dev/null && echo up to date
 #+end_src
 
 * Script

@@ -23,7 +23,7 @@ Pass the commit to =compass check= with =--commit=. Any revision git
 understands works: a branch, a tag, an ID or =HEAD~3=.
 
 #+begin_src sh :results verbatim
-build/output/linux-clang-release/publish/bin/compass check --commit main~5
+build/output/linux-clang-release-ninja/publish/bin/compass check --commit main~5
 #+end_src
 
 The output has the same lines and exit status as =compass check= in a fresh

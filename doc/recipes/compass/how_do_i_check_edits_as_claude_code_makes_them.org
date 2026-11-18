@@ -35,7 +35,7 @@ your =compass= executable is:
         "hooks": [
           {
             "type": "command",
-            "command": "/path/to/compass-ng/build/output/linux-clang-release/publish/bin/compass hook",
+            "command": "/path/to/compass-ng/build/output/linux-clang-release-ninja/publish/bin/compass hook",
             "timeout": 30
           }
         ]
@@ -93,7 +93,7 @@ error, which Claude Code does not show the agent:
 
 #+begin_src sh :results verbatim
 echo '{"tool_name": "Edit", "cwd": "'"$PWD"'", "tool_input": {"file_path": "sql/a.sql"}}' \
-  | build/output/linux-clang-release/publish/bin/compass hook --timings
+  | build/output/linux-clang-release-ninja/publish/bin/compass hook --timings
 #+end_src
 
 On ORE Studio, warm, on eight cores, an edit takes:

@@ -130,7 +130,7 @@ files outside the top-level =build/=, =external/= and =vcpkg/=. The commands:
 
 #+begin_src sh
 python3 build/scripts/org_diff.py <root> \
-    --bench build/output/linux-clang-release/publish/bin/compass-bench \
+    --bench build/output/linux-clang-release-ninja/publish/bin/compass-bench \
     --cache <directory for the org-element dumps>
 #+end_src
 

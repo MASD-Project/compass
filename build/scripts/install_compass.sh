@@ -29,7 +29,7 @@ older link of ours at ~/.local/bin/compass is removed, anything else there is
 left alone.
 
   --from <bin dir>  where the built compass and its compass.manifest are
-                    (default: build/output/linux-clang-release/publish/bin)
+                    (default: build/output/linux-clang-release-ninja/publish/bin)
   --allow-dirty     install a build of a tree with uncommitted changes
 EOF
 }
@@ -40,7 +40,7 @@ fail() {
 }
 
 repository="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-from="$repository/build/output/linux-clang-release/publish/bin"
+from="$repository/build/output/linux-clang-release-ninja/publish/bin"
 opt="$HOME/.local/opt/compass"
 link="$HOME/.local/bin/compass-ng"
 old_link="$HOME/.local/bin/compass"

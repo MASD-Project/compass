@@ -40,7 +40,7 @@ EOF
 
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 root=$(cd "$here/../.." && pwd)
-compass="$root/build/output/linux-clang-release/publish/bin/compass"
+compass="$root/build/output/linux-clang-release-ninja/publish/bin/compass"
 work=""
 keep=no
 while [ $# -gt 0 ]; do

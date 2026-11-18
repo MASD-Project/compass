@@ -26,7 +26,7 @@ Pass =--ratchet= to =compass check=, with the branch or commit to compare
 against:
 
 #+begin_src sh :results verbatim
-build/output/linux-clang-release/publish/bin/compass check --ratchet origin/main
+build/output/linux-clang-release-ninja/publish/bin/compass check --ratchet origin/main
 #+end_src
 
 On a branch of ORE Studio that adds one =create table= to a hand-written

@@ -29,13 +29,13 @@ git submodule update --init
    minute, later ones take seconds:
 
    #+begin_src sh :results verbatim
-cmake --preset linux-clang-release && cmake --build --preset linux-clang-release
+cmake --preset linux-clang-release-ninja && cmake --build --preset linux-clang-release-ninja
 #+end_src
 
 3. /Run it/. The executable is =compass=; =--help= lists the commands:
 
    #+begin_src sh :results verbatim
-build/output/linux-clang-release/publish/bin/compass --help
+build/output/linux-clang-release-ninja/publish/bin/compass --help
 #+end_src
 
 Every command works on the current directory's checkout, or on another with

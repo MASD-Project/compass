@@ -16,15 +16,37 @@
         "VCPKG_MAX_CONCURRENCY": "2"
       },
       "cacheVariables": {
+        "CMAKE_POSITION_INDEPENDENT_CODE": true,
         "CMAKE_CXX_STANDARD": "23",
         "CMAKE_CXX_STANDARD_REQUIRED": true,
         "CMAKE_CXX_EXTENSIONS": false,
-        "CMAKE_EXPORT_COMPILE_COMMANDS": true
+        "CMAKE_FIND_USE_CMAKE_SYSTEM_PATH": "ON",
+        "CMAKE_PREFIX_PATH": ""
       },
       "warnings": {
         "uninitialized": true,
         "dev": false,
-        "deprecated": true
+        "deprecated": true,
+        "systemVars": true
+      },
+      "errors": {
+        "dev": false
+      },
+      "architecture": {
+        "value": "unknown",
+        "strategy": "external"
+      }
+    },
+    {
+      "name": "compiler-configuration",
+      "description": "Variables that only a configure which compiles reads. The vcpkg toolchain consumes the four VCPKG_* and CMAKE_FIND_* entries, and the generator consumes CMAKE_EXPORT_COMPILE_COMMANDS only when there are compile rules.",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": true,
+        "CMAKE_FIND_ROOT_PATH_MODE_PACKAGE": "BOTH",
+        "CMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY": "ON",
+        "VCPKG_INSTALL_OPTIONS": "--clean-after-build",
+        "X_VCPKG_APPLOCAL_DEPS_INSTALL": false
       }
     },
     {
@@ -34,6 +56,14 @@
         "CMAKE_BUILD_TYPE": "Debug"
       },
       "description": "Setup CMake debug build."
+    },
+    {
+      "name": "release-with-debug-build",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      },
+      "description": "Setup CMake release with debug symbols build."
     },
     {
       "name": "release-build",
@@ -52,44 +82,474 @@
       "description": "Setup the Clang C++ compiler."
     },
     {
+      "name": "gcc",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "g++"
+      },
+      "description": "Setup the GCC C++ compiler."
+    },
+    {
+      "name": "unix-compiler-cache-wrapper",
+      "hidden": true,
+      "environment": {
+        "CMAKE_C_COMPILER_LAUNCHER": "${sourceDir}/build/scripts/compiler_cache_wrapper.sh",
+        "CMAKE_CXX_COMPILER_LAUNCHER": "${sourceDir}/build/scripts/compiler_cache_wrapper.sh"
+      },
+      "description": "Seed the compiler-cache-wrapper launcher via environment so CMake picks it up at project()-time. Unix-only: the wrapper is a shell script and is not a valid Win32 executable, so Windows presets must not inherit this and rely on CMakeLists.txt's WIN32-aware launcher logic instead."
+    },
+    {
+      "name": "msvc-cl",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "cl"
+      },
+      "description": "Setup the MSVC C++ compiler."
+    },
+    {
+      "name": "msvc-clang-cl",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "clang-cl"
+      },
+      "description": "Setup the Clang MSVC C++ compiler."
+    },
+    {
       "name": "ninja",
       "hidden": true,
       "generator": "Ninja",
       "description": "Build using the Ninja build tool."
     },
     {
-      "name": "linux-clang-debug",
-      "displayName": "Linux Clang Debug",
+      "name": "make",
+      "hidden": true,
+      "generator": "Unix Makefiles",
+      "cacheVariables": {
+        "CMAKE_COLOR_DIAGNOSTICS": "OFF",
+        "CMAKE_COLOR_MAKEFILE": "OFF"
+      },
+      "description": "Build using Unix Make."
+    },
+    {
+      "name": "linux-clang-debug-ninja",
+      "displayName": "Linux Clang Debug (Ninja)",
       "inherits": [
         "base-configuration",
+        "compiler-configuration",
         "clang",
+        "unix-compiler-cache-wrapper",
         "debug-build",
         "ninja"
       ],
       "description": "compass debug build for Linux Clang using Ninja."
     },
     {
-      "name": "linux-clang-release",
-      "displayName": "Linux Clang Release",
+      "name": "linux-clang-debug-make",
+      "displayName": "Linux Clang Debug (Make)",
       "inherits": [
         "base-configuration",
+        "compiler-configuration",
         "clang",
+        "unix-compiler-cache-wrapper",
+        "debug-build",
+        "make"
+      ],
+      "description": "compass debug build for Linux Clang using Make."
+    },
+    {
+      "name": "linux-clang-release-ninja",
+      "displayName": "Linux Clang Release (Ninja)",
+      "inherits": [
+        "base-configuration",
+        "compiler-configuration",
+        "clang",
+        "unix-compiler-cache-wrapper",
         "release-build",
         "ninja"
       ],
       "description": "compass release build for Linux Clang using Ninja."
+    },
+    {
+      "name": "linux-clang-release-make",
+      "displayName": "Linux Clang Release (Make)",
+      "inherits": [
+        "base-configuration",
+        "compiler-configuration",
+        "clang",
+        "unix-compiler-cache-wrapper",
+        "release-build",
+        "make"
+      ],
+      "description": "compass release build for Linux Clang using Make."
+    },
+    {
+      "name": "linux-gcc-debug-ninja",
+      "displayName": "Linux GCC Debug (Ninja)",
+      "inherits": [
+        "base-configuration",
+        "compiler-configuration",
+        "gcc",
+        "unix-compiler-cache-wrapper",
+        "debug-build",
+        "ninja"
+      ],
+      "description": "compass debug build for Linux GCC using Ninja."
+    },
+    {
+      "name": "linux-gcc-debug-make",
+      "displayName": "Linux GCC Debug (Make)",
+      "inherits": [
+        "base-configuration",
+        "compiler-configuration",
+        "gcc",
+        "unix-compiler-cache-wrapper",
+        "debug-build",
+        "make"
+      ],
+      "description": "compass debug build for Linux GCC using Make."
+    },
+    {
+      "name": "linux-gcc-release-ninja",
+      "displayName": "Linux GCC Release (Ninja)",
+      "inherits": [
+        "base-configuration",
+        "compiler-configuration",
+        "gcc",
+        "unix-compiler-cache-wrapper",
+        "release-build",
+        "ninja"
+      ],
+      "description": "compass release build for Linux GCC using Ninja."
+    },
+    {
+      "name": "linux-gcc-release-make",
+      "displayName": "Linux GCC Release (Make)",
+      "inherits": [
+        "base-configuration",
+        "compiler-configuration",
+        "gcc",
+        "unix-compiler-cache-wrapper",
+        "release-build",
+        "make"
+      ],
+      "description": "compass release build for Linux GCC using Make."
+    },
+    {
+      "name": "windows-arch-x64",
+      "hidden": true,
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "toolset": {
+        "value": "host=x64",
+        "strategy": "external"
+      },
+      "description": "Base configuration for Windows 64-bit"
+    },
+    {
+      "name": "windows-msvc",
+      "displayName": "Windows x64",
+      "hidden": true,
+      "inherits": [
+        "windows-arch-x64",
+        "msvc-cl"
+      ],
+      "cacheVariables": {
+        "CMAKE_MSVC_DEBUG_INFORMATION_FORMAT": "Embedded"
+      },
+      "vendor": {
+        "microsoft.com/VisualStudioSettings/CMake/1.0": {
+          "hostOS": [
+            "Windows"
+          ]
+        }
+      },
+      "description": "Setup the MSVC C++ compiler for Windows."
+    },
+    {
+      "name": "windows-msvc-debug-ninja",
+      "displayName": "Windows x64 Debug (Ninja)",
+      "inherits": [
+        "base-configuration",
+        "compiler-configuration",
+        "windows-msvc",
+        "debug-build",
+        "ninja"
+      ],
+      "description": "compass debug build for Windows MSVC using Ninja."
+    },
+    {
+      "name": "windows-msvc-release-ninja",
+      "displayName": "Windows x64 Release (Ninja)",
+      "inherits": [
+        "base-configuration",
+        "compiler-configuration",
+        "windows-msvc",
+        "release-build",
+        "ninja"
+      ],
+      "description": "compass release build for Windows MSVC using Ninja."
+    },
+    {
+      "name": "windows-msvc-clang-cl",
+      "displayName": "Windows x64",
+      "hidden": true,
+      "inherits": [
+        "msvc-clang-cl",
+        "windows-arch-x64"
+      ],
+      "vendor": {
+        "microsoft.com/VisualStudioSettings/CMake/1.0": {
+          "hostOS": [
+            "Windows"
+          ]
+        }
+      },
+      "description": "Setup the Clang MSVC C++ compiler for Windows."
+    },
+    {
+      "name": "windows-msvc-clang-cl-debug-ninja",
+      "displayName": "Windows x64 Debug (Ninja)",
+      "inherits": [
+        "base-configuration",
+        "compiler-configuration",
+        "windows-msvc-clang-cl",
+        "debug-build",
+        "ninja"
+      ],
+      "description": "compass debug build for Windows Clang MSVC using Ninja."
+    },
+    {
+      "name": "windows-msvc-clang-cl-release-ninja",
+      "displayName": "Windows x64 Release (Ninja)",
+      "inherits": [
+        "base-configuration",
+        "compiler-configuration",
+        "windows-msvc-clang-cl",
+        "release-build",
+        "ninja"
+      ],
+      "description": "compass release build for Windows Clang MSVC using Ninja."
+    },
+    {
+      "name": "windows-clang",
+      "displayName": "Windows x64",
+      "hidden": true,
+      "inherits": [
+        "clang",
+        "windows-arch-x64"
+      ],
+      "vendor": {
+        "microsoft.com/VisualStudioSettings/CMake/1.0": {
+          "hostOS": [
+            "Windows"
+          ]
+        }
+      },
+      "description": "Setup the Clang C++ compiler for Windows."
+    },
+    {
+      "name": "windows-clang-debug-ninja",
+      "displayName": "Windows x64 Debug (Ninja)",
+      "inherits": [
+        "base-configuration",
+        "compiler-configuration",
+        "windows-clang",
+        "debug-build",
+        "ninja"
+      ],
+      "description": "compass debug build for Windows Clang using Ninja."
+    },
+    {
+      "name": "windows-clang-release-ninja",
+      "displayName": "Windows x64 Release (Ninja)",
+      "inherits": [
+        "base-configuration",
+        "compiler-configuration",
+        "windows-clang",
+        "release-build",
+        "ninja"
+      ],
+      "description": "compass release build for Windows Clang using Ninja."
+    },
+    {
+      "name": "macos-clang-debug-ninja",
+      "displayName": "Mac OSX Debug (Ninja)",
+      "inherits": [
+        "base-configuration",
+        "compiler-configuration",
+        "debug-build",
+        "ninja"
+      ],
+      "description": "compass debug build for MacOSX Clang using Ninja."
+    },
+    {
+      "name": "macos-clang-debug-make",
+      "displayName": "Mac OSX Debug (Make)",
+      "inherits": [
+        "base-configuration",
+        "compiler-configuration",
+        "debug-build",
+        "make"
+      ],
+      "description": "compass debug build for MacOSX Clang using Make."
+    },
+    {
+      "name": "macos-clang-release-ninja",
+      "displayName": "Mac OSX Release (Ninja)",
+      "inherits": [
+        "base-configuration",
+        "compiler-configuration",
+        "release-build",
+        "ninja"
+      ],
+      "description": "compass release build for MacOSX Clang using Ninja."
+    },
+    {
+      "name": "macos-clang-release-make",
+      "displayName": "Mac OSX Release (Make)",
+      "inherits": [
+        "base-configuration",
+        "compiler-configuration",
+        "release-build",
+        "make"
+      ],
+      "description": "compass release build for MacOSX Clang using Make."
     }
   ],
   "buildPresets": [
     {
-      "name": "linux-clang-debug",
-      "configurePreset": "linux-clang-debug",
+      "name": "base-build",
+      "hidden": true,
+      "description": "Base build preset inherited by all build presets.",
       "jobs": 2
     },
     {
-      "name": "linux-clang-release",
-      "configurePreset": "linux-clang-release",
-      "jobs": 2
+      "name": "windows-msvc-debug-ninja",
+      "configurePreset": "windows-msvc-debug-ninja",
+      "inherits": [
+        "base-build"
+      ]
+    },
+    {
+      "name": "windows-msvc-release-ninja",
+      "configurePreset": "windows-msvc-release-ninja",
+      "inherits": [
+        "base-build"
+      ]
+    },
+    {
+      "name": "windows-msvc-clang-cl-debug-ninja",
+      "configurePreset": "windows-msvc-clang-cl-debug-ninja",
+      "inherits": [
+        "base-build"
+      ]
+    },
+    {
+      "name": "windows-msvc-clang-cl-release-ninja",
+      "configurePreset": "windows-msvc-clang-cl-release-ninja",
+      "inherits": [
+        "base-build"
+      ]
+    },
+    {
+      "name": "windows-clang-debug-ninja",
+      "configurePreset": "windows-clang-debug-ninja",
+      "inherits": [
+        "base-build"
+      ]
+    },
+    {
+      "name": "windows-clang-release-ninja",
+      "configurePreset": "windows-clang-release-ninja",
+      "inherits": [
+        "base-build"
+      ]
+    },
+    {
+      "name": "linux-clang-debug-ninja",
+      "configurePreset": "linux-clang-debug-ninja",
+      "inherits": [
+        "base-build"
+      ]
+    },
+    {
+      "name": "linux-clang-debug-make",
+      "configurePreset": "linux-clang-debug-make",
+      "inherits": [
+        "base-build"
+      ]
+    },
+    {
+      "name": "linux-clang-release-ninja",
+      "configurePreset": "linux-clang-release-ninja",
+      "inherits": [
+        "base-build"
+      ]
+    },
+    {
+      "name": "linux-clang-release-make",
+      "configurePreset": "linux-clang-release-make",
+      "inherits": [
+        "base-build"
+      ]
+    },
+    {
+      "name": "linux-gcc-debug-ninja",
+      "configurePreset": "linux-gcc-debug-ninja",
+      "inherits": [
+        "base-build"
+      ]
+    },
+    {
+      "name": "linux-gcc-debug-make",
+      "configurePreset": "linux-gcc-debug-make",
+      "inherits": [
+        "base-build"
+      ]
+    },
+    {
+      "name": "linux-gcc-release-ninja",
+      "configurePreset": "linux-gcc-release-ninja",
+      "inherits": [
+        "base-build"
+      ]
+    },
+    {
+      "name": "linux-gcc-release-make",
+      "configurePreset": "linux-gcc-release-make",
+      "inherits": [
+        "base-build"
+      ]
+    },
+    {
+      "name": "macos-clang-debug-ninja",
+      "configurePreset": "macos-clang-debug-ninja",
+      "inherits": [
+        "base-build"
+      ]
+    },
+    {
+      "name": "macos-clang-debug-make",
+      "configurePreset": "macos-clang-debug-make",
+      "inherits": [
+        "base-build"
+      ]
+    },
+    {
+      "name": "macos-clang-release-ninja",
+      "configurePreset": "macos-clang-release-ninja",
+      "inherits": [
+        "base-build"
+      ]
+    },
+    {
+      "name": "macos-clang-release-make",
+      "configurePreset": "macos-clang-release-make",
+      "inherits": [
+        "base-build"
+      ]
     }
   ],
   "testPresets": [
@@ -105,17 +565,401 @@
       }
     },
     {
-      "name": "linux-clang-debug",
-      "configurePreset": "linux-clang-debug",
+      "name": "windows-msvc-release-ninja",
+      "configurePreset": "windows-msvc-release-ninja",
       "inherits": [
         "test-default"
       ]
     },
     {
-      "name": "linux-clang-release",
-      "configurePreset": "linux-clang-release",
+      "name": "windows-msvc-debug-ninja",
+      "configurePreset": "windows-msvc-debug-ninja",
       "inherits": [
         "test-default"
+      ]
+    },
+    {
+      "name": "windows-msvc-clang-cl-release-ninja",
+      "configurePreset": "windows-msvc-clang-cl-release-ninja",
+      "inherits": [
+        "test-default"
+      ]
+    },
+    {
+      "name": "windows-msvc-clang-cl-debug-ninja",
+      "configurePreset": "windows-msvc-clang-cl-debug-ninja",
+      "inherits": [
+        "test-default"
+      ]
+    },
+    {
+      "name": "windows-clang-release-ninja",
+      "configurePreset": "windows-clang-release-ninja",
+      "inherits": [
+        "test-default"
+      ]
+    },
+    {
+      "name": "windows-clang-debug-ninja",
+      "configurePreset": "windows-clang-debug-ninja",
+      "inherits": [
+        "test-default"
+      ]
+    },
+    {
+      "name": "linux-gcc-release-ninja",
+      "configurePreset": "linux-gcc-release-ninja",
+      "inherits": [
+        "test-default"
+      ]
+    },
+    {
+      "name": "linux-gcc-release-make",
+      "configurePreset": "linux-gcc-release-make",
+      "inherits": [
+        "test-default"
+      ]
+    },
+    {
+      "name": "linux-gcc-debug-ninja",
+      "configurePreset": "linux-gcc-debug-ninja",
+      "inherits": [
+        "test-default"
+      ]
+    },
+    {
+      "name": "linux-gcc-debug-make",
+      "configurePreset": "linux-gcc-debug-make",
+      "inherits": [
+        "test-default"
+      ]
+    },
+    {
+      "name": "linux-clang-release-ninja",
+      "configurePreset": "linux-clang-release-ninja",
+      "inherits": [
+        "test-default"
+      ]
+    },
+    {
+      "name": "linux-clang-release-make",
+      "configurePreset": "linux-clang-release-make",
+      "inherits": [
+        "test-default"
+      ]
+    },
+    {
+      "name": "linux-clang-debug-ninja",
+      "configurePreset": "linux-clang-debug-ninja",
+      "inherits": [
+        "test-default"
+      ]
+    },
+    {
+      "name": "linux-clang-debug-make",
+      "configurePreset": "linux-clang-debug-make",
+      "inherits": [
+        "test-default"
+      ]
+    },
+    {
+      "name": "macos-clang-release-ninja",
+      "configurePreset": "macos-clang-release-ninja",
+      "inherits": [
+        "test-default"
+      ]
+    },
+    {
+      "name": "macos-clang-release-make",
+      "configurePreset": "macos-clang-release-make",
+      "inherits": [
+        "test-default"
+      ]
+    },
+    {
+      "name": "macos-clang-debug-ninja",
+      "configurePreset": "macos-clang-debug-ninja",
+      "inherits": [
+        "test-default"
+      ]
+    },
+    {
+      "name": "macos-clang-debug-make",
+      "configurePreset": "macos-clang-debug-make",
+      "inherits": [
+        "test-default"
+      ]
+    }
+  ],
+  "packagePresets": [
+    {
+      "name": "linux-gcc-release-ninja",
+      "packageName": "compass",
+      "packageVersion": "0.0.1",
+      "displayName": "Distribute Release",
+      "configurePreset": "linux-gcc-release-ninja",
+      "generators": [
+        "DEB"
+      ],
+      "configurations": [
+        "Release"
+      ]
+    },
+    {
+      "name": "linux-gcc-release-make",
+      "packageName": "compass",
+      "packageVersion": "0.0.1",
+      "displayName": "Distribute Release",
+      "configurePreset": "linux-gcc-release-make",
+      "generators": [
+        "DEB"
+      ],
+      "configurations": [
+        "Release"
+      ]
+    },
+    {
+      "name": "linux-clang-release-ninja",
+      "packageName": "compass",
+      "packageVersion": "0.0.1",
+      "displayName": "Distribute Release",
+      "configurePreset": "linux-clang-release-ninja",
+      "generators": [
+        "DEB"
+      ],
+      "configurations": [
+        "Release"
+      ]
+    },
+    {
+      "name": "linux-clang-release-make",
+      "packageName": "compass",
+      "packageVersion": "0.0.1",
+      "displayName": "Distribute Release",
+      "configurePreset": "linux-clang-release-make",
+      "generators": [
+        "DEB"
+      ],
+      "configurations": [
+        "Release"
+      ]
+    }
+  ],
+  "workflowPresets": [
+    {
+      "description": "Developer workflow without installation",
+      "name": "linux-clang-debug-ninja",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "linux-clang-debug-ninja"
+        },
+        {
+          "type": "build",
+          "name": "linux-clang-debug-ninja"
+        },
+        {
+          "type": "test",
+          "name": "linux-clang-debug-ninja"
+        }
+      ]
+    },
+    {
+      "description": "Developer workflow without installation",
+      "name": "linux-clang-debug-make",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "linux-clang-debug-make"
+        },
+        {
+          "type": "build",
+          "name": "linux-clang-debug-make"
+        },
+        {
+          "type": "test",
+          "name": "linux-clang-debug-make"
+        }
+      ]
+    },
+    {
+      "description": "Developer workflow without installation",
+      "name": "linux-clang-release-ninja",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "linux-clang-release-ninja"
+        },
+        {
+          "type": "build",
+          "name": "linux-clang-release-ninja"
+        },
+        {
+          "type": "test",
+          "name": "linux-clang-release-ninja"
+        }
+      ]
+    },
+    {
+      "description": "Developer workflow without installation",
+      "name": "linux-clang-release-make",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "linux-clang-release-make"
+        },
+        {
+          "type": "build",
+          "name": "linux-clang-release-make"
+        },
+        {
+          "type": "test",
+          "name": "linux-clang-release-make"
+        }
+      ]
+    },
+    {
+      "description": "Developer workflow without installation",
+      "name": "linux-gcc-debug-ninja",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "linux-gcc-debug-ninja"
+        },
+        {
+          "type": "build",
+          "name": "linux-gcc-debug-ninja"
+        },
+        {
+          "type": "test",
+          "name": "linux-gcc-debug-ninja"
+        }
+      ]
+    },
+    {
+      "description": "Developer workflow without installation",
+      "name": "linux-gcc-debug-make",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "linux-gcc-debug-make"
+        },
+        {
+          "type": "build",
+          "name": "linux-gcc-debug-make"
+        },
+        {
+          "type": "test",
+          "name": "linux-gcc-debug-make"
+        }
+      ]
+    },
+    {
+      "description": "Developer workflow without installation",
+      "name": "linux-gcc-release-ninja",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "linux-gcc-release-ninja"
+        },
+        {
+          "type": "build",
+          "name": "linux-gcc-release-ninja"
+        },
+        {
+          "type": "test",
+          "name": "linux-gcc-release-ninja"
+        }
+      ]
+    },
+    {
+      "description": "Developer workflow without installation",
+      "name": "linux-gcc-release-make",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "linux-gcc-release-make"
+        },
+        {
+          "type": "build",
+          "name": "linux-gcc-release-make"
+        },
+        {
+          "type": "test",
+          "name": "linux-gcc-release-make"
+        }
+      ]
+    },
+    {
+      "description": "Developer workflow without installation",
+      "name": "macos-clang-debug-ninja",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "macos-clang-debug-ninja"
+        },
+        {
+          "type": "build",
+          "name": "macos-clang-debug-ninja"
+        },
+        {
+          "type": "test",
+          "name": "macos-clang-debug-ninja"
+        }
+      ]
+    },
+    {
+      "description": "Developer workflow without installation",
+      "name": "macos-clang-debug-make",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "macos-clang-debug-make"
+        },
+        {
+          "type": "build",
+          "name": "macos-clang-debug-make"
+        },
+        {
+          "type": "test",
+          "name": "macos-clang-debug-make"
+        }
+      ]
+    },
+    {
+      "description": "Developer workflow without installation",
+      "name": "macos-clang-release-ninja",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "macos-clang-release-ninja"
+        },
+        {
+          "type": "build",
+          "name": "macos-clang-release-ninja"
+        },
+        {
+          "type": "test",
+          "name": "macos-clang-release-ninja"
+        }
+      ]
+    },
+    {
+      "description": "Developer workflow without installation",
+      "name": "macos-clang-release-make",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "macos-clang-release-make"
+        },
+        {
+          "type": "build",
+          "name": "macos-clang-release-make"
+        },
+        {
+          "type": "test",
+          "name": "macos-clang-release-make"
+        }
       ]
     }
   ]

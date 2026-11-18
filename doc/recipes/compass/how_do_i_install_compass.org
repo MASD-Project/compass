@@ -23,7 +23,7 @@ do I tell exactly which build is installed?
 1. /Build/ from a clean tree; see
    [[id:B99A4028-CA7F-495E-855B-D3A8DDBBEED4][How do I build and run compass?]].
    The build writes =compass.manifest= beside the binary in
-   =build/output/linux-clang-release/publish/bin/=. A commit that touches no
+   =build/output/linux-clang-release-ninja/publish/bin/=. A commit that touches no
    component source changes only the manifest, so the build after it
    recompiles and relinks nothing.
 
