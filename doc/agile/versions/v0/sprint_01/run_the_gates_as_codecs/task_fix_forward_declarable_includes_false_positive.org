@@ -26,11 +26,11 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-17                               |
 
 * Acceptance
@@ -40,9 +40,10 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Plan
 
-- Reported by the pilot in =ores_dev_solid_dirac= on compass =0071eb0=: the
-  header uses =transaction='s definition in a function template's body and
-  trailing return type, and the shared C++ model misses those uses.
+- Reported by the pilot in =ores_dev_solid_dirac= on compass =0071eb0=. The
+  pilot's guess was that the shared C++ model misses =transaction='s uses in
+  a function template; the reproduction showed the cause is elsewhere (see
+  Result).
 - Reproduce on a read-only export of the pilot's tree, find why the model
   misses the uses, fix the model, and compare the verdict with the Python
   gate over the whole tree.
@@ -59,7 +60,10 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Pilot tree f8b71f178a, 12,098 headers | Python 0; compass (new default) 0; compass (545cafca45 list) 1 | =fdi-compare.sh= | 650617b |
+| ORE 545cafca45, 11,994 headers | Python 1; compass with the tree's own list 1, the same offender | =fdi-compare.sh= | 2351295 |
+| ORE copy with the refreshed default | one =stale_type_list= finding naming the =session_context= row | =compass check= | 2351295 |
+| ctest | 15 of 15 suites pass | =ctest --preset linux-clang-release= | 7dd9132 |
 
 * Notes
 
@@ -87,3 +91,20 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+The false positive came from ORE Studio policy compiled into compass, not
+from the C++ model. The gate's default =types= was ORE's
+=forward_declarable_types.list= as it stood at 545cafca45, where
+=pq/transaction.hpp= defined =session_context=; ORE has since moved that type
+into its own header. Given the pilot's own list, compass reports nothing, and
+ORE's Python script given the old list reports the same finding; the model
+sees every use of =transaction= (a test proves it).
+
+- The default now places =session_context= in its own header.
+- =forward_declarable_includes/stale_type_list= reports, on ORE's list file,
+  any difference between that file (option =list_file=, by default
+  =build/scripts/forward_declarable_types.list=) and the =types= in effect,
+  naming each row and giving the exact =types== value to set, so the next
+  edit to ORE's list is loud rather than silent.
+- =forward_declarable_includes/type_not_defined= reports a listed defining
+  header that no longer defines its type.
