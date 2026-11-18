@@ -26,11 +26,11 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-17                               |
 
 * Acceptance
@@ -58,7 +58,12 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| CPU of the moved gates in a model-edit hook | 312 ms before, 21 ms after (agent) | =compass hook --timings= | 40c2718 |
+| CPU of the moved gates, cold | about 660 ms before, 63 ms after (agent) | =compass check --timings= | 40c2718 |
+| Model-gate findings on ORE | identical under the new codec; +2 curve wiring files the older tree lacks | =mrw/run.sh= | 40c2718 |
+| Curve wiring on the pilot's tree | seven outputs byte-identical; a plant in each of the four wiring files is drift | export comparison | 40c2718 |
+| Warm ORE check | 4.64 s at load 31; 245 findings | =compass check= | b238b5a |
+| ctest | 15 of 15 suites pass | =ctest --preset linux-clang-release= | b238b5a |
 
 * Notes
 
@@ -86,3 +91,26 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+=model_rules= is one per-model scan over each model's parsed outline (the
+view compass.model's loaders read). It holds money_decimal_columns,
+http_areas, model_drift, subject_conformance's model half and protocol_twins'
+opt-out; an edited model maps alone, and the rules keep their names under
+=model_rules/=. The three floors the regexes needed are gone, because a
+parsed outline cannot go blind. curve_column_guards is folded into
+curve_sections_wiring, which computes the wiring once for all seven files;
+convention_kind_terms is folded into ore_value_sets.
+
+The pilot's defect is fixed here: curve_sections_wiring now writes
+=curve_section_wiring.hpp= and =.cpp= as the generator does, through
+clang-format, byte-identical on the pilot's tree.
+
+Left for [[id:7EFC3933-2682-4BB7-89E4-64C78CE1E5BB][Finish the model rules pass]]: generated_column_refs,
+entity_binary_types, open_reads, marketdata_identity_columns and route_units
+still read regexes, and the curve wiring and convention terms are still
+derived by more than one codec until the runtime can share prepared state.
+
+An install needs ORE Studio's =.compass.org= to drop the rows for
+money_decimal_columns, http_areas, model_drift, curve_column_guards and
+convention_kind_terms, add =model_rules=, and set =clang_format= on
+curve_sections_wiring.
