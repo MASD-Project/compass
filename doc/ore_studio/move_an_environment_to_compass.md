@@ -30,6 +30,11 @@ mattered):
   - Generator gates (tangles, inventories, seeds, the cmake source lists and
     others) are codec outputs, so their drift is a `compass-ng check` finding and
     `compass-ng generate` replaces the script.
+  - On ORE Studio's main at `05e6d19756` every generator codec still writes
+    every file its Python generator writes, byte-identical, and a plant in
+    each output is drift. The compass repository's
+    `build/scripts/verify_generators.sh <export>` repeats that comparison;
+    run it there when ORE Studio changes a generator.
 - **Ratchet.** `compass-ng check --ratchet [<base>]` fails only on findings that
   are new since the merge base. The base defaults to the upstream, else
   `origin/main`.

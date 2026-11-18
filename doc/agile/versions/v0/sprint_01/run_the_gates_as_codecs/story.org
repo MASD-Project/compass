@@ -70,6 +70,7 @@ One compass check command runs every ORE Studio gate that needs no build in seco
 | [[id:39A34E18-A32D-466F-B1F2-979A63DACF47][Fix the forward_declarable_includes false positive]] | DONE | 2026-11-17 | 2026-11-18 | Stop forward_declarable_includes reporting a header that uses a type's full definition inside a function template, a regression the pilot found in 0071eb0. |
 | [[id:7EFC3933-2682-4BB7-89E4-64C78CE1E5BB][Finish the model rules pass]] | BACKLOG | | | Move the model gates the first pass left on regexes onto model_rules or the codegen context: generated_column_refs, entity_binary_types, open_reads, marketdata_identity_columns and route_units. |
 | [[id:8E97D252-4663-403F-AB23-37DE1F2D3AEE][State exceptions in .compass.org]] | DONE | 2026-11-18 | 2026-11-18 | Let a checkout state exceptions in .compass.org, by path, line and rule, so findings in generated files can be excused without editing them. |
+| [[id:F86B6DED-00E9-45DA-9C39-804A3647FA0F][Re-verify generators on current ORE Studio]] | DONE | 2026-11-18 | 2026-11-18 | Check every generator codec byte-identical to its Python generator on ORE Studio's current main, since the ports were verified on 545cafca45 and ORE's generators have moved on. |
 
 * Decisions
 

@@ -1,0 +1,108 @@
+:PROPERTIES:
+:ID: F86B6DED-00E9-45DA-9C39-804A3647FA0F
+:END:
+#+title: Task: Re-verify generators on current ORE Studio
+#+description: Check every generator codec byte-identical to its Python generator on ORE Studio's current main, since the ports were verified on 545cafca45 and ORE's generators have moved on.
+#+type: task
+#+level: s1
+#+filetags: :run_the_gates_as_codecs:sprint_01:v0:
+#+owner: marco
+#+branch: feature/reverify-generators-on-current-ore
+#+pr: https://github.com/MASD-Project/compass/pull/68
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-11-18
+#+updated: 2026-11-18
+#+environment:
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+(Describe what user-visible-or-internal change this task produces.)
+
+* Status
+
+| Field        | Value                                  |
+|--------------+----------------------------------------|
+| State        | DONE                              |
+| Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
+| Now          | Nothing. |
+| Waiting on   | Nothing.                               |
+| Next         | Nothing. |
+| Last touched | 2026-11-18                               |
+
+* Acceptance
+
+- Every generator codec writes every file its Python generator writes on ORE Studio's current main, byte-identical, and a plant in each output is drift.
+- Each difference found is fixed, or recorded with its cause when it is ORE Studio's drift rather than compass's.
+- A repeatable script runs the comparison, so it can be rerun when ORE Studio changes a generator.
+
+* Plan
+
+- The pilot found curve_sections_wiring missing two outputs ORE Studio
+  added after 545cafca45, the tree every port was verified on.
+- For each generator codec: run its Python generator on a read-only export of
+  ORE Studio main, list every file it writes, and compare with compass's
+  outputs for the same tree; plant a change in each output.
+- Build the comparison as a script kept in the repository.
+
+* Measurements
+
+Every number this task claims about a tree, with the command that produced it
+and the commit it was measured at. A number without both is not a measurement,
+because a clean-up record describes a tree and trunk moves under a branch: a
+consumer count, a gate's component count and a suite's size all change with no
+code changing, and the reader of a bare number cannot tell which tree it came
+from. Where the raw output matters, put it in an =evidence/= file beside the
+task and name that file in the Command column.
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+| Generator codecs on ORE 05e6d19756 | 20 codecs; every file the Python writes compass writes, byte-identical; every plant drift | =build/scripts/verify_generators.sh= (=evidence/verify_generators_05e6d19756.txt=) | 3ba444c |
+| Codegen on ORE 05e6d19756 | 832 units, 0 drift against the committed tree; a hand plant reported | =compass check= | 3ba444c |
+| Full verification run | 5 min 39 s | =verify_generators.sh= | 3ba444c |
+
+* Notes
+
+* Test Scenarios
+
+Manual QA scenarios (scaffolded via =compass add test_scenario=)
+that verify this task. Link
+new ones here as they're created; the scenario doc itself links back
+via its "Verifies task" field.
+
+| Scenario | State | Notes |
+|----------+-------+-------|
+|          |       |       |
+
+* PRs
+
+| PR | Title |
+|----+-------|
+| [[https://github.com/MASD-Project/compass/pull/68][#68]] | [build] Re-verify the generators on current ORE Studio |
+
+* Review
+
+| # | Comment summary | File | Decision | Notes |
+|---+-----------------+------+----------+-------|
+|   |                 |      |          |       |
+
+* Result
+
+Every generator codec still matches its Python generator on ORE Studio main
+05e6d19756 (the merge of ORE Studio PR #4839): the same files, byte for byte,
+and a plant in each is drift; codegen reports no drift against ORE's
+committed tree. No compass fix was needed.
+
+=build/scripts/verify_generators.sh= reruns the comparison on any ORE export:
+for each generator it runs =compass generate --out= with only that codec, runs
+the Python generator in write mode on a clone, compares the files, plants a
+change in each output and requires drift on exactly those files, and probes
+for outputs a generator skips when they are current. It exits 1 on any
+difference, so a change to an ORE generator can be checked before an install.
+
+Known blind spots: an output touched only on a line the plant leaves alone
+(skill levels' =#+level:= lines, deliberately not ported), and outputs a
+generator skips when its JSON or XML inputs are unchanged.
