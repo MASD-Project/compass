@@ -47,52 +47,6 @@ std::string read(const ct::corpus_view& v, std::string_view path) {
         v.read_file(path).value_or("")));
 }
 
-constexpr std::array<ct::rule, 2> area_rules{{
-    {"unpublished_area", "Every #+http_area: a model declares is a "
-        "published area."},
-    {"unreadable_areas", "The route classification module states AREAS "
-        "and NO_AREA as literals."}}};
-
-constexpr std::array<ct::option, 1> area_options{{
-    {"classification", "build/scripts/route_classification.py",
-        "The Python module whose AREAS and NO_AREA name the published "
-        "areas."}}};
-
-void http_area_run(const ct::corpus_view& v, ct::diagnostic_table& out) {
-    static const pt::regex declaration(R"(^#\+http_area:\s*(\S+)\s*$)",
-        {.multiline = true});
-    const auto module_path = v.option("classification");
-    const auto module = read(v, module_path);
-    const auto areas = ops::python_assignment(module, "AREAS");
-    const auto none = ops::python_assignment(module, "NO_AREA");
-    const auto names = areas ? ops::strings_of(*areas) : std::nullopt;
-    if (!names || !none || none->what != ops::python_value::kind::string) {
-        co::report(out, module_path, 0, 1, "AREAS or NO_AREA is not a "
-            "literal this check can read", "Keep AREAS a tuple of strings "
-            "and NO_AREA a string.");
-        return;
-    }
-    std::set<std::string> published(names->begin(), names->end());
-    published.erase(none->text);
-    std::string listed;
-    for (const auto& a : published)
-        listed += (listed.empty() ? "" : ", ") + a;
-    for (const auto path : co::glob(v, "projects/*/modeling/*.org")) {
-        const auto bytes = v.read_file(path).value_or("");
-        const auto text = pt::universal_newlines(pt::decode_replacing(bytes));
-        for (const auto& m : declaration.find_all(text)) {
-            const std::string area(m.group(1));
-            if (published.contains(area))
-                continue;
-            co::report(out, path, co::offset_of_line(bytes,
-                co::line_of(text, m.start())), 0, "declares http_area '" +
-                area + "', which is not a published area; published areas: " +
-                listed, "Add the area to route_classification.AREAS, or use "
-                "a published one.");
-        }
-    }
-}
-
 constexpr std::array<ct::rule, 3> route_rules{{
     {"unregistered_unit", "A component's route aggregate registers the "
         "route unit of every model that opts into one."},
@@ -256,17 +210,6 @@ void registry_exception_run(const ct::corpus_view& v,
 }
 
 }
-
-const ct::descriptor http_areas{
-    .name = "http_areas",
-    .version = 1,
-    .summary = "Reports each HTTP area a model declares that is not "
-        "published.",
-    .reads = ct::inputs::of_types({}),
-    .options = area_options,
-    .rules = area_rules,
-    .enabled_by_default = false,
-    .run = ct::corpus_function<ct::diagnostic_table>{http_area_run}};
 
 const ct::descriptor route_units{
     .name = "route_units",

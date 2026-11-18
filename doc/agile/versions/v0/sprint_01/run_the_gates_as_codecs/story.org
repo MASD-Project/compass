@@ -66,8 +66,9 @@ One compass check command runs every ORE Studio gate that needs no build in seco
 | [[id:6462BCC8-0BD3-4FD3-8058-A0D5F11825F9][Share one SQL pass]] | DONE | 2026-11-17 | 2026-11-17 | Replace the SQL gates' separate regex parsers with one SQL lexer and one table, call and include model that every SQL gate reads, and make populate_refs a scan. |
 | [[id:DAFC0050-BA23-43F7-97DA-8C3BC819CDC3][Share one C++ pass]] | DONE | 2026-11-17 | 2026-11-17 | Replace the C++ gates' separate comment blankers and scans with one C++ lexer and per-file facts that every C++ gate reads. |
 | [[id:BF5D53B7-95EF-4632-97D2-05774E4020C4][Share passes over org documents]] | DONE | 2026-11-17 | 2026-11-18 | Move the org gates from regexes onto compass's parsed tables, with one per-page codec and one ID-link graph pass. |
-| [[id:FA2071BD-7E67-4632-A4EB-40C7B40D537A][Run model rules over loaded models]] | BACKLOG | | | Replace the gates that regex raw model files with one per-model rules codec over the models compass already loads. |
+| [[id:FA2071BD-7E67-4632-A4EB-40C7B40D537A][Run model rules over loaded models]] | DONE | 2026-11-18 | 2026-11-18 | Replace the gates that regex raw model files with one per-model rules codec over the models compass already loads. |
 | [[id:39A34E18-A32D-466F-B1F2-979A63DACF47][Fix the forward_declarable_includes false positive]] | DONE | 2026-11-17 | 2026-11-18 | Stop forward_declarable_includes reporting a header that uses a type's full definition inside a function template, a regression the pilot found in 0071eb0. |
+| [[id:7EFC3933-2682-4BB7-89E4-64C78CE1E5BB][Finish the model rules pass]] | BACKLOG | | | Move the model gates the first pass left on regexes onto model_rules or the codegen context: generated_column_refs, entity_binary_types, open_reads, marketdata_identity_columns and route_units. |
 
 * Decisions
 

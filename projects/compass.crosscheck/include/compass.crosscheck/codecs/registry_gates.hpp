@@ -25,18 +25,6 @@
 namespace compass::crosscheck::codecs {
 
 /**
- * @brief ORE Studio's http-areas gate (check_http_areas.py): every HTTP
- * area a model declares is published.
- *
- * Rule unpublished_area: a #+http_area: line of an org file directly under
- * projects/<component>/modeling/ naming an area outside AREAS, less
- * NO_AREA, of the classification module, which the codec reads as Python
- * literals. Rule unreadable_areas: the module does not state them as
- * literals.
- */
-extern const compass::codec::types::descriptor http_areas;
-
-/**
  * @brief ORE Studio's route-units gate (check_route_units.py): every route
  * unit a component opts into is registered by its aggregate.
  *

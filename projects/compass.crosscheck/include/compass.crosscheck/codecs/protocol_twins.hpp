@@ -34,9 +34,8 @@ namespace compass::crosscheck::codecs {
  * COMPONENTS_UNDER_TEST lists, under its name or without a -cpp suffix, and
  * whose twin directory holds a file, is checked: rule missing_twin reports
  * each api/include/<name>/messaging/<x>_protocol.hpp of its project with no
- * <x>_protocol.ts there. Rule opt_out: a model under a modeling/ directory
- * holds the :ores.ts.protocol.enabled: key. Rule unreadable_inputs: the
- * registry is not a literal.
+ * <x>_protocol.ts there. Rule unreadable_inputs: the registry is not a
+ * literal. A model that switches the facet off is model_rules' opt_out.
  */
 extern const compass::codec::types::descriptor protocol_twins;
 

@@ -44,16 +44,15 @@ namespace co = compass::cpp::ops;
 namespace cg = compass::codegen::ops;
 namespace pt = compass::platform::text;
 
-enum rule : std::uint32_t { missing_twin, opt_out, unreadable_inputs };
+enum rule : std::uint32_t { missing_twin, unreadable_inputs };
 
 constexpr std::array<std::string_view, 1> missing_twin_sources{
     "7B477025-132E-4B20-80B4-D8C9420880B8"};
 
-constexpr std::array<ct::rule, 3> rules{{
+constexpr std::array<ct::rule, 2> rules{{
     {"missing_twin", "Every generated protocol header of a listed component "
         "with committed TypeScript protocol output has its TypeScript "
         "twin.", missing_twin_sources},
-    {"opt_out", "No model switches the TypeScript protocol facet off."},
     {"unreadable_inputs", "The template library and the component registry "
         "read as the check expects."}}};
 
@@ -169,35 +168,15 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
             }
         }
     }
-
-    constexpr std::string_view key = ":ores.ts.protocol.enabled:";
-    for (const auto path : v.list_files("projects/", ".org")) {
-        const auto parts = co::components_of(path);
-        if (parts.size() < 4 || parts[2] != "modeling")
-            continue;
-        const auto bytes = v.read_file(path).value_or("");
-        if (!bytes.contains(key))
-            continue;
-        const auto text = pt::universal_newlines(pt::decode_replacing(bytes));
-        std::uint32_t number = 0;
-        for (const auto line : co::split_lines(text)) {
-            ++number;
-            if (line.contains(key))
-                co::report(out, path, co::offset_of_line(bytes, number),
-                    opt_out, "the model opts out of the TypeScript protocol "
-                    "facet: " + std::string(co::strip(line)), "Remove the "
-                    "key, so no model silences the facet.");
-        }
-    }
 }
 
 }
 
 const ct::descriptor protocol_twins{
     .name = "protocol_twins",
-    .version = 1,
+    .version = 2,
     .summary = "Reports each generated protocol header with no TypeScript "
-        "twin, and each model that opts out of the twin.",
+        "twin.",
     .reads = ct::inputs::of_types({}),
     .options = options,
     .rules = rules,

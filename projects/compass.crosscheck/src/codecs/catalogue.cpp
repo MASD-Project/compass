@@ -20,7 +20,6 @@
 #include "compass.crosscheck/codecs/catalogue.hpp"
 
 #include <array>
-#include "compass.crosscheck/codecs/convention_kind_terms.hpp"
 #include "compass.crosscheck/codecs/conventions_coverage.hpp"
 #include "compass.crosscheck/codecs/conventions_dataset.hpp"
 #include "compass.crosscheck/codecs/curve_sections_wiring.hpp"
@@ -29,8 +28,7 @@
 #include "compass.crosscheck/codecs/entity_writes.hpp"
 #include "compass.crosscheck/codecs/generated_column_refs.hpp"
 #include "compass.crosscheck/codecs/marketdata_identity_columns.hpp"
-#include "compass.crosscheck/codecs/model_drift.hpp"
-#include "compass.crosscheck/codecs/money_decimal_columns.hpp"
+#include "compass.crosscheck/codecs/model_rules.hpp"
 #include "compass.crosscheck/codecs/open_reads.hpp"
 #include "compass.crosscheck/codecs/ore_output_catalogue.hpp"
 #include "compass.crosscheck/codecs/ore_renderings_tables.hpp"
@@ -46,11 +44,11 @@ namespace compass::crosscheck::codecs {
 
 std::span<const compass::codec::types::descriptor> catalogue() noexcept {
     static const auto all = [] {
-        std::array<compass::codec::types::descriptor, 25> out{
-            convention_kind_terms, conventions_coverage, conventions_dataset,
-            curve_column_guards, curve_sections_wiring, entity_binary_types,
-            entity_writes, er_diagram, generated_column_refs, http_areas,
-            marketdata_identity_columns, model_drift, money_decimal_columns,
+        std::array<compass::codec::types::descriptor, 21> out{
+            conventions_coverage, conventions_dataset,
+            curve_sections_wiring, entity_binary_types,
+            entity_writes, er_diagram, generated_column_refs,
+            marketdata_identity_columns, model_rules,
             open_reads, ore_output_catalogue, ore_renderings_tables,
             ore_value_sets, parameter_value_sets, protocol_twins,
             registry_exceptions, route_inventory, route_units,

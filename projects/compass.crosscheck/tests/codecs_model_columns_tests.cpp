@@ -19,7 +19,6 @@
  */
 #include <catch2/catch_test_macros.hpp>
 #include "compass.crosscheck/codecs/entity_binary_types.hpp"
-#include "compass.crosscheck/codecs/money_decimal_columns.hpp"
 #include "test_checkout.hpp"
 
 namespace {
@@ -27,60 +26,6 @@ namespace {
 using namespace compass::crosscheck;
 using tests::files;
 
-std::vector<std::string> messages(const tests::outcome& r) {
-    std::vector<std::string> out;
-    for (const auto& [path, line, message] : r.findings)
-        out.push_back(path + ":" + std::to_string(line) + ": " + message);
-    return out;
-}
-
-}
-
-TEST_CASE("a money column typed inexactly and a continuous one typed exact "
-    "are reported", "[codecs][money_decimal_columns]") {
-    const files t{
-        {"projects/ores.trading/modeling/ores.trading.swap.org",
-         "* Columns\n"
-         "** notional_amount\n:type: double precision\n:cpp_type: double\n"
-         "** strike\n:type: numeric(38,12)\n:cpp_type: decimal\n"
-         "** face_value\n:type: text\n:cpp_type: std::string\n"
-         "** recovery_rate\n:type: numeric\n"
-         "** premium_date\n:type: date\n"
-         "** price\n:type: NUMERIC(38, 12)\n:cpp_type: std::optional<double>\n"
-         "* Left\n:column: margin\n:type: real\n"},
-        {"projects/ores.trading/core/modeling/ores.trading.fee_field_group.org",
-         "** fee\n:cpp_type: std::string\n** weight\n:cpp_type: decimal\n"},
-        {"projects/ores.trading/modeling/ores.trading.fx_variance_swap_instrument.org",
-         "** strike\n:type: numeric\n"},
-        {"projects/ores.synthetic/modeling/ores.synthetic.ir_curve_generation_config.org",
-         "** initial_rate\n:type: double precision\n"}};
-    CHECK(messages(tests::run(codecs::money_decimal_columns, t,
-            {{"min_columns", "1"}})) == std::vector<std::string>{
-        "projects/ores.trading/core/modeling/ores.trading.fee_field_group.org:1: "
-        "fee is money, typed sql=(embedded) cpp=std::string",
-        "projects/ores.trading/core/modeling/ores.trading.fee_field_group.org:3: "
-        "weight is a continuous quantity, typed sql=(embedded) cpp=decimal",
-        "projects/ores.trading/modeling/ores.trading.fx_variance_swap_instrument.org:1: "
-        "strike is a continuous quantity, typed sql=numeric cpp=-",
-        "projects/ores.trading/modeling/ores.trading.swap.org:2: "
-        "notional_amount is money, typed sql=double precision cpp=double",
-        "projects/ores.trading/modeling/ores.trading.swap.org:8: "
-        "face_value is money, typed sql=text cpp=std::string",
-        "projects/ores.trading/modeling/ores.trading.swap.org:11: "
-        "recovery_rate is a continuous quantity, typed sql=numeric cpp=-",
-        "projects/ores.trading/modeling/ores.trading.swap.org:15: "
-        "price is money, typed sql=NUMERIC(38, 12) "
-        "cpp=std::optional<double>",
-        "projects/ores.trading/modeling/ores.trading.swap.org:19: "
-        "margin is money, typed sql=real cpp=-"});
-}
-
-TEST_CASE("a tree with too few columns is a finding, not a pass",
-    "[codecs][money_decimal_columns]") {
-    const files t{{"projects/ores.a/modeling/a.org", "** amount\n"}};
-    const auto r = tests::run(codecs::money_decimal_columns, t);
-    REQUIRE(r.findings.size() == 1);
-    CHECK(std::get<0>(r.findings[0]) == "projects");
 }
 
 TEST_CASE("a row binds each column in its table's binary format",

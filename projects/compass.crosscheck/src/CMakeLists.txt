@@ -20,18 +20,15 @@ set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
     codecs/catalogue.cpp
-    codecs/convention_kind_terms.cpp
     codecs/conventions_coverage.cpp
     codecs/conventions_dataset.cpp
-    codecs/curve_column_guards.cpp
     codecs/curve_sections_wiring.cpp
     codecs/entity_binary_types.cpp
     codecs/entity_writes.cpp
     codecs/er_diagram.cpp
     codecs/generated_column_refs.cpp
     codecs/marketdata_identity_columns.cpp
-    codecs/model_drift.cpp
-    codecs/money_decimal_columns.cpp
+    codecs/model_rules.cpp
     codecs/open_reads.cpp
     codecs/ore_output_catalogue.cpp
     codecs/ore_renderings_tables.cpp
@@ -42,6 +39,7 @@ add_library(${lib_target_name}
     codecs/subject_conformance.cpp
     codecs/template_sections.cpp
     codecs/value_sets.cpp
+    ops/convention_kind_terms.cpp
     ops/csv.cpp
     ops/curve_wiring.cpp
     ops/json_value.cpp
@@ -50,6 +48,7 @@ add_library(${lib_target_name}
     ops/projection_columns.cpp
     ops/python_numbers.cpp
     ops/python_literals.cpp
+    ops/subjects.cpp
     ops/value_sets.cpp
     ops/words.cpp)
 

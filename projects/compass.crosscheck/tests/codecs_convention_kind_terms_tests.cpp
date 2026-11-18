@@ -17,7 +17,7 @@
  * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  */
-#include "compass.crosscheck/codecs/convention_kind_terms.hpp"
+#include "compass.crosscheck/codecs/value_sets.hpp"
 
 #include <string>
 #include <catch2/catch_test_macros.hpp>
@@ -247,8 +247,8 @@ void replace(std::string& text, const std::string& from,
 }
 
 TEST_CASE("the terms are the mapper's reads under each reader's path, with "
-    "their triggers by entity", "[codecs][convention_kind_terms]") {
-    const auto out = tests::generate(codecs::convention_kind_terms, tree());
+    "their triggers by entity", "[codecs][ore_value_sets]") {
+    const auto out = tests::generate(codecs::ore_value_sets, tree());
     REQUIRE(out.size() == 3);
     CHECK(out.at(populate_path).find(expected_values) != std::string::npos);
     CHECK(out.at(create_path).ends_with(expected_triggers));
@@ -256,27 +256,27 @@ TEST_CASE("the terms are the mapper's reads under each reader's path, with "
 }
 
 TEST_CASE("a read the generator cannot attribute writes nothing until the "
-    "script's own table exempts it", "[codecs][convention_kind_terms]") {
+    "script's own table exempts it", "[codecs][ore_value_sets]") {
     auto t = tree();
     replace(t.at(fx_path), "    r.spot_days", "    r.id = text_of(v, \"Id\");\n"
         "    r.spot_days");
-    CHECK(tests::generate(codecs::convention_kind_terms, t).empty());
+    CHECK(tests::generate(codecs::ore_value_sets, t).empty());
     replace(t.at(script_path), "NOT_A_COLUMN = {\n",
         "NOT_A_COLUMN = {\n    (\"CURRENCY_PAIR\", \"r\", \"id\"): \"planted\",\n");
-    CHECK(tests::generate(codecs::convention_kind_terms, t) ==
-        tests::generate(codecs::convention_kind_terms, tree()));
+    CHECK(tests::generate(codecs::ore_value_sets, t) ==
+        tests::generate(codecs::ore_value_sets, tree()));
 }
 
 TEST_CASE("a leaf the ORE parser does not read, or a kind outside the asset "
-    "classes, writes nothing", "[codecs][convention_kind_terms]") {
+    "classes, writes nothing", "[codecs][ore_value_sets]") {
     auto leaf = tree();
     replace(leaf.at("projects/ores.sql/utility/convention_terms.json"),
         "{\"name\": \"Tenor\", \"path\": [\"Swap\", \"FloatLeg\"]},", "");
-    CHECK(tests::generate(codecs::convention_kind_terms, leaf).empty());
+    CHECK(tests::generate(codecs::ore_value_sets, leaf).empty());
     auto kind = tree();
     replace(kind.at("projects/ores.sql/populate/refdata/"
         "refdata_convention_kinds_populate.sql"), "'fx', 'FX'", "'rates', 'FX'");
-    CHECK(tests::generate(codecs::convention_kind_terms, kind).empty());
+    CHECK(tests::generate(codecs::ore_value_sets, kind).empty());
 }
 
 TEST_CASE("a dict keyed by tuples is read with each key's items",

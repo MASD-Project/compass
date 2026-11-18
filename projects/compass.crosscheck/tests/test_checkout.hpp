@@ -21,6 +21,7 @@
 #define COMPASS_CROSSCHECK_TESTS_TEST_CHECKOUT_HPP
 
 #include <array>
+#include <deque>
 #include <filesystem>
 #include <unistd.h>
 #include <catch2/catch_test_macros.hpp>
@@ -36,6 +37,7 @@
 #include "compass.codec/ops/run.hpp"
 #include "compass.codec/types/corpus.hpp"
 #include "compass.cpp/ops/text.hpp"
+#include "compass.ingest/org/parser.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 
 namespace compass::crosscheck::tests {
@@ -78,7 +80,20 @@ inline outcome run(const compass::codec::types::descriptor& codec,
     checkout.read = [&](std::string_view p) {
         return std::optional(all.find(p)->second);
     };
+    namespace ot = compass::org::types;
+    std::deque<ot::tables> tables;
     ct::corpus corpus;
+    for (const auto& [path, bytes] : all) {
+        if (!path.ends_with(".org"))
+            continue;
+        auto& t = tables.emplace_back();
+        ingest::org::parse(bytes, t);
+        corpus.paths.emplace_back(path);
+        corpus.contents.push_back(store::ops::blob_id_of(bytes));
+        corpus.sources.emplace_back(bytes);
+        corpus.tables.push_back(ot::view(t));
+        corpus.types.push_back(ot::type_id::none());
+    }
     corpus.files = &checkout;
     const compass::org::types::type_registry types;
     ct::configuration settings;
@@ -98,8 +113,11 @@ inline outcome run(const compass::codec::types::descriptor& codec,
     const auto& t = r.diagnostics[0];
     for (std::uint32_t i = 0; i < t.size(); ++i) {
         const auto d = t[ct::diagnostic_id{i}];
-        const auto file = all.find(d.file);
-        out.findings.emplace_back(std::string(d.file), file == all.end()
+        const std::string path = d.document.is_none()
+            ? std::string(d.file)
+            : std::string(corpus.paths[d.document.value]);
+        const auto file = all.find(path);
+        out.findings.emplace_back(path, file == all.end()
                 ? 0 : compass::cpp::ops::line_of(file->second, d.range.begin),
             std::string(d.message));
     }

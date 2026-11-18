@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/run-model-rules-over-loaded-models
+#+pr: https://github.com/MASD-Project/compass/pull/64
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-17
@@ -26,22 +26,25 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                              |
 | Parent story | [[id:B57BF382-3ACA-450A-B19D-3D183A22D989][Run the gates as codecs]] |
-| Now          | Not yet started.                       |
+| Now          | Nothing. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Nothing. |
 | Last touched | 2026-11-17                               |
 
 * Acceptance
 
--
+- The crosscheck gates that regex raw model files read the models compass.model loads, run per model, incrementally, as one model-rules pass where they share data.
+- Rules about facts the model states (entity binary types, generated column references, protocol twins' model half, money columns, http areas, model drift) are checked against the model or the codegen context, not regexes over generated files.
+- The curve wiring is computed once per run instead of four times, and the convention terms once instead of three.
+- Every moved gate gives the same findings on ORE Studio as before, except where a regex was wrong, each change stated; the hook on a model edit and the cold check are measured before and after.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Follow section 3 of =evidence/gate_review/plan.md= and =crosscheck.md=.
+- Move one gate at a time onto the loaded models, comparing findings on the
+  ORE copy after each; then merge the repeated derivations.
 
 * Measurements
 
@@ -55,7 +58,12 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| CPU of the moved gates in a model-edit hook | 312 ms before, 21 ms after (agent) | =compass hook --timings= | 40c2718 |
+| CPU of the moved gates, cold | about 660 ms before, 63 ms after (agent) | =compass check --timings= | 40c2718 |
+| Model-gate findings on ORE | identical under the new codec; +2 curve wiring files the older tree lacks | =mrw/run.sh= | 40c2718 |
+| Curve wiring on the pilot's tree | seven outputs byte-identical; a plant in each of the four wiring files is drift | export comparison | 40c2718 |
+| Warm ORE check | 4.64 s at load 31; 245 findings | =compass check= | b238b5a |
+| ctest | 15 of 15 suites pass | =ctest --preset linux-clang-release= | b238b5a |
 
 * Notes
 
@@ -74,7 +82,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/64][#64]] | [crosscheck] Run the model gates as one per-model pass |
 
 * Review
 
@@ -83,3 +91,26 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+=model_rules= is one per-model scan over each model's parsed outline (the
+view compass.model's loaders read). It holds money_decimal_columns,
+http_areas, model_drift, subject_conformance's model half and protocol_twins'
+opt-out; an edited model maps alone, and the rules keep their names under
+=model_rules/=. The three floors the regexes needed are gone, because a
+parsed outline cannot go blind. curve_column_guards is folded into
+curve_sections_wiring, which computes the wiring once for all seven files;
+convention_kind_terms is folded into ore_value_sets.
+
+The pilot's defect is fixed here: curve_sections_wiring now writes
+=curve_section_wiring.hpp= and =.cpp= as the generator does, through
+clang-format, byte-identical on the pilot's tree.
+
+Left for [[id:7EFC3933-2682-4BB7-89E4-64C78CE1E5BB][Finish the model rules pass]]: generated_column_refs,
+entity_binary_types, open_reads, marketdata_identity_columns and route_units
+still read regexes, and the curve wiring and convention terms are still
+derived by more than one codec until the runtime can share prepared state.
+
+An install needs ORE Studio's =.compass.org= to drop the rows for
+money_decimal_columns, http_areas, model_drift, curve_column_guards and
+convention_kind_terms, add =model_rules=, and set =clang_format= on
+curve_sections_wiring.

@@ -206,7 +206,7 @@ replaced in this step.
        Its 2 entries for links that are gone are why the script fails today.
      - `rls_widenings`: 13 policies.
      - `template_sections`: 8 lines.
-     - `money_decimal_columns`: 7 columns.
+     - `model_rules/money_not_exact`: 7 columns.
      - `forward_declarable_includes`: 1.
 2. Run `./compass.sh check` (the Python gates) on the same tree. For every
    ported gate, compare its verdict with compass's findings for the matching
@@ -292,6 +292,41 @@ replaced in this step.
      as they are; `compass-ng generate` neither rewrites nor removes them.
      A hub that orders a page with a bare `[[id:X]]` now counts it, and an
      `id:` in a block no longer stands for the back-link.
+   The gates that judge one codegen model read it as compass's model
+   loader does, from its parse, in one codec, `model_rules`, which maps
+   each model once and an edited model alone. At `545cafca45` their
+   findings are the same as the scripts', the 7 money columns included.
+   They differ where a script's line pattern was wrong: a `** name`
+   heading, a `#+http_area:`, a `:subject:` or the facet key inside a
+   source block is text, and a heading of a document that is not an
+   entity, junction or field group model is not a column. Five gates
+   changed shape, so their rows and any inline exception that names them
+   change:
+   - `money-decimal-columns`, `http-areas` and `model-drift` are rules of
+     `model_rules`: `money_decimal_columns/money_not_exact` and
+     `continuous_exact`, `http_areas/unpublished_area` and
+     `unreadable_areas`, `model_drift/contradicted`, `unset_required` and
+     `self_contradicting` keep their rule names under `model_rules/`.
+     Drop the rows of `money_decimal_columns`, `http_areas` and
+     `model_drift`, and add `| model_rules | yes | |`. Its options
+     `excluded_columns`, `continuous_columns` and `classification` are the
+     old codecs' options.
+   - The model halves of `subject-conformance` and `protocol-twins` are
+     `model_rules/outside_protocol`, `model_rules/opt_out` and
+     `model_rules/unreadable_model`. `subject_conformance` keeps
+     `outside_protocol` for the data-quality seed; `protocol_twins` keeps
+     `missing_twin` and `unreadable_inputs`. Keep both rows.
+   - `curve-column-guards` is part of `curve_sections_wiring`, which
+     computes the wiring once and writes all seven curve files. Drop the
+     `curve_column_guards` row, and set `clang_format=clang-format` on the
+     `curve_sections_wiring` row: it now also writes the gateway's
+     `curve_section_wiring.hpp` and `.cpp`, which the script pipes through
+     clang-format. On a tree older than those two files, compass reports
+     both as missing drift; the script there does not write them.
+   - `convention-kind-terms` is part of `ore_value_sets`, which writes the
+     three convention kind term files from the terms it already resolves.
+     Drop the `convention_kind_terms` row. Its `refused` finding is now
+     `ore_value_sets/refused`.
    Some gates and rules have no codec because
    another check covers them; see "Gates compass dropped" below. Compare
    their verdict with the check that covers them.
@@ -368,6 +403,7 @@ remove it too.
 | The C++ half of `subject-conformance` | Nothing; its pattern opens on `"` and closes on `'`, so it matched no C++ in ORE Studio. The models and the data-quality seed are still checked. |
 | `model-sql-types` (codec `model_sql_types`) | `codegen/drift` on the generated `*_create.sql`. At `545cafca45` 1,307 of 1,470 create scripts are generated, and every one of the 577 a model claims is among them. |
 | `model-drift`'s unknown profile and conflicting profiles (rules `model_drift/unknown_profile`, `model_drift/profile_conflict`) | `codegen`'s model loader, which stops `compass-ng check` with exit 2 and `unknown profile '<slug>'` or `<model>: conflicting profiles on '<feature>'`. |
+| The floors `money_decimal_columns/too_few_columns`, `model_drift/no_profiles` and `subject_conformance/no_declaration` | Nothing; each asked a run to read enough to prove its line patterns still matched the model format. `model_rules` reads the parsed models, which cannot go blind that way. |
 | `link_skill_recipes.py --check` (codec `skill_recipes`) | `lint/dangling_link`, for a recipe link that no longer resolves. The links were applied once and are in the skill pages; removing one is a reviewed change, not a finding. |
 | `check_pattern_uses.py` (codec `pattern_uses`) | `lint`, whose rules `pattern_unknown_use`, `pattern_one_way`, `pattern_not_a_pattern` and `pattern_shared_id` replace `pattern_uses/unknown_use`, `one_way`, `not_a_pattern` and `shared_id`. |
 | `link_structure_notes.py` (codec `structure_notes`) | `lint/missing_backlink`, a finding with the line to add, instead of a generator that rewrote the pages. |

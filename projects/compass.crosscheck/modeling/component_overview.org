@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :gates:checks:models:component:
 #+created: 2026-11-16
-#+updated: 2026-11-17
+#+updated: 2026-11-18
 
 This page is the component overview for =compass.crosscheck=, a simple
 component in the domain layer of the
@@ -20,16 +20,19 @@ of artefact: a generated row and the SQL that creates its table, the
 generated output and the model it came from. Each gate was a Python script that read
 the tree on every run; here each is a corpus codec that reads the files of
 the checkout through its view, so a run in which none of them changed
-reuses the findings. =entity_writes= and =subject_conformance= are scans:
-each file's writers or subjects are kept per content ID, so a run after an
-edit maps the edited file alone.
+reuses the findings. =entity_writes=, =subject_conformance= and
+=model_rules= are scans: each file's writers, subjects or model facts are
+kept per content ID, so a run after an edit maps the edited file alone.
 
-The ports follow their scripts rule for rule, including the regular
-expressions and the order of their tests, because the acceptance of a port
-is the same verdict on the same commit. A script that reads an org model as
-text with a regular expression is ported as one: the pattern decides what it
-matches, and the parsed document would decide differently on an indented or
-upper-case block. The text helpers of =compass.cpp= (Python's lines,
+The ports follow their scripts rule for rule, including the order of their
+tests, because the acceptance of a port is the same verdict on the same
+commit. The rules the scripts state about one codegen model are the
+exception: =model_rules= reads each model as compass.model's loaders read
+it, from its parsed outline, not with the scripts' line patterns. It
+differs from them only where a pattern was wrong: a heading, a keyword or
+a drawer line inside a source block is text, and a level-two heading of a
+document that is not an entity, junction or field group model is not a
+column. The text helpers of =compass.cpp= (Python's lines,
 spaces, pathlib order and the finding on a byte of a file) are shared, and
 the patterns go through the Python-compatible regular expressions of
 =compass.platform=.
@@ -55,6 +58,10 @@ ported:
   model loader of =codegen= refuses a model that binds a profile that does
   not exist, or two profiles that disagree, and the refusal stops the
   check.
+- The floors that asked a run to read enough to prove its patterns still
+  matched: =money_decimal_columns/too_few_columns=,
+  =model_drift/no_profiles= and =subject_conformance/no_declaration=. A
+  parsed model cannot go blind the way a line pattern can.
 
 * Inputs
 
@@ -63,15 +70,44 @@ ported:
 
 * Outputs
 
-- *=subject_conformance=.* =subject-conformance=
-  (=check_subject_conformance.py=). Rule =outside_protocol=: a =:subject:=
-  line of an org file directly under =projects/<component>/modeling/=, or a
-  quoted subject of the data-quality artefact type seed, that is not
-  =component.v1.resource.verb= with a verb of the closed set or
-  =list_by_...=, =component.v1.ops.operation= or
-  =component.v1.events.collection.action=. Rule
-  =no_declaration=: no model declares a subject. Rule =unreadable_model=: a
-  model that is not UTF-8, which the script fails on.
+- *=model_rules=.* The rules five scripts state about one codegen model
+  (=money-decimal-columns=, =http-areas=, =model-drift=, the model halves
+  of =subject-conformance= and =protocol-twin-coverage=), as one scan of
+  documents. A model is a document directly under a =modeling/= directory
+  of =projects/= whose =#+type:= is one ores.codegen loads; the map builds
+  its =compass.model= outline once and runs the rules that need that model
+  alone, and keeps what the reduce step needs: its =#+http_area:=
+  keywords, and, when it binds a profile, what its drawers state of each
+  feature. A profile's map keeps the rows of its =Assignments= tables. An
+  edit to a model maps that model, and the reduce step runs only when a
+  fact changed.
+  - =money_not_exact=, =continuous_exact=: the columns of an entity or
+    junction, the children of its =Columns= section, and the fields of a
+    field group, with their drawers' =:type:= and =:cpp_type:=. A name is
+    continuous when one of its tokens is a continuous word, money when
+    its head noun is a money word. The script's two hand-written column
+    lists are the options =excluded_columns= and =continuous_columns=,
+    and its baseline of 7 money columns is 7 findings on the column's
+    heading.
+  - =unpublished_area=, =unreadable_areas=: a frontmatter =#+http_area:=
+    outside =AREAS=, less =NO_AREA=, of =route_classification.py= (the
+    option =classification=), read as the Python literals they are; the
+    module is read only when a model declares an area.
+  - =contradicted=, =unset_required=, =self_contradicting=: the profiles
+    of =projects/modeling/variability_*.org= fix features in their
+    =Assignments= tables; a model binds them by its =profile= property and
+    states features in any drawer. The script's =KNOWN_MODEL_DRIFT= entry
+    no longer fires at 545cafca45.
+  - =opt_out=: a drawer that states =ores.ts.protocol.enabled=.
+  - =outside_protocol=: a drawer's =:subject:= that is not
+    =component.v1.resource.verb= with a verb of the closed set or
+    =list_by_...=, =component.v1.ops.operation= or
+    =component.v1.events.collection.action= (=ops::classify_subject=).
+  - =unreadable_model=: a model that is not UTF-8.
+- *=subject_conformance=.* The data-quality half of =subject-conformance=
+  (=check_subject_conformance.py=): rule =outside_protocol=, a quoted
+  subject of the data-quality artefact type seed outside the protocol, by
+  the same grammar.
 - *=entity_writes=.* =entity-writes= (=check_entity_table_writes.py=). Rule
   =sql_writer=: a function under =projects/ores.sql/create/= whose body
   inserts into, updates or deletes from an =ores_..._tbl= table, but the
@@ -81,18 +117,6 @@ ported:
   executes, never from comments. Rule =cpp_writer=: a hand-written C++ file that writes such a table
   and is not the repository of every table it writes. The 136 writers of
   the script's baseline are findings, one per function or file.
-- *=money_decimal_columns=.* =money-decimal-columns=
-  (=build/scripts/check_money_decimal_columns.py=). The columns of every
-  org file directly under a =modeling/= directory, at any depth: a =**=
-  heading, or a =:column:= key outside one, with its first =:type:= and
-  =:cpp_type:=. A name is continuous when one of its tokens is a continuous
-  word, money when its head noun is a money word. Rule =money_not_exact=:
-  money typed a binary float or text, or =numeric= over a C++ float. Rule
-  =continuous_exact=: a continuous quantity typed =numeric= or =decimal=.
-  Rule =too_few_columns=: fewer than =min_columns= read. The script's two
-  hand-written column lists are the options =excluded_columns= and
-  =continuous_columns=, and its two baselines (7 money columns, no
-  continuous one) are findings on the column's line.
 - *=entity_binary_types=.* =entity-binary-types=
   (=check_entity_binary_types.py=). A generated =repository/*_entity.hpp=
   binds each column with =bind= or =key= in the format its member's C++
@@ -113,11 +137,6 @@ ported:
   history registration with no literal read code), =stale_allow= (an
   allowed subject no protocol header defines) and =no_allow_list=.
 
-- *=http_areas=.* =http-areas= (=build/scripts/check_http_areas.py=). Rule
-  =unpublished_area=: a =#+http_area:= of a model naming an area outside
-  =AREAS=, less =NO_AREA=, of =route_classification.py=, which the codec
-  reads as the Python literals they are (=ops::python_assignment=), so the
-  list keeps one home. Rule =unreadable_areas=: they are not literals.
 - *=route_units=.* =route-units= (=build/scripts/check_route_units.py=).
   For each component of =ores.http= with a route aggregate, the units its
   models opt into with =:ores.cpp.http-route.enabled: true= are registered
@@ -130,12 +149,6 @@ ported:
   standard's checklist does not define or twice, or with no reason, no
   acceptor or a date that is not ISO. Rule =unreadable_registry=: no item,
   or a table that is not a literal.
-- *=model_drift=.* =model-drift= (=check_model_drift.py=). The profiles of
-  =projects/modeling/variability_*.org= fix features in their =*
-  Assignments= table; a model binds by its =profile= property and states
-  features in any drawer. Rules =contradicted=, =unset_required=,
-  =self_contradicting= and =no_profiles=. The script's =KNOWN_MODEL_DRIFT= entry no longer fires at
-  this commit; one that did would be an inline exception in its model.
 - *=template_sections=.* =template-sections=
   (=check_template_sections.py=). Rule =chained_tags=: a line of a
   template that holds two or more section tags and nothing else, one of
@@ -149,7 +162,8 @@ ported:
   =compass.codegen= loads as the codegen codec does, and the components
   from its catalogue and the registry's =COMPONENTS_UNDER_TEST=. Rule
   =missing_twin=: a protocol header of a checked component with no
-  TypeScript twin. Rule =opt_out=: a model that switches the facet off.
+  TypeScript twin. A model that switches the facet off is
+  =model_rules/opt_out=, so a model edit does not run this codec.
 
 - *=marketdata_identity_columns=.* =marketdata-identity-columns=
   (=build/scripts/check_marketdata_identity_columns.py=). The series
@@ -172,20 +186,17 @@ because each reads one kind of artefact and writes another:
   (=generate_script_library.py=): =trading_script_library_populate.sql=
   from ORE's =scriptlibrary.xml=, read with =compass.platform='s XML
   reader: each script and variant, and the inputs mined from the code.
-- *=curve_sections_wiring= and =curve_column_guards=.*
-  =curve-sections-wiring= and =curve-column-guards=
-  (=generate_curve_section_parameters.py=,
-  =generate_curve_column_guards.py=): the curve screen's column wiring
-  and the curve part validators, and the curve column map, its value
-  guard and the guard's drop. Both read one wiring, =ops::curve=, the
-  port of the script's reading of =curve_configuration_projection.cpp=
-  and =curveconfig.xsd=.
-- *=convention_kind_terms=.* =convention-kind-terms=
-  (=generate_convention_kind_terms.py=): the convention kind terms seed
-  and the term validation triggers, from the =ores.ore= conventions
-  mapper. On ORE 545cafca45 the script and the codec both write nothing,
-  because =conventions_fx_projection.cpp= reads =r.id=, which the
-  script's =NOT_A_COLUMN= does not exempt.
+- *=curve_sections_wiring=.* =curve-sections-wiring= and
+  =curve-column-guards= (=generate_curve_section_parameters.py=,
+  =generate_curve_column_guards.py=) as one codec over one wiring,
+  =ops::curve=, the port of the scripts' reading of
+  =curve_configuration_projection.cpp= and =curveconfig.xsd=, computed
+  once per run: the curve screen's column wiring, the curve part
+  validators, the gateway's =curve_section_wiring.hpp= and =.cpp= of
+  =ores.http/refdata=, and the curve column map, its value guard and the
+  guard's drop. The two C++ files go through clang-format, the formatter
+  the options =clang_format= and =clang_format_style= name, as the script
+  pipes them through it.
 - *=route_inventory=.* =route-inventory= (=route_inventory.py --write=):
   =http_route_inventory.org=, every route the BFF and =ores.http=
   register, decided by =route_classification.py= and paired by
@@ -243,8 +254,8 @@ process of its own and judged its sets with two lists of rules.
 over them, the two reviewed files, then the sets the convention terms, the
 curve leaves and the engine run settings imply, and the element map from
 the curve family columns and the convention kind terms
-(=ops::curve_columns= and =ops::convention_terms=, which the curve column
-guards and the convention kind terms codecs write from too). It reads the
+(=ops::curve_columns= and =ops::convention_terms=, which
+=curve_sections_wiring= and =ore_value_sets= write from too). It reads the
 curation as JSON with =ops::json_value=, which keeps an int apart from a
 float, the ORE schemas once with =ops::ore_schema=, and the policy tables
 of the five Python modules as literals; the curve module's =OWN_SETS=,
@@ -254,7 +265,12 @@ model:
 
 - *=ore_value_sets=.* The value set seed, the element map and its columns
   seed, byte for byte what the two scripts write on ORE 545cafca45 with
-  the =r.id= exemption. It writes nothing while the model has a problem,
+  the =r.id= exemption, and what =generate_convention_kind_terms.py=
+  writes (=convention-kind-terms=): the convention kind terms seed, the
+  term validation triggers and their drops, from the terms the resolution
+  resolved, once. On ORE 545cafca45 the script and the codec both refuse
+  the terms, because =conventions_fx_projection.cpp= reads =r.id=, which
+  the script's =NOT_A_COLUMN= does not exempt. It writes nothing while the model has a problem,
   and refuses the seed, or the element map, pointing at
   =parameter_value_sets= for why.
 - *=parameter_value_sets=.* Every rule, once: =unresolved= (a generator
@@ -283,15 +299,14 @@ nothing and reports a =refused= finding on its first output that says why,
 so =compass check= fails where the script would, and the sink keeps the
 file a good run wrote. Every generator here declares that one rule,
 =ops::refusal_rules= of =compass.cpp=: =curve_sections_wiring=,
-=curve_column_guards=, =convention_kind_terms=, =ore_renderings_tables=,
-=script_library_seed=, =ore_output_catalogue=, =er_diagram=,
-=conventions_dataset=, =route_inventory= and =ore_value_sets=. At
-545cafca45 two refuse: =convention_kind_terms=, whose terms stop on =r.id=,
-and =ore_value_sets=, for the same reason.
+=ore_renderings_tables=, =script_library_seed=, =ore_output_catalogue=,
+=er_diagram=, =conventions_dataset=, =route_inventory= and
+=ore_value_sets=. At 545cafca45 =ore_value_sets= refuses twice, the
+convention kind terms and the value set seed, both on =r.id=.
 
 Where a script reads a file with a strict UTF-8 decode and would stop on a
 file that is not UTF-8, these codecs read it with invalid bytes replaced,
-except =subject_conformance=, which reports such a model.
+except =model_rules=, which reports such a model.
 
 * Entry points
 
@@ -305,7 +320,8 @@ except =subject_conformance=, which reports such a model.
 | =include/compass.crosscheck/ops/csv.hpp=                | Python's =csv.reader= with the excel dialect and a delimiter.                           |
 | =include/compass.crosscheck/ops/python_numbers.hpp=     | =str(int())= and =repr(float())=.                                                       |
 | =include/compass.crosscheck/ops/md5.hpp=                | =hashlib.md5= as hex, a key some scripts use.                                           |
-| =include/compass.crosscheck/codecs/registry_gates.hpp=  | =http_areas=, =route_units= and =registry_exceptions=.                                  |
+| =include/compass.crosscheck/codecs/registry_gates.hpp=  | =route_units= and =registry_exceptions=.                                                |
+| =include/compass.crosscheck/ops/subjects.hpp=           | The entity protocol's subject grammar.                                                  |
 | =include/compass.crosscheck/codecs/value_sets.hpp=      | =ore_value_sets= and =parameter_value_sets=.                                            |
 | =include/compass.crosscheck/ops/value_sets.hpp=         | The resolved value sets, the element map and the seeds.                                 |
 | =include/compass.crosscheck/ops/ore_schema.hpp=         | The types ORE's schemas declare for a leaf.                                             |
@@ -323,6 +339,8 @@ except =subject_conformance=, which reports such a model.
 - =compass.codec= for the descriptor, the corpus view the codecs read
   through and the diagnostic table they fill.
 - =compass.cpp= for its text helpers.
+- =compass.model= for the outline of a model, the view its loaders read,
+  which =model_rules= reads.
 - =compass.codegen= for the template library's physical-space graph and
   the component catalogue, which =protocol_twins= reads, and the pystache
   renderer =er_diagram= draws through.
