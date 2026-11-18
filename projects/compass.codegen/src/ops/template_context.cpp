@@ -369,7 +369,8 @@ void write_ts_imports(builder& b, value_id entity,
         compass::model::types::value_kind::string) ?
         std::optional<std::string_view>(values::str(t, component)) :
         std::nullopt;
-    const auto singular = values::str(t, entity, "entity_singular");
+    // A copy: the builder's writes below may move the tables' strings.
+    const std::string singular(values::str(t, entity, "entity_singular"));
     const auto imports = compass::model::ops::ts_domain_imports(cpp_types,
         owner, registry.custom_types);
     const auto extra = b.list(entity, "extra_domain_imports");
