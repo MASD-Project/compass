@@ -25,24 +25,24 @@
 namespace compass::crosscheck::codecs {
 
 /**
- * @brief ORE Studio's curve-sections-wiring generator
- * (generate_curve_section_parameters.py): the curve screen's column wiring,
- * curve-sections.generated.ts, and the curve part validators,
- * refdata_curve_configuration_parts_validate_fn_create.sql, from
+ * @brief ORE Studio's two curve generators over one wiring of
  * curve_configuration_projection.cpp and curveconfig.xsd.
  *
- * Where the script reports a problem and writes nothing, the codec writes
- * nothing.
+ * generate_curve_section_parameters.py: the curve screen's column wiring,
+ * curve-sections.generated.ts; the curve part validators,
+ * refdata_curve_configuration_parts_validate_fn_create.sql; and the
+ * gateway's wiring, curve_section_wiring.hpp and curve_section_wiring.cpp
+ * of ores.http's refdata routes, which go through clang-format, the
+ * formatter the options clang_format and clang_format_style name.
+ *
+ * generate_curve_column_guards.py: the curve configuration column map,
+ * its value guard and the guard's drop, from the same wiring and each
+ * family entity's :tablename:.
+ *
+ * Where a script reports a problem and writes nothing, the codec refuses
+ * the outputs it cannot write and says why.
  */
 extern const compass::codec::types::descriptor curve_sections_wiring;
-
-/**
- * @brief ORE Studio's curve-column-guards generator
- * (generate_curve_column_guards.py): the curve configuration column map, its
- * value guard and the guard's drop, from the same wiring and each family
- * entity's :tablename:.
- */
-extern const compass::codec::types::descriptor curve_column_guards;
 
 }
 

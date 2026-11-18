@@ -25,6 +25,7 @@
 #include <string_view>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
+#include "compass.crosscheck/ops/curve_wiring.hpp"
 
 /**
  * @brief The columns of ORE Studio's projections that carry a leaf of an
@@ -53,6 +54,14 @@ struct projection_column {
  */
 [[nodiscard]] std::optional<std::vector<projection_column>> curve_columns(
     const compass::codec::types::corpus_view& v);
+
+/**
+ * @brief curve_columns over the sections of a wiring already computed,
+ * which only the family entities' :tablename: lines are read for.
+ */
+[[nodiscard]] std::optional<std::vector<projection_column>> curve_columns(
+    const compass::codec::types::corpus_view& v,
+    const std::vector<curve::section>& sections);
 
 /**
  * @brief A convention term: the kind, entity and column it travels under,

@@ -23,7 +23,6 @@ add_library(${lib_target_name}
     codecs/convention_kind_terms.cpp
     codecs/conventions_coverage.cpp
     codecs/conventions_dataset.cpp
-    codecs/curve_column_guards.cpp
     codecs/curve_sections_wiring.cpp
     codecs/entity_binary_types.cpp
     codecs/entity_writes.cpp

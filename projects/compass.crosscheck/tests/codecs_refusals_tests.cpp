@@ -40,7 +40,6 @@ using Catch::Matchers::ContainsSubstring;
 
 const std::array generators{
     std::cref(codecs::curve_sections_wiring),
-    std::cref(codecs::curve_column_guards),
     std::cref(codecs::convention_kind_terms),
     std::cref(codecs::ore_renderings_tables),
     std::cref(codecs::script_library_seed),

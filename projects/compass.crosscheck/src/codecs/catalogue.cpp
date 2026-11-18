@@ -45,9 +45,9 @@ namespace compass::crosscheck::codecs {
 
 std::span<const compass::codec::types::descriptor> catalogue() noexcept {
     static const auto all = [] {
-        std::array<compass::codec::types::descriptor, 23> out{
+        std::array<compass::codec::types::descriptor, 22> out{
             convention_kind_terms, conventions_coverage, conventions_dataset,
-            curve_column_guards, curve_sections_wiring, entity_binary_types,
+            curve_sections_wiring, entity_binary_types,
             entity_writes, er_diagram, generated_column_refs,
             marketdata_identity_columns, model_rules,
             open_reads, ore_output_catalogue, ore_renderings_tables,

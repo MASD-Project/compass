@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-180 rules, 43 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
+179 rules, 43 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
 
 ** Rules
 
@@ -47,7 +47,6 @@ memories no rule cites are the candidates for the next checks.
 | =core_link_edges= | forbidden_edge | No component's core links another component's core or service library; it links the api contract. |  |
 | =core_link_edges= | unresolved_link | Every library a core links names no variable the check cannot resolve. |  |
 | =core_link_edges= | unnamed_core | Every core library file states its name. |  |
-| =curve_column_guards= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =curve_parameter_paths= | undeclared_path | Every curve parameter path the artefact names is one the ORE curve schema declares, or an exemption explains. |  |
 | =curve_parameter_paths= | stale_exemption | Every exemption explains some path of the artefact. |  |
 | =curve_parameter_paths= | unreadable_input | The schema declares the root element, and the exemptions read. |  |
