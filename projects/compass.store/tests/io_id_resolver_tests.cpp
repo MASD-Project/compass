@@ -103,7 +103,7 @@ TEST_CASE("a version 4 index decodes prefix-compressed paths and IDs",
 }
 
 TEST_CASE("a file rewritten with the same size and mtime is hashed",
-    "[io][id_resolver]") {
+    "[io][id_resolver][posix]") {
     git_repository repo;
     add_clean(repo, {{"a.txt", "aaaa\n"}});
     const auto entry = io::read_git_index(repo.index_file()).stats.at(0);

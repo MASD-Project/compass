@@ -131,7 +131,7 @@ TEST_CASE("a run that changes no entry leaves the worktree index untouched",
 }
 
 TEST_CASE("a file modified since it was hashed is hashed again, even with "
-    "its size and mtime unchanged", "[io][worktree_index]") {
+    "its size and mtime unchanged", "[io][worktree_index][posix]") {
     git_repository repo;
     add_untracked(repo, "a.org", "aaaa\n");
     run(repo.root(), {"a.org"});
