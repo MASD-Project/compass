@@ -89,6 +89,12 @@ struct check_set {
  * is the rule's summary, or its MESSAGE when it has none. The first table
  * under the level-1 heading "Exceptions" has a row per exception, as the
  * configuration file's has, with a rule named without the check's name.
+ *
+ * Each source block under the level-1 heading "Examples" whose header
+ * sets :compass is an example: :compass fires=<rule> or quiet, and :path
+ * the file it stands for. The examples are part of the definition, so
+ * editing one runs the check again, and the codec's last rule, example,
+ * reports one that does not fire or stay quiet as it says.
  */
 [[nodiscard]] std::expected<std::unique_ptr<const check>, std::string>
 parse_check_document(std::string_view text, std::string_view path,

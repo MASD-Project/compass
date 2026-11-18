@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :let_projects_define_their_checks:sprint_01:v0:
 #+owner: marco
-#+branch: feature/load-check-documents
-#+pr: https://github.com/MASD-Project/compass/pull/90
+#+branch: feature/check-examples
+#+pr: https://github.com/MASD-Project/compass/pull/92
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-18
@@ -28,9 +28,9 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 |--------------+----------------------------------------|
 | State        | STARTED                              |
 | Parent story | [[id:DAB2F48A-E47A-4895-9026-056AF21E6CCC][Let projects define their own checks]] |
-| Now          | Slices 1 and 2 are built: the engine, and compass/checks/*.org loaded as one codec per check with its exceptions. portable_cpp is proven on ORE Studio's 1961f78f1a and its fix. |
+| Now          | Slices 1 to 3 are built: the engine, check documents loaded as codecs with their exceptions, and each check's examples run as its tests. portable_cpp is proven on ORE Studio's 1961f78f1a and its fix. |
 | Waiting on   | Nothing.                               |
-| Next         | Slice 3: run each check's Examples blocks as its tests. |
+| Next         | Slice 4: solid dirac writes ORE Studio's compass/checks/portable_cpp.org; then delete portable_stop. |
 | Last touched | 2026-11-18                               |
 
 * Acceptance
@@ -47,6 +47,9 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
   the command with its line.
 - Editing a check's prose runs nothing again; editing its definition runs
   it again.
+- Each source block under =* Examples= with =:compass fires=<rule>= or
+  =:compass quiet= is a test of the check: one that does not do what it
+  says is reported as =<check>/example= on its opening line.
 - The portable C++ check reports the line that broke ORE Studio's build
   at =1961f78f1a= and is quiet on that rule at the fix, =1e07397b28=.
 
@@ -89,6 +92,10 @@ task and name that file in the Command column.
 | portable_cpp at ORE Studio 1961f78f1a | 2 atomic_shared_ptr, 1 deprecated_c_calls, 1 posix_headers | =compass check= over =projects/= of the commit, with only the check running | feature/load-check-documents |
 | portable_cpp at ORE Studio 1e07397b28, the fix | 0 atomic_shared_ptr, 1 deprecated_c_calls, 1 posix_headers | the same | feature/load-check-documents |
 | Run time over ORE Studio's projects/ | 2.0 s cold, 0.14 to 0.28 s warm | the same, twice, -j 2 | feature/load-check-documents |
+| Example cases, engine and CLI | 11 forbid cases (46 assertions), 6 checks cases (31), all pass | =compass.cpp.tests "[forbid]"=, =compass.cli.tests "[checks]"= | feature/check-examples |
+| Every test, slice 3 | 1249 of 1249 pass | =ctest -j2= | feature/check-examples |
+| The design's five portable_cpp examples over ORE Studio | all five do what they say; one broken on purpose is reported on its block's line, 74 | =compass check= in the 1961f78f1a snapshot | feature/check-examples |
+| Run time after an edit, ORE Studio | prose edit 0.19 s; definition edit 1.63 s; warm 0.12 s | the same, timed | feature/check-examples |
 | Guards each test proves | 6 of 6 mutations fail a test: member access, angled include, leading components, one finding per line, trailing =**=, dead =CPP_TEXT= | hand mutation of =ops/forbid.cpp=, rebuilt and rerun | feature/forbid-engine |
 
 * Notes
@@ -113,6 +120,12 @@ task and name that file in the Command column.
 - =check --commit= reads the check documents of the commit, and the
   working tree's when the commit has none, with a warning, as it does
   for =.compass.org=. That is how today's checks judge an old commit.
+- Slice 3. An example's place in its document is not part of the
+  definition. The first cut put each block's offset in the definition, so
+  a test that edited prose above the examples saw the check's cache key
+  change and every file rescanned. Now the reduce step reads the document
+  and finds the nth =:compass= block under =* Examples=, so a prose edit
+  re-runs that step alone.
 - Not yet done: =compass config= lists only the built-in codecs, and
   =rule_table= does not list a check's rules. The three document types
   and their contracts come with the configuration reader.
@@ -135,6 +148,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
+| [[https://github.com/MASD-Project/compass/pull/92][#92]] | Run each check's examples as its tests |
 | [[https://github.com/MASD-Project/compass/pull/90][#90]] | Run the checks a project's check documents define |
 | [[https://github.com/MASD-Project/compass/pull/89][#89]] | Add the forbid engine checks are built on |
 

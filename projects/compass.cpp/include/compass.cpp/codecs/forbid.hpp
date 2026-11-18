@@ -34,8 +34,11 @@ inline constexpr std::string_view forbid_definition_key = "definition";
 /**
  * @brief The function of every forbid check. A check is a descriptor of
  * its own, named for it, with one option, forbid_definition_key, whose
- * default is its definition, and the rules of the definition, in order. It maps each file the definition covers through
- * ops::forbid_scan. A definition that does not parse covers no file.
+ * default is its definition, and the rules of the definition, in order,
+ * then a rule for its examples. It maps each file the definition covers
+ * through ops::forbid_scan, and reduces by checking the definition's
+ * examples with ops::check_examples. A definition that does not parse
+ * covers no file and has no examples.
  */
 [[nodiscard]] compass::codec::types::scan_function forbid_function() noexcept;
 

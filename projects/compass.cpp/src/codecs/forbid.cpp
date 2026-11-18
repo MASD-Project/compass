@@ -58,10 +58,18 @@ void map(std::string_view path, std::string_view bytes,
         ops::forbid_scan(*d, path, bytes, out.findings);
 }
 
+void reduce(std::span<const ct::scanned_file>, const ct::corpus_view& v,
+    ct::diagnostic_table& out) {
+    const auto* d = definition_of(v.option(forbid_definition_key));
+    if (d == nullptr || d->examples.empty())
+        return;
+    ops::check_examples(*d, v.read_file(d->source).value_or(""), out);
+}
+
 }
 
 ct::scan_function forbid_function() noexcept {
-    return {files, map, nullptr};
+    return {files, map, reduce};
 }
 
 }

@@ -226,3 +226,110 @@ TEST_CASE("after an edit only the edited file is scanned again",
     CHECK(tests::places(r.findings) == places{
         {"projects/ores.a/src/a.cpp", 1}, {"projects/ores.b/src/b.cpp", 2}});
 }
+
+namespace {
+
+constexpr std::string_view with_examples =
+    "SOURCE compass/checks/portable_cpp.org\n"
+    "FILES src/**/*.cpp\n"
+    "OUTSIDE src/platform/**\n"
+    "RULE getenv\n"
+    "CPP_NAME getenv std::getenv\n"
+    "MESSAGE {match} is deprecated\n"
+    "EXAMPLE fires=getenv src/a.cpp\n"
+    "> auto p = std::getenv(\"P\");\n"
+    "EXAMPLE quiet src/a.cpp\n"
+    "> auto p = env.getenv(\"P\");\n"
+    "EXAMPLE quiet src/platform/env.cpp\n"
+    "> auto p = std::getenv(\"P\");\n"
+    "EXAMPLE fires=getenv src/b.cpp\n"
+    "> auto p = platform::read(\"P\");\n"
+    "EXAMPLE quiet src/c.cpp\n"
+    "> // getenv in a comment\n"
+    ">\n"
+    "> auto p = getenv(\"P\");\n"
+    "EXAMPLE fires=getenv src/platform/d.cpp\n"
+    "> auto p = getenv(\"P\");\n";
+
+/**
+ * @brief A check document whose Examples hold six :compass blocks, the
+ * nth on line n + 3, after one that is not an example.
+ */
+constexpr std::string_view examples_document =
+    "* Rule\n"
+    "#+begin_src cpp :compass quiet\n"
+    "* Examples\n"
+    "#+begin_src cpp :path x.cpp\n"
+    "#+begin_src cpp :compass fires=getenv\n"
+    "#+begin_src cpp :compass quiet\n"
+    "#+begin_src cpp :compass quiet\n"
+    "#+begin_src cpp :compass fires=getenv\n"
+    "  #+BEGIN_SRC cpp :compass quiet\n"
+    "#+begin_src cpp :compass fires=getenv\n";
+
+std::uint32_t offset_of_block(std::size_t n) {
+    std::size_t at = examples_document.find("* Examples");
+    for (std::size_t i = 0; i <= n; ++i)
+        at = examples_document.find(":compass", at + 1);
+    return static_cast<std::uint32_t>(
+        examples_document.rfind('\n', at) + 1);
+}
+
+std::vector<std::tuple<std::uint32_t, std::uint32_t, std::string,
+    std::string>> example_findings(std::string_view text) {
+    const auto d = ops::parse_forbid_definition(text);
+    REQUIRE(d);
+    ct::diagnostic_table out;
+    ops::check_examples(*d, examples_document, out);
+    std::vector<std::tuple<std::uint32_t, std::uint32_t, std::string,
+        std::string>> r;
+    for (std::size_t i = 0; i < out.size(); ++i) {
+        const ct::diagnostic_id id{static_cast<std::uint32_t>(i)};
+        CHECK(out.files[id] == "compass/checks/portable_cpp.org");
+        r.emplace_back(out.ranges[id].begin, out.rules[id].value,
+            std::string(out.messages[id]), std::string(out.fixes[id]));
+    }
+    return r;
+}
+
+}
+
+TEST_CASE("an example that does not do what it says is reported where it "
+    "is written", "[ops][forbid]") {
+    const auto r = example_findings(with_examples);
+    REQUIRE(r.size() == 3);
+    CHECK(r[0] == std::tuple{offset_of_block(3), 1u,
+        std::string("the example of src/b.cpp raises no getenv finding"),
+        std::string("widen the rule so the example fires, or correct the "
+            "example")});
+    CHECK(std::get<0>(r[1]) == offset_of_block(4));
+    CHECK(std::get<2>(r[1]) == "the quiet example of src/c.cpp raises getenv");
+    CHECK(std::get<0>(r[2]) == offset_of_block(5));
+    CHECK(std::get<3>(r[2]) == "the definition does not cover "
+        "src/platform/d.cpp; correct its FILES or OUTSIDE, or the example's "
+        "path");
+}
+
+TEST_CASE("an example's body keeps its lines, blank ones too",
+    "[ops][forbid]") {
+    const auto d = ops::parse_forbid_definition(with_examples);
+    REQUIRE(d);
+    REQUIRE(d->examples.size() == 6);
+    CHECK(d->examples[4].body ==
+        "// getenv in a comment\n\nauto p = getenv(\"P\");\n");
+    CHECK(d->examples[0].fires == "getenv");
+    CHECK(d->examples[1].fires.empty());
+    CHECK(d->source == "compass/checks/portable_cpp.org");
+}
+
+TEST_CASE("an example that cannot be read says where", "[ops][forbid]") {
+    CHECK(error_of("FILES *.cpp\nRULE r\nTEXT x\nMESSAGE m\n"
+        "EXAMPLE fires=s a.cpp\n") ==
+        "line 5: the example fires s, which is no rule of the definition");
+    CHECK(error_of("FILES *.cpp\nRULE r\nTEXT x\nMESSAGE m\n"
+        "EXAMPLE loud a.cpp\n") ==
+        "line 5: EXAMPLE takes quiet or fires=<rule> and a path");
+    CHECK(error_of("FILES *.cpp\nRULE r\nTEXT x\nMESSAGE m\n"
+        "EXAMPLE quiet a.cpp b.cpp\n") ==
+        "line 5: EXAMPLE takes quiet or fires=<rule> and a path");
+}

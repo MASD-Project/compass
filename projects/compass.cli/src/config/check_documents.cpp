@@ -56,6 +56,8 @@ struct definition_text {
     }
 };
 
+std::vector<std::string_view> words_of(std::string_view s);
+
 struct check_reader : org_reader {
     std::string_view path;
 
@@ -136,7 +138,75 @@ struct check_reader : org_reader {
         }
         return {};
     }
+
+    /**
+     * @brief Adds an EXAMPLE to @p out for each source block under the
+     * level-1 heading "Examples" whose header names :compass, its body
+     * after it with org's commas before * and #+ taken out, or says why
+     * one cannot be.
+     */
+    [[nodiscard]] std::expected<void, std::string> add_examples(
+        definition_text& out) const {
+        const auto examples = heading("Examples");
+        if (examples.is_none())
+            return {};
+        const auto first = t.headings.elements[examples];
+        const auto end = t.elements.subtree_ends[first];
+        for (std::uint32_t b = 0; b < t.blocks.size(); ++b) {
+            const ot::block_id id{b};
+            const auto e = t.blocks.elements[id];
+            if (e.value <= first.value || e.value >= end.value ||
+                t.elements.kinds[e] != ot::element_kind::src_block)
+                continue;
+            const auto line = line_of(text, t.elements.ranges[e].begin);
+            std::string verdict;
+            std::string example_path;
+            const auto words = words_of(t.blocks.parameters[id].of(text));
+            for (std::size_t i = 0; i + 1 < words.size(); ++i) {
+                if (words[i] == ":compass")
+                    verdict = words[i + 1];
+                else if (words[i] == ":path")
+                    example_path = words[i + 1];
+            }
+            if (verdict.empty())
+                continue;
+            if (verdict == "defines")
+                return error(line, "a forbid check has no definitions to "
+                    "give", "mark the block fires=<rule> or quiet");
+            if (example_path.empty())
+                return error(line, "the example has no :path",
+                    "add :path <path> to its header, the file it stands "
+                    "for");
+            out.add(std::format("EXAMPLE {} {}", verdict, example_path),
+                line);
+            const auto body = t.blocks.bodies[id].of(text);
+            std::size_t at = 0;
+            while (at < body.size()) {
+                const auto nl = std::min(body.find('\n', at), body.size());
+                auto l = body.substr(at, nl - at);
+                if (l.starts_with(",*") || l.starts_with(",#+"))
+                    l.remove_prefix(1);
+                out.add(l.empty() ? std::string(">")
+                    : std::format("> {}", l), line);
+                at = nl + 1;
+            }
+        }
+        return {};
+    }
 };
+
+std::vector<std::string_view> words_of(std::string_view s) {
+    std::vector<std::string_view> out;
+    std::size_t at = 0;
+    while (true) {
+        const auto start = s.find_first_not_of(" \t", at);
+        if (start == std::string_view::npos)
+            return out;
+        const auto stop = std::min(s.find_first_of(" \t", start), s.size());
+        out.push_back(s.substr(start, stop - start));
+        at = stop;
+    }
+}
 
 }
 
@@ -161,6 +231,7 @@ parse_check_document(std::string_view text, std::string_view path,
             "\"* Definition\"", "add it, with :ENGINE: forbid and the "
             "check's FILES in its property drawer");
     definition_text d;
+    d.add(std::format("SOURCE {}", path), r.line_of_heading(definition));
     bool engine = false;
     if (auto ok = r.add_drawer(definition, d, engine); !ok)
         return failure(ok.error());
@@ -181,6 +252,9 @@ parse_check_document(std::string_view text, std::string_view path,
         if (auto ok = r.add_drawer(h, d, engine); !ok)
             return failure(ok.error());
     }
+
+    if (auto ok = r.add_examples(d); !ok)
+        return failure(ok.error());
 
     auto parsed = compass::cpp::ops::parse_forbid_definition(d.text);
     if (!parsed) {
@@ -204,6 +278,9 @@ parse_check_document(std::string_view text, std::string_view path,
         c->rule_summaries.push_back(summary.empty()
             ? parsed->rules[i].message : std::move(summary));
     }
+    c->rule_names.emplace_back("example");
+    c->rule_summaries.emplace_back("Each example of the check fires or "
+        "stays quiet as its block says.");
     for (std::size_t i = 0; i < c->rule_names.size(); ++i)
         c->rules.push_back({c->rule_names[i], c->rule_summaries[i]});
     c->definition = std::move(d.text);

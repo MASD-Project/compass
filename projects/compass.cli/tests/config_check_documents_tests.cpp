@@ -55,7 +55,19 @@ constexpr std::string_view document =
     ":FIX: use the platform's environment\n"
     ":END:\n"
     "\n"
-    "* Exceptions\n"                                 // 29
+    "* Examples\n"                                   // 29
+    "\n"
+    "#+begin_src cpp :compass fires=getenv :path src/a.cpp\n"   // 31
+    "auto p = getenv(\"P\");\n"
+    "\n"
+    ",#+include it\n"
+    "#+end_src\n"
+    "\n"
+    "#+begin_src cpp :path src/b.cpp\n"
+    "not an example\n"
+    "#+end_src\n"
+    "\n"
+    "* Exceptions\n"                                 // 41
     "\n"
     "| path | line | rule | expires | approver | reason |\n"
     "|------+------+------+---------+----------+--------|\n"
@@ -88,15 +100,17 @@ TEST_CASE("a check document becomes a codec named for its file, with a "
     CHECK(codec.name == "portable_cpp");
     CHECK(codec.summary == "No code uses a facility a platform lacks.");
     CHECK(codec.enabled_by_default);
-    REQUIRE(codec.rules.size() == 2);
+    REQUIRE(codec.rules.size() == 3);
     CHECK(codec.rules[0].name == "stop_types");
     CHECK(codec.rules[0].summary ==
         "Apple's libc++ has no C++20 stop types.");
     CHECK(codec.rules[1].name == "getenv");
     CHECK(codec.rules[1].summary == "{match} is deprecated");
+    CHECK(codec.rules[2].name == "example");
     REQUIRE(codec.options.size() == 1);
     CHECK(codec.options[0].key == "definition");
     CHECK(codec.options[0].default_value ==
+        "SOURCE compass/checks/portable_cpp.org\n"
         "FILES src/**/*.{cpp,hpp}\n"
         "OUTSIDE src/platform/**\n"
         "RULE stop_types\n"
@@ -105,7 +119,11 @@ TEST_CASE("a check document becomes a codec named for its file, with a "
         "RULE getenv\n"
         "CPP_NAME getenv\n"
         "MESSAGE {match} is deprecated\n"
-        "FIX use the platform's environment\n");
+        "FIX use the platform's environment\n"
+        "EXAMPLE fires=getenv src/a.cpp\n"
+        "> auto p = getenv(\"P\");\n"
+        ">\n"
+        "> #+include it\n");
 }
 
 TEST_CASE("the exceptions of a check name its rules without the check",
@@ -118,9 +136,9 @@ TEST_CASE("the exceptions of a check name its rules without the check",
     CHECK(e.exceptions[0].path == "src/a.cpp");
     CHECK(e.exceptions[0].covers == 3);
     CHECK(e.exceptions[0].written_in == "compass/checks/portable_cpp.org");
-    CHECK(e.exceptions[0].line == 33);
+    CHECK(e.exceptions[0].line == 45);
     REQUIRE(e.malformed.size() == 1);
-    CHECK(e.malformed[0].line == 34);
+    CHECK(e.malformed[0].line == 46);
 }
 
 TEST_CASE("prose is not part of the definition, so editing it changes no "
@@ -155,6 +173,16 @@ TEST_CASE("a check document that cannot run says where and why",
     CHECK(error_of(replaced(document, ":MESSAGE: {match} is not portable\n",
         "")) == "compass/checks/portable_cpp.org:13: rule stop_types has no "
         "MESSAGE; fix: correct the definition's drawers");
+    CHECK(error_of(replaced(document, "fires=getenv", "defines")) ==
+        "compass/checks/portable_cpp.org:31: a forbid check has no "
+        "definitions to give; fix: mark the block fires=<rule> or quiet");
+    CHECK(error_of(replaced(document, " :path src/a.cpp", "")) ==
+        "compass/checks/portable_cpp.org:31: the example has no :path; fix: "
+        "add :path <path> to its header, the file it stands for");
+    CHECK(error_of(replaced(document, "fires=getenv", "fires=setenv")) ==
+        "compass/checks/portable_cpp.org:31: the example fires setenv, which "
+        "is no rule of the definition; fix: correct the definition's "
+        "drawers");
     CHECK(error_of(replaced(document, ":FILES: src/**/*.{cpp,hpp}\n", "")) ==
         "compass/checks/portable_cpp.org:4: the definition has no FILES; "
         "fix: correct the definition's drawers");
