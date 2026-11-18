@@ -8,7 +8,7 @@
 #+filetags: :catch_llm_error_patterns:sprint_01:v0:
 #+owner: marco
 #+branch: feature/mine-failed-builds
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/83
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
@@ -28,11 +28,11 @@ build.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED |
+| State        | DONE |
 | Parent story | [[id:63D5482E-E1E7-45B0-883F-3B2DDFA2B447][Catch the errors LLMs introduce]] |
-| Now          | Writing the mining script. |
+| Now          | Merged. |
 | Waiting on   | Nothing.                               |
-| Next         | Run it over the last 60 days and write the per-day report. |
+| Next         | Nothing. |
 | Last touched | 2026-11-16                               |
 
 * Acceptance
@@ -56,9 +56,33 @@ build.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Split the work in two so classification never touches the network.
+  =mine_failed_builds.py fetch= lists the failed runs one UTC day at a
+  time (a day holds well under GitHub's 1,000-result search cap), then
+  fetches each run's jobs and each failed job's log into a cache.
+  =mine_failed_builds.py report= reads only the cache and writes the org
+  files, so the patterns can be reworked without refetching.
+- Keep the cache small. A log is cut to the 400 lines that end a few lines
+  after its first =##[error]= annotation, which sits in the first failing
+  step, plus every other line that looks like an error. The cut log is
+  gzipped. Timestamps and terminal escapes are stripped.
+- Be gentle with GitHub. Each worker sleeps 1 s before every request,
+  =gh api rate_limit= is read every 25 requests and the fetch waits for
+  the reset below 300 remaining, and 403 or 429 backs off exponentially.
+  A day's listing is cached for good once it was taken two days after the
+  day ended; a job list and a log are cached for good at once. One worker
+  would have taken about six hours for 2,888 runs, so the run used six
+  workers, about 100 requests a minute, and leaned on the rate-limit wait.
+- Classify each failed job by its failing step and first real error. The
+  error is normalised (paths, line numbers, hashes, numbers, timestamps
+  stripped) into a reason, and an ordered table of patterns maps the
+  workflow, the step and the reason to a pattern and a verdict.
+- Name, for each catchable pattern, an example run and its head commit,
+  read from ORE Studio's local clone. The example is the pattern's
+  earliest pull-request run where there is one, because its head is the
+  branch's own commit. A commit counts as LLM-authored when it, or a
+  commit a merge brought in, carries a =Co-Authored-By:= trailer naming a
+  model (Claude, DeepSeek and the like).
 
 * Measurements
 
@@ -70,13 +94,62 @@ code changing, and the reader of a bare number cannot tell which tree it came
 from. Where the raw output matters, put it in an =evidence/= file beside the
 task and name that file in the Command column.
 
+The numbers below describe GitHub's record of =OreStudio/OreStudio= for
+2026-09-19 to 2026-11-18, read on 2026-11-18, not a tree. The Commit
+column gives the compass commit whose script read them; the head commits
+of the runs are in the evidence pages. =$CACHE= was a directory in the
+session scratchpad.
+
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Failed runs (failure or startup_failure) | 2,889 | =mine_failed_builds.py --cache $CACHE stats= | de16a25 |
+| Jobs in those runs | 13,973 | =mine_failed_builds.py --cache $CACHE stats= | de16a25 |
+| Failed jobs | 4,774 | =mine_failed_builds.py --cache $CACHE stats= | de16a25 |
+| Logs cached, and unavailable | 4,743 and 31 | =mine_failed_builds.py --cache $CACHE stats= | de16a25 |
+| Cache size | 55.8 MB | =mine_failed_builds.py --cache $CACHE stats= | de16a25 |
+| Requests of the last fetch | 3,523 | =fetch --since 2026-09-19 --until 2026-11-18 --delay 1.0 --workers 6= | de16a25 |
+| Failures classified | 4,841 in 94 patterns, 63 unclassified | =mine_failed_builds.py report= | de16a25 |
+| Runs by verdict: already caught, could be caught, not catchable, unclassified | 1,925, 650, 540, 62 | =report=, [[id:6947B0D8-A1AE-4180-B2D9-D33FF02C1A3B][summary]] Verdicts | de16a25 |
+| Failed-job minutes by the same verdicts | 11,935, 31,349, 113,878, 9,946 | =report=, [[id:6947B0D8-A1AE-4180-B2D9-D33FF02C1A3B][summary]] Verdicts | de16a25 |
+| Failing head commits with an LLM trailer | 1,503 of 1,754 | trailer count over the run heads in ORE's clone | de16a25 |
+| Non-merge commits in the window with an LLM trailer | 11,719 of 14,839 | =git log --all --no-merges= over the window in ORE's clone | de16a25 |
 
 * Notes
 
-* Test Scenarios
+- The first error is found by tiers, not by the first line that says
+  "error". Runner and memory failures come first, then the ER parser's
+  coded warnings, compiler and linker errors, CTest's failed-test summary,
+  test and Python failures, CTest's phase warning, CMake errors, and last
+  the gate words (drift, stale, missing). Within a tier the earliest line
+  wins. Paths are stripped before matching, because ORE Studio has files
+  named for failures (=trade-import-failed-state.org=, =*-model-drift.org=)
+  that the site build lists while it publishes.
+- Lines that only point at an error are skipped: =Process completed with
+  exit code=, =Build completed with failures=, ninja's =FAILED:= line, and
+  CTest's =Submission successful= that follows a =CMake Error=. Echoed
+  commands, step markers, test timings and application log lines are skipped
+  too.
+- The ER parser (=plantuml_er_parse_sql.py=, run as =Validate SQL Schema=
+  before the build) prints every warning; the reason keeps only the first.
+  A run that broke several of its rules is counted under the first one.
+- Gates are classified by their step name, which names the rule they
+  enforce. That map is the gate classification of
+  [[id:AFF665C4-739C-4BDB-93BD-9D547351AE4F][Investigation: ORE Studio gate classification]] and the rule table of
+  compass at 14c5674.
+- A failure counts against the head commit of its run. On push and
+  schedule runs that is main's tip, usually a merge, so the commit that
+  introduced the error is somewhere in what the merge brought in. Nearly
+  every merge in the window brings in at least one LLM co-authored commit,
+  so the LLM column says little on merges; it is sharper on pull-request
+  heads.
+- The fetch was restarted four times. Twice it was to change the trimming:
+  the tail first ended at the last =##[error]=, which sits in the clean-up
+  steps rather than the failing one, and the kept error lines were first
+  the earliest 200 rather than those nearest the tail. Those restarts
+  deleted the cached logs and kept the listings and job lists, which do
+  not depend on the trimming. The other two added workers. =gh api= also
+  needed =--allow-escape-sequences=, since the logs carry terminal colour
+  codes and =gh= refuses to print them otherwise.
 
 Manual QA scenarios (scaffolded via =compass add test_scenario=)
 that verify this task. Link
@@ -91,7 +164,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/83][#83]] | Mine ORE Studio's failed builds |
 
 * Review
 
@@ -100,3 +173,29 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+=build/scripts/mine_failed_builds.py= fetched every failed run of ORE
+Studio's CI from 2026-09-19 to 2026-11-18, 2,889 runs and 4,774 failed
+jobs, and classified 4,841 failures into 94 patterns, leaving 63
+unclassified. The run-by-run record is
+[[id:080067B0-D941-4D41-9388-24E39AD37E9C][Investigation: ORE Studio failed builds by day]], and the ranking, the
+verdicts and the candidates for checks are in
+[[id:6947B0D8-A1AE-4180-B2D9-D33FF02C1A3B][Investigation: ORE Studio failed build patterns]].
+
+- Two runs in three, 1,925, failed on a rule a compass codec enforces
+  today, mostly ORE Studio's generator gates. Running compass before the
+  push stops them with no new check.
+- 650 runs and 31,349 failed-job minutes failed on patterns a new check
+  could catch. The five proposed for the next task are portable C++
+  facilities, TypeScript formatting, a generated domain header's
+  includes, site links and pasted blocks.
+- 540 runs and 113,878 minutes, most of the cost, went to tests,
+  time-outs, memory, compile errors and runners, which no check before a
+  build predicts.
+- Most catchable checks are a generic rule over a project-owned list;
+  three would need ORE Studio's design in compass.
+- The LLM trailer marks 86% of failing heads against 79% of all commits
+  in the window, so it does not single out the failing changes.
+
+The task's description also names fix-up commits, PR review comments
+and memories. Its acceptance does not, and they were not mined.
