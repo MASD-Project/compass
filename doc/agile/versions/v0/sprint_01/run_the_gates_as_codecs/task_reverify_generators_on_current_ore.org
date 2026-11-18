@@ -8,7 +8,7 @@
 #+filetags: :run_the_gates_as_codecs:sprint_01:v0:
 #+owner: marco
 #+branch: feature/reverify-generators-on-current-ore
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/68
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-18
@@ -81,7 +81,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/68][#68]] | [build] Re-verify the generators on current ORE Studio |
 
 * Review
 
