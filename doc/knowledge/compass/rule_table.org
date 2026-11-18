@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-181 rules, 43 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
+182 rules, 43 of which cite a memory or a document that states them. Of the 62 memories of this repository, 58 are cited by no rule.
 
 ** Rules
 
@@ -75,12 +75,17 @@ memories no rule cites are the candidates for the next checks.
 | =history_registrars= | missing_composition | A checked component that generates registrars has its composition file. | =B5492D6C-7C18-4723-BA47-232AEAA13314= |
 | =http_areas= | unpublished_area | Every #+http_area: a model declares is a published area. |  |
 | =http_areas= | unreadable_areas | The route classification module states AREAS and NO_AREA as literals. |  |
-| =lint= | bad_filetag | Every tag of a page's first #+filetags: line is lowercase: a letter, then letters, digits, _, . or -. |  |
-| =lint= | unclosed_marker | Every '# BEGIN generated X' has a matching '# END generated X' on its own line. |  |
+| =lint= | bad_filetag | Every tag of a page's first #+filetags: is lowercase: a letter, then letters, digits, _, . or -. |  |
+| =lint= | unclosed_marker | Every '# BEGIN generated X' comment has a matching '# END generated X' comment. |  |
 | =lint= | marker_without_writer | A '# BEGIN generated X (script)' marker names a script that exists and writes the page. |  |
 | =lint= | malformed_link | An id link whose target has a hyphen is a UUID. |  |
 | =lint= | dangling_link | Every id link names the :ID: of some page. |  |
 | =lint= | durable_link | A page under doc/llm, doc/meta, doc/knowledge or doc/recipes links no agile page. |  |
+| =lint= | pattern_unknown_use | Every page a service architecture pattern lists under In ORE Studio exists. |  |
+| =lint= | pattern_one_way | A pattern and each of its uses link each other: the use links the pattern, and the pattern lists the use. | =470D4571-47A4-4AEF-9A93-2B4DE0279C1E= |
+| =lint= | pattern_not_a_pattern | A page lists only service architecture patterns under Patterns used. | =470D4571-47A4-4AEF-9A93-2B4DE0279C1E= |
+| =lint= | pattern_shared_id | No two pages of a pattern link share an ID. |  |
+| =lint= | missing_backlink | Every page a structure note orders links the note back. |  |
 | =marketdata_identity_columns= | table_columns | The identity table holds the context columns, the identity fields and the index columns, and nothing else. |  |
 | =marketdata_identity_columns= | projector_switch | The projector's switch names every field, places each identity field in its own column and no coordinate. |  |
 | =marketdata_identity_columns= | views | Each asset class with series has one view exposing the context, its identity fields and its instrument types. |  |
@@ -113,10 +118,6 @@ memories no rule cites are the candidates for the next checks.
 | =parameter_value_sets= | override_column | No pair setting table, model or reader states a per-pair control the value set states. |  |
 | =parameter_value_sets= | value_check | No engine settings part states a value as a column check. |  |
 | =parameter_value_sets= | missing_file | Every file the override rules guard exists. |  |
-| =pattern_uses= | unknown_use | Every page a pattern lists under In ORE Studio exists. |  |
-| =pattern_uses= | one_way | A pattern and each of its uses link each other: the use links the pattern, and the pattern lists the use. | =470D4571-47A4-4AEF-9A93-2B4DE0279C1E= |
-| =pattern_uses= | not_a_pattern | A page lists only service architecture patterns under Patterns used. | =470D4571-47A4-4AEF-9A93-2B4DE0279C1E= |
-| =pattern_uses= | shared_id | No two pages of a pattern link share an ID. |  |
 | =pending_models= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =populate_refs= | unresolved_reference | Every name a populate script looks up is one a populate script that runs before it defines. | =7B477025-132E-4B20-80B4-D8C9420880B8= |
 | =populate_refs= | unbalanced_parentheses | Every call and definition the check reads closes its parentheses. |  |
