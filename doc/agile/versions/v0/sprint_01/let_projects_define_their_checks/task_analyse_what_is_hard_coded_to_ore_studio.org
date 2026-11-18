@@ -27,11 +27,11 @@ check would look like, before any of it moves.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED |
+| State        | DONE |
 | Parent story | [[id:DAB2F48A-E47A-4895-9026-056AF21E6CCC][Let projects define their own checks]] |
-| Now          | Classifying each codec's ORE Studio specifics. |
+| Now          | Done: the inventory and the design are written. |
 | Waiting on   | Nothing.                               |
-| Next         | Propose the data format and test it on the mined check candidates. |
+| Next         | The story's tasks, from the design's migration order. |
 | Last touched | 2026-11-18                               |
 
 * Acceptance
@@ -46,9 +46,18 @@ check would look like, before any of it moves.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Inventory. Five readers, one per group of components, read every
+  codec's source against one rubric and wrote a row per ORE Studio
+  specific with its =file:line=. A script checked every cited line, and
+  another renders the rows as the investigation's tables.
+- ORE Studio's settings. Export =origin/main= of =ores.git= into the
+  scratchpad, run =compass config= and =compass check --timings= there,
+  and delete the export at the end.
+- Design. The product owner fixed the format mid-task: literate org in a
+  committed =compass/= directory. The design works inside that decision:
+  where the definition sits, the type contracts, exceptions, examples as
+  tests, the cache key, the layout and the migration. The comparison of
+  TOML, YAML, rule files and tree-sitter was dropped.
 
 * Measurements
 
@@ -62,9 +71,28 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Codecs registered | 71 | =compass check --timings= over the ORE export (its units list) | ORE =cdec0a1daa=, compass build =49f02e9= |
+| ORE Studio specifics found | 527: 15 data, 39 ORE defaults, 381 could be data, 92 stay code | the inventory rows, in [[id:5C4E5883-CBA5-4018-9A65-1CFD276AF198][Investigation: what compass hard-codes to ORE Studio]] | compass =01415b5= |
+| Codecs by nature | 10 generic, 37 parameterised, 24 of ORE's design | the same | compass =01415b5= |
+| ORE option values taken from compass's defaults | 46 | =compass config=, lines ending =(default)= | ORE =cdec0a1daa= |
+| Cold and warm check of ORE Studio | 82.5 s and 6.9 s | =compass -j 4 check --timings= twice | ORE =cdec0a1daa=, compass build =49f02e9= |
+| =portable_stop= scan, cold | 3,377 ms | its =--timings= line | same |
+| One option changed | only =translation_unit_budget= re-ran, 100 ms, in a 7.1 s check | =--set translation_unit_budget.ceilings=...= | same |
 
 * Notes
+
+- The ORE export needed =git init= before =compass check= would run: it
+  lists files with =git ls-files=.
+- 178 of the 381 could-be-data specifics sit in codecs of ORE Studio's
+  design. Making them options leaves codecs only ORE Studio can use; the
+  design leaves them until the product owner decides where those codecs
+  live.
+- The design lives in the story's folder as =design.org=, as the design
+  type's contract requires; the inventory is in =evidence/=.
+- The product owner widened the scope twice during the task (where
+  compass finds a project's checks, then literate org checks) and then
+  fixed the format and layout. The decision is in the story's
+  =* Decisions=.
 
 * Test Scenarios
 
@@ -90,3 +118,27 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+The Acceptance is met:
+
+- The table of every codec and its specifics is
+  [[id:5C4E5883-CBA5-4018-9A65-1CFD276AF198][Investigation: what compass hard-codes to ORE Studio]]: 71 codecs and
+  527 specifics, each with its =file:line=, class and reason. 54 are
+  already data (39 of them only as compass defaults that are ORE Studio's
+  values), 381 could be data, and 92 stay code.
+- The five mined candidates are checked against the format in
+  [[id:225B524C-1638-4A03-B02F-66EB6759619D][Design: literate project checks]]. Portable C++ facilities is written
+  in full, apart from two facilities that need a C++ type fact. The
+  domain header includes need one parameter, =THROUGH=. TypeScript
+  formatting needs a =format= engine, which runs an external tool. Site
+  links and pasted blocks stay code.
+- The format is the product owner's: literate org documents in a
+  committed =compass/= directory. The design gives the definition's
+  place (property drawers), the type contracts, per-check exceptions,
+  examples as tests, a cache key that ignores prose, and the migration.
+  Its worked examples are ORE Studio's readme, configuration and local
+  settings, the mined portable C++ check, and =handler_permissions=
+  rewritten. The cost: a check is keyed like a codec's options, and a
+  changed option re-ran one codec in 100 ms (measured). A regular
+  expression with no literal to prefilter on may cost a full pass over
+  its files (a guess).
