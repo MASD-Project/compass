@@ -381,7 +381,11 @@ Only after step 2 shows agreement:
   by, whether or not the base has a `.compass.org` of its own. For pull
   requests,
   `compass-ng check --ratchet origin/main` is the
-  gate: it fails only on new findings.
+  gate: it fails only on new findings. Because both sides use the same
+  configuration, a change to `.compass.org` alone never shows up as a new
+  finding: tightening a codec option (a `translation_unit_budget` ceiling,
+  say) fails the plain check but not the ratchet. To prove a gate with a
+  planted violation, plant it in the tree, not in the configuration.
 - **Regeneration.** Replace `regenerate --all` with `compass-ng generate`. Keep
   `regenerate_cmake_component_files.py` and the PlantUML script until
   `component_files` and `er_diagram` are confirmed; `component_files` already
