@@ -23,6 +23,7 @@
 #include <cstdlib>
 #include <string>
 #include <system_error>
+#include "compass.platform/process/environment.hpp"
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -61,9 +62,9 @@ std::optional<std::filesystem::path> executable_named(
         return p;
     if (p.has_extension())
         return std::nullopt;
-    const char* listed = std::getenv("PATHEXT");
+    const auto listed = environment_variable("PATHEXT");
     std::string_view extensions =
-        listed == nullptr ? ".COM;.EXE;.BAT;.CMD" : listed;
+        listed ? std::string_view(*listed) : ".COM;.EXE;.BAT;.CMD";
     while (!extensions.empty()) {
         const auto end = extensions.find(path_list_separator);
         const auto extension = extensions.substr(0, end);
@@ -138,8 +139,8 @@ std::optional<std::filesystem::path> find_program(std::string_view name) {
         return std::nullopt;
     if (has_separator(name))
         return executable_named(std::filesystem::path(name));
-    const char* path = std::getenv("PATH");
-    std::string_view dirs = path == nullptr ? "" : path;
+    const auto path = environment_variable("PATH");
+    std::string_view dirs = path ? std::string_view(*path) : "";
     while (true) {
         const auto end = dirs.find(path_list_separator);
         const auto dir = dirs.substr(0, end);

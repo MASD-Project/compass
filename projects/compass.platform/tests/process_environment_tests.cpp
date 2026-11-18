@@ -29,9 +29,8 @@ namespace process = compass::platform::process;
 TEST_CASE("a variable set is seen by this process and the programs it runs",
     "[process][environment]") {
     process::set_environment_variable("COMPASS_PLATFORM_TEST", "a value");
-    const char* seen = std::getenv("COMPASS_PLATFORM_TEST");
-    REQUIRE(seen != nullptr);
-    CHECK(std::string(seen) == "a value");
+    CHECK(process::environment_variable("COMPASS_PLATFORM_TEST") ==
+        "a value");
 
     const auto r = process::run_program({{"sh", "-c",
         "printf %s \"$COMPASS_PLATFORM_TEST\""}, {}, {}});
@@ -40,8 +39,8 @@ TEST_CASE("a variable set is seen by this process and the programs it runs",
 
 TEST_CASE("the home directory is HOME when it is set",
     "[process][environment]") {
-    const char* before = std::getenv("HOME");
-    const std::string saved = before == nullptr ? "" : before;
+    const auto saved =
+        process::environment_variable("HOME").value_or(std::string());
     process::set_environment_variable("HOME", "/compass/home");
     CHECK(process::home_directory() == "/compass/home");
     process::set_environment_variable("HOME", saved);

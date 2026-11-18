@@ -59,8 +59,8 @@ types::index_time now() noexcept {
 }
 
 std::filesystem::path environment(const char* name) {
-    const char* value = std::getenv(name);
-    return value == nullptr ? std::filesystem::path{} : value;
+    const auto value = platform::process::environment_variable(name);
+    return value ? std::filesystem::path(*value) : std::filesystem::path{};
 }
 
 /**
@@ -109,7 +109,7 @@ void read_config_file(const std::filesystem::path& file,
 types::git_config read_config(const std::filesystem::path& git_dir,
     const std::filesystem::path& common_dir) {
     std::vector<std::filesystem::path> files;
-    if (std::getenv("GIT_CONFIG_NOSYSTEM") == nullptr)
+    if (!platform::process::environment_variable("GIT_CONFIG_NOSYSTEM"))
         files.emplace_back("/etc/gitconfig");
     if (const auto xdg = xdg_git_dir(); !xdg.empty())
         files.push_back(xdg / "config");

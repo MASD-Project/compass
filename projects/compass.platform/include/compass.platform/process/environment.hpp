@@ -22,6 +22,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <string>
 
 namespace compass::platform::process {
@@ -30,6 +31,12 @@ namespace compass::platform::process {
  * @brief The ID the system gives the running process.
  */
 [[nodiscard]] std::uint64_t current_process_id() noexcept;
+
+/**
+ * @brief The value of the environment variable @p name, when it is set.
+ */
+[[nodiscard]] std::optional<std::string> environment_variable(
+    const std::string& name);
 
 /**
  * @brief Sets the environment variable @p name to @p value for this

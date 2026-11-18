@@ -32,9 +32,9 @@ namespace compass::platform::process {
 
 namespace {
 
-std::filesystem::path variable_path(const char* name) {
-    const char* value = std::getenv(name);
-    return value == nullptr ? std::filesystem::path{} : value;
+std::filesystem::path variable_path(const std::string& name) {
+    const auto value = environment_variable(name);
+    return value ? std::filesystem::path(*value) : std::filesystem::path{};
 }
 
 }
@@ -44,6 +44,25 @@ std::uint64_t current_process_id() noexcept {
     return ::GetCurrentProcessId();
 #else
     return static_cast<std::uint64_t>(::getpid());
+#endif
+}
+
+std::optional<std::string> environment_variable(const std::string& name) {
+#if defined(_WIN32)
+    // The C runtime's copy, which set_environment_variable keeps; getenv
+    // reads it too, but MSVC deprecates getenv for _dupenv_s.
+    char* value = nullptr;
+    std::size_t size = 0;
+    if (::_dupenv_s(&value, &size, name.c_str()) != 0 || value == nullptr)
+        return std::nullopt;
+    std::string out(value);
+    std::free(value);
+    return out;
+#else
+    const char* value = std::getenv(name.c_str());
+    if (value == nullptr)
+        return std::nullopt;
+    return std::string(value);
 #endif
 }
 

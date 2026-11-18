@@ -51,6 +51,7 @@ endif()
 
 option(WITH_PROFILING "Generate profiling information for code coverage." OFF)
 option(WITH_MEMCHECK "Configure the tests for a run under valgrind." OFF)
+option(COMPASS_WARNINGS_AS_ERRORS "Treat compiler warnings as errors." OFF)
 
 #
 # Compiler cache. CI always uses sccache. A local build uses the tool named by
@@ -114,6 +115,29 @@ find_package(unofficial-tree-sitter-cpp CONFIG REQUIRED)
 find_package(unofficial-tree-sitter-sql CONFIG REQUIRED)
 if(CMAKE_VERSION VERSION_GREATER_EQUAL "4.4")
     cmake_diagnostic(POP)
+endif()
+
+macro(get_win_hex outvar)
+    string(REGEX MATCH "^([0-9]+)\\.([0-9]+)" ${outvar} ${CMAKE_SYSTEM_VERSION})
+    math(EXPR ${outvar} "(${CMAKE_MATCH_1} << 8) + ${CMAKE_MATCH_2}" OUTPUT_FORMAT HEXADECIMAL)
+endmacro()
+
+if(WIN32)
+    get_win_hex(winver)
+    add_compile_definitions(_WIN32_WINNT=${winver})
+    # Prevent Windows.h from including the legacy WinSock.h header, which
+    # conflicts with WinSock2.h pulled in by Boost.ASIO (socket_types.hpp).
+    add_compile_definitions(WIN32_LEAN_AND_MEAN)
+    # Keep Windows.h from defining min and max as function-like macros. A unity
+    # unit that includes Windows.h makes std::numeric_limits<T>::max() expand
+    # as a macro call with no arguments.
+    add_compile_definitions(NOMINMAX)
+    if(MSVC)
+        # Allow object files with more than 65535 addressable sections.
+        # Required by large translation units (e.g. registrar.cpp with many
+        # template instantiations from Boost headers).
+        add_compile_options(/bigobj)
+    endif()
 endif()
 
 if(APPLE)

@@ -49,6 +49,14 @@ constexpr std::intptr_t no_handle = -1;
         std::string(what) + " " + path.generic_string());
 }
 
+// FileRenameInfoEx and its flags, which the SDK declares only for a
+// _WIN32_WINNT of Windows 10 1607 or later. The flags sit where
+// FILE_RENAME_INFO's ReplaceIfExists does, widened to a DWORD.
+constexpr auto file_rename_info_ex =
+    static_cast<FILE_INFO_BY_HANDLE_CLASS>(22);
+constexpr DWORD rename_replace_if_exists = 0x1;
+constexpr DWORD rename_posix_semantics = 0x2;
+
 HANDLE native(std::intptr_t handle) noexcept {
     return reinterpret_cast<HANDLE>(handle);
 }
@@ -169,13 +177,13 @@ void replace_file(const std::filesystem::path& from,
     std::vector<std::byte> buffer(
         sizeof(FILE_RENAME_INFO) + name_bytes + sizeof(wchar_t));
     auto* info = reinterpret_cast<FILE_RENAME_INFO*>(buffer.data());
-    info->Flags = FILE_RENAME_FLAG_REPLACE_IF_EXISTS |
-        FILE_RENAME_FLAG_POSIX_SEMANTICS;
+    const DWORD flags = rename_replace_if_exists | rename_posix_semantics;
+    std::memcpy(buffer.data(), &flags, sizeof flags);
     info->RootDirectory = nullptr;
     info->FileNameLength = static_cast<DWORD>(name_bytes);
     std::memcpy(info->FileName, target.c_str(), name_bytes + sizeof(wchar_t));
-    const BOOL renamed = ::SetFileInformationByHandle(h, FileRenameInfoEx,
-        info, static_cast<DWORD>(buffer.size()));
+    const BOOL renamed = ::SetFileInformationByHandle(h,
+        file_rename_info_ex, info, static_cast<DWORD>(buffer.size()));
     const DWORD error = ::GetLastError();
     ::CloseHandle(h);
     if (renamed)
