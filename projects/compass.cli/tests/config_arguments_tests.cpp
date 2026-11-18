@@ -49,7 +49,7 @@ TEST_CASE("a bare command runs over the working directory and sets "
     CHECK(o.command_line.settings.empty());
 }
 
-TEST_CASE("-C is relative to the working directory; --meta, --out and "
+TEST_CASE("The -C option is relative to the working directory; --meta, --out and "
     "--set are kept as written", "[config][arguments]") {
     const auto parsed = parse({"-C", "../other/", "diff", "--meta", "meta",
         "--out", "/tmp/out", "-j", "3", "--set", "document_index.path=x.tsv",
@@ -130,7 +130,7 @@ TEST_CASE("check takes the base of --ratchet when one follows it",
         CHECK(std::holds_alternative<config::usage_error>(parse(args)));
 }
 
-TEST_CASE("--help and --version win over everything else",
+TEST_CASE("The --help and --version options win over everything else",
     "[config][arguments]") {
     CHECK(std::holds_alternative<config::show_help>(
         parse({"check", "--bogus", "-h"})));

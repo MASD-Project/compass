@@ -51,6 +51,7 @@ A person or a CI job installs a named compass release with one command, without 
 | [[id:92BC3EE7-75EB-4FC1-B37B-A4906CAD6935][Read store objects while Windows replaces them]] | BACKLOG | | | On Windows a reader of a store object can see it missing while a writer replaces it, as compass.store.tests' concurrent-writers test caught once under MSVC; find the cause and make reads of a replaced object always see a whole object. |
 | [[id:CBCD81E9-C210-4150-A201-54CE1434A9A7][Clean up the tests' temporary directories]] | DONE | 2026-11-18 | 2026-11-18 | Give compass one scoped temporary directory in a compass.testing component, as ORE Studio has ores.testing, so a fixture that throws in its constructor or a test process that is killed leaves nothing in /tmp. |
 | [[id:2D1222E9-5C3B-46BC-A3B2-A0B3149A10AF][Submit coverage and memcheck, and document CDash]] | BACKLOG | | | See a Nightly Linux debug build submit coverage and a memcheck run to the Compass dashboard, and write the recipe that shows a developer how to find their build on CDash and submit a local run. |
+| [[id:9404E516-B057-41A4-BA92-A0B67719BB78][Report each Catch2 test to CDash]] | STARTED | 2026-11-18 | | Register every Catch2 test case as its own CTest test with catch_discover_tests, so CDash shows each test's result and time instead of one entry per suite. |
 
 * Decisions
 

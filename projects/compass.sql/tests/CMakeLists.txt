@@ -38,6 +38,4 @@ target_link_libraries(${tests_target_name}
         compass.testing.lib
         Catch2::Catch2WithMain)
 
-add_test(NAME ${tests_target_name}
-    COMMAND ${tests_target_name} ${COMPASS_TEST_FILTER}
-    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+compass_add_catch2_tests(${name} ${tests_target_name})

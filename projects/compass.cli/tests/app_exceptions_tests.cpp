@@ -325,7 +325,7 @@ TEST_CASE("ratchet applies the checkout's exceptions table to both sides",
     }
 }
 
-TEST_CASE("--today takes a date and applies to check only",
+TEST_CASE("The --today option takes a date and applies to check only",
     "[app][exceptions]") {
     scoped_git_repo repo;
     repo.write(".compass.org", configuration);
