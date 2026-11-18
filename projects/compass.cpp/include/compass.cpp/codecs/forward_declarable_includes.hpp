@@ -39,8 +39,12 @@ namespace compass::cpp::codecs {
  * holds it, needs the definition. Rule
  * includes_definition_it_only_names: every use only names the type,
  * reported on the include line. Rule bad_type_list: the types option is
- * malformed or empty. The script's baseline is not read: an accepted
- * offender carries an inline exception on its include line.
+ * malformed or empty. Rule stale_type_list: the file the list_file option
+ * names exists and lists other rows than the types option, or cannot be
+ * read, reported on that file. Rule type_not_defined: a header of the
+ * tree whose include path is a listed defining header does not define
+ * its type. The script's baseline is not read: an accepted offender
+ * carries an inline exception on its include line.
  */
 extern const compass::codec::types::descriptor forward_declarable_includes;
 
