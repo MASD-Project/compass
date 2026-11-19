@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :publish_installable_binaries:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/release-checksums
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,16 +26,21 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED |
 | Parent story | [[id:EB6AF798-D472-4CC2-B97C-FC2BD9FD1FDE][Publish installable binaries]] |
-| Now          | Not yet started.                       |
-| Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
-| Last touched | 2026-11-19                               |
+| Now          | install_compass.sh --release <tag> and --pin <file> download, verify and install a release; tested against a release served from a directory. |
+| Waiting on   | The first release, to install from GitHub itself. |
+| Next         | Install v0.0.1 from GitHub, then close. |
+| Last touched | 2026-11-19 |
 
 * Acceptance
 
--
+- =install_compass.sh --release <tag>= downloads the archive of this
+  machine's system and processor and its checksum, refuses a mismatch,
+  and installs it as a built tree is installed.
+- =--pin <file>= installs the release a consumer's =release:= line names.
+- A release that does not exist, and a pin with no =release:= line, fail
+  and install nothing.
 
 * Plan
 
@@ -55,7 +60,7 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Install test, release cases included | passes | =bash projects/compass.cli/tests/install_compass.sh build/scripts/install_compass.sh <compass>= | d6b8bcb |
 
 * Notes
 
