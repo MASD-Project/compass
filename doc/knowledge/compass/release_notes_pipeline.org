@@ -7,11 +7,11 @@
 #+level: cross
 #+filetags: :architecture:compass:release:agile:
 #+created: 2026-07-02
-#+updated: 2026-07-02
+#+updated: 2026-11-19
 
 * Summary
 
-=compass release-notes= (=projects/ores.compass/src/compass_release_notes.py=)
+=compass release-notes= (=projects/compass.legacy/src/compass_release_notes.py=)
 closes a sprint through five independent, idempotent verbs —
 =create=, =charts=, =export=, =commit=, =draft= — run in that order
 from a task branch off =main=. Splitting the pipeline this way lets
@@ -41,9 +41,11 @@ re-doing PR collection or losing a tag/release that already exists:
   [[proj:build/scripts/collect_release_pr_data.py][=collect_release_pr_data.py=]] (enumerates merged PRs via =gh= since
   the previous =v*= tag) and
   [[proj:build/scripts/generate_release_notes.py][=generate_release_notes.py=]] (parses =sprint.org= and every
-  =story.org=, groups stories into sections via =TAG_TO_SECTION=,
+  =story.org=, groups stories into sections via =TAG_SECTIONS= and
+  =KEYWORD_SECTIONS=, takes the sprint duration from the sprint's own
+  =#+start_date= and =#+end_date=,
   derives Highlights from the retrospective, renders
-  [[proj:projects/ores.codegen/library/templates/doc_release_notes.org.mustache][=doc_release_notes.org.mustache=]] via pystache). Leaves two
+  [[proj:projects/compass.legacy/library/templates/doc_release_notes.org.mustache][=doc_release_notes.org.mustache=]] via pystache). Leaves two
   =(( ... ))= summary-blurb placeholders for a human/LLM to fill —
   synthesising sprint narrative from mission/retrospective/PR list
   is deliberately not automated.
@@ -53,15 +55,14 @@ re-doing PR collection or losing a tag/release that already exists:
   =[[proj:...]]= chart image links resolve to real PNGs.
 
 - =export --sprint N= — batch-runs
-  [[proj:projects/ores.lisp/src/ores-build-release-notes.el][=ores-build-release-notes.el=]] under Emacs to turn
+  [[proj:projects/compass.legacy/lisp/ores-build-release-notes.el][=ores-build-release-notes.el=]] under Emacs to turn
   =release_notes.org= into GitHub-flavoured Markdown. House export
   settings: no table of contents, no section numbers, and —
   critically — =org-export-with-sub-superscripts= disabled (org's
   default treats any =word_word= outside verbatim markup as a
   subscript; without this, prose identifiers like =market_fixing=
-  export as =market<sub>fixing</sub>=). Same convention as
-  [[proj:projects/ores.lisp/src/ores-build-site.el][=ores-build-site.el=]] and
-  [[proj:projects/ores.lisp/src/ores-build-help.el][=ores-build-help.el=]].
+  export as =market<sub>fixing</sub>=). Same convention as ORE
+  Studio's site and help exporters.
 
 - =commit --sprint N= — stages, commits, and pushes
   =release_notes.org=/=.md= and the four chart PNGs on the current
@@ -78,9 +79,11 @@ There is no GitHub API call that "uploads an image into a release
 body." Instead, the =proj:= link exporter in
 =ores-build-release-notes.el= rewrites every =[[proj:path]]= link:
 images become
-=https://raw.githubusercontent.com/OreStudio/OreStudio/main/<path>=,
+=https://raw.githubusercontent.com/MASD-Project/compass/main/<path>=,
 everything else becomes a
-=https://github.com/OreStudio/OreStudio/blob/main/<path>= URL. Both
+=https://github.com/MASD-Project/compass/blob/main/<path>= URL.
+compass publishes no site, so an =id:= link becomes the same kind
+of blob URL to the linked =.org= file, which GitHub renders. Both
 only resolve once =<path>= exists on =main= — which is exactly why
 =commit= (push the files on a branch) and =draft= (tag and open the
 release) are separate verbs with a PR-merge step in between, not one
@@ -103,15 +106,16 @@ doesn't care what is checked out locally. A tag that exists on
 origin but not locally is *fetched*, never recreated, so a same-name
 tag can never silently diverge onto a different commit. This makes
 the whole verb safe to re-run repeatedly — including editing a
-release's title after the fact (verified live: redrafting
-=v0.0.21= with the correct =--codename= updated the title in place
-without creating a new release or losing the tag/PR/notes work
-already done).
+release's title after the fact (verified live in ORE Studio:
+redrafting its =v0.0.21= with the correct =--codename= updated the
+title in place without creating a new release or losing the
+tag/PR/notes work already done).
 
 ** Release title convention
 
-House convention (see =gh release list=): =<tag>, "<Codename>"= —
-e.g. =v0.0.20, "Capopolo"=. The codename is invented per release (no
+ORE Studio's house convention, which compass follows (see
+=gh release list= there): =<tag>, "<Codename>"= — e.g.
+=v0.0.20, "Capopolo"=. The codename is invented per release (no
 derivable default), so =--codename= is a required argument to
 =draft=, not optional.
 

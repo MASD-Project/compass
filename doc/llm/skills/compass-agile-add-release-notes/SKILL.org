@@ -82,8 +82,8 @@ verbs, run in order, from a task branch off =main=.
    ./compass.sh release-notes commit --sprint <N>
    #+end_src
 
-   Open and merge the PR the normal way (=compass pr create= /
-   =compass pr merge=) before the next step, so the images resolve.
+   Open and merge the PR the normal way (see [[id:CC928252-E0C5-4C3C-A7A8-D613593E4E37][How do I create a PR?]])
+   before the next step, so the images resolve.
 
 7. /Draft/: tag =main= and open a *draft* GitHub release. A
    codename is invented per release (house convention: =v0.0.20,
@@ -109,11 +109,11 @@ owns it at sprint level.
 * Recipes
 
 - [[id:9F274EE4-3CAB-47FD-BB6E-449D8B789D8C][How do I generate release notes?]] — the end-to-end procedure.
-- =PR Manager= — for the notes PR itself.
+- [[id:CC928252-E0C5-4C3C-A7A8-D613593E4E37][How do I create a PR?]] — for the notes PR itself.
 
 * Reference
 
-- [[id:4D3C2B1A-9E8F-4A7B-6C5D-3E2F1A0B9C8D][The compass release-notes pipeline]] — why it's five verbs, the
+- [[id:BD3F410B-401B-4EA3-8C86-E4B1F45CA9BF][The compass release-notes pipeline]] — why it's five verbs, the
   image-resolution mechanism, tag/release idempotency, the title
   convention.
 - [[id:7D72A9DA-984F-4130-BFF6-97B66B233907][Sprint closure]] phase — where this skill is invoked.
