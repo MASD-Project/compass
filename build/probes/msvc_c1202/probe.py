@@ -52,6 +52,13 @@ The probes are:
   where it comes.
 - w10x50_then_20_<k>: 50 entities of width 10, then k of width 20, to
   price narrow entities against the width-20 threshold.
+- pin_length_<w>: 110 entities of width 10, 1,100 bindings with no list
+  longer than 10, then one of width w: it fails when w reaches the
+  shortest list length that can fail.
+- pin_budget_<w>: 100 entities of width 10, then one of width w: it
+  fails when 1,000 + w reaches the budget and w that length.
+- flat_...: the column lists built in one call, make_columns
+  (flat_columns.hpp), instead of a chain of operator|.
 
 Each is compiled with cl.exe and the flags ORE Studio's release build
 passes, and its outcome is ok, C1202 or another error. The results go to
@@ -118,6 +125,14 @@ def probes() -> dict[str, tuple[str, list[int]]]:
         out[f"w75_last_{k}"] = ("columns", [20] * k + [75])
     for k in range(20, 53, 2):
         out[f"w10x50_then_20_{k}"] = ("columns", [10] * 50 + [20] * k)
+    for w in range(14, 25):
+        out[f"pin_length_{w}"] = ("columns", [10] * 110 + [w])
+    for w in range(18, 46):
+        out[f"pin_budget_{w}"] = ("columns", [10] * 100 + [w])
+    out["flat_unit53"] = ("flat_columns", widths_of(53))
+    out["flat_unit55"] = ("flat_columns", widths_of(55))
+    for k, w in ((120, 20), (480, 20), (60, 75), (240, 40)):
+        out[f"flat_many_{k}x{w}"] = ("flat_columns", [w] * k)
     for k in range(45, 61):
         out[f"uniq_sweep_20_{k}"] = ("uniq_columns", [20] * k)
     out["uniq_unit53"] = ("uniq_columns", widths_of(53))
@@ -136,6 +151,17 @@ def probes() -> dict[str, tuple[str, list[int]]]:
 def members_of(width: int) -> str:
     return "\n".join(f"    {MEMBER_TYPES[m % len(MEMBER_TYPES)]} m{m};"
                      for m in range(width))
+
+
+def flat_entity(n: int, width: int) -> str:
+    bindings = ",\n            ".join(
+        ['qb::key("m0", &e::m0)'] +
+        [f'qb::bind("m{m}", &e::m{m})' for m in range(1, width)])
+    return (f"struct entity_{n} {{\n{members_of(width)}\n"
+            f"    static constexpr auto columns() {{\n"
+            f"        using e = entity_{n};\n"
+            f"        return qb::make_columns<e>(\n            {bindings});\n"
+            f"    }}\n}};\n")
 
 
 def uniq_entity(n: int, width: int) -> str:
@@ -179,11 +205,12 @@ def source(shape: str, widths: list) -> str:
     if shape == "real":
         return "".join(f'#include "{h}"\n' for h in widths)
     make = {"columns": entity, "int_columns": int_entity,
-            "uniq_columns": uniq_entity, "fields": fields_type}[shape]
+            "uniq_columns": uniq_entity, "flat_columns": flat_entity,
+            "fields": fields_type}[shape]
     body = "\n".join(make(n, w) for n, w in enumerate(widths))
     return ("#include <cstddef>\n#include <optional>\n#include <string>\n"
             "#include <string_view>\n#include <type_traits>\n"
-            '#include "columns.hpp"\n#include "wire_fields.hpp"\n\n'
+            '#include "flat_columns.hpp"\n#include "wire_fields.hpp"\n\n'
             "namespace qb = ores::database::query_builder;\n"
             "namespace wc = ores::utility::codec;\n\n"
             f"namespace probe {{\n\n{body}\n}}\n")
