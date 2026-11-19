@@ -162,11 +162,12 @@ TEST_CASE("a check document that cannot run says where and why",
         "check's FILES in its property drawer");
     CHECK(error_of(replaced(document, ":ENGINE: forbid\n", "")) ==
         "compass/checks/portable_cpp.org:4: the definition names no engine; "
-        "fix: add :ENGINE: forbid to its property drawer, which org reads "
-        "only on the line right under the heading");
+        "fix: add :ENGINE: forbid or :ENGINE: format to its property drawer, "
+        "which org reads only on the line right under the heading");
     CHECK(error_of(replaced(document, ":ENGINE: forbid", ":ENGINE: limit")) ==
         "compass/checks/portable_cpp.org:6: the engine is 'limit'; fix: "
-        "write :ENGINE: forbid, the one engine compass runs from a document");
+        "write :ENGINE: forbid or :ENGINE: format, the engines compass runs "
+        "from a document");
     CHECK(error_of(replaced(document, ":CPP_NAME: getenv", ":COLOUR: red")) ==
         "compass/checks/portable_cpp.org:24: unknown key COLOUR; fix: "
         "correct the definition's drawers");
@@ -186,4 +187,40 @@ TEST_CASE("a check document that cannot run says where and why",
     CHECK(error_of(replaced(document, ":FILES: src/**/*.{cpp,hpp}\n", "")) ==
         "compass/checks/portable_cpp.org:4: the definition has no FILES; "
         "fix: correct the definition's drawers");
+}
+
+TEST_CASE("a format check document becomes a formatting check with one "
+    "rule, unformatted", "[config][check_documents]") {
+    const std::string format_document =
+        "#+title: Check: TypeScript formatting\n"
+        "#+description: The TypeScript is as prettier formats it.\n\n"
+        "* Definition\n"
+        ":PROPERTIES:\n"
+        ":ENGINE: format\n"
+        ":FORMATTER: prettier\n"
+        ":PROGRAM: prettier\n"
+        ":STYLE: .prettierrc.yaml\n"
+        ":FILES: web/**/*.ts\n"
+        ":END:\n";
+    compass::codec::types::exception_set exceptions;
+    const auto c = config::parse_check_document(format_document,
+        "compass/checks/typescript_format.org", exceptions);
+    REQUIRE(c);
+    const auto& codec = (*c)->codec;
+    CHECK(codec.name == "typescript_format");
+    CHECK(codec.formatting_check);
+    CHECK(codec.formatters != nullptr);
+    REQUIRE(codec.rules.size() == 1);
+    CHECK(codec.rules[0].name == "unformatted");
+    CHECK(codec.rules[0].summary ==
+        "Each file the check covers is as prettier formats it.");
+
+    compass::codec::types::exception_set ignored;
+    const auto headed = config::parse_check_document(format_document +
+        "\n** typescript\n:PROPERTIES:\n:MESSAGE: m\n:END:\n",
+        "compass/checks/typescript_format.org", ignored);
+    REQUIRE_FALSE(headed);
+    CHECK(headed.error() == "compass/checks/typescript_format.org:13: a "
+        "format check has one rule, unformatted, and no rule headings; fix: "
+        "remove the heading, and state the check in the Definition drawer");
 }

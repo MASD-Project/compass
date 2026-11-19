@@ -28,7 +28,9 @@
 #include "compass.codec/ops/exceptions.hpp"
 #include "compass.cpp/codecs/catalogue.hpp"
 #include "compass.cpp/codecs/forbid.hpp"
+#include "compass.cpp/codecs/format_check.hpp"
 #include "compass.cpp/ops/forbid.hpp"
+#include "compass.cpp/ops/format_check.hpp"
 #include "compass.ingest/org/parser.hpp"
 #include "compass.org/ops/document_fields.hpp"
 
@@ -111,11 +113,11 @@ struct check_reader : org_reader {
 
     /**
      * @brief Adds the drawer of @p h to @p out, one KEY value line per
-     * property, or says why it cannot be: the engine is checked and left
-     * out, and so is the drawer's ID.
+     * property, or says why it cannot be: the engine is checked, put in
+     * @p engine and left out, and so is the drawer's ID.
      */
     [[nodiscard]] std::expected<void, std::string> add_drawer(
-        ot::heading_id h, definition_text& out, bool& engine) const {
+        ot::heading_id h, definition_text& out, std::string& engine) const {
         const auto [first, end] = properties_of(h);
         for (auto p = first; p < end; ++p) {
             const ot::property_id id{p};
@@ -125,11 +127,11 @@ struct check_reader : org_reader {
             const auto line = line_of(text, value.begin);
             const auto v = value.of(text);
             if (key == "ENGINE") {
-                if (v != "forbid")
+                if (v != "forbid" && v != "format")
                     return error(line, std::format("the engine is '{}'", v),
-                        "write :ENGINE: forbid, the one engine compass "
-                        "runs from a document");
-                engine = true;
+                        "write :ENGINE: forbid or :ENGINE: format, the "
+                        "engines compass runs from a document");
+                engine = std::string(v);
                 continue;
             }
             if (key == "ID")
@@ -232,13 +234,15 @@ parse_check_document(std::string_view text, std::string_view path,
             "check's FILES in its property drawer");
     definition_text d;
     d.add(std::format("SOURCE {}", path), r.line_of_heading(definition));
-    bool engine = false;
+    std::string engine;
     if (auto ok = r.add_drawer(definition, d, engine); !ok)
         return failure(ok.error());
-    if (!engine)
+    if (engine.empty())
         return r.error(r.line_of_heading(definition), "the definition names "
-            "no engine", "add :ENGINE: forbid to its property drawer, which "
-            "org reads only on the line right under the heading");
+            "no engine", "add :ENGINE: forbid or :ENGINE: format to its "
+            "property drawer, which org reads only on the line right under "
+            "the heading");
+    const bool format = engine == "format";
 
     std::vector<ot::heading_id> rule_headings;
     for (auto h = definition.value + 1; h < tables.headings.size() &&
@@ -246,6 +250,11 @@ parse_check_document(std::string_view text, std::string_view path,
         if (tables.headings.levels[ot::heading_id{h}] == 2)
             rule_headings.push_back(ot::heading_id{h});
     }
+    if (format && !rule_headings.empty())
+        return r.error(r.line_of_heading(rule_headings.front()), "a format "
+            "check has one rule, unformatted, and no rule headings",
+            "remove the heading, and state the check in the Definition "
+            "drawer");
     for (const auto h : rule_headings) {
         const auto name = trimmed(text, tables.headings.titles[h]).of(text);
         d.add(std::format("RULE {}", name), r.line_of_heading(h));
@@ -256,9 +265,7 @@ parse_check_document(std::string_view text, std::string_view path,
     if (auto ok = r.add_examples(d); !ok)
         return failure(ok.error());
 
-    auto parsed = compass::cpp::ops::parse_forbid_definition(d.text);
-    if (!parsed) {
-        const auto& e = parsed.error();
+    const auto error_of = [&](const std::string& e) {
         std::uint32_t line = r.line_of_heading(definition);
         auto what = std::string_view(e);
         if (e.starts_with("line ")) {
@@ -270,21 +277,34 @@ parse_check_document(std::string_view text, std::string_view path,
             what = what.substr(colon + 2);
         }
         return r.error(line, what, "correct the definition's drawers");
-    }
+    };
 
-    for (std::size_t i = 0; i < parsed->rules.size(); ++i) {
-        c->rule_names.push_back(parsed->rules[i].name);
-        auto summary = r.first_paragraph(rule_headings[i]);
-        c->rule_summaries.push_back(summary.empty()
-            ? parsed->rules[i].message : std::move(summary));
+    if (format) {
+        const auto parsed = compass::cpp::ops::parse_format_definition(d.text);
+        if (!parsed)
+            return error_of(parsed.error());
+        c->rule_names.emplace_back("unformatted");
+        c->rule_summaries.push_back(std::format("Each file the check covers "
+            "is as {} formats it.", parsed->formatter));
+    } else {
+        const auto parsed = compass::cpp::ops::parse_forbid_definition(d.text);
+        if (!parsed)
+            return error_of(parsed.error());
+        for (std::size_t i = 0; i < parsed->rules.size(); ++i) {
+            c->rule_names.push_back(parsed->rules[i].name);
+            auto summary = r.first_paragraph(rule_headings[i]);
+            c->rule_summaries.push_back(summary.empty()
+                ? parsed->rules[i].message : std::move(summary));
+        }
+        c->rule_names.emplace_back("example");
+        c->rule_summaries.emplace_back("Each example of the check fires or "
+            "stays quiet as its block says.");
     }
-    c->rule_names.emplace_back("example");
-    c->rule_summaries.emplace_back("Each example of the check fires or "
-        "stays quiet as its block says.");
     for (std::size_t i = 0; i < c->rule_names.size(); ++i)
         c->rules.push_back({c->rule_names[i], c->rule_summaries[i]});
     c->definition = std::move(d.text);
-    c->options = {{{compass::cpp::codecs::forbid_definition_key,
+    c->options = {{{format ? compass::cpp::codecs::format_definition_key
+                           : compass::cpp::codecs::forbid_definition_key,
         c->definition, "The check's definition, from its document."}}};
 
     const auto description = compass::org::ops::find_keyword(r.t,
@@ -301,6 +321,11 @@ parse_check_document(std::string_view text, std::string_view path,
         .rules = c->rules,
         .enabled_by_default = true,
         .run = compass::cpp::codecs::forbid_function()};
+    if (format) {
+        c->codec.run = compass::cpp::codecs::format_check_function();
+        c->codec.formatters = compass::cpp::codecs::format_check_formatters();
+        c->codec.formatting_check = true;
+    }
 
     if (const auto table = r.table_under("Exceptions"); !table.is_none()) {
         for (const auto row : r.rows(table, "path")) {

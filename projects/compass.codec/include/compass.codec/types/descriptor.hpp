@@ -306,6 +306,11 @@ using formatters_function = std::vector<formatter> (*)(
  * and is empty for one that never refuses. formatters is null for a codec
  * whose files are written as it emits them.
  *
+ * A formatting check is a codec of files with formatters whose files are
+ * files of the checkout, emitted as they are. They are formatted and never
+ * written: each whose formatted form differs from it is a finding of the
+ * codec's first rule.
+ *
  * A descriptor is constant data: every span and string points at storage
  * that outlives the registry it is added to.
  */
@@ -320,6 +325,7 @@ struct descriptor {
     bool enabled_by_default = true;
     codec_function run;
     formatters_function formatters = nullptr;
+    bool formatting_check = false;
 };
 
 enum class unit : std::uint8_t { document, corpus, staged };

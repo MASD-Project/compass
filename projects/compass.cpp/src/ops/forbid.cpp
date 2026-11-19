@@ -53,41 +53,6 @@ std::vector<std::string> words_of(std::string_view value) {
     return out;
 }
 
-/**
- * @brief @p glob with each {a,b} replaced by each alternative in turn, or
- * why it cannot be.
- */
-std::expected<std::vector<std::string>, std::string> expand_braces(
-    std::string_view glob) {
-    const auto open = glob.find('{');
-    if (open == std::string_view::npos) {
-        if (glob.find('}') != std::string_view::npos)
-            return std::unexpected("unopened } in " + std::string(glob));
-        return std::vector<std::string>{std::string(glob)};
-    }
-    const auto close = glob.find('}', open);
-    if (close == std::string_view::npos)
-        return std::unexpected("unclosed { in " + std::string(glob));
-    const auto inner = glob.substr(open + 1, close - open - 1);
-    if (inner.find('{') != std::string_view::npos)
-        return std::unexpected("nested { in " + std::string(glob));
-    auto rest = expand_braces(glob.substr(close + 1));
-    if (!rest)
-        return rest;
-    std::vector<std::string> out;
-    std::size_t at = 0;
-    while (true) {
-        const auto comma = std::min(inner.find(',', at), inner.size());
-        for (const auto& r : *rest)
-            out.push_back(std::string(glob.substr(0, open)) +
-                std::string(inner.substr(at, comma - at)) + r);
-        if (comma == inner.size())
-            break;
-        at = comma + 1;
-    }
-    return out;
-}
-
 std::string_view trimmed(std::string_view s) {
     while (!s.empty() && s.front() == ' ')
         s.remove_prefix(1);
@@ -253,17 +218,9 @@ parse_forbid_definition(std::string_view text) {
             if (!d.rules.empty())
                 return fail(line, std::string(key) +
                     " comes before the first RULE");
-            auto& globs = key == "FILES" ? d.files : d.outside;
-            for (const auto& w : words_of(value)) {
-                auto expanded = expand_braces(w);
-                if (!expanded)
-                    return fail(line, expanded.error());
-                for (auto& g : *expanded) {
-                    if (g == "**" || g.ends_with("/**"))
-                        g += "/*";
-                    globs.push_back(std::move(g));
-                }
-            }
+            if (auto ok = add_globs(value,
+                    key == "FILES" ? d.files : d.outside); !ok)
+                return fail(line, ok.error());
             continue;
         }
         if (d.rules.empty())
@@ -314,18 +271,7 @@ bool covers(const forbid_definition& d, std::string_view path) {
 
 std::vector<std::string_view> covered_files(
     const compass::codec::types::corpus_view& v, const forbid_definition& d) {
-    std::vector<std::string_view> out;
-    for (const auto& g : d.files) {
-        for (const auto p : glob(v, g)) {
-            if (std::ranges::none_of(d.outside, [&](const std::string& o) {
-                    return glob_matches(o, p); }))
-                out.push_back(p);
-        }
-    }
-    std::ranges::sort(out);
-    const auto [first, last] = std::ranges::unique(out);
-    out.erase(first, last);
-    return out;
+    return ops::covered_files(v, d.files, d.outside);
 }
 
 void forbid_scan(const forbid_definition& d, std::string_view path,

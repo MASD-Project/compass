@@ -24,6 +24,7 @@ add_library(${lib_target_name}
     codecs/core_link_edges.cpp
     codecs/exported_types.cpp
     codecs/forbid.cpp
+    codecs/format_check.cpp
     codecs/forward_declarable_includes.cpp
     codecs/registrars.cpp
     codecs/route_auth.cpp
@@ -37,6 +38,7 @@ add_library(${lib_target_name}
     ops/declarations.cpp
     ops/exported_types.cpp
     ops/forbid.cpp
+    ops/format_check.cpp
     ops/glob.cpp
     ops/lexer.cpp
     ops/paths.cpp
