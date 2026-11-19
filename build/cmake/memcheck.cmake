@@ -25,9 +25,16 @@
 # git and the other system programs the scripts start, whose allocations are
 # not compass's.
 #
+# A child a test forks and does not exec, as the store's concurrency test
+# does, holds a copy of every block the test allocated before the fork and
+# exits with _exit, so memcheck would report each of them as still reachable,
+# in every child. Such children are silent; a child that execs another program
+# is checked as ever.
+#
 set(COMPASS_MEMCHECK_OPTIONS
     --trace-children=yes
     --trace-children-skip=/usr/*,/bin/*
+    --child-silent-after-fork=yes
     --quiet
     --tool=memcheck
     --leak-check=full

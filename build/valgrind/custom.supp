@@ -79,3 +79,104 @@
    fun:_ZN5Catch6Detail12_GLOBAL__N_110FileStreamC1E*
    ...
 }
+#
+#  The shell of the script tests
+#
+#  The end-to-end and install tests are bash scripts, so memcheck runs bash
+#  itself and follows it into the compass it starts. bash keeps its variables,
+#  parsed commands and hash tables until it exits and never frees them, which
+#  is bash's affair, not compass's. Anchored on bash's allocator and on frames
+#  of the bash binary, neither of which compass's own stacks contain.
+#
+{
+   bash allocations
+   Memcheck:Leak
+   match-leak-kinds: reachable,definite,indirect,possible
+   fun:malloc
+   fun:xmalloc
+   ...
+}
+{
+   bash allocations through its own frames
+   Memcheck:Leak
+   match-leak-kinds: reachable,definite,indirect,possible
+   ...
+   obj:/usr/bin/bash
+   ...
+}
+#
+#  The shell of the formatter tests
+#
+#  The format_files tests and the codegen end-to-end tests stand a shell script
+#  in for the formatter. The script is not under /usr, so memcheck follows it
+#  and runs the dash that interprets it, whose memory dash keeps until it
+#  exits. Anchored on dash's allocators, ckmalloc and ckrealloc, on its
+#  evaluator, evaltree, and on its setting of the working directory at start,
+#  none of which compass's own stacks contain.
+#
+{
+   dash allocations
+   Memcheck:Leak
+   match-leak-kinds: reachable,definite,indirect,possible
+   fun:*alloc
+   fun:ck*alloc
+   ...
+}
+{
+   dash allocations of the commands it evaluates
+   Memcheck:Leak
+   match-leak-kinds: reachable,definite,indirect,possible
+   ...
+   fun:evaltree
+   ...
+}
+{
+   dash working directory
+   Memcheck:Leak
+   match-leak-kinds: reachable,definite,indirect,possible
+   fun:realloc
+   fun:getcwd
+   fun:getcwd
+   fun:getpwd
+   fun:setpwd
+   ...
+}
+#
+#  PCRE2's JIT
+#
+#  The compiled patterns run as machine code PCRE2 writes at run time, which
+#  belongs to no object and keeps its own stack, so memcheck cannot unwind it
+#  and names every frame ???. Its matcher reads the subject 16 bytes at a time,
+#  past the end of the string within the aligned block, and branches on the
+#  bytes beyond it, then discards them; the reads never cross a page. Anchored
+#  on the first frame being one of no object: every frame of compass's code
+#  names its binary, whose path is longer than three characters, so ??? never
+#  matches it.
+#
+{
+   PCRE2 JIT reads past the subject
+   Memcheck:Addr16
+   obj:???
+}
+{
+   PCRE2 JIT branches on the bytes past the subject
+   Memcheck:Cond
+   obj:???
+}
+#
+#  libstdc++'s emergency exception pool
+#
+#  libstdc++ allocates a pool at start for the exceptions it throws when the
+#  heap is exhausted, and keeps it for the life of the process. Valgrind frees
+#  it at exit through a hook of the shared libstdc++, but the Linux compass
+#  binary links libstdc++ statically, so the pool is still reachable. Anchored
+#  on the pool's own initialiser.
+#
+{
+   libstdc++ emergency exception pool
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:_GLOBAL__sub_I_eh_alloc.cc
+   ...
+}

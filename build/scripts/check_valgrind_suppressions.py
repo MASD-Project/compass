@@ -38,6 +38,7 @@ import sys
 
 BLOCK_START = "{"
 BLOCK_END = "}"
+UNKNOWN_OBJECT = "obj:???"
 
 
 def parse_suppressions(path: pathlib.Path):
@@ -81,7 +82,10 @@ def parse_report(path: pathlib.Path):
             blocks.append(current)
             current = None
             continue
-        current.append(line.strip())
+        line = line.strip()
+        # A generated suppression writes a frame of no object as obj:*, which
+        # valgrind itself matches as the object name ???.
+        current.append(UNKNOWN_OBJECT if line == "obj:*" else line)
     return blocks
 
 
