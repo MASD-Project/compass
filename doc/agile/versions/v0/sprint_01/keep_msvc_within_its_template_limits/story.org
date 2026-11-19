@@ -35,10 +35,11 @@ Two limits meet in that one error, and this story treats them apart:
 - *Reflection depth.* The instantiation context a translation unit
   builds up, which MSVC appears to bound per unit. The trade entity
   failure of 2026-11-19 is one: =trade_entity.hpp:95= stops on the
-  =performed_by= binding of a 19-binding column list, while =swap_leg=,
-  of 73, compiles in the same unity unit. A unity build puts 16 sources
-  in one unit (=ORES_UNITY_BUILD_BATCH_SIZE=), so the entity that fails
-  is whichever comes late in a heavy unit, not the largest. The check
+  =performed_by= binding of a 19-binding column list, on a context two
+  notes deep, late in a unity unit of 57 entity headers. A unity build
+  puts 16 sources in one unit (=ORES_UNITY_BUILD_BATCH_SIZE=), so the
+  entity that fails is whichever comes late in a heavy unit, not the
+  largest. The check
   must compute the depth a unit accumulates, which needs a model of how
   MSVC counts.
 
@@ -53,9 +54,9 @@ unit's instantiations add up.
 |---------------+----------------------------------------|
 | State         | STARTED                                |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
-| Now           | Two mechanisms found; measuring MSVC's limit with probes. |
+| Now           | The rule is measured: a unit fails at the first chain of 18 bindings once it has applied 1,026. |
 | Waiting on    | Nothing.                               |
-| Next          | Model each mechanism from the probes, then the two checks. |
+| Next          | Build the per-unit check in compass; settle what the struct check reports. |
 | Last touched  | 2026-11-19                               |
 
 * Acceptance
@@ -75,11 +76,28 @@ unit's instantiations add up.
 | Task | State | Start | End | Description |
 |------+-------+-------+-----+-------------|
 | [[id:7E35D1B6-C09F-4452-A8EC-015E4D71553C][Investigate the C1202 failures]] | DONE | 2026-11-19 | 2026-11-19 | For each ORE Studio CI run that failed with C1202, find the translation unit, the instantiation chain, the type it stopped on and what else the unit compiled, and class the failure by mechanism. |
-| [[id:EE318663-3EED-4A93-9B15-C8C8C523608E][Measure MSVC's limit]] | STARTED | 2026-11-19 | | Compile generated probes with MSVC on CI to find, for each mechanism, the size at which C1202 fires, and whether sizes within one unit add up. |
+| [[id:EE318663-3EED-4A93-9B15-C8C8C523608E][Measure MSVC's limit]] | DONE | 2026-11-19 | 2026-11-19 | Compile generated probes with MSVC on CI to find, for each mechanism, the size at which C1202 fires, and whether sizes within one unit add up. |
 | [[id:6032264B-E214-4CF8-B915-129E2610647F][Report structs too large to reflect]] | BACKLOG | | | A check that reports each reflected struct or variant whose own size, its members or the field names reachable from it, passes the measured ceiling. |
 | [[id:3F167298-EBEF-4F7C-8E4E-3D7AC4A95C16][Compute reflection depth per translation unit]] | BACKLOG | | | A check that computes, for each translation unit and each unity batch, the instantiation context its reflected types and column lists accumulate, by the measured model, and reports a unit over the limit. |
 
 * Decisions
+
+- *Measure the limit on MSVC, once, and compute it from source after.*
+  MSVC's C1202 limit is not documented. Probes on compass's Windows CI
+  (=.github/workflows/msvc-probes.yml=, run by hand) measured it; the
+  checks compute the measured rule from source and need no MSVC.
+- *The rule is per unit and counts chains.* A unit fails at the first
+  =operator|= of a column-list chain that is the 1,026th of the unit or
+  later and holds 18 bindings or more. It predicts all 337 chain probes,
+  ORE Studio's own entity headers among them
+  (=build/probes/msvc_c1202/model.py=).
+- *No single struct fails alone in today's ORE Studio.* reflect-cpp, the
+  cause of the 81 errors of one type too large, left ORE Studio on
+  2026-11-09. A column list alone compiles at every width probed, up to
+  600, and a field list at any width or count.
+- *The cure is a flat column list.* Built in one call, as field lists
+  are, column lists never failed; it is ORE Studio's generator to
+  change. The check stays, for chains a project keeps.
 
 * Out of scope
 

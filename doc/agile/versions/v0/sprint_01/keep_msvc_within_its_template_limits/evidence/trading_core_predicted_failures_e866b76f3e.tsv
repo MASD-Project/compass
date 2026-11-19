@@ -1,0 +1,12 @@
+unit	header	binding
+29	fx_window_barrier_option_instrument_entity.hpp	18
+34	credit_default_swap_instrument_entity.hpp	18
+36	equity_cliquet_option_instrument_entity.hpp	18
+38	equity_outperformance_option_instrument_entity.hpp	18
+43	index_credit_default_swap_instrument_entity.hpp	18
+44	instrument_barrier_entity.hpp	18
+46	fx_window_barrier_option_instrument_entity.hpp	18
+48	fx_variance_swap_instrument_entity.hpp	18
+50	fx_variance_swap_instrument_entity.hpp	21
+53	fx_strike_resettable_option_instrument_entity.hpp	18
+55	trade_entity.hpp	18

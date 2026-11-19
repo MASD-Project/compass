@@ -63,17 +63,20 @@ was, so the checks of the story measure the right thing.
   It includes 57 entity headers with 1,199 bindings in all, and reaches
   =trade_entity.hpp= at position 139 of 165 headers, after 56 entity
   headers and 1,179 bindings. The one other unit that includes it,
-  unit 54, reaches it after 91 bindings and compiles.
+  unit 54, reaches it after 91 bindings. (Corrected: this page first
+  said unit 54 compiles. MSVC never built it: the job built the units
+  from 66 down and stopped at 55's failure.)
 - *Swap leg.* =swap_leg_entity.hpp= is included by units 52 and 53, not
   by unit 55; the report's claim that it compiles in the same unit is
   wrong, if CMake batches in list order. Unit 53 reaches it after 19
   bindings.
-- *A budget of bindings.* Unit 53 includes 1,299 bindings, more than
-  unit 55, and compiles; so does unit 44, with 1,271. A unit's binding
-  count alone does not predict the failure. Where an entity comes in its
-  unit seems to matter, but other templates the sources instantiate
-  (mappers, repositories, reflect-cpp) are not counted here, and only
-  MSVC can say what it counts.
+- *A budget of bindings.* This page first said that unit 53, with
+  1,299 bindings, and unit 44, with 1,271, compile, so a binding count
+  does not predict the failure. That was wrong: the run's log holds a
+  clang job, which built them, and an MSVC job, which built units 66
+  down to 55 and stopped there. MSVC never built units 53, 54 or 44.
+  The probes of the next task found the rule, and it fails 53 and 44
+  too.
 
 * Conclusions
 
@@ -87,11 +90,11 @@ Two mechanisms, as the story supposed:
 - Mechanism A is a property of one type's reflection: what reflect-cpp
   instantiates for the type and everything reachable from it. A check
   can compute it from the reflected types alone.
-- Mechanism B is a property of a unit: the trade entity, at 19
-  bindings, fails late in unit 55 and compiles early in unit 54. A check
-  must compute what a unit has accumulated, in order, and its model of
-  the cost is not known: binding counts do not separate the failing unit
-  from units that compile.
+- Mechanism B is a property of a unit: the trade entity fails late in
+  unit 55, after 1,179 bindings, on a shallow context. A check must
+  compute what a unit has accumulated, in order. The rule, measured
+  after this page, is in [[id:EE318663-3EED-4A93-9B15-C8C8C523608E][Measure MSVC's limit]]: the unit fails at
+  the first chain of 18 bindings or more once it has applied 1,026.
 
 * Recommendations
 
