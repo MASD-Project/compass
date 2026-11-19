@@ -15,23 +15,31 @@
 # this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
 # Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
-"""Find where MSVC's C1202 fires on ORE Studio's column lists.
+"""Find where MSVC's C1202 fires on ORE Studio's per-struct templates.
 
-Each probe is one translation unit of synthetic entities, each with as many
-members as its width and a columns() chain built as ORE Studio's entity
-headers build theirs, with ORE Studio's columns.hpp (a copy, taken at
-e866b76f3e). A probe is a list of widths, in the order the unit defines the
-entities. The probes are:
+Each probe is one translation unit of synthetic structs, each with as many
+members as its width, and a list of widths, in the order the unit defines
+the structs. Two shapes are probed, each with a copy of ORE Studio's header:
+
+- columns: an entity whose columns() chain appends one binding per member
+  with operator|, as ORE Studio's entity headers do (columns.hpp, taken at
+  e866b76f3e).
+- fields: a type whose wire_fields() returns one field_list of a field per
+  member, as ORE Studio's generated codecs do, walked once with
+  for_each_field (wire_fields.hpp, taken at d9af8eeda6).
+
+The probes are:
 
 - unit53 and unit55: the entity widths ores.trading.core's unity units 53
   and 55 include, in include order, at e866b76f3e. Unit 55 failed with
   C1202 on its last entity; unit 53 compiled.
-- single_<w>: one entity of width w.
-- many_<k>x<w>: k entities of width w.
+- <shape>_single_<w>: one struct of width w.
+- <shape>_many_<k>x<w>: k structs of width w.
 
 Each is compiled with cl.exe and the flags ORE Studio's release build
 passes, and its outcome is ok, C1202 or another error. The results go to
-results.tsv in the output directory, and to the step summary on CI.
+results.tsv in the output directory, and to the step summary on CI. Another
+error means the probe itself is broken, so the command then fails.
 
     python build/probes/msvc_c1202/probe.py --out <dir> [--only <name>...]
 """
@@ -60,20 +68,37 @@ def widths_of(unit: int) -> list[int]:
     return [int(r.split("\t")[1]) for r in rows if r]
 
 
-def probes() -> dict[str, list[int]]:
-    out = {"unit53": widths_of(53), "unit55": widths_of(55)}
-    for w in (20, 75, 150, 300, 600):
-        out[f"single_{w}"] = [w]
-    for k, w in ((60, 20), (120, 20), (240, 20), (480, 20), (60, 40),
-                 (120, 40), (30, 75), (60, 75)):
-        out[f"many_{k}x{w}"] = [w] * k
+def probes() -> dict[str, tuple[str, list[int]]]:
+    out = {"unit53": ("columns", widths_of(53)),
+           "unit55": ("columns", widths_of(55))}
+    for shape in ("columns", "fields"):
+        for w in (20, 75, 150, 300, 600):
+            out[f"{shape}_single_{w}"] = (shape, [w])
+        for k, w in ((60, 20), (120, 20), (240, 20), (480, 20), (60, 40),
+                     (120, 40), (30, 75), (60, 75)):
+            out[f"{shape}_many_{k}x{w}"] = (shape, [w] * k)
     return out
 
 
+def members_of(width: int) -> str:
+    return "\n".join(f"    {MEMBER_TYPES[m % len(MEMBER_TYPES)]} m{m};"
+                     for m in range(width))
+
+
+def fields_type(n: int, width: int) -> str:
+    fields = ",\n        ".join(f'wc::field{{"m{m}", &type_{n}::m{m}}}'
+                                 for m in range(width))
+    return (f"struct type_{n} {{\n{members_of(width)}\n}};\n"
+            f"constexpr auto wire_fields(std::type_identity<type_{n}>) {{\n"
+            f"    return wc::field_list{{\n        {fields}}};\n}}\n"
+            f"std::size_t count_{n}(const type_{n}& v) {{\n"
+            f"    std::size_t n = 0;\n"
+            f"    wc::for_each_field(v, [&](std::string_view, const auto&) "
+            f"{{ ++n; }});\n    return n;\n}}\n")
+
+
 def entity(n: int, width: int) -> str:
-    members = "\n".join(
-        f"    {MEMBER_TYPES[m % len(MEMBER_TYPES)]} m{m};"
-        for m in range(width))
+    members = members_of(width)
     chain = " |\n            ".join(
         [f"qb::columns<e>()", 'qb::key("m0", &e::m0)'] +
         [f'qb::bind("m{m}", &e::m{m})' for m in range(1, width)])
@@ -83,11 +108,14 @@ def entity(n: int, width: int) -> str:
             f"        return {chain};\n    }}\n}};\n")
 
 
-def source(widths: list[int]) -> str:
-    body = "\n".join(entity(n, w) for n, w in enumerate(widths))
-    return ("#include <optional>\n#include <string>\n"
-            '#include "columns.hpp"\n\n'
-            "namespace qb = ores::database::query_builder;\n\n"
+def source(shape: str, widths: list[int]) -> str:
+    make = entity if shape == "columns" else fields_type
+    body = "\n".join(make(n, w) for n, w in enumerate(widths))
+    return ("#include <cstddef>\n#include <optional>\n#include <string>\n"
+            "#include <string_view>\n#include <type_traits>\n"
+            '#include "columns.hpp"\n#include "wire_fields.hpp"\n\n'
+            "namespace qb = ores::database::query_builder;\n"
+            "namespace wc = ores::utility::codec;\n\n"
             f"namespace probe {{\n\n{body}\n}}\n")
 
 
@@ -109,14 +137,17 @@ def main() -> int:
     parser.add_argument("--out", required=True, type=pathlib.Path)
     parser.add_argument("--only", nargs="*")
     args = parser.parse_args()
+    args.out = args.out.resolve()
     args.out.mkdir(parents=True, exist_ok=True)
     rows = ["probe\tentities\tbindings\twidest\toutcome\tseconds\tfirst_error"]
-    for name, widths in probes().items():
+    broken = 0
+    for name, (shape, widths) in probes().items():
         if args.only and name not in args.only:
             continue
         path = args.out / f"{name}.cpp"
-        path.write_text(source(widths))
+        path.write_text(source(shape, widths))
         outcome, seconds, first = compile_one(path)
+        broken += outcome == "error"
         rows.append(f"{name}\t{len(widths)}\t{sum(widths)}\t{max(widths)}"
                     f"\t{outcome}\t{seconds:.1f}\t{first}")
         print(rows[-1], flush=True)
@@ -130,7 +161,7 @@ def main() -> int:
             f.write("|" + "---|" * len(cols) + "\n")
             for r in body:
                 f.write("| " + " | ".join(r.split("\t")) + " |\n")
-    return 0
+    return 1 if broken else 0
 
 
 if __name__ == "__main__":
