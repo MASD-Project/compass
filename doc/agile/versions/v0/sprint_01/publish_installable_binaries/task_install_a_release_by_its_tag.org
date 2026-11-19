@@ -26,11 +26,11 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED |
+| State        | DONE |
 | Parent story | [[id:EB6AF798-D472-4CC2-B97C-FC2BD9FD1FDE][Publish installable binaries]] |
-| Now          | install_compass.sh --release <tag> and --pin <file> download, verify and install a release; tested against a release served from a directory. |
-| Waiting on   | The first release, to install from GitHub itself. |
-| Next         | Install v0.0.1 from GitHub, then close. |
+| Now          | install_compass.sh --release v0.0.1 and --pin install the published release from GitHub. |
+| Waiting on   | Nothing. |
+| Next         | Nothing. |
 | Last touched | 2026-11-19 |
 
 * Acceptance
@@ -61,6 +61,7 @@ task and name that file in the Command column.
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
 | Install test, release cases included | passes | =bash projects/compass.cli/tests/install_compass.sh build/scripts/install_compass.sh <compass>= | d6b8bcb |
+| Install of the published v0.0.1 | tag: v0.0.1, dirty: no | =HOME=$(mktemp -d) install_compass.sh --release v0.0.1= | 747d629 |
 
 * Notes
 
@@ -88,3 +89,5 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+Installed v0.0.1 from GitHub under a temporary HOME, by =--release=, by =--pin=, and by the readme's =curl ... | bash -s -- --release v0.0.1=; each reports =tag: v0.0.1= and =dirty: no=.
