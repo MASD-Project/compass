@@ -1890,7 +1890,7 @@ def _sc_get_merged_prs(start, end):
     try:
         output = subprocess.check_output([
             "gh", "pr", "list", "--state", "merged",
-            "--search", f"merged:>={start}",
+            "--search", f"merged:>={start - datetime.timedelta(days=1)}",
             "--json", "number,title,createdAt,mergedAt",
             "--limit", "1000",
         ], text=True).strip()
@@ -1907,14 +1907,17 @@ def _sc_get_merged_prs(start, end):
         if not merged_str:
             continue
         merged_dt = datetime.datetime.fromisoformat(merged_str.replace("Z", "+00:00"))
-        if merged_dt.date() > end:
+        merged_dt = merged_dt.astimezone()
+        if not start <= merged_dt.date() <= end:
             continue
         created_dt = datetime.datetime.fromisoformat(pr["createdAt"].replace("Z", "+00:00"))
-        cycle_hours = round((merged_dt - created_dt).total_seconds() / 3600, 1)
+        # Four decimals of an hour keep a PR merged within seconds of opening
+        # off the chart's floor.
+        cycle_hours = round((merged_dt - created_dt).total_seconds() / 3600, 4)
         prs.append({
             "number": pr["number"],
             "title": (pr.get("title") or "")[:60],
-            "merged_day": merged_dt.date(),
+            "merged_at": merged_dt,
             "cycle_hours": cycle_hours,
         })
     return prs
@@ -1974,15 +1977,12 @@ def _sc_write_progress(cumulative, prs, output_dir):
             w.writerow(["2000-01-01", 0])
     print(f"Wrote {path}")
     cycle_path = output_dir / "pr_cycle_times.csv"
-    meaningful = sorted(
-        [pr for pr in prs if pr["cycle_hours"] > 0],
-        key=lambda x: x["cycle_hours"], reverse=True,
-    )[:20]
     with open(cycle_path, "w", newline="") as f:
         w = csv.writer(f, delimiter="\t")
-        w.writerow(["pr_number", "title", "day", "cycle_hours"])
-        for pr in sorted(meaningful, key=lambda x: x["merged_day"]):
-            w.writerow([pr["number"], pr["title"], pr["merged_day"].isoformat(), pr["cycle_hours"]])
+        w.writerow(["pr_number", "title", "merged_at", "cycle_hours"])
+        for pr in sorted(prs, key=lambda x: x["merged_at"]):
+            w.writerow([pr["number"], pr["title"],
+                        pr["merged_at"].strftime("%Y-%m-%dT%H:%M"), pr["cycle_hours"]])
     print(f"Wrote {cycle_path}")
 
 

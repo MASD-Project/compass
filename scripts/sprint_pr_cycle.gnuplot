@@ -4,18 +4,28 @@
 # PR Cycle Time — standalone chart, only run when PR data exists
 sprint_str = sprintf("%02d", sprint)
 
-set terminal pngcairo size 800, 400 font "sans,10"
+set terminal pngcairo size 800, 440 font "sans,10"
 set output sprintf("doc/agile/versions/v0/sprint_%s/pr_cycle.png", sprint_str)
 set datafile separator "\t"
-set style fill solid 0.7
 set grid ytics lc rgb "#cccccc" lw 1
 set border 3
 set tics nomirror
-set key outside right
-set xlabel "PR number"
-set ylabel "Hours"
-set title sprintf("Sprint %d — PR Cycle Time (open → close)", sprint)
-set xtics rotate by -45 font "sans,8"
+set key below horizontal
+set ylabel "Open to merge (log scale)"
 
 infile_cycle = sprintf("build/output/sprint_%s/pr_cycle_times.csv", sprint_str)
-plot infile_cycle using 0:4:xticlabels(stringcolumn(1)) every ::1 with boxes lc rgb "#E74C3C" title "Cycle Hrs"
+minutes(h) = h * 60 < 0.05 ? 0.05 : h * 60
+duration(m) = m < 1 ? sprintf("%.0f s", m * 60) : \
+              m < 60 ? sprintf("%.1f min", m) : sprintf("%.1f h", m / 60)
+stats infile_cycle using (minutes($4)) every ::1 nooutput
+set logscale y
+set yrange [0.04:*]
+set ytics ("3 s" 0.05, "30 s" 0.5, "5 min" 5, "1 h" 60, "10 h" 600, "1 d" 1440, "10 d" 14400)
+set xdata time
+set timefmt "%Y-%m-%dT%H:%M"
+set format x "%m-%d"
+set xtics 86400 rotate by -45 font "sans,8"
+set title sprintf("Sprint %d — PR Cycle Time, %d PRs", sprint, STATS_records)
+plot infile_cycle using 3:(minutes($4)) every ::1 with points pt 7 ps 0.5 lc rgb "#60E74C3C" title "PR", \
+     STATS_median with lines lw 2 lc rgb "#2C3E50" title "Median ".duration(STATS_median), \
+     STATS_up_quartile with lines lw 2 dt 2 lc rgb "#2C3E50" title "Upper quartile ".duration(STATS_up_quartile)
