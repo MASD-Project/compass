@@ -1,0 +1,112 @@
+:PROPERTIES:
+:ID: 8CE6C3BA-F478-4F65-B34E-88FC06255780
+:END:
+#+title: Investigation: the C1202 failures
+#+description: Every C1202 in ORE Studio's CI from 2026-09-19 to 2026-11-19, classed by mechanism, with the unit, the type it stopped on and what the unit held.
+#+type: investigation
+#+level: s1
+#+filetags: :keep_msvc_within_its_template_limits:sprint_01:v0:
+#+created: 2026-11-19
+#+updated: 2026-11-19
+
+A point-in-time record, written while the story that commissioned it was open, of an [[id:A7F8D9E2-3C4B-4A5D-B67C-8E9F0A1B2C3D][investigation]] into every C1202 in ORE Studio's CI from 2026-09-19 to 2026-11-19.
+
+It is a snapshot, not a description of the system. Whatever it concludes that the code must keep doing belongs on the page that owns the subject; cite that page from code, recipes and models, not this one.
+
+* Context
+
+ORE Studio's MSVC builds stop with =fatal error C1202: recursive type or
+function dependency context too complex=. The failed-build investigation
+counted 50 runs and 6,076 CI minutes under "MSVC reflection depth
+limit", classified from the error alone and marked a guess. On
+2026-11-19 the nightly failed again, on =trade_entity.hpp:95=, and an
+agent's report argued that the trade entity is not too wide: =swap_leg=,
+nearly four times as wide, compiles. This page asks what each failure
+was, so the checks of the story measure the right thing.
+
+* Methodology
+
+- The 50 runs of the pattern, from the failed-build investigation's
+  by-day table, and the nightly of 2026-11-19 (run 44485188155, head
+  =e866b76f3e=). Each failed job's log was fetched with
+  =gh run view <run> --log-failed=.
+- =build/scripts/triage_c1202.py= reads each C1202 of a log: the object
+  ninja failed on, whether it is a unity unit, the header and line of
+  the error, the project source the instantiation context starts from,
+  the deepest project source it passes, how many context notes MSVC
+  printed, and the ORE Studio types they name. Its output, 87 errors, is
+  [[file:evidence/c1202_triage.tsv][evidence/c1202_triage.tsv]].
+- =build/scripts/unity_unit_bindings.py= rebuilds the unity units of
+  =ores.trading.core= at =e866b76f3e= as CMake fills them, 16 sources to
+  a unit in list order (=cmake/unity_exclusions.cmake= excludes none of
+  them), follows each unit's project includes, and counts the column
+  bindings of the entity headers it includes. Its output is
+  [[file:evidence/trading_core_units_e866b76f3e.tsv][evidence/trading_core_units_e866b76f3e.tsv]].
+
+* Paths taken
+
+- *The error's header.* It splits the 87 errors in two, with no
+  overlap: 81 in reflect-cpp's =rfl/internal/no_duplicate_field_names.hpp=,
+  in sources compiled alone, and 6 in a unity unit, 5 of them in MSVC's
+  =<tuple>= under an entity header's column list and 1, the trade entity,
+  in the entity header itself.
+- *The depth of the context.* The reflect-cpp errors print 29 to 51
+  context notes: a real chain, through =std::visit= over a variant and
+  reflect-cpp's parsers, down the nested structs. The unity errors print
+  1 to 12, and the trade entity's 2: the instantiation in hand is
+  shallow, so its own depth is not what ran out.
+- *Release only.* Every unity failure is in =windows-msvc-release-ninja=,
+  but the nightly builds no debug configuration, so this is how CI
+  sampled, not a property of the error.
+- *The unit the trade entity failed in.* =unity_55_cxx= holds sixteen
+  trade sources, =trade_identifier_mapper.cpp= to =trade_repository.cpp=.
+  It includes 57 entity headers with 1,199 bindings in all, and reaches
+  =trade_entity.hpp= at position 139 of 165 headers, after 56 entity
+  headers and 1,179 bindings. The one other unit that includes it,
+  unit 54, reaches it after 91 bindings and compiles.
+- *Swap leg.* =swap_leg_entity.hpp= is included by units 52 and 53, not
+  by unit 55; the report's claim that it compiles in the same unit is
+  wrong, if CMake batches in list order. Unit 53 reaches it after 19
+  bindings.
+- *A budget of bindings.* Unit 53 includes 1,299 bindings, more than
+  unit 55, and compiles; so does unit 44, with 1,271. A unit's binding
+  count alone does not predict the failure. Where an entity comes in its
+  unit seems to matter, but other templates the sources instantiate
+  (mappers, repositories, reflect-cpp) are not counted here, and only
+  MSVC can say what it counts.
+
+* Conclusions
+
+Two mechanisms, as the story supposed:
+
+| Mechanism | Errors | Where | What one failure holds |
+|-----------+--------+-------+------------------------|
+| A. One reflected type too large | 81 | =instrument_payload.cpp= (54, the =trade_instrument= variant and the bond carrier), =configuration_document_handler.cpp= (27, the conventions and curve configuration documents) | A source compiled alone; a context 29 to 51 deep through nested reflected types |
+| B. A unit's accumulated context | 6 | =ores.refdata.core= unity units 36, 60 and 67, on the old =std::tuple= column list; =ores.trading.core= unit 55, on the flat one | A unity unit; a shallow context, on an entity reached late in a unit that includes about 57 entity headers |
+
+- Mechanism A is a property of one type's reflection: what reflect-cpp
+  instantiates for the type and everything reachable from it. A check
+  can compute it from the reflected types alone.
+- Mechanism B is a property of a unit: the trade entity, at 19
+  bindings, fails late in unit 55 and compiles early in unit 54. A check
+  must compute what a unit has accumulated, in order, and its model of
+  the cost is not known: binding counts do not separate the failing unit
+  from units that compile.
+
+* Recommendations
+
+- Measure before modelling. Probes compiled with MSVC on compass's
+  Windows CI: for B, a unit of synthetic entities with ORE Studio's
+  column list, sized and ordered as units 53 and 55 are, to see whether
+  the column lists alone reproduce the failure, and then a sweep of
+  count and width to find the budget; for A, one reflected struct, and
+  a variant of them, sized by members, nesting and alternatives.
+- If the column lists alone do not reproduce unit 55, compile unit 55
+  itself with MSVC and bisect its sources.
+- Correct ORE Studio's capture of 2026-11-19, which names the trade
+  entity's width as the cause.
+
+* See also
+
+- [[id:45379101-8EAB-49D6-9195-24D68E8F9100][Story: Keep MSVC within its template limits]]
+- [[id:6947B0D8-A1AE-4180-B2D9-D33FF02C1A3B][Investigation: ORE Studio failed build patterns]]: the 50 runs.

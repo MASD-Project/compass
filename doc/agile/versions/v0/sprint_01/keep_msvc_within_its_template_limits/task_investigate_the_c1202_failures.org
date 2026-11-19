@@ -1,0 +1,97 @@
+:PROPERTIES:
+:ID: 7E35D1B6-C09F-4452-A8EC-015E4D71553C
+:END:
+#+title: Task: Investigate the C1202 failures
+#+description: For each ORE Studio CI run that failed with C1202, find the translation unit, the instantiation chain, the type it stopped on and what else the unit compiled, and class the failure by mechanism.
+#+type: task
+#+level: s1
+#+filetags: :keep_msvc_within_its_template_limits:sprint_01:v0:
+#+owner: marco
+#+branch:
+#+pr:
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-11-19
+#+updated: 2026-11-19
+#+environment:
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [[id:45379101-8EAB-49D6-9195-24D68E8F9100][Keep MSVC within its template limits]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+Know, from evidence, which mechanisms reach MSVC's C1202 limit in ORE Studio and what each failing unit held.
+
+* Status
+
+| Field        | Value                                  |
+|--------------+----------------------------------------|
+| State        | DONE                                   |
+| Parent story | [[id:45379101-8EAB-49D6-9195-24D68E8F9100][Keep MSVC within its template limits]] |
+| Now          | Done: 87 errors in two mechanisms; see the investigation. |
+| Waiting on   | Nothing.                               |
+| Next         | Nothing.                               |
+| Last touched | 2026-11-19                               |
+
+* Acceptance
+
+- Every C1202 run of the investigation is classed by mechanism, with its unit and the type it stopped on, or marked unreadable with the reason.
+
+* Plan
+
+Fetch the failed jobs' logs, read each C1202's object, header and
+instantiation context with a script, class the errors by mechanism, and
+for the unity failure of 2026-11-19 rebuild the target's unity units and
+count what each includes.
+
+* Measurements
+
+Every number this task claims about a tree, with the command that produced it
+and the commit it was measured at. A number without both is not a measurement,
+because a clean-up record describes a tree and trunk moves under a branch: a
+consumer count, a gate's component count and a suite's size all change with no
+code changing, and the reader of a bare number cannot tell which tree it came
+from. Where the raw output matters, put it in an =evidence/= file beside the
+task and name that file in the Command column.
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+| C1202 errors in the 50 runs and the nightly of 2026-11-19 | 87: 81 in reflect-cpp, sources alone; 6 in unity units | =build/scripts/triage_c1202.py= ([[file:evidence/c1202_triage.tsv][evidence/c1202_triage.tsv]]) | ORE Studio CI runs |
+| Context notes per error | 29 to 51 for reflect-cpp; 1 to 12 for unity, 2 for the trade entity | the same | the same |
+| =ores.trading.core= unity units | 67; each includes 1 to 60 entity headers | =build/scripts/unity_unit_bindings.py= ([[file:evidence/trading_core_units_e866b76f3e.tsv][evidence/trading_core_units_e866b76f3e.tsv]]) | ORE Studio =e866b76f3e= |
+| Bindings unit 55 includes before =trade_entity.hpp= | 1,179 in 56 entity headers, at header 139 of 165 | the same, with =trade_entity.hpp= | the same |
+| Bindings unit 54 includes before it | 91 in 7 entity headers; compiles | the same | the same |
+| Units with more bindings than unit 55 that compile | 8; the most, unit 53, has 1,299 | the same | the same |
+
+* Notes
+
+* Test Scenarios
+
+Manual QA scenarios (scaffolded via =compass add test_scenario=)
+that verify this task. Link
+new ones here as they're created; the scenario doc itself links back
+via its "Verifies task" field.
+
+| Scenario | State | Notes |
+|----------+-------+-------|
+|          |       |       |
+
+* PRs
+
+| PR | Title |
+|----+-------|
+|    |       |
+
+* Review
+
+| # | Comment summary | File | Decision | Notes |
+|---+-----------------+------+----------+-------|
+|   |                 |      |          |       |
+
+* Result
+
+[[id:8CE6C3BA-F478-4F65-B34E-88FC06255780][Investigation: the C1202 failures]]. Two mechanisms: one reflected type
+too large (81 errors, deep contexts, sources compiled alone) and a
+unity unit's accumulated context (6 errors, shallow contexts, an entity
+reached late). The second's cost model is not a count of bindings; the
+next task measures it on MSVC.
