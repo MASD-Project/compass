@@ -7,12 +7,12 @@
 #+level: s1
 #+filetags: :clear_the_valgrind_findings:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/valgrind-suppressions
 #+pr:
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-18
-#+updated: 2026-11-18
+#+updated: 2026-11-19
 #+environment:
 #+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
 
@@ -20,22 +20,27 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Goal
 
-(Describe what user-visible-or-internal change this task produces.)
+The programs the tests start report nothing as compass's: the shells,
+git and the other system programs, and the forked copies of a test
+binary.
 
 * Status
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE |
 | Parent story | [[id:8647D3BB-1F11-40BF-BA8B-57D65D08BC35][Clear the valgrind findings]] |
-| Now          | Not yet started.                       |
+| Now          | Done: system programs are not traced, forked children are silent, and the shells the tests run are suppressed. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
-| Last touched | 2026-11-18                               |
+| Next         | Nothing. |
+| Last touched | 2026-11-19 |
 
 * Acceptance
 
--
+- Memcheck does not trace programs under =/usr= or =/bin=.
+- A child a test forks and does not exec reports nothing.
+- A child that execs, such as the compass an end-to-end test runs, is
+  still checked.
 
 * Plan
 
@@ -55,7 +60,9 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Stacks from the store's forked children | 5,670 | =build/scripts/run_memcheck.sh build/output/linux-clang-debug-ninja= | d5e140f |
+| Stacks from bash, install and end-to-end tests | 1,006 | =build/scripts/run_memcheck.sh build/output/linux-clang-debug-ninja= | d5e140f |
+| Stacks from dash, formatter tests | 219 | =build/scripts/run_memcheck.sh build/output/linux-clang-debug-ninja= | d5e140f |
 
 * Notes
 
@@ -74,7 +81,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| (this branch) | Clear the valgrind findings |
 
 * Review
 
@@ -83,3 +90,15 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+=--trace-children-skip=/usr/*,/bin/*= keeps git and the other system
+programs out. The shell a script test starts as is the program memcheck
+runs, not a child, so bash, and the dash that interprets the formatter
+stand-ins, are suppressed on their allocators (=xmalloc=, =ckmalloc=,
+=ckrealloc=) and their own frames. The store's concurrency test forks
+six writers that run store code and =_exit=; each reported the parent's
+whole heap as still reachable, 5,670 stacks in all.
+=--child-silent-after-fork=yes= silences such children. A run of bash
+under memcheck that execs a copy of bash outside =/usr= reports the
+copy's heap with the option on as with it off, so an exec'd child is
+still checked.

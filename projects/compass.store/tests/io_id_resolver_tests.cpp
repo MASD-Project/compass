@@ -136,6 +136,10 @@ TEST_CASE("a modified file of the same size whose mtime is in the second the "
     git_repository repo;
     repo.write("a.txt", "aaaa\n");
     repo.git("add -A");
+    // git may write the index in the second after the file it adds, so the
+    // index takes the file's time.
+    set_mtime(repo.index_file(),
+        io::read_git_index(repo.index_file()).stats.at(0).mtime);
     const auto index = io::read_git_index(repo.index_file());
     repo.write("a.txt", "bbbb\n");
     set_mtime(repo.root() / "a.txt", index.stats.at(0).mtime);

@@ -12,7 +12,7 @@
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-18
-#+updated: 2026-11-18
+#+updated: 2026-11-19
 #+environment:
 #+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
 
@@ -20,22 +20,23 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Goal
 
-(Describe what user-visible-or-internal change this task produces.)
+Every stack the local memcheck run reports is classified as compass's
+defect or another program's, with the evidence for the verdict.
 
 * Status
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE |
 | Parent story | [[id:8647D3BB-1F11-40BF-BA8B-57D65D08BC35][Clear the valgrind findings]] |
-| Now          | Not yet started.                       |
+| Now          | Done: every stack of the local run classified. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
-| Last touched | 2026-11-18                               |
+| Next         | Nothing. |
+| Last touched | 2026-11-19 |
 
 * Acceptance
 
--
+- Each class of stack has a verdict and the rule or fix it led to.
 
 * Plan
 
@@ -55,7 +56,7 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Stacks reported, full run | 7,849 | =build/scripts/run_memcheck.sh build/output/linux-clang-debug-ninja= | d5e140f |
 
 * Notes
 
@@ -74,7 +75,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| (this branch) | Clear the valgrind findings |
 
 * Review
 
@@ -83,3 +84,23 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+The full local run at d5e140f reported 7,849 stacks over 104 tests. The
+libstdc++ pool showed only in a later run, after the static link of
+libstdc++ merged from main.
+
+| Class | Stacks | Verdict |
+|-------+--------+---------|
+| Forked children of the store's concurrency test | 5,670 | The parent's heap, still reachable at =_exit=; silenced |
+| bash, install and end-to-end tests | 1,006 | bash's own memory; suppressed |
+| PCRE2's JIT, cpp, crosscheck, docs, codegen, sql | 570 | Reads past the subject in JIT code memcheck cannot unwind; suppressed |
+| Forked child of =run_program= | 384 | A spawn of a missing program; fixed |
+| dash, formatter tests | 219 | dash's own memory; suppressed |
+| libstdc++'s emergency exception pool, later run | 2 | Allocated once, freed by no hook under the static link; suppressed |
+
+Every JIT stack begins with frames of no object. The one read in full is
+six frames deep: an =Addr16= read 16 bytes wide, 3 bytes inside the end
+of a 3,554-byte string and 13 past it, within the aligned block; the
+=Cond= stacks branch on such bytes. No
+stack named a compass frame as the place of an invalid read, an
+uninitialised value or a lost block.

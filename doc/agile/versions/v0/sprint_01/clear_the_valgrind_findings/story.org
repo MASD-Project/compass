@@ -7,7 +7,7 @@
 #+level: s2
 #+filetags: :valgrind:memcheck:ci:sprint_01:v0:
 #+created: 2026-11-18
-#+updated: 2026-11-18
+#+updated: 2026-11-19
 #+environment:
 #+todo: BACKLOG STARTED | DONE ABANDONED
 
@@ -28,12 +28,12 @@ whatever is left that is compass's own.
 
 | Field         | Value                                  |
 |---------------+----------------------------------------|
-| State         | BACKLOG                              |
+| State         | STARTED |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
-| Now           | Not yet started.                       |
+| Now           | A full local memcheck of the debug build reports nothing; waiting on the debug nightly to confirm on CDash. |
 | Waiting on    | Nothing.                               |
-| Next          | Port ORE Studio's suppressions.        |
-| Last touched  | 2026-11-18                               |
+| Next          | Close the story when the debug nightly reports no defect. |
+| Last touched  | 2026-11-19 |
 
 * Acceptance
 
@@ -48,10 +48,10 @@ whatever is left that is compass's own.
 
 | Task | State | Start | End | Description |
 |------+-------+-------+-----+-------------|
-| [[id:3BA44CE7-4575-4F7A-9E5D-AA01190E1A06][Port ORE Studio's suppressions]] | BACKLOG | | | Bring over ORE Studio's valgrind suppression file, its memcheck options (--demangle, --gen-suppressions=all) and its suppression checker script, keeping each suppression that matches a library compass links and its reason. |
-| [[id:2A0E9B81-1427-401A-B4BA-8C3D97749F5E][Keep child processes out of memcheck]] | BACKLOG | | | Stop the end-to-end and install tests reporting the shells, git and other programs they start as compass's leaks: trace only compass's own binaries, or suppress the rest with a reason. |
-| [[id:E569C248-7645-40B7-9F02-D8BF0B791C20][Triage what remains]] | BACKLOG | | | Classify every finding left after the suppressions as a compass defect or another library's, from the per-case memcheck results, and record each with its stack and verdict. |
-| [[id:BA8872C3-92F2-4B36-A211-DF3ABE7A79CB][Fix compass's memory defects]] | BACKLOG | | | Fix each finding the triage put on compass, starting with the uninitialised reads in compass.cpp and compass.crosscheck and the store and platform tests that fail under memcheck, each with a test that reproduces it. |
+| [[id:3BA44CE7-4575-4F7A-9E5D-AA01190E1A06][Port ORE Studio's suppressions]] | DONE | 2026-11-19 | 2026-11-19 | Bring over ORE Studio's valgrind suppression file, its memcheck options (--demangle, --gen-suppressions=all) and its suppression checker script, keeping each suppression that matches a library compass links and its reason. |
+| [[id:2A0E9B81-1427-401A-B4BA-8C3D97749F5E][Keep child processes out of memcheck]] | DONE | 2026-11-19 | 2026-11-19 | Stop the end-to-end and install tests reporting the shells, git and other programs they start as compass's leaks: trace only compass's own binaries, or suppress the rest with a reason. |
+| [[id:E569C248-7645-40B7-9F02-D8BF0B791C20][Triage what remains]] | DONE | 2026-11-19 | 2026-11-19 | Classify every finding left after the suppressions as a compass defect or another library's, from the per-case memcheck results, and record each with its stack and verdict. |
+| [[id:BA8872C3-92F2-4B36-A211-DF3ABE7A79CB][Fix compass's memory defects]] | DONE | 2026-11-19 | 2026-11-19 | Fix each finding the triage put on compass, starting with the uninitialised reads in compass.cpp and compass.crosscheck and the store and platform tests that fail under memcheck, each with a test that reproduces it. |
 
 * Baseline
 
@@ -78,8 +78,10 @@ read.
 
 compass.store.tests and compass.platform.tests failed under memcheck.
 compass's =build/valgrind/custom.supp= holds 4 suppressions; ORE
-Studio's holds 204. ORE Studio's memcheck options add =--demangle=yes=
-and =--gen-suppressions=all=, which compass's =CTest.cmake= lacks.
+Studio's holds 204. Both projects run memcheck with the same options,
+=--demangle=yes= and =--gen-suppressions=all= included; this page said
+otherwise when it was written, from an excerpt that cut off two lines
+short.
 
 Source: =https://my.cdash.org/api/v1/viewDynamicAnalysis.php?buildid=4571451=.
 
@@ -90,6 +92,19 @@ regex-heavy suites (cpp, crosscheck, docs, codegen, sql) are PCRE2's JIT,
 which valgrind cannot follow.
 
 * Decisions
+
+- Suppress what is not compass's; change no code only to quiet valgrind.
+  PCRE2's JIT stays on, and its reports are suppressed on frames of no
+  object, which compass's frames never are.
+- Silence forked children that do not exec with
+  =--child-silent-after-fork=yes= rather than suppress the Catch2 and
+  fixture stacks they report: those stacks are also the stacks of
+  compass's own code, and a rule over them would hide a real leak.
+- Suppress the shells on their allocators and binaries, not by keeping
+  the script tests out of memcheck: the shell is what memcheck follows
+  into the compass a script runs.
+- Fix =run_program= for valgrind's fork: a missing program is a defect a
+  caller can hit wherever a spawn is a fork.
 
 * Out of scope
 
