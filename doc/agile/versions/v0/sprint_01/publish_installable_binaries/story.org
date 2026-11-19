@@ -23,10 +23,10 @@ A person or a CI job installs a named compass release with one command, without 
 |---------------+----------------------------------------|
 | State         | STARTED |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
-| Now           | Porting ORE Studio's CI. |
-| Waiting on    | Nothing.                               |
-| Next          | Build and package compass as ORE Studio does. |
-| Last touched  | 2026-11-18 |
+| Now           | CI builds, tests and packages compass on Linux, macOS and Windows and submits to CDash; no release exists yet. |
+| Waiting on    | Nothing. ORE Studio's tasks to run compass check in CI, install it for external developers and retire the Python gates wait on this story. |
+| Next          | Generate release notes as ORE Studio does, and publish each package with its checksum. |
+| Last touched  | 2026-11-19 |
 
 * Acceptance
 
@@ -52,6 +52,11 @@ A person or a CI job installs a named compass release with one command, without 
 | [[id:CBCD81E9-C210-4150-A201-54CE1434A9A7][Clean up the tests' temporary directories]] | DONE | 2026-11-18 | 2026-11-18 | Give compass one scoped temporary directory in a compass.testing component, as ORE Studio has ores.testing, so a fixture that throws in its constructor or a test process that is killed leaves nothing in /tmp. |
 | [[id:2D1222E9-5C3B-46BC-A3B2-A0B3149A10AF][Submit coverage and memcheck, and document CDash]] | BACKLOG | | | See a Nightly Linux debug build submit coverage and a memcheck run to the Compass dashboard, and write the recipe that shows a developer how to find their build on CDash and submit a local run. |
 | [[id:9404E516-B057-41A4-BA92-A0B67719BB78][Report each Catch2 test to CDash]] | STARTED | 2026-11-18 | | Register every Catch2 test case as its own CTest test with catch_discover_tests, so CDash shows each test's result and time instead of one entry per suite. |
+| [[id:FCFB1139-0388-4648-8B30-879A0FC6C82E][Generate release notes as ORE Studio does]] | BACKLOG | | | Port ORE Studio's release-notes pipeline (create, charts, export, commit, draft) to compass: collect the merged PRs, render the sprint's release notes from its stories, export them to Markdown and open a draft GitHub release from a signed tag. |
+| [[id:230FCD4B-EC34-4EDA-8E84-E88129C1F8BC][Publish each package with its checksum]] | BACKLOG | | | Attach to a release a binary archive per platform with its compass.manifest and a SHA-256 checksum, and make compass --version name the release's tag. |
+| [[id:534ED797-FF80-4BDF-A5A4-37BB1B3DCC6E][Install a release by its tag]] | BACKLOG | | | Let install_compass.sh download a named release, verify its checksum and install it, and let a consumer pin the release it needs in a file the script reads. |
+| [[id:527B56F3-392D-454C-B72C-75365422655A][Run the release on the oldest distribution]] | BACKLOG | | | Prove the release binary depends only on the system C and C++ runtimes by running it in a clean container of the oldest supported distribution. |
+| [[id:46B54F1B-257A-4B9D-965B-587108128C55][Cut the first release]] | BACKLOG | | | Tag v0.0.1, publish its release notes and packages, install it from the release, and tell ORE Studio it can run compass check in CI. |
 
 * Decisions
 
