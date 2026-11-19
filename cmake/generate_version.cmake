@@ -17,7 +17,8 @@
 #
 # Run by the compass.cli.version target on every build. Writes the manifest:
 # the facts that change with every commit (the commit, its time, whether the
-# tree was dirty, the branch) as key=value lines beside the compass binary,
+# tree was dirty, the branch, the release tag on it) as key=value lines beside
+# the compass binary,
 # which reads them at runtime. The build time is not here: the binary reads it
 # from its own mtime, so the manifest changes only when the commit or the
 # dirty flag does.
@@ -44,7 +45,7 @@ if(DEFINED ENV{COMPASS_BUILD_PROVIDER} AND
     string(APPEND build_info " Number = '$ENV{COMPASS_BUILD_NUMBER}'")
     string(APPEND build_info " Commit = '$ENV{COMPASS_BUILD_COMMIT}'")
     string(APPEND build_info " Timestamp = '$ENV{COMPASS_BUILD_TIMESTAMP}'")
-    set(commit "$ENV{COMPASS_BUILD_COMMIT}")
+    string(SUBSTRING "$ENV{COMPASS_BUILD_COMMIT}" 0 7 commit)
     set(commit_full "$ENV{COMPASS_BUILD_COMMIT}")
     set(commit_time "")
     set(dirty "false")
@@ -111,6 +112,21 @@ else()
     endif()
 endif()
 
+# The release tag on the commit: COMPASS_BUILD_TAG when CI names one, else the
+# tag git finds exactly on the commit, else none.
+set(tag "")
+if(DEFINED ENV{COMPASS_BUILD_TAG})
+    set(tag "$ENV{COMPASS_BUILD_TAG}")
+elseif(GIT_EXECUTABLE AND NOT commit_full STREQUAL "unknown")
+    execute_process(
+        COMMAND "${GIT_EXECUTABLE}" describe --exact-match --tags
+                "${commit_full}"
+        WORKING_DIRECTORY "${SOURCE_DIR}"
+        OUTPUT_VARIABLE tag
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET)
+endif()
+
 # Written through a temporary and copied only on change, so an unchanged
 # manifest keeps its mtime.
 get_filename_component(manifest_dir "${MANIFEST_FILE}" DIRECTORY)
@@ -124,6 +140,7 @@ commit_full=${commit_full}
 commit_time=${commit_time}
 dirty=${dirty}
 branch=${branch}
+tag=${tag}
 ")
 execute_process(
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different

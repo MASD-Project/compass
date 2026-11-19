@@ -13,3 +13,5 @@ org-roam.db
 .journal.org
 /.packages/
 /.claude/worktrees/
+/.org-id-locations-file
+/tmp/

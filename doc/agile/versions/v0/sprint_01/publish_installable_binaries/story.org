@@ -7,7 +7,7 @@
 #+level: s2
 #+filetags: :ci:release:distribution:sprint_01:v0:
 #+created: 2026-11-17
-#+updated: 2026-11-18
+#+updated: 2026-11-19
 #+environment:
 #+todo: BACKLOG STARTED | DONE ABANDONED
 
@@ -23,10 +23,10 @@ A person or a CI job installs a named compass release with one command, without 
 |---------------+----------------------------------------|
 | State         | STARTED |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
-| Now           | Porting ORE Studio's CI. |
-| Waiting on    | Nothing.                               |
-| Next          | Build and package compass as ORE Studio does. |
-| Last touched  | 2026-11-18 |
+| Now           | v0.0.1 is published with notes and packages for Linux, macOS and Windows, and installs from GitHub. |
+| Waiting on    | Nothing. ORE Studio's tasks to run compass check in CI, install it for external developers and retire the Python gates wait on this story. |
+| Next          | Fix the MSVC test failures; turn warnings into errors once the dashboard is clean. |
+| Last touched  | 2026-11-19 |
 
 * Acceptance
 
@@ -44,7 +44,7 @@ A person or a CI job installs a named compass release with one command, without 
 
 | Task | State | Start | End | Description |
 |------+-------+-------+-----+-------------|
-| [[id:C83C8A4A-1924-4145-82D2-FD30DEECEC87][Build and package compass as ORE Studio does]] | STARTED | 2026-11-18 | | Port ORE Studio's CI to compass: the CTest dashboard script submitting to CDash, CPack packages, continuous Linux builds and nightly Linux, macOS and Windows builds that attach their packages to a tagged release. |
+| [[id:C83C8A4A-1924-4145-82D2-FD30DEECEC87][Build and package compass as ORE Studio does]] | DONE | 2026-11-18 | 2026-11-19 | Port ORE Studio's CI to compass: the CTest dashboard script submitting to CDash, CPack packages, continuous Linux builds and nightly Linux, macOS and Windows builds that attach their packages to a tagged release. |
 | [[id:081E261C-DF05-4E8A-A75C-2FD8EF39B5EF][Port compass to Windows]] | DONE | 2026-11-18 | 2026-11-18 | Give compass's POSIX-only code (process spawning, memory-mapped files, file locks, directory listing) Windows implementations, so the nightly Windows builds compile, test and package compass with MSVC and clang-cl. |
 | [[id:88BBB6AA-BC95-4C95-AFBF-B8CCE22EFB88][Show build status badges in the readme]] | DONE | 2026-11-18 | 2026-11-18 | Put ORE Studio's badge block at the top of readme.org, adapted to compass, so a reader sees which workflows are red, the CDash dashboard, the latest release and the project's activity. |
 | [[id:D2B95893-E950-4542-8490-949429A95033][Turn warnings into errors on every build]] | BACKLOG | | | Once the Linux, macOS and Windows builds on CDash have shown no warnings for several days, set COMPASS_WARNINGS_AS_ERRORS on by default so a new warning fails the build everywhere. |
@@ -52,6 +52,12 @@ A person or a CI job installs a named compass release with one command, without 
 | [[id:CBCD81E9-C210-4150-A201-54CE1434A9A7][Clean up the tests' temporary directories]] | DONE | 2026-11-18 | 2026-11-18 | Give compass one scoped temporary directory in a compass.testing component, as ORE Studio has ores.testing, so a fixture that throws in its constructor or a test process that is killed leaves nothing in /tmp. |
 | [[id:2D1222E9-5C3B-46BC-A3B2-A0B3149A10AF][Submit coverage and memcheck, and document CDash]] | BACKLOG | | | See a Nightly Linux debug build submit coverage and a memcheck run to the Compass dashboard, and write the recipe that shows a developer how to find their build on CDash and submit a local run. |
 | [[id:9404E516-B057-41A4-BA92-A0B67719BB78][Report each Catch2 test to CDash]] | STARTED | 2026-11-18 | | Register every Catch2 test case as its own CTest test with catch_discover_tests, so CDash shows each test's result and time instead of one entry per suite. |
+| [[id:FCFB1139-0388-4648-8B30-879A0FC6C82E][Generate release notes as ORE Studio does]] | DONE | 2026-11-19 | 2026-11-19 | Port ORE Studio's release-notes pipeline (create, charts, export, commit, draft) to compass: collect the merged PRs, render the sprint's release notes from its stories, export them to Markdown and open a draft GitHub release from a signed tag. |
+| [[id:230FCD4B-EC34-4EDA-8E84-E88129C1F8BC][Publish each package with its checksum]] | DONE | 2026-11-19 | 2026-11-19 | Attach to a release a binary archive per platform with its compass.manifest and a SHA-256 checksum, and make compass --version name the release's tag. |
+| [[id:534ED797-FF80-4BDF-A5A4-37BB1B3DCC6E][Install a release by its tag]] | DONE | 2026-11-19 | 2026-11-19 | Let install_compass.sh download a named release, verify its checksum and install it, and let a consumer pin the release it needs in a file the script reads. |
+| [[id:527B56F3-392D-454C-B72C-75365422655A][Run the release on the oldest distribution]] | DONE | 2026-11-19 | 2026-11-19 | Prove the release binary depends only on the system C and C++ runtimes by running it in a clean container of the oldest supported distribution. |
+| [[id:46B54F1B-257A-4B9D-965B-587108128C55][Cut the first release]] | DONE | 2026-11-19 | 2026-11-19 | Tag v0.0.1, publish its release notes and packages, install it from the release, and tell ORE Studio it can run compass check in CI. |
+| [[id:9F8EB34C-083B-4438-846A-2E2784F80067][Fix the MSVC test failures]] | BACKLOG | | | Make the MSVC build pass every test now each Catch2 case runs as its own process: four compass.bench store stage cases crash where they start a shell, and one compass.crosscheck case reports a convention it should not. |
 
 * Decisions
 

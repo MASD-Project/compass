@@ -1,0 +1,40 @@
+:PROPERTIES:
+:ID: A44C3E33-9DFB-4944-B11E-0D68857660F6
+:END:
+#+title: Sprint charts crash when the sprint window has no merged PRs
+#+description: compass sprint charts, and so compass release-notes charts, stops with a Python traceback when no PR merged in the sprint window, because gnuplot refuses to plot the empty PR cycle file.
+#+type: capture
+#+level: cross
+#+filetags: :capture:agile:charts:bug:
+#+created: 2026-11-19
+#+updated: 2026-11-19
+
+This page is a [[id:671F18E4-E09C-4B3B-BD24-D33DF8AE38A6][capture]] in the *inbox* bucket of the product backlog — a pre-sprint idea, not yet pulled into a sprint as a story.
+
+* What
+
+=compass sprint charts= writes =pr_cycle_times.csv= with a header and
+no rows when no PR merged in the sprint window, and
+=scripts/sprint_pr_cycle.gnuplot= then fails with "x range is
+invalid". =cmd_sprint_charts= runs each script with
+=subprocess.check_call=, so the failure surfaces as a Python
+traceback and the stories-done chart is never rendered. Seen on
+sprint 1 while it was open: with no =End= the window is the first
+seven days from =Start=, and no PR merged in them. Fix: skip a chart
+whose input has no data rows, saying so, and render the rest.
+
+* Why
+
+=compass release-notes charts= delegates to this command, so an
+empty window stops the release-notes pipeline with a traceback
+instead of a message.
+
+* References
+
+- =projects/compass.legacy/src/compass.py=, =cmd_sprint_charts=.
+- =scripts/sprint_pr_cycle.gnuplot=, tangled from
+  =doc/agile/sprint_charts.org=.
+
+* See also
+
+-
