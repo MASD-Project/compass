@@ -1,0 +1,88 @@
+:PROPERTIES:
+:ID: 45379101-8EAB-49D6-9195-24D68E8F9100
+:END:
+#+title: Story: Keep MSVC within its template limits
+#+description: Report, before CI, the structs too large to reflect and the translation units whose template instantiation exceeds what MSVC allows, from a model of the limit measured on MSVC itself.
+#+type: story
+#+level: s2
+#+filetags: :cpp:msvc:reflection:sprint_01:v0:
+#+created: 2026-11-19
+#+updated: 2026-11-19
+#+environment:
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+ORE Studio's MSVC build fails with =C1202: recursive type or function
+dependency context too complex=, after the push and only on Windows. In
+the failed-build investigation it is the pattern "MSVC reflection depth
+limit": 50 runs and 6,076 CI minutes, classified from the error alone. A
+developer on Linux or macOS cannot see it coming. compass should report
+it before the push, from the source.
+
+Two limits meet in that one error, and this story treats them apart:
+
+- *A struct too large to reflect.* One type whose reflection alone
+  passes the limit. The bond export carrier of 2026-10-03 is one:
+  reflect-cpp writing a tagged variant builds one literal over every
+  field name reachable from the alternative, and the bond carrier's was
+  too long. What counts is what one instantiation reaches, not a
+  struct's member count: ORE Studio abandoned a nine-member ceiling
+  because 220 of its 287 generated reflected structs pass it and
+  compile.
+- *Reflection depth.* The instantiation context a translation unit
+  builds up, which MSVC appears to bound per unit. The trade entity
+  failure of 2026-11-19 is one: =trade_entity.hpp:95= stops on the
+  =performed_by= binding of a 19-binding column list, while =swap_leg=,
+  of 73, compiles in the same unity unit. A unity build puts 16 sources
+  in one unit (=ORES_UNITY_BUILD_BATCH_SIZE=), so the entity that fails
+  is whichever comes late in a heavy unit, not the largest. The check
+  must compute the depth a unit accumulates, which needs a model of how
+  MSVC counts.
+
+Neither limit is documented by Microsoft as a number, so the model is
+measured: probes compiled with MSVC on compass's own Windows CI, sized
+until C1202 fires, give each mechanism's ceiling and say whether a
+unit's instantiations add up.
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | STARTED                                |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | Two mechanisms found; measuring MSVC's limit with probes. |
+| Waiting on    | Nothing.                               |
+| Next          | Model each mechanism from the probes, then the two checks. |
+| Last touched  | 2026-11-19                               |
+
+* Acceptance
+
+- Every C1202 failure of the investigation is explained by a mechanism,
+  with its unit and the type it stopped on.
+- MSVC's ceiling for each mechanism, and whether a unit's instantiations
+  accumulate, are measured on MSVC, with the probes in the repository.
+- A check reports a struct too large to reflect, and fires on a past
+  failure of that kind and is quiet on its fix.
+- A check computes each translation unit's and unity batch's reflection
+  depth and reports one over the limit; it fires on the trade entity
+  failure and is quiet on its fix.
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+| [[id:7E35D1B6-C09F-4452-A8EC-015E4D71553C][Investigate the C1202 failures]] | DONE | 2026-11-19 | 2026-11-19 | For each ORE Studio CI run that failed with C1202, find the translation unit, the instantiation chain, the type it stopped on and what else the unit compiled, and class the failure by mechanism. |
+| [[id:EE318663-3EED-4A93-9B15-C8C8C523608E][Measure MSVC's limit]] | STARTED | 2026-11-19 | | Compile generated probes with MSVC on CI to find, for each mechanism, the size at which C1202 fires, and whether sizes within one unit add up. |
+| [[id:6032264B-E214-4CF8-B915-129E2610647F][Report structs too large to reflect]] | BACKLOG | | | A check that reports each reflected struct or variant whose own size, its members or the field names reachable from it, passes the measured ceiling. |
+| [[id:3F167298-EBEF-4F7C-8E4E-3D7AC4A95C16][Compute reflection depth per translation unit]] | BACKLOG | | | A check that computes, for each translation unit and each unity batch, the instantiation context its reflected types and column lists accumulate, by the measured model, and reports a unit over the limit. |
+
+* Decisions
+
+* Out of scope
+
+- Fixing ORE Studio's failing types. The checks say which; ORE Studio
+  splits them.
+- Clang's and GCC's limits. They have not failed ORE Studio's build.

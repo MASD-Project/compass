@@ -1,0 +1,103 @@
+:PROPERTIES:
+:ID: EE318663-3EED-4A93-9B15-C8C8C523608E
+:END:
+#+title: Task: Measure MSVC's limit
+#+description: Compile generated probes with MSVC on CI to find, for each mechanism, the size at which C1202 fires, and whether sizes within one unit add up.
+#+type: task
+#+level: s1
+#+filetags: :keep_msvc_within_its_template_limits:sprint_01:v0:
+#+owner: marco
+#+branch:
+#+pr:
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-11-19
+#+updated: 2026-11-19
+#+environment:
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [[id:45379101-8EAB-49D6-9195-24D68E8F9100][Keep MSVC within its template limits]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+A model of MSVC's limit, measured on MSVC, that a check can compute from source.
+
+* Status
+
+| Field        | Value                                  |
+|--------------+----------------------------------------|
+| State        | STARTED                                |
+| Parent story | [[id:45379101-8EAB-49D6-9195-24D68E8F9100][Keep MSVC within its template limits]] |
+| Now          | The column list probes are written; the first run waits on the workflow reaching main. |
+| Waiting on   | Nothing.                               |
+| Next         | Run the probes; then the reflect-cpp probes for mechanism A. |
+| Last touched | 2026-11-19                               |
+
+* Acceptance
+
+- For each mechanism the investigation finds, the threshold MSVC fails at is measured, and whether a unit's instantiations accumulate is answered by a probe.
+
+* Plan
+
+Probes are generated translation units compiled with MSVC by the
+=MSVC probes= workflow (=.github/workflows/msvc-probes.yml=, run by
+hand), with the flags of ORE Studio's release build.
+=build/probes/msvc_c1202/probe.py= generates and compiles them and
+writes each one's outcome: ok, C1202, or another error.
+
+Mechanism B, a unit's accumulated context, first:
+
+1. Do the column lists alone reproduce unit 55? Synthetic entities with
+   ORE Studio's =columns.hpp= (a copy, at =e866b76f3e=), sized and
+   ordered as units 53 and 55 include them. If =unit55= fails and
+   =unit53= compiles, the column lists carry the cost; if neither fails,
+   the unit's other templates do, and the next probe is unit 55 itself.
+2. Width against count. One entity of growing width, and many entities
+   of one width, to see whether the cost is per chain or per unit, and
+   to bracket the budget.
+3. Bisect the bracket to a threshold the check can use.
+
+Mechanism A, one reflected type, next: reflect-cpp at ORE Studio's
+version, one struct by members, nesting and the alternatives of a
+tagged variant.
+
+* Measurements
+
+Every number this task claims about a tree, with the command that produced it
+and the commit it was measured at. A number without both is not a measurement,
+because a clean-up record describes a tree and trunk moves under a branch: a
+consumer count, a gate's component count and a suite's size all change with no
+code changing, and the reader of a bare number cannot tell which tree it came
+from. Where the raw output matters, put it in an =evidence/= file beside the
+task and name that file in the Command column.
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+|      |       |         |        |
+
+* Notes
+
+* Test Scenarios
+
+Manual QA scenarios (scaffolded via =compass add test_scenario=)
+that verify this task. Link
+new ones here as they're created; the scenario doc itself links back
+via its "Verifies task" field.
+
+| Scenario | State | Notes |
+|----------+-------+-------|
+|          |       |       |
+
+* PRs
+
+| PR | Title |
+|----+-------|
+|    |       |
+
+* Review
+
+| # | Comment summary | File | Decision | Notes |
+|---+-----------------+------+----------+-------|
+|   |                 |      |          |       |
+
+* Result
