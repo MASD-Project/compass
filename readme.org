@@ -104,7 +104,22 @@ errors LLMs introduce are next. See the sprint in
 
 * Using it
 
-Build and test (the presets cap the build at two jobs):
+Install a release. Each [[https://github.com/MASD-Project/compass/releases][release]] carries an archive per platform
+with its SHA-256 checksum: Linux x86_64 (glibc 2.38 or newer, as in
+Ubuntu 24.04), macOS arm64, and Windows x64, which also has an installer.
+On Linux and macOS the install script downloads the archive for the
+machine, checks it and installs =compass-ng=:
+
+#+begin_src sh
+curl -fsSL https://raw.githubusercontent.com/MASD-Project/compass/main/build/scripts/install_compass.sh \
+    | bash -s -- --release v0.0.1
+compass-ng --version
+#+end_src
+
+A project that needs a given release names it on a =release:= line of a
+pin file and installs it with =--pin <file>=.
+
+Or build and test from source (the presets cap the build at two jobs):
 
 #+begin_src sh
 cmake --preset linux-clang-release-ninja
@@ -112,8 +127,8 @@ cmake --build --preset linux-clang-release-ninja
 ctest --preset linux-clang-release-ninja
 #+end_src
 
-Install one shared =compass-ng= for every environment, and see exactly which
-build it is:
+Install that build as the one shared =compass-ng= for every environment,
+and see exactly which build it is:
 
 #+begin_src sh
 build/scripts/install_compass.sh
