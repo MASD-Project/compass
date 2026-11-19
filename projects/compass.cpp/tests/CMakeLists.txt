@@ -36,7 +36,8 @@ add_executable(${tests_target_name}
     codecs_unity_collisions_tests.cpp
     codecs_xml_family_census_tests.cpp
     ops_lexer_tests.cpp
-    ops_paths_tests.cpp)
+    ops_paths_tests.cpp
+    ops_type_widths_tests.cpp)
 
 target_link_libraries(${tests_target_name}
     PRIVATE

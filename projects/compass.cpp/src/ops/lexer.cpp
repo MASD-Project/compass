@@ -28,12 +28,6 @@ namespace {
 
 constexpr std::size_t npos = std::string_view::npos;
 
-constexpr bool is_name(char c) noexcept {
-    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-        (c >= '0' && c <= '9') || c == '_' || c == '$' ||
-        static_cast<unsigned char>(c) >= 0x80;
-}
-
 constexpr bool is_digit(char c) noexcept { return c >= '0' && c <= '9'; }
 
 constexpr bool is_blank(char c) noexcept {
@@ -187,9 +181,9 @@ private:
                     s_[j - 1] == 'E' || s_[j - 1] == 'p' ||
                     s_[j - 1] == 'P'))
                 ++j;
-            else if (c == '\'' && j + 1 < n_ && is_name(s_[j + 1]))
+            else if (c == '\'' && j + 1 < n_ && is_name_char(s_[j + 1]))
                 j += 2;
-            else if (is_name(c) || c == '.')
+            else if (is_name_char(c) || c == '.')
                 ++j;
             else
                 break;
@@ -201,9 +195,9 @@ private:
         const char c = s_[i];
         if (is_digit(c) || (c == '.' && i + 1 < n_ && is_digit(s_[i + 1])))
             return number_end(i);
-        if (is_name(c)) {
+        if (is_name_char(c)) {
             auto end = i;
-            while (end < n_ && is_name(s_[end]))
+            while (end < n_ && is_name_char(s_[end]))
                 ++end;
             const auto word = s_.substr(i, end - i);
             if (end < n_ && s_[end] == '"' && word.ends_with('R') &&
@@ -309,13 +303,60 @@ std::string without_comments(std::string_view source) {
     return std::move(l.code);
 }
 
+std::vector<token> tokens_of(const lexed& l) {
+    const std::string_view code(l.code);
+    const auto n = static_cast<std::uint32_t>(code.size());
+    std::vector<token> out;
+    out.reserve(code.size() / 6);
+    std::size_t di = 0, xi = 0, li = 0;
+    for (std::uint32_t i = 0; i < n;) {
+        if (di < l.directives.size() && l.directives[di].begin <= i) {
+            i = std::max(i, l.directives[di++].end);
+            continue;
+        }
+        if (xi < l.dead.size() && l.dead[xi].begin <= i) {
+            i = std::max(i, l.dead[xi++].end);
+            continue;
+        }
+        while (li < l.literals.size() && l.literals[li].end <= i)
+            ++li;
+        if (li < l.literals.size() && l.literals[li].begin == i) {
+            out.push_back({token_kind::literal, i, l.literals[li].end});
+            i = l.literals[li++].end;
+            continue;
+        }
+        const char c = code[i];
+        if (is_blank(c) || c == '\n') {
+            ++i;
+            continue;
+        }
+        if (is_name_char(c)) {
+            auto e = i + 1;
+            while (e < n && is_name_char(code[e]))
+                ++e;
+            out.push_back({is_digit(c) ? token_kind::number : token_kind::name,
+                i, e});
+            i = e;
+            continue;
+        }
+        if (c == ':' && i + 1 < n && code[i + 1] == ':') {
+            out.push_back({token_kind::punct, i, i + 2});
+            i += 2;
+            continue;
+        }
+        out.push_back({token_kind::punct, i, i + 1});
+        ++i;
+    }
+    return out;
+}
+
 directive_parts parts_of(const lexed& l, span d) noexcept {
     const std::string_view code(l.code);
     auto i = static_cast<std::size_t>(d.begin) + 1;
     while (i < d.end && (is_blank(code[i]) || code[i] == '\n'))
         ++i;
     auto end = i;
-    while (end < d.end && is_name(code[end]))
+    while (end < d.end && is_name_char(code[end]))
         ++end;
     return {code.substr(i, end - i), code.substr(end, d.end - end),
         static_cast<std::uint32_t>(end)};

@@ -25,6 +25,7 @@ add_library(${lib_target_name}
     codecs/exported_types.cpp
     codecs/forbid.cpp
     codecs/format_check.cpp
+    codecs/limit.cpp
     codecs/forward_declarable_includes.cpp
     codecs/registrars.cpp
     codecs/route_auth.cpp
@@ -40,12 +41,14 @@ add_library(${lib_target_name}
     ops/forbid.cpp
     ops/format_check.cpp
     ops/glob.cpp
+    ops/limit.cpp
     ops/lexer.cpp
     ops/paths.cpp
     ops/report.cpp
     ops/source_model.cpp
     ops/test_case_reachability.cpp
-    ops/text.cpp)
+    ops/text.cpp
+    ops/type_widths.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
 

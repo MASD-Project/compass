@@ -178,13 +178,13 @@ TEST_CASE("a check document that cannot run fails the command and says "
     scoped_git_repo repo;
     write_checkout(repo);
     auto broken = check_document();
-    broken.replace(broken.find(":ENGINE: forbid"), 15, ":ENGINE: limit");
+    broken.replace(broken.find(":ENGINE: forbid"), 15, ":ENGINE: count");
     repo.write("compass/checks/portable_cpp.org", broken);
 
     const auto r = check(repo);
     CHECK(r.status == 2);
     CHECK_THAT(r.err, ContainsSubstring("compass/checks/portable_cpp.org:5: "
-        "the engine is 'limit'"));
+        "the engine is 'count'"));
 }
 
 TEST_CASE("an example that does not fire is reported on its block, which "
@@ -353,4 +353,69 @@ TEST_CASE("a format check whose program is not found fails the command and "
     CHECK(r.status == 2);
     CHECK_THAT(r.err, ContainsSubstring("none of bin/no-such-format is a "
         "program, for the formatter clang-format"));
+}
+
+namespace {
+
+std::string limit_document(std::string_view ceilings) {
+    return "#+title: Check: wide types\n\n"
+        "* Definition\n"
+        ":PROPERTIES:\n"
+        ":ENGINE: limit\n"
+        ":FILES: src/**/*.hpp\n"
+        ":FACT: cpp_fields\n"
+        ":CEILING: 2\n"
+        ":END:\n\n"
+        "* Ceilings\n\n"
+        "| path | type | ceiling |\n"
+        "|------+------+---------|\n" + std::string(ceilings);
+}
+
+void write_limit_checkout(const scoped_git_repo& repo,
+    std::string_view ceilings) {
+    repo.write(".compass.org", configuration);
+    repo.write("compass/checks/wide_types.org", limit_document(ceilings));
+    repo.write("src/a.hpp", "struct narrow { int a; int b; };\n"
+        "struct wide {\n    int a, b, c;\n    void f();\n};\n");
+    repo.write("src/b.hpp", "class listed {\n    int a; int b; int c;\n"
+        "    int d;\n};\n");
+}
+
+}
+
+TEST_CASE("a limit check reports each type over its ceiling and keeps to "
+    "the ceilings its table records", "[app][checks]") {
+    scoped_git_repo repo;
+    write_limit_checkout(repo, "| src/b.hpp | listed | 4 |\n");
+
+    const auto r = check(repo);
+    CHECK(r.status == 1);
+    CHECK(r.findings() == std::vector<std::string>{
+        "src/a.hpp:2:wide_types/over_ceiling"});
+    CHECK_THAT(r.out, ContainsSubstring("struct wide has 3 fields; the "
+        "ceiling is 2"));
+
+    write_limit_checkout(repo, "| src/b.hpp | listed | 3 |\n"
+        "| src/a.hpp | wide | 3 |\n");
+    const auto grown = check(repo);
+    CHECK(grown.findings() == std::vector<std::string>{
+        "src/b.hpp:1:wide_types/over_ceiling"});
+    CHECK_THAT(grown.out, ContainsSubstring("class listed has 4 fields; its "
+        "recorded ceiling is 3"));
+}
+
+TEST_CASE("a limit check reports a recorded ceiling its type no longer "
+    "reaches on the row that records it", "[app][checks]") {
+    scoped_git_repo repo;
+    write_limit_checkout(repo, "| src/b.hpp | listed | 5 |\n"
+        "| src/a.hpp | wide | 3 |\n"
+        "| src/a.hpp | narrow | 3 |\n");
+
+    const auto r = check(repo);
+    CHECK(r.status == 1);
+    CHECK(r.findings() == std::vector<std::string>{
+        "compass/checks/wide_types.org:15:wide_types/below_record",
+        "compass/checks/wide_types.org:17:wide_types/below_record"});
+    CHECK_THAT(r.out, ContainsSubstring("lower its row to 4"));
+    CHECK_THAT(r.out, ContainsSubstring("remove its row"));
 }

@@ -29,8 +29,10 @@
 #include "compass.cpp/codecs/catalogue.hpp"
 #include "compass.cpp/codecs/forbid.hpp"
 #include "compass.cpp/codecs/format_check.hpp"
+#include "compass.cpp/codecs/limit.hpp"
 #include "compass.cpp/ops/forbid.hpp"
 #include "compass.cpp/ops/format_check.hpp"
+#include "compass.cpp/ops/limit.hpp"
 #include "compass.ingest/org/parser.hpp"
 #include "compass.org/ops/document_fields.hpp"
 
@@ -127,9 +129,9 @@ struct check_reader : org_reader {
             const auto line = line_of(text, value.begin);
             const auto v = value.of(text);
             if (key == "ENGINE") {
-                if (v != "forbid" && v != "format")
+                if (v != "forbid" && v != "format" && v != "limit")
                     return error(line, std::format("the engine is '{}'", v),
-                        "write :ENGINE: forbid or :ENGINE: format, the "
+                        "write :ENGINE: forbid, format or limit, the "
                         "engines compass runs from a document");
                 engine = std::string(v);
                 continue;
@@ -137,6 +139,28 @@ struct check_reader : org_reader {
             if (key == "ID")
                 continue;
             out.add(std::format("{} {}", key, v), line);
+        }
+        return {};
+    }
+
+    /**
+     * @brief Adds a RECORDED line to @p out for each row of the table
+     * under the level-1 heading "Ceilings", whose columns are path, type
+     * and ceiling, or says why one cannot be.
+     */
+    [[nodiscard]] std::expected<void, std::string> add_ceilings(
+        definition_text& out) const {
+        const auto table = table_under("Ceilings");
+        if (table.is_none())
+            return {};
+        for (const auto row : rows(table, "path")) {
+            const auto line = line_of(text, t.elements.ranges[row].begin);
+            const auto cells = this->cells(row);
+            if (cells.size() != 3)
+                return error(line, std::format("the row has {} cells, not 3",
+                    cells.size()), "write | path | type | ceiling |");
+            out.add(std::format("RECORDED {} {} {}", verbatim(cells[0]),
+                verbatim(cells[1]), verbatim(cells[2])), line);
         }
         return {};
     }
@@ -239,10 +263,11 @@ parse_check_document(std::string_view text, std::string_view path,
         return failure(ok.error());
     if (engine.empty())
         return r.error(r.line_of_heading(definition), "the definition names "
-            "no engine", "add :ENGINE: forbid or :ENGINE: format to its "
+            "no engine", "add :ENGINE: forbid, format or limit to its "
             "property drawer, which org reads only on the line right under "
             "the heading");
     const bool format = engine == "format";
+    const bool limit = engine == "limit";
 
     std::vector<ot::heading_id> rule_headings;
     for (auto h = definition.value + 1; h < tables.headings.size() &&
@@ -250,9 +275,9 @@ parse_check_document(std::string_view text, std::string_view path,
         if (tables.headings.levels[ot::heading_id{h}] == 2)
             rule_headings.push_back(ot::heading_id{h});
     }
-    if (format && !rule_headings.empty())
-        return r.error(r.line_of_heading(rule_headings.front()), "a format "
-            "check has one rule, unformatted, and no rule headings",
+    if ((format || limit) && !rule_headings.empty())
+        return r.error(r.line_of_heading(rule_headings.front()), std::format(
+            "a {} check has fixed rules and no rule headings", engine),
             "remove the heading, and state the check in the Definition "
             "drawer");
     for (const auto h : rule_headings) {
@@ -264,6 +289,10 @@ parse_check_document(std::string_view text, std::string_view path,
 
     if (auto ok = r.add_examples(d); !ok)
         return failure(ok.error());
+    if (limit) {
+        if (auto ok = r.add_ceilings(d); !ok)
+            return failure(ok.error());
+    }
 
     const auto error_of = [&](const std::string& e) {
         std::uint32_t line = r.line_of_heading(definition);
@@ -279,7 +308,18 @@ parse_check_document(std::string_view text, std::string_view path,
         return r.error(line, what, "correct the definition's drawers");
     };
 
-    if (format) {
+    if (limit) {
+        const auto parsed = compass::cpp::ops::parse_limit_definition(d.text);
+        if (!parsed)
+            return error_of(parsed.error());
+        c->rule_names.emplace_back("over_ceiling");
+        c->rule_summaries.push_back(std::format("No type has more fields "
+            "than its ceiling: {}, or the one its row of Ceilings records.",
+            parsed->ceiling));
+        c->rule_names.emplace_back("below_record");
+        c->rule_summaries.emplace_back("A recorded ceiling is what its type "
+            "has, so it only comes down.");
+    } else if (format) {
         const auto parsed = compass::cpp::ops::parse_format_definition(d.text);
         if (!parsed)
             return error_of(parsed.error());
@@ -303,9 +343,11 @@ parse_check_document(std::string_view text, std::string_view path,
     for (std::size_t i = 0; i < c->rule_names.size(); ++i)
         c->rules.push_back({c->rule_names[i], c->rule_summaries[i]});
     c->definition = std::move(d.text);
-    c->options = {{{format ? compass::cpp::codecs::format_definition_key
-                           : compass::cpp::codecs::forbid_definition_key,
-        c->definition, "The check's definition, from its document."}}};
+    const auto key = limit ? compass::cpp::codecs::limit_definition_key
+        : format ? compass::cpp::codecs::format_definition_key
+                 : compass::cpp::codecs::forbid_definition_key;
+    c->options = {{{key, c->definition,
+        "The check's definition, from its document."}}};
 
     const auto description = compass::org::ops::find_keyword(r.t,
         "description");
@@ -321,6 +363,8 @@ parse_check_document(std::string_view text, std::string_view path,
         .rules = c->rules,
         .enabled_by_default = true,
         .run = compass::cpp::codecs::forbid_function()};
+    if (limit)
+        c->codec.run = compass::cpp::codecs::limit_function();
     if (format) {
         c->codec.run = compass::cpp::codecs::format_check_function();
         c->codec.formatters = compass::cpp::codecs::format_check_formatters();
