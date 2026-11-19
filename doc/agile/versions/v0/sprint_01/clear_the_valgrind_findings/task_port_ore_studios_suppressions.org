@@ -7,12 +7,12 @@
 #+level: s1
 #+filetags: :clear_the_valgrind_findings:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/valgrind-suppressions
 #+pr:
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-18
-#+updated: 2026-11-18
+#+updated: 2026-11-19
 #+environment:
 #+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
 
@@ -26,9 +26,9 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED |
 | Parent story | [[id:8647D3BB-1F11-40BF-BA8B-57D65D08BC35][Clear the valgrind findings]] |
-| Now          | Not yet started.                       |
+| Now          | Ported the checker and shared the memcheck options; waiting on a local memcheck run to choose which of ORE Studio's suppressions apply. |
 | Waiting on   | Nothing.                               |
 | Next         | Begin implementation.                  |
 | Last touched | 2026-11-18                               |

@@ -31,6 +31,7 @@
 #include <spawn.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include "compass.platform/process/executable.hpp"
 
 extern char** environ;
 #endif
@@ -331,6 +332,12 @@ program_result run_program(const program_call& call) {
     if (call.arguments.empty())
         throw std::invalid_argument("run_program: no program named");
     const auto& program = call.arguments.front();
+    // posix_spawnp reports a program it cannot find only when the child
+    // shares the parent's memory. Under valgrind, which turns the spawn into
+    // a fork, it succeeds and the child exits 127, so the name is resolved
+    // here first.
+    if (program.find('/') == std::string::npos && !find_program(program))
+        throw_errno(ENOENT, "posix_spawnp " + program);
     pipe_ends pipe;
     file_actions actions;
     posix_spawn_file_actions_adddup2(actions.get(), pipe.write_end(),
