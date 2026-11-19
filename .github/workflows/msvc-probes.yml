@@ -1,0 +1,62 @@
+# Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+#
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 3 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
+# Street, Fifth Floor, Boston, MA 02110-1301, USA.
+#
+# yamllint disable rule:line-length
+---
+name: MSVC probes
+
+# Probes compile generated sources with MSVC to measure where its limits
+# fire. They are experiments, run by hand: workflow_dispatch only.
+on:  # yamllint disable-line rule:truthy
+  workflow_dispatch:
+    inputs:
+      only:
+        description: 'Probe names to run, space-separated; empty runs all'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  c1202:
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Enable Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1.13.0
+
+      - name: Report the compiler
+        shell: pwsh
+        run: cl.exe 2>&1 | Select-Object -First 1
+
+      - name: Run the C1202 probes
+        shell: pwsh
+        env:
+          ONLY: ${{ inputs.only }}
+        run: |
+          $only = @()
+          if ($env:ONLY) { $only = @('--only') + $env:ONLY.Split(' ') }
+          python build/probes/msvc_c1202/probe.py --out probes-out @only
+
+      - name: Upload the results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: msvc-c1202-probes
+          path: probes-out/results.tsv
