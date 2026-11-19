@@ -12,7 +12,7 @@
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-18
-#+updated: 2026-11-18
+#+updated: 2026-11-19
 #+environment:
 #+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
 
@@ -20,18 +20,20 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Goal
 
-(Describe what user-visible-or-internal change this task produces.)
+A project forbids C++ names, includes and text in its own check documents,
+under =compass/checks/=, and compass runs them as codecs. ORE Studio's
+portable C++ check replaces the =portable_stop= codec, which is deleted.
 
 * Status
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                                   |
 | Parent story | [[id:DAB2F48A-E47A-4895-9026-056AF21E6CCC][Let projects define their own checks]] |
-| Now          | Slices 1 to 3 are built: the engine, check documents loaded as codecs with their exceptions, and each check's examples run as its tests. portable_cpp is proven on ORE Studio's 1961f78f1a and its fix. |
+| Now          | Done. ORE Studio runs compass/checks/portable_cpp.org since its #4859 (a2749e1948), and compass no longer has the portable_stop codec. |
 | Waiting on   | Nothing.                               |
-| Next         | Slice 4: solid dirac writes ORE Studio's compass/checks/portable_cpp.org; then delete portable_stop. |
-| Last touched | 2026-11-18                               |
+| Next         | Nothing.                               |
+| Last touched | 2026-11-19                               |
 
 * Acceptance
 
@@ -96,6 +98,8 @@ task and name that file in the Command column.
 | Every test, slice 3 | 1249 of 1249 pass | =ctest -j2= | feature/check-examples |
 | The design's five portable_cpp examples over ORE Studio | all five do what they say; one broken on purpose is reported on its block's line, 74 | =compass check= in the 1961f78f1a snapshot | feature/check-examples |
 | Run time after an edit, ORE Studio | prose edit 0.19 s; definition edit 1.63 s; warm 0.12 s | the same, timed | feature/check-examples |
+| Every test, slice 4 | 1250 of 1250 pass, the 3 portable_stop cases gone | =ctest -j2= in =linux-clang-release-ninja= | feature/delete-portable-stop |
+| Rules compass checks | 177, down from 178 | =compass generate=, the rule table's count | feature/delete-portable-stop |
 | Guards each test proves | 6 of 6 mutations fail a test: member access, angled include, leading components, one finding per line, trailing =**=, dead =CPP_TEXT= | hand mutation of =ops/forbid.cpp=, rebuilt and rerun | feature/forbid-engine |
 
 * Notes

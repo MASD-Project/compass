@@ -7,7 +7,7 @@
 #+level: s2
 #+filetags: :gates:checks:sprint_01:v0:
 #+created: 2026-11-18
-#+updated: 2026-11-18
+#+updated: 2026-11-19
 #+environment:
 #+todo: BACKLOG STARTED | DONE ABANDONED
 
@@ -25,10 +25,10 @@ the same speed, caching and exception handling as its built-in codecs.
 |---------------+----------------------------------------|
 | State         | STARTED |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
-| Now           | The analysis is done: the inventory, and a design for literate check documents in a committed compass/ directory. |
+| Now           | The forbid engine is built and ORE Studio runs its portable C++ check from compass/checks/; the portable_stop codec is deleted. |
 | Waiting on    | The product owner's calls on the open questions of the design; they do not block the forbid engine. |
-| Next          | Build the forbid engine, starting with the portable C++ check. |
-| Last touched  | 2026-11-18                               |
+| Next          | The next mined checks, as check documents. |
+| Last touched  | 2026-11-19                               |
 
 * Acceptance
 
@@ -47,7 +47,7 @@ the same speed, caching and exception handling as its built-in codecs.
 | Task | State | Start | End | Description |
 |------+-------+-------+-----+-------------|
 | [[id:6E3237E7-C57A-4CD8-97D5-DA32BAA4359E][Analyse what is hard-coded to ORE Studio]] | DONE | 2026-11-18 | 2026-11-18 | Classify every codec's ORE Studio specifics (paths, names, type lists, patterns, thresholds) as already data, could be data, or must stay code, and propose the data format projects use to define their own checks. |
-| [[id:C71DA181-94C7-43CD-8F4A-1F7437D3753C][Build the forbid engine]] | STARTED | 2026-11-18 | | Report each forbidden C++ name, include or pattern a check definition lists, in the files it covers, as the design's forbid engine does. |
+| [[id:C71DA181-94C7-43CD-8F4A-1F7437D3753C][Build the forbid engine]] | DONE | 2026-11-18 | 2026-11-19 | Report each forbidden C++ name, include or pattern a check definition lists, in the files it covers, as the design's forbid engine does. |
 
 * Documents
 

@@ -20,9 +20,8 @@ script that read the whole tree on every run; here each is a corpus codec
 that reads the files of the checkout through its view, so the runtime
 records every file it read and a run in which none of them changed reuses
 the findings without reading anything. The gates that read every C++ file
-(=portable_stop=, =unique_type_names=, =unity_collisions=,
-=exported_types=, =forward_declarable_includes=, =stream_coverage= and
-=handler_registrars=) are scans: each file is mapped to a fact once per
+(=unique_type_names=, =unity_collisions=, =exported_types=,
+=forward_declarable_includes=, =stream_coverage= and =handler_registrars=) are scans: each file is mapped to a fact once per
 content ID and a run after an edit maps only the edited file, then reduces
 the stored facts with it. A fact holds what the gate decides from, not the
 file, so an edit that changes none of it leaves the fact as it was and the
@@ -141,13 +140,6 @@ keeps in its =.compass.org=.
   namespace, =static=, or =const= or =constexpr= and not =inline=, however
   many lines it spans. A function's name carries its parameter types, so
   overloads a unity build compiles do not collide.
-- *=portable_stop=.* =portable-stop=
-  (=projects/ores.codegen/scripts/check_portable_stop_types.py=). Rule
-  =stop_type_outside_platform=: a line outside =ores.platform= names
-  =std::jthread=, =stop_token=, =stop_source= or =stop_callback=, as the
-  model's names spell them (=std :: jthread= too), or includes
-  =<stop_token>=, comments, literals and =#if 0= aside. A file whose bytes
-  hold none of the four names is not lexed.
 - *=unique_type_names=.* =unique-type-names=
   (=build/scripts/check_unique_type_names.py=). Rule =type_defined_twice=:
   two headers that can meet in one binary define the same qualified class,

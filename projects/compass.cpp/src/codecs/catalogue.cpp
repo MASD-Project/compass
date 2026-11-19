@@ -24,7 +24,6 @@
 #include "compass.cpp/codecs/core_link_edges.hpp"
 #include "compass.cpp/codecs/exported_types.hpp"
 #include "compass.cpp/codecs/forward_declarable_includes.hpp"
-#include "compass.cpp/codecs/portable_stop.hpp"
 #include "compass.cpp/codecs/registrars.hpp"
 #include "compass.cpp/codecs/route_auth.hpp"
 #include "compass.cpp/codecs/shell.hpp"
@@ -39,10 +38,10 @@ namespace compass::cpp::codecs {
 
 std::span<const compass::codec::types::descriptor> catalogue() noexcept {
     static const auto all = [] {
-        std::array<compass::codec::types::descriptor, 18> out{
+        std::array<compass::codec::types::descriptor, 17> out{
             bff_list_requests, core_link_edges,
             event_registrars, exported_types, forward_declarable_includes,
-            handler_registrars, history_registrars, portable_stop, route_auth,
+            handler_registrars, history_registrars, route_auth,
             shell_command_composition, shell_command_units, shell_menus,
             stream_coverage, test_case_reachability, translation_unit_budget,
             unique_type_names, unity_collisions, xml_family_census};
