@@ -45,6 +45,13 @@ The probes are:
   four headers they include besides the column list).
 - uniq_...: the synthetic probes with member names unique to each entity,
   as ORE Studio's are, where the others repeat m0, m1 and so on.
+- rev_unit<u>_first<n>: unit u's entities in reverse order, first n, to
+  see whether order changes where the unit fails.
+- w75_first_<k> and w75_last_<k>: one entity of width 75 before, or after,
+  k entities of width 20, to see whether a wide entity's cost depends on
+  where it comes.
+- w10x50_then_20_<k>: 50 entities of width 10, then k of width 20, to
+  price narrow entities against the width-20 threshold.
 
 Each is compiled with cl.exe and the flags ORE Studio's release build
 passes, and its outcome is ok, C1202 or another error. The results go to
@@ -102,6 +109,15 @@ def probes() -> dict[str, tuple[str, list[int]]]:
     for u, ns in ((55, range(50, 58)), (53, range(36, 60))):
         for n in ns:
             out[f"real_unit{u}_first{n}"] = ("real", headers_of(u)[:n])
+    for u in (53, 55):
+        widths = list(reversed(widths_of(u)))
+        for n in range(30, len(widths) + 1):
+            out[f"rev_unit{u}_first{n}"] = ("columns", widths[:n])
+    for k in range(38, 53):
+        out[f"w75_first_{k}"] = ("columns", [75] + [20] * k)
+        out[f"w75_last_{k}"] = ("columns", [20] * k + [75])
+    for k in range(20, 53, 2):
+        out[f"w10x50_then_20_{k}"] = ("columns", [10] * 50 + [20] * k)
     for k in range(45, 61):
         out[f"uniq_sweep_20_{k}"] = ("uniq_columns", [20] * k)
     out["uniq_unit53"] = ("uniq_columns", widths_of(53))
