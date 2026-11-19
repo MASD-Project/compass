@@ -1,0 +1,38 @@
+:PROPERTIES:
+:ID: 9BEDE316-4EFF-4EEE-B0E6-8D58765E3ACA
+:END:
+#+title: The edit hook reports dangling links after a branch switch
+#+description: After git switch, the PostToolUse hook of compass-ng 79af4ff reported six lint/dangling_link findings on one edit, one to an :ID: in a file just created with Write; a full check straight after reported none. The hook's listing of the checkout is likely stale after the switch or does not see new files.
+#+type: capture
+#+level: cross
+#+filetags: :hook:lint:
+#+created: 2026-11-19
+#+updated: 2026-11-19
+
+This page is a [[id:671F18E4-E09C-4B3B-BD24-D33DF8AE38A6][capture]] in the *inbox* bucket of the product backlog — a pre-sprint idea, not yet pulled into a sprint as a story.
+
+* What
+
+Reported by ORE Studio's session on 2026-11-19, with compass-ng
+=79af4ff= installed. After =git switch -c= from =origin/main=, the
+PostToolUse hook reported six =lint/dangling_link= findings on one edit.
+One pointed at =8AD9ABB7=, the :ID: of a capture the session had just
+written with the Write tool, not Edit; the others were in sprint_30
+stories. A full =compass-ng check= straight after reported none of them.
+Reproduce it: switch branches, create a document with Write, link to it
+from another, edit that one, and compare the hook with a full check.
+
+* Why
+
+A hook that reports what the full check does not costs the agent a
+detour on every edit after a switch, and teaches it to ignore the hook.
+The guess, not checked: the hook reads the listing record of the
+checkout, which the switch or the new file left stale.
+
+* References
+
+-
+
+* See also
+
+-
