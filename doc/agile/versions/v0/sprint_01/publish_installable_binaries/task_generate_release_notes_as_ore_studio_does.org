@@ -31,12 +31,12 @@ earlier tag, works the same way.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED |
+| State        | DONE |
 | Parent story | [[id:EB6AF798-D472-4CC2-B97C-FC2BD9FD1FDE][Publish installable binaries]] |
-| Now          | PR #95 is open with the five verbs, the scripts, the exporter, the docs and the tests. |
-| Waiting on   | Review of the PR.                      |
-| Next         | Merge, then use the verbs to cut the first release. |
-| Last touched | 2026-11-19                               |
+| Now          | Merged as PR #95, and used for v0.0.1: create, charts, export, commit and draft. |
+| Waiting on   | Nothing. |
+| Next         | Nothing. |
+| Last touched | 2026-11-19 |
 
 * Acceptance
 
@@ -200,3 +200,5 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+The pipeline made the sprint 1 notes (PR #96) and the v0.0.1 release: a signed tag on 747d629 and a draft release whose body is release_notes.md, published once its packages were attached. =release-notes charts= still fails on a sprint with no end date; the charts came from =sprint charts= with explicit dates.

@@ -26,11 +26,11 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED |
+| State        | DONE |
 | Parent story | [[id:EB6AF798-D472-4CC2-B97C-FC2BD9FD1FDE][Publish installable binaries]] |
-| Now          | Each platform builds an archive beside its installer, named for its system and processor; the attach jobs upload a SHA-256 checksum beside every package; the manifest records the tag and --version prints it. |
-| Waiting on   | The first tag, which proves the attach jobs. |
-| Next         | Close when v0.0.1 carries every archive and its checksum. |
+| Now          | v0.0.1 carries a .tar.gz for Linux and macOS, a .zip and installer for Windows, the .deb and .dmg, and a .sha256 beside each. |
+| Waiting on   | Nothing. |
+| Next         | Nothing. |
 | Last touched | 2026-11-19 |
 
 * Acceptance
@@ -62,6 +62,8 @@ task and name that file in the Command column.
 | Linux archive name | =compass-0.0.1-Linux-x86_64.tar.gz= | =cpack -G TGZ= in =linux-clang-release-ninja= | d6b8bcb |
 | Version tests | 7 cases, all pass | =compass.cli.tests "[version]"= | d6b8bcb |
 | Every test | 1253 of 1253 pass | =ctest -j2= | d6b8bcb |
+| Assets of v0.0.1 | 12: an archive and installer per platform, each with its =.sha256= | =gh release view v0.0.1 --json assets= | 747d629 |
+| Manifest of the CI archives | =tag=v0.0.1=, =dirty=false= | =tar -xzO= / =unzip -p= of the archives | 747d629 |
 
 * Notes
 
@@ -95,3 +97,5 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+The v0.0.1 tag built, packaged and attached Linux and macOS itself. The MSVC Windows build failed five tests, so its attach job found no package; the clang Windows packages of the same tag run were attached by hand, with their checksums, and the workflow now attaches the clang build. Every manifest records =tag=v0.0.1=.

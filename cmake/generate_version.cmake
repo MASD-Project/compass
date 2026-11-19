@@ -45,7 +45,7 @@ if(DEFINED ENV{COMPASS_BUILD_PROVIDER} AND
     string(APPEND build_info " Number = '$ENV{COMPASS_BUILD_NUMBER}'")
     string(APPEND build_info " Commit = '$ENV{COMPASS_BUILD_COMMIT}'")
     string(APPEND build_info " Timestamp = '$ENV{COMPASS_BUILD_TIMESTAMP}'")
-    set(commit "$ENV{COMPASS_BUILD_COMMIT}")
+    string(SUBSTRING "$ENV{COMPASS_BUILD_COMMIT}" 0 7 commit)
     set(commit_full "$ENV{COMPASS_BUILD_COMMIT}")
     set(commit_time "")
     set(dirty "false")
