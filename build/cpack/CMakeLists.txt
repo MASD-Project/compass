@@ -57,6 +57,10 @@ set(CPACK_PACKAGE_VENDOR "MASD Project")
 
 set(CPACK_PACKAGE_INSTALL_DIRECTORY ${CPACK_PACKAGE_NAME})
 set(CPACK_OUTPUT_FILE_PREFIX "${CMAKE_BINARY_DIR}/packages")
+# The file names carry the operating system and the processor, as in
+# compass-0.0.1-Darwin-arm64.tar.gz, so the install script picks the archive
+# of the machine it runs on.
+set(CPACK_SYSTEM_NAME "${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
 set(CPACK_STRIP_FILES YES)
 
 set(CPACK_INSTALL_DEFAULT_DIRECTORY_PERMISSIONS
@@ -87,12 +91,12 @@ if(WIN32)
     if (MSVC)
         # don't forget to set the WIX path, e.g.:
         # WIX="C:/Program Files (x86)/WiX Toolset v3.10/bin" cpack -G WIX -C Release
-        set(CPACK_GENERATOR "WIX")
+        set(CPACK_GENERATOR "WIX;ZIP")
         set(CPACK_PACKAGE_EXECUTABLES "compass" "compass")
         set(CPACK_WIX_PRODUCT_GUID "5655AA29-AD2C-4B52-B27E-07413BF08F1A")
         set(CPACK_WIX_UPGRADE_GUID "05F1FAC2-1BDB-44F6-BC2E-DB2F51AC2A6F")
     else()
-        set(CPACK_GENERATOR "NSIS")
+        set(CPACK_GENERATOR "NSIS;ZIP")
         set(CPACK_PACKAGE_EXECUTABLES "compass" "compass")
 
         if(CMAKE_CL_64)
@@ -111,8 +115,9 @@ if(WIN32)
 elseif(APPLE)
     set(CPACK_PACKAGE_INSTALL_DIRECTORY "${PROJECT_NAME}")
     # compass is a command-line tool with no application bundle, so the disk
-    # image holds the install tree as it is.
-    set(CPACK_GENERATOR "DragNDrop")
+    # image holds the install tree as it is. The archive is what the install
+    # script downloads.
+    set(CPACK_GENERATOR "DragNDrop;TGZ")
 elseif(UNIX)
     set(CPACK_GENERATOR "TGZ;DEB")
     set(CPACK_STRIP_FILES "")

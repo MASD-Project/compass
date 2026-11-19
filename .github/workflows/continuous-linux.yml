@@ -242,7 +242,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja
-          path: ./build/output/${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja/packages/compass_*_amd64.deb
+          path: |
+            ./build/output/${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja/packages/compass_*_amd64.deb
+            ./build/output/${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja/packages/compass-*-Linux-*.tar.gz
           if-no-files-found: error
 
       - name: Report disk usage after build
@@ -452,6 +454,9 @@ jobs:
           pattern: linux-*-release-ninja
           path: packages
           merge-multiple: true
+
+      - name: Write the checksum of each package
+        run: cd packages && for f in *; do sha256sum "$f" > "$f.sha256"; done
 
       - name: Attach the packages to the release
         env:

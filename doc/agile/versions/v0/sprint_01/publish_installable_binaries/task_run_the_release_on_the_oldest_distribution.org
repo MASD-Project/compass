@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :publish_installable_binaries:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/release-checksums
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,16 +26,18 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED |
 | Parent story | [[id:EB6AF798-D472-4CC2-B97C-FC2BD9FD1FDE][Publish installable binaries]] |
-| Now          | Not yet started.                       |
-| Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
-| Last touched | 2026-11-19                               |
+| Now          | Ubuntu 24.04 LTS is the oldest supported distribution. The Linux binary links its C++ runtime in and needs only glibc 2.38; a local archive runs compass check on Ubuntu 24.04 and fails on 22.04. |
+| Waiting on   | The first release, to prove the archive CI built. |
+| Next         | Run build/scripts/run_on_oldest_distribution.sh on the Linux archive of v0.0.1, then close. |
+| Last touched | 2026-11-19 |
 
 * Acceptance
 
--
+- The Linux release binary needs no shared library but glibc's.
+- =build/scripts/run_on_oldest_distribution.sh= runs the release archive's
+  =compass check= in a clean Ubuntu 24.04 container.
 
 * Plan
 
@@ -55,9 +57,18 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Shared libraries of the Linux binary | libc, libm and the loader only | =readelf -d publish/bin/compass= | d6b8bcb |
+| Newest glibc symbol it needs | GLIBC_2.38 | =objdump -T publish/bin/compass= | d6b8bcb |
+| Ubuntu 24.04.5 LTS (glibc 2.39) | --version and check run, exit 0 | =run_on_oldest_distribution.sh= on the local archive | d6b8bcb |
+| Ubuntu 22.04.5 LTS (glibc 2.35) | fails: GLIBC_2.38 not found | the same, with =ubuntu:22.04= | d6b8bcb |
 
 * Notes
+
+- Ubuntu 24.04 LTS is the floor because it is the oldest maintained LTS
+  whose glibc covers the newest symbol the binary needs. The CI image is
+  Ubuntu 26.04 with GCC 16's libstdc++, which needs GLIBCXX_3.4.36, so the
+  binary links libstdc++ and libgcc in. Supporting an older distribution
+  would mean building on an older image.
 
 * Test Scenarios
 

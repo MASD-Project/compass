@@ -87,6 +87,13 @@ add_custom_target(${name}.version ALL
 
 add_dependencies(${exe_target_name} ${name}.version)
 
+# The release binary must run on any supported Linux, whatever libstdc++ the
+# build image has, so the C++ runtime is linked in and only glibc is shared.
+if(UNIX AND NOT APPLE)
+    target_link_options(${exe_target_name} PRIVATE
+        -static-libstdc++ -static-libgcc)
+endif()
+
 install(TARGETS ${exe_target_name} RUNTIME DESTINATION bin)
 install(FILES ${COMPASS_PUBLISH_DIRECTORY}/bin/compass.manifest DESTINATION bin)
 

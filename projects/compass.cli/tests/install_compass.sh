@@ -99,6 +99,47 @@ bash "$script" --from "$(build $clean false)" >"$root/out" 2>&1 ||
 [ "$(cat "$old_link")" = "the python tool" ] ||
     fail "a compass the script does not own was touched"
 
+# A release served from a directory: the archive of this machine, as CPack
+# lays it out, and its checksum.
+releases="$root/releases"
+archive="compass-0.0.1-$(uname -s)-$(uname -m).tar.gz"
+release_build="$(build cccccccccccccccccccccccccccccccccccccccc false)"
+echo "tag=v0.0.1" >>"$release_build/compass.manifest"
+mkdir -p "$root/tree/compass-0.0.1/opt/compass/0.0.1" "$releases/v0.0.1"
+cp -rp "$release_build" "$root/tree/compass-0.0.1/opt/compass/0.0.1/bin"
+tar -czf "$releases/v0.0.1/$archive" -C "$root/tree" compass-0.0.1
+(cd "$releases/v0.0.1" && sha256sum "$archive" >"$archive.sha256")
+export COMPASS_RELEASE_URL="file://$releases"
+
+bash "$script" --release v0.0.1 >"$root/out" 2>&1 ||
+    fail "a release did not install"
+expect_version "commit: cccccccccccccccccccccccccccccccccccccccc (ccccccc)"
+expect_version "tag: v0.0.1"
+expect_version "built: 2026-01-02T03:04:05Z"
+
+printf 'commit: x\nrelease: v0.0.1\n' >"$root/pin"
+bash "$script" --from "$(build $clean false)" >"$root/out" 2>&1 ||
+    fail "a reinstall of the clean build did not succeed"
+bash "$script" --pin "$root/pin" >"$root/out" 2>&1 ||
+    fail "the release a pin file names did not install"
+expect_version "tag: v0.0.1"
+
+bash "$script" --from "$(build $clean false)" >"$root/out" 2>&1 ||
+    fail "a reinstall of the clean build did not succeed"
+echo "0000000000000000000000000000000000000000000000000000000000000000  $archive" \
+    >"$releases/v0.0.1/$archive.sha256"
+bash "$script" --release v0.0.1 >"$root/out" 2>&1 &&
+    fail "an archive that does not match its checksum installed"
+grep -q "does not match its checksum" "$root/out" ||
+    fail "a checksum mismatch was not named"
+expect_version "commit: $clean (aaaaaaa)"
+bash "$script" --release v9.9.9 >"$root/out" 2>&1 &&
+    fail "a release that does not exist installed"
+printf 'commit: x\n' >"$root/pin"
+bash "$script" --pin "$root/pin" >"$root/out" 2>&1 &&
+    fail "a pin file with no release: line installed"
+unset COMPASS_RELEASE_URL
+
 echo "garbage" >"$opt/compass.manifest"
 expect_version "commit: unknown"
 rm "$opt/compass.manifest"

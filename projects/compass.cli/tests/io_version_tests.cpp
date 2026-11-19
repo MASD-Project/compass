@@ -179,3 +179,25 @@ TEST_CASE("version_text prints the store formats compiled in",
             n(codec::format_cache_version) + ", worktree index " +
             n(store::worktree_index_version) + "\n"));
 }
+
+TEST_CASE("version_text names the release tag on the commit, or none",
+    "[io][version]") {
+    scoped_bin bin;
+    bin.write_manifest(std::string(clean_manifest) + "tag=v0.0.1\n");
+    const auto tagged = version_text(bin.executable());
+    CHECK_THAT(tagged, StartsWith("compass "));
+    CHECK(tagged.find('\n') + 1 == tagged.find("tag: v0.0.1\ncommit: "));
+
+    bin.write_manifest(clean_manifest);
+    CHECK_THAT(version_text(bin.executable()), ContainsSubstring("\ntag: none\n"));
+
+    bin.write_manifest(std::string(clean_manifest) + "tag=\n");
+    CHECK_THAT(version_text(bin.executable()), ContainsSubstring("\ntag: none\n"));
+}
+
+TEST_CASE("version_text says the tag is unknown without a usable manifest",
+    "[io][version]") {
+    scoped_bin bin;
+    CHECK_THAT(version_text(bin.executable()),
+        ContainsSubstring("\ntag: unknown\n"));
+}

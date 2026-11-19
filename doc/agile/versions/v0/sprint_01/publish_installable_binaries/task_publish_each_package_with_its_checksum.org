@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :publish_installable_binaries:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/release-checksums
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -26,16 +26,20 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED |
 | Parent story | [[id:EB6AF798-D472-4CC2-B97C-FC2BD9FD1FDE][Publish installable binaries]] |
-| Now          | Not yet started.                       |
-| Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
-| Last touched | 2026-11-19                               |
+| Now          | Each platform builds an archive beside its installer, named for its system and processor; the attach jobs upload a SHA-256 checksum beside every package; the manifest records the tag and --version prints it. |
+| Waiting on   | The first tag, which proves the attach jobs. |
+| Next         | Close when v0.0.1 carries every archive and its checksum. |
+| Last touched | 2026-11-19 |
 
 * Acceptance
 
--
+- A release carries, for each platform, an archive the install script can
+  download (a =.tar.gz= on Linux and macOS, a =.zip= on Windows), its
+  installer, and a =.sha256= beside each file.
+- Each archive holds =bin/compass= and =bin/compass.manifest=.
+- =compass --version= of a tagged build names its tag.
 
 * Plan
 
@@ -55,9 +59,17 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Linux archive name | =compass-0.0.1-Linux-x86_64.tar.gz= | =cpack -G TGZ= in =linux-clang-release-ninja= | d6b8bcb |
+| Version tests | 7 cases, all pass | =compass.cli.tests "[version]"= | d6b8bcb |
+| Every test | 1253 of 1253 pass | =ctest -j2= | d6b8bcb |
 
 * Notes
+
+- Both Windows compilers package compass under the same file names, and
+  the attach job merged both into one directory, so the last download won.
+  The release now carries the MSVC build alone.
+- The tag comes from =git describe --exact-match --tags= on the commit, or
+  from =COMPASS_BUILD_TAG= when CI sets it.
 
 * Test Scenarios
 
