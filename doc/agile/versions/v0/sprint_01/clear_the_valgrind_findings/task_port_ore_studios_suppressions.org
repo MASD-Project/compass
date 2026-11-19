@@ -20,22 +20,30 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Goal
 
-(Describe what user-visible-or-internal change this task produces.)
+compass's memcheck runs with the options ORE Studio's do, from one file both
+the nightly and a local run read, and with ORE Studio's checker, which
+replays the suppression file against a run's stacks.
 
 * Status
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED |
+| State        | DONE |
 | Parent story | [[id:8647D3BB-1F11-40BF-BA8B-57D65D08BC35][Clear the valgrind findings]] |
-| Now          | Ported the checker and shared the memcheck options; waiting on a local memcheck run to choose which of ORE Studio's suppressions apply. |
+| Now          | Done: the checker, the shared options, and the four rules of ORE Studio's file that match compass's stacks. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
-| Last touched | 2026-11-18                               |
+| Next         | Nothing. |
+| Last touched | 2026-11-19 |
 
 * Acceptance
 
--
+- The nightly (=CTest.cmake=) and =build/scripts/run_memcheck.sh= read
+  the options and the suppression file from =build/cmake/memcheck.cmake=.
+- =build/scripts/check_valgrind_suppressions.py= fails on any reported
+  stack the file does not suppress, matching the error kind as valgrind
+  does.
+- Every rule taken from ORE Studio's file matches a stack compass
+  reports.
 
 * Plan
 
@@ -74,7 +82,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| (this branch) | Clear the valgrind findings |
 
 * Review
 
@@ -83,3 +91,11 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+ORE Studio's file holds 204 rules. compass needs the four it already had:
+CMake, the LLVM coverage runtime, glibc's atexit nodes and Catch2's report
+stream. The rest cover Boost, Qt, GLib, NATS, OpenSSL and libpq, none of
+which compass links; nothing in it covers PCRE2, the shells or libstdc++'s
+exception pool, which compass needed. The checker gained one rule of
+valgrind's: a generated suppression writes a frame of no object as
+=obj:*=, which valgrind matches as the object name =???=.
