@@ -206,8 +206,9 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           # Both Windows compilers package compass under the same file names,
-          # so the release carries the MSVC build alone.
-          pattern: windows-msvc-release-ninja
+          # so the release carries one: the clang build, whose tests pass,
+          # while the MSVC build's per-case tests fail.
+          pattern: windows-clang-release-ninja
           path: packages
           merge-multiple: true
 
