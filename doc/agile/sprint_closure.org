@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :agile:sprint:closure:knowledge:
 #+created: 2026-06-05
-#+updated: 2026-06-06
+#+updated: 2026-11-19
 
 * Summary
 
@@ -66,12 +66,12 @@ sprint (scaffold, stories, version bump). Never combine them.
    not story titles. Clear the =Now= field to =Nothing.= at the same
    time. Achievements are only written at sprint close; the heading
    does not appear in in-flight sprints.
-4. [@4] *Generate the release notes.* Scaffold via =compass add
-   release_notes= into the sprint folder (the file lives at the
-   sprint root so the chart =file:= links resolve), then populate
-   from the collected PR data and the closed tasks' =* Result=
-   sections, and link the notes from the sprint's Status table and
-   =* Release Notes= section.
+4. [@4] *Generate the release notes.* Run =compass release-notes
+   create= to render them into the sprint folder from the merged PRs
+   and the sprint's stories, then fill the summary blurbs from the
+   closed tasks' =* Result= sections, and link the notes from the
+   sprint's Status table. See [[id:9F274EE4-3CAB-47FD-BB6E-449D8B789D8C][How do I generate release notes?]]
+   for the five verbs that take the notes to a draft release.
 5. *Cut the release* (tag, build, publish artefacts) when the version
    warrants it. Not every sprint produces a release; many sprints
    land mid-version. See [[id:B69989F6-19E1-430D-AC6D-B2416E4C433F][Compass]] for what the release tag means in

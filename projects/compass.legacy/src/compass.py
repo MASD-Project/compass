@@ -5447,6 +5447,9 @@ def main():
         sys.exit(cmd_heading(sys.argv[2:]))
     if len(sys.argv) >= 2 and sys.argv[1] == "lint":
         sys.exit(cmd_lint(sys.argv[2:]))
+    if len(sys.argv) >= 2 and sys.argv[1] == "release-notes":
+        import compass_release_notes
+        sys.exit(compass_release_notes.run(sys.argv[2:], PROJECT_ROOT))
     if len(sys.argv) >= 2 and sys.argv[1] in ALL_BUCKETS:
         sys.exit(cmd_backlog(sys.argv[1], sys.argv[2:]))
 
@@ -5467,7 +5470,7 @@ def main():
             "index", "search", "find", "debug", "where", "status",
             "list", "show", "add", "sprint", "story", "task", "journal",
             "bearings", "orient", "capture", "lint", "heading",
-            "inbox", "next", "deferred", "discarded", "backlog",
+            "release-notes", "inbox", "next", "deferred", "discarded", "backlog",
         ]
         cmd_given = sys.argv[1]
         if cmd_given not in _KNOWN_COMMANDS:
@@ -5493,6 +5496,7 @@ def main():
         "  sprint:   status | audit (orient)\n"
         "  story:    new (scaffold) | status (orient)\n"
         "  task:     new (scaffold)\n"
+        "  release-notes: create | charts | export | commit | draft (sprint closure)\n"
     )
 
     parser = argparse.ArgumentParser(
@@ -5577,6 +5581,9 @@ def main():
     subparsers.add_parser("lint",
                           help="Validate #+filetags: values across all .org files; "
                                "exits non-zero on malformed tags")
+    subparsers.add_parser("release-notes",
+                          help="Sprint-closure release notes: create, charts, export, "
+                               "commit, draft; 'release-notes --help'")
 
     args = parser.parse_args()
 

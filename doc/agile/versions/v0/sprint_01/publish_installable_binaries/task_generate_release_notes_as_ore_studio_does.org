@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :publish_installable_binaries:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/release-notes
+#+pr: https://github.com/MASD-Project/compass/pull/95
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-19
@@ -20,28 +20,60 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Goal
 
-(Describe what user-visible-or-internal change this task produces.)
+At sprint close, a maintainer runs five =compass release-notes= verbs and
+gets what ORE Studio gets: the sprint's release notes rendered from its
+stories and merged PRs, health charts, a GitHub-flavoured Markdown body
+whose images and links resolve on GitHub, and a draft GitHub release
+titled =<tag>, "<Codename>"=. The first compass release, which has no
+earlier tag, works the same way.
 
 * Status
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED |
 | Parent story | [[id:EB6AF798-D472-4CC2-B97C-FC2BD9FD1FDE][Publish installable binaries]] |
-| Now          | Not yet started.                       |
-| Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Now          | PR #95 is open with the five verbs, the scripts, the exporter, the docs and the tests. |
+| Waiting on   | Review of the PR.                      |
+| Next         | Merge, then use the verbs to cut the first release. |
 | Last touched | 2026-11-19                               |
 
 * Acceptance
 
--
+- =./compass.sh release-notes create|charts|export|commit|draft= exist and
+  behave as ORE Studio's do.
+- =create= for sprint 1 renders =release_notes.org= with compass's
+  stories grouped into sections that fit compass.
+- =export= with the real Emacs writes =release_notes.md= in which chart
+  images point at =raw.githubusercontent.com/MASD-Project/compass/main=
+  and =proj:= and =id:= links point at =github.com/MASD-Project/compass=.
+- =draft= is proved without touching GitHub: no tag, release or push.
+- =./compass.sh lint= passes; the Python tests pass.
+- Every departure from ORE Studio is listed under Notes with its reason.
 
 * Plan
 
 (Implementation strategy. Written when work starts; key decisions
 are distilled into the parent story's =* Decisions= at close, but the
 plan itself stays — it is the historical record of what we did.)
+
+Copy, then adapt, in two commits so the second shows every adaptation as
+a diff against ORE Studio's main:
+
+1. Copy verbatim from ORE Studio: =compass_release_notes.py= into
+   =projects/compass.legacy/src/=, =collect_release_pr_data.py= and
+   =generate_release_notes.py= into =build/scripts/=,
+   =ores-build-release-notes.el= into =projects/compass.legacy/lisp/=
+   beside =ores-org-ids.el=, and the pipeline design into
+   =doc/knowledge/compass/release_notes_pipeline.org=.
+2. Adapt every ORE value: repository, product name, paths, the venv that
+   provides pystache, the screenshot convention and the section grouping.
+   Wire =release-notes= into =compass.py= as ORE Studio does.
+3. Point the recipe and the skill, which compass already had, at the
+   ported pipeline document and at compass's own recipes.
+4. Run =create=, =charts= and =export= on sprint 1, look at the result,
+   then remove it: sprint 1 is not closed.
+5. Test =draft= against a temporary repository with a stubbed =gh=.
 
 * Measurements
 
@@ -55,9 +87,94 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| PRs merged since the first commit | 94 | =./compass.sh release-notes create --sprint 1= | feature/release-notes on 73b0ec5 |
+| Sprint 1 stories in the notes | 9 DONE in 7 sections, 10 postponed | same | same |
+| Sprint duration in the notes | 2026-10-27 → 2026-11-18 | same | same |
+| ids the exporter resolves | 541 in 501 files | =./compass.sh release-notes export --sprint 1= | same |
+| Charts rendered for sprint 1 | 4 of 4: 6 days, 94 PRs, 9 story transitions | =./compass.sh sprint charts --sprint 1 --start-date 2026-10-27 --end-date 2026-11-19 --branch HEAD= | same |
+| Release-notes tests | 12 passed | =projects/compass.legacy/venv/bin/python -m pytest projects/compass.legacy/tests/test_release_notes.py= | same |
+| compass.legacy suite | 47 passed | =projects/compass.legacy/venv/bin/python -m pytest projects/compass.legacy/tests/= | same |
+| Tests that fail on a seeded defect | 3: dropping =--draft= fails one, ignoring =#+start_date= fails two | the same pytest after editing the source | same |
 
 * Notes
+
+** Departures from ORE Studio
+
+- *Location.* The verbs live in =projects/compass.legacy/src/=, the
+  tool =compass.sh= forwards to, not =projects/ores.compass/src/=. The
+  exporter lives in =projects/compass.legacy/lisp/= beside
+  =ores-org-ids.el=, which it loads; compass has no =ores.lisp=. It
+  keeps its ORE name, =ores-build-release-notes.el=, and the =ores/=
+  prefix, as the other files in that directory do.
+- *Sections.* =TAG_SECTIONS= and =KEYWORD_SECTIONS= are replaced by
+  sections drawn from the filetags of sprint 1's stories: Parsing &
+  Data Model, Pipeline & Store, Codegen, Gates & Checks, Documents &
+  Search, CLI & Tooling, Code Analysis, Build, CI & Release, Agile &
+  Documentation. ORE's sections (Financial Features, Market Data, and
+  so on) name nothing compass builds. The scoring is unchanged.
+- *id: links.* ORE Studio exports an =id:= link to its published site.
+  compass publishes no site, so the link becomes the github.com blob URL
+  of the linked =.org= file, which GitHub renders.
+- *First release.* ORE's collector exits when no =v*= tag exists.
+  compass has no tag yet, so the collector falls back to the first
+  commit, and the time summary says "since the first commit".
+- *Sprint duration.* ORE derives it from the stories' dates, which a
+  carried story stretches back into an earlier sprint; ORE Studio's
+  capture "Release notes Sprint duration uses carried-over story dates"
+  records the bug. compass reads the sprint's =#+start_date= and
+  =#+end_date= first (then the Status table), and falls back to story
+  dates only while the sprint has no end.
+- *Names.* The title reads =compass-ng Sprint N – Release Notes=; the
+  screenshot convention is =compass-v<tag>.png=; pystache comes from the
+  compass.legacy venv. The recipe makes the screenshot optional: compass
+  is a command-line tool, and the readme does not show one.
+- *PR step.* ORE's =commit= tells the user to run =compass pr create=;
+  compass.legacy has no =pr= command, so it says =gh pr create=, and the
+  recipe and skill link [[id:CC928252-E0C5-4C3C-A7A8-D613593E4E37][How do I create a PR?]] where ORE names its
+  PR Manager skill.
+- *Template.* Unchanged. compass's copy differs from ORE's only in the PR
+  cycle legend: ORE changed its chart to a log-scale dot plot, and
+  compass's chart, in =doc/agile/sprint_charts.org=, is still one bar
+  per PR, which compass's text describes.
+- *Chart scripts.* ORE commits =scripts/sprint_*.gnuplot=; compass never
+  tangled them from =doc/agile/sprint_charts.org=, so =sprint charts=
+  skipped every chart. They are tangled and committed.
+- *Ignored files.* =/tmp/= (the collector's PR data) and
+  =/.org-id-locations-file= (written by the exporter and by
+  =compass index --org-ids=) are added to =.gitignore=.
+- *Docs.* The pipeline design is ported with its ORE id, so the recipe's
+  and skill's links, which pointed at a placeholder id, resolve. The
+  recipe's link to "How do I bump the project version?" is dropped:
+  compass has no such recipe. Sprint closure step 4 now names the verbs.
+- *Tests.* ORE has none for this pipeline. =test_release_notes.py= runs
+  =draft= in a temporary repository whose origin is a local bare
+  repository, with =gh= a PATH stub that records its arguments; it also
+  tests the collector's first-release fallback, the sprint duration and
+  the section grouping.
+- *Not taken.* ORE Studio's capture "Merge release notes collector
+  script into compass" would fold the collector into a compass verb.
+  This task copies first; the collector stays a script.
+
+** Proof on sprint 1
+
+=create=, =charts= and =export= ran on sprint 1 at its real path. The
+generated =release_notes.org=, =release_notes.md=, the four PNGs and the
+link =create= appends to =sprint.org= were then removed, because sprint 1
+is not closed. The Markdown groups the stories as listed in Measurements;
+its chart images point at
+=https://raw.githubusercontent.com/MASD-Project/compass/main/doc/agile/versions/v0/sprint_01/=;
+a =proj:= link and an =id:= link added to the notes by hand exported to
+=github.com/MASD-Project/compass/blob/main/...= URLs; =data_model=
+stayed literal rather than becoming a subscript. =commit= and =draft=
+were not run against GitHub.
+
+** Found on the way
+
+=release-notes charts= on sprint 1 while it is open charts the seven days
+from =Start= (the sprint has no =End=), and no PR merged in them, so
+=sprint charts= stopped with a Python traceback. Captured as
+[[id:A44C3E33-9DFB-4944-B11E-0D68857660F6][Sprint charts crash when the sprint window has no merged PRs]]. Once
+sprint 1 records its =End=, the window covers the sprint.
 
 * Test Scenarios
 
@@ -74,7 +191,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/95][#95]] | Port ORE Studio's release-notes pipeline |
 
 * Review
 
