@@ -182,14 +182,14 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: wix-log-${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja
-          path: ./build/output/${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja/_CPack_Packages/win64/WIX/wix.log
+          path: ./build/output/${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja/_CPack_Packages/*/WIX/wix.log
           if-no-files-found: ignore
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
           name: ${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja
-          path: ./build/output/${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja/packages/compass-*-win64.*
+          path: ./build/output/${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja/packages/compass-*-Windows-*.*
           if-no-files-found: error
 
   attach_package:
@@ -205,9 +205,14 @@ jobs:
       - name: Download the packages of this run
         uses: actions/download-artifact@v8
         with:
-          pattern: windows-*-release-ninja
+          # Both Windows compilers package compass under the same file names,
+          # so the release carries the MSVC build alone.
+          pattern: windows-msvc-release-ninja
           path: packages
           merge-multiple: true
+
+      - name: Write the checksum of each package
+        run: cd packages && for f in *; do sha256sum "$f" > "$f.sha256"; done
 
       - name: Attach the packages to the release
         env:
