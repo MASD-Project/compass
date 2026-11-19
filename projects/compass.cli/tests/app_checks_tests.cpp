@@ -17,6 +17,7 @@
  * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  */
+#include <filesystem>
 #include <regex>
 #include <sstream>
 #include <string>
@@ -253,4 +254,103 @@ TEST_CASE("check --codec runs the named checks and codecs and nothing else",
     CHECK(unknown.status == 2);
     CHECK_THAT(unknown.err, ContainsSubstring("--codec portable_c: no codec "
         "or check has that name"));
+}
+
+namespace {
+
+/**
+ * @brief A checkout with a format check over the C++ under src, outside
+ * src/platform, run by a fake formatter that puts a line on top of each
+ * file once, and three files: one it leaves alone, one it would change,
+ * and one it would change that the check does not cover.
+ */
+void write_format_checkout(const scoped_git_repo& repo,
+    std::string_view program = "bin/fake-format") {
+    repo.write(".compass.org", configuration);
+    repo.write("compass/checks/cpp_format.org",
+        "#+title: Check: C++ formatting\n\n"
+        "* Definition\n"
+        ":PROPERTIES:\n"
+        ":ENGINE: format\n"
+        ":FORMATTER: clang-format\n"
+        ":PROGRAM: " + std::string(program) + "\n"
+        ":STYLE: style\n"
+        ":FILES: src/**/*.cpp\n"
+        ":OUTSIDE: src/platform/**\n"
+        ":END:\n\n"
+        "* Exceptions\n\n"
+        "| path | line | rule | expires | approver | reason |\n");
+    repo.write("style", "fake\n");
+    repo.write("src/core/good.cpp", "// formatted\nint a;\n");
+    repo.write("src/core/bad.cpp", "int b;\n");
+    repo.write("src/platform/skipped.cpp", "int c;\n");
+    const auto fake = repo.checkout() / "bin/fake-format";
+    scoped_git_repo::write_file(fake, "#!/bin/sh\n"
+        "if [ \"$1\" = --version ]; then echo fake 1; exit 0; fi\n"
+        "for f in \"$@\"; do\n"
+        "  case \"$f\" in -*) continue;; esac\n"
+        "  if [ \"$(head -n 1 \"$f\")\" != '// formatted' ]; then\n"
+        "    { echo '// formatted'; cat \"$f\"; } > \"$f.new\"\n"
+        "    mv \"$f.new\" \"$f\"\n"
+        "  fi\n"
+        "done\n");
+    std::filesystem::permissions(fake, std::filesystem::perms::owner_all);
+}
+
+int generate(const scoped_git_repo& repo) {
+    const std::vector<std::string> args{"generate", "-C",
+        repo.checkout().generic_string(), "-j", "2"};
+    const std::vector<std::string_view> views(args.begin(), args.end());
+    std::istringstream in;
+    std::ostringstream out;
+    std::ostringstream err;
+    return app::run(views, "/", in, out, err);
+}
+
+}
+
+TEST_CASE("a format check reports each file it covers that its formatter "
+    "would change, and generate leaves the files as they are",
+    "[app][checks][posix]") {
+    scoped_git_repo repo;
+    write_format_checkout(repo);
+
+    const auto r = check(repo);
+    CHECK(r.status == 1);
+    CHECK(r.findings() == std::vector<std::string>{
+        "src/core/bad.cpp:1:cpp_format/unformatted"});
+    CHECK_THAT(r.out, ContainsSubstring("clang-format formats this file "
+        "differently"));
+
+    CHECK(generate(repo) == 0);
+    CHECK(scoped_git_repo::read_file(repo.checkout() / "src/core/bad.cpp") == "int b;\n");
+
+    repo.write("src/core/bad.cpp", "// formatted\nint b;\n");
+    CHECK(check(repo).status == 0);
+}
+
+TEST_CASE("an exception in a format check's table excuses its file",
+    "[app][checks][posix]") {
+    scoped_git_repo repo;
+    write_format_checkout(repo);
+    const auto document = scoped_git_repo::read_file(
+        repo.checkout() / "compass/checks/cpp_format.org");
+    repo.write("compass/checks/cpp_format.org", document +
+        "| src/core/bad.cpp | 1 | unformatted | 2027-01-31 | marco "
+        "| vendored as it came |\n");
+
+    const auto r = check(repo);
+    CHECK(r.status == 0);
+    CHECK_THAT(r.out, ContainsSubstring("1 excused by exception"));
+}
+
+TEST_CASE("a format check whose program is not found fails the command and "
+    "names it", "[app][checks]") {
+    scoped_git_repo repo;
+    write_format_checkout(repo, "bin/no-such-format");
+
+    const auto r = check(repo);
+    CHECK(r.status == 2);
+    CHECK_THAT(r.err, ContainsSubstring("none of bin/no-such-format is a "
+        "program, for the formatter clang-format"));
 }

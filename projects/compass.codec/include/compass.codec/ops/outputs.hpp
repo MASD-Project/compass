@@ -41,7 +41,8 @@ inline constexpr std::uint32_t written_outputs_version = 1;
 /**
  * @brief The files of @p result with their codecs and blob IDs, taken from
  * its record, but for a codec whose files were formatted, whose files and
- * IDs are its formatted ones. A path two parts of a staged codec emit
+ * IDs are its formatted ones. A formatting check has no files here, since
+ * its files are the checkout's own. A path two parts of a staged codec emit
  * is taken once, from the later part. Every enabled codec of @p r is
  * complete, as a run either calls a unit or reuses its recorded outputs,
  * but for one that refused an output.

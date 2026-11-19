@@ -519,6 +519,47 @@ void add_findings(const pipeline& p, std::vector<types::finding>& out) {
 }
 
 /**
+ * @brief Adds to @p out a finding for each file of a formatting check of
+ * @p p that its formatter would change, at the first byte that differs.
+ * Its formatted form is the file the check holds after the format step;
+ * the file itself is read from the checkout, or the commit, of @p p.
+ */
+void add_format_findings(const pipeline& p, const types::options& o,
+    std::vector<types::finding>& out) {
+    for (std::uint32_t c = 0; c < p.codecs.size(); ++c) {
+        const auto& d = p.codecs.codecs[c];
+        if (!d.formatting_check || c >= p.run.formatted_ids.size() ||
+            !p.run.formatted_ids[c])
+            continue;
+        const auto formatter = d.formatters({d.options,
+            codec::ops::option_values(p.codecs, ct::codec_id{c})},
+            o.checkout).front().name;
+        const auto& files = p.run.files[c];
+        for (std::uint32_t f = 0; f < files.size(); ++f) {
+            const auto path = files.paths[ct::file_id{f}];
+            const auto formatted = files.contents[ct::file_id{f}];
+            const auto file = p.checkout.read(path);
+            if (!file || *file == formatted)
+                continue;
+            const auto at = static_cast<std::uint32_t>(std::ranges::mismatch(
+                *file, formatted).in1 - file->begin());
+            const auto [line, column] = position_of(*file, at);
+            out.push_back({
+                .path = std::string(path),
+                .line = line,
+                .column = column,
+                .rule = std::string(d.name) + "/" +
+                    std::string(d.rules.front().name),
+                .level = codec::types::severity::error,
+                .message = formatter + " formats this file differently",
+                .fix = "format it with " + formatter + ", as " +
+                    std::string(d.name) + " configures it",
+                .drift = {}});
+        }
+    }
+}
+
+/**
  * @brief A file whose exception comments check reads: its path, its
  * content ID when known and, for a document, its bytes.
  */
@@ -674,6 +715,7 @@ types::check_result check(const types::options& o) {
         });
     }
     add_findings(p, r.findings);
+    add_format_findings(p, o, r.findings);
     if (!p.summary.failed())
         p.timed("exceptions", [&] {
             excuse_findings(p, o, r);

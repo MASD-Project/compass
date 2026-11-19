@@ -47,10 +47,10 @@ inline constexpr std::string_view checks_directory = "compass/checks";
  *
  * name is the document's file name without .org, and summary its
  * #+description:, or its path when it has none. definition is the text
- * compass::cpp::ops::parse_forbid_definition reads, made from the
- * drawers of the document's Definition heading; it is the value of the
- * codec's one option, so editing it runs the check again and editing
- * the prose does not.
+ * its engine's parser reads, compass::cpp::ops::parse_forbid_definition
+ * or parse_format_definition, made from the drawers of the document's
+ * Definition heading; it is the value of the codec's one option, so
+ * editing it runs the check again and editing the prose does not.
  */
 struct check {
     std::string name;
@@ -83,10 +83,13 @@ struct check_set {
  * error in it as "<path>:<line>: <what>; fix: <how>".
  *
  * The level-1 heading "Definition" holds, in its property drawer, ENGINE,
- * which must be forbid, and the settings every rule shares (FILES,
- * OUTSIDE). Each level-2 heading under it is a rule: its title is the
- * rule's name, its drawer holds the rule's keys, and its first paragraph
- * is the rule's summary, or its MESSAGE when it has none. The first table
+ * forbid or format, and the settings every rule shares (FILES,
+ * OUTSIDE). A format check states all of its definition there, has no
+ * rule headings and no examples, and is a formatting check whose one
+ * rule is unformatted. For a forbid check, each level-2 heading under it
+ * is a rule: its title is the rule's name, its drawer holds the rule's
+ * keys, and its first paragraph is the rule's summary, or its MESSAGE
+ * when it has none. The first table
  * under the level-1 heading "Exceptions" has a row per exception, as the
  * configuration file's has, with a rule named without the check's name.
  *

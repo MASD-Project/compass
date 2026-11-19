@@ -114,7 +114,7 @@ types::output_set outputs_of(const types::registry& r,
             result.formatted_ids[c].has_value();
     };
     for (std::size_t c = 0; c < r.size(); ++c) {
-        if (!formatted(c))
+        if (!formatted(c) || r.codecs[c].formatting_check)
             continue;
         const auto& files = result.files[c];
         const auto& ids = *result.formatted_ids[c];
@@ -124,7 +124,7 @@ types::output_set outputs_of(const types::registry& r,
     }
     std::vector<std::string_view> skipped;
     for (std::size_t c = 0; c < r.size(); ++c) {
-        if (formatted(c))
+        if (formatted(c) || r.codecs[c].formatting_check)
             skipped.push_back(r.codecs[c].name);
     }
     std::vector<std::string_view> staged;

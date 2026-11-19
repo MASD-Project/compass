@@ -20,6 +20,9 @@
 #ifndef COMPASS_CPP_OPS_GLOB_HPP
 #define COMPASS_CPP_OPS_GLOB_HPP
 
+#include <expected>
+#include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
@@ -34,6 +37,23 @@ namespace compass::cpp::ops {
  */
 [[nodiscard]] std::vector<std::string_view> glob(
     const compass::codec::types::corpus_view& v, std::string_view pattern);
+
+/**
+ * @brief Adds to @p out each of the space-separated globs of @p value, as
+ * glob_matches reads them, or says why one cannot be: {a,b,c} stands for
+ * each of its alternatives, and a last ** for every file under its
+ * directory. A nested or unclosed brace is an error.
+ */
+[[nodiscard]] std::expected<void, std::string> add_globs(
+    std::string_view value, std::vector<std::string>& out);
+
+/**
+ * @brief The files of the checkout that match one of @p files and none of
+ * @p outside, each once, in byte order.
+ */
+[[nodiscard]] std::vector<std::string_view> covered_files(
+    const compass::codec::types::corpus_view& v,
+    std::span<const std::string> files, std::span<const std::string> outside);
 
 }
 
