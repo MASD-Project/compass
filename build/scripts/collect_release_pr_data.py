@@ -2,8 +2,9 @@
 """Collect PR data since the previous release for release-notes generation.
 
 Finds the most recent ``v*`` tag, lists every PR merged into ``main`` since
-that tag's commit date, and saves per-PR JSON (body + issue comments + review
-comments + reviews) under ``tmp/release_pr_data/``. Bot-authored overviews
+that tag's commit date (or since the first commit when no ``v*`` tag exists
+yet, as before the first release), and saves per-PR JSON (body + issue
+comments + review comments + reviews) under ``tmp/release_pr_data/``. Bot-authored overviews
 (Gemini, Claude) are tagged as ``overviews`` for downstream consumption.
 
 No pip dependencies — stdlib only. Requires ``gh`` (authenticated) and ``git``.
@@ -40,13 +41,16 @@ def run(cmd: list[str], check: bool = True) -> str:
 
 def latest_release_tag() -> str:
     tags = run(["git", "tag", "--list", "v*", "--sort=-v:refname"]).splitlines()
-    if not tags:
-        sys.exit("No v* tags found in this repo.")
-    return tags[0].strip()
+    return tags[0].strip() if tags else ""
 
 
 def tag_commit_iso(tag: str) -> str:
     return run(["git", "log", "-1", "--format=%aI", tag]).strip()
+
+
+def first_commit_iso() -> str:
+    roots = run(["git", "rev-list", "--max-parents=0", "HEAD"]).split()
+    return min(tag_commit_iso(r) for r in roots)
 
 
 def gh_json(args: list[str]) -> Any:
@@ -144,14 +148,18 @@ def main() -> None:
     args = ap.parse_args()
 
     tag = args.since_tag or latest_release_tag()
-    since = tag_commit_iso(tag)
-    print(f"[info] Previous release tag: {tag} (commit at {since})")
+    if tag:
+        since = tag_commit_iso(tag)
+        print(f"[info] Previous release tag: {tag} (commit at {since})")
+    else:
+        since = first_commit_iso()
+        print(f"[info] No v* tag yet: collecting since the first commit ({since})")
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     prs = list_prs_since(since)
-    print(f"[info] Found {len(prs)} PRs merged since {tag}.")
+    print(f"[info] Found {len(prs)} PRs merged since {tag or since}.")
 
     combined: list[dict] = []
     for i, pr in enumerate(prs, 1):

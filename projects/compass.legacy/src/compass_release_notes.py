@@ -11,7 +11,7 @@ Five verbs, run in order at sprint close:
                `compass sprint charts`) so the org file's [[proj:...]]
                chart images resolve to real files.
   3. export  — batch-export release_notes.org to GitHub-flavoured Markdown
-               (projects/ores.lisp/src/ores-build-release-notes.el), with
+               (projects/compass.legacy/lisp/ores-build-release-notes.el), with
                proj: links resolved to raw.githubusercontent.com (images)
                / github.com blob URLs (everything else) so the result
                renders correctly as a GitHub release body.
@@ -20,8 +20,7 @@ Five verbs, run in order at sprint close:
                "upload" call for the images: the markdown embeds them via
                raw.githubusercontent.com/.../main/... URLs, so they only
                render once these files are committed and merged to main
-               (open/merge that PR the normal way — `compass pr create` /
-               `compass pr merge`).
+               (open and merge that PR the normal way, with `gh pr create`).
   5. draft   — tag main and open a **draft** GitHub release via `gh
                release create --draft --notes-file`. Title follows house
                convention: '<tag>, "<codename>"' (--codename is required —
@@ -94,7 +93,8 @@ def _cmd_export(args, project_root):
               file=sys.stderr)
         return 1
     rel_dir = sprint_dir.relative_to(project_root).as_posix()
-    script = Path(project_root) / "projects" / "ores.lisp" / "src" / "ores-build-release-notes.el"
+    script = (Path(project_root) / "projects" / "compass.legacy" / "lisp"
+              / "ores-build-release-notes.el")
     p = subprocess.run(
         ["emacs", "-Q", "--script", str(script), "--", rel_dir],
         cwd=str(project_root))
@@ -126,7 +126,7 @@ def _cmd_commit(args, project_root):
     paths = [str(rel_sprint_dir / p) for p in existing]
 
     # release_notes.org may reference a top-of-page screenshot under
-    # assets/images/ (house convention: ore_studio-v<tag>.png) — pick it
+    # assets/images/ (house convention: compass-v<tag>.png) — pick it
     # up too so its raw.githubusercontent.com URL resolves once merged.
     org_text = (sprint_dir / "release_notes.org").read_text(encoding="utf-8") \
         if (sprint_dir / "release_notes.org").exists() else ""
@@ -158,7 +158,7 @@ def _cmd_commit(args, project_root):
         return p.returncode
 
     print(f"✅ Committed and pushed {len(existing)} file(s) on {branch}.")
-    print("   Open/merge the PR the normal way (compass pr create / pr merge) "
+    print("   Open and merge the PR the normal way (gh pr create) "
           "so the images resolve on main before running 'compass release-notes draft'.")
     return 0
 
@@ -289,7 +289,7 @@ def run(argv, project_root):
                     help="Tag to collect PRs after (default: latest v*)")
     cr.add_argument("--screenshot-filename", default="",
                     help="Filename under assets/images/ to embed at the top "
-                         "(house convention: ore_studio-v<tag>.png)")
+                         "(house convention: compass-v<tag>.png)")
 
     ch = sub.add_parser("charts", help="Render the sprint's gnuplot health charts")
     ch.add_argument("--sprint", type=int, required=True)

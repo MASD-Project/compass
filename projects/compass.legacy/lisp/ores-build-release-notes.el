@@ -25,16 +25,16 @@
 ;; (ox-gfm), for use as the body of a `gh release create --notes-file`.
 ;;
 ;; Usage:
-;;   emacs -Q --script projects/ores.lisp/src/ores-build-release-notes.el -- <sprint-dir>
+;;   emacs -Q --script projects/compass.legacy/lisp/ores-build-release-notes.el -- <sprint-dir>
 ;;
-;; <sprint-dir> is repo-root-relative, e.g. doc/agile/versions/v0/sprint_21.
+;; <sprint-dir> is repo-root-relative, e.g. doc/agile/versions/v0/sprint_01.
 ;;
-;; House settings: no table of contents, no section numbers (matches
-;; ores-build-skills.el). `proj:' links (see ores-link-types.el) are
-;; resolved locally rather than via that file, because it has no gfm/md
-;; branch: images become raw.githubusercontent.com URLs (so they render
-;; inline in a GitHub release body); everything else becomes a
-;; github.com/.../blob/main/... URL.
+;; House settings: no table of contents, no section numbers. `proj:'
+;; links resolve to raw.githubusercontent.com URLs for images (so they
+;; render inline in a GitHub release body) and to
+;; github.com/.../blob/main/... URLs for everything else. compass
+;; publishes no site, so `id:' links resolve to the github.com blob URL
+;; of the linked .org file, which GitHub renders.
 ;;
 ;;; Code:
 (require 'package)
@@ -49,12 +49,9 @@
   (expand-file-name default-directory)
   "Repository root — batch scripts run with CMAKE_SOURCE_DIR as cwd.")
 
-(defvar ores/release-notes-github-user "OreStudio")
-(defvar ores/release-notes-github-repo "OreStudio")
+(defvar ores/release-notes-github-user "MASD-Project")
+(defvar ores/release-notes-github-repo "compass")
 (defvar ores/release-notes-github-branch "main")
-(defvar ores/release-notes-site-base-url "https://orestudio.github.io/OreStudio/"
-  "Base URL of the published site, mirroring the repository layout.
-Same convention as ores-build-manual.el's ores/site-base-url.")
 
 (defun ores/release-notes--image-p (path)
   (string-match-p "\\.\\(png\\|jpe?g\\|gif\\|svg\\)$" path))
@@ -78,14 +75,9 @@ Same convention as ores-build-manual.el's ores/site-base-url.")
                          (ores/release-notes--raw-url path))
                (format "[%s](%s)" (or desc path)
                        (ores/release-notes--blob-url path)))))
-  ;; id: links point into the published site (same convention as
-  ;; ores-build-manual.el's ores/manual-id-export), not a relative .md
-  ;; path or a github.com blob link to the .org source -- a release
-  ;; note ships as a standalone GitHub release body, with none of the
-  ;; rest of the doc tree alongside it, so both those alternatives
-  ;; would be broken for any reader. Applies to every release note
-  ;; going forward, not just this sprint's, since it's set once here
-  ;; in the shared exporter rather than per-document.
+  ;; A release note ships as a standalone GitHub release body with none
+  ;; of the doc tree beside it, so a relative path would be broken for
+  ;; every reader; an absolute URL to the .org source is not.
   (org-link-set-parameters
    "id"
    :export (lambda (id desc backend)
@@ -96,11 +88,9 @@ Same convention as ores-build-manual.el's ores/site-base-url.")
                (let* ((found (org-id-find id))
                       (file (car found)))
                  (when file
-                   (let ((url (concat ores/release-notes-site-base-url
-                                      (replace-regexp-in-string
-                                       "\\.org\\'" ".html"
-                                       (file-relative-name (expand-file-name file)
-                                                           ores/release-notes-repo-root)))))
+                   (let ((url (ores/release-notes--blob-url
+                               (file-relative-name (expand-file-name file)
+                                                   ores/release-notes-repo-root))))
                      (format "[%s](%s)" (or desc url) url))))))))
 
 ;; Suppress the TOC even if #+options: toc:t is set in-buffer — in-buffer
@@ -142,17 +132,17 @@ Same convention as ores-build-manual.el's ores/site-base-url.")
     ;; happens to already be in memory -- effectively nothing, since this
     ;; script runs under `emacs -Q` with no org-roam and no prior state.
     ;; release_notes.org routinely links out to knowledge docs and other
-    ;; agile artefacts well outside its own sprint directory (e.g. the
-    ;; market-data design docs), so every one of those id: links silently
+    ;; agile artefacts well outside its own sprint directory, so every
+    ;; one of those id: links silently
     ;; became "[BROKEN LINK: <uuid>]" in the exported Markdown -- the
     ;; GitHub release body -- until this repo-wide scan runs first, same
-    ;; as every other exporter (ores-build-site.el et al).
+    ;; as every other exporter.
     (setq org-id-locations-file (expand-file-name "./.org-id-locations-file"))
     ;; setq, not let: the flag is read by `bound-and-true-p' inside the
     ;; file being loaded, and a let on an undeclared symbol binds lexically
     ;; under lexical-binding, which that would not see.
     (setq ores/org-ids-library-only t)
-    (load-file (expand-file-name "projects/ores.lisp/src/ores-org-ids.el"
+    (load-file (expand-file-name "projects/compass.legacy/lisp/ores-org-ids.el"
                                  ores/release-notes-repo-root))
     (ores/org-id-ensure ores/release-notes-repo-root)
     (condition-case err

@@ -3,14 +3,14 @@
 
 Reads the sprint's ``sprint.org`` and each story's ``story.org``, merges the
 data with any available PR records from ``tmp/release_pr_data/``, then renders
-``projects/ores.codegen/library/templates/doc_release_notes.org.mustache``
+``projects/compass.legacy/library/templates/doc_release_notes.org.mustache``
 via pystache and writes the result as ``release_notes.org`` inside the sprint
 folder.  A link to that file is also appended to the sprint's ``sprint.org``.
 
 After generation, open the file and fill in the summary blurb that sits between
 the date line and the first ``-----`` rule — the placeholder says so explicitly.
 
-Pystache is pulled from the ores.codegen venv (``projects/ores.codegen/venv``).
+Pystache is pulled from the compass.legacy venv (``projects/compass.legacy/venv``).
 No other pip dependencies are required.
 
 The script auto-detects the latest sprint under ``doc/agile/versions/v0/`` or
@@ -27,18 +27,18 @@ from pathlib import Path
 from textwrap import dedent
 
 
-# ── Tag → section mapping (first match wins) ────────────────────────────────
+# ── Tag → section mapping ───────────────────────────────────────────────────
 
 SECTION_ORDER = [
     "Hotfixes",
-    "Financial Features",
-    "Market Data & Curves",
-    "Security & Tenancy",
-    "Compute & Storage",
-    "Web & Journeys",
-    "Codegen & Tooling",
-    "Data, SQL & Quality",
-    "Build, CI & Testing",
+    "Parsing & Data Model",
+    "Pipeline & Store",
+    "Codegen",
+    "Gates & Checks",
+    "Documents & Search",
+    "CLI & Tooling",
+    "Code Analysis",
+    "Build, CI & Release",
     "Agile & Documentation",
     "Other",
 ]
@@ -47,68 +47,53 @@ DEFAULT_SECTION = "Other"
 # Each matching tag scores three points for its section; each keyword in the
 # title or goal scores one. Hotfixes win outright; ties go to SECTION_ORDER.
 TAG_SECTIONS = [
-    ({"trading", "instrument", "ore", "refdata", "conventions", "roundtrip",
-      "model", "trade"}, "Financial Features"),
-    ({"marketdata", "market_data", "oresmd", "curves", "series", "feeds",
-      "synthetic", "fx", "equity"}, "Market Data & Curves"),
-    ({"iam", "security", "rls", "isolation", "tenancy", "account", "accounts",
-      "session", "permissions", "auth"}, "Security & Tenancy"),
-    ({"compute", "grid", "storage", "telemetry", "runtime", "bootstrap", "node"},
-     "Compute & Storage"),
-    ({"web", "ux", "journeys", "prototype", "operations", "record", "screens",
-      "menu", "badge", "palette", "inbox"}, "Web & Journeys"),
-    ({"codegen", "clean_standard", "drift", "gate", "checks", "cleanup",
-      "protocol", "subject", "template", "generator", "compass"},
-     "Codegen & Tooling"),
-    ({"sql", "dq", "data", "database", "schema", "pgtap", "artefact"},
-     "Data, SQL & Quality"),
-    ({"ci", "testing", "devops", "build", "vcpkg", "cmake",
-      "windows", "msvc", "visibility"}, "Build, CI & Testing"),
-    ({"agile", "bookkeeping", "docs", "documentation", "knowledge", "sprint",
-      "housekeeping", "dependencies", "workspace"}, "Agile & Documentation"),
+    ({"org", "parser", "data_model", "extract_data_model", "model", "ingest"},
+     "Parsing & Data Model"),
+    ({"codecs", "pipeline", "diff", "cache", "storage", "store",
+      "choose_storage", "worktrees", "performance", "benchmark"},
+     "Pipeline & Store"),
+    ({"codegen", "template", "templates", "mustache", "generator"}, "Codegen"),
+    ({"gates", "gate", "checks", "lint", "llm", "zettelkasten"},
+     "Gates & Checks"),
+    ({"docs", "search", "html", "site", "typesense", "query"},
+     "Documents & Search"),
+    ({"cli", "application", "tooling", "legacy", "compass",
+      "design_output_for_llms"}, "CLI & Tooling"),
+    ({"cpp", "sql", "metrics", "analysis"}, "Code Analysis"),
+    ({"ci", "cdash", "testing", "release", "distribution", "build",
+      "valgrind", "memcheck", "cmake", "vcpkg", "windows", "msvc"},
+     "Build, CI & Release"),
+    ({"agile", "bookkeeping", "documentation", "knowledge", "sprint",
+      "meta", "project_shape"}, "Agile & Documentation"),
 ]
 
 KEYWORD_SECTIONS = [
     ("hotfix", "Hotfixes"),
-    ("market data", "Market Data & Curves"), ("curve", "Market Data & Curves"),
-    ("oresmd", "Market Data & Curves"), ("fixing", "Market Data & Curves"),
-    ("surface", "Market Data & Curves"), ("volatility", "Market Data & Curves"),
-    ("trade", "Financial Features"), ("instrument", "Financial Features"),
-    ("money", "Financial Features"), ("swap", "Financial Features"),
-    ("bond", "Financial Features"), ("convention", "Financial Features"),
-    ("refdata", "Financial Features"), ("counterparty", "Financial Features"),
-    ("party", "Financial Features"), ("portfolio", "Financial Features"),
-    ("pricing", "Financial Features"), ("economic", "Financial Features"),
-    ("tenant", "Security & Tenancy"), ("iam", "Security & Tenancy"),
-    ("security", "Security & Tenancy"), ("permission", "Security & Tenancy"),
-    ("role ", "Security & Tenancy"), ("session", "Security & Tenancy"),
-    ("account", "Security & Tenancy"), ("isolation", "Security & Tenancy"),
-    ("credential", "Security & Tenancy"), ("sign-in", "Security & Tenancy"),
-    ("audit", "Security & Tenancy"), ("identity", "Security & Tenancy"),
-    ("administrator's home", "Web & Journeys"), ("landing page", "Web & Journeys"),
-    ("services screen", "Web & Journeys"), ("trade set", "Financial Features"),
-    ("run's inputs", "Financial Features"), ("series a publish", "Market Data & Curves"),
-    ("compute", "Compute & Storage"), ("grid", "Compute & Storage"),
-    ("node ", "Compute & Storage"), ("storage", "Compute & Storage"),
-    ("telemetry", "Compute & Storage"),
-    ("web", "Web & Journeys"), ("screen", "Web & Journeys"),
-    ("journey", "Web & Journeys"), ("prototype", "Web & Journeys"),
-    ("menu", "Web & Journeys"), ("palette", "Web & Journeys"),
-    ("badge", "Web & Journeys"), ("browser", "Web & Journeys"),
-    ("codegen", "Codegen & Tooling"), ("generator", "Codegen & Tooling"),
-    ("drift", "Codegen & Tooling"), ("gate", "Codegen & Tooling"),
-    ("template", "Codegen & Tooling"), ("protocol", "Codegen & Tooling"),
-    ("subject", "Codegen & Tooling"), ("clean standard", "Codegen & Tooling"),
-    ("compass", "Codegen & Tooling"),
-    ("sql", "Data, SQL & Quality"), ("database", "Data, SQL & Quality"),
-    ("schema", "Data, SQL & Quality"), ("dq", "Data, SQL & Quality"),
-    ("artefact", "Data, SQL & Quality"), ("pgtap", "Data, SQL & Quality"),
-    ("publish", "Data, SQL & Quality"),
-    ("build", "Build, CI & Testing"), ("check", "Build, CI & Testing"),
-    ("test", "Build, CI & Testing"),
+    ("parse", "Parsing & Data Model"), ("parser", "Parsing & Data Model"),
+    ("data model", "Parsing & Data Model"),
+    ("type registry", "Parsing & Data Model"),
+    ("codec", "Pipeline & Store"), ("pipeline", "Pipeline & Store"),
+    ("store", "Pipeline & Store"), ("storage", "Pipeline & Store"),
+    ("cache", "Pipeline & Store"), ("baseline", "Pipeline & Store"),
+    ("benchmark", "Pipeline & Store"),
+    ("codegen", "Codegen"), ("template", "Codegen"),
+    ("generat", "Codegen"), ("mustache", "Codegen"),
+    ("gate", "Gates & Checks"), ("check", "Gates & Checks"),
+    ("lint", "Gates & Checks"), ("zettelkasten", "Gates & Checks"),
+    ("search", "Documents & Search"), ("html", "Documents & Search"),
+    ("export", "Documents & Search"), ("typesense", "Documents & Search"),
+    ("quer", "Documents & Search"),
+    ("cli", "CLI & Tooling"), ("command", "CLI & Tooling"),
+    ("legacy", "CLI & Tooling"), ("tooling", "CLI & Tooling"),
+    ("c++", "Code Analysis"), ("sql", "Code Analysis"),
+    ("metric", "Code Analysis"),
+    ("build", "Build, CI & Release"), ("ci ", "Build, CI & Release"),
+    ("cdash", "Build, CI & Release"), ("release", "Build, CI & Release"),
+    ("binar", "Build, CI & Release"), ("valgrind", "Build, CI & Release"),
+    ("test", "Build, CI & Release"),
     ("sprint", "Agile & Documentation"), ("agile", "Agile & Documentation"),
-    ("bookkeeping", "Agile & Documentation"), ("runbook", "Agile & Documentation"),
-    ("knowledge", "Agile & Documentation"),
+    ("layout", "Agile & Documentation"),
+    ("convention", "Agile & Documentation"),
 ]
 
 
@@ -219,6 +204,11 @@ def parse_sprint(sprint_dir: Path) -> dict:
             "theme": cells[4].strip(),
         })
 
+    status: dict[str, str] = {}
+    for cells in _table_rows(sections.get("Status", "")):
+        if len(cells) >= 2:
+            status[cells[0]] = cells[1]
+
     retro: dict[str, str] = {}
     for heading, body in sections.items():
         if "Retrospective" in heading:
@@ -230,6 +220,9 @@ def parse_sprint(sprint_dir: Path) -> dict:
         "mission": _strip_org_links(mission),
         "stories": stories_raw,
         "retrospective": retro,
+        "start": meta.get("start_date") or status.get("Start", ""),
+        "end": (meta.get("end_date") or status.get("End", "")
+                or status.get("End (expected)", "")),
     }
 
 
@@ -307,14 +300,23 @@ def build_context(sprint: dict, stories: list[dict], pr_summary: dict,
     # resolves to the sprint folder rather than the repo root.
     parent_dir = sprint_dir.relative_to(repo_root).parent.as_posix()
 
-    # Date range
-    all_dates = [
+    # The sprint's own dates come first: a story carried from an earlier
+    # sprint keeps its original Start, which would stretch a range derived
+    # from story dates back into that sprint. Story dates are the fallback
+    # for a sprint that has not recorded its end yet.
+    def is_date(d: str) -> bool:
+        return bool(d and re.match(r"\d{4}-\d{2}-\d{2}$", d))
+    story_dates = [
         d for entry in sprint["stories"]
         for d in (entry["start"], entry["end"])
-        if d and re.match(r"\d{4}-\d{2}-\d{2}", d)
+        if is_date(d)
     ]
-    sprint_start = min(all_dates) if all_dates else "?"
-    sprint_end = max(all_dates) if all_dates else "?"
+    sprint_start = sprint.get("start", "")
+    if not is_date(sprint_start):
+        sprint_start = min(story_dates) if story_dates else "?"
+    sprint_end = sprint.get("end", "")
+    if not is_date(sprint_end):
+        sprint_end = max(story_dates) if story_dates else "?"
     try:
         month_year = datetime.strptime(sprint_end, "%Y-%m-%d").strftime("%B %Y")
     except ValueError:
@@ -393,8 +395,8 @@ def build_context(sprint: dict, stories: list[dict], pr_summary: dict,
 
     # ── Time summary ─────────────────────────────────────────────────────
     time_lines = ["- *Total effort*: not tracked"]
-    if pr_count and since_tag:
-        pr_line = f"{pr_count} (since {since_tag}"
+    if pr_count:
+        pr_line = f"{pr_count} (since {since_tag or 'the first commit'}"
         if pr_since:
             pr_line += f", {pr_since} to {sprint_end}"
         pr_line += ")"
@@ -407,7 +409,7 @@ def build_context(sprint: dict, stories: list[dict], pr_summary: dict,
 
     return {
         "id": str(uuid.uuid4()).upper(),
-        "title": f"ORE Studio {sprint_title} – Release Notes",
+        "title": f"compass-ng {sprint_title} – Release Notes",
         "sprint_title": sprint_title,
         "description": f"{sprint_title} release notes ({month_year}).",
         "filetags": filetags,
@@ -428,20 +430,19 @@ def build_context(sprint: dict, stories: list[dict], pr_summary: dict,
 # ── Rendering ────────────────────────────────────────────────────────────────
 
 def _load_pystache(repo_root: Path):
-    """Import pystache from the ores.codegen venv, or from the active environment."""
+    """Import pystache from the compass.legacy venv, or from the active environment."""
     try:
         import pystache
         return pystache
     except ImportError:
         pass
     import glob
-    venv_root = repo_root / "projects" / "ores.codegen" / "venv"
+    venv_root = repo_root / "projects" / "compass.legacy" / "venv"
     candidates = sorted(glob.glob(str(venv_root / "lib" / "python*" / "site-packages")))
     if not candidates:
         sys.exit(
-            "[err] pystache not found. Activate the ores.codegen venv:\n"
-            "  cd projects/ores.codegen && source venv/bin/activate\n"
-            "  pip install -r requirements.txt"
+            "[err] pystache not found. Run ./compass.sh once to bootstrap the\n"
+            "  compass.legacy venv, which installs it from requirements.txt."
         )
     sys.path.insert(0, candidates[-1])
     import pystache
@@ -451,7 +452,7 @@ def _load_pystache(repo_root: Path):
 def render_release_notes(context: dict, repo_root: Path) -> str:
     pystache = _load_pystache(repo_root)
     template_path = (
-        repo_root / "projects" / "ores.codegen" / "library" / "templates"
+        repo_root / "projects" / "compass.legacy" / "library" / "templates"
         / "doc_release_notes.org.mustache"
     )
     template_text = template_path.read_text(encoding="utf-8")
@@ -521,7 +522,7 @@ def main() -> None:
                     help="Do not update sprint.org with a link to release_notes.org.")
     ap.add_argument("--screenshot-filename", default="",
                     help="Filename under assets/images/ to embed at the top "
-                         "(e.g. ore_studio-v0.0.18.png). Omit to skip.")
+                         "(e.g. compass-v0.0.1.png). Omit to skip.")
     ap.add_argument("--demo-video-id", default="",
                     help="YouTube video ID for the sprint demo "
                          "(e.g. NDxW12FNhrU). Omit to skip the demo section.")
@@ -549,7 +550,7 @@ def main() -> None:
     pr_summary = load_pr_summary(pr_dir)
     if pr_summary:
         print(f"[info] PR data: {pr_summary.get('pr_count', 0)} PRs "
-              f"since {pr_summary.get('since_tag', '?')}.")
+              f"since {pr_summary.get('since_tag') or 'the first commit'}.")
     else:
         print("[info] No PR data found — continuing without it.")
 
