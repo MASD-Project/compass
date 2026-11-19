@@ -8,7 +8,7 @@
 #+filetags: :publish_installable_binaries:sprint_01:v0:
 #+owner: marco
 #+branch: feature/release-notes
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/95
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-19
@@ -33,7 +33,7 @@ earlier tag, works the same way.
 |--------------+----------------------------------------|
 | State        | STARTED |
 | Parent story | [[id:EB6AF798-D472-4CC2-B97C-FC2BD9FD1FDE][Publish installable binaries]] |
-| Now          | The five verbs, the scripts, the exporter, the docs and the tests are on feature/release-notes; the PR is open. |
+| Now          | PR #95 is open with the five verbs, the scripts, the exporter, the docs and the tests. |
 | Waiting on   | Review of the PR.                      |
 | Next         | Merge, then use the verbs to cut the first release. |
 | Last touched | 2026-11-19                               |
@@ -191,7 +191,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/95][#95]] | Port ORE Studio's release-notes pipeline |
 
 * Review
 
