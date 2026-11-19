@@ -25,7 +25,6 @@ add_library(${lib_target_name}
     codecs/exported_types.cpp
     codecs/forbid.cpp
     codecs/forward_declarable_includes.cpp
-    codecs/portable_stop.cpp
     codecs/registrars.cpp
     codecs/route_auth.cpp
     codecs/shell.cpp

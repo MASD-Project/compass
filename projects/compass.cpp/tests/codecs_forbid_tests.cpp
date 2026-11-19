@@ -152,7 +152,8 @@ TEST_CASE("the examples of the portable C++ check fire and stay quiet as "
     CHECK(r.fixes[1] == "use ores::platform::environment for std::getenv");
 }
 
-TEST_CASE("the stop types rule finds what portable_stop finds",
+TEST_CASE("the stop types rule skips comments, literals, dead code and "
+    "the platform",
     "[codecs][forbid]") {
     const files t{
         {"projects/ores.comms/src/worker.cpp",
