@@ -26,11 +26,11 @@ A model of MSVC's limit, measured on MSVC, that a check can compute from source.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                                |
+| State        | DONE                                   |
 | Parent story | [[id:45379101-8EAB-49D6-9195-24D68E8F9100][Keep MSVC within its template limits]] |
-| Now          | The column list probes are written; the first run waits on the workflow reaching main. |
+| Now          | Done: B = 1,026 and L = 18 predict all 337 chain probes; flat column lists never fail. |
 | Waiting on   | Nothing.                               |
-| Next         | Run the probes; then the reflect-cpp probes for mechanism A. |
+| Next         | Nothing.                               |
 | Last touched | 2026-11-19                               |
 
 * Acceptance
@@ -73,7 +73,19 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| One column list alone | compiles at every width probed, 20 to 600 | =MSVC probes= run 44590408380 ([[file:evidence/probes_run_44590408380.tsv][evidence]]) | compass =b2fa90a= |
+| Field lists | never fail: one of 20 to 600 fields, or up to 480 of 20; 600 fields take 2,852 s | the same | the same |
+| Many column lists in one unit | fail: 52 of width 20, 26 of 40, 14 of 75 | run 44600755142 ([[file:evidence/probes_run_44600755142.tsv][evidence]]) | compass =9d98372= |
+| Narrow column lists | never fail: 1,100 of width 1, 215 of 5, 110 of 10 | the same | the same |
+| Member types | change nothing: all =int= fails where mixed types do | the same | the same |
+| ORE Studio's own entity headers, units 53 and 55 | fail at the entity the synthetic ones do: 55 at its 57th, 53 at its 42nd | run 44603373115 ([[file:evidence/probes_run_44603373115.tsv][evidence]]) | compass =ee9b68a= |
+| Member names unique to each entity | change nothing | the same | the same |
+| A wide entity's position | changes nothing: one of 75 first or last fails with the same count | run 44605914351 ([[file:evidence/probes_run_44605914351.tsv][evidence]]) | compass =3bc2925= |
+| The shortest list that fails, L | 18: 17 compiles after 1,100 calls, 18 fails | run 44607561767 ([[file:evidence/probes_run_44607561767.tsv][evidence]]) | compass =d351ee4= |
+| The budget, B | 1,026: after 1,000 calls a list of 25 compiles, of 26 fails | the same | the same |
+| Column lists built in one call (=make_columns=) | never fail: units 53 and 55, 480 of width 20, 240 of 40, 60 of 75 | the same | the same |
+| Fits of the rule over every chain probe | one: B = 1,026, L = 18, of B 900 to 1,199 and L 2 to 39, over 337 probes | =build/probes/msvc_c1202/model.py fit evidence/probes_run_*.tsv= | the same |
+| ores.trading.core units the rule fails | 11 of the 31 that include entities, 29 to 55; none of 56 to 66, which MSVC built before failing at 55 | =model.py predict= ([[file:evidence/trading_core_predicted_failures_e866b76f3e.tsv][evidence]]) | ORE Studio =e866b76f3e= |
 
 * Notes
 
@@ -101,3 +113,16 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+The rule, MSVC 14.51 with ORE Studio's release flags: in one translation
+unit, count every =operator|= of every entity's =columns()= chain, in the
+order the unit defines the entities. MSVC fails with C1202 at the first
+=operator|= that is the 1,026th of the unit or later and whose result
+holds 18 bindings or more. A chain of 17 or fewer never fails, however
+late it comes, so the unit's whole history counts but only a long chain
+trips it. One column list alone does not fail at any width probed, nor
+does a field list, at any width or count.
+
+Building the list in one call, =make_columns<e>(key(...), bind(...)...)=,
+never fails, so the cure is in ORE Studio's generator, not its unity
+batches.

@@ -60,8 +60,8 @@ task and name that file in the Command column.
 | Context notes per error | 29 to 51 for reflect-cpp; 1 to 12 for unity, 2 for the trade entity | the same | the same |
 | =ores.trading.core= unity units | 67; each includes 1 to 60 entity headers | =build/scripts/unity_unit_bindings.py= ([[file:evidence/trading_core_units_e866b76f3e.tsv][evidence/trading_core_units_e866b76f3e.tsv]]) | ORE Studio =e866b76f3e= |
 | Bindings unit 55 includes before =trade_entity.hpp= | 1,179 in 56 entity headers, at header 139 of 165 | the same, with =trade_entity.hpp= | the same |
-| Bindings unit 54 includes before it | 91 in 7 entity headers; compiles | the same | the same |
-| Units with more bindings than unit 55 that compile | 8; the most, unit 53, has 1,299 | the same | the same |
+| Bindings unit 54 includes before it | 91 in 7 entity headers; MSVC never built it (corrected) | the same | the same |
+| Units with more bindings than unit 55 | 8; the most, unit 53, has 1,299; MSVC built none of them, so they are no counterexample (corrected) | the same | the same |
 
 * Notes
 
