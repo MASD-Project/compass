@@ -40,6 +40,11 @@ The probes are:
 - unit<u>_first<n>: unit u's first n entities, to find where it fails.
 - int_many_<k>x<w>: k entities of width w whose members are all int, to
   see whether member types change the cost.
+- real_unit<u>[_first<n>]: ORE Studio's own entity headers, as unit u
+  includes them, at e866b76f3e (copies under ore/, with stand-ins for the
+  four headers they include besides the column list).
+- uniq_...: the synthetic probes with member names unique to each entity,
+  as ORE Studio's are, where the others repeat m0, m1 and so on.
 
 Each is compiled with cl.exe and the flags ORE Studio's release build
 passes, and its outcome is ok, C1202 or another error. The results go to
@@ -70,6 +75,14 @@ SWEEPS = {1: range(900, 1101, 25), 5: range(190, 216), 10: range(95, 111),
           20: range(45, 61), 40: range(22, 29), 75: range(11, 16)}
 
 
+def headers_of(unit: int) -> list[str]:
+    path = EVIDENCE / f"trading_core_unit_{unit}_entities_e866b76f3e.tsv"
+    names = [r.split("\t")[0] for r in path.read_text().splitlines()[1:] if r]
+    index = {h.name: h.relative_to(HERE / "ore").as_posix()
+             for h in (HERE / "ore").rglob("*_entity.hpp")}
+    return [index[n] for n in names]
+
+
 def widths_of(unit: int) -> list[int]:
     path = EVIDENCE / f"trading_core_unit_{unit}_entities_e866b76f3e.tsv"
     rows = path.read_text().splitlines()[1:]
@@ -86,6 +99,13 @@ def probes() -> dict[str, tuple[str, list[int]]]:
         widths = widths_of(u)
         for n in ns:
             out[f"unit{u}_first{n}"] = ("columns", widths[:n])
+    for u, ns in ((55, range(50, 58)), (53, range(36, 60))):
+        for n in ns:
+            out[f"real_unit{u}_first{n}"] = ("real", headers_of(u)[:n])
+    for k in range(45, 61):
+        out[f"uniq_sweep_20_{k}"] = ("uniq_columns", [20] * k)
+    out["uniq_unit53"] = ("uniq_columns", widths_of(53))
+    out["uniq_unit55"] = ("uniq_columns", widths_of(55))
     out["int_many_60x20"] = ("int_columns", [20] * 60)
     out["int_many_45x20"] = ("int_columns", [20] * 45)
     for shape in ("columns", "fields"):
@@ -100,6 +120,11 @@ def probes() -> dict[str, tuple[str, list[int]]]:
 def members_of(width: int) -> str:
     return "\n".join(f"    {MEMBER_TYPES[m % len(MEMBER_TYPES)]} m{m};"
                      for m in range(width))
+
+
+def uniq_entity(n: int, width: int) -> str:
+    return entity(n, width).replace(" m", f" e{n}_m").replace(
+        '"m', f'"e{n}_m').replace("::m", f"::e{n}_m")
 
 
 def int_entity(n: int, width: int) -> str:
@@ -134,9 +159,11 @@ def entity(n: int, width: int) -> str:
             f"        return {chain};\n    }}\n}};\n")
 
 
-def source(shape: str, widths: list[int]) -> str:
+def source(shape: str, widths: list) -> str:
+    if shape == "real":
+        return "".join(f'#include "{h}"\n' for h in widths)
     make = {"columns": entity, "int_columns": int_entity,
-            "fields": fields_type}[shape]
+            "uniq_columns": uniq_entity, "fields": fields_type}[shape]
     body = "\n".join(make(n, w) for n, w in enumerate(widths))
     return ("#include <cstddef>\n#include <optional>\n#include <string>\n"
             "#include <string_view>\n#include <type_traits>\n"
@@ -148,7 +175,8 @@ def source(shape: str, widths: list[int]) -> str:
 
 def compile_one(path: pathlib.Path) -> tuple[str, float, str]:
     start = time.monotonic()
-    r = subprocess.run(["cl.exe", *FLAGS, f"/I{HERE}", str(path),
+    r = subprocess.run(["cl.exe", *FLAGS, f"/I{HERE}", f"/I{HERE / 'ore'}",
+                        str(path),
                         f"/Fo{path.with_suffix('.obj')}"],
                        capture_output=True, text=True, cwd=path.parent)
     seconds = time.monotonic() - start
@@ -175,7 +203,8 @@ def main() -> int:
         path.write_text(source(shape, widths))
         outcome, seconds, first = compile_one(path)
         broken += outcome == "error"
-        rows.append(f"{name}\t{len(widths)}\t{sum(widths)}\t{max(widths)}"
+        sizes = widths if shape != "real" else [0]
+        rows.append(f"{name}\t{len(widths)}\t{sum(sizes)}\t{max(sizes)}"
                     f"\t{outcome}\t{seconds:.1f}\t{first}")
         print(rows[-1], flush=True)
     (args.out / "results.tsv").write_text("\n".join(rows) + "\n")
