@@ -1,0 +1,130 @@
+:PROPERTIES:
+:ID: 72702FA4-8A4F-4488-B719-5AC71B72D7C6
+:END:
+#+title: Task: Build the limit engine
+#+description: Report each C++ type with more data members than a check's ceiling, save the types its Ceilings table records, whose ceilings only come down.
+#+type: task
+#+level: s1
+#+filetags: :let_projects_define_their_checks:sprint_01:v0:
+#+owner: marco
+#+branch: feature/wide-types-check
+#+pr:
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-11-19
+#+updated: 2026-11-19
+#+environment:
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [[id:DAB2F48A-E47A-4895-9026-056AF21E6CCC][Let projects define their own checks]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+A project states, as a check document, that none of its C++ types holds
+more than a ceiling of data members. The types already over it are listed
+with their counts, and those counts only come down. The product owner set
+the first such check on 2026-11-19: no struct over fifteen fields, as a
+matter of data-oriented design, apart from MSVC's limits.
+
+* Status
+
+| Field        | Value                                  |
+|--------------+----------------------------------------|
+| State        | DONE                                   |
+| Parent story | [[id:DAB2F48A-E47A-4895-9026-056AF21E6CCC][Let projects define their own checks]] |
+| Now          | The limit engine is built; ORE Studio's wide types check is drafted and proven on its main. |
+| Waiting on   | Nothing.                               |
+| Next         | ORE Studio adopts =compass/checks/wide_types.org=.            |
+| Last touched | 2026-11-19                               |
+
+* Acceptance
+
+- A check document with =:ENGINE: limit= and =:FACT: cpp_fields= reports
+  each class, struct or union with more non-static data members than its
+  =CEILING=, at the type's key.
+- A type its =* Ceilings= table records may reach its recorded count and
+  no more; a recorded count its type no longer reaches is reported on its
+  row, so the table only comes down.
+- Over ORE Studio's main, the check with every type over fifteen recorded
+  is quiet, and growing a recorded type, shrinking one, and adding a new
+  wide type each raise the finding that says so.
+
+* Plan
+
+- =compass.cpp/ops/type_widths=: each named class, struct and union of a
+  lexed source, at any scope, with its non-static data members counted
+  one per declarator. Functions, constructors and their initialisers,
+  static members, aliases, friends, nested types and Qt's macros and
+  access labels do not count. The tokenizer moves from the source model to
+  the lexer so both read the same tokens.
+- =compass.cpp/ops/limit=: the definition (=FILES=, =OUTSIDE=, =FACT=,
+  =CEILING=, one =RECORDED= per row of =* Ceilings=), a per-file fact of
+  the types over the ceiling, and the findings over all files:
+  =over_ceiling= and =below_record=, the rules of
+  =translation_unit_budget='s ratchet.
+- =compass.cpp/codecs/limit=: the scan function, a map per file and a
+  reduce over them, so a run re-reads only the changed files.
+- The check loader accepts =:ENGINE: limit= and reads =* Ceilings= into
+  the definition, so editing a row re-runs the check and editing prose
+  does not.
+
+* Measurements
+
+Every number this task claims about a tree, with the command that produced it
+and the commit it was measured at. A number without both is not a measurement,
+because a clean-up record describes a tree and trunk moves under a branch: a
+consumer count, a gate's component count and a suite's size all change with no
+code changing, and the reader of a bare number cannot tell which tree it came
+from. Where the raw output matters, put it in an =evidence/= file beside the
+task and name that file in the Command column.
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+| Types over 10 / 15 / 20 / 30 fields in ORE Studio's C++ | 1,505 / 598 / 240 / 39 | scratch driver over =type_widths=, every =.hpp=, =.cpp= and =.h= under =projects/= | ORE =76d6a65b85= |
+| Of the 598 over 15, structs | 588 | the same | ORE =76d6a65b85= |
+| Findings of the check with no rows recorded | 598 | =compass check -C <snapshot> --codec wide_types= | ORE =76d6a65b85=, compass =feature/wide-types-check= |
+| Findings with the 598 rows recorded | 0 | the same, with [[file:evidence/wide_types_ore_76d6a65b85.org.txt][evidence/wide_types_ore_76d6a65b85.org.txt]] as =compass/checks/wide_types.org= | the same |
+| Cold run of the check alone | 5.1 s | =time= of the first command | the same |
+
+* Notes
+
+- Counts were checked by hand against the source for =session_entity= (18),
+  =fx_vol_surface_calibration= (24), =quadratic_gaussian_process= (16) and
+  =workflow_plan_step= (17).
+- The rows are keyed by path and type name, so moving a file needs its row
+  moved; a type defined twice in one file under one name is measured by its
+  widest definition.
+- Generated types (entities, protocols, =xml/generated=) are most of the
+  598. They are listed like the rest: their width comes from the model, and
+  the fix is in the model.
+
+* Test Scenarios
+
+Manual QA scenarios (scaffolded via =compass add test_scenario=)
+that verify this task. Link
+new ones here as they're created; the scenario doc itself links back
+via its "Verifies task" field.
+
+| Scenario | State | Notes |
+|----------+-------+-------|
+|          |       |       |
+
+* PRs
+
+| PR | Title |
+|----+-------|
+|    |       |
+
+* Review
+
+| # | Comment summary | File | Decision | Notes |
+|---+-----------------+------+----------+-------|
+|   |                 |      |          |       |
+
+* Result
+
+The limit engine runs from a check document. On ORE Studio's main, with
+the 598 types over fifteen recorded, the check is quiet; with one recorded
+type grown by a field it reports =over_ceiling= against its recorded count,
+with one shrunk to fifteen it reports =below_record= on its row, and with a
+new sixteen-field struct it reports =over_ceiling= against the ceiling.
