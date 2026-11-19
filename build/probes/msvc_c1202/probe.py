@@ -35,6 +35,11 @@ The probes are:
   C1202 on its last entity; unit 53 compiled.
 - <shape>_single_<w>: one struct of width w.
 - <shape>_many_<k>x<w>: k structs of width w.
+- sweep_<w>_<k>: k entities of width w, k stepped across the count at
+  which the first run failed, to find the exact threshold per width.
+- unit<u>_first<n>: unit u's first n entities, to find where it fails.
+- int_many_<k>x<w>: k entities of width w whose members are all int, to
+  see whether member types change the cost.
 
 Each is compiled with cl.exe and the flags ORE Studio's release build
 passes, and its outcome is ok, C1202 or another error. The results go to
@@ -58,8 +63,11 @@ EVIDENCE = (HERE.parents[2] / "doc/agile/versions/v0/sprint_01/"
 FLAGS = ["/nologo", "/c", "/TP", "/std:c++latest", "/constexpr:depth100000",
          "/constexpr:steps10000000", "/O2", "/Ob2", "/EHsc", "/MD", "/Z7",
          "/bigobj", "/W4", "/DNDEBUG"]
-MEMBER_TYPES = ["int", "std::string", "std::optional<std::string>",
-                "std::optional<int>", "double", "std::string"]
+MIXED_TYPES = ["int", "std::string", "std::optional<std::string>",
+               "std::optional<int>", "double", "std::string"]
+MEMBER_TYPES = MIXED_TYPES
+SWEEPS = {1: range(900, 1101, 25), 5: range(190, 216), 10: range(95, 111),
+          20: range(45, 61), 40: range(22, 29), 75: range(11, 16)}
 
 
 def widths_of(unit: int) -> list[int]:
@@ -71,8 +79,17 @@ def widths_of(unit: int) -> list[int]:
 def probes() -> dict[str, tuple[str, list[int]]]:
     out = {"unit53": ("columns", widths_of(53)),
            "unit55": ("columns", widths_of(55))}
+    for w, ks in SWEEPS.items():
+        for k in ks:
+            out[f"sweep_{w}_{k}"] = ("columns", [w] * k)
+    for u, ns in ((55, range(40, 58)), (53, range(30, 60))):
+        widths = widths_of(u)
+        for n in ns:
+            out[f"unit{u}_first{n}"] = ("columns", widths[:n])
+    out["int_many_60x20"] = ("int_columns", [20] * 60)
+    out["int_many_45x20"] = ("int_columns", [20] * 45)
     for shape in ("columns", "fields"):
-        for w in (20, 75, 150, 300, 600):
+        for w in (20, 75, 150, 300):
             out[f"{shape}_single_{w}"] = (shape, [w])
         for k, w in ((60, 20), (120, 20), (240, 20), (480, 20), (60, 40),
                      (120, 40), (30, 75), (60, 75)):
@@ -83,6 +100,15 @@ def probes() -> dict[str, tuple[str, list[int]]]:
 def members_of(width: int) -> str:
     return "\n".join(f"    {MEMBER_TYPES[m % len(MEMBER_TYPES)]} m{m};"
                      for m in range(width))
+
+
+def int_entity(n: int, width: int) -> str:
+    global MEMBER_TYPES
+    MEMBER_TYPES = ["int"]
+    try:
+        return entity(n, width)
+    finally:
+        MEMBER_TYPES = MIXED_TYPES
 
 
 def fields_type(n: int, width: int) -> str:
@@ -109,7 +135,8 @@ def entity(n: int, width: int) -> str:
 
 
 def source(shape: str, widths: list[int]) -> str:
-    make = entity if shape == "columns" else fields_type
+    make = {"columns": entity, "int_columns": int_entity,
+            "fields": fields_type}[shape]
     body = "\n".join(make(n, w) for n, w in enumerate(widths))
     return ("#include <cstddef>\n#include <optional>\n#include <string>\n"
             "#include <string_view>\n#include <type_traits>\n"
