@@ -99,6 +99,7 @@ endif()
 # Discovery runs at test time, so building never runs a test binary.
 include(Catch)
 function(compass_add_catch2_tests suite target)
+    set(spec "")
     if(COMPASS_TEST_FILTER)
         set(spec TEST_SPEC ${COMPASS_TEST_FILTER})
     endif()
