@@ -15,6 +15,21 @@ The first release of compass-ng, the C++ replacement for ORE Studio's Python cod
 -   **CI on three platforms.** Linux, macOS and Windows builds, tests and packages, with every test reported to CDash and grouped by component.
 
 
+# ⚡ Performance against the Python gates
+
+ORE Studio timed its Python gates against compass-ng on the same repository. The measurements are in the *Measurements* section of ORE Studio's task *Implement move codegen and gates to compass-ng* (`doc/agile/versions/v0/sprint_30/move_codegen_and_gates_to_compass_ng/`). They were taken on ORE Studio main 67803175ce with compass-ng 68833c3, on 8 cores at a load of 24 to 45.
+
+| Run                                                | Python gates                      | compass-ng                                          | Speed-up            |
+|-------------------------------------------------- |--------------------------------- |--------------------------------------------------- |------------------- |
+| Every build-free gate, whole ORE Studio repository | 26 min 9 s wall, 8 jobs, 89 gates | 66.5 s cold (44.0 s of it clang-format); 4.7 s warm | 24× cold, 330× warm |
+| The 75 gates compass ports, summed                 | 1,844 s                           | 66.5 s cold                                         | 28×                 |
+| A branch with 10 planted violations                | 9 min 56 s wall                   | 8.7 to 10.4 s                                       | about 60×           |
+| One file edit                                      | no per-edit check                 | 0.51 to 0.58 s through the hook                     |                     |
+| Violations caught of 10 planted                    | 10                                | 10                                                  |                     |
+
+The Python whole-repository time covers 89 gates, 14 more than compass ports, so the first row overstates the speed-up a little. The second row compares the same 75 gates. A later point, from ORE Studio PR [#4859](https://github.com/OreStudio/OreStudio/pull/4859) with compass-ng 79af4ff: the 40 ported gates ran in 15.6 s inside the local gate.
+
+
 # 🛠️ Key Improvements
 
 
@@ -87,7 +102,7 @@ Lines added (green) and deleted (red) per day. Building work produces mostly add
 
 ## PR Cycle Time
 
-Hours from PR open to merge, one bar per PR. Long bars indicate review bottlenecks.
+Time from PR open to merge, one point per PR, on a log scale. Points high above the upper quartile indicate review bottlenecks.
 
 ![pr_cycle.png](https://raw.githubusercontent.com/MASD-Project/compass/main/doc/agile/versions/v0/sprint_01/pr_cycle.png)
 
