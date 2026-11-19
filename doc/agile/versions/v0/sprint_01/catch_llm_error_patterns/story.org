@@ -7,7 +7,7 @@
 #+level: s2
 #+filetags: :gates:llm:sprint_01:v0:
 #+created: 2026-11-16
-#+updated: 2026-11-18
+#+updated: 2026-11-19
 #+environment:
 #+todo: BACKLOG STARTED | DONE ABANDONED
 
@@ -23,10 +23,10 @@ The five most frequent and costly error patterns LLMs introduce into ORE Studio 
 |---------------+----------------------------------------|
 | State         | STARTED |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
-| Now           | Failed builds mined; five check candidates named. |
+| Now           | Shipping the checks: portable C++ is in ORE Studio; TypeScript formatting is proven as a format check. |
 | Waiting on    | Nothing.                               |
-| Next          | Rank the patterns, then ship checks for the top five. |
-| Last touched  | 2026-11-16                               |
+| Next          | ORE Studio adopts the TypeScript check; then the domain header includes. |
+| Last touched  | 2026-11-19                               |
 
 * Acceptance
 
@@ -42,7 +42,7 @@ The five most frequent and costly error patterns LLMs introduce into ORE Studio 
 |------+-------+-------+-----+-------------|
 | [[id:694CC015-2319-4A60-A912-C47D01BA70E1][Mine failed builds]] | DONE | 2026-11-18 | 2026-11-18 | Collect failures from failed CI runs, fix-up commits, PR reviews and memories. |
 | [[id:C2E54246-99BD-435E-803E-3C10652B67AB][Rank the patterns]] | BACKLOG | | | Normalise error messages, group them into patterns and rank them by frequency and cost. |
-| [[id:7BD09169-B1E5-46CA-8D10-4B5FFE681471][Ship checks for the top patterns]] | BACKLOG | | | Write a check for each of the top five patterns and prove each against its past failure. |
+| [[id:7BD09169-B1E5-46CA-8D10-4B5FFE681471][Ship checks for the top patterns]] | STARTED | 2026-11-19 | | Write a check for each of the top five patterns and prove each against its past failure. |
 
 * Decisions
 

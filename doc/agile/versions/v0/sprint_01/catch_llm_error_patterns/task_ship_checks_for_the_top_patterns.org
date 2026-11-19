@@ -12,7 +12,7 @@
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-16
-#+updated: 2026-11-16
+#+updated: 2026-11-19
 #+environment:
 #+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
 
@@ -26,12 +26,12 @@ Write a check for each of the top five patterns and prove each against its past 
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                                |
 | Parent story | [[id:63D5482E-E1E7-45B0-883F-3B2DDFA2B447][Catch the errors LLMs introduce]] |
-| Now          | Not yet started.                       |
+| Now          | 1 of 5 shipped (portable C++, in ORE Studio's compass/checks/). TypeScript formatting runs as a format check, proven on 1 failing commit and its fix; its document waits for ORE Studio. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
-| Last touched | 2026-11-16                               |
+| Next         | ORE Studio adopts compass/checks/typescript_format.org after a pin bump; then the domain header includes, which need resolve with THROUGH. |
+| Last touched | 2026-11-19                               |
 
 * Acceptance
 
@@ -39,9 +39,29 @@ Write a check for each of the top five patterns and prove each against its past 
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+The five candidates of the investigation's recommendations, ranked there
+by the CI runs each failed. Each is a check document in ORE Studio's
+=compass/checks/=, on an engine compass runs. The design's table of mined
+candidates says which engine each needs and what the format lacks.
+
+| Candidate | Runs | Engine | State |
+|-----------+------+--------+-------|
+| Portable C++ facilities | 34 | =forbid= | DONE: ORE Studio's =compass/checks/portable_cpp.org= since its #4859 |
+| TypeScript formatting | 229 | =format=, built here | STARTED: proven; the document waits for ORE Studio |
+| A generated domain header's includes | 93 | =resolve= with =THROUGH=, not built | BACKLOG |
+| Site links | 52 | none: an extension of =org_links= | BACKLOG |
+| Pasted blocks | 33 | none until a declaration fact carries its qualified name | BACKLOG |
+
+The =format= engine. A check document says =:ENGINE: format= and names
+a formatter compass knows (prettier or clang-format), the candidates for
+its program, its style file, and the files it covers. Its codec emits
+each covered file as the checkout holds it, the format step runs them
+through the format cache the codegen codec uses, and =compass check=
+reports each file whose formatted form differs, as
+=<check>/unformatted=, at the first byte that differs. A formatting
+check's files are the checkout's own, so =compass generate= never writes
+them, and a file a check stops covering is never removed. A run after an
+edit formats only the edited files.
 
 * Measurements
 
@@ -55,9 +75,38 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Format check runs whose failing files include a hand-written one | 218 of 229 | =gh run view --log-failed= over the 229 runs, =[warn]= lines | ORE Studio CI, 2026-09-19 to 2026-11-18 |
+| Files the 229 runs reported | 1,049: 531 =.ts=, 497 =.tsx=, 20 =.yaml=, 1 =.json= | the same | the same |
+| typescript_format at ORE Studio =eee4b9bb75= (run 40967360595) | 3 findings, the 3 files CI and =prettier --check .= report | =compass check --codec typescript_format= | feature/format-check-engine |
+| typescript_format at =f3f9957e5e=, the fix | 0 findings; =prettier --check .= passes | the same | feature/format-check-engine |
+| typescript_format at ORE Studio main =4248f5bdbc= | 0 findings; =prettier --check .= passes | the same | feature/format-check-engine |
+| Run time over ORE Studio main | 15.4 s cold (2,024 files, 5 prettier processes); 0.70 s warm, no process; 0.75 s after one edit, 1 process | the same, -j 2, timed | feature/format-check-engine |
+| Every test | 1257 of 1257 pass | =ctest -j2= in =linux-clang-release-ninja= | feature/format-check-engine |
 
 * Notes
+
+- The investigation's example run for TypeScript formatting,
+  36359361505 at =5efdf21e55=, failed on a generated file of
+  =wire-protocol=, one of the 11 runs with no hand-written file. Run
+  40967360595 at =eee4b9bb75= stands for the pattern instead.
+- The check's files mirror =projects/ores.web/.prettierignore=. Its
+  =package-lock.json= line matches at any depth, as a gitignore line
+  does, so the check leaves out =**/package-lock.json=; with only the top
+  one left out, ORE Studio's main reported
+  =tools/ui-tests/package-lock.json=, which prettier ignores.
+- ORE Studio's document, as proven:
+
+#+begin_example
+,* Definition
+:PROPERTIES:
+:ENGINE: format
+:FORMATTER: prettier
+:PROGRAM: projects/ores.web/node_modules/.bin/prettier prettier
+:STYLE: .prettierrc.yaml
+:FILES: projects/ores.web/**/*.{ts,tsx,js,mjs,cjs,json,md,yaml,yml,css,html}
+:OUTSIDE: projects/ores.web/**/node_modules/** projects/ores.web/**/package-lock.json projects/ores.web/packages/wire-protocol/src/generated/refdata/protocol/** projects/ores.web/tools/ui-tests/{test-results,playwright-report}/**
+:END:
+#+end_example
 
 * Test Scenarios
 
