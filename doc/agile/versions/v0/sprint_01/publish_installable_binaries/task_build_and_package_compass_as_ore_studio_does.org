@@ -29,9 +29,9 @@ as ORE Studio is, with every build's results on a compass CDash dashboard.
 |--------------+----------------------------------------|
 | State        | STARTED |
 | Parent story | [[id:EB6AF798-D472-4CC2-B97C-FC2BD9FD1FDE][Publish installable binaries]] |
-| Now          | Merged; waiting on the compass project on my.cdash.org and the first CI image. |
-| Waiting on   | The product owner creating the compass project on my.cdash.org. |
-| Next         | Dispatch the CI image, then the Linux, macOS and Windows builds, and fix what fails. |
+| Now          | Linux, macOS and Windows build, test and package in CI and submit to the Compass project on CDash. A tag's packages have not been attached to a release yet. |
+| Waiting on   | The first release, which Cut the first release makes. |
+| Next         | Close when the first tag attaches its packages to its release. |
 | Last touched | 2026-11-18                               |
 
 * Acceptance
