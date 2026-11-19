@@ -303,7 +303,8 @@ parse_check_document(std::string_view text, std::string_view path,
     for (std::size_t i = 0; i < c->rule_names.size(); ++i)
         c->rules.push_back({c->rule_names[i], c->rule_summaries[i]});
     c->definition = std::move(d.text);
-    c->options = {{{compass::cpp::codecs::forbid_definition_key,
+    c->options = {{{format ? compass::cpp::codecs::format_definition_key
+                           : compass::cpp::codecs::forbid_definition_key,
         c->definition, "The check's definition, from its document."}}};
 
     const auto description = compass::org::ops::find_keyword(r.t,
