@@ -32,6 +32,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include "compass.codec/codecs/document_index.hpp"
 #include "compass.codec/io/action_cache.hpp"
+#include "compass.codec/io/dependency_file.hpp"
 #include "compass.codec/ops/dependencies.hpp"
 #include "compass.codec/ops/registry.hpp"
 #include "compass.codec/ops/run.hpp"
@@ -222,6 +223,43 @@ std::size_t new_chunks(const std::vector<ops::input_chunk>& before,
         }));
 }
 
+
+/**
+ * @brief A record of one unit per name of @p units, each reading the file
+ * of that name, whose content and result are the unit's state.
+ */
+types::dependency_record units_in(
+    const std::vector<std::pair<std::string, std::string>>& units) {
+    types::dependency_record r;
+    for (const auto& [name, state] : units) {
+        r.codecs.add("scan");
+        r.versions.values.push_back(1);
+        r.configurations.values.push_back({});
+        r.documents.add(name);
+        r.input_firsts.values.push_back(
+            {static_cast<std::uint32_t>(r.input_count())});
+        r.file_firsts.values.push_back({0});
+        r.diagnostic_counts.values.push_back(0);
+        r.diagnostic_hashes.values.push_back({});
+        r.diagnostics.add("");
+        r.input_kinds.values.push_back(types::input_kind::file);
+        r.input_keys.add(name);
+        r.input_found.values.push_back(1);
+        r.input_values.values.push_back(
+            compass::store::ops::blob_id_of(state));
+        r.manifests.values.push_back(compass::store::ops::blob_id_of(name));
+        r.results.values.push_back(
+            compass::store::ops::blob_id_of(name + state));
+    }
+    return r;
+}
+
+bool holds_all(const std::vector<compass::store::types::blob_id>& keys,
+    const std::vector<compass::store::types::blob_id>& wanted) {
+    return std::ranges::all_of(wanted, [&](const auto& k) {
+        return std::ranges::contains(keys, k);
+    });
+}
 }
 
 TEST_CASE("an input set's chunks hold its inputs in the order they were "
@@ -478,4 +516,60 @@ TEST_CASE("two documents with the same bytes at different paths keep "
 
     CHECK(second.ran == counts{0, 0});
     CHECK(second.record == first.record);
+}
+
+TEST_CASE("a run retires the keys of the units it replaced that their "
+    "replacements do not need", "[ops][action_cache]") {
+    const auto previous = units_in({{"a", "1"}, {"b", "1"}});
+    const auto current = units_in({{"a", "2"}, {"b", "1"}});
+    const std::array<types::record_unit_id, 1> fresh{{{0}}};
+
+    const auto retired = ops::retired_keys(previous, current, fresh);
+
+    const auto old_a = ops::unit_keys(previous, {0});
+    const auto new_a = ops::unit_keys(current, {0});
+    CHECK(std::ranges::contains(retired, previous.results[{0}]));
+    CHECK(std::ranges::contains(retired, old_a.back()));
+    for (const auto& key : new_a)
+        CHECK_FALSE(std::ranges::contains(retired, key));
+    for (const auto& key : ops::unit_keys(previous, {1}))
+        CHECK_FALSE(std::ranges::contains(retired, key));
+    CHECK(ops::retired_keys(current, current, {}).empty());
+}
+
+TEST_CASE("a retired file that is damaged reads as nothing",
+    "[ops][action_cache]") {
+    const std::vector<std::vector<compass::store::types::blob_id>> runs{
+        {compass::store::ops::blob_id_of("x")}, {}};
+    const auto bytes = ops::encode_retired(runs);
+
+    CHECK(ops::decode_retired(bytes) == runs);
+    CHECK_FALSE(ops::decode_retired(bytes.substr(0, bytes.size() - 1)));
+    CHECK_FALSE(ops::decode_retired("garbage"));
+}
+
+TEST_CASE("collection keeps what the last three runs of a worktree needed "
+    "and not what the run before them did", "[io][action_cache]") {
+    const compass::testing::filesystem::scoped_directory git_dir(
+        "compass.codec.retired");
+    std::vector<types::dependency_record> runs;
+    for (int run = 0; run < 5; ++run)
+        runs.push_back(units_in({{"a", std::to_string(run)}, {"b", "1"}}));
+    const std::array<types::record_unit_id, 1> fresh{{{0}}};
+    for (std::size_t run = 1; run < runs.size(); ++run)
+        CHECK(io::retire_keys(git_dir.path(), runs[run - 1], runs[run],
+            fresh));
+    REQUIRE(io::write_dependency_file(
+        io::dependency_file_path(git_dir.path()), runs.back()));
+
+    const auto keys = io::action_keys(git_dir.path());
+
+    for (std::size_t run = 2; run < runs.size(); ++run) {
+        CHECK(holds_all(keys, ops::unit_keys(runs[run], {0})));
+        CHECK(holds_all(keys, ops::unit_keys(runs[run], {1})));
+    }
+    CHECK_FALSE(std::ranges::contains(keys, runs[1].results[{0}]));
+    CHECK_FALSE(std::ranges::contains(keys, runs[0].results[{0}]));
+    CHECK_FALSE(io::retire_keys(git_dir.path(), runs.back(), runs.back(),
+        {}));
 }

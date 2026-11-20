@@ -30,11 +30,11 @@ worktree that reads the same files shares the rest.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                                 |
 | Parent story | [[id:A98E704E-B2E4-49BA-8839-B0A1DE9C3679][Keep the result cache small]] |
-| Now          | Built; on ORE Studio an edit writes 183 KB, not 31 MB. |
+| Now          | Merged in #124; on ORE Studio an edit writes 183 KB, not 31 MB. |
 | Waiting on   | Nothing.                               |
-| Next         | Review and merge.                      |
+| Next         | Nothing.                               |
 | Last touched | 2026-11-20                               |
 
 * Acceptance
@@ -118,3 +118,8 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+Merged in #124. A manifest names each input set by the keys of its
+content-addressed chunks. On ORE Studio an edit to one page and one =.cpp=
+file wrote 183 KB rather than 31 MB, and a second worktree's first run 479
+KB rather than 27 MB.

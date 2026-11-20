@@ -41,6 +41,7 @@
 #include "compass.cli/config/repository_file.hpp"
 #include "compass.cli/io/listing.hpp"
 #include "compass.cli/ops/ratchet.hpp"
+#include "compass.codec/io/action_cache.hpp"
 #include "compass.codec/io/dependency_file.hpp"
 #include "compass.codec/io/format_cache.hpp"
 #include "compass.codec/io/unmarked_file.hpp"
@@ -50,6 +51,7 @@
 #include "compass.codec/ops/parallel_for.hpp"
 #include "compass.codec/ops/registry.hpp"
 #include "compass.org/ops/document_fields.hpp"
+#include "compass.store/io/collection.hpp"
 #include "compass.store/io/git_objects.hpp"
 #include "compass.store/io/location.hpp"
 #include "compass.store/ops/blob_hash.hpp"
@@ -79,6 +81,7 @@ struct pipeline {
     ct::checkout_files checkout;
     ct::corpus corpus;
     ct::registry codecs;
+    codec::io::loaded_record previous;
     ct::run_result run;
     types::run_summary summary;
 
@@ -229,9 +232,10 @@ void evaluate(pipeline& p, const types::options& o) {
     const auto start = std::chrono::steady_clock::now();
     list_files(p, o);
     load_files(p, o);
-    codec::io::loaded_record previous;
-    p.timed("record", [&] { previous = read_dependency_record(o.checkout); });
-    run_units(p, o, previous.record);
+    p.timed("record", [&] {
+        p.previous = read_dependency_record(o.checkout);
+    });
+    run_units(p, o, p.previous.record);
     p.summary.ms = since(start);
 }
 
@@ -252,9 +256,11 @@ void format(pipeline& p, const types::options& o) {
 /**
  * @brief Writes what @p p computed that later runs reuse: the objects it
  * parsed and the result cache, which every worktree shares, and for a
- * checkout its worktree index and dependency record. A run over a commit
- * leaves the records of the checkout as they are, since they describe its
- * files.
+ * checkout its worktree index and dependency record, with the keys the
+ * new record retired. A run over a commit leaves the records of the
+ * checkout as they are, since they describe its files. Then collects the
+ * store when it has grown enough, as store::io::collect_when_grown says;
+ * a collection that fails is reported and fails nothing.
  */
 void persist(pipeline& p, unsigned threads) {
     p.timed("persist", [&] {
@@ -263,10 +269,20 @@ void persist(pipeline& p, unsigned threads) {
         if (p.commit)
             return;
         write_worktree_index(p.files);
-        write_dependency_record(p.files.checkout, p.run);
+        if (write_dependency_record(p.files.checkout, p.run))
+            codec::io::retire_keys(store::io::git_dir(p.files.checkout),
+                p.previous.record, p.run.record, p.run.fresh);
         io::write_listing_file(io::listing_file_path(
             store::io::git_dir(p.files.checkout)), p.listed.files,
             p.listed.documents);
+    });
+    p.timed("collect", [&] {
+        try {
+            p.summary.collection = store::io::collect_when_grown(
+                p.files.checkout, codec::io::action_keys);
+        } catch (const std::exception& e) {
+            p.summary.collection_problem = e.what();
+        }
     });
 }
 

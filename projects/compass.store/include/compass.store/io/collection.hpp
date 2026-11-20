@@ -20,8 +20,10 @@
 #ifndef COMPASS_STORE_IO_COLLECTION_HPP
 #define COMPASS_STORE_IO_COLLECTION_HPP
 
+#include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <optional>
 #include <span>
 #include <vector>
 #include "compass.store/types/blob_id.hpp"
@@ -86,7 +88,9 @@ using action_roots = std::function<std::vector<types::blob_id>(
  * the grace period, and the directories of the first layout of the store
  * are removed whole. The lock of the packs directory is held throughout,
  * so no repack runs at the same time; writers are not held up, and a pack
- * published during the collection is left as it is.
+ * published during the collection is left as it is. Unless this is a dry
+ * run, the bytes the packs hold after it are written to
+ * collected_file_path.
  *
  * @throws std::runtime_error when @p checkout is not a git checkout or an
  * index cannot be read, before anything is removed.
@@ -94,6 +98,40 @@ using action_roots = std::function<std::vector<types::blob_id>(
 [[nodiscard]] types::collection_result collect(
     const std::filesystem::path& checkout,
     const types::collection_options& options, const action_roots& roots);
+
+/**
+ * @brief The bytes the packs of @p packs_dir hold, by their file sizes.
+ */
+[[nodiscard]] std::uint64_t packs_bytes(const std::filesystem::path& packs_dir);
+
+/**
+ * @brief The file under @p git_common_dir where a collection leaves the
+ * bytes its packs held when it was done, which collect_when_grown
+ * measures growth against.
+ */
+[[nodiscard]] std::filesystem::path collected_file_path(
+    const std::filesystem::path& git_common_dir);
+
+/**
+ * @brief The size below which collect_when_grown never collects: a store
+ * this small costs less to keep than to rewrite.
+ */
+inline constexpr std::uint64_t collection_floor = 256ull << 20;
+
+/**
+ * @brief Collects the store of @p checkout as collect does, with no cap,
+ * the default grace period and without waiting for the lock, when its
+ * packs hold at least @p floor bytes and at least twice what they
+ * held after the last collection, or when none is recorded. A store
+ * collected so is rewritten at most once per doubling, so a collection
+ * copies no more bytes, over time, than the runs wrote.
+ * @return what the collection did, or nothing when the store had not
+ * grown enough to collect.
+ * @throws what collect throws.
+ */
+[[nodiscard]] std::optional<types::collection_result> collect_when_grown(
+    const std::filesystem::path& checkout, const action_roots& roots,
+    std::uint64_t floor = collection_floor);
 
 }
 

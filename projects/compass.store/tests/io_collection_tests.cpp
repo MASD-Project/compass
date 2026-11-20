@@ -28,6 +28,7 @@
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
 #include "compass.store/io/location.hpp"
+#include "compass.store/io/object_file.hpp"
 #include "compass.store/io/pack_store.hpp"
 #include "compass.store/ops/action_object.hpp"
 #include "compass.store/ops/blob_hash.hpp"
@@ -442,4 +443,49 @@ TEST_CASE("a collection removes the first layout of the store whole; a dry "
     for (const auto& d : legacy)
         CHECK_FALSE(std::filesystem::exists(d));
     CHECK(f.has("object/" + ops::to_hex(ops::blob_id_of("A"))));
+}
+
+TEST_CASE("a run collects the store only once it holds twice what the "
+    "last collection left", "[io][collection]") {
+    store_fixture f;
+    (void)f.add_linked_worktree();
+    const auto named = f.put_action(types::action_kind::result, "named");
+    (void)f.put_action(types::action_kind::result, "old");
+    f.linked_keys = {named};
+    const auto roots = [&f](const std::filesystem::path& dir) {
+        return dir.filename() == "linked" ? f.linked_keys
+                                          : std::vector<types::blob_id>{};
+    };
+    const auto too_small = io::collect_when_grown(f.repo().root(), roots,
+        io::packs_bytes(f.packs()) + 1);
+    CHECK_FALSE(too_small);
+
+    const auto first = io::collect_when_grown(f.repo().root(), roots, 1);
+
+    REQUIRE(first);
+    CHECK(first->removed.objects == 1);
+    const auto left = io::packs_bytes(f.packs());
+    CHECK(io::read_file(io::collected_file_path(f.common())) ==
+        std::to_string(left));
+    CHECK_FALSE(io::collect_when_grown(f.repo().root(), roots, 1));
+    while (io::packs_bytes(f.packs()) < 2 * left)
+        (void)f.put_action(types::action_kind::result,
+            "more" + std::to_string(io::packs_bytes(f.packs())));
+    CHECK(io::collect_when_grown(f.repo().root(), roots, 1));
+}
+
+TEST_CASE("a collection that does not wait gives up when another process "
+    "holds the lock, and removes nothing", "[io][collection]") {
+    store_fixture f;
+    (void)f.put_action(types::action_kind::result, "old");
+    const io::pack_lock held(f.packs(), true);
+
+    const auto r = io::collect(f.repo().root(), {.wait = false},
+        [](const std::filesystem::path&) {
+            return std::vector<types::blob_id>{};
+        });
+
+    CHECK(r.skipped);
+    CHECK(r.removed.objects == 0);
+    CHECK(f.has("result/" + ops::to_hex(ops::blob_id_of("old"))));
 }

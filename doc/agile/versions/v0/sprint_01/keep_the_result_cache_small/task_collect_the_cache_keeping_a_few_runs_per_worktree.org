@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :keep_the_result_cache_small:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/collect-keeping-a-few-runs
+#+pr: 125
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-20
@@ -20,28 +20,51 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Goal
 
-(Describe what user-visible-or-internal change this task produces.)
+The result cache stops growing without bound. Each worktree keeps its last
+three runs, the one its record names and the two before it, and a run
+collects the store when it has doubled since the last collection, so no
+one has to remember to run =compass gc=.
 
 * Status
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:A98E704E-B2E4-49BA-8839-B0A1DE9C3679][Keep the result cache small]] |
-| Now          | Not yet started.                       |
+| Now          | Built and measured on ORE Studio. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Review and merge; then reset ORE Studio's store. |
 | Last touched | 2026-11-20                               |
 
 * Acceptance
 
--
+- A run that writes a new record records the keys it retired; a worktree's
+  retired file keeps two runs, so collection keeps three.
+- A run collects the store when its packs hold at least 256 MB and twice
+  what the last collection left, or none is recorded, and not otherwise.
+- A collection a run starts does not wait for the lock, and one that
+  fails is reported and fails nothing.
+- =compass gc= keeps working as before and also records what it left.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Retention by what a run retired rather than by keeping old records: a
+  record is 300 MB on ORE Studio, while what one edit retires is a few
+  hundred keys. =ops::retired_keys= takes the units of the previous record
+  whose result the new record no longer names, and drops the keys their
+  replacements, the fresh units, still need. Over-keeping a key another
+  unit still needs is harmless; collection only keeps.
+- =io::retire_keys= writes =compass/retired= under the worktree's git
+  directory, newest run first, two runs; =io::action_keys= adds them.
+- Collection when grown rather than on a timer or every run: rewriting
+  the live set once per doubling bounds the copying by what runs wrote,
+  as the geometric repack does for merging. The floor keeps small stores
+  from ever paying for it.
+- =collect= takes the lock first, and gives up at once when asked not to
+  wait, so two runs never queue behind each other's collection.
+- After a code change every unit runs again, so the run before it, a
+  whole build's results, is retired and kept: the store holds two builds
+  until the third run.
 
 * Measurements
 
@@ -55,7 +78,10 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| First collection a run started | 7.1 s on 861 MB of entries in tmpfs; removed nothing, as all of it was under an hour old | =compass check --timings= on the snapshot of ORE Studio's main, after a rebuild of compass made every unit run | ORE =cddb56fd15= |
+| Store after that run | 906 MB, recorded in =compass/collected= | =du -sb .git/compass/packs= | the same |
+| Retired file after a run that reran every unit | 448,969 keys, 9 MB | a script over =compass/retired= | the same |
+| What a collection with no grace period would drop | 25,666 entries, 208 MB, of 861 MB: runs older than the last two | =compass gc --dry-run --grace 0= | the same |
 
 * Notes
 
@@ -74,7 +100,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/125][#125]] | [store] Collect the store as part of the runs, keeping three per worktree |
 
 * Review
 

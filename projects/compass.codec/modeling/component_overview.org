@@ -330,6 +330,13 @@ others is in its descriptor, so adding a codec adds a row to a list.
   with the keys of the chunks of each unit's inputs, cut again from the
   record. A chunk only a superseded set names is collected, and that set
   is then a miss.
+- *A few runs per worktree.* Collection keeps the last =ops::kept_runs=
+  (3) runs of each worktree, not only the one its record names. When a
+  run writes a new record, =io::retire_keys= puts first in the worktree's
+  =compass/retired= file the keys the units it replaced needed and their
+  replacements do not (=ops::retired_keys=, by =ops::unit_keys=), and
+  keeps two such runs; =io::action_keys= names those keys too. A
+  worktree switched back to a recent branch so finds its results.
 - *Code hash.* Every stored result, in the record and in the cache, is keyed
   by the code that computed it, so every environment can share one store
   through one installed compass and never replay what an older build

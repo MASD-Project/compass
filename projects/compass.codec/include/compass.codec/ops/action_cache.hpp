@@ -236,6 +236,50 @@ struct scan_table {
 [[nodiscard]] std::optional<types::stage> decode_stage(
     std::string_view bytes);
 
+/**
+ * @brief How many runs of each worktree collection keeps: the one its
+ * record names and the kept_runs - 1 before it, whose keys the record
+ * no longer names but its retired file does.
+ */
+inline constexpr std::size_t kept_runs = 3;
+
+/**
+ * @brief The keys of the action objects unit @p u of @p record needs:
+ * its manifest, its result, the chunks of its input set and the fact
+ * object of each file it found, which names nothing for a unit that is
+ * not a scan.
+ */
+[[nodiscard]] std::vector<compass::store::types::blob_id> unit_keys(
+    const types::dependency_record& record, types::record_unit_id u);
+
+/**
+ * @brief The keys that units of @p previous need and the units @p fresh
+ * of @p current, which replaced them, do not, sorted and distinct: what
+ * the run that wrote @p current retired. A unit of @p previous whose
+ * result @p current still names retired nothing. A key another unit of
+ * @p current still needs may be among them, which keeps it no longer
+ * than it is needed anyway.
+ */
+[[nodiscard]] std::vector<compass::store::types::blob_id> retired_keys(
+    const types::dependency_record& previous,
+    const types::dependency_record& current,
+    std::span<const types::record_unit_id> fresh);
+
+/**
+ * @brief The body of a retired file: its magic, the run count, then per
+ * run, newest first, its key count and its keys.
+ */
+[[nodiscard]] std::string encode_retired(
+    std::span<const std::vector<compass::store::types::blob_id>> runs);
+
+/**
+ * @brief The runs encode_retired wrote as @p bytes, or nothing when they
+ * are not a retired file.
+ */
+[[nodiscard]] std::optional<
+    std::vector<std::vector<compass::store::types::blob_id>>>
+decode_retired(std::string_view bytes);
+
 }
 
 #endif

@@ -27,6 +27,7 @@
 #include "compass.codec/ops/action_cache.hpp"
 #include "compass.codec/ops/parallel_for.hpp"
 #include "compass.store/io/location.hpp"
+#include "compass.store/io/object_file.hpp"
 #include "compass.store/io/pack_store.hpp"
 
 namespace compass::codec::io {
@@ -110,32 +111,53 @@ action_writes store_actions(const std::filesystem::path& git_common_dir,
         facts.size(), chunks_written};
 }
 
+std::filesystem::path retired_file_path(
+    const std::filesystem::path& git_dir) {
+    return git_dir / "compass" / "retired";
+}
+
+namespace {
+
+std::vector<std::vector<store::types::blob_id>> read_retired(
+    const std::filesystem::path& git_dir) {
+    const auto bytes = store::io::read_file(retired_file_path(git_dir));
+    if (!bytes)
+        return {};
+    auto runs = ops::decode_retired(*bytes);
+    return runs ? std::move(*runs)
+                : std::vector<std::vector<store::types::blob_id>>{};
+}
+
+}
+
+bool retire_keys(const std::filesystem::path& git_dir,
+    const types::dependency_record& previous,
+    const types::dependency_record& current,
+    std::span<const types::record_unit_id> fresh) {
+    auto retired = ops::retired_keys(previous, current, fresh);
+    if (retired.empty())
+        return false;
+    auto runs = read_retired(git_dir);
+    runs.insert(runs.begin(), std::move(retired));
+    if (runs.size() > ops::kept_runs - 1)
+        runs.resize(ops::kept_runs - 1);
+    const auto bytes = ops::encode_retired(runs);
+    store::io::write_object(retired_file_path(git_dir),
+        std::as_bytes(std::span(bytes)));
+    return true;
+}
+
 std::vector<store::types::blob_id> action_keys(
     const std::filesystem::path& git_dir) {
     const auto loaded = read_dependency_file(dependency_file_path(git_dir));
     const auto& record = loaded.record;
     std::vector<store::types::blob_id> keys;
-    keys.reserve(2 * record.size());
-    keys.insert(keys.end(), record.manifests.values.begin(),
-        record.manifests.values.end());
-    keys.insert(keys.end(), record.results.values.begin(),
-        record.results.values.end());
     for (std::uint32_t u = 0; u < record.size(); ++u) {
-        const types::record_unit_id unit{u};
-        for (const auto& c : ops::chunk_input_set(record, unit))
-            keys.push_back(c.key);
-        const auto end = u + 1 < record.size()
-            ? record.input_firsts[{u + 1}].value
-            : static_cast<std::uint32_t>(record.input_count());
-        for (auto i = record.input_firsts[unit].value; i < end; ++i) {
-            const types::input_id in{i};
-            if (record.input_kinds[in] == types::input_kind::file &&
-                record.input_found[in] != 0)
-                keys.push_back(ops::scan_fact_key(record.codecs[unit],
-                    record.versions[unit], record.configurations[unit],
-                    record.input_keys[in], record.input_values[in]));
-        }
+        const auto unit = ops::unit_keys(record, {u});
+        keys.insert(keys.end(), unit.begin(), unit.end());
     }
+    for (const auto& run : read_retired(git_dir))
+        keys.insert(keys.end(), run.begin(), run.end());
     return keys;
 }
 

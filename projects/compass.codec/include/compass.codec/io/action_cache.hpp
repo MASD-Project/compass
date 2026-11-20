@@ -81,12 +81,31 @@ action_writes store_actions(const std::filesystem::path& git_common_dir,
         facts = {});
 
 /**
- * @brief The keys of the manifests and results the dependency record of
- * the worktree whose git directory is @p git_dir names, which collection
- * keeps, of the chunks of each unit's input set, and of the fact object of each file input of each of its units:
- * the facts a scan unit took or made are among them, and the key of a
- * file that no scan read names nothing. A missing or damaged record names
- * none.
+ * @brief The retired file of one worktree: compass/retired under its own
+ * @p git_dir, beside its dependency record.
+ */
+[[nodiscard]] std::filesystem::path retired_file_path(
+    const std::filesystem::path& git_dir);
+
+/**
+ * @brief Records, in the retired file of @p git_dir, the keys the run that
+ * replaced @p previous by @p current retired, as ops::retired_keys says,
+ * before the runs already there, keeping ops::kept_runs - 1 runs. A
+ * damaged file is replaced.
+ * @return false when the run retired nothing, and the file is left alone.
+ * @throws std::filesystem::filesystem_error when the write fails.
+ */
+bool retire_keys(const std::filesystem::path& git_dir,
+    const types::dependency_record& previous,
+    const types::dependency_record& current,
+    std::span<const types::record_unit_id> fresh);
+
+/**
+ * @brief The keys of the action objects the worktree whose git directory
+ * is @p git_dir needs, which collection keeps: those of each unit of its
+ * dependency record, as ops::unit_keys says, and those of its retired
+ * file, so the last ops::kept_runs runs of the worktree stay in the
+ * cache. A missing or damaged record or retired file names none.
  */
 [[nodiscard]] std::vector<compass::store::types::blob_id> action_keys(
     const std::filesystem::path& git_dir);

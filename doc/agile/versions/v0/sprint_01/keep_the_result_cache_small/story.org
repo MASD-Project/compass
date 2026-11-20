@@ -28,9 +28,9 @@ two or three runs, not every result ever written.
 |---------------+----------------------------------------|
 | State         | STARTED                                |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 01]] |
-| Now           | Scan facts are stored per file; manifests name chunks of inputs. |
+| Now           | Scan facts per file and chunked manifests merged; collection as part of the runs built. |
 | Waiting on    | Nothing.                               |
-| Next          | Collect as part of the runs, keeping a few per worktree. |
+| Next          | Merge collection, then reset ORE Studio's store with a build that has all three. |
 | Last touched  | 2026-11-20                               |
 
 * Acceptance
@@ -48,8 +48,8 @@ two or three runs, not every result ever written.
 | Task | State | Start | End | Description |
 |------+-------+-------+-----+-------------|
 | [[id:4FE83031-4EF0-47E0-9F5E-762FF13BD9BE][Store scan facts per file]] | DONE | 2026-11-20 | 2026-11-20 | A scan's result object holds every file's fact and findings, so one edit writes them all again. Store each file's fact and findings once, keyed by the codec's configuration, the path and the content, and keep only references in the scan table. |
-| [[id:17E153C8-C321-4A68-A0E4-E1580DA82C9D][Collect the cache, keeping a few runs per worktree]] | BACKLOG | | | No run collects the result cache, so it keeps every result ever written. Collect it as part of the runs, keeping each worktree's last two or three results of each unit and nothing older. |
-| [[id:8066E3E8-998F-4405-998E-1C1432B90800][Keep manifests small]] | STARTED | 2026-11-20 | | A corpus unit's manifest keeps its last eight input sets, each listing every file the unit read, so every edit rewrites manifests of megabytes: after per-file scan facts, 31 MB of the 31 MB an edit wrote on ORE Studio. |
+| [[id:17E153C8-C321-4A68-A0E4-E1580DA82C9D][Collect the cache, keeping a few runs per worktree]] | STARTED | 2026-11-20 | | No run collects the result cache, so it keeps every result ever written. Collect it as part of the runs, keeping each worktree's last two or three results of each unit and nothing older. |
+| [[id:8066E3E8-998F-4405-998E-1C1432B90800][Keep manifests small]] | DONE | 2026-11-20 | 2026-11-20 | A corpus unit's manifest keeps its last eight input sets, each listing every file the unit read, so every edit rewrites manifests of megabytes: after per-file scan facts, 31 MB of the 31 MB an edit wrote on ORE Studio. |
 
 * Decisions
 

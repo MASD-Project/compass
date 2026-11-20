@@ -86,11 +86,14 @@ struct collection_plan {
  * @brief How a collection runs. cap is the size in bytes the store must
  * come down to, so zero removes every old unreferenced object. A file
  * modified less than grace ago is never removed. A dry run removes nothing.
+ * wait says whether to wait for another process that holds the lock of
+ * the packs, or else to give up at once.
  */
 struct collection_options {
     std::uint64_t cap = 0;
     std::chrono::seconds grace{3600};
     bool dry_run = false;
+    bool wait = true;
 };
 
 /**
@@ -105,7 +108,9 @@ struct collection_options {
  * what the plan chose, oldest first, and removed counts the entries and
  * files actually dropped: none in a dry run. packs and packs_after count
  * the packs before and after; legacy counts the files of the first layout
- * of the store, which a collection removes whole.
+ * of the store, which a collection removes whole. skipped is true when
+ * another process held the lock and the collection did not wait for it,
+ * so it removed nothing.
  */
 struct collection_result {
     std::vector<std::filesystem::path> worktrees;
@@ -120,6 +125,7 @@ struct collection_result {
     std::uint64_t packs = 0;
     std::uint64_t packs_after = 0;
     object_tally legacy;
+    bool skipped = false;
     double worktrees_ms = 0;
     double live_ms = 0;
     double list_ms = 0;

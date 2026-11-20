@@ -20,6 +20,7 @@
 #include "compass.codec/ops/action_cache.hpp"
 
 #include <algorithm>
+#include <iterator>
 #include <numeric>
 #include <tuple>
 #include <vector>
@@ -34,8 +35,9 @@ using compass::store::types::blob_id;
 constexpr std::size_t hash_size = 20;
 
 /**
- * @brief What an encoded stage, an encoded scan table, a fact object and an
- * input chunk start with, "STG1", "SCN3", "FCT1" and "INP1" little-endian,
+ * @brief What an encoded stage, an encoded scan table, a fact object, an
+ * input chunk and a retired file start with, "STG1", "SCN3", "FCT1",
+ * "INP1" and "RET1" little-endian,
  * so none is read as another nor as the table an earlier build wrote,
  * which held every file.
  */
@@ -43,6 +45,7 @@ constexpr std::uint32_t stage_magic = 0x31475453;
 constexpr std::uint32_t scan_magic = 0x334E4353;
 constexpr std::uint32_t scan_fact_magic = 0x31544346;
 constexpr std::uint32_t input_chunk_magic = 0x31504E49;
+constexpr std::uint32_t retired_magic = 0x31544552;
 
 void put(std::string& out, std::uint8_t v) {
     out.push_back(static_cast<char>(v));
@@ -442,6 +445,84 @@ std::optional<types::stage> decode_stage(std::string_view bytes) {
     if (!r.done())
         return std::nullopt;
     return s;
+}
+
+std::vector<blob_id> unit_keys(const types::dependency_record& record,
+    types::record_unit_id u) {
+    std::vector<blob_id> keys{record.manifests[u], record.results[u]};
+    for (const auto& c : chunk_input_set(record, u))
+        keys.push_back(c.key);
+    const auto end = end_of(record.input_firsts, u.value,
+        record.input_count());
+    for (auto i = record.input_firsts[u].value; i < end; ++i) {
+        const types::input_id in{i};
+        if (record.input_kinds[in] == types::input_kind::file &&
+            record.input_found[in] != 0)
+            keys.push_back(scan_fact_key(record.codecs[u],
+                record.versions[u], record.configurations[u],
+                record.input_keys[in], record.input_values[in]));
+    }
+    return keys;
+}
+
+std::vector<blob_id> retired_keys(const types::dependency_record& previous,
+    const types::dependency_record& current,
+    std::span<const types::record_unit_id> fresh) {
+    auto results = current.results.values;
+    std::ranges::sort(results);
+    std::vector<blob_id> retired;
+    for (std::uint32_t u = 0; u < previous.size(); ++u) {
+        const types::record_unit_id unit{u};
+        if (std::ranges::binary_search(results, previous.results[unit]))
+            continue;
+        const auto keys = unit_keys(previous, unit);
+        retired.insert(retired.end(), keys.begin(), keys.end());
+    }
+    std::ranges::sort(retired);
+    retired.erase(std::ranges::unique(retired).begin(), retired.end());
+    std::vector<blob_id> kept;
+    for (const auto u : fresh) {
+        const auto keys = unit_keys(current, u);
+        kept.insert(kept.end(), keys.begin(), keys.end());
+    }
+    std::ranges::sort(kept);
+    std::vector<blob_id> out;
+    std::ranges::set_difference(retired, kept, std::back_inserter(out));
+    return out;
+}
+
+std::string encode_retired(std::span<const std::vector<blob_id>> runs) {
+    std::string out;
+    put(out, retired_magic);
+    put(out, static_cast<std::uint32_t>(runs.size()));
+    for (const auto& run : runs) {
+        put(out, static_cast<std::uint32_t>(run.size()));
+        for (const auto& key : run)
+            put(out, key);
+    }
+    return out;
+}
+
+std::optional<std::vector<std::vector<blob_id>>> decode_retired(
+    std::string_view bytes) {
+    reader r(bytes);
+    if (r.u32() != retired_magic)
+        return std::nullopt;
+    const auto count = r.u32();
+    if (count > bytes.size() / 4)
+        return std::nullopt;
+    std::vector<std::vector<blob_id>> runs(count);
+    for (auto& run : runs) {
+        const auto count = r.u32();
+        if (!r.ok() || count > bytes.size() / hash_size)
+            return std::nullopt;
+        run.reserve(count);
+        for (std::uint32_t k = 0; k < count && r.ok(); ++k)
+            run.push_back(r.id());
+    }
+    if (!r.done())
+        return std::nullopt;
+    return runs;
 }
 
 }
