@@ -103,7 +103,7 @@ jobs:
           }
           $bin = (Resolve-Path "build/output/windows-msvc-release-ninja/publish/bin").Path
           $exe = Join-Path $bin "$env:TARGET.exe"
-          $report = '.echo FAULT; .ecxr; r; kP 40; ~* kc 20; q'
+          $report = '.echo FAULT; .ecxr; r; ub @rip L30; u @rip L4; kP 40; ~* kc 20; q'
           $commands = "sxe -c `"$report`" av; sxe -c `"$report`" sov; g; q"
           Push-Location $bin
           $specs = $env:TESTS -split ';' | Where-Object { $_.Trim() -ne '' }
