@@ -139,7 +139,7 @@ types::ids_result run_ids_stage(const std::filesystem::path& checkout,
         const auto [stat_ms, stat_tallies] = run_ranges(stat_ranges,
             [&](types::file_range range) {
                 tally t;
-                for (auto id = range.begin; id < range.end; ++id) {
+                for (std::size_t id = range.begin; id < range.end; ++id) {
                     if (const auto found = resolver.known_id(table.paths[id])) {
                         r.ids[id] = found->id;
                         r.sources[id] = found->source;
@@ -164,7 +164,7 @@ types::ids_result run_ids_stage(const std::filesystem::path& checkout,
             balance_ranges(pending_sizes, threads),
             [&](types::file_range range) {
                 tally t;
-                for (auto row = range.begin; row < range.end; ++row) {
+                for (std::size_t row = range.begin; row < range.end; ++row) {
                     const auto id = pending[row];
                     try {
                         r.ids[id] = store::io::hash_file(

@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -71,7 +72,7 @@ tally resolve_range(const std::filesystem::path& checkout,
     types::file_range range) {
     tally t;
     ot::tables tables;
-    for (auto row = range.begin; row < range.end; ++row) {
+    for (std::size_t row = range.begin; row < range.end; ++row) {
         try {
             const platform::filesystem::mapped_file file(
                 checkout / table.paths[r.ids[row]]);

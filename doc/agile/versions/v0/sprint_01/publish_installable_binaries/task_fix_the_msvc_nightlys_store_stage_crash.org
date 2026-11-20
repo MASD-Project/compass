@@ -1,0 +1,106 @@
+:PROPERTIES:
+:ID: 39E08E05-FFE5-494F-85DA-8D97B7355818
+:END:
+#+title: Task: Fix the MSVC nightly's store stage crash
+#+description: The four compass.bench store stage tests crashed under MSVC release: its optimiser indexed with the whole register a file_range arrived in, upper half included. The bench stages now count rows in size_t.
+#+type: task
+#+level: s1
+#+filetags: :publish_installable_binaries:sprint_01:v0:
+#+owner: marco
+#+branch: feature/store-stage-msvc-row
+#+pr:
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-11-20
+#+updated: 2026-11-20
+#+environment:
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [[id:EB6AF798-D472-4CC2-B97C-FC2BD9FD1FDE][Publish installable binaries]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+The Windows MSVC nightly passes the four =compass.bench= store stage
+tests, which crashed with an access violation on the v0.0.1 and v0.0.2
+tag builds and on a manual run of main, and passed on one scheduled run.
+
+* Status
+
+| Field        | Value                                  |
+|--------------+----------------------------------------|
+| State        | STARTED                              |
+| Parent story | [[id:EB6AF798-D472-4CC2-B97C-FC2BD9FD1FDE][Publish installable binaries]] |
+| Now          | Every bench stage counts rows in size_t; the four tests pass 40 of 40 under cdb. |
+| Waiting on   | Nothing.                               |
+| Next         | The next MSVC nightly passes them; the torn read of the concurrent writers test is its own task. |
+| Last touched | 2026-11-20                               |
+
+* Acceptance
+
+- Under cdb on the MSVC release build, each store stage test in a process
+  of its own on the normal heap, as ctest runs them, passes 10 times.
+- No bench stage indexes with a loop counter of =file_range='s =uint32_t=.
+
+* Plan
+
+- Get a stack: =windows-test-debugger.yml= builds one test target with the
+  release flags and =/Z7= and runs specs under cdb.
+- Read the faulting instruction and the code before it, and change the code
+  so the compiler has nothing to widen.
+
+* Measurements
+
+Every number this task claims about a tree, with the command that produced it
+and the commit it was measured at. A number without both is not a measurement,
+because a clean-up record describes a tree and trunk moves under a branch: a
+consumer count, a gate's component count and a suite's size all change with no
+code changing, and the reader of a bare number cannot tell which tree it came
+from. Where the raw output matters, put it in an =evidence/= file beside the
+task and name that file in the Command column.
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+| Faults, unfixed, each test in its own process, normal heap | 40 of 40 | =windows-test-debugger.yml=, 4 specs, repeat 10, run 44709727680 | =feature/debugger-as-ctest-runs= |
+| Faults, unfixed, all four in one process, debug heap | 0 of 20 | the same, one spec, repeat 5, run 44663520802 | =main= =f286920= |
+| Faults with size_t rows | 0 of 40 | the same as the first, run 44712426243 | =feature/store-stage-msvc-row= =77d4a13= |
+
+* Notes
+
+- The cause is MSVC's, in =store_range=: [[file:evidence/msvc_store_stage_fault.txt][evidence/msvc_store_stage_fault.txt]].
+  Windows passes the 8-byte =file_range= in =r9=, begin in the low half and
+  end in the high. MSVC copies it to =rbx=, compares =ebx= with the end and
+  zero-extends it into =edi= correctly, then loads =ids[row]= with
+  =mov ecx, [rax+rbx*4]=: the whole =rbx=, so the end is the index's upper
+  32 bits. With the range {2, 3} the index was =0x0000000300000002=.
+- The crash came and went because it depends on the process: run under a
+  debugger with its debug heap, all four in one process, none faulted.
+- Counting in =std::size_t= leaves no 32-bit counter to widen. The ids,
+  parse, org, types and read stages had the same loop and take the same
+  change.
+- The =concurrent writers of one object= store test failed once in the same
+  run: a reader saw the object torn. It is a separate failure.
+
+* Test Scenarios
+
+Manual QA scenarios (scaffolded via =compass add test_scenario=)
+that verify this task. Link
+new ones here as they're created; the scenario doc itself links back
+via its "Verifies task" field.
+
+| Scenario | State | Notes |
+|----------+-------+-------|
+|          |       |       |
+
+* PRs
+
+| PR | Title |
+|----+-------|
+|    |       |
+
+* Review
+
+| # | Comment summary | File | Decision | Notes |
+|---+-----------------+------+----------+-------|
+|   |                 |      |          |       |
+
+* Result

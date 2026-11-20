@@ -20,6 +20,7 @@
 #include "compass.bench/ops/read_stage.hpp"
 
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <system_error>
@@ -42,7 +43,7 @@ struct tally {
 tally read_range(const std::filesystem::path& checkout,
     const types::file_table& table, types::file_range range) {
     tally t;
-    for (auto id = range.begin; id < range.end; ++id) {
+    for (std::size_t id = range.begin; id < range.end; ++id) {
         try {
             const platform::filesystem::mapped_file file(
                 checkout / table.paths[id]);

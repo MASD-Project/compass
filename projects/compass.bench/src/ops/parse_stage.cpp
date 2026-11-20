@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <stdexcept>
@@ -79,7 +80,7 @@ tally parse_range(const std::filesystem::path& checkout,
     types::language_result& r, types::file_range range, bool first) {
     tally t;
     const auto parser = make_parser(l);
-    for (auto row = range.begin; row < range.end; ++row) {
+    for (std::size_t row = range.begin; row < range.end; ++row) {
         const auto& path = table.paths[r.ids[row]];
         try {
             const platform::filesystem::mapped_file file(checkout / path);
