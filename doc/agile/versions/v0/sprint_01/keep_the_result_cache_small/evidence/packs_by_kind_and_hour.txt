@@ -1,0 +1,56 @@
+pack-18e9975af9d931f57babe2a59052180a.cpk: 1017521 entries, 15.11 GB
+pack-18e9bb5687f1d502179d7602a01c3ea6.cpk: 368997 entries, 3.35 GB
+pack-18e9c201ff242e454df9e9b212a035c1.cpk: 181876 entries, 1.17 GB
+pack-18e9c2057b5ebd839467400112f95327.cpk: 50 entries, 0.13 GB
+pack-18e9c33558cd1bdfa87532b210b9d229.cpk: 12 entries, 0.05 GB
+
+by kind: entries, GB, distinct keys, mean KB, max MB
+  manifest     741796    1.88    740839      2.5    22.81
+  object        13275    0.12     13275      9.2     0.39
+  result       813385   17.81    813315     21.9    63.42
+
+keys held more than once: 1027; bytes of the older copies: 0.64 GB
+
+written per hour (UTC): kind entries GB
+  11-17 22:00  manifest 67027 0.04  object 11020 0.07  result 90182 0.53
+  11-17 23:00  manifest 44439 0.01  object 15 0.00  result 45096 0.29
+  11-18 00:00  manifest 68066 0.25  object 49 0.00  result 92209 1.31
+  11-18 01:00  manifest 67191 0.02  object 6 0.00  result 68144 0.54
+  11-18 02:00  manifest 448 0.00  object 69 0.00  result 493 0.16
+  11-18 03:00  manifest 104 0.01  object 17 0.00  result 149 0.15
+  11-18 04:00  manifest 22090 0.00  object 3 0.00  result 22957 0.30
+  11-18 11:00  manifest 40 0.00  object 5 0.00  result 69 0.11
+  11-18 15:00  manifest 200 0.00  object 25 0.00  result 273 0.15
+  11-18 17:00  manifest 128 0.00  object 16 0.00  result 430 0.14
+  11-18 18:00  manifest 152 0.00  object 19 0.00  result 506 0.28
+  11-18 20:00  manifest 381 0.00  object 47 0.00  result 836 0.27
+  11-18 21:00  manifest 681 0.01  object 69 0.00  result 8019 0.57
+  11-18 22:00  manifest 1011 0.01  object 112 0.00  result 3075 0.91
+  11-18 23:00  manifest 100657 0.20  object 1256 0.01  result 102622 1.30
+  11-19 00:00  manifest 168 0.00  object 9 0.00  result 1115 0.47
+  11-19 01:00  manifest 304 0.00  object 28 0.00  result 638 0.40
+  11-19 02:00  manifest 272 0.00  object 34 0.00  result 1232 0.46
+  11-19 03:00  manifest 80 0.00  object 10 0.00  result 128 0.12
+  11-19 04:00  manifest 40 0.00  object 5 0.00  result 56 0.04
+  11-19 10:00  manifest 963 0.01  object 32 0.00  result 1294 0.53
+  11-19 11:00  manifest 241 0.00  object 30 0.00  result 286 0.20
+  11-19 12:00  manifest 272 0.00  object 34 0.00  result 726 0.58
+  11-19 13:00  manifest 274 0.00  object 34 0.00  result 1032 0.35
+  11-19 14:00  manifest 88 0.00  object 11 0.00  result 171 0.20
+  11-19 15:00  manifest 152 0.00  object 19 0.00  result 253 0.35
+  11-19 16:00  manifest 160 0.00  object 20 0.00  result 571 0.31
+  11-19 17:00  manifest 297 0.03  object 30 0.00  result 606 0.65
+  11-19 18:00  manifest 352 0.02  object 18 0.00  result 520 0.44
+  11-19 19:00  manifest 89974 0.19  object 8 0.00  result 91688 0.48
+  11-19 20:00  manifest 430 0.00  object 20 0.00  result 569 0.34
+  11-19 21:00  manifest 32 0.00  object 4 0.00  result 65 0.10
+  11-19 22:00  manifest 239 0.00  object 15 0.00  result 321 0.16
+  11-19 23:00  manifest 428 0.18  object 46 0.00  result 693 0.83
+  11-20 00:00  manifest 1740 0.01  object 59 0.00  result 2302 1.07
+  11-20 01:00  result 20 0.05
+  11-20 02:00  manifest 90492 0.23  object 13 0.00  result 90558 0.55
+  11-20 09:00  manifest 90995 0.02  object 11 0.00  result 92009 0.76
+  11-20 10:00  manifest 396 0.23  object 34 0.00  result 529 0.53
+  11-20 11:00  manifest 90428 0.04  object 6 0.00  result 90504 0.40
+  11-20 12:00  manifest 364 0.35  object 17 0.00  result 427 0.39
+  11-20 13:00  result 12 0.05

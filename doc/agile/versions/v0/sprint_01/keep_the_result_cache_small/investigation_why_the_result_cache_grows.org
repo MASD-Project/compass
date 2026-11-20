@@ -1,0 +1,133 @@
+:PROPERTIES:
+:ID: EDCF07F7-7981-4BF8-B908-8DD4E6D9121F
+:END:
+#+title: Investigation: Why the result cache grows
+#+description: Where the 19.8 GB of ORE Studio's result cache on 2026-11-20 came from: which codecs wrote it, how often, and why so little of it is live.
+#+type: investigation
+#+level: s1
+#+filetags: :keep_the_result_cache_small:sprint_01:v0:
+#+created: 2026-11-20
+#+updated: 2026-11-20
+
+A point-in-time record, written while the story that commissioned it was open, of an [[id:A7F8D9E2-3C4B-4A5D-B67C-8E9F0A1B2C3D][investigation]] into where the 19.8 GB of ORE Studio's result cache on 2026-11-20 came from: which codecs wrote it, how often, and why so little of it is live.
+
+It is a snapshot, not a description of the system. Whatever it concludes that the code must keep doing belongs on the page that owns the subject; cite that page from code, recipes and models, not this one.
+
+* Context
+
+On 2026-11-20 the machine's SSD filled. The largest single holder that
+compass owns was ORE Studio's result cache, =ores.git/compass/packs=: 19.8 GB
+in five packs, one of them 15.2 GB, written since 2026-11-17. =compass gc
+--dry-run= said 17.4 GB of it, 88%, was referenced by no worktree.
+
+The data compass caches is meant to be static and common to all worktrees:
+the same sources, parsed once and shared by content. A cache that grows by
+gigabytes a day says that is not what is happening. The cache was moved to
+the rotational disk behind a symlink
+(=/home/marco/Vault/compass-store/ores.git-compass=), a copy of the five
+packs was kept as evidence (=/home/marco/Vault/compass-store-evidence/2026-11-20=)
+and nothing was collected, so the analysis below reads every entry ever
+written.
+
+* Methodology
+
+The tools are in =build/probes/result_cache=; they only read.
+
+- =packstat.py <packs>=: every entry of every pack, from the pack index
+  (=compass.store/ops/pack.hpp=), by kind, by hour written and by how many
+  copies of one kind and key the packs hold.
+  [[file:evidence/packs_by_kind_and_hour.txt][evidence/packs_by_kind_and_hour.txt]].
+- =sizes.py packstat.py <packs>=: the result objects by size.
+  [[file:evidence/results_by_size.txt][evidence/results_by_size.txt]].
+- =recordkeys.cpp=, linked against the built compass libraries, decodes the
+  dependency record of each of ORE Studio's ten worktrees and prints each
+  unit's codec, document, result key and manifest key: 903,634 units.
+- =attribute.py <units> <packs>= gives each live result its codec by key,
+  and each dead result of 100 KB or more the codec of the live result whose
+  body opens with the same words.
+  [[file:evidence/results_by_codec.txt][evidence/results_by_codec.txt]].
+- =scanshare.cpp <units> <packs>= decodes the live result of each corpus
+  unit and splits it into findings and scan table, and the table into
+  entries, facts, findings and paths, and counts the distinct (path,
+  content) entries the ten worktrees' tables hold.
+  [[file:evidence/scan_tables_by_codec.tsv][evidence/scan_tables_by_codec.tsv]].
+- The dependency records' sizes:
+  [[file:evidence/dependency_records.txt][evidence/dependency_records.txt]].
+
+* Paths taken
+
+- *Collect it.* =compass gc= failed with no space left on the device: a
+  collection writes the entries it keeps, about 2.4 GB, into a new pack
+  before it removes the old ones. It was not retried; the cache was moved
+  and kept whole for this analysis instead.
+- *By kind.* Parsed objects, the data that is static, are 13,275 entries
+  and 0.12 GB. Results are 813,385 entries and 17.81 GB; manifests 741,796
+  and 1.88 GB. Their keys are nearly all distinct (1,027 held twice, 0.64
+  GB): the cache does not rewrite one result, it writes new ones.
+- *By hour.* Two patterns. Bursts of about 90,000 results and manifests,
+  0.4 to 1.3 GB each, at 2026-11-17 22:00 to 01:00, 11-18 23:00, 11-19 19:00,
+  11-20 02:00, 09:00 and 11:00 UTC: every document codec run again over the
+  corpus. The shared compass-ng was replaced at 11-19 19:44 and 11-20 09:04,
+  and a result's key holds the code hash of its codec's component, so a new
+  build runs every unit again. Between the bursts, a few hundred results an
+  hour of about 1 MB each, 0.1 to 1.1 GB an hour.
+- *By size.* Results under 100 KB: 794,280 entries, 0.68 GB. Results of
+  100 KB or more: 19,105 entries, 17.13 GB, 96% of the result bytes.
+- *By codec.* Of the large results, codegen's units wrote 4.23 GB that no
+  record names, against 0.82 GB live; the corpus units of scan codecs wrote
+  most of the rest, each tens to hundreds of copies of a result of 1 to 9
+  MB: lint 346 copies and 2.98 GB, stream_coverage 177 and 1.66 GB,
+  exported_types 142 and 1.33 GB, unity_collisions 235 and 0.75 GB,
+  entity_writes 205 and 0.58 GB, component_docs 351 and 0.41 GB. 624 large
+  results, 1.73 GB, matched no live codec's opening.
+- *Inside a scan's result.* The scan table is 87 to 100% of every scan
+  result's bytes. It holds every file the codec covers, with its path, its
+  content ID, its fact, its findings and whether the reduce step read it:
+  lint 11,179 entries and 8.7 MB, exported_types 25,991 and 9.5 MB. Codecs
+  whose facts are empty still store about 3 MB, mostly paths: portable_cpp,
+  wide_types and ores_logger hold 26,000 entries, 2.2 MB of them paths.
+- *Across worktrees.* The ten worktrees' tables of one codec hold barely
+  more distinct (path, content) entries than one table: lint 11,330 against
+  11,179 a table, portable_cpp 33,694 against 25,930. The tables are copies
+  of each other, and every superseded table a copy of its successor.
+
+* Conclusions
+
+- The cache does not grow because the sources change; parsed sources are
+  0.12 GB. It grows because a scan unit's result holds the whole scan
+  table, and a run in any worktree after an edit to any file the codec
+  covers writes the whole table again, as a new result under a new key.
+  What is the same across worktrees and across runs, nearly every entry of
+  every table, is stored again each time.
+- A new compass build runs every unit again, about 90,000 a time on ORE
+  Studio, because the code hash is part of every key.
+- codegen's results carry the generated files, and each regeneration writes
+  them again.
+- Nothing removes what no record names. =compass gc= is a command; no run
+  calls it, and none was run on ORE Studio's cache since it began. At
+  88%, the dead results are the cache.
+- Apart from the packs, each worktree's dependency record is 280 to 314 MB,
+  3.1 GB for ten worktrees.
+
+* Recommendations
+
+- Store each file's fact and findings once, keyed by what makes them: the
+  codec's configuration, the path and the content ID. The scan table of a
+  result then names no file; a run finds an unchanged file's fact by its
+  key, an edit writes one fact, and every worktree on the same content
+  shares it. The result keeps the reduce step's findings, a digest of the
+  facts it reduced and the paths it read itself. Collection keeps the facts
+  a record's file inputs name. [[id:4FE83031-4EF0-47E0-9F5E-762FF13BD9BE][Store scan facts per file]].
+- Collect as part of the runs, keeping each worktree's last two or three
+  results of each unit, so the cache holds a few runs per worktree and not
+  every result ever written. [[id:17E153C8-C321-4A68-A0E4-E1580DA82C9D][Collect the cache, keeping a few runs per worktree]].
+- Later, and measured first: key codegen's generated files by content, as
+  the store keys sources, so a regeneration that writes the same file
+  stores nothing; key a unit by the code of its own codec rather than its
+  component, so a build that does not touch a codec keeps its results; and
+  find what makes a dependency record 300 MB.
+
+* See also
+
+- [[id:A98E704E-B2E4-49BA-8839-B0A1DE9C3679][Story: Keep the result cache small]]
+- [[id:10A99211-DCE0-4237-8D23-0599C2D00628][Story: Share a content-addressed store]]: the store this cache lives in.
