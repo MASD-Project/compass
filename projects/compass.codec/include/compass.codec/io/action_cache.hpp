@@ -43,7 +43,8 @@ namespace compass::codec::io {
 /**
  * @brief What store_actions wrote: result objects, manifests and the bytes
  * of all it wrote, with the manifests left alone because their set was
- * already first, and the fact objects of the files scans mapped.
+ * already first, the fact objects of the files scans mapped and the input
+ * chunks the store did not hold.
  */
 struct action_writes {
     std::uint64_t results = 0;
@@ -51,6 +52,7 @@ struct action_writes {
     std::uint64_t unchanged_manifests = 0;
     std::uint64_t bytes = 0;
     std::uint64_t facts = 0;
+    std::uint64_t chunks = 0;
 };
 
 /**
@@ -62,7 +64,8 @@ struct action_writes {
  * scans mapped, by key, which are written as they are.
  *
  * A result object is always written, so one a damaged copy made the unit
- * run is replaced. A manifest is read, given the set and written back;
+ * run is replaced. A manifest is read, given the set and written back,
+ * with those chunks of the set the store does not hold intact;
  * one that does not load is replaced by a manifest of the one set. Two
  * worktrees that write one manifest at once can lose one of their sets,
  * which costs one more run of that unit, never a wrong result. Everything
@@ -80,7 +83,7 @@ action_writes store_actions(const std::filesystem::path& git_common_dir,
 /**
  * @brief The keys of the manifests and results the dependency record of
  * the worktree whose git directory is @p git_dir names, which collection
- * keeps, and of the fact object of each file input of each of its units:
+ * keeps, of the chunks of each unit's input set, and of the fact object of each file input of each of its units:
  * the facts a scan unit took or made are among them, and the key of a
  * file that no scan read names nothing. A missing or damaged record names
  * none.

@@ -176,6 +176,7 @@ struct outcome {
     types::dependency_record record;
     std::size_t facts = 0;
     std::size_t table = 0;
+    io::action_writes writes;
 };
 
 /**
@@ -195,14 +196,14 @@ outcome run(const sources& plain, const scoped_directory& cache,
         io::action_source_of(cache.path()));
     const auto maps = mapped.load();
     const auto reduces = reduced.load();
-    (void)io::store_actions(cache.path(), result.record, result.fresh, 2,
-        result.scans, result.scan_facts);
+    const auto writes = io::store_actions(cache.path(), result.record,
+        result.fresh, 2, result.scans, result.scan_facts);
     const auto plain_run = ops::run(r, c.corpus(), c.types(), 2);
     CHECK(lines_of(result.diagnostics[0]) ==
         lines_of(plain_run.diagnostics[0]));
     const auto table = result.scans.empty() ? 0 : result.scans.front().size();
     return {lines_of(result.diagnostics[0]), maps, reduces,
-        std::move(result.record), result.scan_facts.size(), table};
+        std::move(result.record), result.scan_facts.size(), table, writes};
 }
 
 sources tree() {
@@ -414,6 +415,24 @@ TEST_CASE("a scan's table holds no file, so its size does not grow with "
     REQUIRE(large.maps == 203);
     CHECK(small.table > 0);
     CHECK(large.table == small.table);
+}
+
+TEST_CASE("an edit to one of many files writes one chunk of the scan's "
+    "inputs and a manifest a fraction of their size", "[ops][scan]") {
+    const scoped_directory cache("compass.codec.scan");
+    auto many = tree();
+    for (int i = 0; i < 2000; ++i)
+        many["src/more/file_" + std::to_string(i) + ".txt"] =
+            "def name_" + std::to_string(i) + "\n";
+    const auto first = run(many, cache);
+    REQUIRE(first.writes.chunks > 1);
+    many["src/more/file_1000.txt"] = "def renamed\n";
+
+    const auto second = run(many, cache, first.record);
+
+    CHECK(second.writes.chunks == 1);
+    CHECK(second.writes.manifests == 1);
+    CHECK(second.writes.bytes * 10 < first.writes.bytes);
 }
 
 TEST_CASE("collection keeps the fact object of each file a recorded scan "

@@ -30,11 +30,11 @@ table, 1 to 9 MB, written again after any edit:
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                                 |
 | Parent story | [[id:A98E704E-B2E4-49BA-8839-B0A1DE9C3679][Keep the result cache small]] |
-| Now          | Built; on ORE Studio an edit writes 31 MB, not 63, every byte of it manifests. |
+| Now          | Merged in #123; on ORE Studio an edit writes 31 MB, not 63, every byte of it manifests. |
 | Waiting on   | Nothing.                               |
-| Next         | Review and merge; manifests are their own task. |
+| Next         | Nothing; manifests are their own task. |
 | Last touched | 2026-11-20                               |
 
 * Acceptance
@@ -122,7 +122,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/123][#123]] | [codec] Store each file's scan facts once, and keep the scan table small |
 
 * Review
 
@@ -131,3 +131,9 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+Merged in #123. A scan's table names no file; each file's fact and findings
+are stored once under its codec, configuration, path and content, and every
+worktree on the same content shares them. On ORE Studio an edit wrote 31 MB
+rather than 63, all of it manifests, and a second worktree's first run took
+5.0 s rather than 10.2.

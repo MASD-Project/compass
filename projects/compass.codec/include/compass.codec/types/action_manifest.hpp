@@ -35,31 +35,47 @@
 namespace compass::codec::types {
 
 using input_set_id = compass::org::types::handle<struct input_set_tag>;
+using chunk_ref_id = compass::org::types::handle<struct chunk_ref_tag>;
 
 /**
- * @brief The input sets seen for one manifest key, newest first, each with
- * the key of the result it produced.
- * The inputs of set s are the rows from input_firsts[s] up to input_firsts
- * of the next set, or the end, in the order the unit read them, as its
- * dependency record lists them.
+ * @brief Inputs of a unit, each its kind, its key, whether it was found and
+ * its value: the inputs of one chunk, or of one input set once its chunks
+ * are read.
  */
-struct action_manifest {
-    compass::org::types::column<input_set_id, input_id> input_firsts;
-    compass::org::types::column<input_set_id,
-        compass::store::types::blob_id> results;
-
+struct input_list {
     compass::org::types::column<input_id, input_kind> input_kinds;
     text_column<input_id> input_keys;
     compass::org::types::column<input_id, std::uint8_t> input_found;
     compass::org::types::column<input_id, compass::store::types::blob_id>
         input_values;
 
-    [[nodiscard]] std::size_t size() const noexcept {
-        return input_firsts.size();
-    }
-
     [[nodiscard]] std::size_t input_count() const noexcept {
         return input_kinds.size();
+    }
+};
+
+/**
+ * @brief The input sets seen for one manifest key, newest first, each with
+ * the key of the result it produced and the keys of the chunks that hold
+ * its inputs.
+ * The chunks of set s are the rows from chunk_firsts[s] up to chunk_firsts
+ * of the next set, or the end. A chunk is a result object keyed by its
+ * bytes, so sets that differ in a few inputs share all other chunks, and
+ * a set that changes writes only the chunks that hold its changes.
+ */
+struct action_manifest {
+    compass::org::types::column<input_set_id,
+        compass::store::types::blob_id> results;
+    compass::org::types::column<input_set_id, chunk_ref_id> chunk_firsts;
+    compass::org::types::column<chunk_ref_id,
+        compass::store::types::blob_id> chunks;
+
+    [[nodiscard]] std::size_t size() const noexcept {
+        return results.size();
+    }
+
+    [[nodiscard]] std::size_t chunk_count() const noexcept {
+        return chunks.size();
     }
 };
 
