@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :keep_the_result_cache_small:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/keep-manifests-small
+#+pr: 124
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-20
@@ -109,7 +109,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/124][#124]] | [codec] Name a manifest's input sets by content-addressed chunks |
 
 * Review
 
