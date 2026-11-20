@@ -1,0 +1,107 @@
+:PROPERTIES:
+:ID: 907FB3C2-06EC-4013-84AE-453D7E1F25BC
+:END:
+#+title: Task: Let ORE Studio state the identity table's columns
+#+description: marketdata_identity_columns reads the identity table's context columns and the views' shared columns from options, so ORE Studio declares a new column in its own configuration.
+#+type: task
+#+level: s1
+#+filetags: :let_projects_define_their_checks:sprint_01:v0:
+#+owner: marco
+#+branch: feature/identity-columns-as-options
+#+pr:
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-11-20
+#+updated: 2026-11-20
+#+environment:
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [[id:DAB2F48A-E47A-4895-9026-056AF21E6CCC][Let projects define their own checks]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+ORE Studio adds a context column to its market series identity table
+(=provider_code=, on its branch
+=feature/two-providers-of-one-fixing-collide-in-the-identity-table=) and
+declares it in its own =.compass.org=, with no new compass build.
+=marketdata_identity_columns= hard-coded the table's seven context columns
+and the seven columns every asset class view exposes, so the change failed
+the check with no way to state it.
+
+* Status
+
+| Field        | Value                                  |
+|--------------+----------------------------------------|
+| State        | STARTED                              |
+| Parent story | [[id:DAB2F48A-E47A-4895-9026-056AF21E6CCC][Let projects define their own checks]] |
+| Now          | The two column lists are options; ORE Studio's branch passes with provider_code declared. |
+| Waiting on   | Nothing.                               |
+| Next         | ORE Studio pins the build and declares provider_code; the other hard-coded ORE facts follow the same route. |
+| Last touched | 2026-11-20                               |
+
+* Acceptance
+
+- =context_columns= and =view_columns= are options of the codec,
+  comma-separated, defaulting to the lists it hard-coded, so a project
+  with no setting sees no change.
+- A table column the options do not name is still reported, and its fix
+  says to add it to =context_columns=.
+- On ORE Studio's branch, the check reports =provider_code= with no setting
+  and passes with it in =context_columns=.
+
+* Plan
+
+- Turn the two =constexpr= arrays into options, the route the analysis
+  recommends for a schema fact (=could be data=): the project's codec table
+  holds =key=value= options, so ORE Studio edits its own file.
+- Bump the codec's version: the result depends on the options now.
+- Leave the paths and the table name for the sweep that follows: they are
+  the same kind of fact, and the analysis lists 382 such items over the
+  ported codecs.
+
+* Measurements
+
+Every number this task claims about a tree, with the command that produced it
+and the commit it was measured at. A number without both is not a measurement,
+because a clean-up record describes a tree and trunk moves under a branch: a
+consumer count, a gate's component count and a suite's size all change with no
+code changing, and the reader of a bare number cannot tell which tree it came
+from. Where the raw output matters, put it in an =evidence/= file beside the
+task and name that file in the Command column.
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+| Findings on ORE Studio's branch with no setting | 1 (=provider_code=) | =compass check -C <snapshot> --codec marketdata_identity_columns= | ORE =b5ca5f122b=, compass =feature/identity-columns-as-options= |
+| Findings with =provider_code= added to =context_columns= | 0 | the same, with the option in =.compass.org= | the same |
+
+* Notes
+
+- ORE Studio's =build/scripts/check_marketdata_identity_columns.py= keeps
+  its own =CONTEXT_COLUMNS=. compass cannot make the script read the option;
+  ORE Studio can have it read the =.compass.org= row, or retire it now that
+  compass runs the same check.
+
+* Test Scenarios
+
+Manual QA scenarios (scaffolded via =compass add test_scenario=)
+that verify this task. Link
+new ones here as they're created; the scenario doc itself links back
+via its "Verifies task" field.
+
+| Scenario | State | Notes |
+|----------+-------+-------|
+|          |       |       |
+
+* PRs
+
+| PR | Title |
+|----+-------|
+|    |       |
+
+* Review
+
+| # | Comment summary | File | Decision | Notes |
+|---+-----------------+------+----------+-------|
+|   |                 |      |          |       |
+
+* Result
