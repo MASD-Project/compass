@@ -52,6 +52,7 @@ whatever is left that is compass's own.
 | [[id:2A0E9B81-1427-401A-B4BA-8C3D97749F5E][Keep child processes out of memcheck]] | DONE | 2026-11-19 | 2026-11-19 | Stop the end-to-end and install tests reporting the shells, git and other programs they start as compass's leaks: trace only compass's own binaries, or suppress the rest with a reason. |
 | [[id:E569C248-7645-40B7-9F02-D8BF0B791C20][Triage what remains]] | DONE | 2026-11-19 | 2026-11-19 | Classify every finding left after the suppressions as a compass defect or another library's, from the per-case memcheck results, and record each with its stack and verdict. |
 | [[id:BA8872C3-92F2-4B36-A211-DF3ABE7A79CB][Fix compass's memory defects]] | DONE | 2026-11-19 | 2026-11-19 | Fix each finding the triage put on compass, starting with the uninitialised reads in compass.cpp and compass.crosscheck and the store and platform tests that fail under memcheck, each with a test that reproduces it. |
+| [[id:24B1112E-7456-4DD6-80D0-971573FB4A80][Suppress the CI image's stripped dash]] | STARTED | 2026-11-20 | | The nightly reported 237 potential leaks, all from the dash that runs the formatter tests' fake formatter: the CI image's dash has no symbols, so the dash suppressions, anchored on its function names, missed them. |
 
 * Baseline
 
