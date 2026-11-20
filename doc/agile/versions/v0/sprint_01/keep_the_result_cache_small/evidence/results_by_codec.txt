@@ -1,0 +1,26 @@
+codec                            unit       live n  live GB   dead n  dead GB
+codegen                          document     3454    0.824    13006     4.23
+lint                             corpus          9    0.078      346     2.98
+stream_coverage                  corpus         10    0.093      177     1.66
+(unmatched large)                                0    0.000      624     1.73
+exported_types                   corpus         10    0.095      142     1.33
+unity_collisions                 corpus         10    0.035      235     0.75
+(small)                                          0    0.000   435139     0.63
+entity_writes                    corpus         10    0.029      205     0.58
+component_docs                   corpus          9    0.011      351     0.41
+typescript_format                corpus          4    0.067       21     0.35
+unique_type_names                corpus          8    0.025      102     0.32
+portable_cpp                     corpus         10    0.030       79     0.24
+forward_declarable_includes      corpus         10    0.016      117     0.18
+component_files                  corpus          7    0.015       70     0.15
+sql_reachability                 corpus         10    0.006      132     0.13
+backlog_indexes                  corpus          8    0.022       39     0.10
+model_rules                      corpus          9    0.010      110     0.12
+handler_registrars               corpus         10    0.014       78     0.11
+wide_types                       corpus          8    0.024       22     0.07
+test_case_reachability           corpus         10    0.004      168     0.07
+route_inventory                  corpus          7    0.003      114     0.05
+er_diagram                       corpus          7    0.009       31     0.04
+sql_hygiene                      corpus         10    0.004      106     0.04
+populate_refs                    corpus         10    0.015        0     0.00
+conventions_coverage             corpus          4    0.005        7     0.01

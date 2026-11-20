@@ -1,0 +1,10 @@
+ores_dev_brave_hopper/compass/deps	311 MB
+ores_dev_bright_faraday/compass/deps	314 MB
+ores_dev_clever_dijkstra/compass/deps	311 MB
+ores_dev_eager_maxwell/compass/deps	289 MB
+ores_dev_festive_dijkstra/compass/deps	310 MB
+ores_dev_jolly_knuth/compass/deps	311 MB
+ores_dev_merry_newton/compass/deps	307 MB
+ores_dev_prime_origin/compass/deps	311 MB
+ores_dev_solid_dirac/compass/deps	314 MB
+ores_dev_swift_curie/compass/deps	311 MB

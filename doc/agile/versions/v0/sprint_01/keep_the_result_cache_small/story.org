@@ -1,0 +1,57 @@
+:PROPERTIES:
+:ID: A98E704E-B2E4-49BA-8839-B0A1DE9C3679
+:END:
+#+title: Story: Keep the result cache small
+#+description: Bound the result cache shared by a repository's worktrees: store what is the same across worktrees and runs once, and keep a few recent results per worktree rather than every result ever written.
+#+type: story
+#+level: s2
+#+filetags: :sprint_01:v0:
+#+created: 2026-11-20
+#+updated: 2026-11-20
+#+environment:
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 01]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+The result cache a repository's worktrees share stays a few times the size
+of what they use now, however long they run. On 2026-11-20 ORE Studio's
+cache was 19.8 GB after three days, 88% of it named by no worktree, and it
+filled the SSD: [[id:EDCF07F7-7981-4BF8-B908-8DD4E6D9121F][Why the result cache grows]]. What is the same across
+worktrees and runs is stored once, and the cache keeps each worktree's last
+two or three runs, not every result ever written.
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | STARTED                                |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 01]] |
+| Now           | The investigation is written; per-file scan facts are being built. |
+| Waiting on    | Nothing.                               |
+| Next          | Store scan facts per file, then collect as part of the runs. |
+| Last touched  | 2026-11-20                               |
+
+* Acceptance
+
+- An edit to one file writes that file's scan facts, not every file's.
+- Worktrees on the same content share the facts and findings of their
+  scans.
+- No run leaves the cache holding more than each worktree's last two or
+  three results of a unit and what they share.
+- ORE Studio's cache, measured as the investigation measured it, after a
+  day of normal use across its worktrees.
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+| [[id:4FE83031-4EF0-47E0-9F5E-762FF13BD9BE][Store scan facts per file]] | STARTED | 2026-11-20 | | A scan's result object holds every file's fact and findings, so one edit writes them all again. Store each file's fact and findings once, keyed by the codec's configuration, the path and the content, and keep only references in the scan table. |
+| [[id:17E153C8-C321-4A68-A0E4-E1580DA82C9D][Collect the cache, keeping a few runs per worktree]] | BACKLOG | | | No run collects the result cache, so it keeps every result ever written. Collect it as part of the runs, keeping each worktree's last two or three results of each unit and nothing older. |
+
+* Decisions
+
+* Out of scope
+
+-

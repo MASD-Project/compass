@@ -1,0 +1,5 @@
+results        0 KB -        10 KB:   776827 entries   0.22 GB
+results       10 KB -       100 KB:    17453 entries   0.46 GB
+results      100 KB -      1000 KB:    16323 entries   5.37 GB
+results     1000 KB -     10000 KB:     2756 entries  11.28 GB
+results    10000 KB -   1000000 KB:       26 entries   0.48 GB

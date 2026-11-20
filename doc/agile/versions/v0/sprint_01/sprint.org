@@ -63,6 +63,7 @@ Know what we build and what we must beat: the repository shape, and measured bas
 | [[id:DAB2F48A-E47A-4895-9026-056AF21E6CCC][Let projects define their own checks]] | STARTED | 2026-11-18 | | Move the ORE Studio specifics out of compass's codecs into data each project states, so a project adds or tunes its own checks without changing compass. |
 | [[id:8647D3BB-1F11-40BF-BA8B-57D65D08BC35][Clear the valgrind findings]] | STARTED | 2026-11-19 | | Make the debug nightly's memcheck report nothing: suppress what is not compass's, with ORE Studio's suppression file and its reasons, and fix the rest. |
 | [[id:45379101-8EAB-49D6-9195-24D68E8F9100][Keep MSVC within its template limits]] | STARTED | 2026-11-19 | | Report, before CI, the structs too large to reflect and the translation units whose template instantiation exceeds what MSVC allows, from a model of the limit measured on MSVC itself. |
+| [[id:A98E704E-B2E4-49BA-8839-B0A1DE9C3679][Keep the result cache small]] | STARTED | 2026-11-20 | | Bound the result cache shared by a repository's worktrees: store what is the same across worktrees and runs once, and keep a few recent results per worktree rather than every result ever written. |
 
 * Release Notes
 
