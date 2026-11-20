@@ -69,14 +69,40 @@ constexpr std::string_view grammar_path = "projects/ores.marketdata/api/"
     "include/ores.marketdata.api/datum/market_index.hpp";
 constexpr std::string_view table = "ores_marketdata_market_series_identity_tbl";
 
-constexpr std::array<std::string_view, 7> view_columns{"series_id",
-    "tenant_id", "party_id", "instrument_type", "quote_type", "asset_class",
-    "identity_kind"};
-constexpr std::array<std::string_view, 7> context_columns{"series_id",
-    "tenant_id", "party_id", "identity_kind", "asset_class",
-    "instrument_type", "quote_type"};
+/**
+ * @brief The columns of the table that are neither identity fields nor
+ * index fields, and the columns every view exposes before its class's
+ * identity fields: facts of the project's schema, so the project states
+ * them, comma-separated, and the defaults are ORE Studio's.
+ */
+constexpr std::array<ct::option, 2> options{{
+    {"context_columns", "series_id,tenant_id,party_id,identity_kind,"
+        "asset_class,instrument_type,quote_type",
+        "The identity table's columns that are neither an identity field "
+        "nor an index field, comma-separated."},
+    {"view_columns", "series_id,tenant_id,party_id,instrument_type,"
+        "quote_type,asset_class,identity_kind",
+        "The columns every asset class view exposes before its identity "
+        "fields, comma-separated."}}};
 
 using names = std::set<std::string>;
+
+names listed(std::string_view text) {
+    names out;
+    while (!text.empty()) {
+        const auto comma = text.find(',');
+        auto item = text.substr(0, comma);
+        while (!item.empty() && item.front() == ' ')
+            item.remove_prefix(1);
+        while (!item.empty() && item.back() == ' ')
+            item.remove_suffix(1);
+        if (!item.empty())
+            out.emplace(item);
+        text = comma == std::string_view::npos ? std::string_view()
+                                               : text.substr(comma + 1);
+    }
+    return out;
+}
 
 /**
  * @brief Raised when a source no longer has the shape the check reads, as
@@ -259,11 +285,6 @@ names read_index_names(const ct::corpus_view& v) {
     return out;
 }
 
-template <std::size_t N>
-names as_set(const std::array<std::string_view, N>& a) {
-    return names(a.begin(), a.end());
-}
-
 names minus(const names& a, const names& b) {
     names out;
     std::ranges::set_difference(a, b, std::inserter(out, out.end()));
@@ -272,9 +293,10 @@ names minus(const names& a, const names& b) {
 
 void check(const ct::corpus_view& v, ct::diagnostic_table& out) {
     const auto report = [&](rule r, std::string_view path,
-        const std::string& message) {
-        co::report(out, path, 0, r, message, "Bring the schema, the "
-            "projector and the SQL of the series identity back in step.");
+        const std::string& message, std::string_view fix = "Bring the "
+            "schema, the projector and the SQL of the series identity back "
+            "in step.") {
+        co::report(out, path, 0, r, message, fix);
     };
     const auto s = read_schema(v);
     const auto index_names = read_index_names(v);
@@ -285,7 +307,7 @@ void check(const ct::corpus_view& v, ct::diagnostic_table& out) {
         index_columns.insert(column);
 
     const auto columns = read_table_columns(v);
-    auto expected = as_set(context_columns);
+    auto expected = listed(v.option("context_columns"));
     expected.insert(s.identity.begin(), s.identity.end());
     expected.insert(index_columns.begin(), index_columns.end());
     for (const auto& m : minus(expected, columns))
@@ -294,7 +316,10 @@ void check(const ct::corpus_view& v, ct::diagnostic_table& out) {
     for (const auto& e : minus(columns, expected))
         report(table_columns, model_path, std::string(table) +
             " has column '" + e + "', which is neither a context column, nor "
-            "an identity field, nor an index field.");
+            "an identity field, nor an index field.", "Add a new context "
+            "column to the codec's context_columns option, in the project's "
+            "configuration; otherwise bring the schema, the projector and "
+            "the SQL of the series identity back in step.");
 
     const auto placed = read_switch(projector);
     for (const auto& f : s.every) {
@@ -327,7 +352,7 @@ void check(const ct::corpus_view& v, ct::diagnostic_table& out) {
             report(views, views_path, "a view exposes the " + asset +
                 " identity, which the schema gives no series.");
     }
-    const auto context = as_set(view_columns);
+    const auto context = listed(v.option("view_columns"));
     for (const auto& [asset, cls] : s.classes) {
         const auto view = found.find(asset);
         if (view == found.end())
@@ -392,11 +417,11 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
 
 const ct::descriptor marketdata_identity_columns{
     .name = "marketdata_identity_columns",
-    .version = 2,
+    .version = 3,
     .summary = "Reports each way the series identity projection disagrees "
         "with the codec schema and the index grammar.",
     .reads = ct::inputs::every_document(),
-    .options = {},
+    .options = options,
     .rules = rules,
     .enabled_by_default = false,
     .run = ct::corpus_function<ct::diagnostic_table>{run}};

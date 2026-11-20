@@ -170,3 +170,31 @@ TEST_CASE("the table's columns are those its model gives the create script",
         std::vector<std::string>{"does not load as the model whose create "
             "script makes ores_marketdata_market_series_identity_tbl"});
 }
+
+TEST_CASE("the context and view columns are the project's to state",
+    "[codecs][marketdata_identity_columns]") {
+    const auto views = view("fx", ", currency", "'fx_spot'") +
+        view("rates", ", currency, \"tenor\"", " 'swap' ");
+    const auto provided = replaced(table, "** tenor_label\n",
+        text_column("provider_code") + "** tenor_label\n");
+    const auto t = tree(schema, projector, provided, views);
+    CHECK(tests::messages_of(tests::run(codecs::marketdata_identity_columns,
+            t)) == std::vector<std::string>{
+        "ores_marketdata_market_series_identity_tbl has column "
+        "'provider_code', which is neither a context column, nor an "
+        "identity field, nor an index field."});
+    CHECK(tests::run(codecs::marketdata_identity_columns, t,
+        {{"context_columns", "series_id, tenant_id,party_id,identity_kind,"
+            "asset_class,instrument_type,quote_type,provider_code"}})
+        .findings.empty());
+
+    const auto narrowed = tests::run(codecs::marketdata_identity_columns,
+        tree(schema, projector, table, views),
+        {{"view_columns", "series_id,tenant_id,party_id,instrument_type,"
+            "quote_type,asset_class"}});
+    CHECK(tests::messages_of(narrowed) == std::vector<std::string>{
+        "the fx view exposes column 'identity_kind', which is not one of its "
+        "identity fields.",
+        "the rates view exposes column 'identity_kind', which is not one of "
+        "its identity fields."});
+}
