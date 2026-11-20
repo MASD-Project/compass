@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 #include "compass.codec/types/dependency_record.hpp"
 #include "compass.codec/types/diagnostic_table.hpp"
@@ -51,8 +52,11 @@ namespace compass::codec::types {
  * produced, for the next run, and fresh names its units that were called,
  * whose results the cache does not yet hold. scans holds, row for row
  * with fresh, the scan table of each called scan, which its result
- * object keeps for the next run to map only the files that changed, and
- * is empty for any other unit.
+ * object keeps for the next run to reduce only when what it reduced
+ * changed, and is empty for any other unit. scan_facts holds the fact
+ * object of each file a called scan mapped, by key, which the cache keeps
+ * for every later run, in any worktree, to map only the files whose fact
+ * object it does not hold.
  * same_record is true when the previous record stood in for every unit and
  * held no other, so the record of the run says what it did and a host
  * need not write it again.
@@ -74,6 +78,8 @@ struct run_result {
     dependency_record record;
     std::vector<record_unit_id> fresh;
     std::vector<std::string> scans;
+    std::vector<std::pair<compass::store::types::blob_id, std::string>>
+        scan_facts;
     bool same_record = false;
     std::vector<std::optional<std::vector<compass::store::types::blob_id>>>
         formatted_ids;

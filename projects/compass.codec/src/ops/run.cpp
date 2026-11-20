@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <chrono>
 #include <functional>
+#include <iterator>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -32,6 +33,8 @@
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
+#include <unordered_set>
+#include <utility>
 #include <variant>
 #include <vector>
 #include "compass.codec/ops/action_cache.hpp"
@@ -156,6 +159,24 @@ struct scan_context {
 };
 
 /**
+ * @brief The scan a unit is a call of, as its fact objects are keyed.
+ */
+struct scan_identity {
+    std::string_view codec;
+    std::uint32_t version = 0;
+    blob_id configuration;
+};
+
+/**
+ * @brief What one call of a scan made: its table, which its result object
+ * keeps, and the fact object of each file it mapped, by key.
+ */
+struct scan_output {
+    std::string table;
+    std::vector<std::pair<blob_id, std::string>> facts;
+};
+
+/**
  * @brief What the prepare step of one staged codec gave this run: the
  * parts and the facts, by name, and the state the parts run from, which
  * is null until prepare is called in this run. called is true when
@@ -267,27 +288,29 @@ struct last_call {
 
 /**
  * @brief True when the reduce step of a scan would see what its last call
- * saw: every file mapped again in @p mapped has the fact @p before holds
- * for it and was not read by that reduce step, no file came or went, and
- * every other input of the last call still holds.
+ * saw: as many files, with the same paths and facts in the same order,
+ * as its table @p before records, and every other input of the last call
+ * still holding, those of the files the reduce step read itself included.
+ * The files of @p scanned are inputs of this call too, and any that
+ * changed was mapped again or taken from its fact object, so the digest
+ * stands for them.
  */
-bool reduces_the_same(const scan_table& before,
-    std::span<const std::pair<std::string_view, scan_entry>> entries,
-    std::span<const std::size_t> mapped, const last_call& last) {
-    if (last.unit == no_unit || entries.size() != before.entries.size())
+bool reduces_the_same(const scan_table& before, std::uint32_t files,
+    const blob_id& digest,
+    const std::unordered_set<std::string_view>& scanned,
+    const last_call& last) {
+    if (last.unit == no_unit || files != before.files ||
+        digest != before.digest)
         return false;
-    for (const auto i : mapped) {
-        const auto it = before.entries.find(entries[i].first);
-        if (it == before.entries.end() || it->second.read_by_reduce ||
-            it->second.fact != entries[i].second.fact)
-            return false;
-    }
+    const std::unordered_set<std::string_view> read(
+        before.read_by_reduce.begin(), before.read_by_reduce.end());
     const auto& r = last.record;
     const auto end = end_of(r.input_firsts, last.unit, r.input_count());
     for (auto i = r.input_firsts[{last.unit}].value; i < end; ++i) {
         const types::input_id in{i};
         if (r.input_kinds[in] == types::input_kind::file &&
-            before.entries.contains(r.input_keys[in]))
+            scanned.contains(r.input_keys[in]) &&
+            !read.contains(r.input_keys[in]))
             continue;
         if (!last.now.holds(r, in))
             return false;
@@ -347,79 +370,95 @@ std::optional<blob_id> map_document(const types::scan_function& f,
 }
 
 /**
- * @brief Calls the scan @p f through @p view, mapping again only the files
- * whose content ID differs from the one the scan table in the result
- * object @p seed holds for them, and returns the scan table of the call.
- * A file taken from the table is a file input of @p log with its content
- * ID, as reading it would have been.
+ * @brief The fact object of the file at @p path, holding @p content, in
+ * the cache of @p s, when it holds one whose findings still decode.
+ */
+std::optional<std::string> cached_fact(const scan_context& s,
+    const scan_identity& id, std::string_view path, const blob_id& content) {
+    if (!s.cache)
+        return std::nullopt;
+    auto body = s.cache(store::types::action_kind::result, scan_fact_key(
+        id.codec, id.version, id.configuration, path, content));
+    if (!body)
+        return std::nullopt;
+    const auto fact = decode_scan_fact(*body);
+    if (!fact || !decode_diagnostics(fact->findings, s.index, nullptr))
+        return std::nullopt;
+    return body;
+}
+
+/**
+ * @brief Calls the scan @p f through @p view, mapping only the files whose
+ * fact object the cache does not hold, and returns its table and the fact
+ * objects of the files it mapped. A file taken from its fact object is a
+ * file input of @p log with its content ID, as reading it would have been.
  *
  * The reduce step is not called when it would see what the call of
- * @p last saw: its findings are those the table holds and its inputs
- * those that call recorded. Otherwise it is called with a log of its
- * own, which says which of the files it read itself.
+ * @p last saw, whose table is in the result object @p seed: its findings
+ * are those the table holds and its inputs those that call recorded.
+ * Otherwise it is called with a log of its own, which says which of the
+ * files it read itself.
  */
-std::string run_scan(const types::scan_function& f, types::corpus_view& view,
-    const scan_context& s, std::string_view seed, const last_call& last,
-    types::read_log& log, types::diagnostic_table& out) {
-    scan_table before;
-    bool seeded = false;
-    if (const auto result = decode_result(seed)) {
-        if (auto table = decode_scan(result->scan)) {
-            before = std::move(*table);
-            seeded = true;
-        }
-    }
+scan_output run_scan(const types::scan_function& f, types::corpus_view& view,
+    const scan_context& s, const scan_identity& id, std::string_view seed,
+    const last_call& last, types::read_log& log,
+    types::diagnostic_table& out) {
+    std::optional<scan_table> before;
+    if (const auto result = decode_result(seed))
+        before = decode_scan(result->scan);
     const auto paths = f.files(view);
     std::vector<std::string> facts(paths.size());
-    std::vector<std::string> findings(paths.size());
     std::vector<types::scanned_file> files;
     files.reserve(paths.size());
-    std::vector<std::pair<std::string_view, scan_entry>> entries;
-    entries.reserve(paths.size());
-    std::vector<std::size_t> mapped;
+    scan_output made;
     bool unread = false;
     for (std::size_t i = 0; i < paths.size(); ++i) {
         const auto path = paths[i];
-        const auto id = s.c.files != nullptr ? s.c.files->content_of(path)
+        const auto content = s.c.files != nullptr ? s.c.files->content_of(path)
             : std::nullopt;
-        const auto it = id ? before.entries.find(path)
-            : before.entries.end();
-        if (it != before.entries.end() && it->second.content == *id &&
-            decode_diagnostics(it->second.findings, s.index, nullptr)) {
-            log.add(types::input_kind::file, path, id);
-            (void)decode_diagnostics(it->second.findings, s.index, &out);
-            entries.emplace_back(path, it->second);
-            files.push_back({path, it->second.fact});
-            continue;
+        if (content) {
+            if (const auto body = cached_fact(s, id, path, *content)) {
+                const auto fact = *decode_scan_fact(*body);
+                log.add(types::input_kind::file, path, content);
+                (void)decode_diagnostics(fact.findings, s.index, &out);
+                facts[i] = std::string(fact.fact);
+                files.push_back({path, facts[i]});
+                continue;
+            }
         }
-        types::file_scan made;
-        const auto content = f.map_document != nullptr
-            ? map_document(f, view, s, path, log, made)
-            : map_file(f, view, path, made);
-        facts[i] = std::move(made.fact);
-        findings[i] = encode_diagnostics(s.c, made.findings, 0,
-            static_cast<std::uint32_t>(made.findings.size()));
-        out.append(made.findings);
+        types::file_scan mapped;
+        const auto mapped_content = f.map_document != nullptr
+            ? map_document(f, view, s, path, log, mapped)
+            : map_file(f, view, path, mapped);
+        facts[i] = std::move(mapped.fact);
+        const auto findings = encode_diagnostics(s.c, mapped.findings, 0,
+            static_cast<std::uint32_t>(mapped.findings.size()));
+        out.append(mapped.findings);
         files.push_back({path, facts[i]});
-        // A file that cannot be read has no entry, so it is mapped again
-        // and the reduce step is called.
-        unread = unread || !content;
-        if (!content)
+        // A file that cannot be read has no fact object, so it is mapped
+        // again and the reduce step is called.
+        unread = unread || !mapped_content;
+        if (!mapped_content)
             continue;
-        mapped.push_back(entries.size());
-        entries.emplace_back(path, scan_entry{*content, facts[i],
-            findings[i], false});
+        made.facts.emplace_back(scan_fact_key(id.codec, id.version,
+            id.configuration, path, *mapped_content),
+            encode_scan_fact({facts[i], findings}));
     }
 
+    const std::unordered_set<std::string_view> scanned(paths.begin(),
+        paths.end());
+    scan_table after;
+    after.files = static_cast<std::uint32_t>(files.size());
+    after.digest = scan_digest(files);
     std::string reduced;
-    if (seeded && !unread &&
-        reduces_the_same(before, entries, mapped, last) &&
-        decode_diagnostics(before.reduce_findings, s.index, nullptr)) {
-        (void)decode_diagnostics(before.reduce_findings, s.index, &out);
-        reduced = before.reduce_findings;
-        for (auto& [path, e] : entries)
-            e.read_by_reduce = before.entries.find(path)->second
-                .read_by_reduce;
+    std::vector<std::string> read_paths;
+    if (before && !unread &&
+        reduces_the_same(*before, after.files, after.digest, scanned,
+            last) &&
+        decode_diagnostics(before->reduce_findings, s.index, nullptr)) {
+        (void)decode_diagnostics(before->reduce_findings, s.index, &out);
+        reduced = before->reduce_findings;
+        after.read_by_reduce = before->read_by_reduce;
         const auto& r = last.record;
         const auto end = end_of(r.input_firsts, last.unit, r.input_count());
         for (auto i = r.input_firsts[{last.unit}].value; i < end; ++i) {
@@ -430,7 +469,7 @@ std::string run_scan(const types::scan_function& f, types::corpus_view& view,
             else if (kind == types::input_kind::type_registry)
                 log.registry = true;
             else if (kind != types::input_kind::file ||
-                !before.entries.contains(r.input_keys[in]))
+                !scanned.contains(r.input_keys[in]))
                 log.add(kind, r.input_keys[in], r.input_found[in] != 0
                     ? std::optional(r.input_values[in]) : std::nullopt);
         }
@@ -443,22 +482,21 @@ std::string run_scan(const types::scan_function& f, types::corpus_view& view,
         view.record_to(&log);
         reduced = encode_diagnostics(s.c, out, first,
             static_cast<std::uint32_t>(out.size()));
-        std::unordered_map<std::string_view, std::size_t> rows;
+        std::unordered_set<std::string_view> seen;
         for (std::size_t i = 0; i < reads.size(); ++i) {
-            if (reads.kinds[i] != types::input_kind::file &&
-                reads.kinds[i] != types::input_kind::path)
-                continue;
-            if (rows.empty()) {
-                rows.reserve(entries.size());
-                for (std::size_t e = 0; e < entries.size(); ++e)
-                    rows.emplace(entries[e].first, e);
-            }
-            if (const auto it = rows.find(reads.keys[i]); it != rows.end())
-                entries[it->second].second.read_by_reduce = true;
+            if ((reads.kinds[i] == types::input_kind::file ||
+                    reads.kinds[i] == types::input_kind::path) &&
+                scanned.contains(reads.keys[i]) &&
+                seen.insert(*scanned.find(reads.keys[i])).second)
+                read_paths.emplace_back(reads.keys[i]);
         }
         add_reads(log, reads);
     }
-    return encode_scan(entries, reduced);
+    for (const auto& path : read_paths)
+        after.read_by_reduce.push_back(path);
+    after.reduce_findings = reduced;
+    made.table = encode_scan(after);
+    return made;
 }
 
 /**
@@ -473,7 +511,8 @@ struct call {
     std::vector<types::read_log>& logs;
     std::vector<call_rows>& rows;
     const scan_context& scanning;
-    std::vector<std::string>& scans;
+    const scan_identity identity;
+    std::vector<scan_output>& scans;
     const types::dependency_record& previous;
     const staging* staged;
     const answers now;
@@ -520,8 +559,8 @@ struct call {
         const last_call last{previous, units.last[unit], now};
         around<types::diagnostic_table>(unit,
             [&](types::diagnostic_table& out) {
-                scans[unit] = run_scan(f, view, scanning, seed, last,
-                    logs[unit], out);
+                scans[unit] = run_scan(f, view, scanning, identity, seed,
+                    last, logs[unit], out);
             });
     }
 
@@ -1176,14 +1215,17 @@ types::run_result run(const types::registry& r, const types::corpus& c,
 
     std::vector<types::read_log> logs(units.size());
     std::vector<call_rows> call_outputs(units.size());
-    std::vector<std::string> scans(units.size());
+    std::vector<scan_output> scans(units.size());
     const scan_context scanning{c, index, cache};
     parallel_for(pieces.size(), threads, [&](std::size_t i) {
         auto& p = pieces[i];
         const auto began = std::chrono::steady_clock::now();
         std::visit(call{p, static_cast<std::uint32_t>(i),
             views[p.codec.value], called, units, logs, call_outputs,
-            scanning, scans, previous, staged[p.codec.value].get(),
+            scanning, {r.codecs[p.codec.value].name,
+                r.codecs[p.codec.value].version,
+                keys[p.codec.value].configuration},
+            scans, previous, staged[p.codec.value].get(),
             answers_of(p.codec)}, r.codecs[p.codec.value].run);
         p.ms = since(began);
     });
@@ -1240,7 +1282,9 @@ types::run_result run(const types::registry& r, const types::corpus& c,
         add_files(files, p.files, at.files_begin, at.files_end);
         add_diagnostics(diagnostics, p.diagnostics, at.diagnostics_begin,
             at.diagnostics_end);
-        result.scans.push_back(std::move(scans[u]));
+        result.scans.push_back(std::move(scans[u].table));
+        std::ranges::move(scans[u].facts,
+            std::back_inserter(result.scan_facts));
         add_called_unit(result.record, c, d, keys[codec.value], document,
             units.manifests[u], logs[u], p, at, registry, threads);
     }

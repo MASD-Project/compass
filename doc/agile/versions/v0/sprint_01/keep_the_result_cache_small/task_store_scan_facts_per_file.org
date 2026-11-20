@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :keep_the_result_cache_small:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/scan-facts-per-file
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -20,7 +20,11 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Goal
 
-(Describe what user-visible-or-internal change this task produces.)
+A scan stores each file's fact and findings once, where every worktree and
+every later run finds them, and its result object no longer holds every
+file the codec covers. On 2026-11-20 a scan's result was 87 to 100% scan
+table, 1 to 9 MB, written again after any edit:
+[[id:EDCF07F7-7981-4BF8-B908-8DD4E6D9121F][Why the result cache grows]].
 
 * Status
 
@@ -28,20 +32,48 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 |--------------+----------------------------------------|
 | State        | STARTED                              |
 | Parent story | [[id:A98E704E-B2E4-49BA-8839-B0A1DE9C3679][Keep the result cache small]] |
-| Now          | Not yet started.                       |
+| Now          | Built; on ORE Studio an edit writes 31 MB, not 63, every byte of it manifests. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Review and merge; manifests are their own task. |
 | Last touched | 2026-11-20                               |
 
 * Acceptance
 
--
+- A scan unit's result holds no per-file entries: its size does not grow
+  with the number of files the codec covers.
+- An edit to one file writes that file's fact object and the unit's result
+  and manifest, nothing for the other files.
+- A second worktree on the same content maps no file a first one mapped.
+- The incremental behaviour of =ops_scan_tests.cpp= holds: only edited
+  files are mapped, and the reduce step runs only when what it saw changed.
+- Collection keeps the fact objects of every file a live record's scan
+  units read.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- *A fact object per file.* An action object of kind result under
+  =scan_fact_key(codec, version, configuration, path, content)=: the SHA-1
+  of those, so it names exactly what the map step's output depends on. Its
+  body is the fact and the file's findings, encoded as now. The path is in
+  the key because findings name their file.
+- *The scan table shrinks* to what the reduce step needs to be skipped:
+  the number of files, a digest of the (path, fact) pairs it reduced, in
+  the order the codec listed them, the paths it read itself, and its
+  findings.
+- *A run* looks each listed file's fact object up by its key. A hit is used
+  as the old table's entry was: logged as a file input, its findings
+  reported. A miss is mapped, and its fact object is handed to the store
+  with the unit's result. The reduce step is skipped when the digest and
+  the count match the seed's and every other input of the last call holds,
+  the files the reduce step read included. That is what
+  =reduces_the_same= checks today, by comparing each remapped file's fact.
+- *store_actions* writes the fact objects a run made, in the same pack.
+- *Collection*: =action_keys= adds, for each unit of a record, the fact key
+  of each file input. A unit's file inputs are the files it read or took
+  from the cache, so the key of every fact a live scan uses is among them;
+  keys of files that are no scan's name nothing, and keep nothing.
+- The result format's version goes up, so an old table is not read as a
+  new one; the first run after the change maps every file once.
 
 * Measurements
 
@@ -55,9 +87,25 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Bytes written by a cold run | 629 MB before, 622 MB after | =compass check= on a snapshot of ORE Studio's main, its own store, v0.0.3 against this branch | ORE =cddb56fd15= |
+| Bytes written by an edit to one page and one =.cpp= file | 63 MB before, 31 MB after | =du -sb .git/compass/packs= around a second =compass check= | the same |
+| Results in that edit's pack | 16, 32 MB before; 24, 5 KB after (16 results, 8 fact objects) | =build/probes/result_cache/packstat.py= over the pack the edit wrote | the same |
+| Manifests in that edit's pack | 16, 31 MB, before and after | the same | the same |
+| A second worktree's first run, one header edited | 10.2 s and 63 MB before; 5.0 s and 27 MB after | =git worktree add=, an edit, =compass check= | the same |
+| Warm run after the edit | 5.3 s before, 5.4 s after | =time= of the second =compass check= | the same |
+| Findings after the edit | 2, identical | =compass check= with each build, sorted and compared | the same |
 
 * Notes
+
+- The scan tables went from 1 to 9 MB to a few hundred bytes, and the
+  results of an edit from 32 MB to 5 KB. What an edit still writes is
+  manifests: a corpus unit's manifest keeps its last eight input sets, and
+  each set lists every file the unit read, so each edit rewrites a manifest
+  of up to 5.7 MB. That is [[id:8066E3E8-998F-4405-998E-1C1432B90800][Keep manifests small]].
+- A second worktree maps only what no worktree mapped before, so its first
+  run took half the time.
+- The first run of this build maps every file of every scan once, since a
+  table of the old format does not decode as a seed.
 
 * Test Scenarios
 

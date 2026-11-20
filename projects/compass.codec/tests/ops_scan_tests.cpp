@@ -17,6 +17,7 @@
  * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  */
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <filesystem>
@@ -26,6 +27,8 @@
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
 #include "compass.codec/io/action_cache.hpp"
+#include "compass.codec/io/dependency_file.hpp"
+#include "compass.codec/ops/action_cache.hpp"
 #include "compass.codec/ops/registry.hpp"
 #include "compass.codec/ops/run.hpp"
 #include "compass.codec/types/configuration.hpp"
@@ -171,6 +174,8 @@ struct outcome {
     int maps = 0;
     int reduces = 0;
     types::dependency_record record;
+    std::size_t facts = 0;
+    std::size_t table = 0;
 };
 
 /**
@@ -191,12 +196,13 @@ outcome run(const sources& plain, const scoped_directory& cache,
     const auto maps = mapped.load();
     const auto reduces = reduced.load();
     (void)io::store_actions(cache.path(), result.record, result.fresh, 2,
-        result.scans);
+        result.scans, result.scan_facts);
     const auto plain_run = ops::run(r, c.corpus(), c.types(), 2);
     CHECK(lines_of(result.diagnostics[0]) ==
         lines_of(plain_run.diagnostics[0]));
+    const auto table = result.scans.empty() ? 0 : result.scans.front().size();
     return {lines_of(result.diagnostics[0]), maps, reduces,
-        std::move(result.record)};
+        std::move(result.record), result.scan_facts.size(), table};
 }
 
 sources tree() {
@@ -363,6 +369,74 @@ TEST_CASE("a file that comes or goes is reduced again", "[ops][scan]") {
     CHECK(run(files, cache, first.record).reduces == 1);
 }
 
+TEST_CASE("an edit stores the fact object of the edited file alone",
+    "[ops][scan]") {
+    const scoped_directory cache("compass.codec.scan");
+    const auto first = run(tree(), cache);
+    REQUIRE(first.facts == 3);
+    auto files = tree();
+    files["src/b.txt"] = "def beta\nbad\n";
+
+    const auto second = run(files, cache, first.record);
+
+    CHECK(second.maps == 1);
+    CHECK(second.facts == 1);
+}
+
+TEST_CASE("a worktree with no record maps only the files no other "
+    "worktree's scan mapped", "[ops][scan]") {
+    const scoped_directory cache("compass.codec.scan");
+    REQUIRE(run(tree(), cache).maps == 3);
+    auto files = tree();
+    files["src/c.txt"] = "def gamma\ndef beta\n";
+
+    const auto other = run(files, cache);
+
+    CHECK(other.maps == 1);
+    CHECK(other.facts == 1);
+    CHECK(other.findings == std::vector<std::string>{
+        "src/a.txt 0 10 the marker line",
+        "src/c.txt 1 10 beta is also defined in src/b.txt"});
+}
+
+TEST_CASE("a scan's table holds no file, so its size does not grow with "
+    "the files", "[ops][scan]") {
+    const scoped_directory small_cache("compass.codec.scan");
+    const scoped_directory large_cache("compass.codec.scan");
+    auto many = tree();
+    for (int i = 0; i < 200; ++i)
+        many["src/more/file_" + std::to_string(i) + ".txt"] =
+            "def name_" + std::to_string(i) + "\n";
+
+    const auto small = run(tree(), small_cache);
+    const auto large = run(many, large_cache);
+
+    REQUIRE(large.maps == 203);
+    CHECK(small.table > 0);
+    CHECK(large.table == small.table);
+}
+
+TEST_CASE("collection keeps the fact object of each file a recorded scan "
+    "read", "[ops][scan]") {
+    const scoped_directory cache("compass.codec.scan");
+    const auto first = run(tree(), cache);
+    REQUIRE(io::write_dependency_file(io::dependency_file_path(cache.path()),
+        first.record));
+
+    const auto keys = io::action_keys(cache.path());
+
+    const auto configuration = first.record.configurations[{0}];
+    for (const auto& [path, bytes] : tree()) {
+        if (!path.ends_with(".txt"))
+            continue;
+        const auto key = ops::scan_fact_key("names", 1, configuration, path,
+            compass::store::ops::blob_id_of(bytes));
+        CHECK(std::ranges::contains(keys, key));
+        CHECK(io::action_source_of(cache.path())(
+            compass::store::types::action_kind::result, key));
+    }
+}
+
 namespace {
 
 std::atomic<int> pages_mapped{0};
@@ -494,7 +568,7 @@ outcome run_headings(const sources& all, const scoped_directory& cache,
     const auto maps = pages_mapped.load();
     const auto reduces = reduced.load();
     (void)io::store_actions(cache.path(), result.record, result.fresh, 2,
-        result.scans);
+        result.scans, result.scan_facts);
     const auto plain_run = ops::run(r, c.corpus(), c.types(), 2);
     const auto findings = findings_of(result.diagnostics[0], c.corpus());
     CHECK(findings == findings_of(plain_run.diagnostics[0], c.corpus()));

@@ -47,8 +47,9 @@ types::action_source action_source_of(
 action_writes store_actions(const std::filesystem::path& git_common_dir,
     const types::dependency_record& record,
     std::span<const types::record_unit_id> fresh, unsigned threads,
-    std::span<const std::string> scans) {
-    if (fresh.empty())
+    std::span<const std::string> scans,
+    std::span<const std::pair<store::types::blob_id, std::string>> facts) {
+    if (fresh.empty() && facts.empty())
         return {};
     const auto packs = store::io::packs_dir(git_common_dir);
     const store::io::pack_reader store(packs);
@@ -80,8 +81,13 @@ action_writes store_actions(const std::filesystem::path& git_common_dir,
         ++manifests_written;
         bytes += encoded.size();
     });
+    for (const auto& [key, body] : facts) {
+        writes.add_action(action_kind::result, key, body);
+        bytes += body.size();
+    }
     writes.publish();
-    return {results_written, manifests_written, unchanged, bytes};
+    return {results_written, manifests_written, unchanged, bytes,
+        facts.size()};
 }
 
 std::vector<store::types::blob_id> action_keys(
@@ -94,6 +100,20 @@ std::vector<store::types::blob_id> action_keys(
         record.manifests.values.end());
     keys.insert(keys.end(), record.results.values.begin(),
         record.results.values.end());
+    for (std::uint32_t u = 0; u < record.size(); ++u) {
+        const types::record_unit_id unit{u};
+        const auto end = u + 1 < record.size()
+            ? record.input_firsts[{u + 1}].value
+            : static_cast<std::uint32_t>(record.input_count());
+        for (auto i = record.input_firsts[unit].value; i < end; ++i) {
+            const types::input_id in{i};
+            if (record.input_kinds[in] == types::input_kind::file &&
+                record.input_found[in] != 0)
+                keys.push_back(ops::scan_fact_key(record.codecs[unit],
+                    record.versions[unit], record.configurations[unit],
+                    record.input_keys[in], record.input_values[in]));
+        }
+    }
     return keys;
 }
 

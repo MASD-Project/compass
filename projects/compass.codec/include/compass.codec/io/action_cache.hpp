@@ -24,6 +24,7 @@
 #include <filesystem>
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 #include "compass.codec/types/action_manifest.hpp"
 #include "compass.codec/types/dependency_record.hpp"
@@ -41,14 +42,15 @@ namespace compass::codec::io {
 
 /**
  * @brief What store_actions wrote: result objects, manifests and the bytes
- * of both, with the manifests left alone because their set was already
- * first.
+ * of all it wrote, with the manifests left alone because their set was
+ * already first, and the fact objects of the files scans mapped.
  */
 struct action_writes {
     std::uint64_t results = 0;
     std::uint64_t manifests = 0;
     std::uint64_t unchanged_manifests = 0;
     std::uint64_t bytes = 0;
+    std::uint64_t facts = 0;
 };
 
 /**
@@ -56,7 +58,8 @@ struct action_writes {
  * @p git_common_dir, on up to @p threads threads: each one's result object,
  * and its input set at the head of its manifest. @p scans, when not
  * empty, holds the scan table of each of @p fresh, in order, which goes
- * into its result object.
+ * into its result object, and @p facts the fact objects of the files the
+ * scans mapped, by key, which are written as they are.
  *
  * A result object is always written, so one a damaged copy made the unit
  * run is replaced. A manifest is read, given the set and written back;
@@ -70,12 +73,17 @@ struct action_writes {
 action_writes store_actions(const std::filesystem::path& git_common_dir,
     const types::dependency_record& record,
     std::span<const types::record_unit_id> fresh, unsigned threads,
-    std::span<const std::string> scans = {});
+    std::span<const std::string> scans = {},
+    std::span<const std::pair<compass::store::types::blob_id, std::string>>
+        facts = {});
 
 /**
  * @brief The keys of the manifests and results the dependency record of
  * the worktree whose git directory is @p git_dir names, which collection
- * keeps. A missing or damaged record names none.
+ * keeps, and of the fact object of each file input of each of its units:
+ * the facts a scan unit took or made are among them, and the key of a
+ * file that no scan read names nothing. A missing or damaged record names
+ * none.
  */
 [[nodiscard]] std::vector<compass::store::types::blob_id> action_keys(
     const std::filesystem::path& git_dir);

@@ -108,7 +108,7 @@ inline outcome run(const compass::codec::types::descriptor& codec,
                       : compass::codec::io::action_source_of(cache));
     if (!cache.empty())
         (void)compass::codec::io::store_actions(cache, r.record, r.fresh, 1,
-            r.scans);
+            r.scans, r.scan_facts);
     outcome out;
     const auto& t = r.diagnostics[0];
     for (std::uint32_t i = 0; i < t.size(); ++i) {
