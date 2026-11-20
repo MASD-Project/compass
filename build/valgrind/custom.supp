@@ -112,7 +112,9 @@
 #  and runs the dash that interprets it, whose memory dash keeps until it
 #  exits. Anchored on dash's allocators, ckmalloc and ckrealloc, on its
 #  evaluator, evaltree, and on its setting of the working directory at start,
-#  none of which compass's own stacks contain.
+#  none of which compass's own stacks contain. A dash built without symbols,
+#  as the CI image's Ubuntu ships it, names none of them, so the last entry
+#  anchors on frames of the dash binary, as the bash entry does.
 #
 {
    dash allocations
@@ -139,6 +141,14 @@
    fun:getcwd
    fun:getpwd
    fun:setpwd
+   ...
+}
+{
+   dash allocations through its own frames
+   Memcheck:Leak
+   match-leak-kinds: reachable,definite,indirect,possible
+   ...
+   obj:/usr/bin/dash
    ...
 }
 #
