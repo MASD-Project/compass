@@ -64,11 +64,11 @@ struct corpus {
     std::vector<std::uint64_t> object_sizes;
     std::vector<std::uint8_t> stored;
 
-    [[nodiscard]] std::filesystem::path source(std::uint32_t row) const {
+    [[nodiscard]] std::filesystem::path source(std::size_t row) const {
         return checkout / table.paths[ids[row]];
     }
 
-    [[nodiscard]] compass::org::io::object_key key(std::uint32_t row) const {
+    [[nodiscard]] compass::org::io::object_key key(std::size_t row) const {
         return {blobs[row].bytes, ingest::org::parser_version};
     }
 };
@@ -93,7 +93,7 @@ tally store_range(corpus& c, store::io::pack_writer& writes,
     tally t;
     ot::tables tables;
     std::vector<std::byte> bytes;
-    for (auto row = range.begin; row < range.end; ++row) {
+    for (std::size_t row = range.begin; row < range.end; ++row) {
         c.stored[row] = 0;
         try {
             const mapped_file file(c.source(row));
@@ -113,7 +113,7 @@ tally store_range(corpus& c, store::io::pack_writer& writes,
 }
 
 std::span<const std::byte> object_of(const store::io::pack_reader& store,
-    const corpus& c, std::uint32_t row) {
+    const corpus& c, std::size_t row) {
     const auto bytes = store.find(store::types::entry_kind::object,
         c.blobs[row]);
     if (!bytes)
@@ -126,7 +126,7 @@ std::span<const std::byte> object_of(const store::io::pack_reader& store,
 tally load_range(const store::io::pack_reader& store, const corpus& c,
     types::file_range range, warm how) {
     tally t;
-    for (auto row = range.begin; row < range.end; ++row) {
+    for (std::size_t row = range.begin; row < range.end; ++row) {
         if (c.stored[row] == 0)
             continue;
         try {
@@ -149,7 +149,7 @@ tally compare_range(const store::io::pack_reader& store, const corpus& c,
     types::file_range range) {
     tally t;
     ot::tables tables;
-    for (auto row = range.begin; row < range.end; ++row) {
+    for (std::size_t row = range.begin; row < range.end; ++row) {
         if (c.stored[row] == 0)
             continue;
         bool same = false;
