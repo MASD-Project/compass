@@ -220,7 +220,17 @@ and adds the bytes to a =pack_writer=; later it finds them through a
   Unless this is a dry run, the entries kept go into one new pack and the
   old packs are removed; a store of one pack with nothing to drop is left
   as it is. A pack a writer publishes during the collection is not
-  touched. The directories of the first layout are removed whole.
+  touched. The directories of the first layout are removed whole, and the
+  bytes the packs hold after it go to =compass/collected=
+  (=io::collected_file_path=).
+- *Collection as part of the runs.* =io::collect_when_grown= collects when
+  the packs hold at least =io::collection_floor= (256 MB) and at least
+  twice what the last collection left, or when none is recorded, with no
+  cap and the default grace period. So a store is rewritten at most once
+  per doubling, and a collection copies no more bytes, over time, than the
+  runs wrote. It does not wait for the lock: when another process holds
+  it the collection is skipped (=collection_result::skipped=) and the next
+  run that finds the store grown tries again.
 - *Collection is safe to run at any time.* An index that exists and cannot
   be read, split, damaged or of another version, stops the collection before
   anything is removed, since the IDs it holds cannot be kept. A process that
@@ -333,7 +343,7 @@ was shared, so the numbers are indicative.
 | =include/compass.store/ops/worktree_index.hpp=   | =encode_worktree_index=, =decode_worktree_index=.                                 |
 | =include/compass.store/types/collection.hpp=     | =stored_objects=, =collection_plan=, =collection_options=, =collection_result=.   |
 | =include/compass.store/ops/collection.hpp=       | =plan_collection=.                                                                |
-| =include/compass.store/io/collection.hpp=        | =worktree_git_dirs=, =live_ids=, =list_objects=, =action_roots=, =collect=.       |
+| =include/compass.store/io/collection.hpp=        | =worktree_git_dirs=, =live_ids=, =list_objects=, =action_roots=, =collect=, =collect_when_grown=. |
 | =include/compass.store/types/git_object.hpp=     | =object_id=, =object_type=, =git_object=, =tree_entry=, =commit_files=.           |
 | =include/compass.store/ops/git_object.hpp=       | The pack, index, delta, loose object, tree and commit formats.                    |
 | =include/compass.store/io/git_objects.hpp=       | =git_objects=, =git_objects_dir=, =list_commit=, =read_commit_file=.              |
@@ -344,7 +354,7 @@ was shared, so the numbers are indicative.
 | =tests/ops_git_settings_tests.cpp=               | Configuration, attribute rules and patterns.                                      |
 | =tests/io_id_resolver_tests.cpp=                 | Real repositories; IDs checked against =git hash-object=.                         |
 | =tests/io_worktree_index_tests.cpp=              | Reuse with no read, changes, racy entries, damage, pruning, linked worktrees.     |
-| =tests/io_collection_tests.cpp=                  | Linked and deleted worktrees, worktree indexes, cap, grace, order, dry runs, action objects, superseded manifests, the first layout. |
+| =tests/io_collection_tests.cpp=                  | Linked and deleted worktrees, worktree indexes, cap, grace, order, dry runs, action objects, superseded manifests, the first layout, collecting once grown, a busy lock. |
 | =tests/ops_pack_tests.cpp=                       | Lookups across fan-out buckets, damaged packs, the geometric merge.               |
 | =tests/io_pack_store_tests.cpp=                  | Publication, temporary files, merges, damaged copies, the lock, many processes at once. |
 | =tests/ops_git_object_tests.cpp=                 | Deltas, trees, commits, zlib streams and pack entry headers, well formed and not. |

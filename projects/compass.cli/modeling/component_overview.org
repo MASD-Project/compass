@@ -62,9 +62,9 @@ exposes it as one function per step, so a caller can time each:
 | =corpus_of=                                | The rows that loaded, typed, as the corpus the codecs read.                   |
 | =read_dependency_record=, =run_codecs=     | The codecs run from the dependency record and the result cache.               |
 | =store_objects=, =write_worktree_index=    | The parsed objects and the worktree index, with every listed file hashed.     |
-| =store_results=, =write_dependency_record= | The result cache and the dependency record written.                           |
+| =store_results=, =write_dependency_record= | The result cache and the dependency record written, and the keys it retired.  |
 | =write_outputs=, =plan_outputs=            | The outputs written, or planned for a diff.                                   |
-| =collect=                                  | The store collected.                                                          |
+| =collect=                                  | The store collected, by =gc=, or by a run once the store has grown.           |
 
 A check of a commit runs the same steps over an =app::commit_source=: the
 commit listed by =store::io::list_commit= and its object database. =list=
@@ -401,13 +401,17 @@ the name keeps it apart from ORE Studio's Python =compass=.
   prints one line per path and codec setting, as
   =<key> = <value> (<source>)=, the source being =default=,
   =.compass.org:<line>= or =command line=.
-- Standard error: for =generate=, one warning per file whose rewrite
+- Standard error: for a run that collected the store, one line with
+  what it removed and kept
+  (=compass: collected the store: removed <n> entries and files, ...=),
+  or a warning when the collection failed, which fails nothing; for
+  =generate=, one warning per file whose rewrite
   deleted what may be code written by hand
   (=compass: warning: <path>:<line>: generate deleted <n> lines its output
   lacks, from "<first line>"; ...=), as =codec::io::find_hand_edits= finds
   them before the write; the summary of =diff=; with =--timings=, one line per
   step (=tree= for a commit, =types=, =list=, =resolve=, =load=, =record=,
-  =codecs=, =format=, =persist=, =write= or =plan=, =exceptions=) with its wall time,
+  =codecs=, =format=, =persist=, =collect=, =write= or =plan=, =exceptions=) with its wall time,
   and one line per codec
   with the units it ran, took from the record and took from the cache,
   and what formatting its files did; every error of the configuration

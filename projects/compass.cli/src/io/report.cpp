@@ -152,6 +152,19 @@ void write_hook(std::ostream& out, std::ostream& err,
 void write_problems(std::ostream& err, const types::run_summary& s) {
     write_lines(err, "", s.errors);
     write_lines(err, "codec registry: ", s.problems);
+    if (!s.collection_problem.empty())
+        err << std::format("compass: warning: the store was not collected: "
+                           "{}\n", s.collection_problem);
+    if (s.collection && !s.collection->skipped) {
+        const auto& c = *s.collection;
+        const auto& stored = c.plan.stored;
+        err << std::format("compass: collected the store: removed {} "
+                           "entries and files, {} bytes; kept {} bytes ({:.1f} "
+                           "ms)\n", c.removed.objects, c.removed.bytes,
+            stored.bytes + c.superseded.bytes - c.removed.bytes,
+            c.worktrees_ms + c.live_ms + c.list_ms + c.plan_ms +
+                c.remove_ms);
+    }
 }
 
 void write_generate(std::ostream& out, std::ostream& err,

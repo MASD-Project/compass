@@ -51,8 +51,10 @@ namespace compass::cli::types {
  * codec_ms the time spent in the codec's calls, summed over threads. formats
  * says, per codec, what formatting its files did, for a codec whose files
  * were formatted. steps names each step of the command with its wall
- * time, in the order they ran. ms is the wall time from listing the
- * checkout to the end of the codec run.
+ * time, in the order they ran. collection is what the collection the
+ * run started did, when the store had grown enough for one, and
+ * collection_problem why one failed, which fails nothing. ms is the wall
+ * time from listing the checkout to the end of the codec run.
  */
 struct run_summary {
     std::uint64_t files = 0;
@@ -68,6 +70,8 @@ struct run_summary {
     std::vector<double> codec_ms;
     std::vector<std::optional<codec::io::format_stats>> formats;
     std::vector<std::pair<std::string, double>> steps;
+    std::optional<store::types::collection_result> collection;
+    std::string collection_problem;
     double ms = 0;
 
     [[nodiscard]] bool failed() const noexcept {

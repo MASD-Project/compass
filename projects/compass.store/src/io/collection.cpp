@@ -20,6 +20,7 @@
 #include "compass.store/io/collection.hpp"
 
 #include <algorithm>
+#include <charconv>
 #include <chrono>
 #include <exception>
 #include <fstream>
@@ -33,6 +34,7 @@
 #include "compass.platform/filesystem/file_status.hpp"
 #include "compass.store/io/git_files.hpp"
 #include "compass.store/io/location.hpp"
+#include "compass.store/io/object_file.hpp"
 #include "compass.store/io/pack_store.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 #include "compass.store/ops/collection.hpp"
@@ -249,6 +251,15 @@ types::collection_result collect(const std::filesystem::path& checkout,
 
     auto start = std::chrono::steady_clock::now();
     const auto common = git_common_dir(checkout);
+    const auto dir = packs_dir(common);
+    std::optional<pack_lock> lock;
+    if (!options.dry_run) {
+        lock.emplace(dir, options.wait);
+        if (!lock->held()) {
+            r.skipped = true;
+            return r;
+        }
+    }
     r.worktrees = worktree_git_dirs(common);
     r.worktrees_ms = since(start);
 
@@ -269,10 +280,6 @@ types::collection_result collect(const std::filesystem::path& checkout,
     r.live_ms = since(start);
 
     start = std::chrono::steady_clock::now();
-    const auto dir = packs_dir(common);
-    std::optional<pack_lock> lock;
-    if (!options.dry_run)
-        lock.emplace(dir, true);
     std::vector<std::filesystem::path> rejected;
     const auto packs = open_packs(dir, &rejected);
     r.packs = packs.size();
@@ -356,9 +363,49 @@ types::collection_result collect(const std::filesystem::path& checkout,
         }
         for (const auto& d : legacy_store_dirs(common))
             std::filesystem::remove_all(d, ignored);
+        const auto bytes = std::to_string(packs_bytes(dir));
+        write_object(collected_file_path(common),
+            std::as_bytes(std::span(bytes)));
     }
     r.remove_ms = since(start);
     return r;
+}
+
+std::uint64_t packs_bytes(const std::filesystem::path& packs_dir) {
+    std::uint64_t bytes = 0;
+    std::error_code ignored;
+    for (const auto& entry : std::filesystem::directory_iterator(packs_dir,
+             ignored)) {
+        const auto name = entry.path().filename().string();
+        if (!name.starts_with("pack-") || !name.ends_with(".cpk"))
+            continue;
+        if (const auto st = regular_file_status(entry.path()))
+            bytes += st->size;
+    }
+    return bytes;
+}
+
+std::filesystem::path collected_file_path(
+    const std::filesystem::path& git_common_dir) {
+    return git_common_dir / "compass" / "collected";
+}
+
+std::optional<types::collection_result> collect_when_grown(
+    const std::filesystem::path& checkout, const action_roots& roots,
+    std::uint64_t floor) {
+    const auto common = git_common_dir(checkout);
+    const auto bytes = packs_bytes(packs_dir(common));
+    if (bytes < floor)
+        return std::nullopt;
+    if (const auto last = read_file(collected_file_path(common))) {
+        std::uint64_t collected = 0;
+        const auto [end, error] = std::from_chars(last->data(),
+            last->data() + last->size(), collected);
+        if (error == std::errc{} && end == last->data() + last->size() &&
+            bytes < 2 * collected)
+            return std::nullopt;
+    }
+    return collect(checkout, {.wait = false}, roots);
 }
 
 }
