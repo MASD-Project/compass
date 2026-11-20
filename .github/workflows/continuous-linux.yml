@@ -29,7 +29,17 @@ on:  # yamllint disable-line rule:truthy
   push:
     tags:
       - '*'
+    # A pull request's branch builds linux-clang release on every push, so
+    # the pull request shows its checks. This is a push trigger, not a
+    # pull_request one: no_pr_triggers forbids those.
+    branches:
+      - 'feature/**'
   workflow_dispatch:
+
+# A new push to a feature branch supersedes the run of the one before it.
+concurrency:
+  group: continuous-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' && github.ref_type == 'branch' }}
 
 jobs:
   guard:
@@ -40,8 +50,9 @@ jobs:
       should_build: ${{ steps.check.outputs.should_build }}
     steps:
       - uses: actions/checkout@v7
-        # Manual and tag runs always build; only scheduled comparisons need a checkout.
-        if: github.event_name == 'schedule'
+        # Manual and tag runs always build; scheduled and branch runs compare
+        # commits, so they need the history.
+        if: github.event_name == 'schedule' || (github.event_name == 'push' && github.ref_type == 'branch')
         with:
           fetch-depth: 0
       - name: Check if code changed since last successful run
@@ -50,13 +61,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           echo "should_build=true" >> "$GITHUB_OUTPUT"
-          if [[ "${{ github.event_name }}" != "schedule" ]]; then
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref_type }}" == "branch" ]]; then
+            # A feature branch is compared with where it left main.
+            last_sha=$(git merge-base origin/main "$GITHUB_SHA")
+          elif [[ "${{ github.event_name }}" == "schedule" ]]; then
+            workflow_file=$(basename "${GITHUB_WORKFLOW_REF%%@*}")
+            last_sha=$(gh api \
+              "repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow_file}/runs?branch=main&status=success&per_page=1" \
+              --jq '.workflow_runs[0].head_sha // empty')
+          else
             exit 0
           fi
-          workflow_file=$(basename "${GITHUB_WORKFLOW_REF%%@*}")
-          last_sha=$(gh api \
-            "repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow_file}/runs?branch=main&status=success&per_page=1" \
-            --jq '.workflow_runs[0].head_sha // empty')
           if [[ -z "$last_sha" ]]; then
             echo "No prior successful run — building"
             exit 0
@@ -132,7 +147,9 @@ jobs:
       fail-fast: false
       matrix:
         name: [linux-clang]
-        buildtype: [debug, release]
+        # A feature branch builds release alone: it is the faster of the two,
+        # and the scheduled runs on main build debug with coverage.
+        buildtype: ${{ fromJSON(github.event_name == 'push' && github.ref_type == 'branch' && '["release"]' || '["debug", "release"]') }}
         include:
           - name: linux-clang
             family: linux
@@ -263,6 +280,13 @@ jobs:
         # existing entry alone when it did not.
         if: ${{ always() && steps.ctest.outcome != 'skipped' }}
         run: |
+          # A feature branch reads main's cache and never saves one: a branch's
+          # entry is visible to that branch alone, and saving it would prune
+          # main's entry of the variant.
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref_type }}" == "branch" ]]; then
+            echo "worth_saving=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           size_mb=$(du -sm "${SCCACHE_DIR}" 2>/dev/null | cut -f1)
           size_mb=${size_mb:-0}
           echo "local compiler cache: ${size_mb} MB"
