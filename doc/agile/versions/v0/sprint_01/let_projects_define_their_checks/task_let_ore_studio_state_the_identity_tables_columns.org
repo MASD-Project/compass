@@ -32,7 +32,7 @@ the check with no way to state it.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                                   |
 | Parent story | [[id:DAB2F48A-E47A-4895-9026-056AF21E6CCC][Let projects define their own checks]] |
 | Now          | The two column lists are options; ORE Studio's branch passes with provider_code declared. |
 | Waiting on   | Nothing.                               |
@@ -105,3 +105,9 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+=marketdata_identity_columns= takes =context_columns= and =view_columns=
+as options, defaulting to the lists it hard-coded. On ORE Studio's branch it
+reports =provider_code= without the setting and is quiet with it; ORE
+Studio's Python gate reads the same codec row, so the two lists cannot
+drift. The other hard-coded ORE Studio facts are left for their own work.
