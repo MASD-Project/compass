@@ -695,7 +695,7 @@
     {
       "name": "linux-gcc-release-ninja",
       "packageName": "compass",
-      "packageVersion": "0.0.2",
+      "packageVersion": "0.0.3",
       "displayName": "Distribute Release",
       "configurePreset": "linux-gcc-release-ninja",
       "generators": [
@@ -708,7 +708,7 @@
     {
       "name": "linux-gcc-release-make",
       "packageName": "compass",
-      "packageVersion": "0.0.2",
+      "packageVersion": "0.0.3",
       "displayName": "Distribute Release",
       "configurePreset": "linux-gcc-release-make",
       "generators": [
@@ -721,7 +721,7 @@
     {
       "name": "linux-clang-release-ninja",
       "packageName": "compass",
-      "packageVersion": "0.0.2",
+      "packageVersion": "0.0.3",
       "displayName": "Distribute Release",
       "configurePreset": "linux-clang-release-ninja",
       "generators": [
@@ -734,7 +734,7 @@
     {
       "name": "linux-clang-release-make",
       "packageName": "compass",
-      "packageVersion": "0.0.2",
+      "packageVersion": "0.0.3",
       "displayName": "Distribute Release",
       "configurePreset": "linux-clang-release-make",
       "generators": [
