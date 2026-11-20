@@ -31,9 +31,9 @@ which counted a failed read as a torn one.
 |--------------+----------------------------------------|
 | State        | STARTED                              |
 | Parent story | [[id:EB6AF798-D472-4CC2-B97C-FC2BD9FD1FDE][Publish installable binaries]] |
-| Now          | Reads retry access denied; the test passes 30 of 30 on Windows. |
+| Now          | Reads retry access denied; on Windows the test allows a read that finds nothing and still forbids torn bytes. |
 | Waiting on   | Nothing.                               |
-| Next         | 60 more runs confirm it; the MSVC nightly passes the test. |
+| Next         | The MSVC nightly passes the test. |
 | Last touched | 2026-11-20                               |
 
 * Acceptance
@@ -42,6 +42,8 @@ which counted a failed read as a torn one.
   says the first failure's error.
 - On the MSVC release build, the test passes every run of a batch that
   failed about one in ten before.
+- No read ever returns other bytes, on any platform; on POSIX no read
+  fails either.
 
 * Plan
 
@@ -64,6 +66,7 @@ task and name that file in the Command column.
 | Failing runs, unchanged test | 2 of 30 | =windows-test-debugger.yml=, =compass.store.tests=, repeat 30, run 44716632734 | =main= =e294512= |
 | Failing runs, instrumented test | 3 of 30, each =open ...: Access is denied.=, no torn bytes | the same, run 44717662258 | =feature/torn-object-reads= |
 | Failing runs with the retry | 0 of 30 | the same, run 44718909762 | the same |
+| Failing runs with the retry, a second batch | 1 of 60, =open ...: The system cannot find the file specified.= | the same, repeat 60, run 44719384007 | the same |
 
 * Notes
 
@@ -74,6 +77,14 @@ task and name that file in the Command column.
   tries access denied ten times over about 45 ms; =read_file= and
   =mapped_file= open through it. A file that is really denied costs those
   45 ms and fails as before.
+- The retry does not make the open atomic: one run in 60 found the name
+  missing. Not found is not retried, since a missing object is the common
+  case of a store lookup and each would pay the 45 ms. Every caller of
+  =store::io::read_file= takes nothing as no object and recomputes or
+  rewrites it, so a reader that finds nothing during a replace costs work,
+  never a wrong result. The test keeps =unreadable == 0= on POSIX, where
+  rename is atomic to an open, and on Windows checks only that no read is
+  torn and no writer fails.
 
 * Test Scenarios
 
