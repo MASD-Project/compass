@@ -34,13 +34,15 @@ using compass::store::types::blob_id;
 constexpr std::size_t hash_size = 20;
 
 /**
- * @brief What an encoded stage, an encoded scan table and a fact object
- * start with, "STG1", "SCN3" and "FCT1" little-endian, so none is read as
- * another nor as the table an earlier build wrote, which held every file.
+ * @brief What an encoded stage, an encoded scan table, a fact object and an
+ * input chunk start with, "STG1", "SCN3", "FCT1" and "INP1" little-endian,
+ * so none is read as another nor as the table an earlier build wrote,
+ * which held every file.
  */
 constexpr std::uint32_t stage_magic = 0x31475453;
 constexpr std::uint32_t scan_magic = 0x334E4353;
 constexpr std::uint32_t scan_fact_magic = 0x31544346;
+constexpr std::uint32_t input_chunk_magic = 0x31504E49;
 
 void put(std::string& out, std::uint8_t v) {
     out.push_back(static_cast<char>(v));
@@ -123,28 +125,50 @@ blob_id sha1(std::string_view bytes) {
 }
 
 /**
- * @brief The input columns of a record or a manifest, from begin to end.
+ * @brief The rows of the inputs of unit @p u of @p record, sorted by kind
+ * and key.
  */
-template <typename Table>
-void put_inputs(std::string& out, const Table& t, std::uint32_t begin,
-    std::uint32_t end) {
-    put(out, end - begin);
-    for (auto i = begin; i < end; ++i) {
-        const types::input_id in{i};
-        put(out, static_cast<std::uint8_t>(t.input_kinds[in]));
-        put_text(out, t.input_keys[in]);
-        put(out, t.input_found[in]);
-        put(out, t.input_values[in]);
-    }
+std::vector<std::uint32_t> sorted_inputs(
+    const types::dependency_record& record, types::record_unit_id u) {
+    const auto begin = record.input_firsts[u].value;
+    const auto end = end_of(record.input_firsts, u.value,
+        record.input_count());
+    std::vector<std::uint32_t> order(end - begin);
+    std::iota(order.begin(), order.end(), begin);
+    std::ranges::sort(order, {}, [&](std::uint32_t i) {
+        return std::tuple(record.input_kinds[types::input_id{i}],
+            record.input_keys[types::input_id{i}]);
+    });
+    return order;
 }
 
-template <typename Table>
-void add_input(types::action_manifest& to, const Table& from,
+void put_input(std::string& out, const types::dependency_record& record,
     types::input_id in) {
-    to.input_kinds.values.push_back(from.input_kinds[in]);
-    to.input_keys.add(from.input_keys[in]);
-    to.input_found.values.push_back(from.input_found[in]);
-    to.input_values.values.push_back(from.input_values[in]);
+    put(out, static_cast<std::uint8_t>(record.input_kinds[in]));
+    put_text(out, record.input_keys[in]);
+    put(out, record.input_found[in]);
+    put(out, record.input_values[in]);
+}
+
+/**
+ * @brief FNV-1a of the input's kind and key, finished with the mix of
+ * splitmix64 so its low bits are as good as its high ones.
+ */
+std::uint64_t cut_hash(types::input_kind kind, std::string_view key) {
+    std::uint64_t h = 0xcbf29ce484222325ULL;
+    const auto add = [&](std::uint8_t b) {
+        h ^= b;
+        h *= 0x100000001b3ULL;
+    };
+    add(static_cast<std::uint8_t>(kind));
+    for (const char c : key)
+        add(static_cast<std::uint8_t>(c));
+    h ^= h >> 30;
+    h *= 0xbf58476d1ce4e5b9ULL;
+    h ^= h >> 27;
+    h *= 0x94d049bb133111ebULL;
+    h ^= h >> 31;
+    return h;
 }
 
 }
@@ -164,69 +188,85 @@ blob_id manifest_key(std::string_view codec, std::uint32_t version,
 
 blob_id result_key(const blob_id& manifest,
     const types::dependency_record& record, types::record_unit_id u) {
-    const auto begin = record.input_firsts[u].value;
-    const auto end = end_of(record.input_firsts, u.value,
-        record.input_count());
-    std::vector<std::uint32_t> order(end - begin);
-    std::iota(order.begin(), order.end(), begin);
-    std::ranges::sort(order, {}, [&](std::uint32_t i) {
-        return std::tuple(record.input_kinds[types::input_id{i}],
-            record.input_keys[types::input_id{i}]);
-    });
     std::string bytes;
     put(bytes, manifest);
-    for (const auto i : order) {
-        const types::input_id in{i};
-        put(bytes, static_cast<std::uint8_t>(record.input_kinds[in]));
-        put_text(bytes, record.input_keys[in]);
-        put(bytes, record.input_found[in]);
-        put(bytes, record.input_values[in]);
-    }
+    for (const auto i : sorted_inputs(record, u))
+        put_input(bytes, record, types::input_id{i});
     return sha1(bytes);
 }
 
-bool add_input_set(types::action_manifest& m,
+std::vector<input_chunk> chunk_input_set(
     const types::dependency_record& record, types::record_unit_id u) {
+    std::vector<input_chunk> chunks;
     const auto begin = record.input_firsts[u].value;
     const auto end = end_of(record.input_firsts, u.value,
         record.input_count());
-    const auto result = record.results[u];
-    const auto same = [&](std::uint32_t s) {
-        const auto first = m.input_firsts.values[s].value;
-        const auto last = end_of(m.input_firsts, s, m.input_count());
-        if (last - first != end - begin || m.results.values[s] != result)
+    auto first = begin;
+    for (auto k = begin; k < end; ++k) {
+        const types::input_id in{k};
+        const bool last = k + 1 == end || k + 1 - first == chunk_limit ||
+            cut_hash(record.input_kinds[in], record.input_keys[in]) %
+                    chunk_spacing == 0;
+        if (!last)
+            continue;
+        std::string body;
+        put(body, input_chunk_magic);
+        put(body, k + 1 - first);
+        for (auto j = first; j <= k; ++j)
+            put_input(body, record, types::input_id{j});
+        chunks.push_back({sha1(body), std::move(body)});
+        first = k + 1;
+    }
+    return chunks;
+}
+
+bool decode_input_chunk(std::string_view body, types::input_list& to) {
+    reader r(body);
+    if (r.u32() != input_chunk_magic)
+        return false;
+    const auto inputs = r.u32();
+    for (std::uint32_t i = 0; i < inputs && r.ok(); ++i) {
+        const auto kind = r.u8();
+        if (kind > static_cast<std::uint8_t>(types::last_input_kind))
             return false;
-        for (std::uint32_t k = 0; k < end - begin; ++k) {
-            const types::input_id a{first + k};
-            const types::input_id b{begin + k};
-            if (m.input_kinds[a] != record.input_kinds[b] ||
-                m.input_keys[a] != record.input_keys[b] ||
-                m.input_found[a] != record.input_found[b] ||
-                m.input_values[a] != record.input_values[b])
-                return false;
-        }
-        return true;
+        to.input_kinds.values.push_back(static_cast<types::input_kind>(kind));
+        to.input_keys.add(r.text());
+        to.input_found.values.push_back(r.u8());
+        to.input_values.values.push_back(r.id());
+    }
+    return r.done();
+}
+
+bool add_input_set(types::action_manifest& m, const blob_id& result,
+    std::span<const input_chunk> chunks) {
+    const auto same = [&](std::uint32_t s) {
+        const auto first = m.chunk_firsts.values[s].value;
+        const auto last = end_of(m.chunk_firsts, s, m.chunk_count());
+        return m.results.values[s] == result &&
+            std::ranges::equal(
+                std::span(m.chunks.values).subspan(first, last - first),
+                chunks, {}, {}, &input_chunk::key);
     };
     if (m.size() != 0 && same(0))
         return false;
 
     types::action_manifest next;
     const auto open = [&](const blob_id& key) {
-        next.input_firsts.values.push_back(
-            {static_cast<std::uint32_t>(next.input_count())});
         next.results.values.push_back(key);
+        next.chunk_firsts.values.push_back(
+            {static_cast<std::uint32_t>(next.chunk_count())});
     };
     open(result);
-    for (auto i = begin; i < end; ++i)
-        add_input(next, record, types::input_id{i});
+    for (const auto& c : chunks)
+        next.chunks.values.push_back(c.key);
     for (std::uint32_t s = 0;
          s < m.size() && next.size() < manifest_capacity; ++s) {
         if (same(s))
             continue;
         open(m.results.values[s]);
-        const auto last = end_of(m.input_firsts, s, m.input_count());
-        for (auto i = m.input_firsts.values[s].value; i < last; ++i)
-            add_input(next, m, types::input_id{i});
+        const auto last = end_of(m.chunk_firsts, s, m.chunk_count());
+        for (auto c = m.chunk_firsts.values[s].value; c < last; ++c)
+            next.chunks.values.push_back(m.chunks.values[c]);
     }
     m = std::move(next);
     return true;
@@ -238,8 +278,11 @@ std::string encode_manifest(const types::action_manifest& m) {
     put(out, static_cast<std::uint32_t>(m.size()));
     for (std::uint32_t s = 0; s < m.size(); ++s) {
         put(out, m.results.values[s]);
-        put_inputs(out, m, m.input_firsts.values[s].value,
-            end_of(m.input_firsts, s, m.input_count()));
+        const auto first = m.chunk_firsts.values[s].value;
+        const auto last = end_of(m.chunk_firsts, s, m.chunk_count());
+        put(out, last - first);
+        for (auto c = first; c < last; ++c)
+            put(out, m.chunks.values[c]);
     }
     return out;
 }
@@ -251,21 +294,12 @@ std::optional<types::action_manifest> decode_manifest(std::string_view body) {
     types::action_manifest m;
     const auto sets = r.u32();
     for (std::uint32_t s = 0; s < sets && r.ok(); ++s) {
-        m.input_firsts.values.push_back(
-            {static_cast<std::uint32_t>(m.input_count())});
         m.results.values.push_back(r.id());
-        const auto inputs = r.u32();
-        for (std::uint32_t i = 0; i < inputs && r.ok(); ++i) {
-            const auto kind = r.u8();
-            if (kind > static_cast<std::uint8_t>(
-                    types::last_input_kind))
-                return std::nullopt;
-            m.input_kinds.values.push_back(
-                static_cast<types::input_kind>(kind));
-            m.input_keys.add(r.text());
-            m.input_found.values.push_back(r.u8());
-            m.input_values.values.push_back(r.id());
-        }
+        m.chunk_firsts.values.push_back(
+            {static_cast<std::uint32_t>(m.chunk_count())});
+        const auto chunks = r.u32();
+        for (std::uint32_t c = 0; c < chunks && r.ok(); ++c)
+            m.chunks.values.push_back(r.id());
     }
     if (!r.done())
         return std::nullopt;

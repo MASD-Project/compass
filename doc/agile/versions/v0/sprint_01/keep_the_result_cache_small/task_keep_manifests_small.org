@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :keep_the_result_cache_small:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/keep-manifests-small
+#+pr: 124
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-20
@@ -20,28 +20,49 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Goal
 
-(Describe what user-visible-or-internal change this task produces.)
+An edit writes manifests of kilobytes, not megabytes. A manifest names
+each of its input sets by the keys of its chunks: content-addressed runs
+of about 128 inputs, cut where the hash of an input's kind and key says,
+so an edit to one file changes one chunk, and every set, manifest and
+worktree that reads the same files shares the rest.
 
 * Status
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:A98E704E-B2E4-49BA-8839-B0A1DE9C3679][Keep the result cache small]] |
-| Now          | Not yet started.                       |
+| Now          | Built; on ORE Studio an edit writes 183 KB, not 31 MB. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Review and merge.                      |
 | Last touched | 2026-11-20                               |
 
 * Acceptance
 
--
+- A manifest holds, per set, its result key and its chunk keys; a chunk
+  holds the inputs in the order the unit read them.
+- A run from the cache records what a call would, byte for byte, as before.
+- An edit to one of many files a scan read writes one chunk and a
+  manifest a fraction of the size of the scan's inputs.
+- A damaged chunk is a miss and is written again by the next run.
+- Collection keeps the chunks of every set a worktree's record names.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- =ops::chunk_input_set= cuts a unit's inputs, in read order, after an
+  input whose kind-and-key hash is zero modulo 128, or after 1,024 inputs.
+  Each chunk is a result object keyed by the SHA-1 of its body ("INP1").
+  Read order and not sorted order, because a hit must record what the
+  call would.
+- The manifest names sets by result key and chunk keys; =add_input_set=
+  compares sets by those keys alone.
+- =io::store_actions= writes each chunk the store does not hold intact,
+  even when the manifest is unchanged, so a damaged chunk heals.
+- =look_up= reads each chunk once per manifest and checks a set's inputs
+  as before.
+- =io::action_keys= cuts each recorded unit's inputs again for the keys.
+- =action_format_version= goes to 6: every key changes, which a new build
+  causes anyway through the code hash.
 
 * Measurements
 
@@ -55,9 +76,23 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Bytes written by a cold run | 622 MB before, 598 MB after | =compass check= on a snapshot of ORE Studio's main with an empty store, =du -sb .git/compass/packs= | ORE =cddb56fd15= |
+| Bytes written by an edit to one page and one =.cpp= file | 31 MB before, 183 KB after | =du -sb .git/compass/packs= around a second =compass check= | the same |
+| Manifests in that edit's packs | 16 and 31 MB before; 16 and 49 KB after | =build/probes/result_cache/packstat.py= over the packs the edit wrote, entries told apart by their magic | the same |
+| Chunks in that edit's packs | 9, 120 KB | the same | the same |
+| A second worktree's first run, one header edited | 27 MB before, 479 KB after | =git worktree add=, an edit, =compass check= | the same |
+| Chunking every unit of one worktree's record | 90,419 units, 408,738 inputs, 93,317 chunks, 44 MB, 102 ms on one thread; the largest unit 222 chunks in 6 ms | a probe linked against the built libraries, timing =ops::chunk_input_set= | the same |
+| Findings after the edit | 2, the same two warnings as before | =compass check= | the same |
 
 * Notes
+
+- Wall times were not compared. The load average was 12 to 17 during the
+  runs: edit runs took 5.7 to 6.2 s against 5.3 to 5.4 s measured on a
+  quieter machine for the previous task. The chunking probe bounds what
+  this task adds to an edit, which re-chunks only the units it runs, at a
+  few milliseconds.
+- A document unit's set is one small chunk, so a cold run writes about
+  90,000 chunks; they are 44 MB of the 598 MB it writes.
 
 * Test Scenarios
 
@@ -74,7 +109,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/124][#124]] | [codec] Name a manifest's input sets by content-addressed chunks |
 
 * Review
 

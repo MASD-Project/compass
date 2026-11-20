@@ -21,6 +21,8 @@
 
 #include <atomic>
 #include <memory>
+#include <mutex>
+#include <set>
 #include "compass.codec/io/dependency_file.hpp"
 #include "compass.codec/ops/action_cache.hpp"
 #include "compass.codec/ops/parallel_for.hpp"
@@ -58,6 +60,21 @@ action_writes store_actions(const std::filesystem::path& git_common_dir,
     std::atomic<std::uint64_t> manifests_written{0};
     std::atomic<std::uint64_t> unchanged{0};
     std::atomic<std::uint64_t> bytes{0};
+    std::atomic<std::uint64_t> chunks_written{0};
+    std::mutex written_mutex;
+    std::set<store::types::blob_id> written;
+    const auto write_chunk = [&](const ops::input_chunk& c) {
+        if (store.read_action(action_kind::result, c.key) == c.body)
+            return;
+        {
+            const std::scoped_lock lock(written_mutex);
+            if (!written.insert(c.key).second)
+                return;
+        }
+        writes.add_action(action_kind::result, c.key, c.body);
+        ++chunks_written;
+        bytes += c.body.size();
+    };
     ops::parallel_for(fresh.size(), threads, [&](std::size_t i) {
         const auto u = fresh[i];
         const auto result = ops::encode_result(record, u,
@@ -72,7 +89,10 @@ action_writes store_actions(const std::filesystem::path& git_common_dir,
             if (auto decoded = ops::decode_manifest(*body))
                 manifest = std::move(*decoded);
         }
-        if (!ops::add_input_set(manifest, record, u)) {
+        const auto chunks = ops::chunk_input_set(record, u);
+        for (const auto& c : chunks)
+            write_chunk(c);
+        if (!ops::add_input_set(manifest, record.results[u], chunks)) {
             ++unchanged;
             return;
         }
@@ -87,7 +107,7 @@ action_writes store_actions(const std::filesystem::path& git_common_dir,
     }
     writes.publish();
     return {results_written, manifests_written, unchanged, bytes,
-        facts.size()};
+        facts.size(), chunks_written};
 }
 
 std::vector<store::types::blob_id> action_keys(
@@ -102,6 +122,8 @@ std::vector<store::types::blob_id> action_keys(
         record.results.values.end());
     for (std::uint32_t u = 0; u < record.size(); ++u) {
         const types::record_unit_id unit{u};
+        for (const auto& c : ops::chunk_input_set(record, unit))
+            keys.push_back(c.key);
         const auto end = u + 1 < record.size()
             ? record.input_firsts[{u + 1}].value
             : static_cast<std::uint32_t>(record.input_count());

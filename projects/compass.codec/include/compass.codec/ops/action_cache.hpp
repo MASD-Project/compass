@@ -41,7 +41,7 @@ namespace compass::codec::ops {
  * every key, so a build that changes a format finds none of the objects of
  * another.
  */
-inline constexpr std::uint32_t action_format_version = 5;
+inline constexpr std::uint32_t action_format_version = 6;
 
 /**
  * @brief How many input sets a manifest keeps. A new set goes first and
@@ -49,6 +49,16 @@ inline constexpr std::uint32_t action_format_version = 5;
  * a few states finds each of them.
  */
 inline constexpr std::size_t manifest_capacity = 8;
+
+/**
+ * @brief An input ends a chunk when the low bits of the hash of its kind
+ * and key are zero, about one in this many, or when it is the
+ * chunk_limit-th of its chunk. The cut depends on the input alone, so a
+ * change to one input changes one chunk, and an input added or removed
+ * changes the chunk it falls in.
+ */
+inline constexpr std::uint64_t chunk_spacing = 128;
+inline constexpr std::size_t chunk_limit = 1024;
 
 /**
  * @brief The key of the manifest of a unit: what is known before it runs.
@@ -72,17 +82,42 @@ inline constexpr std::size_t manifest_capacity = 8;
     const types::dependency_record& record, types::record_unit_id u);
 
 /**
- * @brief Puts the inputs of unit @p u of @p record and its result key first
- * in @p m, dropping an earlier copy of the same set and any set past
+ * @brief One chunk of an input set: its key, the SHA-1 of its body, and its
+ * body, encoded as decode_input_chunk reads it.
+ */
+struct input_chunk {
+    compass::store::types::blob_id key;
+    std::string body;
+};
+
+/**
+ * @brief The inputs of unit @p u of @p record, in the order the unit read
+ * them, cut into chunks where chunk_spacing and chunk_limit say. A unit
+ * with no inputs has none.
+ */
+[[nodiscard]] std::vector<input_chunk> chunk_input_set(
+    const types::dependency_record& record, types::record_unit_id u);
+
+/**
+ * @brief Appends the inputs of the chunk @p body to @p to; false when it is
+ * not a chunk this build writes.
+ */
+[[nodiscard]] bool decode_input_chunk(std::string_view body,
+    types::input_list& to);
+
+/**
+ * @brief Puts the set of @p chunks with its result key @p result first in
+ * @p m, dropping an earlier copy of the same set and any set past
  * manifest_capacity. False when the set was already first, so the manifest
  * need not be written.
  */
 bool add_input_set(types::action_manifest& m,
-    const types::dependency_record& record, types::record_unit_id u);
+    const compass::store::types::blob_id& result,
+    std::span<const input_chunk> chunks);
 
 /**
  * @brief The body of a manifest object: the format version, the set count,
- * then per set its result key and its inputs (kind, key, found, value).
+ * then per set its result key, its chunk count and its chunk keys.
  */
 [[nodiscard]] std::string encode_manifest(const types::action_manifest& m);
 

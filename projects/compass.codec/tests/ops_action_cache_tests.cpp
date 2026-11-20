@@ -19,11 +19,13 @@
  */
 #include "compass.codec/ops/action_cache.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <map>
+#include <set>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -37,6 +39,7 @@
 #include "compass.org/ops/document_fields.hpp"
 #include "compass.store/io/location.hpp"
 #include "compass.store/io/pack_store.hpp"
+#include "compass.store/ops/blob_hash.hpp"
 #include "compass.testing/filesystem/scoped_directory.hpp"
 #include "test_corpus.hpp"
 
@@ -188,7 +191,110 @@ void damage(const std::pair<std::filesystem::path, std::uint64_t>& entry) {
     f.put('!');
 }
 
+types::dependency_record files_read(
+    const std::vector<std::pair<std::string, std::string>>& files) {
+    types::dependency_record r;
+    r.input_firsts.values.push_back({0});
+    for (const auto& [path, bytes] : files) {
+        r.input_kinds.values.push_back(types::input_kind::file);
+        r.input_keys.add(path);
+        r.input_found.values.push_back(1);
+        r.input_values.values.push_back(
+            compass::store::ops::blob_id_of(bytes));
+    }
+    return r;
 }
+
+std::vector<std::pair<std::string, std::string>> numbered_files(int n) {
+    std::vector<std::pair<std::string, std::string>> files;
+    for (int i = 0; i < n; ++i)
+        files.emplace_back("src/file_" + std::to_string(i) + ".cpp",
+            std::to_string(i));
+    return files;
+}
+
+std::size_t new_chunks(const std::vector<ops::input_chunk>& before,
+    const std::vector<ops::input_chunk>& after) {
+    return static_cast<std::size_t>(std::ranges::count_if(after,
+        [&](const ops::input_chunk& c) {
+            return !std::ranges::contains(before, c.key,
+                &ops::input_chunk::key);
+        }));
+}
+
+}
+
+TEST_CASE("an input set's chunks hold its inputs in the order they were "
+    "read", "[ops][action_cache]") {
+    const auto record = files_read(numbered_files(5000));
+
+    const auto chunks = ops::chunk_input_set(record, {0});
+
+    REQUIRE(chunks.size() > 1);
+    types::input_list inputs;
+    for (const auto& c : chunks) {
+        const auto before = inputs.input_count();
+        REQUIRE(ops::decode_input_chunk(c.body, inputs));
+        CHECK(inputs.input_count() - before <= ops::chunk_limit);
+    }
+    REQUIRE(inputs.input_count() == record.input_count());
+    for (std::uint32_t i = 0; i < inputs.input_count(); ++i) {
+        const types::input_id in{i};
+        CHECK(inputs.input_keys[in] == record.input_keys[in]);
+        CHECK(inputs.input_values[in] == record.input_values[in]);
+    }
+}
+
+TEST_CASE("an input whose value changed changes the one chunk that holds "
+    "it", "[ops][action_cache]") {
+    auto files = numbered_files(5000);
+    const auto before = ops::chunk_input_set(files_read(files), {0});
+    files[2500].second = "edited";
+
+    const auto after = ops::chunk_input_set(files_read(files), {0});
+
+    CHECK(after.size() == before.size());
+    CHECK(new_chunks(before, after) == 1);
+}
+
+TEST_CASE("an input added or removed changes at most the two chunks around "
+    "it", "[ops][action_cache]") {
+    auto files = numbered_files(5000);
+    const auto before = ops::chunk_input_set(files_read(files), {0});
+    auto added = files;
+    added.insert(added.begin() + 2500, {"src/new_file.cpp", "new"});
+    auto removed = files;
+    removed.erase(removed.begin() + 2500);
+
+    CHECK(new_chunks(before,
+        ops::chunk_input_set(files_read(added), {0})) <= 2);
+    CHECK(new_chunks(before,
+        ops::chunk_input_set(files_read(removed), {0})) <= 2);
+}
+
+TEST_CASE("a manifest names a changed set by its chunk keys, sharing the "
+    "unchanged chunks", "[ops][action_cache]") {
+    auto files = numbered_files(5000);
+    types::action_manifest m;
+    const auto one = ops::chunk_input_set(files_read(files), {0});
+    REQUIRE(ops::add_input_set(m, {}, one));
+    CHECK_FALSE(ops::add_input_set(m, {}, one));
+    files[10].second = "edited";
+    const auto two = ops::chunk_input_set(files_read(files), {0});
+    compass::store::types::blob_id other;
+    other.bytes[0] = 1;
+
+    REQUIRE(ops::add_input_set(m, other, two));
+
+    const auto decoded = ops::decode_manifest(ops::encode_manifest(m));
+    REQUIRE(decoded);
+    REQUIRE(decoded->size() == 2);
+    CHECK(decoded->results.values[0] == other);
+    CHECK(decoded->chunk_count() == one.size() + two.size());
+    CHECK(ops::encode_manifest(m).size() <
+        8 + 2 * (24 + 20 * one.size()) + 1);
+}
+
 
 TEST_CASE("a second worktree with no record of its own runs no unit and "
     "records what the first did", "[ops][action_cache]") {
@@ -346,8 +452,13 @@ TEST_CASE("the record names the manifest and result of every unit",
         compass::store::types::action_kind::manifest);
     const auto results = cache.entries(
         compass::store::types::action_kind::result);
+    std::set<compass::store::types::blob_id> chunks;
+    for (std::uint32_t u = 0; u < record.size(); ++u) {
+        for (const auto& c : ops::chunk_input_set(record, {u}))
+            chunks.insert(c.key);
+    }
     CHECK(manifests.size() == 5);
-    CHECK(results.size() == 5);
+    CHECK(results.size() == 5 + chunks.size());
     const compass::store::io::pack_reader store(
         compass::store::io::packs_dir(cache.root()));
     for (std::uint32_t u = 0; u < record.size(); ++u) {

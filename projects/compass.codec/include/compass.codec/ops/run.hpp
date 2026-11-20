@@ -83,9 +83,9 @@ using unit_filter = std::function<bool(types::codec_id codec,
  * other unit is called, through a view that records what it reads. Nothing
  * is written to the cache here; the caller stores the units in fresh.
  * A scan the previous record holds under the same version and options is
- * not looked up: its manifest lists every file it maps, several times
- * over, and mapping the changed files from its scan table costs less than
- * reading that.
+ * not looked up: its manifest names a chunk of inputs per hundred or so
+ * files, several sets over, and mapping the changed files from its scan
+ * table costs less than reading those.
  *
  * @p edited, when given, is the path of a file thought to have changed.
  * The inputs with that key are checked first, so a unit that read it is

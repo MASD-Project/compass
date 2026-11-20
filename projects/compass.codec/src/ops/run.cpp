@@ -23,6 +23,7 @@
 #include <chrono>
 #include <functional>
 #include <iterator>
+#include <map>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -242,7 +243,7 @@ struct answers {
     }
 
     /**
-     * @brief True when input @p in of @p t, a record or a manifest, still
+     * @brief True when input @p in of @p t, a record or an input list, still
      * has the answer it recorded, a miss included.
      */
     template <typename Table>
@@ -732,39 +733,79 @@ bool reusable(const types::dependency_record& previous,
 }
 
 /**
- * @brief A unit whose result the cache holds: its manifest, the input set
- * of it that matched, and the result object that set names.
+ * @brief A unit whose result the cache holds: its manifest key, the inputs
+ * of the set of its manifest that matched, and the result object that set
+ * names.
  */
 struct cache_hit {
     blob_id manifest_key;
-    types::action_manifest manifest;
-    std::uint32_t set = 0;
+    blob_id result_key;
+    types::input_list inputs;
     std::string body;
     action_result result;
 };
 
 /**
+ * @brief The inputs of the chunks [first, last) of @p m, each read through
+ * @p cache once and kept in @p chunks; nothing when one is missing or
+ * damaged.
+ */
+std::optional<types::input_list> read_set(const types::action_source& cache,
+    const types::action_manifest& m, std::uint32_t first, std::uint32_t last,
+    std::map<blob_id, std::optional<types::input_list>>& chunks) {
+    types::input_list inputs;
+    for (auto c = first; c < last; ++c) {
+        const auto key = m.chunks.values[c];
+        auto [it, fresh] = chunks.try_emplace(key);
+        if (fresh) {
+            types::input_list read;
+            const auto bytes = cache(store::types::action_kind::result, key);
+            if (bytes && decode_input_chunk(*bytes, read))
+                it->second = std::move(read);
+        }
+        if (!it->second)
+            return std::nullopt;
+        const auto& from = *it->second;
+        for (std::uint32_t i = 0; i < from.input_count(); ++i) {
+            const types::input_id in{i};
+            inputs.input_kinds.values.push_back(from.input_kinds[in]);
+            inputs.input_keys.add(from.input_keys[in]);
+            inputs.input_found.values.push_back(from.input_found[in]);
+            inputs.input_values.values.push_back(from.input_values[in]);
+        }
+    }
+    return inputs;
+}
+
+/**
  * @brief The cached result of the unit whose manifest key is @p key: that
- * of the first input set of its manifest whose inputs all hold, if its
- * result object loads and names only documents of the corpus.
+ * of the first input set of its manifest whose chunks load and whose
+ * inputs all hold, if its result object loads and names only documents of
+ * the corpus.
  */
 std::optional<cache_hit> look_up(const types::action_source& cache,
     const blob_id& key, const answers& now) {
     const auto body = cache(store::types::action_kind::manifest, key);
     if (!body)
         return std::nullopt;
-    auto manifest = decode_manifest(*body);
+    const auto manifest = decode_manifest(*body);
     if (!manifest)
         return std::nullopt;
+    std::map<blob_id, std::optional<types::input_list>> chunks;
     for (std::uint32_t s = 0; s < manifest->size(); ++s) {
-        if (!now.hold(*manifest, manifest->input_firsts.values[s].value,
-                end_of(manifest->input_firsts, s, manifest->input_count())))
+        auto inputs = read_set(cache, *manifest,
+            manifest->chunk_firsts.values[s].value,
+            end_of(manifest->chunk_firsts, s, manifest->chunk_count()),
+            chunks);
+        if (!inputs || !now.hold(*inputs, 0,
+                static_cast<std::uint32_t>(inputs->input_count())))
             continue;
         auto bytes = cache(store::types::action_kind::result,
             manifest->results.values[s]);
         if (!bytes)
             return std::nullopt;
-        cache_hit hit{key, std::move(*manifest), s, std::move(*bytes), {}};
+        cache_hit hit{key, manifest->results.values[s], std::move(*inputs),
+            std::move(*bytes), {}};
         auto decoded = decode_result(hit.body);
         if (!decoded || !decode_diagnostics(decoded->diagnostics, now.index,
                 nullptr))
@@ -882,9 +923,8 @@ void add_cached_unit(types::dependency_record& to,
     std::string_view document, const cache_hit& hit,
     std::uint32_t findings, unsigned threads) {
     open_unit(to, d.name, d.version, key.configuration, document);
-    const auto& m = hit.manifest;
-    const auto end = end_of(m.input_firsts, hit.set, m.input_count());
-    for (auto i = m.input_firsts.values[hit.set].value; i < end; ++i) {
+    const auto& m = hit.inputs;
+    for (std::uint32_t i = 0; i < m.input_count(); ++i) {
         const types::input_id in{i};
         add_input(to, m.input_kinds[in], m.input_keys[in], m.input_found[in],
             m.input_values[in]);
@@ -893,7 +933,7 @@ void add_cached_unit(types::dependency_record& to,
         static_cast<std::uint32_t>(hit.result.files.size()), threads);
     add_record_findings(to, hit.result.diagnostics, findings);
     to.manifests.values.push_back(hit.manifest_key);
-    to.results.values.push_back(m.results.values[hit.set]);
+    to.results.values.push_back(hit.result_key);
 }
 
 void add_called_unit(types::dependency_record& to, const types::corpus& c,
