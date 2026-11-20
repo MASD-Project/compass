@@ -1,0 +1,109 @@
+# Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+#
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 3 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
+# Street, Fifth Floor, Boston, MA 02110-1301, USA.
+#
+# yamllint disable rule:line-length
+---
+name: Windows test under a debugger
+
+# Builds one test binary with MSVC, optimised as the release build is but
+# with symbols, and runs the named tests under cdb. On an access violation
+# or a stack overflow cdb prints the faulting frame and the stack, which a
+# crash under ctest does not. Run by hand: workflow_dispatch only.
+on:  # yamllint disable-line rule:truthy
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'The test binary to build, a CMake target'
+        required: true
+        default: 'compass.bench.tests'
+      tests:
+        description: 'Catch2 test spec to run, such as a tag'
+        required: true
+        default: '[store_stage]'
+      repeat:
+        description: 'How many times to run the spec, for a crash that comes and goes'
+        required: false
+        default: '5'
+
+permissions:
+  contents: read
+
+jobs:
+  debug:
+    runs-on: windows-latest
+    timeout-minutes: 240
+    env:
+      VCPKG_BINARY_SOURCES: 'clear;files,${{ github.workspace }}/vcpkg-cache,read'
+    steps:
+      - name: Keep the repository's line endings
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+
+      - name: Enable Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1.13.0
+
+      - name: get-cmake
+        uses: lukka/get-cmake@v4.4.5
+
+      - name: Restore vcpkg binary packages
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ github.workspace }}/vcpkg-cache
+          key: vcpkg-windows-msvc-release-ninja-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            vcpkg-windows-msvc-release-ninja-
+
+      - name: run-vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          doNotCache: true
+
+      - name: Configure and build
+        # The release flags with /Z7 added, and a linked PDB, so the stack
+        # names functions and lines of the code the nightly runs.
+        run: |
+          $env:VCPKG_DISABLE_SYSTEM_PACKAGE_CHECK=1
+          cmake --preset windows-msvc-release-ninja `
+            "-DCMAKE_CXX_FLAGS_RELEASE=/O2 /Ob2 /DNDEBUG /Z7" `
+            "-DCMAKE_EXE_LINKER_FLAGS_RELEASE=/DEBUG /OPT:REF /OPT:ICF"
+          cmake --build --preset windows-msvc-release-ninja --target $env:TARGET
+        env:
+          TARGET: ${{ inputs.target }}
+
+      - name: Run the tests under cdb
+        env:
+          TARGET: ${{ inputs.target }}
+          TESTS: ${{ inputs.tests }}
+          REPEAT: ${{ inputs.repeat }}
+        run: |
+          $cdb = "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe"
+          if (-not (Test-Path $cdb)) {
+            Write-Host "cdb is not at $cdb; the debuggers on the image:"
+            Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\Debuggers" -Recurse -Filter cdb.exe | Select-Object FullName
+            exit 1
+          }
+          $bin = (Resolve-Path "build/output/windows-msvc-release-ninja/publish/bin").Path
+          $exe = Join-Path $bin "$env:TARGET.exe"
+          $report = '.echo FAULT; .ecxr; r; kP 40; ~* kc 20; q'
+          $commands = "sxe -c `"$report`" av; sxe -c `"$report`" sov; g; q"
+          Push-Location $bin
+          for ($i = 1; $i -le [int]$env:REPEAT; $i++) {
+            Write-Host "=== run $i"
+            & $cdb -lines -y $bin -c $commands $exe $env:TESTS --order decl
+          }
+          Pop-Location
