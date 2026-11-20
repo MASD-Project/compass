@@ -20,6 +20,7 @@
 #ifndef COMPASS_CLI_TYPES_RESULTS_HPP
 #define COMPASS_CLI_TYPES_RESULTS_HPP
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -128,6 +129,15 @@ struct finding {
     std::string fix;
     std::optional<drift_sides> drift;
 };
+
+/**
+ * @brief Whether any of @p findings is an error, and so fails the command
+ * that found it; warnings alone fail none.
+ */
+[[nodiscard]] inline bool fails(const std::vector<finding>& findings) {
+    return std::ranges::any_of(findings, [](const finding& f) {
+        return f.level == codec::types::severity::error; });
+}
 
 /**
  * @brief What compass check found, sorted by path, line and column, less

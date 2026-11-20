@@ -28,6 +28,9 @@ enough to read, to test and to change, and lets code that needs one group
 take that group alone. The ceiling of fifteen is a judgement, not a measured
 limit: it is what the product owner set.
 
+The check is a warning: it shows the wide types, and the ones that grow, but
+fails no gate. The table is the list to work down.
+
 This check is about design, not the compiler. MSVC's C1202 limit is the
 =Keep MSVC within its template limits= story's subject, in the compass
 repository.
@@ -38,6 +41,7 @@ repository.
 :FILES: projects/**/*.{hpp,cpp,h}
 :FACT: cpp_fields
 :CEILING: 15
+:SEVERITY: warning
 :END:
 
 * Ceilings

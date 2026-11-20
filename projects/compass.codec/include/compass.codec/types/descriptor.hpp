@@ -311,6 +311,10 @@ using formatters_function = std::vector<formatter> (*)(
  * written: each whose formatted form differs from it is a finding of the
  * codec's first rule.
  *
+ * level is the severity of every finding of the codec when it is a
+ * warning: a warning is reported and fails no command, so a check can
+ * show what it finds without gating on it.
+ *
  * A descriptor is constant data: every span and string points at storage
  * that outlives the registry it is added to.
  */
@@ -326,6 +330,7 @@ struct descriptor {
     codec_function run;
     formatters_function formatters = nullptr;
     bool formatting_check = false;
+    severity level = severity::error;
 };
 
 enum class unit : std::uint8_t { document, corpus, staged };

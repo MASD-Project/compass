@@ -48,6 +48,9 @@ matter of data-oriented design, apart from MSVC's limits.
 - Over ORE Studio's main, the check with every type over fifteen recorded
   is quiet, and growing a recorded type, shrinking one, and adding a new
   wide type each raise the finding that says so.
+- A check whose drawer says =:SEVERITY: warning= reports its findings as
+  warnings and fails no command, so the wide types check gives visibility
+  without gating, as the product owner asked.
 
 * Plan
 
@@ -67,6 +70,9 @@ matter of data-oriented design, apart from MSVC's limits.
 - The check loader accepts =:ENGINE: limit= and reads =* Ceilings= into
   the definition, so editing a row re-runs the check and editing prose
   does not.
+- =SEVERITY= in any check's Definition drawer: the descriptor carries the
+  severity, every finding of a warning check is a warning, and =check=,
+  =ratchet= and the edit hook fail or block only on errors.
 
 * Measurements
 
@@ -128,3 +134,5 @@ the 598 types over fifteen recorded, the check is quiet; with one recorded
 type grown by a field it reports =over_ceiling= against its recorded count,
 with one shrunk to fifteen it reports =below_record= on its row, and with a
 new sixteen-field struct it reports =over_ceiling= against the ceiling.
+With =:SEVERITY: warning= those findings are printed as warnings and the
+command exits 0.

@@ -151,6 +151,13 @@ Each is a generic codec; the drawers are its options.
 | =inventory= | F2 | each row with no file, and each file with no row | =TABLE= (document ID and table name), =COLUMN=, =FILES=, =NAME= (a capture of the path) |
 | =limit= | part of F6 | each type whose counted fact is over its ceiling, and each recorded ceiling its type no longer reaches (built: [[id:72702FA4-8A4F-4488-B719-5AC71B72D7C6][Build the limit engine]]) | =FILES=, =OUTSIDE=, =FACT= (=cpp_fields=), =CEILING=, and a =* Ceilings= table of path, type and ceiling |
 
+Any engine's =* Definition= drawer may also say =SEVERITY=: =error=, the
+default, or =warning=. A warning check reports its findings, marked
+=warning:=, and fails no command: =check= and =ratchet= exit 0 when every
+finding is a warning, and the edit hook passes them to the agent as
+context instead of blocking. It is for checks that give visibility, not
+gates, as ORE Studio's wide types check does.
+
 A match key names a fact compass already parses, and a pattern:
 
 | Key | Fact | Parsed by |

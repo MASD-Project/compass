@@ -77,7 +77,7 @@ int run_check(const types::options& o, bool timings, std::ostream& out,
         io::write_timings(err, r.run);
     if (r.run.failed())
         return exit_failure;
-    return r.findings.empty() ? exit_success : exit_findings;
+    return types::fails(r.findings) ? exit_findings : exit_success;
 }
 
 int run_ratchet(const types::options& o, std::string_view base,
@@ -91,7 +91,7 @@ int run_ratchet(const types::options& o, std::string_view base,
     }
     if (r.failed())
         return exit_failure;
-    return r.split.fresh.empty() ? exit_success : exit_findings;
+    return types::fails(r.split.fresh) ? exit_findings : exit_success;
 }
 
 /**

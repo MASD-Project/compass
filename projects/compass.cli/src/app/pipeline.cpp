@@ -510,7 +510,8 @@ void add_findings(const pipeline& p, std::vector<types::finding>& out) {
                 .column = column,
                 .rule = std::string(d.name) + "/" +
                     std::string(d.rules[t.rules[id].value].name),
-                .level = t.levels[id],
+                .level = d.level == ct::severity::warning ? d.level
+                                                          : t.levels[id],
                 .message = std::string(t.messages[id]),
                 .fix = std::string(t.fixes[id]),
                 .drift = {}});
@@ -550,7 +551,7 @@ void add_format_findings(const pipeline& p, const types::options& o,
                 .column = column,
                 .rule = std::string(d.name) + "/" +
                     std::string(d.rules.front().name),
-                .level = codec::types::severity::error,
+                .level = d.level,
                 .message = formatter + " formats this file differently",
                 .fix = "format it with " + formatter + ", as " +
                     std::string(d.name) + " configures it",

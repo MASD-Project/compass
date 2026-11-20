@@ -47,6 +47,15 @@ using compass::org::ops::trimmed;
 using failure = std::unexpected<std::string>;
 
 /**
+ * @brief The keys of a document's drawers that configure compass rather
+ * than the engine: the engine, and the severity of the check's findings.
+ */
+struct drawer_keys {
+    std::string engine;
+    ct::severity level = ct::severity::error;
+};
+
+/**
  * @brief The definition text a document's drawers make, with the line of
  * the document each of its lines came from.
  */
@@ -115,11 +124,11 @@ struct check_reader : org_reader {
 
     /**
      * @brief Adds the drawer of @p h to @p out, one KEY value line per
-     * property, or says why it cannot be: the engine is checked, put in
-     * @p engine and left out, and so is the drawer's ID.
+     * property, or says why it cannot be: the engine and the severity
+     * are checked, put in @p keys and left out, and so is the drawer's ID.
      */
     [[nodiscard]] std::expected<void, std::string> add_drawer(
-        ot::heading_id h, definition_text& out, std::string& engine) const {
+        ot::heading_id h, definition_text& out, drawer_keys& keys) const {
         const auto [first, end] = properties_of(h);
         for (auto p = first; p < end; ++p) {
             const ot::property_id id{p};
@@ -133,7 +142,17 @@ struct check_reader : org_reader {
                     return error(line, std::format("the engine is '{}'", v),
                         "write :ENGINE: forbid, format or limit, the "
                         "engines compass runs from a document");
-                engine = std::string(v);
+                keys.engine = std::string(v);
+                continue;
+            }
+            if (key == "SEVERITY") {
+                if (v != "error" && v != "warning")
+                    return error(line, std::format("the severity is '{}'", v),
+                        "write :SEVERITY: error, which fails a check that "
+                        "finds anything, or warning, which reports and "
+                        "fails nothing");
+                keys.level = v == "warning" ? ct::severity::warning
+                                            : ct::severity::error;
                 continue;
             }
             if (key == "ID")
@@ -258,9 +277,10 @@ parse_check_document(std::string_view text, std::string_view path,
             "check's FILES in its property drawer");
     definition_text d;
     d.add(std::format("SOURCE {}", path), r.line_of_heading(definition));
-    std::string engine;
-    if (auto ok = r.add_drawer(definition, d, engine); !ok)
+    drawer_keys keys;
+    if (auto ok = r.add_drawer(definition, d, keys); !ok)
         return failure(ok.error());
+    const auto& engine = keys.engine;
     if (engine.empty())
         return r.error(r.line_of_heading(definition), "the definition names "
             "no engine", "add :ENGINE: forbid, format or limit to its "
@@ -283,7 +303,7 @@ parse_check_document(std::string_view text, std::string_view path,
     for (const auto h : rule_headings) {
         const auto name = trimmed(text, tables.headings.titles[h]).of(text);
         d.add(std::format("RULE {}", name), r.line_of_heading(h));
-        if (auto ok = r.add_drawer(h, d, engine); !ok)
+        if (auto ok = r.add_drawer(h, d, keys); !ok)
             return failure(ok.error());
     }
 
@@ -362,7 +382,8 @@ parse_check_document(std::string_view text, std::string_view path,
         .options = c->options,
         .rules = c->rules,
         .enabled_by_default = true,
-        .run = compass::cpp::codecs::forbid_function()};
+        .run = compass::cpp::codecs::forbid_function(),
+        .level = keys.level};
     if (limit)
         c->codec.run = compass::cpp::codecs::limit_function();
     if (format) {

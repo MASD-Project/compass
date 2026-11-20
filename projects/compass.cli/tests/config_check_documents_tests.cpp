@@ -265,3 +265,27 @@ TEST_CASE("a limit check document records each row of its Ceilings in its "
         "src/a.hpp is recorded at 9, not above the ceiling of 15; fix: "
         "correct the definition's drawers");
 }
+
+TEST_CASE("a check document's SEVERITY sets the severity of its findings",
+    "[config][check_documents]") {
+    compass::codec::types::exception_set exceptions;
+    const auto plain = config::parse_check_document(document,
+        "compass/checks/portable_cpp.org", exceptions);
+    REQUIRE(plain);
+    CHECK((*plain)->codec.level == compass::codec::types::severity::error);
+
+    compass::codec::types::exception_set ignored;
+    const auto warned = config::parse_check_document(replaced(document,
+        ":ENGINE: forbid\n", ":ENGINE: forbid\n:SEVERITY: warning\n"),
+        "compass/checks/portable_cpp.org", ignored);
+    REQUIRE(warned);
+    CHECK((*warned)->codec.level == compass::codec::types::severity::warning);
+    CHECK((*warned)->codec.options[0].default_value.find("SEVERITY") ==
+        std::string_view::npos);
+
+    CHECK(error_of(replaced(document, ":ENGINE: forbid\n",
+        ":ENGINE: forbid\n:SEVERITY: loud\n")) ==
+        "compass/checks/portable_cpp.org:7: the severity is 'loud'; fix: "
+        "write :SEVERITY: error, which fails a check that finds anything, "
+        "or warning, which reports and fails nothing");
+}
