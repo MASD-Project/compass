@@ -24,9 +24,11 @@
 #include <exception>
 #include <span>
 #include <string>
+#include <system_error>
 #include <thread>
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
+#include "compass.platform/filesystem/file_status.hpp"
 #include "compass.testing/filesystem/scoped_directory.hpp"
 #include "files.hpp"
 
@@ -93,13 +95,24 @@ TEST_CASE("concurrent writers of one object all succeed and leave it whole",
     io::write_object(target, bytes_of(content));
 
     std::atomic<unsigned> failures = 0;
+    std::atomic<unsigned> unreadable = 0;
     std::atomic<unsigned> torn = 0;
     std::atomic<bool> done = false;
+    std::string first_error;
     {
         std::jthread reader([&] {
-            while (!done)
-                if (io::read_file(target) != content)
+            std::string bytes;
+            while (!done) {
+                try {
+                    compass::platform::filesystem::read_file(target, bytes);
+                } catch (const std::system_error& e) {
+                    if (unreadable++ == 0)
+                        first_error = e.what();
+                    continue;
+                }
+                if (bytes != content)
                     ++torn;
+            }
         });
         {
             std::vector<std::jthread> threads;
@@ -119,6 +132,13 @@ TEST_CASE("concurrent writers of one object all succeed and leave it whole",
     }
 
     CHECK(failures == 0);
+    INFO("the first read that failed: " << first_error);
+#if !defined(_WIN32)
+    // Windows' replacing rename is not atomic to an open by name: for a
+    // moment the name is denied or missing, so a reader there may find
+    // nothing, which every caller of read_file takes as no object.
+    CHECK(unreadable == 0);
+#endif
     CHECK(torn == 0);
     CHECK(tests::read(target) == content);
     CHECK(names_in(target.parent_path()) ==

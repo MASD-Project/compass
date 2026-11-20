@@ -28,6 +28,7 @@
 #if defined(_WIN32)
 #include <algorithm>
 #include <windows.h>
+#include "open_existing.hpp"
 #else
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -75,10 +76,8 @@ private:
 mapped_file::mapped_file(const std::filesystem::path& path) {
     // Backup semantics open a directory too, so it is refused as not
     // regular, as on POSIX, rather than as access denied.
-    const HANDLE raw = ::CreateFileW(path.c_str(), GENERIC_READ,
-        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
-        OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_SEQUENTIAL_SCAN,
-        nullptr);
+    const HANDLE raw = detail::open_existing(path,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_SEQUENTIAL_SCAN);
     if (raw == INVALID_HANDLE_VALUE)
         throw_last_error("open", path);
     const file_handle file(raw);

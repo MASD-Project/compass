@@ -26,6 +26,7 @@
 
 #if defined(_WIN32)
 #include <windows.h>
+#include "open_existing.hpp"
 #else
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -69,9 +70,7 @@ public:
     // Backup semantics open a directory too, so status() refuses it as not
     // regular, as on POSIX, rather than the open failing as access denied.
     explicit file_handle(const std::filesystem::path& path) : path_(path) {
-        handle_ = ::CreateFileW(path.c_str(), GENERIC_READ,
-            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
-            OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+        handle_ = detail::open_existing(path, FILE_FLAG_BACKUP_SEMANTICS);
         if (handle_ == INVALID_HANDLE_VALUE)
             throw_last_error("open", path);
     }
