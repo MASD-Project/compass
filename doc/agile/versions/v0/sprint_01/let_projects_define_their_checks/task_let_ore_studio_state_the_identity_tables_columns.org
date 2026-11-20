@@ -8,7 +8,7 @@
 #+filetags: :let_projects_define_their_checks:sprint_01:v0:
 #+owner: marco
 #+branch: feature/identity-columns-as-options
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/115
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-20
@@ -96,7 +96,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/115][#115]] | Let a project state the identity table's context and view columns |
 
 * Review
 
