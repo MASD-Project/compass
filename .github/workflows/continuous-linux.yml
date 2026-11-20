@@ -29,7 +29,16 @@ on:  # yamllint disable-line rule:truthy
   push:
     tags:
       - '*'
+  # A pull request builds linux-clang release, merged with main.
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
+
+# A new push to a pull request supersedes the run of the one before it.
+concurrency:
+  group: continuous-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   guard:
@@ -40,8 +49,9 @@ jobs:
       should_build: ${{ steps.check.outputs.should_build }}
     steps:
       - uses: actions/checkout@v7
-        # Manual and tag runs always build; only scheduled comparisons need a checkout.
-        if: github.event_name == 'schedule'
+        # Manual and tag runs always build; scheduled and pull request runs
+        # compare commits, so they need the history.
+        if: github.event_name == 'schedule' || github.event_name == 'pull_request'
         with:
           fetch-depth: 0
       - name: Check if code changed since last successful run
@@ -50,13 +60,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           echo "should_build=true" >> "$GITHUB_OUTPUT"
-          if [[ "${{ github.event_name }}" != "schedule" ]]; then
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            # A pull request's merge commit is compared with main as it was
+            # merged, so the diff is the pull request's own change.
+            last_sha="${{ github.event.pull_request.base.sha }}"
+          elif [[ "${{ github.event_name }}" == "schedule" ]]; then
+            workflow_file=$(basename "${GITHUB_WORKFLOW_REF%%@*}")
+            last_sha=$(gh api \
+              "repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow_file}/runs?branch=main&status=success&per_page=1" \
+              --jq '.workflow_runs[0].head_sha // empty')
+          else
             exit 0
           fi
-          workflow_file=$(basename "${GITHUB_WORKFLOW_REF%%@*}")
-          last_sha=$(gh api \
-            "repos/${GITHUB_REPOSITORY}/actions/workflows/${workflow_file}/runs?branch=main&status=success&per_page=1" \
-            --jq '.workflow_runs[0].head_sha // empty')
           if [[ -z "$last_sha" ]]; then
             echo "No prior successful run — building"
             exit 0
@@ -132,7 +147,9 @@ jobs:
       fail-fast: false
       matrix:
         name: [linux-clang]
-        buildtype: [debug, release]
+        # A pull request builds release alone: it is the faster of the two,
+        # and the scheduled runs on main build debug with coverage.
+        buildtype: ${{ fromJSON(github.event_name == 'pull_request' && '["release"]' || '["debug", "release"]') }}
         include:
           - name: linux-clang
             family: linux
@@ -263,6 +280,13 @@ jobs:
         # existing entry alone when it did not.
         if: ${{ always() && steps.ctest.outcome != 'skipped' }}
         run: |
+          # A pull request reads main's cache and never saves one: its entry
+          # is visible to that pull request alone, and saving it would prune
+          # main's entry of the variant.
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "worth_saving=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           size_mb=$(du -sm "${SCCACHE_DIR}" 2>/dev/null | cut -f1)
           size_mb=${size_mb:-0}
           echo "local compiler cache: ${size_mb} MB"
