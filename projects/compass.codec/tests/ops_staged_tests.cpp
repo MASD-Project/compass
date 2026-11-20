@@ -198,7 +198,7 @@ outcome run(const sources& plain, const scoped_directory& cache,
     o.sums = summed;
     o.copies = copied;
     (void)io::store_actions(cache.path(), result.record, result.fresh, 2,
-        result.scans);
+        result.scans, result.scan_facts);
     const auto whole = ops::run(r, c.corpus(), c.types(), 2);
     CHECK(files_of(result.files[0]) == files_of(whole.files[0]));
     REQUIRE(result.record.size() == whole.record.size());
@@ -414,9 +414,10 @@ TEST_CASE("a stage reads back as it was written, and a scan table is not "
     REQUIRE(back);
     CHECK(back->parts == s.parts);
     CHECK(back->facts == s.facts);
-    const std::pair<std::string_view, ops::scan_entry> entry{"src/a.txt",
-        {}};
-    CHECK_FALSE(ops::decode_stage(ops::encode_scan({&entry, 1}, {})));
+    ops::scan_table table;
+    table.files = 1;
+    table.read_by_reduce = {"src/a.txt"};
+    CHECK_FALSE(ops::decode_stage(ops::encode_scan(table)));
     CHECK_FALSE(ops::decode_scan(ops::encode_stage(s)));
     CHECK_FALSE(ops::decode_stage(""));
 }

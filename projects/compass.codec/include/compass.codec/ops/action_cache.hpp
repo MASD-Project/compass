@@ -26,8 +26,8 @@
 #include <span>
 #include <string>
 #include <string_view>
-#include <unordered_map>
 #include <utility>
+#include <vector>
 #include "compass.codec/types/action_manifest.hpp"
 #include "compass.codec/types/dependency_record.hpp"
 #include "compass.codec/types/descriptor.hpp"
@@ -121,37 +121,64 @@ struct action_result {
     std::string_view body);
 
 /**
- * @brief What a scan made of one file: the content ID of the bytes it
- * mapped, its fact and its findings, encoded as encode_diagnostics
- * encodes them, and whether the reduce step read the file itself, through
- * the view, and so depends on more of it than its fact.
+ * @brief The key of the fact object of the file at @p path, holding
+ * @p content, as the map step of the scan @p codec, at @p version and with
+ * the configuration hash @p configuration, makes it: what the fact and the
+ * findings of one file depend on. The path is part of it because the
+ * findings name their file.
  */
-struct scan_entry {
-    compass::store::types::blob_id content;
+[[nodiscard]] compass::store::types::blob_id scan_fact_key(
+    std::string_view codec, std::uint32_t version,
+    const compass::store::types::blob_id& configuration,
+    std::string_view path, const compass::store::types::blob_id& content);
+
+/**
+ * @brief What the map step of a scan made of one file: its fact and its
+ * findings, encoded as encode_diagnostics encodes them.
+ */
+struct scan_fact {
     std::string_view fact;
     std::string_view findings;
-    bool read_by_reduce = false;
 };
 
 /**
- * @brief The scan table of a call: the entry of each file by path, and
- * the findings of the reduce step, encoded as encode_diagnostics encodes
- * them. A run that maps a changed file to the fact it had, of a file the
- * reduce step did not read, reports these findings again without
- * reducing.
+ * @brief The body of the fact object of @p f.
+ */
+[[nodiscard]] std::string encode_scan_fact(const scan_fact& f);
+
+/**
+ * @brief The fact object encode_scan_fact wrote as @p bytes, pointing into
+ * them, or nothing when they are not one.
+ */
+[[nodiscard]] std::optional<scan_fact> decode_scan_fact(
+    std::string_view bytes);
+
+/**
+ * @brief The digest of what a reduce step is given: each file's path and
+ * fact, in the order @p files lists them.
+ */
+[[nodiscard]] compass::store::types::blob_id scan_digest(
+    std::span<const types::scanned_file> files);
+
+/**
+ * @brief What a scan's result keeps of its call, so that the next call
+ * may report its reduce step's findings without reducing: how many files
+ * it reduced, the digest of their paths and facts, the paths the reduce
+ * step read itself, and its findings, encoded as encode_diagnostics
+ * encodes them. Each file's fact and findings are in its fact object, not
+ * here, so the table's size does not grow with the files.
  */
 struct scan_table {
-    std::unordered_map<std::string_view, scan_entry> entries;
+    std::uint32_t files = 0;
+    compass::store::types::blob_id digest;
+    std::vector<std::string_view> read_by_reduce;
     std::string_view reduce_findings;
 };
 
 /**
- * @brief The bytes of a scan table of @p entries, each a path and its
- * entry, in order, and @p reduce_findings.
+ * @brief The bytes of @p t.
  */
-[[nodiscard]] std::string encode_scan(
-    std::span<const std::pair<std::string_view, scan_entry>> entries,
-    std::string_view reduce_findings);
+[[nodiscard]] std::string encode_scan(const scan_table& t);
 
 /**
  * @brief The scan table encode_scan wrote as @p bytes, pointing into
