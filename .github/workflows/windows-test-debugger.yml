@@ -20,7 +20,11 @@ name: Windows test under a debugger
 # Builds one test binary with MSVC, optimised as the release build is but
 # with symbols, and runs the named tests under cdb. On an access violation
 # or a stack overflow cdb prints the faulting frame and the stack, which a
-# crash under ctest does not. Run by hand: workflow_dispatch only.
+# crash under ctest does not. Each test spec runs in a process of its own,
+# as ctest runs them, and on the normal heap: cdb -hd turns off the debug
+# heap Windows gives a process started under a debugger, which moves
+# allocations and can hide a use after free. Run by hand:
+# workflow_dispatch only.
 on:  # yamllint disable-line rule:truthy
   workflow_dispatch:
     inputs:
@@ -29,7 +33,7 @@ on:  # yamllint disable-line rule:truthy
         required: true
         default: 'compass.bench.tests'
       tests:
-        description: 'Catch2 test spec to run, such as a tag'
+        description: 'Catch2 test specs separated by semicolons, each run in a process of its own'
         required: true
         default: '[store_stage]'
       repeat:
@@ -102,8 +106,11 @@ jobs:
           $report = '.echo FAULT; .ecxr; r; kP 40; ~* kc 20; q'
           $commands = "sxe -c `"$report`" av; sxe -c `"$report`" sov; g; q"
           Push-Location $bin
+          $specs = $env:TESTS -split ';' | Where-Object { $_.Trim() -ne '' }
           for ($i = 1; $i -le [int]$env:REPEAT; $i++) {
-            Write-Host "=== run $i"
-            & $cdb -lines -y $bin -c $commands $exe $env:TESTS --order decl
+            foreach ($spec in $specs) {
+              Write-Host "=== run $i: $spec"
+              & $cdb -hd -lines -y $bin -c $commands $exe $spec.Trim() --order decl
+            }
           }
           Pop-Location
