@@ -48,6 +48,7 @@ the same speed, caching and exception handling as its built-in codecs.
 |------+-------+-------+-----+-------------|
 | [[id:6E3237E7-C57A-4CD8-97D5-DA32BAA4359E][Analyse what is hard-coded to ORE Studio]] | DONE | 2026-11-18 | 2026-11-18 | Classify every codec's ORE Studio specifics (paths, names, type lists, patterns, thresholds) as already data, could be data, or must stay code, and propose the data format projects use to define their own checks. |
 | [[id:C71DA181-94C7-43CD-8F4A-1F7437D3753C][Build the forbid engine]] | DONE | 2026-11-18 | 2026-11-19 | Report each forbidden C++ name, include or pattern a check definition lists, in the files it covers, as the design's forbid engine does. |
+| [[id:72702FA4-8A4F-4488-B719-5AC71B72D7C6][Build the limit engine]] | DONE | 2026-11-19 | 2026-11-19 | Report each C++ type with more data members than a check's ceiling, save the types its Ceilings table records, whose ceilings only come down. |
 
 * Documents
 

@@ -19,6 +19,7 @@
  */
 #include "compass.cli/io/report.hpp"
 
+#include <algorithm>
 #include <format>
 #include <sstream>
 #include <string>
@@ -53,8 +54,20 @@ std::string excused_note(std::size_t excused) {
 void write_findings(std::ostream& out,
     const std::vector<types::finding>& findings) {
     for (const auto& f : findings)
-        out << std::format("{}:{}:{}: {}: {} (fix: {})\n", f.path, f.line,
-            f.column, f.rule, f.message, f.fix);
+        out << std::format("{}:{}:{}: {}{}: {} (fix: {})\n", f.path, f.line,
+            f.column, f.level == codec::types::severity::warning
+                ? "warning: " : "", f.rule, f.message, f.fix);
+}
+
+/**
+ * @brief ", n warnings" for the warnings of @p findings, or nothing when
+ * there are none.
+ */
+std::string warnings_note(const std::vector<types::finding>& findings) {
+    const auto n = std::ranges::count(findings,
+        codec::types::severity::warning, &types::finding::level);
+    return n == 0 ? std::string() : std::format(", {} warning{}", n,
+        n == 1 ? "" : "s");
 }
 
 /**
@@ -123,12 +136,17 @@ void write_hook(std::ostream& out, std::ostream& err,
     std::ostringstream lines;
     write_findings(lines, r.findings);
     const auto count = r.findings.size();
-    const auto reason = std::format("compass found {} finding{} on or "
+    const auto reason = std::format("compass found {} finding{}{} on or "
         "caused by the edit to {}{}{}:\n{}", count, count == 1 ? "" : "s",
-        r.path, excused_note(r.excused), old.empty() ? "" : "; " + old,
+        warnings_note(r.findings), r.path, excused_note(r.excused), old.empty() ? "" : "; " + old,
         lines.str());
-    out << std::format("{{\"decision\": \"block\", \"reason\": {}}}\n",
-        json_string(reason));
+    if (types::fails(r.findings))
+        out << std::format("{{\"decision\": \"block\", \"reason\": {}}}\n",
+            json_string(reason));
+    else
+        out << std::format("{{\"hookSpecificOutput\": {{\"hookEventName\": "
+            "\"PostToolUse\", \"additionalContext\": {}}}}}\n",
+            json_string("compass hook: " + reason));
 }
 
 void write_problems(std::ostream& err, const types::run_summary& s) {
@@ -170,8 +188,9 @@ void write_check(std::ostream& out, std::ostream& err,
     const types::check_result& r) {
     write_problems(err, r.run);
     write_findings(out, r.findings);
-    out << std::format("{} diagnostic{}{} ({})\n", r.findings.size(),
-        r.findings.size() == 1 ? "" : "s", excused_note(r.excused),
+    out << std::format("{} diagnostic{}{}{} ({})\n", r.findings.size(),
+        r.findings.size() == 1 ? "" : "s", warnings_note(r.findings),
+        excused_note(r.excused),
         corpus_note(r.run, r.ms));
 }
 
@@ -182,10 +201,11 @@ void write_ratchet(std::ostream& out, std::ostream& err,
     write_lines(err, "merge base: codec registry: ", r.previous.run.problems);
     write_findings(out, r.split.fresh);
     const auto n = r.split.fresh.size();
-    out << std::format("{} new diagnostic{}{}, {} excused as present at "
+    out << std::format("{} new diagnostic{}{}{}, {} excused as present at "
                        "{}, the merge base of HEAD and {}; {} renamed file{} "
                        "followed ({}; {:.1f} ms in all)\n", n,
-        n == 1 ? "" : "s", excused_note(r.current.excused), r.split.excused,
+        n == 1 ? "" : "s", warnings_note(r.split.fresh),
+        excused_note(r.current.excused), r.split.excused,
         store::ops::to_hex(r.merge_base).substr(0, 12), r.base,
         r.renames.size(), r.renames.size() == 1 ? "" : "s",
         corpus_note(r.current.run, r.current.ms), r.ms);

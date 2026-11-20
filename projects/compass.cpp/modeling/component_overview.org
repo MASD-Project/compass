@@ -228,8 +228,11 @@ keeps in its =.compass.org=.
 | =include/compass.cpp/codecs/catalogue.hpp=              | The codecs this component ships, and its code hash.           |
 | =include/compass.cpp/codecs/exported_types.hpp=         | The =exported_types= codec.                                   |
 | =include/compass.cpp/codecs/test_case_reachability.hpp= | The =test_case_reachability= codec.                           |
-| =include/compass.cpp/ops/lexer.hpp=                     | The one C++ lexer: code with comments and literals blanked.   |
+| =include/compass.cpp/ops/lexer.hpp=                     | The one C++ lexer: code with comments and literals blanked, and its tokens. |
 | =include/compass.cpp/ops/source_model.hpp=              | A file's includes, macros, declarations, heads and names.     |
+| =include/compass.cpp/ops/type_widths.hpp=               | The non-static data members of each class, struct and union.  |
+| =include/compass.cpp/ops/limit.hpp=                     | The limit engine: types over a check's ceiling, and its recorded ceilings. |
+| =include/compass.cpp/codecs/limit.hpp=                  | The scan function every limit check runs.                     |
 | =include/compass.cpp/ops/declarations.hpp=              | The types and file-local names the ODR gates read.            |
 | =include/compass.cpp/ops/exported_types.hpp=            | Export macros, quoted includes, exported types, enum sites.   |
 | =include/compass.cpp/ops/test_case_reachability.hpp=    | Test sources and their cases.                                 |

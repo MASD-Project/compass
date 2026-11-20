@@ -162,11 +162,11 @@ TEST_CASE("a check document that cannot run says where and why",
         "check's FILES in its property drawer");
     CHECK(error_of(replaced(document, ":ENGINE: forbid\n", "")) ==
         "compass/checks/portable_cpp.org:4: the definition names no engine; "
-        "fix: add :ENGINE: forbid or :ENGINE: format to its property drawer, "
+        "fix: add :ENGINE: forbid, format or limit to its property drawer, "
         "which org reads only on the line right under the heading");
-    CHECK(error_of(replaced(document, ":ENGINE: forbid", ":ENGINE: limit")) ==
-        "compass/checks/portable_cpp.org:6: the engine is 'limit'; fix: "
-        "write :ENGINE: forbid or :ENGINE: format, the engines compass runs "
+    CHECK(error_of(replaced(document, ":ENGINE: forbid", ":ENGINE: count")) ==
+        "compass/checks/portable_cpp.org:6: the engine is 'count'; fix: "
+        "write :ENGINE: forbid, format or limit, the engines compass runs "
         "from a document");
     CHECK(error_of(replaced(document, ":CPP_NAME: getenv", ":COLOUR: red")) ==
         "compass/checks/portable_cpp.org:24: unknown key COLOUR; fix: "
@@ -221,6 +221,71 @@ TEST_CASE("a format check document becomes a formatting check with one "
         "compass/checks/typescript_format.org", ignored);
     REQUIRE_FALSE(headed);
     CHECK(headed.error() == "compass/checks/typescript_format.org:13: a "
-        "format check has one rule, unformatted, and no rule headings; fix: "
+        "format check has fixed rules and no rule headings; fix: "
         "remove the heading, and state the check in the Definition drawer");
+}
+
+TEST_CASE("a limit check document records each row of its Ceilings in its "
+    "definition", "[config][check_documents]") {
+    const std::string limit_document =
+        "#+title: Check: wide types\n"
+        "#+description: No type holds more than fifteen fields.\n\n"
+        "* Definition\n"
+        ":PROPERTIES:\n"
+        ":ENGINE: limit\n"
+        ":FILES: src/**/*.hpp\n"
+        ":FACT: cpp_fields\n"
+        ":CEILING: 15\n"
+        ":END:\n\n"
+        "* Ceilings\n\n"
+        "| path | type | ceiling |\n"
+        "|------+------+---------|\n"
+        "| =src/a.hpp= | trade | 40 |\n";                 // 15
+    compass::codec::types::exception_set exceptions;
+    const auto c = config::parse_check_document(limit_document,
+        "compass/checks/wide_types.org", exceptions);
+    REQUIRE(c);
+    const auto& codec = (*c)->codec;
+    REQUIRE(codec.rules.size() == 2);
+    CHECK(codec.rules[0].name == "over_ceiling");
+    CHECK(codec.rules[1].name == "below_record");
+    CHECK(codec.options[0].default_value ==
+        "SOURCE compass/checks/wide_types.org\n"
+        "FILES src/**/*.hpp\n"
+        "FACT cpp_fields\n"
+        "CEILING 15\n"
+        "RECORDED src/a.hpp trade 40\n");
+
+    compass::codec::types::exception_set ignored;
+    const auto low = config::parse_check_document(replaced(limit_document,
+        "| trade | 40 |", "| trade | 9 |"), "compass/checks/wide_types.org",
+        ignored);
+    REQUIRE_FALSE(low);
+    CHECK(low.error() == "compass/checks/wide_types.org:4: trade of "
+        "src/a.hpp is recorded at 9, not above the ceiling of 15; fix: "
+        "correct the definition's drawers");
+}
+
+TEST_CASE("a check document's SEVERITY sets the severity of its findings",
+    "[config][check_documents]") {
+    compass::codec::types::exception_set exceptions;
+    const auto plain = config::parse_check_document(document,
+        "compass/checks/portable_cpp.org", exceptions);
+    REQUIRE(plain);
+    CHECK((*plain)->codec.level == compass::codec::types::severity::error);
+
+    compass::codec::types::exception_set ignored;
+    const auto warned = config::parse_check_document(replaced(document,
+        ":ENGINE: forbid\n", ":ENGINE: forbid\n:SEVERITY: warning\n"),
+        "compass/checks/portable_cpp.org", ignored);
+    REQUIRE(warned);
+    CHECK((*warned)->codec.level == compass::codec::types::severity::warning);
+    CHECK((*warned)->codec.options[0].default_value.find("SEVERITY") ==
+        std::string_view::npos);
+
+    CHECK(error_of(replaced(document, ":ENGINE: forbid\n",
+        ":ENGINE: forbid\n:SEVERITY: loud\n")) ==
+        "compass/checks/portable_cpp.org:7: the severity is 'loud'; fix: "
+        "write :SEVERITY: error, which fails a check that finds anything, "
+        "or warning, which reports and fails nothing");
 }

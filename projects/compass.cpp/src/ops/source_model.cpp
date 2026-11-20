@@ -27,76 +27,9 @@ namespace compass::cpp::ops {
 
 namespace {
 
-constexpr bool is_name_char(char c) noexcept {
-    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-        (c >= '0' && c <= '9') || c == '_' || c == '$' ||
-        static_cast<unsigned char>(c) >= 0x80;
-}
-
-constexpr bool is_digit(char c) noexcept { return c >= '0' && c <= '9'; }
-
 constexpr bool is_space(char c) noexcept {
     return c == ' ' || c == '\t' || c == '\r' || c == '\f' || c == '\v' ||
         c == '\n';
-}
-
-enum class token_kind : std::uint8_t { name, number, literal, punct };
-
-struct token {
-    token_kind kind;
-    std::uint32_t begin;
-    std::uint32_t end;
-};
-
-/**
- * @brief The tokens of the live code outside directives. :: is one
- * token; every other punctuator is one byte.
- */
-std::vector<token> tokens_of(const lexed& l) {
-    const std::string_view code(l.code);
-    const auto n = static_cast<std::uint32_t>(code.size());
-    std::vector<token> out;
-    out.reserve(code.size() / 6);
-    std::size_t di = 0, xi = 0, li = 0;
-    for (std::uint32_t i = 0; i < n;) {
-        if (di < l.directives.size() && l.directives[di].begin <= i) {
-            i = std::max(i, l.directives[di++].end);
-            continue;
-        }
-        if (xi < l.dead.size() && l.dead[xi].begin <= i) {
-            i = std::max(i, l.dead[xi++].end);
-            continue;
-        }
-        while (li < l.literals.size() && l.literals[li].end <= i)
-            ++li;
-        if (li < l.literals.size() && l.literals[li].begin == i) {
-            out.push_back({token_kind::literal, i, l.literals[li].end});
-            i = l.literals[li++].end;
-            continue;
-        }
-        const char c = code[i];
-        if (is_space(c)) {
-            ++i;
-            continue;
-        }
-        if (is_name_char(c)) {
-            auto e = i + 1;
-            while (e < n && is_name_char(code[e]))
-                ++e;
-            out.push_back({is_digit(c) ? token_kind::number : token_kind::name,
-                i, e});
-            i = e;
-            continue;
-        }
-        if (c == ':' && i + 1 < n && code[i + 1] == ':') {
-            out.push_back({token_kind::punct, i, i + 2});
-            i += 2;
-            continue;
-        }
-        out.push_back({token_kind::punct, i, i + 1});
-        ++i;
-    }
-    return out;
 }
 
 constexpr std::array<std::string_view, 15> leading_specifiers{"static",

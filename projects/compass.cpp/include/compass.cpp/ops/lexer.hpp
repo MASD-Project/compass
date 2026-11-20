@@ -72,6 +72,32 @@ struct lexed {
 [[nodiscard]] lexed lex(std::string_view source);
 
 /**
+ * @brief Whether @p c can be part of an identifier or a number.
+ */
+[[nodiscard]] constexpr bool is_name_char(char c) noexcept {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+        (c >= '0' && c <= '9') || c == '_' || c == '$' ||
+        static_cast<unsigned char>(c) >= 0x80;
+}
+
+enum class token_kind : std::uint8_t { name, number, literal, punct };
+
+/**
+ * @brief One token of lexed code: bytes [begin, end) of it.
+ */
+struct token {
+    token_kind kind;
+    std::uint32_t begin;
+    std::uint32_t end;
+};
+
+/**
+ * @brief The tokens of the live code of @p l outside directives. :: is
+ * one token; every other punctuator is one byte.
+ */
+[[nodiscard]] std::vector<token> tokens_of(const lexed& l);
+
+/**
  * @brief @p source with its comments blanked and its literals kept, byte
  * for byte, for a reader that matches what a literal holds.
  */
