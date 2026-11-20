@@ -8,7 +8,7 @@
 #+filetags: :keep_the_result_cache_small:sprint_01:v0:
 #+owner: marco
 #+branch: feature/collect-keeping-a-few-runs
-#+pr:
+#+pr: 125
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-20
@@ -100,7 +100,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/125][#125]] | [store] Collect the store as part of the runs, keeping three per worktree |
 
 * Review
 
