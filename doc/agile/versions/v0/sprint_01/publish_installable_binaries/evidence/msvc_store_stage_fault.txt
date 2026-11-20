@@ -1,0 +1,113 @@
+cdb output of the store stage test 'writes one object per distinct org content', MSVC 14.52 release with /Z7, compass f286920 (unfixed), workflow run 44712367090.
+
+FAULT
+Unable to get exception context, HRESULT 0x8000FFFF
+*** WARNING: Unable to verify checksum for compass.bench.tests.exe
+rax=00000273b0a05210 rbx=0000000300000002 rcx=0000008722bff380
+rdx=00000087226fece0 rsi=0000000000000001 rdi=0000000000000002
+rip=00007ff6300b4b1c rsp=0000008722bfeed0 rbp=0000000000000000
+ r8=00000087226feda0  r9=0000000300000002 r10=0000000000000000
+r11=0000000000000246 r12=0000000000000000 r13=0000000000000000
+r14=00000087226fece0 r15=0000000000000000
+iopl=0         nv up ei ng nz ac po cy
+cs=0033  ss=002b  ds=002b  es=002b  fs=0053  gs=002b             efl=00010297
+compass_bench_tests!compass::bench::ops::`anonymous-namespace'::corpus::source+0x4 [inlined in compass_bench_tests!compass::bench::ops::`anonymous namespace'::store_range+0xdc]:
+00007ff6`300b4b1c 8b0c98          mov     ecx,dword ptr [rax+rbx*4] ds:0000027f`b0a05218=????????
+compass_bench_tests!compass::bench::ops::`anonymous namespace'::store_range+0x7 [D:\a\compass\compass\projects\compass.bench\src\ops\store_stage.cpp @ 92]:
+00007ff6`300b4a47 57              push    rdi
+00007ff6`300b4a48 4154            push    r12
+00007ff6`300b4a4a 4155            push    r13
+00007ff6`300b4a4c 4156            push    r14
+00007ff6`300b4a4e 4157            push    r15
+00007ff6`300b4a50 4881ecb00e0000  sub     rsp,0EB0h
+00007ff6`300b4a57 488b05a2931501  mov     rax,qword ptr [compass_bench_tests!__security_cookie (00007ff6`3120de00)]
+00007ff6`300b4a5e 4833c4          xor     rax,rsp
+00007ff6`300b4a61 48898424a00e0000 mov     qword ptr [rsp+0EA0h],rax
+00007ff6`300b4a69 498bd9          mov     rbx,r9
+00007ff6`300b4a6c 4c89442470      mov     qword ptr [rsp+70h],r8
+00007ff6`300b4a71 4c8bf2          mov     r14,rdx
+00007ff6`300b4a74 488bf9          mov     rdi,rcx
+00007ff6`300b4a77 48894c2468      mov     qword ptr [rsp+68h],rcx
+00007ff6`300b4a7c 48894c2460      mov     qword ptr [rsp+60h],rcx
+00007ff6`300b4a81 48899424a0000000 mov     qword ptr [rsp+0A0h],rdx
+00007ff6`300b4a89 4c898424a8000000 mov     qword ptr [rsp+0A8h],r8
+00007ff6`300b4a91 4533ed          xor     r13d,r13d
+00007ff6`300b4a94 44896c2430      mov     dword ptr [rsp+30h],r13d
+00007ff6`300b4a99 4c8929          mov     qword ptr [rcx],r13
+00007ff6`300b4a9c 4c896908        mov     qword ptr [rcx+8],r13
+00007ff6`300b4aa0 4c896910        mov     qword ptr [rcx+10h],r13
+00007ff6`300b4aa4 4c896918        mov     qword ptr [rcx+18h],r13
+00007ff6`300b4aa8 4c896920        mov     qword ptr [rcx+20h],r13
+00007ff6`300b4aac 0f57c0          xorps   xmm0,xmm0
+00007ff6`300b4aaf 0f114128        movups  xmmword ptr [rcx+28h],xmm0
+00007ff6`300b4ab3 4c896938        mov     qword ptr [rcx+38h],r13
+00007ff6`300b4ab7 48c741400f000000 mov     qword ptr [rcx+40h],0Fh
+00007ff6`300b4abf 44886928        mov     byte ptr [rcx+28h],r13b
+00007ff6`300b4ac3 0f114148        movups  xmmword ptr [rcx+48h],xmm0
+00007ff6`300b4ac7 4c896958        mov     qword ptr [rcx+58h],r13
+00007ff6`300b4acb 48c741600f000000 mov     qword ptr [rcx+60h],0Fh
+00007ff6`300b4ad3 44886948        mov     byte ptr [rcx+48h],r13b
+00007ff6`300b4ad7 be01000000      mov     esi,1
+00007ff6`300b4adc 488d8c24b0040000 lea     rcx,[rsp+4B0h]
+00007ff6`300b4ae4 e87798faff      call    compass_bench_tests!compass::org::types::basic_tables<compass::org::types::column>::basic_tables<compass::org::types::column> (00007ff6`3005e360)
+00007ff6`300b4ae9 90              nop
+00007ff6`300b4aea 0f57c0          xorps   xmm0,xmm0
+00007ff6`300b4aed f30f7f442440    movdqu  xmmword ptr [rsp+40h],xmm0
+00007ff6`300b4af3 4c896c2450      mov     qword ptr [rsp+50h],r13
+00007ff6`300b4af8 895c2438        mov     dword ptr [rsp+38h],ebx
+00007ff6`300b4afc 3b9c240c0f0000  cmp     ebx,dword ptr [rsp+0F0Ch]
+00007ff6`300b4b03 0f8376030000    jae     compass_bench_tests!compass::bench::ops::`anonymous namespace'::store_range+0x43f (00007ff6`300b4e7f)
+00007ff6`300b4b09 8bfb            mov     edi,ebx
+00007ff6`300b4b0b 48897c2458      mov     qword ptr [rsp+58h],rdi
+00007ff6`300b4b10 498b4660        mov     rax,qword ptr [r14+60h]
+00007ff6`300b4b14 c6040700        mov     byte ptr [rdi+rax],0
+00007ff6`300b4b18 498b4618        mov     rax,qword ptr [r14+18h]
+compass_bench_tests!compass::bench::ops::`anonymous-namespace'::corpus::source+0x4 [D:\a\compass\compass\projects\compass.bench\src\ops\store_stage.cpp @ 99] [inlined in compass_bench_tests!compass::bench::ops::`anonymous namespace'::store_range+0xdc [D:\a\compass\compass\projects\compass.bench\src\ops\store_stage.cpp @ 99]]:
+00007ff6`300b4b1c 8b0c98          mov     ecx,dword ptr [rax+rbx*4]
+00007ff6`300b4b1f 498b4608        mov     rax,qword ptr [r14+8]
+00007ff6`300b4b23 48c1e105        shl     rcx,5
+00007ff6`300b4b27 4c8b38          mov     r15,qword ptr [rax]
+Child-SP          RetAddr               Call Site
+(Inline Function) --------`--------     compass_bench_tests!compass::bench::ops::`anonymous-namespace'::corpus::source(void)+0x4 [D:\a\compass\compass\projects\compass.bench\src\ops\store_stage.cpp @ 68]
+00000087`22bfeed0 00007ff6`300b0d2a     compass_bench_tests!compass::bench::ops::`anonymous namespace'::store_range(
+			struct compass::bench::ops::`anonymous-namespace'::corpus * c = 0x00000087`226fece0, 
+			class compass::store::io::pack_writer * writes = 0x00000087`226feda0, 
+			struct compass::bench::types::file_range range = struct compass::bench::types::file_range)+0xdc [D:\a\compass\compass\projects\compass.bench\src\ops\store_stage.cpp @ 99]
+(Inline Function) --------`--------     compass_bench_tests!compass::bench::ops::run_store_stage::__l9::<lambda_1>::operator()(void)+0x15 [D:\a\compass\compass\projects\compass.bench\src\ops\store_stage.cpp @ 219]
+(Inline Function) --------`--------     compass_bench_tests!compass::bench::ops::run_ranges::__l1::<lambda_1>::operator()(void)+0x23 [D:\a\compass\compass\projects\compass.bench\include\compass.bench\ops\partition.hpp @ 58]
+(Inline Function) --------`--------     compass_bench_tests!std::invoke(void)+0x23 [C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.52.37025\include\type_traits @ 1792]
+00000087`22bffdc0 00007ffc`35f237b0     compass_bench_tests!std::thread::_Invoke<std::tuple<`compass::bench::ops::run_ranges<`compass::bench::ops::run_store_stage'::`9'::<lambda_1> >'::`1'::<lambda_1> >,0>(
+			void * _RawVals = 0x00000273`b0a0e090)+0x4a [C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.52.37025\include\thread @ 60]
+00000087`22bffe70 00007ffc`37a1dd37     ucrtbase!wcsrchr+0x150
+00000087`22bffea0 00007ffc`384ff2bc     KERNEL32!BaseThreadInitThunk+0x17
+00000087`22bffed0 00000000`00000000     ntdll!RtlUserThreadStart+0x2c
+
+   0  Id: 858.504 Suspend: 1 Teb: 00000087`225f8000 Unfrozen
+Call Site
+ntdll!NtWaitForSingleObject
+KERNELBASE!WaitForSingleObjectEx
+MSVCP140!Thrd_join
+compass_bench_tests!std::thread::join
+compass_bench_tests!std::jthread::_Try_cancel_and_join
+compass_bench_tests!std::jthread::{dtor}
+compass_bench_tests!std::destroy_at
+compass_bench_tests!std::_Default_allocator_traits<std::allocator<std::jthread> >::destroy
+compass_bench_tests!std::_Destroy_range<std::allocator<std::jthread> >
+compass_bench_tests!std::vector<std::jthread,std::allocator<std::jthread> >::_Tidy
+compass_bench_tests!std::vector<std::jthread,std::allocator<std::jthread> >::{dtor}
+compass_bench_tests!compass::bench::ops::run_ranges<`compass::bench::ops::run_store_stage'::`9'::<lambda_1> >
+compass_bench_tests!compass::bench::ops::run_store_stage
+compass_bench_tests!CATCH2_INTERNAL_TEST_0
+compass_bench_tests!Catch::TestCaseHandle::invoke
+compass_bench_tests!Catch::RunContext::invokeActiveTestCase
+compass_bench_tests!Catch::RunContext::runCurrentTest
+compass_bench_tests!Catch::RunContext::runTest
+compass_bench_tests!Catch::`anonymous-namespace'::TestGroup::execute
+compass_bench_tests!Catch::Session::runInternal
+compass_bench_tests!Catch::Session::run
+compass_bench_tests!Catch::Session::run
+compass_bench_tests!main
+compass_bench_tests!invoke_main
+compass_bench_tests!__scrt_common_main_seh
+KERNEL32!BaseThreadInitThunk
+ntdll!RtlUserThreadStart

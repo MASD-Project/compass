@@ -58,6 +58,7 @@ A person or a CI job installs a named compass release with one command, without 
 | [[id:527B56F3-392D-454C-B72C-75365422655A][Run the release on the oldest distribution]] | DONE | 2026-11-19 | 2026-11-19 | Prove the release binary depends only on the system C and C++ runtimes by running it in a clean container of the oldest supported distribution. |
 | [[id:46B54F1B-257A-4B9D-965B-587108128C55][Cut the first release]] | DONE | 2026-11-19 | 2026-11-19 | Tag v0.0.1, publish its release notes and packages, install it from the release, and tell ORE Studio it can run compass check in CI. |
 | [[id:9F8EB34C-083B-4438-846A-2E2784F80067][Fix the MSVC test failures]] | BACKLOG | | | Make the MSVC build pass every test now each Catch2 case runs as its own process: four compass.bench store stage cases crash where they start a shell, and one compass.crosscheck case reports a convention it should not. |
+| [[id:39E08E05-FFE5-494F-85DA-8D97B7355818][Fix the MSVC nightly's store stage crash]] | STARTED | 2026-11-20 | | The four compass.bench store stage tests crashed under MSVC release: its optimiser indexed with the whole register a file_range arrived in, upper half included. The bench stages now count rows in size_t. |
 
 * Decisions
 
