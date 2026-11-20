@@ -30,6 +30,10 @@ where each value came from. The command line wins over this page: =--out=,
 One row per codec: its name, =yes= or =no= for enabled, and its options as
 space-separated =key=value= pairs. A codec with no row runs on its
 defaults. =tangle= is off: the files it writes are not committed here.
+=no_pr_triggers= is off: ORE Studio removed its pull-request checks because
+they came late and missed the paths their workflows did not name, but
+compass's one Linux workflow covers every path and builds a pull request,
+merged with main, in about eleven minutes.
 
 | name              | enabled | options                                          |
 |-------------------+---------+--------------------------------------------------|
@@ -38,4 +42,4 @@ defaults. =tangle= is off: the files it writes are not committed here.
 | tangle            | no      |                                                  |
 | tangle_check      | yes     |                                                  |
 | rule_table        | yes     | path=doc/knowledge/compass/rule_table.org        |
-| no_pr_triggers    | yes     |                                                  |
+| no_pr_triggers    | no      |                                                  |

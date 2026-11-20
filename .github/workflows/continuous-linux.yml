@@ -29,17 +29,16 @@ on:  # yamllint disable-line rule:truthy
   push:
     tags:
       - '*'
-    # A pull request's branch builds linux-clang release on every push, so
-    # the pull request shows its checks. This is a push trigger, not a
-    # pull_request one: no_pr_triggers forbids those.
+  # A pull request builds linux-clang release, merged with main.
+  pull_request:
     branches:
-      - 'feature/**'
+      - main
   workflow_dispatch:
 
-# A new push to a feature branch supersedes the run of the one before it.
+# A new push to a pull request supersedes the run of the one before it.
 concurrency:
   group: continuous-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'push' && github.ref_type == 'branch' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   guard:
@@ -50,9 +49,9 @@ jobs:
       should_build: ${{ steps.check.outputs.should_build }}
     steps:
       - uses: actions/checkout@v7
-        # Manual and tag runs always build; scheduled and branch runs compare
-        # commits, so they need the history.
-        if: github.event_name == 'schedule' || (github.event_name == 'push' && github.ref_type == 'branch')
+        # Manual and tag runs always build; scheduled and pull request runs
+        # compare commits, so they need the history.
+        if: github.event_name == 'schedule' || github.event_name == 'pull_request'
         with:
           fetch-depth: 0
       - name: Check if code changed since last successful run
@@ -61,9 +60,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           echo "should_build=true" >> "$GITHUB_OUTPUT"
-          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref_type }}" == "branch" ]]; then
-            # A feature branch is compared with where it left main.
-            last_sha=$(git merge-base origin/main "$GITHUB_SHA")
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            # A pull request's merge commit is compared with main as it was
+            # merged, so the diff is the pull request's own change.
+            last_sha="${{ github.event.pull_request.base.sha }}"
           elif [[ "${{ github.event_name }}" == "schedule" ]]; then
             workflow_file=$(basename "${GITHUB_WORKFLOW_REF%%@*}")
             last_sha=$(gh api \
@@ -147,9 +147,9 @@ jobs:
       fail-fast: false
       matrix:
         name: [linux-clang]
-        # A feature branch builds release alone: it is the faster of the two,
+        # A pull request builds release alone: it is the faster of the two,
         # and the scheduled runs on main build debug with coverage.
-        buildtype: ${{ fromJSON(github.event_name == 'push' && github.ref_type == 'branch' && '["release"]' || '["debug", "release"]') }}
+        buildtype: ${{ fromJSON(github.event_name == 'pull_request' && '["release"]' || '["debug", "release"]') }}
         include:
           - name: linux-clang
             family: linux
@@ -280,10 +280,10 @@ jobs:
         # existing entry alone when it did not.
         if: ${{ always() && steps.ctest.outcome != 'skipped' }}
         run: |
-          # A feature branch reads main's cache and never saves one: a branch's
-          # entry is visible to that branch alone, and saving it would prune
+          # A pull request reads main's cache and never saves one: its entry
+          # is visible to that pull request alone, and saving it would prune
           # main's entry of the variant.
-          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref_type }}" == "branch" ]]; then
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             echo "worth_saving=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
