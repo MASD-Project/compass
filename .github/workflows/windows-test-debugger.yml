@@ -109,7 +109,7 @@ jobs:
           $specs = $env:TESTS -split ';' | Where-Object { $_.Trim() -ne '' }
           for ($i = 1; $i -le [int]$env:REPEAT; $i++) {
             foreach ($spec in $specs) {
-              Write-Host "=== run $i: $spec"
+              Write-Host "=== run ${i}: $spec"
               & $cdb -hd -lines -y $bin -c $commands $exe $spec.Trim() --order decl
             }
           }
