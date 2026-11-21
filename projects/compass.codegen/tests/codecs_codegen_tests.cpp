@@ -20,7 +20,6 @@
 #include "compass.codegen/codecs/codegen.hpp"
 
 #include <array>
-#include <deque>
 #include <filesystem>
 #include <fstream>
 #include <map>
@@ -35,16 +34,15 @@
 #include "compass.codec/ops/outputs.hpp"
 #include "compass.codec/ops/registry.hpp"
 #include "compass.codec/ops/run.hpp"
-#include "compass.ingest/meta/type_registry_builder.hpp"
-#include "compass.ingest/org/parser.hpp"
-#include "compass.store/ops/blob_hash.hpp"
 #include "compass.testing/filesystem/scoped_directory.hpp"
+#include "test_checkout.hpp"
 
 namespace {
 
 using namespace compass;
 namespace ct = compass::codec::types;
-using files = std::map<std::string, std::string, std::less<>>;
+using codegen::tests::checkout;
+using codegen::tests::files;
 using counts = std::vector<std::uint64_t>;
 
 /**
@@ -76,56 +74,6 @@ files library() {
         {"doc/notes.org", "#+title: Notes\n"},
         {"src/main.cpp", "int main() {}\n"}};
 }
-
-/**
- * @brief A checkout of @p all: its .org files parsed into a corpus typed
- * by the model types, and every file listed.
- */
-class checkout final {
-public:
-    explicit checkout(const files& all) : bytes_(all) {
-        ingest::meta::type_registry_builder builder;
-        for (const auto name : ingest::meta::model_types)
-            builder.add_model(name);
-        types_ = builder.build();
-        for (const auto& [path, text] : bytes_) {
-            files_.paths.push_back(path);
-            if (!path.ends_with(".org"))
-                continue;
-            auto& t = tables_.emplace_back();
-            ingest::org::parse(text, t);
-            const auto view = org::types::view(t);
-            corpus_.paths.push_back(path);
-            corpus_.contents.push_back(store::ops::blob_id_of(text));
-            corpus_.sources.push_back(text);
-            corpus_.tables.push_back(view);
-            corpus_.types.push_back(codec::ops::document_type(text, view,
-                types_));
-        }
-        files_.content_of = [this](std::string_view p) {
-            return std::optional(store::ops::blob_id_of(
-                bytes_.find(p)->second));
-        };
-        files_.read = [this](std::string_view p) {
-            return std::optional(bytes_.find(p)->second);
-        };
-        corpus_.files = &files_;
-    }
-    checkout(const checkout&) = delete;
-    checkout& operator=(const checkout&) = delete;
-
-    [[nodiscard]] const ct::corpus& corpus() const { return corpus_; }
-    [[nodiscard]] const org::types::type_registry& types() const {
-        return types_;
-    }
-
-private:
-    files bytes_;
-    org::types::type_registry types_;
-    std::deque<org::types::tables> tables_;
-    ct::checkout_files files_;
-    ct::corpus corpus_;
-};
 
 ct::configuration settings() {
     ct::configuration c;
