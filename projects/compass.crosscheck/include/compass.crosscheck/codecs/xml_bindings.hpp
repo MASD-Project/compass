@@ -35,7 +35,9 @@ namespace compass::crosscheck::codecs {
  * Schema errata table (written, read) and the Settings table (setting,
  * value), which names the schema directory, the header and source
  * directories, the include and namespace prefixes, the engine and decimal
- * headers, the decimal type and the export macro. A family of stem s is
+ * headers, the decimal type and the export macro, and the Licence table
+ * (line), the licence comment that heads each file, a row per line. A
+ * family of stem s is
  * the header s.hpp and the source s.cpp under those directories, with the
  * accessor s_document, the namespace <namespace_prefix>::s and the
  * include <include_prefix>/s.hpp, formatted by clang-format as the

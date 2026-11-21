@@ -65,12 +65,14 @@ constexpr std::array<std::string_view, 2> exact_decimal_columns{"family",
 constexpr std::array<std::string_view, 2> errata_columns{"written", "read"};
 constexpr std::array<std::string_view, 2> setting_columns{"setting",
     "value"};
+constexpr std::array<std::string_view, 1> licence_columns{"line"};
 
-constexpr std::array<cops::table_need, 4> needed{{
+constexpr std::array<cops::table_need, 5> needed{{
     {"Families", family_columns},
     {"Exact decimals", exact_decimal_columns},
     {"Schema errata", errata_columns},
-    {"Settings", setting_columns}}};
+    {"Settings", setting_columns},
+    {"Licence", licence_columns}}};
 
 /**
  * @brief The Settings table of the check document: where the schemas are,
@@ -128,6 +130,7 @@ struct project_data {
     settings paths;
     std::vector<family_row> families;
     std::vector<std::pair<std::string, std::string>> errata;
+    std::string licence;
 };
 
 std::vector<std::string> words_of(std::string_view text) {
@@ -248,6 +251,18 @@ std::expected<project_data, std::string> read_document(
                 "' is corrected twice");
         out.errata.emplace_back(written, read);
     }
+
+    // A cell loses its leading blanks, so the table holds each line's text
+    // and the comment's /* and * are written here.
+    const auto& l = *data.find("Licence");
+    if (l.rows.empty())
+        return wrong(l.name, l.line, "the table has no line");
+    for (std::size_t r = 0; r < l.rows.size(); ++r) {
+        const auto& text = l.rows[r][l.column("line")];
+        out.licence += r == 0 ? "/* " + text
+            : text.empty() ? std::string(" *") : " * " + text;
+        out.licence.push_back('\n');
+    }
     return out;
 }
 
@@ -266,7 +281,8 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
         return;
     }
     const auto& paths = document->paths;
-    const xb::project project{.engine_include = paths.engine_include,
+    const xb::project project{.licence = document->licence,
+        .engine_include = paths.engine_include,
         .decimal_include = paths.decimal_include,
         .decimal_type = paths.decimal_type,
         .export_macro = paths.export_macro, .errata = document->errata};

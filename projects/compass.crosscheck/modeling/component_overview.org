@@ -270,12 +270,14 @@ because each reads one kind of artefact and writes another:
   tables keyed by node identity, because the output depends on them, and
   names nothing of ORE Studio: what the generated files name of the
   project is its =project= argument. Everything project-specific is the
-  four tables of the project's check document for the codec: =Families=
+  five tables of the project's check document for the codec: =Families=
   (stem, root element, root type, schemas), =Exact decimals= (family,
   element), =Schema errata= (written, read) and =Settings=, one row per
   setting: the schema, header and source directories, the include and
   namespace prefixes, the engine and decimal headers, the decimal type and
-  the export macro. The settings are a table, not options, because they
+  the export macro; and =Licence=, the licence comment that heads each
+  generated file, a row per line, which compass wraps in the comment's =/*=
+  and =*=. The settings are a table, not options, because they
   describe the project as the families do and one page then states
   everything the bindings come from. A family's accessor, namespace,
   include, include guard and paths all follow from its stem and the

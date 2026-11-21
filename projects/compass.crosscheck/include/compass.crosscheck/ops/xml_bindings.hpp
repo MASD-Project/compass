@@ -35,11 +35,13 @@ namespace compass::crosscheck::ops::xml_bindings {
 
 /**
  * @brief What the generated files of every family of one project name and
- * the schemas do not: the header of the binding engine, the exact decimal
- * type and its header, the export macro of each accessor, and the element
- * names the schemas state wrongly, each as written and as read.
+ * the schemas do not: the licence comment that heads each file, up to the
+ * banner, the header of the binding engine, the exact decimal type and its
+ * header, the export macro of each accessor, and the element names the
+ * schemas state wrongly, each as written and as read.
  */
 struct project {
+    std::string_view licence;
     std::string_view engine_include;
     std::string_view decimal_include;
     std::string_view decimal_type;
