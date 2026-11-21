@@ -1,0 +1,53 @@
+:PROPERTIES:
+:ID: 41FD3A9B-6D52-44A2-9676-6EC5FD28F8A9
+:END:
+#+title: Story: Trace a break to its cause
+#+description: Every commit and pull request states its story, task and environment, and compass traces a finding on main to the commit, pull request and environment that likely caused it.
+#+type: story
+#+level: s2
+#+filetags: :sprint_01:v0:
+#+created: 2026-11-21
+#+updated: 2026-11-21
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+When a check fails on main, nobody knows which change caused it, or which environment to ask. ORE Studio's commits mostly carry =Story-ID=, =Task-ID= and =Environment= trailers and its pull requests a Story, Task and Environment table, but not all: of the last 200 commits on main, only 98 name their environment.
+
+The story has two parts. First, a check that every commit on a branch, and its pull request, states its story, task and environment, with IDs that resolve to the documents. Second, blame: for a finding already on main, compass traces the likely cause to a commit, its pull request and its environment. How depends on the rule, so each rule names its method: blame the reported line; find the commit that added the subject a missing thing was required for; for drift, a hand edit to the output or an input changed without regenerating; and as the fallback, bisect main's merges running only that codec. Every answer says which method found it.
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | STARTED                              |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | The trailer and pull request check is in flight. |
+| Waiting on    | Nothing.                               |
+| Next          | Build blame, line and bisect first, then the added and drift methods; release in v0.0.7. |
+| Last touched  | 2026-11-21                               |
+
+* Acceptance
+
+- On a copy of ORE Studio's history, the branch of PR #4966 passes the trailer check and the branch of PR #4963 is reported for its commit without trailers.
+- The trailer names and the pull request labels are settings; compass names none of ORE Studio's.
+- A pull request whose story or task differs from its commits' is reported.
+- =compass blame= names, for a finding seeded on a copy of main, the commit, pull request and environment that introduced it, and the method that found it.
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+| Require story, task and environment on every commit and pull request | STARTED | 2026-11-21 | | The trailer and pull request check, beside the ratchet. |
+| Trace a finding to its likely cause | BACKLOG | | | =compass blame= and =check --blame=: per-rule methods, line, added, drift and bisect. |
+
+* Decisions
+
+- 2026-11-21: blame is check-dependent, so each rule declares its tracing method, bisect by default, and the answer always names the method, so a guess is not read as a verdict. (Product owner agreed.)
+- 2026-11-21: both parts ship in v0.0.7, the trailer check first, since blame reads the trailers. (Product owner.)
+
+* Out of scope
+
+- Enforcing the trailers at commit time in ORE Studio's own tooling; that is ORE Studio's side.

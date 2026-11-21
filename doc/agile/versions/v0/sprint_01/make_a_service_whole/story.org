@@ -1,0 +1,55 @@
+:PROPERTIES:
+:ID: 0CC46638-093A-4D82-A465-CB4339DEC6EE
+:END:
+#+title: Story: Make a service whole
+#+description: One check that a service has everything it needs, from the registry entry to its build, generated SQL and certificates, with the obligations stated by the project.
+#+type: story
+#+level: s2
+#+filetags: :sprint_01:v0:
+#+created: 2026-11-21
+#+updated: 2026-11-21
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+ORE Studio added a service, =ores.orgmode.service=, and no check noticed it was incomplete: it was not in the service registry, its =src/CMakeLists.txt= was missing, its application was still the scaffold's, a second list of the services left it without a certificate, and a hand edit in the generated service grants SQL went unseen. The gate report from the environment that found them names each one (items 1.1 to 1.8).
+
+This story makes "a service is whole" one check, =service_integrity=, rooted in the service registry: for every service it names each obligation unmet. The obligations are the project's data, in its check document, so compass carries nothing of ORE Studio's; adding something every service needs is a row. Around it, the generated outputs of the registry become drift-checked, a hidden-visibility part's public functions must be exported, and compass's own tests cover what codegen scaffolds.
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | STARTED                              |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | Four pieces in flight: the codec, the registry outputs, the export rule with the scaffold tests. |
+| Waiting on    | Nothing.                               |
+| Next          | Integrate, then release in v0.0.7 and hand ORE Studio its half. |
+| Last touched  | 2026-11-21                               |
+
+* Acceptance
+
+- =service_integrity= reports, on a copy of ORE Studio's main with each defect seeded, a service missing from the registry, a missing build file, a scaffold application, a service missing from a generated SQL file, and a second list of service names.
+- Its obligations are rows of ORE Studio's check document; compass's code names no ORE Studio path.
+- A hand edit to any output of the service registry is reported as drift.
+- A namespace-scope function in a public header of a hidden-visibility part without the export macro is reported.
+- compass's tests scaffold a flat, a composite and a hidden-visibility component and check the files written.
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+| Build the service integrity check | STARTED | 2026-11-21 | | The codec, its obligations table and the single-source rule (items 1.1, 1.2, 1.7, 1.8). |
+| Generate the service registry's outputs | STARTED | 2026-11-21 | | Make codegen write the six files of =ores.sql.service= and =ores.shell.service=, so hand edits are drift (1.3). |
+| Export functions from hidden-visibility parts | STARTED | 2026-11-21 | | Extend the export rule to functions, and test what codegen scaffolds (1.5, 1.6). |
+
+* Decisions
+
+- 2026-11-21: compass holds the engine, the project holds the data. The obligations of a service are rows of the project's check document, not compass code, so another project's services have their own. (Product owner.)
+
+* Out of scope
+
+- The checks that need a running fleet (report section 2): a service that never becomes ready, dependents stopped silently, the gate leaving services down, a stale schema. They are ORE Studio's own tooling.
+- The route metadata for MCP (1.9), until that story lands.
