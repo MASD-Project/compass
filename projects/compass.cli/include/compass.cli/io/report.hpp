@@ -56,9 +56,18 @@ void write_check(std::ostream& out, std::ostream& err,
     const types::check_result& r);
 
 /**
+ * @brief Writes one line of what checking the provenance of a branch
+ * did: how many commits it checked and whether it read a pull request,
+ * or why not; nothing when commit_provenance is off. Its findings are
+ * written with the others.
+ */
+void write_provenance(std::ostream& out, const types::provenance_result& r);
+
+/**
  * @brief Writes each new finding of @p r to @p out as write_check does,
- * then their count, how many were excused and the merge base; the
- * problems of both checks go to @p err, those of the merge base marked.
+ * the provenance line, then their count, how many were excused and the
+ * merge base; the problems of both checks go to @p err, those of the
+ * merge base marked.
  */
 void write_ratchet(std::ostream& out, std::ostream& err,
     const types::ratchet_result& r);

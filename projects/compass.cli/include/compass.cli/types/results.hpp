@@ -196,6 +196,26 @@ struct ratchet_split {
 };
 
 /**
+ * @brief What checking the provenance of a branch found.
+ *
+ * checked is false when the check did not run, and note then says why.
+ * commits counts the commits checked and merges those skipped as merges.
+ * pull_request is the number of the pull request whose table was read;
+ * when there is none, note says why. findings are ordinary findings,
+ * their path commit/<id> for a commit, by the first twelve digits of its
+ * ID, pull/<number> for the pull request, and branch/<name> for a branch
+ * that has none.
+ */
+struct provenance_result {
+    bool checked = false;
+    std::size_t commits = 0;
+    std::size_t merges = 0;
+    std::optional<std::uint64_t> pull_request;
+    std::string note;
+    std::vector<finding> findings;
+};
+
+/**
  * @brief What compass check --ratchet found.
  *
  * base is the base as named, or the default it fell back to, and
@@ -203,7 +223,9 @@ struct ratchet_split {
  * checkout and previous the check of the merge base, with the same
  * configuration. renames are the files of the merge base with findings
  * that HEAD holds at another path. split holds the findings of current
- * that previous did not have.
+ * that previous did not have. provenance is what checking the commits of
+ * the branch and its pull request found, when commit_provenance is on;
+ * its findings are among those of split.
  */
 struct ratchet_result {
     std::string base;
@@ -212,6 +234,7 @@ struct ratchet_result {
     check_result previous;
     std::vector<rename> renames;
     ratchet_split split;
+    provenance_result provenance;
     double ms = 0;
 
     [[nodiscard]] bool failed() const noexcept {
