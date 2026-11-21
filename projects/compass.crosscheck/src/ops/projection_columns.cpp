@@ -20,6 +20,8 @@
 #include "compass.crosscheck/ops/projection_columns.hpp"
 
 #include <algorithm>
+#include <array>
+#include <initializer_list>
 #include <map>
 #include <set>
 #include <stdexcept>
@@ -27,7 +29,6 @@
 #include <utility>
 #include "compass.codegen/ops/values.hpp"
 #include "compass.crosscheck/ops/curve_wiring.hpp"
-#include "compass.crosscheck/ops/python_literals.hpp"
 #include "compass.model/io/json.hpp"
 #include "compass.model/ops/builder.hpp"
 #include "compass.platform/text/regex.hpp"
@@ -42,8 +43,6 @@ namespace pt = compass::platform::text;
 namespace values = compass::codegen::ops::values;
 namespace cw = compass::crosscheck::ops::curve;
 
-constexpr std::string_view script_path =
-    "projects/ores.sql/utility/generate_convention_kind_terms.py";
 constexpr std::string_view terms_path =
     "projects/ores.sql/utility/convention_terms.json";
 constexpr std::string_view mappers = "projects/ores.ore/core/src/domain/";
@@ -57,8 +56,12 @@ struct stop {};
 using names = std::map<std::string, std::string, std::less<>>;
 using triple = std::tuple<std::string, std::string, std::string>;
 
+namespace cops = compass::codec::ops;
+
 /**
- * @brief The tables the script keeps as module-level literals.
+ * @brief The tables of the value sets' check document the terms are read
+ * with: what generate_convention_kind_terms.py kept as module-level
+ * literals.
  */
 struct tables {
     std::vector<std::string> asset_classes;
@@ -71,64 +74,61 @@ struct tables {
     names member_entity;
 };
 
-ops::python_value assignment(std::string_view source, std::string_view name) {
-    auto v = ops::python_assignment(source, name);
-    if (!v)
-        throw stop{};
-    return std::move(*v);
-}
+constexpr std::array<std::string_view, 1> asset_class_columns{"asset_class"};
+constexpr std::array<std::string_view, 3> not_a_column_columns{"kind",
+    "variable", "column"};
+constexpr std::array<std::string_view, 1> schema_columns{"schema"};
+constexpr std::array<std::string_view, 2> file_kind_columns{"file", "kind"};
+constexpr std::array<std::string_view, 2> spelled_columns{"term", "xpath"};
+constexpr std::array<std::string_view, 2> elsewhere_columns{"kind",
+    "element"};
+constexpr std::array<std::string_view, 2> element_columns{"kind", "element"};
+constexpr std::array<std::string_view, 2> member_columns{"member", "entity"};
+constexpr std::array<cops::table_need, 8> needed{{
+    {"Asset classes", asset_class_columns},
+    {"Not a column", not_a_column_columns},
+    {"Convention schema", schema_columns},
+    {"File kinds", file_kind_columns},
+    {"Spelled otherwise", spelled_columns},
+    {"Read elsewhere", elsewhere_columns},
+    {"Kind elements", element_columns},
+    {"Member entities", member_columns}}};
 
-std::vector<std::pair<std::string, std::string>> string_dict(
-    const ops::python_value& v) {
-    if (v.what != ops::python_value::kind::dict)
-        throw stop{};
-    std::vector<std::pair<std::string, std::string>> out;
-    for (const auto& e : v.entries) {
-        if (!e.key_items.empty() ||
-            e.value.what != ops::python_value::kind::string)
-            throw stop{};
-        out.emplace_back(e.key, e.value.text);
+/**
+ * @brief The cells of @p columns of each row of the table @p name, which
+ * tables_for has checked is there with those columns.
+ */
+std::vector<std::vector<std::string>> rows_of(const cops::data_tables& d,
+    std::string_view name, std::initializer_list<std::string_view> columns) {
+    const auto& t = *d.find(name);
+    std::vector<std::vector<std::string>> out;
+    for (const auto& row : t.rows) {
+        auto& cells = out.emplace_back();
+        for (const auto c : columns)
+            cells.push_back(row[t.column(c)]);
     }
     return out;
 }
 
-std::vector<std::string> tuple_key(const ops::python_entry& e,
-    std::size_t size) {
-    const auto key = ops::strings_of(ops::python_value{
-        ops::python_value::kind::sequence, {}, e.key_items, {}});
-    if (!key || key->size() != size)
-        throw stop{};
-    return *key;
-}
-
-tables read_tables(std::string_view source) {
+tables read_tables(const cops::data_tables& d) {
     tables t;
-    const auto classes = ops::strings_of(assignment(source, "ASSET_CLASSES"));
-    if (!classes)
-        throw stop{};
-    t.asset_classes = *classes;
-    for (const auto& e : assignment(source, "NOT_A_COLUMN").entries) {
-        const auto k = tuple_key(e, 3);
-        t.not_a_column.emplace(k[0], k[1], k[2]);
-    }
-    t.schema_name = assignment(source, "SCHEMA_NAME").text;
-    t.file_kind = string_dict(assignment(source, "FILE_KIND"));
-    for (const auto& e : assignment(source, "SPELLED_OTHERWISE").entries) {
-        std::optional<std::string> xpath;
-        for (const auto& f : e.value.entries)
-            if (f.key == "xpath")
-                xpath = f.value.text;
-        if (!xpath)
-            throw stop{};
-        t.spelled_otherwise.insert_or_assign(e.key, *xpath);
-    }
-    for (const auto& e : assignment(source, "READ_ELSEWHERE").entries) {
-        const auto k = tuple_key(e, 2);
-        t.read_elsewhere.emplace(k[0], k[1]);
-    }
-    t.element_of = string_dict(assignment(source, "ELEMENT_OF"));
-    for (auto& [k, v] : string_dict(assignment(source, "MEMBER_ENTITY")))
-        t.member_entity.insert_or_assign(k, v);
+    for (auto& r : rows_of(d, "Asset classes", {"asset_class"}))
+        t.asset_classes.push_back(std::move(r[0]));
+    for (auto& r : rows_of(d, "Not a column", {"kind", "variable", "column"}))
+        t.not_a_column.emplace(std::move(r[0]), std::move(r[1]),
+            std::move(r[2]));
+    t.schema_name = rows_of(d, "Convention schema", {"schema"}).front()[0];
+    for (auto& r : rows_of(d, "File kinds", {"file", "kind"}))
+        t.file_kind.emplace_back(std::move(r[0]), std::move(r[1]));
+    for (auto& r : rows_of(d, "Spelled otherwise", {"term", "xpath"}))
+        t.spelled_otherwise.insert_or_assign(std::move(r[0]),
+            std::move(r[1]));
+    for (auto& r : rows_of(d, "Read elsewhere", {"kind", "element"}))
+        t.read_elsewhere.emplace(std::move(r[0]), std::move(r[1]));
+    for (auto& r : rows_of(d, "Kind elements", {"kind", "element"}))
+        t.element_of.emplace_back(std::move(r[0]), std::move(r[1]));
+    for (auto& r : rows_of(d, "Member entities", {"member", "entity"}))
+        t.member_entity.insert_or_assign(std::move(r[0]), std::move(r[1]));
     return t;
 }
 
@@ -344,10 +344,14 @@ std::optional<std::string> curve_table(const ct::corpus_view& v,
 
 }
 
+std::span<const cops::table_need> convention_terms_tables() {
+    return needed;
+}
+
 std::optional<convention_terms_result> convention_terms(
-    const ct::corpus_view& v) {
+    const ct::corpus_view& v, const cops::data_tables& data) {
     try {
-        const auto t = read_tables(read(v, script_path));
+        const auto t = read_tables(data);
         const auto m = mapper_terms(v, t);
         const auto known = xpaths(v, m.elements);
         if (m.unread)

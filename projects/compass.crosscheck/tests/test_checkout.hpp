@@ -142,7 +142,7 @@ inline outcome run_after_edit(const compass::codec::types::descriptor& codec,
 }
 
 /**
- * @brief The files the file codec @p codec, enabled with @p settings,
+ * @brief The files the file codec @p codec, enabled with @p settings_of,
  * writes over a checkout of @p all, by path.
  */
 inline files generate(const compass::codec::types::descriptor& codec,

@@ -24,7 +24,6 @@
 #include <string>
 #include <string_view>
 #include <vector>
-#include "compass.crosscheck/ops/python_literals.hpp"
 
 /**
  * @brief A value as Python's json.load gives it: None, a bool, an int, a
@@ -101,22 +100,6 @@ struct json_value {
  * int, repr of a float, or the string itself.
  */
 [[nodiscard]] std::string python_str(const json_value& v);
-
-/**
- * @brief A literal of a Python module as the value it builds: strings,
- * numbers, True, False and None, tuples and lists as lists, dicts as
- * objects. A dict whose key is a tuple has its key's items joined by '|'.
- * Nothing for a name, a call or an f-string.
- */
-[[nodiscard]] std::optional<json_value> json_of(const python_value& v);
-
-/**
- * @brief json_of() of the module-level assignment to @p name in
- * @p source, its names and f-strings resolved against the module's string
- * constants.
- */
-[[nodiscard]] std::optional<json_value> module_table(std::string_view source,
-    std::string_view name);
 
 }
 

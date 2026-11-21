@@ -20,7 +20,10 @@
 #include "compass.crosscheck/ops/value_sets.hpp"
 
 #include <algorithm>
+#include <array>
+#include <format>
 #include <functional>
+#include <initializer_list>
 #include <iterator>
 #include <tuple>
 #include "compass.crosscheck/ops/ore_schema.hpp"
@@ -33,6 +36,7 @@ namespace compass::crosscheck::ops::value_sets {
 namespace {
 
 namespace ct = compass::codec::types;
+namespace cops = compass::codec::ops;
 namespace pt = compass::platform::text;
 using kind = json_value::kind;
 
@@ -44,6 +48,63 @@ constexpr std::string_view utility = "projects/ores.sql/utility/";
 constexpr std::string_view xsd_dir = "external/ore/xsd/";
 constexpr std::string_view curve_schema = "curveconfig.xsd";
 constexpr std::string_view convention_schema = "conventions.xsd";
+
+constexpr std::array<std::string_view, 4> catalogue_columns{"code", "name",
+    "relation", "description"};
+constexpr std::array<std::string_view, 2> catalogue_kind_columns{"kind",
+    "catalogue"};
+constexpr std::array<std::string_view, 2> rendered_columns{"kind",
+    "renderings"};
+constexpr std::array<std::string_view, 2> without_list_columns{"kind", "set"};
+constexpr std::array<std::string_view, 2> list_of_columns{"kind", "parser"};
+constexpr std::array<std::string_view, 3> type_set_columns{"family", "type",
+    "set"};
+constexpr std::array<std::string_view, 2> schema_type_set_columns{"kind",
+    "type"};
+constexpr std::array<std::string_view, 6> own_set_columns{"code", "name",
+    "description", "source_kind", "pattern", "is_ordered"};
+constexpr std::array<std::string_view, 4> override_columns{"element", "term",
+    "kind", "reason"};
+constexpr std::array<std::string_view, 1> curation_key_columns{"key"};
+constexpr std::array<std::string_view, 1> source_columns{"source"};
+constexpr std::array<std::string_view, 5> list_item_columns{"leaf", "kind",
+    "source", "source_ref", "reason"};
+constexpr std::array<std::string_view, 1> pattern_columns{"pattern"};
+constexpr std::array<std::string_view, 2> parser_table_columns{"parser",
+    "table"};
+constexpr std::array<std::string_view, 4> family_columns{"table", "name",
+    "description", "label"};
+constexpr std::array<std::string_view, 2> schema_kind_columns{"xsd_type",
+    "kind"};
+constexpr std::array<std::string_view, 1> count_columns{"count"};
+constexpr std::array<std::string_view, 2> item_word_columns{"kind", "words"};
+constexpr std::array<std::string_view, 3> schema_word_columns{"kind", "name",
+    "words"};
+
+/**
+ * @brief The tables of the value sets' check document the value sets
+ * themselves are resolved with; projection_columns names the rest.
+ */
+constexpr std::array<cops::table_need, 19> needed{{
+    {"Catalogues", catalogue_columns},
+    {"Catalogue kinds", catalogue_kind_columns},
+    {"Rendered kinds", rendered_columns},
+    {"Kinds without a list", without_list_columns},
+    {"Kinds one parser lists", list_of_columns},
+    {"Type sets", type_set_columns},
+    {"Schema type sets", schema_type_set_columns},
+    {"Convention own sets", own_set_columns},
+    {"Type overrides", override_columns},
+    {"Curation keys", curation_key_columns},
+    {"Curation sources", source_columns},
+    {"List items", list_item_columns},
+    {"Period pattern", pattern_columns},
+    {"Parser tables", parser_table_columns},
+    {"Rendering families", family_columns},
+    {"Schema kinds", schema_kind_columns},
+    {"Unread leaves allowed", count_columns},
+    {"Item words", item_word_columns},
+    {"Schema words", schema_word_columns}}};
 
 /**
  * @brief Where a generator raises: the curation cannot be resolved.
@@ -79,12 +140,90 @@ json_value read_json(const ct::corpus_view& v, const std::string& path) {
     return std::move(*j);
 }
 
-json_value table(const std::string& module, std::string_view source,
+using string_map = std::map<std::string, std::string, std::less<>>;
+
+json_value str_value(std::string s) { return json_value::string(std::move(s)); }
+
+/**
+ * @brief The table @p name of @p d, which read_tables() checked is there.
+ */
+const cops::data_table& table_of(const cops::data_tables& d,
     std::string_view name) {
-    auto t = module_table(source, name);
-    if (!t)
-        fail(module + ": " + std::string(name) + " is not a literal");
-    return std::move(*t);
+    return *d.find(name);
+}
+
+const std::string& cell(const cops::data_table& t,
+    const std::vector<std::string>& row, std::string_view column) {
+    return row[t.column(column)];
+}
+
+/**
+ * @brief The dict the table @p name states from column @p key to column
+ * @p value, the last row winning, as a dict literal's last key does.
+ */
+string_map pairs_of(const cops::data_tables& d, std::string_view name,
+    std::string_view key, std::string_view value) {
+    const auto& t = table_of(d, name);
+    string_map out;
+    for (const auto& row : t.rows)
+        out.insert_or_assign(cell(t, row, key), cell(t, row, value));
+    return out;
+}
+
+json_value object_value() {
+    json_value j;
+    j.what = kind::object;
+    return j;
+}
+
+void put(json_value& object, std::string key, json_value value) {
+    object.keys.push_back(std::move(key));
+    object.items.push_back(std::move(value));
+}
+
+/**
+ * @brief The dict of dicts the table @p name states: per row, column
+ * @p key to a dict of the string cells of @p fields; an empty cell of a
+ * column of @p nullable is None.
+ */
+json_value records_of(const cops::data_tables& d, std::string_view name,
+    std::string_view key, std::initializer_list<std::string_view> fields,
+    std::initializer_list<std::string_view> nullable = {}) {
+    const auto& t = table_of(d, name);
+    auto out = object_value();
+    for (const auto& row : t.rows) {
+        auto record = object_value();
+        for (const auto f : fields) {
+            const auto& c = cell(t, row, f);
+            put(record, std::string(f), c.empty() &&
+                std::ranges::contains(nullable, f) ? json_value{}
+                : str_value(c));
+        }
+        put(out, cell(t, row, key), std::move(record));
+    }
+    return out;
+}
+
+/**
+ * @brief The tuple the one-column table @p name states, one item a row.
+ */
+json_value list_of(const cops::data_tables& d, std::string_view name,
+    std::string_view column) {
+    const auto& t = table_of(d, name);
+    json_value out;
+    out.what = kind::list;
+    for (const auto& row : t.rows)
+        out.items.push_back(str_value(cell(t, row, column)));
+    return out;
+}
+
+/**
+ * @brief The one cell of column @p column of the one-row table @p name.
+ */
+const std::string& single(const cops::data_tables& d, std::string_view name,
+    std::string_view column) {
+    const auto& t = table_of(d, name);
+    return cell(t, t.rows.front(), column);
 }
 
 std::map<std::string, std::string, std::less<>> strings(const json_value& t) {
@@ -142,8 +281,6 @@ std::string parser_set_code(std::string_view prefix, std::string_view parser) {
     return std::string(prefix) + snake(parser.substr(5));
 }
 
-json_value str_value(std::string s) { return json_value::string(std::move(s)); }
-
 value_row to_row(const json_value& j) {
     value_row r;
     if (const auto* x = j.get("value")) r.value = *x;
@@ -199,7 +336,8 @@ using generated_set = std::optional<value_set>;
 using set_choice = std::pair<std::string, generated_set>;
 
 /**
- * @brief ore_renderings.json and ore_aliases.py: which renderings of a
+ * @brief ore_renderings.json and the Parser tables and Rendering families
+ * tables, which were ore_aliases.py's: which renderings of a
  * value ORE's reader converts to which form.
  */
 class renderings final {
@@ -566,45 +704,69 @@ void add_generated(family& f, const std::string& code, value_set generated) {
  */
 class inputs final {
 public:
-    explicit inputs(const ct::corpus_view& v) : v_(v) {
-        const auto source = [&](std::string_view name) {
-            const auto path = path_in(utility, name);
-            auto text = v.read_file(path);
-            if (!text)
-                fail(path + " is missing");
-            return std::move(*text);
-        };
-        const auto conventions_py = source("convention_value_sets.py");
-        const auto curves_py = source("curve_value_sets.py");
-        const auto aliases_py = source("ore_aliases.py");
-        const auto schema_py = source("ore_schema_types.py");
-        const auto map_py = source("generate_ore_element_map.py");
+    inputs(const ct::corpus_view& v, const cops::data_tables& data)
+        : v_(v), data_(data) {
         const auto module = [](std::string_view name) {
             return path_in(utility, name);
         };
-        const auto conv = module("convention_value_sets.py");
-        conv_catalogues = table(conv, conventions_py, "CATALOGUES");
-        conv_catalogue_of = strings(table(conv, conventions_py, "CATALOGUE_OF"));
-        conv_rendered_of = strings(table(conv, conventions_py, "RENDERED_OF"));
-        conv_without_list = strings(table(conv, conventions_py, "WITHOUT_LIST"));
-        conv_list_of = strings(table(conv, conventions_py, "LIST_OF"));
-        conv_schema_type_sets = strings(table(conv, conventions_py, "SCHEMA_TYPE_SETS"));
-        conv_type_sets = strings(table(conv, conventions_py, "TYPE_SETS"));
-        conv_own_sets = table(conv, conventions_py, "OWN_SETS");
-        conv_type_override = table(conv, conventions_py, "TYPE_OVERRIDE");
-        const auto curve = module("curve_value_sets.py");
-        curve_catalogues = table(curve, curves_py, "CATALOGUES");
-        curve_curation_keys = table(curve, curves_py, "CURATION_KEYS");
-        curve_sources = table(curve, curves_py, "SOURCES");
-        curve_list_item = table(curve, curves_py, "LIST_ITEM");
-        curve_type_sets = strings(table(curve, curves_py, "TYPE_SETS"));
-        curve_schema_type_sets = strings(table(curve, curves_py, "SCHEMA_TYPE_SETS"));
-        period_pattern = python_str(table(curve, curves_py, "PERIOD_PATTERN"));
-        const auto aliases = module("ore_aliases.py");
+        conv_catalogues = records_of(data, "Catalogues", "code",
+            {"name", "relation", "description"});
+        curve_catalogues = conv_catalogues;
+        conv_catalogue_of = pairs_of(data, "Catalogue kinds", "kind",
+            "catalogue");
+        conv_rendered_of = pairs_of(data, "Rendered kinds", "kind",
+            "renderings");
+        conv_without_list = pairs_of(data, "Kinds without a list", "kind",
+            "set");
+        conv_list_of = pairs_of(data, "Kinds one parser lists", "kind",
+            "parser");
+        conv_schema_type_sets = pairs_of(data, "Schema type sets", "kind",
+            "type");
+        curve_schema_type_sets = conv_schema_type_sets;
+        const auto& types = table_of(data, "Type sets");
+        for (const auto& row : types.rows) {
+            auto& sets = cell(types, row, "family") == "curve"
+                ? curve_type_sets : conv_type_sets;
+            sets.insert_or_assign(cell(types, row, "type"),
+                cell(types, row, "set"));
+        }
+        const auto& own = table_of(data, "Convention own sets");
+        conv_own_sets = object_value();
+        for (const auto& row : own.rows) {
+            auto set = object_value();
+            for (const auto field : {"name", "description", "source_kind"})
+                put(set, field, str_value(cell(own, row, field)));
+            if (const auto& p = cell(own, row, "pattern"); !p.empty())
+                put(set, "pattern", str_value(p));
+            put(set, "is_ordered", json_value::boolean(
+                cell(own, row, "is_ordered") == "yes"));
+            put(conv_own_sets, cell(own, row, "code"), std::move(set));
+        }
+        const auto& overrides = table_of(data, "Type overrides");
+        conv_type_override = object_value();
+        for (const auto& row : overrides.rows) {
+            const auto& element = cell(overrides, row, "element");
+            const auto& term = cell(overrides, row, "term");
+            json_value stated;
+            stated.what = kind::list;
+            stated.items = {str_value(cell(overrides, row, "kind")),
+                str_value(cell(overrides, row, "reason"))};
+            put(conv_type_override, element.empty() ? term + "|"
+                : element + "|" + term, std::move(stated));
+        }
+        curve_curation_keys = list_of(data, "Curation keys", "key");
+        curve_sources = list_of(data, "Curation sources", "source");
+        curve_list_item = records_of(data, "List items", "leaf",
+            {"kind", "source", "source_ref", "reason"}, {"kind"});
+        period_pattern = single(data, "Period pattern", "pattern");
+        auto parser_table = object_value();
+        for (const auto& [parser, table] : pairs_of(data, "Parser tables",
+                "parser", "table"))
+            put(parser_table, parser, str_value(table));
         rendering = std::make_unique<renderings>(
-            read_json(v, module("ore_renderings.json")),
-            table(aliases, aliases_py, "PARSER_TABLE"),
-            table(aliases, aliases_py, "SETS"));
+            read_json(v, module("ore_renderings.json")), parser_table,
+            records_of(data, "Rendering families", "table",
+                {"name", "description", "label"}));
         std::vector<std::pair<std::string, std::string>> xsd;
         for (const auto path : v.list_files(xsd_dir, ".xsd")) {
             if (path.find('/', xsd_dir.size()) != std::string_view::npos)
@@ -613,13 +775,18 @@ public:
                 v.read_file(path).value_or(""));
         }
         schemas = std::make_unique<ore_schema::schemas>(xsd,
-            strings(table(module("ore_schema_types.py"), schema_py, "KIND_OF")));
-        const auto map_module = module("generate_ore_element_map.py");
-        item_words = table(map_module, map_py, "ITEM_WORDS");
-        schema_words = strings(table(map_module, map_py, "SCHEMA_WORDS"));
-        schema_names = strings(table(map_module, map_py, "SCHEMA_NAMES"));
-        const auto allowed = table(map_module, map_py, "UNREAD_ALLOWED");
-        unread_allowed = std::stoll(allowed.text.empty() ? "0" : allowed.text);
+            pairs_of(data, "Schema kinds", "xsd_type", "kind"));
+        const auto& words = table_of(data, "Item words");
+        item_words = object_value();
+        for (const auto& row : words.rows) {
+            const auto& w = cell(words, row, "words");
+            put(item_words, cell(words, row, "kind"),
+                w.empty() ? json_value{} : str_value(w));
+        }
+        schema_words = pairs_of(data, "Schema words", "kind", "words");
+        schema_names = pairs_of(data, "Schema words", "kind", "name");
+        unread_allowed = std::stoll(single(data, "Unread leaves allowed",
+            "count"));
         convention_terms = read_json(v, module("convention_terms.json"));
         curve_terms = read_json(v, module("curve_terms.json"));
         vocabularies = read_json(v, module("ore_parameter_vocabularies.json"));
@@ -640,7 +807,7 @@ public:
      */
     const std::optional<convention_terms_result>& terms() {
         if (!terms_read_) {
-            terms_ = ops::convention_terms(v_);
+            terms_ = ops::convention_terms(v_, data_);
             terms_read_ = true;
         }
         return terms_;
@@ -688,6 +855,7 @@ public:
 
 private:
     const ct::corpus_view& v_;
+    const cops::data_tables& data_;
     bool terms_read_ = false;
     std::optional<convention_terms_result> terms_;
     std::optional<std::set<std::string>> convention_drawn_;
@@ -1037,7 +1205,7 @@ private:
     /**
      * @brief OWN_SETS. The module states the date list's pattern by calling
      * the schema reader, which no literal can express, so the sets are
-     * stated here, with PERIOD_PATTERN read from the module and the date
+     * stated here, with the Period pattern table's pattern and the date
      * pattern from the schema's date type.
      */
     [[nodiscard]] std::vector<std::pair<std::string, value_set>> own_sets() const {
@@ -1796,10 +1964,62 @@ std::string write(std::string_view label, std::string_view table,
 
 }
 
-outcome evaluate(const ct::corpus_view& v) {
+std::expected<cops::data_tables, unreadable> read_tables(
+    const ct::corpus_view& v, std::string_view codec) {
+    std::vector<cops::table_need> needs(needed.begin(), needed.end());
+    std::ranges::copy(convention_terms_tables(), std::back_inserter(needs));
+    const auto text = v.option(cops::data_option);
+    auto data = cops::tables_for(codec, text, needs);
+    if (!data) {
+        const auto decoded = cops::decode_data_tables(text);
+        return std::unexpected(unreadable{text.empty() || !decoded
+            ? "compass/checks/" + std::string(codec) + ".org"
+            : decoded->source, data.error()});
+    }
+    const auto wrong = [&](const cops::data_table& t, std::uint32_t line,
+        std::string_view what) {
+        return std::unexpected(unreadable{data->source, std::format(
+            "{}:{}: {}, in the table \"{}\" {} reads", data->source, line,
+            what, t.name, codec)});
+    };
+    for (const auto name : {"Period pattern", "Convention schema",
+             "Unread leaves allowed"}) {
+        const auto& t = table_of(*data, name);
+        if (t.rows.size() != 1)
+            return wrong(t, t.line, std::format("{} rows state what one "
+                "row states", t.rows.size()));
+    }
+    const auto& count = table_of(*data, "Unread leaves allowed");
+    if (const auto& c = cell(count, count.rows[0], "count");
+        c.empty() || c.size() > 9 || !std::ranges::all_of(c, [](char x) {
+            return x >= '0' && x <= '9';
+        }))
+        return wrong(count, count.row_lines[0], "the count '" + c +
+            "' is not a whole number");
+    const auto& own = table_of(*data, "Convention own sets");
+    for (std::size_t r = 0; r < own.rows.size(); ++r)
+        if (const auto& o = cell(own, own.rows[r], "is_ordered");
+            o != "yes" && o != "no")
+            return wrong(own, own.row_lines[r], "is_ordered is '" + o +
+                "', not yes or no");
+    const auto& types = table_of(*data, "Type sets");
+    for (std::size_t r = 0; r < types.rows.size(); ++r)
+        if (const auto& f = cell(types, types.rows[r], "family");
+            f != "convention" && f != "curve")
+            return wrong(types, types.row_lines[r], "the family '" + f +
+                "' is neither convention nor curve");
+    const auto& overrides = table_of(*data, "Type overrides");
+    for (std::size_t r = 0; r < overrides.rows.size(); ++r)
+        if (cell(overrides, overrides.rows[r], "term").empty())
+            return wrong(overrides, overrides.row_lines[r], "the override "
+                "names no term");
+    return std::move(*data);
+}
+
+outcome evaluate(const ct::corpus_view& v, const cops::data_tables& data) {
     outcome out;
     try {
-        inputs in(v);
+        inputs in(v, data);
         out.unread_allowed = in.unread_allowed;
         model m = load(v);
         const auto contract = contract_pairs(v);

@@ -35,8 +35,7 @@ namespace {
 namespace ct = compass::codec::types;
 namespace co = compass::cpp::ops;
 
-constexpr std::string_view out_path =
-    "projects/ores.sql/populate/refdata/refdata_convention_kind_terms_populate.sql";
+constexpr std::string_view out_path = terms_path;
 constexpr std::string_view triggers_path =
     "projects/ores.sql/create/refdata/refdata_convention_terms_validate_create.sql";
 constexpr std::string_view drops_path =
