@@ -116,8 +116,10 @@ std::vector<rule_row> rules_of(std::span<const types::descriptor> catalogue) {
             out.push_back({d->name, &r});
     for (const auto& r : exception_rules)
         out.push_back({exception_codec, &r});
-    if (files)
+    if (files) {
         out.push_back({every_files_codec, &drift_rule});
+        out.push_back({every_files_codec, &names_missing_file_rule});
+    }
     return out;
 }
 

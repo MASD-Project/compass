@@ -348,7 +348,8 @@ rule_status status_of(const ct::registry& codecs, std::string_view rule) {
         if (d.name != codec)
             continue;
         const bool declared = (output_of(d) == ct::output_kind::files &&
-                name == drift_rule.name) ||
+                (name == drift_rule.name ||
+                    name == names_missing_file_rule.name)) ||
             std::ranges::any_of(d.rules,
                 [&](const ct::rule& r) { return r.name == name; });
         if (!declared)

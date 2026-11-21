@@ -82,6 +82,23 @@ inline constexpr types::rule drift_rule{"drift", "Every file a codec "
     "it by hand.", drift_documents};
 
 /**
+ * @brief The second rule every codec that emits files declares without
+ * listing it: the header of a file it generates, where a codec says what
+ * generated the file and how to regenerate it, names no script the
+ * checkout lacks, so it never sends its reader to a deleted script. Text a
+ * codec copies from its inputs further down is the inputs' own.
+ */
+inline constexpr types::rule names_missing_file_rule{"names_missing_file",
+    "The header of every file a codec generates names only scripts the "
+    "checkout holds."};
+
+/**
+ * @brief How many lines of a generated file are its header, which
+ * names_missing_file_rule reads.
+ */
+inline constexpr std::uint32_t generated_header_lines = 20;
+
+/**
  * @brief The date @p s writes as YYYY-MM-DD, or nothing when it is not
  * of that form or no such day exists.
  */

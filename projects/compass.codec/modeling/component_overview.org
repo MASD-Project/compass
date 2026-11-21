@@ -94,7 +94,13 @@ others is in its descriptor, so adding a codec adds a row to a list.
   rule in prose, as uppercase UUIDs, empty when none does. The rules the
   runtime reports without a codec declaring them are constants beside
   =ops::excuse=: =ops::exception_rules=, under =ops::exception_codec=, and
-  =ops::drift_rule=, which every files codec declares besides its own. The descriptors
+  =ops::drift_rule= and =ops::names_missing_file_rule=, which every files
+  codec declares besides its own. =names_missing_file= reads the header of
+  each generated file, its first =ops::generated_header_lines= lines, where
+  a codec says what generated the file and how to regenerate it, and
+  reports a script, a word ending in =.py= or =.sh=, that the checkout does
+  not hold: a banner must not send its reader to a deleted script. Text a
+  codec copies from its inputs further down is the inputs' own. The descriptors
   are the one source of this metadata, and the rule table is generated
   from it.
 - *Rule table.* =ops::rules_of= lists every rule of a catalogue: the
@@ -484,7 +490,8 @@ others is in its descriptor, so adding a codec adds a row to a list.
   =exception/stale= (valid, of an enabled codec, excuses nothing). A row
   that names a line covers that line only, so a finding that moves leaves
   the row stale and is reported again. =ops::status_of= says whether a rule is one an
-  enabled codec declares; a files codec declares =drift=. The runtime
+  enabled codec declares; a files codec declares =drift= and
+  =names_missing_file=. The runtime
   applies exceptions after a run, not inside a unit, so a result from the
   record or the cache never hides an expiry.
 - *Unmarked record.* =io::unmarked_file_path= is =compass/unmarked= under
