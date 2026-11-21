@@ -203,8 +203,16 @@ set(WITH_COVERAGE false)
 if(DEFINED code_coverage)
     if(${code_coverage} EQUAL 1)
         if(${compiler} STREQUAL "gcc")
-            message(STATUS "Looking for gcov.")
-            find_program(CTEST_COVERAGE_COMMAND NAMES gcov)
+            # gcov must be the compiler's own: the notes another version
+            # writes are a format it refuses. The CI image points g++ at
+            # one version and leaves gcov at the distribution's.
+            execute_process(COMMAND g++ -dumpversion
+                OUTPUT_VARIABLE gcc_version
+                OUTPUT_STRIP_TRAILING_WHITESPACE)
+            string(REGEX MATCH "^[0-9]+" gcc_major "${gcc_version}")
+            message(STATUS "Looking for gcov-${gcc_major}, then gcov.")
+            find_program(CTEST_COVERAGE_COMMAND
+                NAMES gcov-${gcc_major} gcov)
         elseif(${compiler} STREQUAL "clang")
             message(STATUS "Looking for llvm-cov.")
             find_program(CTEST_COVERAGE_COMMAND NAMES llvm-cov)
