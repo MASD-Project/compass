@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-184 rules, 43 of which cite a memory or a document that states them. Of the 62 memories of this repository, 59 are cited by no rule.
+184 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 58 are cited by no rule.
 
 ** Rules
 
@@ -259,7 +259,6 @@ memories no rule cites are the candidates for the next checks.
 - [[id:9EEF7590-86C3-449F-8387-A21B5B62EF87][Regen byproduct hygiene]]
 - [[id:BA740C1B-8307-47D1-B359-AF20D0B2CBF0][Run pgTAP under a role that row-level security binds]]
 - [[id:5BDDD435-9F2A-4ABC-BA71-5BB3B980C785][compass db commands run outside the sandbox]]
-- [[id:FBA1F66D-BACF-4C5C-AD83-C6AE56131DDC][Run validate_schemas.sh before pushing any SQL schema change]]
 - [[id:6071F761-FE8E-4F06-8FE7-58377A41C294][Scaffold tasks with content; let compass wire the tables]]
 - [[id:E6D88535-E249-4730-8F6C-D50B182AD2B1][Stuck vcpkg lock: sccache daemon holds it]]
 - [[id:506B9E01-ABBB-400A-935B-63EED0ADB8E7][Search for the claim, not the phrase]]
