@@ -203,7 +203,21 @@ program_result run_program(const program_call& call) {
     } else {
         *input.out() = inheritable_standard(STD_INPUT_HANDLE);
     }
-    const handle error(inheritable_standard(STD_ERROR_HANDLE));
+    handle error;
+    if (call.errors == error_stream::discard) {
+        *error.out() = ::CreateFileW(L"NUL", GENERIC_WRITE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE, &inherit, OPEN_EXISTING,
+            FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (error.get() == INVALID_HANDLE_VALUE)
+            throw_last_error("cannot open NUL for " + program);
+    } else if (call.errors == error_stream::merge) {
+        if (!::DuplicateHandle(::GetCurrentProcess(), write_end.get(),
+                ::GetCurrentProcess(), error.out(), 0, TRUE,
+                DUPLICATE_SAME_ACCESS))
+            throw_last_error("cannot share a pipe with " + program);
+    } else {
+        *error.out() = inheritable_standard(STD_ERROR_HANDLE);
+    }
 
     HANDLE streams[3] = {input.get(), write_end.get(), error.get()};
     const inherited_handles inherited(streams);
@@ -226,6 +240,7 @@ program_result run_program(const program_call& call) {
     const handle child(process.hProcess);
     ::CloseHandle(process.hThread);
     write_end.reset();
+    error.reset();
 
     program_result r;
     char buffer[1 << 16];
@@ -342,6 +357,12 @@ program_result run_program(const program_call& call) {
     file_actions actions;
     posix_spawn_file_actions_adddup2(actions.get(), pipe.write_end(),
         STDOUT_FILENO);
+    if (call.errors == error_stream::discard)
+        posix_spawn_file_actions_addopen(actions.get(), STDERR_FILENO,
+            "/dev/null", O_WRONLY, 0);
+    else if (call.errors == error_stream::merge)
+        posix_spawn_file_actions_adddup2(actions.get(), pipe.write_end(),
+            STDERR_FILENO);
     if (!call.input.empty())
         posix_spawn_file_actions_addopen(actions.get(), STDIN_FILENO,
             call.input.c_str(), O_RDONLY, 0);

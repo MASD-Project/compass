@@ -20,6 +20,7 @@
 #ifndef COMPASS_PLATFORM_PROCESS_RUN_PROGRAM_HPP
 #define COMPASS_PLATFORM_PROCESS_RUN_PROGRAM_HPP
 
+#include <cstdint>
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -27,20 +28,28 @@
 namespace compass::platform::process {
 
 /**
+ * @brief Where a program's standard error goes: the caller's, nowhere, or
+ * into the output it returns, interleaved with standard output.
+ */
+enum class error_stream : std::uint8_t { inherit, discard, merge };
+
+/**
  * @brief One run of a program: its arguments, the first naming the program
- * and searched on PATH when it holds no slash, the directory it runs in and
- * the file it reads as standard input. An empty directory or input is
- * inherited from the caller.
+ * and searched on PATH when it holds no slash, the directory it runs in,
+ * the file it reads as standard input and where its standard error goes.
+ * An empty directory or input is inherited from the caller.
  */
 struct program_call {
     std::vector<std::string> arguments;
     std::filesystem::path directory;
     std::filesystem::path input;
+    error_stream errors = error_stream::inherit;
 };
 
 /**
  * @brief How a program ended and what it wrote to standard output. A
- * program killed by a signal has exit code -1. Standard error is inherited.
+ * program killed by a signal has exit code -1. Standard error goes where
+ * the call says.
  */
 struct program_result {
     int exit_code = 0;

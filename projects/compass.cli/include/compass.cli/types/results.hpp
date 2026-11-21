@@ -208,13 +208,15 @@ struct blamed_finding {
 };
 
 /**
- * @brief What blaming the findings of a run found. notify is the trailer
+ * @brief What blaming the findings of a run found. not_run says why
+ * blame could not start, when it could not. notify is the trailer
  * whose value names who to tell, empty when no check document names the
  * trailers. probes counts the checks bisect ran, and ms is the wall time
  * of the whole blame.
  */
 struct blame_report {
     std::vector<blamed_finding> findings;
+    std::string not_run;
     std::string notify;
     std::size_t probes = 0;
     double ms = 0;

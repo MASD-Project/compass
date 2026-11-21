@@ -24,11 +24,14 @@
 #include <fstream>
 #include <string>
 #include <system_error>
+#include <vector>
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_string.hpp>
 
 namespace {
 
 using compass::testing::filesystem::scoped_directory;
+using compass::platform::process::error_stream;
 using compass::platform::process::run_program;
 
 }
@@ -73,8 +76,35 @@ TEST_CASE("run_program feeds the input file to standard input", "[process]") {
     CHECK(r.output == "fed");
 }
 
+TEST_CASE("run_program passes braces and carets through, unexpanded",
+    "[process]") {
+    const auto r = run_program({{"git", "rev-parse", "--sq-quote",
+        "main^{commit}", "{a,b}", "*"}, {}, {}});
+    CHECK(r.exit_code == 0);
+    CHECK(r.output == " 'main^{commit}' '{a,b}' '*'\n");
+}
+
+TEST_CASE("run_program discards standard error, or merges it into the "
+    "output, as the call says", "[process]") {
+    const std::vector<std::string> failing{"git", "rev-parse", "--verify",
+        "compass-no-such-revision"};
+    const auto discarded = run_program({failing, {}, {},
+        error_stream::discard});
+    CHECK(discarded.exit_code != 0);
+    CHECK(discarded.output.empty());
+    const auto merged = run_program({failing, {}, {}, error_stream::merge});
+    CHECK(merged.exit_code != 0);
+    CHECK_THAT(merged.output, Catch::Matchers::ContainsSubstring("fatal"));
+}
+
 TEST_CASE("run_program throws when the program cannot be started",
     "[process]") {
     CHECK_THROWS_AS(run_program({{"compass-no-such-program"}, {}, {}}),
         std::system_error);
+    try {
+        const auto r = run_program({{"compass-no-such-program"}, {}, {}});
+        FAIL("ran with exit code " << r.exit_code);
+    } catch (const std::system_error& e) {
+        CHECK(e.code() == std::errc::no_such_file_or_directory);
+    }
 }

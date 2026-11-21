@@ -110,11 +110,17 @@ std::string fake_gh(const scoped_git_repo& repo, std::string_view output,
     int status = 0) {
     const auto data = repo.output_root() / "gh.out";
     scoped_git_repo::write_file(data, output);
+#ifdef _WIN32
+    const auto script = repo.output_root() / "gh.cmd";
+    scoped_git_repo::write_file(script, "@type \"" + data.string() +
+        "\"\r\n@exit /b " + std::to_string(status) + "\r\n");
+#else
     const auto script = repo.output_root() / "gh";
     scoped_git_repo::write_file(script, "#!/bin/sh\ncat '" +
         data.generic_string() + "'\nexit " + std::to_string(status) + "\n");
     std::filesystem::permissions(script,
         std::filesystem::perms::owner_all);
+#endif
     return script.generic_string();
 }
 
