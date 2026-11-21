@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-190 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 58 are cited by no rule.
+195 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 58 are cited by no rule.
 
 ** Rules
 
@@ -54,6 +54,11 @@ memories no rule cites are the candidates for the next checks.
 | =entity_binary_types= | unclassified | Every bound member and column has a type the check can place on the wire, or both are text. |  |
 | =entity_writes= | sql_writer | No SQL function but the purge writes an entity table with INSERT, UPDATE or DELETE. | =5724BDE2-7FA4-4667-9129-2D9DD7783AB2= |
 | =entity_writes= | cpp_writer | No hand-written C++ file but the repository of each table it names writes an entity table in raw SQL. | =5724BDE2-7FA4-4667-9129-2D9DD7783AB2= |
+| =env_format= | unknown_version | Every variable of the environment file's check document names the version that added it, and any that removed it, and the Versions table has each. |  |
+| =env_format= | undeclared | A version after the baseline lists every variable whose row says the version added or removed it, so a variable is never added without a new version. |  |
+| =env_format= | unknown_variable | Every variable a version lists as added or removed has a row that names that version. |  |
+| =env_format= | empty_version | Every version after the baseline adds or removes a variable, or is marked format only. |  |
+| =env_format= | unreadable | The check document gives every table, column, setting, kind and template the format needs, and each row reads. |  |
 | =er_diagram= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =event_registrars= | uncomposed_registrar | Every generated registrar of a checked component is called from its composition file. | =B5492D6C-7C18-4723-BA47-232AEAA13314= |
 | =event_registrars= | missing_composition | A checked component that generates registrars has its composition file. | =B5492D6C-7C18-4723-BA47-232AEAA13314= |
