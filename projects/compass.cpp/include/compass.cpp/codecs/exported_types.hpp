@@ -43,6 +43,16 @@ namespace compass::cpp::codecs {
  * BOOST_SYMBOL_IMPORT or a macro a scanned file #defines as a visibility
  * or DLL storage attribute between its key and its name. clang-cl
  * refuses dllimport on an enum, and only the Windows build sees it.
+ *
+ * Rule unexported_hidden_function: a part, the directory above the
+ * include/ of an export header at projects/<component>/<part>/include/
+ * <name>/export.hpp or projects/<component>/include/<name>/export.hpp,
+ * whose component model (modeling/component_overview.org, loaded by
+ * compass.model) has hidden_visibility true, is built with
+ * -fvisibility=hidden. A header under its include/ declares at namespace
+ * scope a function ops::exportable_functions keeps, without the part's
+ * export macro before its name, so no binary outside the library links
+ * it.
  */
 extern const compass::codec::types::descriptor exported_types;
 

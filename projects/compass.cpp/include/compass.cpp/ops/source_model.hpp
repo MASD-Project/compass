@@ -70,7 +70,8 @@ enum class declaration_kind : std::uint8_t {
  * the name, as in class ORES_X_EXPORT name, and empty when there is none.
  * The specifier flags are those written before the declared type.
  * is_enum is true for a scoped enum. qualified is true when the name
- * follows ::, as in a definition of a::f. offset is where the name is;
+ * follows ::, as in a definition of a::f. A function defined as
+ * = delete or = default is a definition. offset is where the name is;
  * start where the declaration is, after any template head.
  */
 struct declaration {
@@ -84,6 +85,7 @@ struct declaration {
     bool is_inline = false;
     bool is_const = false;
     bool is_constexpr = false;
+    bool is_consteval = false;
     bool is_extern = false;
     bool is_template = false;
     bool is_enum = false;

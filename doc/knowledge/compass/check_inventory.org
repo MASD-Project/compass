@@ -37,7 +37,7 @@ This page lists every check and generator compass runs on this repository, and t
 | =entity_writes= | no | check | error | Reports each SQL function and hand-written C++ file that writes an entity table outside its repository. | built into compass |
 | =er_diagram= | no | generator | error | Writes the PlantUML ER diagrams of the schema, one per table group and an index, from the create scripts. | built into compass |
 | =event_registrars= | no | check | error | Reports each generated event registrar its component's event_registrar.cpp does not call. | built into compass |
-| =exported_types= | no | check | error | Reports each header whose library exports a type that no translation unit of the library compiles, and each enum a visibility macro decorates. | built into compass |
+| =exported_types= | no | check | error | Reports each header whose library exports a type that no translation unit of the library compiles, each enum a visibility macro decorates, and each function a part built with hidden visibility declares without its export macro. | built into compass |
 | =forward_declarable_includes= | no | check | error | Reports each header that includes the definition of a listed type it only names. | built into compass |
 | =generated_column_refs= | no | check | error | Reports each column a model's table display or index names that its generated struct or table does not have. | built into compass |
 | =handler_permissions= | no | check | error | Reports each permission code a handler checks that no populate script seeds. | built into compass |
@@ -382,7 +382,7 @@ Reports each generated event registrar its component's event_registrar.cpp does 
 
 *** exported_types
 
-Reports each header whose library exports a type that no translation unit of the library compiles, and each enum a visibility macro decorates.
+Reports each header whose library exports a type that no translation unit of the library compiles, each enum a visibility macro decorates, and each function a part built with hidden visibility declares without its export macro.
 
 - Kind: check.
 - Severity: error.
@@ -392,6 +392,7 @@ Reports each header whose library exports a type that no translation unit of the
 |------+-----------|
 | =uncompiled_exported_type= | No library exports a type that none of its translation units compiles. |
 | =visibility_macro_on_enum= | No symbol visibility or DLL storage macro decorates an enum. |
+| =unexported_hidden_function= | A part built with hidden visibility exports every function its public headers declare at namespace scope. |
 
 *** forward_declarable_includes
 

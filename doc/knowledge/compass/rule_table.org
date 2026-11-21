@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-198 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 58 are cited by no rule.
+199 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 58 are cited by no rule.
 
 ** Rules
 
@@ -67,6 +67,7 @@ memories no rule cites are the candidates for the next checks.
 | =event_registrars= | missing_composition | A checked component that generates registrars has its composition file. | =B5492D6C-7C18-4723-BA47-232AEAA13314= |
 | =exported_types= | uncompiled_exported_type | No library exports a type that none of its translation units compiles. |  |
 | =exported_types= | visibility_macro_on_enum | No symbol visibility or DLL storage macro decorates an enum. |  |
+| =exported_types= | unexported_hidden_function | A part built with hidden visibility exports every function its public headers declare at namespace scope. |  |
 | =forward_declarable_includes= | includes_definition_it_only_names | A header that only names a listed type includes its declaration, not its definition. |  |
 | =forward_declarable_includes= | bad_type_list | The list of forward-declarable types is readable and not empty. |  |
 | =forward_declarable_includes= | stale_type_list | The types option lists what the tree's own list file lists. |  |
