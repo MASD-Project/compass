@@ -28,8 +28,9 @@ namespace compass::docs::codecs {
  * @brief The recipe inventories: doc/recipes/shell/shell.org and
  * doc/recipes/http/generated_recipes.org.
  *
- * The shell inventory keeps its head and the prose of each section, and
- * rewrites the link list under each heading from the recipes under
+ * The shell inventory keeps its head and the prose of each section, the
+ * head's sentence naming the script that wrote the lists replaced by one
+ * naming compass generate, and rewrites the link list under each heading from the recipes under
  * doc/recipes/shell, grouped by the category of their filetags or their
  * directory and sorted by title; a category with no section is appended,
  * a section no category claims is dropped. The HTTP inventory is rewritten
