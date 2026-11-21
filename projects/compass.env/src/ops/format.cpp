@@ -130,6 +130,23 @@ bool valid_name(std::string_view name) {
 }
 
 /**
+ * @brief Whether some service could be given both @p a and @p b, as their
+ * services columns allow; always so for variables not per service.
+ */
+bool share_a_service(const types::variable& a, const types::variable& b) {
+    const auto covers = [](const types::variable& v, std::string_view s) {
+        return v.services.empty() ||
+            std::ranges::contains(v.services, s) != v.excludes_services;
+    };
+    for (const auto& [listing, other] : {std::pair{&a, &b},
+             std::pair{&b, &a}})
+        if (!listing->services.empty() && !listing->excludes_services)
+            return std::ranges::any_of(listing->services,
+                [&](const auto& s) { return covers(*other, s); });
+    return true;
+}
+
+/**
  * @brief The templates of a variable that its kind expands.
  */
 std::vector<std::string_view> templates_of(const types::variable& v) {
@@ -316,15 +333,10 @@ std::expected<void, finding> check_references(const types::env_format& f) {
                 "a variable", i.name), "Rename the input."));
 
     std::set<std::string, std::less<>> earlier;
-    std::set<std::string, std::less<>> seen;
     std::size_t versions = 0;
     for (const auto& v : f.variables) {
         if (v.removed != 0)
             continue;
-        if (!v.per_service() && v.kind != types::value_kind::carried &&
-            v.services.empty() && !seen.insert(v.name).second)
-            return failure(problem(v.line, std::format("{} has two rows",
-                v.name), "Remove one, or mark it removed."));
         if (v.kind == types::value_kind::version) {
             ++versions;
             if (v.name != f.version_variable)
@@ -525,6 +537,28 @@ std::vector<finding> check_format(const types::env_format& f) {
                 .fix = "Name the variables it adds or removes, or mark it "
                        "format only when it changes only values, layout or "
                        "the services the registry expands."});
+    }
+    const auto& rows = f.variables;
+    for (auto later = rows.begin(); later != rows.end(); ++later) {
+        if (later->removed != 0 || later->kind == types::value_kind::carried)
+            continue;
+        const auto earlier = std::find_if(rows.begin(), later,
+            [&](const auto& v) {
+                return v.removed == 0 && v.name == later->name &&
+                    v.kind != types::value_kind::carried &&
+                    (v.when.empty() || later->when.empty()) &&
+                    share_a_service(v, *later);
+            });
+        if (earlier != later)
+            out.push_back({.rule = duplicate_variable, .line = later->line,
+                .message = std::format("{} has two rows, at lines {} and {}, "
+                    "and {}; a row without a when is always written, so the "
+                    "file would hold the variable twice", later->name,
+                    earlier->line, later->line, earlier->when.empty() &&
+                        later->when.empty() ? "neither has a when"
+                                            : "one has no when"),
+                .fix = "Remove one, mark it removed, or give each row a "
+                       "when, the conditions exclusive."});
     }
     return out;
 }

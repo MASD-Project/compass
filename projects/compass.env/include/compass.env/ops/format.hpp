@@ -43,6 +43,7 @@ inline constexpr std::uint32_t undeclared = 1;
 inline constexpr std::uint32_t unknown_variable = 2;
 inline constexpr std::uint32_t empty_version = 3;
 inline constexpr std::uint32_t unreadable = 4;
+inline constexpr std::uint32_t duplicate_variable = 5;
 
 /**
  * @brief The inputs compass gives every generation, which a caller may
@@ -73,7 +74,8 @@ inline constexpr std::array<std::string_view, 3> builtin_inputs{"checkout",
  * or removes without saying so (undeclared); a version that names a
  * variable no row adds or removes in it (unknown_variable); and a version
  * after the baseline that adds and removes nothing and is not format only
- * (empty_version).
+ * (empty_version); and two live rows of one name, one of them without a
+ * when, that some service could both be given (duplicate_variable).
  */
 [[nodiscard]] std::vector<types::finding> check_format(
     const types::env_format& f);

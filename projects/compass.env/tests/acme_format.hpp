@@ -95,12 +95,13 @@ struct acme {
 };
 
 inline codec::ops::data_tables acme::tables() const {
-    codec::ops::data_tables out{.source = "compass/checks/env_format.org"};
+    codec::ops::data_tables out{.source = "compass/checks/env_format.org",
+        .tables = {}};
     std::uint32_t line = 10;
     const auto add = [&](std::string name, std::vector<std::string> columns,
         const std::vector<row>& rows) {
         codec::ops::data_table t{.name = std::move(name), .line = line++,
-            .columns = std::move(columns)};
+            .columns = std::move(columns), .rows = {}, .row_lines = {}};
         for (const auto& r : rows) {
             t.rows.push_back(r);
             t.row_lines.push_back(line++);
@@ -115,6 +116,32 @@ inline codec::ops::data_tables acme::tables() const {
     add("Comments", {"comment", "text"}, comments);
     add("Inputs", {"input", "purpose"}, inputs);
     return out;
+}
+
+/**
+ * @brief Acme with a kept switch, ACME_POOLER, that picks between two rows
+ * of ACME_DB and of the per-service ACME_{service.key}_DB, and writes a
+ * per-service listener only when on.
+ */
+inline acme pooled_acme() {
+    acme a;
+    a.variables.insert(a.variables.begin() + 7, {
+        {"ACME_POOLER", "kept", "1", "1", "", "secrets", "", "", "",
+            "1 through the pooler, 0 direct."},
+        {"ACME_DB", "value", "{ACME_PORT}", "1", "", "secrets", "",
+            "{ACME_POOLER} != 0", "", "The pooler's port."},
+        {"ACME_DB", "value", "5432", "1", "", "secrets", "",
+            "{ACME_POOLER} = 0", "", "The database's port."},
+        {"ACME_DB_URL", "value", "db:{ACME_DB}", "1", "", "secrets", "", "",
+            "", "The database's address."}});
+    a.variables.insert(a.variables.end() - 1, {
+        {"ACME_{service.key}_DB", "value", "{ACME_PORT}", "1", "",
+            "services", "", "{ACME_POOLER} != 0", "", "The pooler's port."},
+        {"ACME_{service.key}_DB", "value", "5432", "1", "", "services", "",
+            "{ACME_POOLER} = 0", "", "The database's port."},
+        {"ACME_{service.key}_LISTENER", "value", "5432", "1", "",
+            "services", "", "{ACME_POOLER} != 0", "", "A listener's port."}});
+    return a;
 }
 
 /**
