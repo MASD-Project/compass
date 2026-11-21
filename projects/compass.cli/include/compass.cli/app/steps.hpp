@@ -26,6 +26,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <map>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -294,6 +295,7 @@ struct sink_outcome {
     codec::io::sink_result sink;
     std::vector<std::pair<std::string, codec::io::output_action>> actions;
     std::vector<codec::io::hand_edit> hand_edits;
+    std::map<std::string, std::string> before;
     std::string record_problem;
     bool record_written = false;
 };

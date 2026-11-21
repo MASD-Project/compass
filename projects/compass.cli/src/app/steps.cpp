@@ -20,6 +20,8 @@
 #include "compass.cli/app/steps.hpp"
 
 #include <algorithm>
+#include <fstream>
+#include <iterator>
 #include <memory>
 #include <mutex>
 #include <span>
@@ -434,6 +436,11 @@ sink_outcome write_outputs(const std::filesystem::path& checkout,
         previous.record);
     if (plan.problems.empty())
         r.hand_edits = codec::io::find_hand_edits(plan, previous.record);
+    for (const auto& h : r.hand_edits) {
+        std::ifstream in(root / h.path, std::ios::binary);
+        r.before.emplace(h.path, std::string(
+            std::istreambuf_iterator<char>(in), {}));
+    }
     r.sink = codec::io::apply_outputs(plan);
     if (!r.sink.problems.empty())
         return r;
