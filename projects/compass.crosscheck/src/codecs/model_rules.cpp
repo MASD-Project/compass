@@ -651,9 +651,11 @@ std::optional<std::set<std::string>> published_areas(const ct::corpus_view& v,
     const auto none = ops::python_assignment(module, "NO_AREA");
     const auto names = areas ? ops::strings_of(*areas) : std::nullopt;
     if (!names || !none || none->what != ops::python_value::kind::string) {
-        co::report(out, module_path, 0, unreadable_areas, "AREAS or NO_AREA "
-            "is not a literal this check can read", "Keep AREAS a tuple of "
-            "strings and NO_AREA a string.");
+        co::report(out, module_path, 0, unreadable_areas,
+            ops::python_source_problem("model_rules", module_path,
+                "AREAS and NO_AREA", v.file_exists(module_path)),
+            "Restore the file, or keep AREAS a tuple of strings and NO_AREA "
+            "a string.");
         return std::nullopt;
     }
     std::set<std::string> published(names->begin(), names->end());

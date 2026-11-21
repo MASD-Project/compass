@@ -192,6 +192,32 @@ threshold half of F6: about 20 of the 71 codecs, by the family counts
 moves its specifics into =configuration.org=. That is still most of
 the 381 could-be-data specifics.
 
+* Codec data
+
+Added on 2026-11-21, when the inventory
+([[id:66EADA53-4D74-4425-8CEA-CF283177C351][what compass-ng reads out of ORE Studio's Python]])
+found eleven codecs parsing curated tables out of seventeen of ORE Studio's
+Python files. The product owner decided the data moves into check
+documents: org files that hold each table with prose that explains it.
+
+- A check document whose =* Definition= drawer holds =:CODEC: <name>=, and
+  nothing else, gives that built-in codec its data and is no check of its
+  own. Each level-1 heading but =Definition=, =Exceptions= and =Examples=
+  that holds a table gives one table, named by the heading; its first row
+  names the columns. Its =* Exceptions= table excuses the codec's findings,
+  as a check's does.
+- The tables ride the codec's configuration: compass compiles them into the
+  codec's =data= option (=codec::ops::encode_data_tables=), so editing a
+  table runs the codec again and editing the prose around it does not. A
+  codec reads them through =codec::ops::tables_for=, which names the
+  document to write, or the table or column it lacks.
+- A drawer is flat, but a table is not: this is the one place a check
+  document holds a list of rows, as =* Ceilings= already does. Nesting
+  still means code: a structure that does not flatten into a few tables
+  stays in the codec.
+- Data a project's own tools also read lives in the check document, and
+  those tools read the table, so there is one copy.
+
 * Exceptions
 
 - A check's exceptions are the =* Exceptions= table of its own document,

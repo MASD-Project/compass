@@ -24,7 +24,9 @@
 #include <fstream>
 #include <iterator>
 #include <optional>
+#include <span>
 #include "compass.cli/config/org_reader.hpp"
+#include "compass.codec/ops/data_tables.hpp"
 #include "compass.codec/ops/exceptions.hpp"
 #include "compass.cpp/codecs/catalogue.hpp"
 #include "compass.cpp/codecs/forbid.hpp"
@@ -255,6 +257,64 @@ std::vector<std::string_view> words_of(std::string_view s) {
 
 }
 
+namespace {
+
+/**
+ * @brief @p cell as data: without the = or ~ that mark it verbatim, and
+ * with each \vert, which org's tables need for a |, a |.
+ */
+std::string cell_value(std::string_view cell) {
+    std::string out(verbatim(cell));
+    for (auto at = out.find("\\vert"); at != std::string::npos;
+         at = out.find("\\vert", at + 1)) {
+        auto length = std::string_view("\\vert").size();
+        if (out.compare(at + length, 2, "{}") == 0)
+            length += 2;
+        out.replace(at, length, "|");
+    }
+    return out;
+}
+
+/**
+ * @brief Adds to @p exceptions a row per row of the first table under the
+ * level-1 heading Exceptions of @p r, whose rule column names a rule of
+ * the one of @p owners without it, or <owner>/<rule> of one of several.
+ */
+void add_exceptions(const check_reader& r,
+    std::span<const std::string> owners, ct::exception_set& exceptions) {
+    const auto table = r.table_under("Exceptions");
+    if (table.is_none())
+        return;
+    for (const auto row : r.rows(table, "path")) {
+        const auto line = line_of(r.text, r.t.elements.ranges[row].begin);
+        const auto cells = r.cells(row);
+        if (cells.size() != 6) {
+            exceptions.malformed.push_back({std::string(r.path), line,
+                std::format("the row has {} cells, not 6; write | path "
+                    "| line | rule | expires | approver | reason |",
+                    cells.size())});
+            continue;
+        }
+        const std::string named(verbatim(cells[2]));
+        const auto slash = named.find('/');
+        const bool owned = slash != std::string::npos &&
+            std::ranges::contains(owners, named.substr(0, slash));
+        if (owners.size() > 1 && !owned) {
+            exceptions.malformed.push_back({std::string(r.path), line,
+                std::format("the rule {} names none of the codecs the "
+                    "document gives data to; write <codec>/<rule>", named)});
+            continue;
+        }
+        const auto rule = owners.size() > 1 ? named
+            : owners.front() + "/" + named;
+        codec::ops::add_exception_row(exceptions, r.path, line, {
+            .path = verbatim(cells[0]), .line = cells[1], .rule = rule,
+            .expires = cells[3], .approver = cells[4], .reason = cells[5]});
+    }
+}
+
+}
+
 std::expected<std::unique_ptr<const check>, std::string>
 parse_check_document(std::string_view text, std::string_view path,
     ct::exception_set& exceptions) {
@@ -392,25 +452,81 @@ parse_check_document(std::string_view text, std::string_view path,
         c->codec.formatting_check = true;
     }
 
-    if (const auto table = r.table_under("Exceptions"); !table.is_none()) {
-        for (const auto row : r.rows(table, "path")) {
-            const auto line = line_of(text, tables.elements.ranges[row].begin);
-            const auto cells = r.cells(row);
-            if (cells.size() != 6) {
-                exceptions.malformed.push_back({std::string(path), line,
-                    std::format("the row has {} cells, not 6; write | path "
-                        "| line | rule | expires | approver | reason |",
-                        cells.size())});
-                continue;
-            }
-            const auto rule = c->name + "/" + std::string(verbatim(cells[2]));
-            codec::ops::add_exception_row(exceptions, path, line, {
-                .path = verbatim(cells[0]), .line = cells[1], .rule = rule,
-                .expires = cells[3], .approver = cells[4],
-                .reason = cells[5]});
+    add_exceptions(r, std::span(&c->name, 1), exceptions);
+    return c;
+}
+
+std::expected<std::optional<codec_data>, std::string>
+parse_codec_document(std::string_view text, std::string_view path,
+    ct::exception_set& exceptions) {
+    ot::tables tables;
+    ingest::org::parse(text, tables);
+    const check_reader r{{text, ot::view(tables)}, path};
+    const auto definition = r.heading("Definition");
+    if (definition.is_none())
+        return std::nullopt;
+    codec_data out{.path = std::string(path)};
+    const auto [first, end] = r.properties_of(definition);
+    for (auto p = first; p < end; ++p) {
+        const ot::property_id id{p};
+        const auto key = compass::org::ops::name_text(r.t,
+            r.t.properties.names[id]);
+        const auto value = trimmed(text, r.t.properties.values[id]);
+        if (key == "CODEC") {
+            for (const auto name : words_of(value.of(text)))
+                out.codecs.emplace_back(name);
+            out.line = line_of(text, value.begin);
         }
     }
-    return c;
+    if (out.codecs.empty())
+        return std::nullopt;
+    for (auto p = first; p < end; ++p) {
+        const ot::property_id id{p};
+        const auto key = compass::org::ops::name_text(r.t,
+            r.t.properties.names[id]);
+        if (key != "CODEC" && key != "ID")
+            return r.error(line_of(text, r.t.properties.values[id].begin),
+                std::format("a codec's data names its codec and nothing "
+                    "else, and the drawer also holds {}", key),
+                "take the key out: the codec's own settings go in the "
+                "configuration, and its data in the tables under the "
+                "document's headings");
+    }
+
+    codec::ops::data_tables data{.source = std::string(path)};
+    for (std::uint32_t h = 0; h < tables.headings.size(); ++h) {
+        const ot::heading_id id{h};
+        if (tables.headings.levels[id] != 1)
+            continue;
+        const std::string title(trimmed(text,
+            tables.headings.titles[id]).of(text));
+        if (title == "Definition" || title == "Exceptions" ||
+            title == "Examples")
+            continue;
+        const auto table = r.table_under(title);
+        if (table.is_none())
+            continue;
+        codec::ops::data_table t{.name = title,
+            .line = r.line_of_heading(id)};
+        bool header = true;
+        for (const auto row : r.rows(table, "")) {
+            std::vector<std::string> cells;
+            for (const auto cell : r.cells(row))
+                cells.push_back(cell_value(cell));
+            if (header) {
+                t.columns = std::move(cells);
+                header = false;
+                continue;
+            }
+            t.rows.push_back(std::move(cells));
+            t.row_lines.push_back(line_of(text,
+                tables.elements.ranges[row].begin));
+        }
+        data.tables.push_back(std::move(t));
+    }
+    out.text = codec::ops::encode_data_tables(data);
+    add_exceptions(r, out.codecs, exceptions);
+    return out;
 }
 
 std::expected<check_set, std::string> read_check_documents(
@@ -433,6 +549,13 @@ std::expected<check_set, std::string> read_check_documents(
             return failure(std::format("{}: cannot be read; fix: make it "
                 "readable", path));
         const std::string text{std::istreambuf_iterator<char>(is), {}};
+        auto data = parse_codec_document(text, path, out.exceptions);
+        if (!data)
+            return failure(data.error());
+        if (*data) {
+            out.data.push_back(std::move(**data));
+            continue;
+        }
         auto c = parse_check_document(text, path, out.exceptions);
         if (!c)
             return failure(c.error());
@@ -458,6 +581,13 @@ std::expected<check_set, std::string> read_check_documents(
         const auto text = store::io::read_commit_file(objects, commit, path);
         if (!text)
             continue;
+        auto data = parse_codec_document(*text, path, out.exceptions);
+        if (!data)
+            return failure(data.error());
+        if (*data) {
+            out.data.push_back(std::move(**data));
+            continue;
+        }
         auto c = parse_check_document(*text, path, out.exceptions);
         if (!c)
             return failure(c.error());

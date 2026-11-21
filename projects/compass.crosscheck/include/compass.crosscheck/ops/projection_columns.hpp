@@ -21,9 +21,11 @@
 #define COMPASS_CROSSCHECK_OPS_PROJECTION_COLUMNS_HPP
 
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
+#include "compass.codec/ops/data_tables.hpp"
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.crosscheck/ops/curve_wiring.hpp"
 
@@ -82,11 +84,24 @@ struct convention_terms_result {
 };
 
 /**
- * @brief generate_convention_kind_terms.rows(), in the mapper's order;
- * nothing where the script reports a problem or stops.
+ * @brief The tables of the value sets' check document convention_terms
+ * reads, which were generate_convention_kind_terms.py's module-level
+ * literals: Asset classes (ASSET_CLASSES), Not a column (NOT_A_COLUMN),
+ * Convention schema (SCHEMA_NAME), File kinds (FILE_KIND), Spelled
+ * otherwise (SPELLED_OTHERWISE), Read elsewhere (READ_ELSEWHERE), Kind
+ * elements (ELEMENT_OF) and Member entities (MEMBER_ENTITY).
+ */
+[[nodiscard]] std::span<const compass::codec::ops::table_need>
+convention_terms_tables();
+
+/**
+ * @brief generate_convention_kind_terms.rows(), in the mapper's order, read
+ * with the tables of @p data, which hold convention_terms_tables(); nothing
+ * where the script reports a problem or stops.
  */
 [[nodiscard]] std::optional<convention_terms_result> convention_terms(
-    const compass::codec::types::corpus_view& v);
+    const compass::codec::types::corpus_view& v,
+    const compass::codec::ops::data_tables& data);
 
 /**
  * @brief The table the refdata model of @p entity names, as

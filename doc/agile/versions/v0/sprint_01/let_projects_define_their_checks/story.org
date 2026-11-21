@@ -50,6 +50,10 @@ the same speed, caching and exception handling as its built-in codecs.
 | [[id:C71DA181-94C7-43CD-8F4A-1F7437D3753C][Build the forbid engine]] | DONE | 2026-11-18 | 2026-11-19 | Report each forbidden C++ name, include or pattern a check definition lists, in the files it covers, as the design's forbid engine does. |
 | [[id:72702FA4-8A4F-4488-B719-5AC71B72D7C6][Build the limit engine]] | DONE | 2026-11-19 | 2026-11-19 | Report each C++ type with more data members than a check's ceiling, save the types its Ceilings table records, whose ceilings only come down. |
 | [[id:907FB3C2-06EC-4013-84AE-453D7E1F25BC][Let ORE Studio state the identity table's columns]] | DONE | 2026-11-20 | 2026-11-20 | marketdata_identity_columns reads the identity table's context columns and the views' shared columns from options, so ORE Studio declares a new column in its own configuration. |
+| [[id:BC6A706F-6CAD-4808-AFE2-E4063983D008][Read codec data from check documents]] | STARTED | 2026-11-21 | | Let a check document give a built-in codec its data as org tables, so compass-ng stops parsing curated data out of ORE Studio's Python; pilot on conventions_coverage, and name every file a codec cannot read. |
+| [[id:6BC68814-3DE3-4A69-B600-4446A821F222][Move the value sets data into a check document]] | STARTED | 2026-11-21 | | Move the curated tables ore_value_sets and parameter_value_sets read from five ORE Studio Python modules, and the projection columns of generate_convention_kind_terms.py, into check documents. |
+| [[id:83595109-4F88-4180-BE4C-7034B78383B9][Move the output catalogue data into a check document]] | STARTED | 2026-11-21 | | Move the tables ore_output_catalogue reads from generate_output_catalogue.py and output_family_docs.py into a check document. |
+| [[id:5CDCA97A-9E80-42E9-ABCB-8FFC064617BB][Move the data ORE Studio's tools share]] | BACKLOG | | | Move the data compass-ng reads from Python files ORE Studio still runs (component_registry.py, the route modules, plantuml_er_parse_sql.py, ore_files.py, conventions/generate_sql.py, compass.py) into check documents that ORE Studio's tools also read. |
 
 * Documents
 

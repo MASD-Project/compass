@@ -122,8 +122,10 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
                                      : std::nullopt;
     if (!listed) {
         co::report(out, registry_path, 0, unreadable_inputs,
-            "COMPONENTS_UNDER_TEST is not a literal this check can read",
-            "Keep COMPONENTS_UNDER_TEST a tuple of strings.");
+            ops::python_source_problem("protocol_twins", registry_path,
+                "COMPONENTS_UNDER_TEST", v.file_exists(registry_path)),
+            "Restore the file, or keep COMPONENTS_UNDER_TEST a tuple of "
+            "strings.");
         return;
     }
     const auto patterns = twin_patterns(v, library);

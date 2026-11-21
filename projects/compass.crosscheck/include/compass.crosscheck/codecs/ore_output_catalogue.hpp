@@ -32,11 +32,18 @@ namespace compass::crosscheck::codecs {
  * the samples under projects/ores.ore/data/samples and the reporting file
  * type seed.
  *
- * The script's tables, ore_files.py's FILES and output_family_docs.py's
- * FAMILY_DOCS are read from those modules through the Python literal
- * reader. The data files go through clang-format as the formatter of the
- * codec, as the script runs it. Where the script stops, the codec writes
- * nothing.
+ * The curation the samples cannot state, which were the script's tables
+ * and output_family_docs.py's FAMILY_DOCS, are the tables Family
+ * conventions, Numeric qualifiers, Family roles, Aliases, Same report, Out
+ * of scope, Kind overrides, Keys, Prefixes, Nulls and Family documentation
+ * of the check document whose Definition names this codec, read from its
+ * data option. ore_files.py's SCHEMAS and FILES, which ORE Studio's seed
+ * generator also reads, are still read from that module through the
+ * Python literal reader. The data files go through clang-format as the
+ * formatter of the codec, as the script runs it. Where the script stops,
+ * the codec writes nothing and reports refused; a missing table, a
+ * missing or unreadable ore_files.py, or an examples directory with no
+ * example is reported as unreadable, on the file or document at fault.
  */
 extern const compass::codec::types::descriptor ore_output_catalogue;
 

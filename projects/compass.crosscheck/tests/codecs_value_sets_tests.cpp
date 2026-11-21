@@ -27,6 +27,7 @@
 #include "compass.crosscheck/ops/value_sets.hpp"
 #include "curve_fixture.hpp"
 #include "test_checkout.hpp"
+#include "value_sets_data.hpp"
 
 namespace {
 
@@ -49,42 +50,41 @@ const std::string provenance = R"("reason": "r", "source": "authored",
     "source_ref": "x", "curator": "c", "date": "2026-11-17")";
 
 /**
+ * @brief The tables of the smallest check document the value sets resolve
+ * with: text for a term without a list, one override, the curation's keys
+ * and two sources, the curve flag set and the schema's boolean.
+ */
+tests::value_sets_data data() {
+    tests::value_sets_data d;
+    d["Kinds without a list"] = {{"text", "text"}};
+    d["Type overrides"] = {{"", "SettlementDays", "integer",
+        "The schema says so."}};
+    d["Curation keys"] = {{"link"}, {"reason"}, {"source"}, {"source_ref"},
+        {"curator"}, {"date"}};
+    d["Curation sources"] = {{"ore_guide"}, {"ore_code"}};
+    d["Type sets"] = {{"curve", "boolean", "curve.flag"}};
+    d["Schema type sets"] = {{"boolean", "boolean"}};
+    d["Schema kinds"] = {{"xs:boolean", "boolean"}};
+    d["Item words"] = {{"text", ""}};
+    d["Schema words"] = {{"boolean", "Flag", "true or false"}};
+    return d;
+}
+
+files generate(const files& t, const tests::value_sets_data& d = data()) {
+    return tests::generate(codecs::ore_value_sets, t, d.settings());
+}
+
+tests::outcome run(const files& t, const tests::value_sets_data& d = data()) {
+    return tests::run(codecs::parameter_value_sets, t, d.settings());
+}
+
+/**
  * @brief The smallest tree the value sets resolve over: one global
  * parameter, linked to one enumerated set the guide states, and no
  * convention, curve or engine run settings terms.
  */
 files tree() {
     files t;
-    t[utility + "convention_value_sets.py"] = R"py(CATALOGUES = {}
-CATALOGUE_OF = {}
-RENDERED_OF = {}
-WITHOUT_LIST = {"text": "text"}
-LIST_OF = {}
-SCHEMA_TYPE_SETS = {}
-TYPE_SETS = {}
-OWN_SETS = {}
-TYPE_OVERRIDE = {
-    ("SettlementDays", None): ("integer", "The schema says so."),
-}
-)py";
-    t[utility + "curve_value_sets.py"] = R"py(CATALOGUES = {}
-CURATION_KEYS = ("link", "reason", "source", "source_ref", "curator", "date")
-SOURCES = ("ore_guide", "ore_code")
-LIST_ITEM = {}
-TYPE_SETS = {"boolean": "curve.flag"}
-SCHEMA_TYPE_SETS = {"boolean": "boolean"}
-PERIOD_PATTERN = "^[0-9]+[DWMY]$"
-)py";
-    t[utility + "ore_aliases.py"] = R"py(PARSER_TABLE = {}
-SETS = {}
-)py";
-    t[utility + "ore_schema_types.py"] = R"py(KIND_OF = {"xs:boolean": "boolean"}
-)py";
-    t[utility + "generate_ore_element_map.py"] = R"py(ITEM_WORDS = {"text": None}
-SCHEMA_WORDS = {"boolean": "true or false"}
-SCHEMA_NAMES = {"boolean": "Flag"}
-UNREAD_ALLOWED = 0
-)py";
     t[utility + "ore_renderings.json"] =
         R"({"tables": {"a": {}, "b": {}, "c": {}, "d": {}, "e": {}}})";
     t[utility + "convention_terms.json"] = R"({"parsers": {}, "conventions": {}})";
@@ -124,7 +124,7 @@ UNREAD_ALLOWED = 0
 
 TEST_CASE("the seed states each value as the generator's q() does",
     "[value_sets]") {
-    const auto out = tests::generate(codecs::ore_value_sets, tree());
+    const auto out = generate(tree());
     const auto seed = out.find(ops::value_sets::seed_path);
     REQUIRE(seed != out.end());
     // A float bound keeps its point, a quote is doubled, an empty
@@ -147,10 +147,9 @@ TEST_CASE("a parameter with no set is reported and stops the seed",
     "[value_sets]") {
     auto t = tree();
     t[curation + "globals.json"] = R"({"Mode": {}, "Depth": {}})";
-    const auto found = tests::messages_of(tests::run(
-        codecs::parameter_value_sets, t));
+    const auto found = tests::messages_of(run(t));
     CHECK(has(found, "GlobalParameters|Depth has no value set"));
-    CHECK(tests::generate(codecs::ore_value_sets, t).empty());
+    CHECK(generate(t).empty());
 }
 
 TEST_CASE("a set's own rules are one list, the generator's and the check's",
@@ -168,8 +167,7 @@ TEST_CASE("a set's own rules are one list, the generator's and the check's",
   },
   "links": {"GlobalParameters|Mode": "mode"}
 })";
-    const auto found = tests::messages_of(tests::run(
-        codecs::parameter_value_sets, t));
+    const auto found = tests::messages_of(run(t));
     CHECK(has(found, "mode: a floor above its ceiling"));
     CHECK(has(found, "mode: enumerated with a value stated twice"));
     CHECK(has(found, "mode: A names Z as its canonical form"));
@@ -179,11 +177,10 @@ TEST_CASE("a review file without its provenance stops the resolution",
     "[value_sets]") {
     auto t = tree();
     t[curation + "value-sets-review.json"] = R"({"reason": "r"})";
-    const auto found = tests::messages_of(tests::run(
-        codecs::parameter_value_sets, t));
+    const auto found = tests::messages_of(run(t));
     CHECK(has(found, "value-sets-review.json has no source, source_ref, "
         "curator, date"));
-    CHECK(tests::generate(codecs::ore_value_sets, t).empty());
+    CHECK(generate(t).empty());
 }
 
 TEST_CASE("an engine run setting draws its set, and one that states a "
@@ -194,7 +191,7 @@ TEST_CASE("an engine run setting draws its set, and one that states a "
     )" + provenance + R"(}},
   "groups": [{"code": "g", "name": "G", "description": "d",
     "settings": [{"column": "c", "ore": "flagIt", "value_set": "setup.flag"}]}]})";
-    const auto out = tests::generate(codecs::ore_value_sets, t);
+    const auto out = generate(t);
     REQUIRE(out.contains(std::string(ops::value_sets::seed_path)));
     CHECK(out.at(std::string(ops::value_sets::seed_path)).find(
         "'Setup:flagIt', ores_utility_system_tenant_id_fn(), 0, 'Setup', "
@@ -203,7 +200,7 @@ TEST_CASE("an engine run setting draws its set, and one that states a "
     auto& groups = bad[curation + "engine-settings-groups.json"];
     groups.replace(groups.find("\"value_set\": \"setup.flag\""), 0,
         "\"options\": [\"a\"], ");
-    CHECK(has(tests::messages_of(tests::run(codecs::parameter_value_sets, bad)),
+    CHECK(has(tests::messages_of(run(bad)),
         "the setting flagIt states the control options beside its set"));
 }
 
@@ -212,8 +209,7 @@ TEST_CASE("a per-pair control in a guarded table is reported",
     auto t = tree();
     t["projects/ores.analytics/modeling/ores.analytics.pricing_pair_setting.org"] =
         "* Columns\n** kind\n";
-    const auto found = tests::messages_of(tests::run(
-        codecs::parameter_value_sets, t));
+    const auto found = tests::messages_of(run(t));
     CHECK(has(found, "pricing_pair_setting.org: states the override column kind"));
 }
 
@@ -282,18 +278,70 @@ TEST_CASE("JSON keeps an int apart from a float, and the last of a "
     CHECK_FALSE(ops::read_json_value("{\"a\": 1,}"));
 }
 
-TEST_CASE("a module table reads tuple keys, None and joined strings",
-    "[json_value]") {
-    const auto t = ops::module_table(R"py(X = {
-    ("Name", None): ("integer", "one "
-        "two"),
-    ("El", "Name"): ("text", "x"),
+TEST_CASE("no check document, or one without a table, is one finding of "
+    "the gate and a refusal of the generator, and the guarded files are "
+    "still checked", "[value_sets]") {
+    auto t = tree();
+    t["projects/ores.analytics/modeling/ores.analytics.pricing_pair_setting.org"] =
+        "* Columns\n** kind\n";
+    const auto none = tests::run(codecs::parameter_value_sets, t);
+    REQUIRE_FALSE(none.findings.empty());
+    CHECK(none.findings[0] == tests::finding{
+        "compass/checks/parameter_value_sets.org", 0,
+        std::get<2>(none.findings[0])});
+    CHECK(std::get<2>(none.findings[0]).starts_with("parameter_value_sets "
+        "reads its data from a check document, and none gives it"));
+    CHECK(has(tests::messages_of(none), "states the override column kind"));
+
+    const auto lacking = tests::run(codecs::parameter_value_sets, tree(),
+        data().without("List items"));
+    REQUIRE_FALSE(lacking.findings.empty());
+    CHECK(lacking.findings.front() == tests::finding{
+        "compass/checks/value_sets.org", 0, "compass/checks/value_sets.org "
+        "has no table under the level-1 heading \"* List items\", which "
+        "parameter_value_sets reads"});
+    CHECK(std::ranges::count_if(lacking.findings, [](const auto& f) {
+        return std::get<0>(f).starts_with("compass/");
+    }) == 1);
+
+    const auto refused = tests::run(codecs::ore_value_sets, tree(),
+        data().without("Schema words"));
+    CHECK(tests::messages_of(refused).size() == 2);
+    CHECK(has(tests::messages_of(refused), "has no table under the level-1 "
+        "heading \"* Schema words\", which ore_value_sets reads"));
+    CHECK(generate(tree(), [] {
+        auto d = data();
+        d.tables.pop_back();
+        return d;
+    }()).empty());
 }
-)py", "X");
-    REQUIRE(t);
-    REQUIRE(t->get("Name|") != nullptr);
-    CHECK(t->get("Name|")->items[1].str() == "one two");
-    CHECK(t->get("El|Name") != nullptr);
+
+TEST_CASE("a cell the tables cannot hold is named with its line",
+    "[value_sets]") {
+    auto d = data();
+    d["Unread leaves allowed"] = {{"none"}};
+    CHECK(tests::messages_of(run(tree(), d)).front() ==
+        "compass/checks/value_sets.org:32: the count 'none' is not a whole "
+        "number, in the table \"Unread leaves allowed\" parameter_value_sets "
+        "reads");
+    d = data();
+    d["Period pattern"].push_back({"^x$"});
+    CHECK(has(tests::messages_of(run(tree(), d)), "2 rows state what one row "
+        "states, in the table \"Period pattern\""));
+}
+
+TEST_CASE("an edit to a table changes what the codecs resolve",
+    "[value_sets]") {
+    auto t = tree();
+    t[utility + "curve_value_set_curation.json"] = R"({"*|Mode": {
+    "link": "parseMode", )" + provenance + "}}";
+    CHECK(has(tests::messages_of(run(t)), "curation entry *|Mode has an "
+        "unknown source authored"));
+    auto d = data();
+    d["Curation sources"].push_back({"authored"});
+    const auto found = tests::messages_of(run(t, d));
+    CHECK_FALSE(has(found, "unknown source"));
+    CHECK(has(found, "curation entry *|Mode matches no curve leaf"));
 }
 
 }

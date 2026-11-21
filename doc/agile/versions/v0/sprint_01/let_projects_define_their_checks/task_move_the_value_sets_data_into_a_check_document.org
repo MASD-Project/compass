@@ -1,0 +1,133 @@
+:PROPERTIES:
+:ID: 6BC68814-3DE3-4A69-B600-4446A821F222
+:END:
+#+title: Task: Move the value sets data into a check document
+#+description: Move the curated tables ore_value_sets and parameter_value_sets read from five ORE Studio Python modules, and the projection columns of generate_convention_kind_terms.py, into check documents.
+#+type: task
+#+level: s1
+#+filetags: :let_projects_define_their_checks:sprint_01:v0:
+#+owner: marco
+#+branch: feature/codec-data-in-check-documents
+#+pr: 133
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-11-21
+#+updated: 2026-11-21
+#+environment:
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [[id:DAB2F48A-E47A-4895-9026-056AF21E6CCC][Let projects define their own checks]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+=ore_value_sets= and =parameter_value_sets= read the curation they used to
+parse out of six ORE Studio Python modules under =projects/ores.sql/utility/=
+(=convention_value_sets.py=, =curve_value_sets.py=, =ore_aliases.py=,
+=ore_schema_types.py=, =generate_ore_element_map.py= and
+=generate_convention_kind_terms.py=) from one check document instead, so ORE
+Studio can retire those modules and a refactor of them cannot break or
+mislead the codecs. The generated files do not change.
+
+* Status
+
+| Field        | Value                                  |
+|--------------+----------------------------------------|
+| State        | STARTED                              |
+| Parent story | [[id:DAB2F48A-E47A-4895-9026-056AF21E6CCC][Let projects define their own checks]] |
+| Now          | Built and verified on ORE Studio's main; in #133. |
+| Waiting on   | Nothing.                               |
+| Next         | Merge, release v0.0.5, and ORE Studio commits its check document. |
+| Last touched | 2026-11-21                               |
+
+* Acceptance
+
+- Neither codec reads any of the six modules; every name they parsed is a
+  table of one check document, or stays compass code where it is machinery.
+- One document gives both codecs their data: its =:CODEC:= names both, so
+  the generator and the gate resolve one copy.
+- A missing document, table or column, or a cell that does not read, is an
+  =unreadable= finding of =parameter_value_sets= and a refusal of
+  =ore_value_sets=, naming the document and line.
+- On ORE Studio's main, compass-ng v0.0.4 reading the Python and this build
+  reading the document report the same findings and the same =diff=, also
+  with the same data damaged on both sides.
+
+* Plan
+
+- *One document for two codecs.* Both codecs run =ops::value_sets::evaluate=
+  over the same curation, so two documents would be two copies that could
+  drift. The compiler is extended instead: =:CODEC:= takes several codec
+  names, separated by spaces, and compass sets the same =data= option on
+  each. An exception of such a document names =<codec>/<rule>=; with one
+  codec it names the rule alone, as before. A codec still has at most one
+  document.
+- *Tables at the boundary.* =ops::value_sets::read_tables= checks every
+  table and column (27 tables, 8 of them for the convention kind terms,
+  which =ops::convention_terms_tables= names) and the cells that must read
+  (=is_ordered= yes or no, the count a whole number, one row in the three
+  one-value tables, a family convention or curve, a term in each override).
+  The resolution then builds the values it used to parse from the tables,
+  so the code behind it is unchanged.
+- *Shared names.* =CATALOGUES= and =SCHEMA_TYPE_SETS= were stated alike in
+  two modules, so each is one table; both =TYPE_SETS= are one table with a
+  family column; =SCHEMA_WORDS= and =SCHEMA_NAMES= share keys, so one table.
+  =TYPE_OVERRIDE='s mixed key becomes =element= and =term= columns, an empty
+  element meaning every convention. =None= in =ITEM_WORDS= and in a
+  =LIST_ITEM= kind is an empty cell.
+- *Code that stays code.* The mapper regular expressions of
+  =generate_convention_kind_terms.py= (=FUNCTION=, =DECLARED=, =ALIAS=,
+  =CHILD=, =READ=, =PACK=), the curve module's =OWN_SETS=, whose date
+  pattern calls the schema reader, and the schema walk of
+  =ore_schema_types.py= were already compass code and stay so.
+- *Deleted.* =ops::module_table= and =ops::json_of=, whose only caller was
+  this codec.
+- *ORE Studio's document* is generated from the Python with =ast= by
+  =value_sets_doc.py=, which refuses to write when the shared tables
+  disagree, so no value is retyped.
+
+* Measurements
+
+Every number this task claims about a tree, with the command that produced it
+and the commit it was measured at. A number without both is not a measurement,
+because a clean-up record describes a tree and trunk moves under a branch: a
+consumer count, a gate's component count and a suite's size all change with no
+code changing, and the reader of a bare number cannot tell which tree it came
+from. Where the raw output matters, put it in an =evidence/= file beside the
+task and name that file in the Command column.
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+| Findings on ORE Studio's main | 0 and 0 with v0.0.4 reading the Python; 0 and 0 with this build reading the check document | =compass check --codec parameter_value_sets=, then =--codec ore_value_sets=, on an export of main with =external/ore/xsd= added from an ORE Studio checkout | ORE =732fc2ee34= |
+| The six files =ore_value_sets= writes, emptied first | the same =compass diff= from both, 3586 lines, SHA-256 =868553a6...eb82= | =compass diff= after truncating the six outputs, with the unrelated =conventions_renderings.hpp= banner change of later compass left out | the same |
+| Findings and =diff= after damage A: the words for a schema integer, the currency catalogue's relation, the kind of =Strikes= | identical: 0 findings of =parameter_value_sets=, 2 =drift= findings of =ore_value_sets=, the same 131-line =diff= | the same, after =damage_value_sets.py <tree> python A= on v0.0.4's tree and =org A= on this build's | the same |
+| Findings and =diff= after damage B: frequency loses its parser, IborIndex's DayCounter its override | identical: 1 =unresolved= finding, 1 =refused= finding, an empty =diff= | the same, with set B | the same |
+| A missing table on ORE Studio's main | 1 =unreadable= finding and 2 =refused= findings naming =* Item words=; with no document, 1 =unreadable= finding naming the document to write | this build's =compass check=, with the heading renamed, then the document deleted | the same |
+| =compass check= on this repository | no new finding: 70 against 72 at HEAD, the two fewer being the drift of =rule_table.org= and the index =generate= wrote | =compass check= and =compass check --commit HEAD= of this build, findings compared | this branch |
+| Tests | 125 cases in =compass.crosscheck.tests=, 132 in =compass.cli.tests=; all pass | the two test binaries | this branch |
+
+* Notes
+
+* Test Scenarios
+
+Manual QA scenarios (scaffolded via =compass add test_scenario=)
+that verify this task. Link
+new ones here as they're created; the scenario doc itself links back
+via its "Verifies task" field.
+
+| Scenario | State | Notes |
+|----------+-------+-------|
+|          |       |       |
+
+* PRs
+
+| PR | Title |
+|----+-------|
+|    |       |
+
+* Review
+
+| # | Comment summary | File | Decision | Notes |
+|---+-----------------+------+----------+-------|
+|   |                 |      |          |       |
+
+* Result

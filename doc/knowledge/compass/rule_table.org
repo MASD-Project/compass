@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-179 rules, 43 of which cite a memory or a document that states them. Of the 62 memories of this repository, 59 are cited by no rule.
+182 rules, 43 of which cite a memory or a document that states them. Of the 62 memories of this repository, 59 are cited by no rule.
 
 ** Rules
 
@@ -41,6 +41,7 @@ memories no rule cites are the candidates for the next checks.
 | =conventions_coverage= | missing_convention | The dataset holds every convention ORE holds, or propose_decisions.tsv says why not. |  |
 | =conventions_coverage= | differing_convention | The dataset states a convention's terms as ORE does, or propose_decisions.tsv says why not. |  |
 | =conventions_coverage= | extract_failed | decisions.tsv reads, so the canonical set of the ORE examples can be extracted. |  |
+| =conventions_coverage= | unreadable | Every file and table the check reads is there and reads. |  |
 | =conventions_dataset= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =core_link_edges= | forbidden_edge | No component's core links another component's core or service library; it links the api contract. |  |
 | =core_link_edges= | unresolved_link | Every library a core links names no variable the check cannot resolve. |  |
@@ -107,6 +108,7 @@ memories no rule cites are the candidates for the next checks.
 | =open_reads= | stale_allow | Every subject Authorised reads allow-lists is defined by a protocol header. |  |
 | =open_reads= | no_allow_list | Authorised reads has its allow-list section. |  |
 | =ore_output_catalogue= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
+| =ore_output_catalogue= | unreadable | Every file and table the generator reads is there and reads. |  |
 | =ore_renderings_tables= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =ore_value_sets= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =org_links= | colon_link | No link's raw target begins with a colon, which no link type does. |  |
@@ -116,10 +118,11 @@ memories no rule cites are the candidates for the next checks.
 | =parameter_value_sets= | unknown_set | Every link names a set the curation states. |  |
 | =parameter_value_sets= | unnamed_set | Every set is named by a link, or generated for a leaf. |  |
 | =parameter_value_sets= | impossible_set | A set states only a rule its own kind can hold. |  |
-| =parameter_value_sets= | unruled_leaf | Every leaf of the element map names an authority for its rule, beyond the count UNREAD_ALLOWED permits. |  |
+| =parameter_value_sets= | unruled_leaf | Every leaf of the element map names an authority for its rule, beyond the count the Unread leaves allowed table permits. |  |
 | =parameter_value_sets= | override_column | No pair setting table, model or reader states a per-pair control the value set states. |  |
 | =parameter_value_sets= | value_check | No engine settings part states a value as a column check. |  |
 | =parameter_value_sets= | missing_file | Every file the override rules guard exists. |  |
+| =parameter_value_sets= | unreadable | Every table the value sets are resolved with is there and reads. |  |
 | =pending_models= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =populate_refs= | unresolved_reference | Every name a populate script looks up is one a populate script that runs before it defines. | =7B477025-132E-4B20-80B4-D8C9420880B8= |
 | =populate_refs= | unbalanced_parentheses | Every call and definition the check reads closes its parentheses. |  |

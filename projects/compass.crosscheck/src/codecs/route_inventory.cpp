@@ -106,7 +106,8 @@ struct tables {
 std::string read(const ct::corpus_view& v, std::string_view path) {
     auto text = v.read_file(path);
     if (!text)
-        throw stop{"cannot read " + std::string(path)};
+        throw stop{ops::python_source_problem("route_inventory", path,
+            "its route tables", false)};
     return std::move(*text);
 }
 

@@ -24,6 +24,7 @@
 #include <expected>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -69,13 +70,50 @@ struct check {
 };
 
 /**
- * @brief The checks of a checkout, in file-name order, and the exceptions
- * their documents state.
+ * @brief The data a document gives built-in codecs: the codecs its
+ * Definition names with :CODEC:, the document's path and the line of that
+ * key, and the tables as codec::ops::encode_data_tables writes them, the
+ * value compass sets as each codec's data option. Codecs that resolve one
+ * model from the same data, as a generator and the gate on its input do,
+ * are named together, so the data has one copy.
+ */
+struct codec_data {
+    std::vector<std::string> codecs;
+    std::string path;
+    std::uint32_t line = 0;
+    std::string text;
+};
+
+/**
+ * @brief The checks of a checkout, in file-name order, the data its
+ * documents give built-in codecs, and the exceptions they state.
  */
 struct check_set {
     std::vector<std::unique_ptr<const check>> checks;
+    std::vector<codec_data> data;
     codec::types::exception_set exceptions;
 };
+
+/**
+ * @brief The data the document @p text at @p path gives built-in codecs,
+ * when its Definition names them with :CODEC:, separated by spaces, with
+ * the exceptions its table states added to @p exceptions; nothing when it
+ * names none, and is a check; or the first error in it as
+ * "<path>:<line>: <what>; fix: <how>".
+ *
+ * The rule of an exception is the rule's name when the document names one
+ * codec, and <codec>/<rule> when it names several.
+ *
+ * Each level-1 heading but Definition, Exceptions and Examples that holds
+ * a table gives one table, named by the heading's title: its first row
+ * names the columns and each other row is a row. A cell loses the = or ~
+ * that marks it verbatim, and \vert in it is a |, which org does not let
+ * a cell hold. The prose around the tables is the document's; it is not
+ * part of the data, so editing it runs nothing again.
+ */
+[[nodiscard]] std::expected<std::optional<codec_data>, std::string>
+parse_codec_document(std::string_view text, std::string_view path,
+    codec::types::exception_set& exceptions);
 
 /**
  * @brief The check that the document @p text at @p path defines, with

@@ -65,6 +65,16 @@ struct python_entry {
 };
 
 /**
+ * @brief What to say of a project's Python file that the codec @p codec
+ * reads @p names from, when it cannot have them: that the file is missing,
+ * when @p present is false, or that they are not literals it reads. Either
+ * way it says compass-ng reads the file, which nothing on the project's
+ * side shows, until the data moves to a check document.
+ */
+[[nodiscard]] std::string python_source_problem(std::string_view codec,
+    std::string_view path, std::string_view names, bool present);
+
+/**
  * @brief The value of the module-level assignment to @p name in @p source,
  * a line that starts with the name, an optional annotation and =; nothing
  * when there is none or the value is not a literal of these kinds.

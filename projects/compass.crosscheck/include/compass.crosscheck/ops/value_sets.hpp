@@ -20,6 +20,7 @@
 #ifndef COMPASS_CROSSCHECK_OPS_VALUE_SETS_HPP
 #define COMPASS_CROSSCHECK_OPS_VALUE_SETS_HPP
 
+#include <expected>
 #include <map>
 #include <optional>
 #include <set>
@@ -27,6 +28,7 @@
 #include <string_view>
 #include <utility>
 #include <vector>
+#include "compass.codec/ops/data_tables.hpp"
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.crosscheck/ops/json_value.hpp"
 #include "compass.crosscheck/ops/projection_columns.hpp"
@@ -47,6 +49,8 @@ inline constexpr std::string_view map_path = "projects/ores.sql/populate/"
     "reporting/reporting_ore_parameter_vocabularies_populate.sql";
 inline constexpr std::string_view columns_path = "projects/ores.sql/populate/"
     "reporting/reporting_ore_element_map_columns_populate.sql";
+inline constexpr std::string_view terms_path = "projects/ores.sql/populate/"
+    "refdata/refdata_convention_kind_terms_populate.sql";
 inline constexpr std::string_view generator_path =
     "projects/ores.sql/utility/generate_value_sets.py";
 inline constexpr std::string_view map_generator_path =
@@ -153,8 +157,8 @@ struct problem {
  * resolution and the sets' own rules find, sorted by rule and message.
  * The element map is there when the model resolved with no problem, as
  * the map generator requires; otherwise map_stopped says why not.
- * unread_allowed is the map generator's UNREAD_ALLOWED, the leaves that
- * may name no authority.
+ * unread_allowed is the Unread leaves allowed table, the leaves that may
+ * name no authority.
  */
 struct outcome {
     std::optional<std::string> stopped;
@@ -169,9 +173,44 @@ struct outcome {
 };
 
 /**
- * @brief Resolves the value sets and the element map from the checkout.
+ * @brief Where a codec of the value sets cannot have its tables: the
+ * check document to write or correct, and why.
  */
-[[nodiscard]] outcome evaluate(const compass::codec::types::corpus_view& v);
+struct unreadable {
+    std::string path;
+    std::string message;
+};
+
+/**
+ * @brief The tables of the check document whose Definition names
+ * @p codec, from its data option, or where and why they cannot be read.
+ *
+ * They are what ORE Studio's value set modules kept as module-level
+ * literals, and what generate_convention_kind_terms.py did
+ * (projection_columns' convention_terms_tables()). From
+ * convention_value_sets.py and curve_value_sets.py: Catalogues
+ * (CATALOGUES, which both stated alike), Catalogue kinds (CATALOGUE_OF),
+ * Rendered kinds (RENDERED_OF), Kinds without a list (WITHOUT_LIST), Kinds
+ * one parser lists (LIST_OF), Type sets (each family's TYPE_SETS), Schema
+ * type sets (SCHEMA_TYPE_SETS, which both stated alike), Convention own
+ * sets (OWN_SETS), Type overrides (TYPE_OVERRIDE), Curation keys
+ * (CURATION_KEYS), Curation sources (SOURCES), List items (LIST_ITEM) and
+ * Period pattern (PERIOD_PATTERN). From ore_aliases.py: Parser tables
+ * (PARSER_TABLE) and Rendering families (SETS). From ore_schema_types.py:
+ * Schema kinds (KIND_OF). From generate_ore_element_map.py: Unread leaves
+ * allowed (UNREAD_ALLOWED), Item words (ITEM_WORDS), and Schema words
+ * (SCHEMA_WORDS and SCHEMA_NAMES, which share their keys).
+ */
+[[nodiscard]] std::expected<compass::codec::ops::data_tables, unreadable>
+read_tables(const compass::codec::types::corpus_view& v,
+    std::string_view codec);
+
+/**
+ * @brief Resolves the value sets and the element map from the checkout
+ * and the tables read_tables() read.
+ */
+[[nodiscard]] outcome evaluate(const compass::codec::types::corpus_view& v,
+    const compass::codec::ops::data_tables& data);
 
 /**
  * @brief generate_convention_kind_terms.py's three files, the convention

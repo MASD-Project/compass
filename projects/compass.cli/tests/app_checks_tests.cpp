@@ -437,3 +437,45 @@ TEST_CASE("a check of severity warning reports its findings as warnings and "
         "wide_types/over_ceiling: struct wide has 3 fields"));
     CHECK_THAT(r.out, ContainsSubstring("2 diagnostics, 2 warnings"));
 }
+
+namespace {
+
+std::string codec_document(std::string_view codec) {
+    return "#+title: Check: data\n\n* Definition\n:PROPERTIES:\n:CODEC: " +
+        std::string(codec) + "\n:END:\n\n* Index fields\n\n| field |\n"
+        "| Index |\n";
+}
+
+}
+
+TEST_CASE("a document that gives data names a codec that reads tables, "
+    "once", "[app][checks]") {
+    scoped_git_repo repo;
+    write_checkout(repo);
+    repo.write("compass/checks/data.org", codec_document("no_such_codec"));
+    CHECK_THAT(check(repo).err, ContainsSubstring("compass/checks/data.org:5: "
+        "no codec is named no_such_codec"));
+
+    repo.write("compass/checks/data.org", codec_document("document_index"));
+    CHECK_THAT(check(repo).err, ContainsSubstring("compass/checks/data.org:5: "
+        "document_index reads no data tables"));
+
+    repo.write("compass/checks/data.org",
+        codec_document("conventions_coverage"));
+    repo.write("compass/checks/more.org",
+        codec_document("conventions_coverage"));
+    const auto twice = check(repo);
+    CHECK(twice.status == 2);
+    CHECK_THAT(twice.err, ContainsSubstring("compass/checks/more.org:5: "
+        "another document already gives conventions_coverage's data"));
+
+    repo.write("compass/checks/more.org",
+        codec_document("ore_value_sets conventions_coverage"));
+    CHECK_THAT(check(repo).err, ContainsSubstring("compass/checks/more.org:5: "
+        "another document already gives conventions_coverage's data"));
+    repo.write("compass/checks/more.org",
+        codec_document("ore_value_sets parameter_value_sets"));
+    const auto shared = check(repo);
+    CHECK_THAT(shared.err, !ContainsSubstring("another document"));
+    CHECK_THAT(shared.err, !ContainsSubstring("reads no data tables"));
+}

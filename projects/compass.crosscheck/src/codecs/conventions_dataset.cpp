@@ -818,7 +818,14 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
     const std::string output(v.option("output"));
     const auto fix = "Run " + script + ", which names the problem, and "
         "correct the curated table it names.";
-    if (!source || !tsv || !map || !methodology) {
+    if (!source) {
+        co::refuse(out, output, ops::python_source_problem(
+            "conventions_dataset", script, "its curated tables", false),
+            "Restore the file, or set the option script to the file that "
+            "holds it.");
+        return;
+    }
+    if (!tsv || !map || !methodology) {
         co::refuse(out, output, "cannot read " + (!source ? script
             : here + (!tsv ? "conventions.tsv" : !map
                 ? "oresmd_index_map.tsv" : "methodology.txt")), fix);

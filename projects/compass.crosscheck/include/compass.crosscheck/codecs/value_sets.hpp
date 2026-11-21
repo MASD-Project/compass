@@ -35,16 +35,24 @@ namespace compass::crosscheck::codecs {
  * convention kind terms seed, their validation triggers and the triggers'
  * drops, from the terms that resolution resolved, or resolves them alone
  * when it stopped first; where the terms cannot be resolved it refuses
- * the seed and says why. The script's exemption tables (NOT_A_COLUMN,
- * FILE_KIND, SPELLED_OTHERWISE, READ_ELSEWHERE, ELEMENT_OF, MEMBER_ENTITY,
- * the asset classes and the schema name) are read from the script.
+ * the seed and says why.
+ *
+ * The curation the modules kept as literals, and the script's exemption
+ * tables, are the tables of the check document whose Definition names this
+ * codec and parameter_value_sets (ops::value_sets::read_tables lists
+ * them), read from the data option; where a table is missing or a cell
+ * does not read, it refuses the value set seed and the convention kind
+ * terms and says which.
  */
 extern const compass::codec::types::descriptor ore_value_sets;
 
 /**
  * @brief ORE Studio's parameter-value-sets-only gate
  * (check_parameter_value_sets.py), with the problems the two generators
- * stop on: every rule the value sets must keep, from the same resolution.
+ * stop on: every rule the value sets must keep, from the same resolution,
+ * which reads the tables ore_value_sets reads. Its rule unreadable
+ * reports a table missing or a cell that does not read, at the check
+ * document, or the one to write.
  */
 extern const compass::codec::types::descriptor parameter_value_sets;
 

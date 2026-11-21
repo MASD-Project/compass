@@ -97,9 +97,11 @@ void registry_exception_run(const ct::corpus_view& v,
         "ACCEPTED_EXCEPTIONS");
     if (!listed || !accepted ||
         accepted->what != ops::python_value::kind::dict) {
-        co::report(out, registry_path, 0, 1, "COMPONENTS_UNDER_TEST or "
-            "ACCEPTED_EXCEPTIONS is not a literal this check can read",
-            "Keep both as literals of strings and AcceptedException calls.");
+        co::report(out, registry_path, 0, 1, ops::python_source_problem(
+            "registry_exceptions", registry_path,
+            "COMPONENTS_UNDER_TEST and ACCEPTED_EXCEPTIONS",
+            v.file_exists(registry_path)), "Restore the file, or keep both "
+            "as literals of strings and AcceptedException calls.");
         return;
     }
     const auto problem = [&](const std::string& message) {

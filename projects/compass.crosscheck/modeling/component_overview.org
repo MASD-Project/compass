@@ -252,7 +252,15 @@ because each reads one kind of artefact and writes another:
   (=generate_output_catalogue.py=): the output catalogue data and the
   output formats page, from the output samples ORE ships, read with
   Python's =csv= rules. Its data files go through clang-format, the
-  codec's formatter, which its =clang_format= option names.
+  codec's formatter, which its =clang_format= option names. The curation
+  the samples cannot state, which was the script's module constants and
+  =output_family_docs.py='s =FAMILY_DOCS=, is the eleven tables of the
+  project's check document for the codec, from =Family conventions= to
+  =Family documentation=; =ore_files.py='s =SCHEMAS= and =FILES=, which
+  ORE Studio's seed generator also reads, are still read from the Python.
+  Besides =refused=, =unreadable= reports a missing table, a missing or
+  unreadable =ore_files.py=, or an examples directory with no example, on
+  the file at fault.
 - *=xml_bindings=.* =xml-bindings-drift= (=regenerate_xml_bindings.sh=
   running =generate_xml_bindings.py=, which =check_xml_bindings_drift.py=
   compares with the tree): the records and codec tables of each ORE
@@ -307,8 +315,12 @@ because each reads one kind of artefact and writes another:
   =propose.py= reports is a finding: =duplicate_row=, =no_source=,
   =undefined_index=, =missing_convention= and =differing_convention=;
   =extract_failed= is a =decisions.tsv= =extract.py= refuses.
-  =INDEX_FIELDS= and =BDC= are read from =propose.py=. The audit files
-  =extract.py= also writes under =tmp/= are not ported.
+  The fields that name an index and the business day codes, which were
+  =propose.py='s =INDEX_FIELDS= and =BDC=, are the tables =Index fields=
+  and =Business day conventions= of the project's check document for the
+  codec; =unreadable= reports a missing table or file, where the codec
+  used to return without a word. The audit files =extract.py= also writes
+  under =tmp/= are not ported.
 
 Three gates of the parameter value sets are one model here, not three
 ports. ORE Studio's =generate_value_sets.py=, =generate_ore_element_map.py=
@@ -322,10 +334,17 @@ the curve family columns and the convention kind terms
 =curve_sections_wiring= and =ore_value_sets= write from too). It reads the
 curation as JSON with =ops::json_value=, which keeps an int apart from a
 float, the ORE schemas once with =ops::ore_schema=, and the policy tables
-of the five Python modules as literals; the curve module's =OWN_SETS=,
-which calls the schema reader, is stated in the code. Of the curation
-directory it reads =engine-settings-groups.json= alone. Two codecs read the
-model:
+from the project's check document whose Definition names both codecs
+(=:CODEC: ore_value_sets parameter_value_sets=), through
+=ops::value_sets::read_tables=. Those tables were the literals of six
+Python modules (=convention_value_sets.py=, =curve_value_sets.py=,
+=ore_aliases.py=, =ore_schema_types.py=, =generate_ore_element_map.py=
+and =generate_convention_kind_terms.py=), which the codecs no longer
+read; one document gives both codecs one copy. The modules' regular
+expressions and functions stay code: the curve module's =OWN_SETS=, which
+calls the schema reader, and the mapper patterns of
+=generate_convention_kind_terms.py=. Of the curation directory it reads
+=engine-settings-groups.json= alone. Two codecs read the model:
 
 - *=ore_value_sets=.* The value set seed, the element map and its columns
   seed, byte for byte what the two scripts write on ORE 545cafca45 with
@@ -334,23 +353,26 @@ model:
   term validation triggers and their drops, from the terms the resolution
   resolved, once. On ORE 545cafca45 the script and the codec both refuse
   the terms, because =conventions_fx_projection.cpp= reads =r.id=, which
-  the script's =NOT_A_COLUMN= does not exempt. It writes nothing while the model has a problem,
-  and refuses the seed, or the element map, pointing at
-  =parameter_value_sets= for why.
+  the script's =NOT_A_COLUMN= did not exempt. It writes nothing while the
+  model has a problem, and refuses the seed, or the element map, pointing
+  at =parameter_value_sets= for why; without its tables it refuses the
+  seed and the convention kind terms, naming the table or document.
 - *=parameter_value_sets=.* Every rule, once: =unresolved= (a generator
   would raise, and why), =unlinked_parameter= (a parameter a screen draws,
   pricing or engine run setting, with no set), =clash=, =unknown_set=,
   =unnamed_set=, =impossible_set= (the generator's and the check's set rules
   as one list), =unruled_leaf= (a leaf of the map that names no authority,
-  past =UNREAD_ALLOWED=), and the check's source rules =override_column=,
-  =value_check= and =missing_file=. At 545cafca45 it reports one
-  =unresolved= finding: the convention kind terms stop on =r.id=.
+  past the =Unread leaves allowed= table), the check's source rules
+  =override_column=, =value_check= and =missing_file=, and =unreadable=, a
+  table of the check document that is missing or a cell that does not
+  read. At 545cafca45 it reports one =unresolved= finding: the convention
+  kind terms stop on =r.id=.
 
 The schema walk collects the elements of a group nested in another at any
 depth; =ore_schema_types.py= looks one level too deep there, which changes
 nothing at 545cafca45.
 
-These generators keep their tables in Python modules, and the codecs read
+Other generators keep their tables in Python modules, and the codecs read
 those tables through =ops::python_assignment= rather than copying them, so
 an edit to a table is seen. The reader takes the literals the modules are
 written in: strings with their prefixes, f-strings and sums of strings and
@@ -363,7 +385,8 @@ nothing and reports a =refused= finding on its first output that says why,
 so =compass check= fails where the script would, and the sink keeps the
 file a good run wrote. Every generator here declares that one rule,
 =ops::refusal_rules= of =compass.cpp=: =curve_sections_wiring=,
-=ore_renderings_tables=, =script_library_seed=, =ore_output_catalogue=,
+=ore_renderings_tables=, =script_library_seed=, =ore_output_catalogue=
+(which adds =unreadable=),
 =er_diagram=, =conventions_dataset=, =route_inventory=,
 =ore_value_sets= and =xml_bindings=. At 545cafca45 =ore_value_sets= refuses twice, the
 convention kind terms and the value set seed, both on =r.id=.
@@ -390,7 +413,7 @@ except =model_rules=, which reports such a model.
 | =include/compass.crosscheck/codecs/value_sets.hpp=      | =ore_value_sets= and =parameter_value_sets=.                                            |
 | =include/compass.crosscheck/ops/value_sets.hpp=         | The resolved value sets, the element map and the seeds.                                 |
 | =include/compass.crosscheck/ops/ore_schema.hpp=         | The types ORE's schemas declare for a leaf.                                             |
-| =include/compass.crosscheck/ops/json_value.hpp=         | JSON and module literals as Python holds them.                                          |
+| =include/compass.crosscheck/ops/json_value.hpp=         | JSON as Python holds it.                                                                |
 | =include/compass.crosscheck/ops/projection_columns.hpp= | The curve family columns and the convention kind terms.                                 |
 | =tests/test_checkout.hpp=                               | Runs one codec over a checkout of files held in memory.                                 |
 

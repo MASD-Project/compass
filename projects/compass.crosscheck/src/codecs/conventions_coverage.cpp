@@ -27,6 +27,7 @@
 #include <string>
 #include <tuple>
 #include <vector>
+#include "compass.codec/ops/data_tables.hpp"
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.codec/types/fact.hpp"
 #include "compass.cpp/ops/paths.hpp"
@@ -54,8 +55,9 @@ constexpr std::uint32_t undefined_index = 2;
 constexpr std::uint32_t missing_convention = 3;
 constexpr std::uint32_t differing_convention = 4;
 constexpr std::uint32_t extract_failed = 5;
+constexpr std::uint32_t unreadable = 6;
 
-constexpr std::array<ct::rule, 6> rules{{
+constexpr std::array<ct::rule, 7> rules{{
     {"duplicate_row", "Each (kind, id) is one row of the conventions "
         "dataset."},
     {"no_source", "Each row of the conventions dataset names its source."},
@@ -66,22 +68,33 @@ constexpr std::array<ct::rule, 6> rules{{
     {"differing_convention", "The dataset states a convention's terms as ORE "
         "does, or propose_decisions.tsv says why not."},
     {"extract_failed", "decisions.tsv reads, so the canonical set of the "
-        "ORE examples can be extracted."}}};
+        "ORE examples can be extracted."},
+    {"unreadable", "Every file and table the check reads is there and "
+        "reads."}}};
 
-constexpr std::string_view fix = "Run tools/ore_conventions/extract.py "
-    "and projects/ores.seeder/datasets/conventions/propose.py, then add the "
-    "convention to conventions.tsv or state why not in "
+constexpr std::string_view fix = "Run tools/ore_conventions/extract.py, "
+    "then add the convention to conventions.tsv or state why not in "
     "propose_decisions.tsv.";
 
-constexpr std::array<ct::option, 3> options{{
+constexpr std::array<std::string_view, 1> field_columns{"field"};
+constexpr std::array<std::string_view, 2> convention_columns{"convention",
+    "code"};
+constexpr std::array<compass::codec::ops::table_need, 2> tables{{
+    {"Index fields", field_columns},
+    {"Business day conventions", convention_columns}}};
+
+constexpr std::array<ct::option, 4> options{{
     {"examples", "external/ore/examples",
         "The directory whose *.xml files extract.py reads."},
     {"extract_dir", "tools/ore_conventions",
         "The directory of extract.py, with decisions.tsv and "
         "builtin_index_fields.tsv."},
-    {"propose", "projects/ores.seeder/datasets/conventions/propose.py",
-        "propose.py; conventions.tsv, propose_decisions.tsv and "
-        "oresmd_index_map.tsv are read beside it."}}};
+    {"dataset", "projects/ores.seeder/datasets/conventions",
+        "The directory of conventions.tsv, propose_decisions.tsv and "
+        "oresmd_index_map.tsv."},
+    {compass::codec::ops::data_option, "", "The tables of the check "
+        "document whose Definition names this codec: the index fields of "
+        "a convention, and the codes of the business day conventions."}}};
 
 using strings = std::vector<std::string>;
 
@@ -550,10 +563,7 @@ struct ore_convention {
 
 void reduce(std::span<const ct::scanned_file> scanned,
     const ct::corpus_view& v, ct::diagnostic_table& out) {
-    const std::string propose(v.option("propose"));
-    const auto slash = propose.rfind('/');
-    const auto here = slash == std::string::npos ? std::string()
-        : propose.substr(0, slash + 1);
+    const auto here = std::string(v.option("dataset")) + "/";
     const std::string dataset_path = here + "conventions.tsv";
     const std::string extract_dir(v.option("extract_dir"));
     const auto finding = [&](std::uint32_t rule, const std::string& m) {
@@ -592,13 +602,27 @@ void reduce(std::span<const ct::scanned_file> scanned,
             std::ranges::sort(vt.files);
     }
 
-    const auto propose_source = v.read_file(propose);
-    const auto dataset = v.read_file(dataset_path);
-    const auto propose_decisions = v.read_file(here + "propose_decisions.tsv");
-    const auto index_map_bytes = v.read_file(here + "oresmd_index_map.tsv");
-    const auto engine = v.read_file(extract_dir + "/builtin_index_fields.tsv");
-    if (!propose_source || !dataset || !propose_decisions ||
-        !index_map_bytes || !engine)
+    const auto data = compass::codec::ops::tables_for(
+        "conventions_coverage", v.option(compass::codec::ops::data_option),
+        tables);
+    if (!data) {
+        co::report(out, "compass/checks/conventions_coverage.org", 0,
+            unreadable, data.error(), "Give the tables the message names.");
+        return;
+    }
+    const auto read = [&](const std::string& path) {
+        auto bytes = v.read_file(path);
+        if (!bytes)
+            co::report(out, path, 0, unreadable, "conventions_coverage "
+                "reads this file, and it is missing", "Restore it, or set "
+                "the option that names it.");
+        return bytes;
+    };
+    const auto dataset = read(dataset_path);
+    const auto propose_decisions = read(here + "propose_decisions.tsv");
+    const auto index_map_bytes = read(here + "oresmd_index_map.tsv");
+    const auto engine = read(extract_dir + "/builtin_index_fields.tsv");
+    if (!dataset || !propose_decisions || !index_map_bytes || !engine)
         return;
     try {
         std::string canonical;
@@ -610,18 +634,15 @@ void reduce(std::span<const ct::scanned_file> scanned,
                 "extract.py stops: " + e.message, fix);
             return;
         }
-        const auto source = text_of(*propose_source);
-        const auto index_fields_value = ops::python_assignment(source,
-            "INDEX_FIELDS");
-        const auto bdc_value = ops::python_assignment(source, "BDC");
-        if (!index_fields_value || !bdc_value)
-            return;
-        const auto index_fields = ops::strings_of(*index_fields_value);
-        if (!index_fields)
-            return;
+        const auto& fields_table = *data->find("Index fields");
+        std::vector<std::string> index_fields;
+        for (const auto& row : fields_table.rows)
+            index_fields.push_back(row[fields_table.column("field")]);
+        const auto& bdc_table = *data->find("Business day conventions");
         std::map<std::string, std::string, std::less<>> bdc;
-        for (const auto& e : bdc_value->entries)
-            bdc.insert_or_assign(e.key, e.value.text);
+        for (const auto& row : bdc_table.rows)
+            bdc.insert_or_assign(row[bdc_table.column("convention")],
+                row[bdc_table.column("code")]);
 
         const auto rows = read_tsv(text_of(*dataset));
         std::set<key> seen;
@@ -676,7 +697,7 @@ void reduce(std::span<const ct::scanned_file> scanned,
                         std::string(part.substr(eq + 1)));
                 start = end + 3;
             }
-            for (const auto& field : *index_fields) {
+            for (const auto& field : index_fields) {
                 const auto f = fields.find(field);
                 const std::string name(f == fields.end() ? std::string_view()
                     : co::strip(f->second));
@@ -746,7 +767,7 @@ void reduce(std::span<const ct::scanned_file> scanned,
 
 const ct::descriptor conventions_coverage{
     .name = "conventions_coverage",
-    .version = 1,
+    .version = 2,
     .summary = "Reports each convention ORE holds that the conventions "
         "dataset lacks or states otherwise, and the dataset's own defects.",
     .reads = ct::inputs::of_types({}),

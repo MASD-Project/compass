@@ -23,14 +23,13 @@
 #include <catch2/catch_test_macros.hpp>
 #include "compass.crosscheck/ops/python_literals.hpp"
 #include "test_checkout.hpp"
+#include "value_sets_data.hpp"
 
 namespace {
 
 using namespace compass::crosscheck;
 using tests::files;
 
-const std::string script_path =
-    "projects/ores.sql/utility/generate_convention_kind_terms.py";
 const std::string populate_path = "projects/ores.sql/populate/refdata/"
     "refdata_convention_kind_terms_populate.sql";
 const std::string create_path = "projects/ores.sql/create/refdata/"
@@ -40,50 +39,37 @@ const std::string drop_path = "projects/ores.sql/drop/refdata/"
 const std::string fx_path =
     "projects/ores.ore/core/src/domain/conventions_fx_projection.cpp";
 
-// generate_convention_kind_terms.py was run on this fixture, with its own
-// tables; the expected texts are what it wrote.
-const std::string script = R"py(# The asset classes a kind may serve; a screen draws its kinds under them.
-ASSET_CLASSES = ("interest-rates", "fx", "inflation", "credit", "commodity", "bond")
-
-# A mapper read whose target is not a column of a convention entity, with why.
-NOT_A_COLUMN = {
-    ("CURRENCY_PAIR", "r", "spot_days"):
-        "the FX projection's spot days, which the projection carries and no entity stores",
+// generate_convention_kind_terms.py was run on this fixture, with the
+// tables below as its own; the expected texts are what it wrote.
+tests::value_sets_data data() {
+    tests::value_sets_data d;
+    d["Asset classes"] = {{"interest-rates"}, {"fx"}, {"inflation"},
+        {"credit"}, {"commodity"}, {"bond"}};
+    d["Not a column"] = {{"CURRENCY_PAIR", "r", "spot_days", "the FX "
+        "projection's spot days, which the projection carries and no entity "
+        "stores"}};
+    d["File kinds"] = {{"conventions_fx_projection.cpp", "CURRENCY_PAIR"}};
+    d["Spelled otherwise"] = {{
+        "BMA_BASIS_SWAP:bma_basis_swap_convention.overnight_lockout_days",
+        "/Conventions/BMABasisSwap/OvernightLockouDays", "ORE's fromXML "
+        "reads OvernightLockouDays and its toXML writes OvernightLockoutDays; "
+        "the mapper uses the written spelling."}};
+    d["Read elsewhere"] = {{"INFLATION_SWAP", "PublicationSchedule", "a "
+        "ScheduleData block that ScheduleData::fromXML reads, not the "
+        "conventions parser"}};
+    d["Kind elements"] = {{"TENOR_BASIS_SWAP", "TenorBasisSwap"},
+        {"COMMODITY_FUTURE", "CommodityFuture"},
+        {"CROSS_CURRENCY_BASIS", "CrossCurrencyBasis"},
+        {"CROSS_CURRENCY_FIX_FLOAT", "CrossCurrencyFixFloat"},
+        {"CURRENCY_PAIR", "FX"}};
+    d["Member entities"] = {{"pair", "currency_pair"},
+        {"convention", "currency_pair_convention"}};
+    return d;
 }
 
-SCHEMA_NAME = "conventions.xsd"
-
-# The kind a mapper file serves, where its name does not say it.
-FILE_KIND = {"conventions_fx_projection.cpp": "CURRENCY_PAIR"}
-
-# A term whose element the mapper spells otherwise than the ORE parser reads it,
-# with the leaf the parser reads and why. The contract is keyed by what ORE reads.
-SPELLED_OTHERWISE = {
-    "BMA_BASIS_SWAP:bma_basis_swap_convention.overnight_lockout_days": {
-        "xpath": "/Conventions/BMABasisSwap/OvernightLockouDays",
-        "reason": "ORE's fromXML reads OvernightLockouDays and its toXML writes "
-                  "OvernightLockoutDays; the mapper uses the written spelling.",
-    },
+files generate(const files& t, const tests::value_sets_data& d = data()) {
+    return tests::generate(codecs::ore_value_sets, t, d.settings());
 }
-
-# A block of the document another ORE parser reads whole, so its parts are not
-# leaves of the conventions parser and take no term, with why.
-READ_ELSEWHERE = {
-    ("INFLATION_SWAP", "PublicationSchedule"):
-        "a ScheduleData block that ScheduleData::fromXML reads, not the conventions parser",
-}
-
-# The element a kind is written as, where no pack_family call names it.
-ELEMENT_OF = {"TENOR_BASIS_SWAP": "TenorBasisSwap",
-              "COMMODITY_FUTURE": "CommodityFuture",
-              "CROSS_CURRENCY_BASIS": "CrossCurrencyBasis",
-              "CROSS_CURRENCY_FIX_FLOAT": "CrossCurrencyFixFloat",
-              "CURRENCY_PAIR": "FX"}
-
-# The entity a member of a projection struct holds, where a mapper reaches an
-# entity through an alias, as the FX mapper reaches the currency pair.
-MEMBER_ENTITY = {"pair": "currency_pair", "convention": "currency_pair_convention"}
-)py";
 
 const std::string file0_path = "projects/ores.ore/core/src/domain/conventions_family_swap.cpp";
 const std::string file0 = R"f(void pack(bundle& bundle, const record_reader& root) {
@@ -224,8 +210,7 @@ drop function if exists ores_refdata_validate_convention_terms_fn();
 
 
 files tree() {
-    return {{script_path, script},
-        {file0_path, file0},
+    return {{file0_path, file0},
         {file1_path, file1},
         {file2_path, file2},
         {file3_path, file3},
@@ -248,7 +233,7 @@ void replace(std::string& text, const std::string& from,
 
 TEST_CASE("the terms are the mapper's reads under each reader's path, with "
     "their triggers by entity", "[codecs][ore_value_sets]") {
-    const auto out = tests::generate(codecs::ore_value_sets, tree());
+    const auto out = generate(tree());
     REQUIRE(out.size() == 3);
     CHECK(out.at(populate_path).find(expected_values) != std::string::npos);
     CHECK(out.at(create_path).ends_with(expected_triggers));
@@ -256,15 +241,31 @@ TEST_CASE("the terms are the mapper's reads under each reader's path, with "
 }
 
 TEST_CASE("a read the generator cannot attribute writes nothing until the "
-    "script's own table exempts it", "[codecs][ore_value_sets]") {
+    "Not a column table exempts it", "[codecs][ore_value_sets]") {
     auto t = tree();
     replace(t.at(fx_path), "    r.spot_days", "    r.id = text_of(v, \"Id\");\n"
         "    r.spot_days");
-    CHECK(tests::generate(codecs::ore_value_sets, t).empty());
-    replace(t.at(script_path), "NOT_A_COLUMN = {\n",
-        "NOT_A_COLUMN = {\n    (\"CURRENCY_PAIR\", \"r\", \"id\"): \"planted\",\n");
-    CHECK(tests::generate(codecs::ore_value_sets, t) ==
-        tests::generate(codecs::ore_value_sets, tree()));
+    CHECK(generate(t).empty());
+    auto d = data();
+    d["Not a column"].push_back({"CURRENCY_PAIR", "r", "id", "planted"});
+    CHECK(generate(t, d) == generate(tree()));
+}
+
+TEST_CASE("the terms' tables decide which reads are terms, and without "
+    "them the terms seed is refused, not skipped", "[codecs][ore_value_sets]") {
+    auto d = data();
+    d["Kind elements"].pop_back();
+    CHECK(generate(tree(), d).empty());
+    const auto refused = tests::run(codecs::ore_value_sets, tree(),
+        data().without("Asset classes"));
+    CHECK(tests::places(refused.findings) ==
+        std::vector<std::pair<std::string, std::uint32_t>>{
+            {populate_path, 0},
+            {"projects/ores.sql/populate/reporting/"
+             "reporting_ore_parameter_value_sets_populate.sql", 0}});
+    CHECK(tests::messages_of(refused).front().find("has no table under the "
+        "level-1 heading \"* Asset classes\", which ore_value_sets reads") !=
+        std::string::npos);
 }
 
 TEST_CASE("a leaf the ORE parser does not read, or a kind outside the asset "
@@ -272,11 +273,11 @@ TEST_CASE("a leaf the ORE parser does not read, or a kind outside the asset "
     auto leaf = tree();
     replace(leaf.at("projects/ores.sql/utility/convention_terms.json"),
         "{\"name\": \"Tenor\", \"path\": [\"Swap\", \"FloatLeg\"]},", "");
-    CHECK(tests::generate(codecs::ore_value_sets, leaf).empty());
+    CHECK(generate(leaf).empty());
     auto kind = tree();
     replace(kind.at("projects/ores.sql/populate/refdata/"
         "refdata_convention_kinds_populate.sql"), "'fx', 'FX'", "'rates', 'FX'");
-    CHECK(tests::generate(codecs::ore_value_sets, kind).empty());
+    CHECK(generate(kind).empty());
 }
 
 TEST_CASE("a dict keyed by tuples is read with each key's items",

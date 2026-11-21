@@ -142,11 +142,11 @@ inline outcome run_after_edit(const compass::codec::types::descriptor& codec,
 }
 
 /**
- * @brief The files the file codec @p codec, enabled, writes over a checkout
- * of @p all, by path.
+ * @brief The files the file codec @p codec, enabled with @p settings_of,
+ * writes over a checkout of @p all, by path.
  */
 inline files generate(const compass::codec::types::descriptor& codec,
-    const files& all) {
+    const files& all, const options& settings_of = {}) {
     namespace ct = compass::codec::types;
     ct::checkout_files checkout;
     for (const auto& [path, bytes] : all)
@@ -162,6 +162,8 @@ inline files generate(const compass::codec::types::descriptor& codec,
     const compass::org::types::type_registry types;
     ct::configuration settings;
     settings.set(codec.name, "enabled", "true");
+    for (const auto& [key, value] : settings_of)
+        settings.set(codec.name, key, value);
     const std::array<ct::descriptor, 1> codecs{codec};
     const auto r = compass::codec::ops::run(compass::codec::ops::make_registry(
         codecs, types, settings), corpus, types, 1);
