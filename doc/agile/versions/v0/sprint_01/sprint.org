@@ -65,8 +65,8 @@ Know what we build and what we must beat: the repository shape, and measured bas
 | [[id:45379101-8EAB-49D6-9195-24D68E8F9100][Keep MSVC within its template limits]] | STARTED | 2026-11-19 | | Report, before CI, the structs too large to reflect and the translation units whose template instantiation exceeds what MSVC allows, from a model of the limit measured on MSVC itself. |
 | [[id:A98E704E-B2E4-49BA-8839-B0A1DE9C3679][Keep the result cache small]] | STARTED | 2026-11-20 | | Bound the result cache shared by a repository's worktrees: store what is the same across worktrees and runs once, and keep a few recent results per worktree rather than every result ever written. |
 | [[id:D2C581F3-DC01-4E1C-A7E4-5CC86F0F067C][Port the gates compass-ng lacks]] | STARTED | 2026-11-21 | | Port the ORE Studio gates that still run as Python, starting with the ones nothing in compass-ng covers: single-writer, which ran only in CI, and xml-bindings-drift, whose port was decided but not done. |
-| [[id:0CC46638-093A-4D82-A465-CB4339DEC6EE][Make a service whole]] | STARTED | 2026-11-21 | | One check that a service has everything it needs, from the registry entry to its build, generated SQL and certificates, with the obligations stated by the project. |
-| [[id:41FD3A9B-6D52-44A2-9676-6EC5FD28F8A9][Trace a break to its cause]] | STARTED | 2026-11-21 | | Every commit and pull request states its story, task and environment, and compass traces a finding on main to the commit, pull request and environment that likely caused it. |
+| [[id:0CC46638-093A-4D82-A465-CB4339DEC6EE][Make a service whole]] | DONE | 2026-11-21 | 2026-11-21 | One check that a service has everything it needs, from the registry entry to its build, generated SQL and certificates, with the obligations stated by the project. |
+| [[id:41FD3A9B-6D52-44A2-9676-6EC5FD28F8A9][Trace a break to its cause]] | DONE | 2026-11-21 | 2026-11-21 | Every commit and pull request states its story, task and environment, and compass traces a finding on main to the commit, pull request and environment that likely caused it. |
 
 * Release Notes
 
