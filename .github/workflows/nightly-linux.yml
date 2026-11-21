@@ -103,12 +103,10 @@ jobs:
       matrix:
         name: [linux-gcc, linux-clang]
         buildtype: [debug, release]
-        # The gcc debug build never finishes on a hosted runner: the runner
-        # dies before it has compiled half the tree. It saves no compiler
-        # cache, so it never gets faster either.
-        exclude:
-          - name: linux-gcc
-            buildtype: debug
+        # gcc debug once died on a hosted runner before it compiled half the
+        # tree, and was left out. On 2026-11-21 it built, ran all 1341 tests
+        # and submitted coverage in 36 minutes, with the disk under half full
+        # and memory to spare, so it runs with the others.
         include:
           - name: linux-gcc
             family: linux

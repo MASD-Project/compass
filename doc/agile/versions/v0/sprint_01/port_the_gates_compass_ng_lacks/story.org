@@ -47,6 +47,7 @@ the gates-as-codecs story but not done.
 |------+-------+-------+-----+-------------|
 | [[id:89714AA4-EB8D-4F01-B793-FFB118B2EC51][Port single-writer]] | STARTED | 2026-11-21 | | Port ORE Studio's single-writer gate, which ran only in CI: no table a DQ publish function writes is also written by a populate script, unless the two write different tenants or rows. |
 | [[id:4457EB7A-F74A-4E93-AC65-2647DF829F82][Port xml-bindings-drift]] | STARTED | 2026-11-21 | | Port ORE Studio's XML bindings generator as a compass generator codec whose output is byte-identical to the committed codec tables, so the drift rule replaces xml-bindings-drift and its second determinism run. |
+| [[id:90403591-6F42-4600-9BEF-236774160798][Stop naming the scripts ORE Studio deleted]] | STARTED | 2026-11-21 | | Make every banner and message compass-ng generates name compass, not a Python script ORE Studio deleted, and report a generated header that names a script the checkout lacks. |
 
 * Decisions
 

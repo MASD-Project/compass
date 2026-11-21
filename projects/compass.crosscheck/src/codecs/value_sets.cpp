@@ -242,7 +242,7 @@ constexpr std::array<ct::option, 1> options{{
 
 const ct::descriptor ore_value_sets{
     .name = "ore_value_sets",
-    .version = 2,
+    .version = 3,
     .summary = "Writes the parameter value set seed, the ORE element map and "
                "its columns from one resolution of the value set curation.",
     .reads = ct::inputs::of_types({}),
@@ -253,7 +253,7 @@ const ct::descriptor ore_value_sets{
 
 const ct::descriptor parameter_value_sets{
     .name = "parameter_value_sets",
-    .version = 2,
+    .version = 3,
     .summary = "Reports every rule the parameter value sets break, from the "
                "same resolution the seed is written from.",
     .reads = ct::inputs::of_types({}),

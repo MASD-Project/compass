@@ -20,6 +20,7 @@
 #include "compass.cli/app/pipeline.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
@@ -28,6 +29,7 @@
 #include <iterator>
 #include <optional>
 #include <ranges>
+#include <set>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -375,6 +377,92 @@ std::vector<types::finding> drift_of(const codec::io::output_plan& plan,
                                           : relative.generic_string(),
             disk.value_or(""), at, codec, std::move(message),
             std::move(sides)));
+    }
+    return out;
+}
+
+/**
+ * @brief Each script, a word ending in .py or .sh, that the text @p text
+ * names, with its offset: a path when it holds a slash, a file name
+ * otherwise.
+ */
+std::vector<std::pair<std::string_view, std::uint32_t>> scripts_named(
+    std::string_view text) {
+    const auto word = [](char c) {
+        return std::isalnum(static_cast<unsigned char>(c)) || c == '_' ||
+            c == '.' || c == '/' || c == '-';
+    };
+    std::vector<std::pair<std::string_view, std::uint32_t>> out;
+    for (const std::string_view ext : {".py", ".sh"}) {
+        for (auto at = text.find(ext); at != std::string_view::npos;
+             at = text.find(ext, at + 1)) {
+            const auto end = at + ext.size();
+            if (end < text.size() && (std::isalnum(static_cast<unsigned char>(
+                    text[end])) || text[end] == '_'))
+                continue;
+            auto begin = at;
+            while (begin > 0 && word(text[begin - 1]))
+                --begin;
+            while (begin < at && (text[begin] == '.' || text[begin] == '/'))
+                ++begin;
+            if (begin == at)
+                continue;
+            out.emplace_back(text.substr(begin, end - begin),
+                static_cast<std::uint32_t>(begin));
+        }
+    }
+    return out;
+}
+
+/**
+ * @brief One finding for each script the header of a file of @p plan, its
+ * first codec::ops::generated_header_lines lines, names and the checkout,
+ * listed in @p files, lacks: a path must be one of them, a file name the
+ * name of one. A generated banner that names a deleted script sends its
+ * reader nowhere.
+ */
+std::vector<types::finding> names_missing_of(
+    const codec::io::output_plan& plan, std::span<const std::string> files) {
+    std::set<std::string_view> names;
+    for (const auto& f : files) {
+        const auto slash = f.rfind('/');
+        names.insert(slash == std::string::npos ? std::string_view(f)
+            : std::string_view(f).substr(slash + 1));
+    }
+    std::vector<types::finding> out;
+    for (std::size_t i = 0; i < plan.size(); ++i) {
+        if (plan.actions[i] == codec::io::output_action::remove)
+            continue;
+        const auto whole = plan.contents[i];
+        auto header_end = std::string_view::size_type{0};
+        for (std::uint32_t l = 0; l < codec::ops::generated_header_lines &&
+             header_end != std::string_view::npos; ++l) {
+            header_end = whole.find('\n', header_end);
+            if (header_end != std::string_view::npos)
+                ++header_end;
+        }
+        const auto text = whole.substr(0, header_end);
+        for (const auto& [script, at] : scripts_named(text)) {
+            const bool path = script.find('/') != std::string_view::npos;
+            const bool held = path
+                ? std::ranges::binary_search(files, script)
+                : names.contains(script);
+            if (held)
+                continue;
+            const auto [line, column] = position_of(text, at);
+            out.push_back({.path = std::string(plan.paths[i]),
+                .line = line,
+                .column = column,
+                .rule = std::format("{}/{}", plan.codecs[i],
+                    codec::ops::names_missing_file_rule.name),
+                .level = codec::types::severity::error,
+                .message = std::format("{} generates this file naming {}, "
+                    "which the checkout does not hold", plan.codecs[i],
+                    script),
+                .fix = "change the codec so it names a file the project "
+                       "has, or restore the script",
+                .drift = {}});
+        }
     }
     return out;
 }
@@ -729,6 +817,8 @@ types::check_result check(const types::options& o) {
             for (const auto& problem : planned.plan.problems)
                 p.summary.errors.push_back("output: " + problem);
             r.findings = drift_of(planned.plan, o.output_root, o.checkout);
+            std::ranges::move(names_missing_of(planned.plan, p.listed.files),
+                std::back_inserter(r.findings));
         });
     }
     add_findings(p, r.findings);
@@ -981,7 +1071,10 @@ std::vector<types::finding> hook_drift(pipeline& p, const types::options& o,
     plan.plan = codec::io::plan_outputs(o.output_root, plan.outputs, written);
     for (const auto& problem : plan.plan.problems)
         p.summary.errors.push_back("output: " + problem);
-    return drift_of(plan.plan, o.output_root, o.checkout);
+    auto found = drift_of(plan.plan, o.output_root, o.checkout);
+    std::ranges::move(names_missing_of(plan.plan, p.listed.files),
+        std::back_inserter(found));
+    return found;
 }
 
 /**

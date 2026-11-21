@@ -165,7 +165,7 @@ TEST_CASE("the rule table lists the memories no rule cites, by path",
     CHECK(section == "** Unenforced memories\n\n"
         "- =doc/llm/memory/a_untitled.org=\n"
         "- [[id:" + std::string(push_id) + "][Do not push automatically]]\n");
-    CHECK_THAT(text, ContainsSubstring("9 rules, 7 of which cite a memory or "
+    CHECK_THAT(text, ContainsSubstring("10 rules, 7 of which cite a memory or "
         "a document that states them. Of the 3 memories of this repository, "
         "2 are cited by no rule."));
 }

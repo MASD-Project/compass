@@ -28,6 +28,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
 #include "compass.codec/io/output_sink.hpp"
+#include "compass.codec/ops/data_tables.hpp"
 #include "compass.codec/ops/outputs.hpp"
 #include "compass.crosscheck/ops/xml_bindings.hpp"
 #include "test_checkout.hpp"
@@ -40,6 +41,7 @@ using tests::files;
 namespace xb = ops::xml_bindings;
 
 constexpr std::string_view root_document = "root_document";
+const std::vector<std::string> root_schema_names{"root.xsd"};
 
 /**
  * @brief The files the generator writes for @p schemas with the root
@@ -51,7 +53,12 @@ xb::output emit(const std::vector<std::string>& schemas,
     std::span<const std::string_view> exact = {}) {
     return xb::generate(schemas, {.root_element = "Root",
         .root_type = root_type, .accessor = root_document,
-        .name_space = {}, .include = {}, .exact_decimals = exact});
+        .name_space = "bindings::root", .include = "bindings/root.hpp",
+        .schema_names = root_schema_names, .exact_decimals = exact},
+        {.engine_include = "bindings/engine.hpp",
+         .decimal_include = "bindings/decimal.hpp",
+         .decimal_type = "bindings::decimal", .export_macro = "",
+         .errata = {}});
 }
 
 /**
@@ -853,6 +860,113 @@ TEST_CASE("a column row tells the engine where to find the columns",
 
 namespace {
 
+namespace cops = compass::codec::ops;
+
+constexpr std::string_view document = "compass/checks/xml_bindings.org";
+
+/**
+ * @brief A table of the check document, its rows a line apart from line
+ * @p line.
+ */
+cops::data_table table(std::string name, std::uint32_t line,
+    std::vector<std::string> columns,
+    std::vector<std::vector<std::string>> rows) {
+    cops::data_table t{.name = std::move(name), .line = line,
+        .columns = std::move(columns), .rows = std::move(rows)};
+    for (std::size_t r = 0; r < t.rows.size(); ++r)
+        t.row_lines.push_back(line + 2 + static_cast<std::uint32_t>(r));
+    return t;
+}
+
+using rows = std::vector<std::vector<std::string>>;
+
+/**
+ * @brief The lines of the licence comment a project's Licence table holds:
+ * the text of each line, without the comment's leading star or opener.
+ */
+rows licence_lines() {
+    return {{"-*- mode: c++; tab-width: 4; indent-tabs-mode: nil; "
+             "c-basic-offset: 4 -*-"}, {""},
+        {"Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>"}, {""},
+        {"This program is free software; you can redistribute it and/or "
+         "modify it under"},
+        {"the terms of the GNU General Public License as published by the "
+         "Free Software"},
+        {"Foundation; either version 3 of the License, or (at your option) "
+         "any later"},
+        {"version."}, {""},
+        {"This program is distributed in the hope that it will be useful, "
+         "but WITHOUT"},
+        {"ANY WARRANTY; without even the implied warranty of MERCHANTABILITY "
+         "or FITNESS"},
+        {"FOR A PARTICULAR PURPOSE. See the GNU General Public License for "
+         "more details."}, {""},
+        {"You should have received a copy of the GNU General Public License "
+         "along with"},
+        {"this program; if not, write to the Free Software Foundation, Inc., "
+         "51"},
+        {"Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA."}, {""},
+        {"AUTO-GENERATED FILE - DO NOT EDIT MANUALLY"}};
+}
+
+/**
+ * @brief A check document with @p settings, @p families, @p exact and
+ * @p errata as its four tables.
+ */
+cops::data_tables check_document(rows settings, rows families, rows exact = {},
+    rows errata = {}) {
+    cops::data_tables t{.source = std::string(document)};
+    t.tables = {
+        table("Families", 10, {"stem", "root element", "root type", "schemas"},
+            std::move(families)),
+        table("Exact decimals", 30, {"family", "element"}, std::move(exact)),
+        table("Schema errata", 40, {"written", "read"}, std::move(errata)),
+        table("Settings", 50, {"setting", "value"}, std::move(settings)),
+        table("Licence", 70, {"line"}, licence_lines())};
+    return t;
+}
+
+tests::options data(const cops::data_tables& t) {
+    return {{std::string(cops::data_option), cops::encode_data_tables(t)}};
+}
+
+/**
+ * @brief The table @p name of @p t.
+ */
+cops::data_table& in(cops::data_tables& t, std::string_view name) {
+    for (auto& table : t.tables)
+        if (table.name == name)
+            return table;
+    FAIL("no table " << name);
+    return t.tables.front();
+}
+
+const rows ore_settings{
+    {"schema_directory", "external/ore/xsd"},
+    {"header_directory",
+     "projects/ores.ore/core/include/ores.ore.core/xml/generated"},
+    {"source_directory", "projects/ores.ore/core/src/xml/generated"},
+    {"include_prefix", "ores.ore.core/xml/generated"},
+    {"namespace_prefix", "ores::ore::xml::generated"},
+    {"engine_include", "ores.ore.core/xml/binding.hpp"},
+    {"decimal_include", "ores.utility/decimal/decimal.hpp"},
+    {"decimal_type", "ores::utility::decimal::decimal"},
+    {"export_macro", "ORES_ORE_CORE_EXPORT"}};
+
+/**
+ * @brief ORE Studio's layout, with the calendar adjustments family, whose
+ * schemas the checkout holds, and the IBOR fallback family, whose schemas
+ * it does not.
+ */
+cops::data_tables ore_document() {
+    return check_document(ore_settings,
+        {{"calendar_adjustments", "CalendarAdjustments", "calendaradjustment",
+          "calendaradjustment.xsd ore_types.xsd"},
+         {"ibor_fallback_config", "IborFallbackConfig", "IborFallbackConfig",
+          "iborfallbackconfig.xsd ore_types.xsd"}},
+        {{"ibor_fallback_config", "Spread"}});
+}
+
 const std::string header_path = "projects/ores.ore/core/include/ores.ore.core/"
                                 "xml/generated/calendar_adjustments.hpp";
 const std::string source_path =
@@ -892,7 +1006,8 @@ files calendar_checkout() {
 TEST_CASE("each family is a header and a source under the generated "
     "directories, and a family whose schemas are missing writes nothing",
     "[codecs][xml_bindings]") {
-    const auto out = tests::generate(codecs::xml_bindings, calendar_checkout());
+    const auto out = tests::generate(codecs::xml_bindings, calendar_checkout(),
+        data(ore_document()));
     REQUIRE(out.size() == 2);
     const auto& header = out.at(header_path);
     CHECK_THAT(header, ContainsSubstring(
@@ -901,6 +1016,9 @@ TEST_CASE("each family is a header and a source under the generated "
         "calendar_adjustments {"));
     CHECK_THAT(header, ContainsSubstring("ORES_ORE_CORE_EXPORT auto "
         "calendar_adjustments_document() -> const document_type&;"));
+    CHECK_THAT(header, ContainsSubstring(" * Generated by compass from "
+        "calendaradjustment.xsd and ore_types.xsd;\n"
+        " * regenerate with compass generate.\n */\n"));
     const auto& source = out.at(source_path);
     CHECK_THAT(source, ContainsSubstring("#include \"ores.ore.core/xml/"
         "generated/calendar_adjustments.hpp\""));
@@ -909,10 +1027,12 @@ TEST_CASE("each family is a header and a source under the generated "
     CHECK_THAT(source, ContainsSubstring(
         "const char* weekday_spellings[] = {\"Sat\", \"Sun\", nullptr};"));
 
-    const auto r = tests::run(codecs::xml_bindings, calendar_checkout());
-    CHECK(r.findings.size() == 12);
-    for (const auto& f : r.findings)
-        CHECK_THAT(std::get<2>(f), ContainsSubstring("cannot read the schema"));
+    const auto r = tests::run(codecs::xml_bindings, calendar_checkout(),
+        data(ore_document()));
+    REQUIRE(r.findings.size() == 1);
+    CHECK_THAT(std::get<2>(r.findings.front()), ContainsSubstring(
+        "cannot read the schema external/ore/xsd/iborfallbackconfig.xsd of "
+        "the ibor_fallback_config family"));
 }
 
 TEST_CASE("a family the generator refuses writes nothing and says why",
@@ -921,11 +1041,180 @@ TEST_CASE("a family the generator refuses writes nothing and says why",
     checkout.at("external/ore/xsd/calendaradjustment.xsd") = replaced(
         checkout.at("external/ore/xsd/calendaradjustment.xsd"),
         "<xs:sequence>", "<xs:sequence><xs:attributeGroup ref=\"common\"/>");
-    CHECK(tests::generate(codecs::xml_bindings, checkout).empty());
-    const auto r = tests::run(codecs::xml_bindings, checkout);
-    REQUIRE(r.findings.size() == 13);
+    CHECK(tests::generate(codecs::xml_bindings, checkout,
+        data(ore_document())).empty());
+    const auto r = tests::run(codecs::xml_bindings, checkout,
+        data(ore_document()));
+    REQUIRE(r.findings.size() == 2);
     CHECK_THAT(std::get<2>(r.findings.front()),
         ContainsSubstring("uses xs:attributeGroup, which is not supported"));
+}
+
+TEST_CASE("a family row taken out of the check document is no longer "
+    "generated", "[codecs][xml_bindings]") {
+    auto doc = ore_document();
+    auto& families = in(doc, "Families").rows;
+    families.erase(families.begin());
+    auto& lines = in(doc, "Families").row_lines;
+    lines.erase(lines.begin());
+    CHECK(tests::generate(codecs::xml_bindings, calendar_checkout(),
+        data(doc)).empty());
+}
+
+TEST_CASE("without its check document, a table, a column or a setting the "
+    "codec writes nothing and says what is missing",
+    "[codecs][xml_bindings]") {
+    const auto only = [](const tests::outcome& r) {
+        REQUIRE(r.findings.size() == 1);
+        return std::get<2>(r.findings.front());
+    };
+    const auto none = tests::run(codecs::xml_bindings, calendar_checkout());
+    CHECK(std::get<0>(none.findings.at(0)) == document);
+    CHECK_THAT(only(none), ContainsSubstring("xml_bindings"));
+    CHECK(tests::generate(codecs::xml_bindings, calendar_checkout()).empty());
+
+    auto no_table = ore_document();
+    std::erase_if(no_table.tables, [](const auto& t) {
+        return t.name == "Settings";
+    });
+    CHECK_THAT(only(tests::run(codecs::xml_bindings, calendar_checkout(),
+        data(no_table))), ContainsSubstring("Settings"));
+
+    auto no_licence = ore_document();
+    std::erase_if(no_licence.tables, [](const auto& t) {
+        return t.name == "Licence";
+    });
+    CHECK_THAT(only(tests::run(codecs::xml_bindings, calendar_checkout(),
+        data(no_licence))), ContainsSubstring("Licence"));
+
+    auto no_column = ore_document();
+    in(no_column, "Families").columns[2] = "type";
+    CHECK_THAT(only(tests::run(codecs::xml_bindings, calendar_checkout(),
+        data(no_column))), ContainsSubstring("root type"));
+
+    auto no_setting = ore_document();
+    in(no_setting, "Settings").rows.pop_back();
+    in(no_setting, "Settings").row_lines.pop_back();
+    CHECK_THAT(only(tests::run(codecs::xml_bindings, calendar_checkout(),
+        data(no_setting))), ContainsSubstring("no row states the setting "
+        "'export_macro'"));
+    CHECK(tests::generate(codecs::xml_bindings, calendar_checkout(),
+        data(no_setting)).empty());
+
+    auto stray = ore_document();
+    in(stray, "Exact decimals").rows.push_back({"portfolio", "Strike"});
+    in(stray, "Exact decimals").row_lines.push_back(40);
+    CHECK_THAT(only(tests::run(codecs::xml_bindings, calendar_checkout(),
+        data(stray))), ContainsSubstring(std::string(document) + ":40: the "
+        "family 'portfolio' is no row of the table \"Families\""));
+}
+
+namespace {
+
+/**
+ * @brief A made-up project: a library of books under schemas/, whose
+ * bindings go to src/include/shelf/bindings and src/lib/bindings in the
+ * namespace shelf::bindings, carried by its own engine and money type. Its
+ * schema misspells Title, and its price is money.
+ */
+files shelf_checkout() {
+    return {{"schemas/library.xsd",
+                R"(<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="common.xsd"/>
+  <xs:element type="libraryType" name="Library"/>
+  <xs:complexType name="libraryType">
+    <xs:sequence>
+      <xs:element type="bookType" name="Book" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="bookType">
+    <xs:sequence>
+      <xs:element type="xs:string" name="Titel"/>
+      <xs:element type="genre" name="Genre" minOccurs="0"/>
+      <xs:element type="xs:double" name="Price" minOccurs="0"/>
+      <xs:element type="xs:double" name="Weight" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>
+)"},
+        {"schemas/common.xsd",
+            R"(<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:simpleType name="genre">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="Fiction"/>
+      <xs:enumeration value="Poetry"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>
+)"}};
+}
+
+cops::data_tables shelf_document() {
+    auto d = check_document({{"schema_directory", "schemas/"},
+            {"header_directory", "src/include/shelf/bindings"},
+            {"source_directory", "src/lib/bindings/"},
+            {"include_prefix", "shelf/bindings"},
+            {"namespace_prefix", "shelf::bindings"},
+            {"engine_include", "shelf/xml/engine.hpp"},
+            {"decimal_include", "shelf/money.hpp"},
+            {"decimal_type", "shelf::money"},
+            {"export_macro", "SHELF_API"}},
+        {{"library", "Library", "libraryType", "library.xsd common.xsd"}},
+        {{"library", "Price"}}, {{"Titel", "Title"}});
+    for (auto& t : d.tables) {
+        if (t.name == "Licence") {
+            t.rows = {{"SPDX-License-Identifier: MIT"},
+                {"Copyright (c) 2026 Shelf Contributors"}};
+            t.row_lines = {72, 73};
+        }
+    }
+    return d;
+}
+
+}
+
+TEST_CASE("a project of its own generates its bindings from its own check "
+    "document, and nothing of ORE Studio's", "[codecs][xml_bindings]") {
+    const auto r = tests::run(codecs::xml_bindings, shelf_checkout(),
+        data(shelf_document()));
+    CHECK(r.findings.empty());
+    const auto out = tests::generate(codecs::xml_bindings, shelf_checkout(),
+        data(shelf_document()));
+    REQUIRE(out.size() == 2);
+    const auto& header = out.at("src/include/shelf/bindings/library.hpp");
+    const auto& source = out.at("src/lib/bindings/library.cpp");
+    CHECK_THAT(header, ContainsSubstring(" * Generated by compass from "
+        "library.xsd and common.xsd; regenerate with compass\n * generate.\n"));
+    CHECK_THAT(header, ContainsSubstring(
+        "#ifndef SHELF_BINDINGS_LIBRARY_HPP\n"));
+    CHECK_THAT(header, ContainsSubstring(
+        "#include \"shelf/xml/engine.hpp\"\n#include \"shelf/money.hpp\"\n"));
+    CHECK_THAT(header, ContainsSubstring("namespace shelf::bindings::library {"));
+    CHECK_THAT(header, ContainsSubstring("shelf::money price;"));
+    CHECK_THAT(header, ContainsSubstring("double weight"));
+    CHECK_THAT(header, ContainsSubstring("std::string title;"));
+    CHECK_THAT(header, ContainsSubstring(
+        "SHELF_API auto library_document() -> const document_type&;"));
+    CHECK_THAT(source, ContainsSubstring(
+        "#include \"shelf/bindings/library.hpp\""));
+    CHECK_THAT(source, ContainsSubstring("{\"Title\""));
+    CHECK_THAT(source, ContainsSubstring(
+        "const char* genre_spellings[] = {\"Fiction\", \"Poetry\", nullptr};"));
+    for (const auto& text : {header, source}) {
+        CHECK(text.starts_with("/* SPDX-License-Identifier: MIT\n"
+            " * Copyright (c) 2026 Shelf Contributors\n * Generated by"));
+        CHECK_FALSE(text.contains("Marco Craveiro"));
+        CHECK_FALSE(text.contains("ores"));
+        CHECK_FALSE(text.contains("ORES"));
+        CHECK_FALSE(text.contains("Titel"));
+    }
+
+    auto no_export = shelf_document();
+    in(no_export, "Settings").rows.back().back() = "";
+    CHECK_THAT(tests::generate(codecs::xml_bindings, shelf_checkout(),
+        data(no_export)).at("src/include/shelf/bindings/library.hpp"),
+        ContainsSubstring("\nauto library_document() -> const "
+        "document_type&;"));
 }
 
 TEST_CASE("a generated file edited by hand is drift",
@@ -948,6 +1237,8 @@ TEST_CASE("a generated file edited by hand is drift",
     const compass::org::types::type_registry types;
     ct::configuration settings;
     settings.set(codecs::xml_bindings.name, "enabled", "true");
+    settings.set(codecs::xml_bindings.name, std::string(cops::data_option),
+        cops::encode_data_tables(ore_document()));
     const std::array<ct::descriptor, 1> codecs{codecs::xml_bindings};
     const auto registry = compass::codec::ops::make_registry(codecs, types,
         settings);

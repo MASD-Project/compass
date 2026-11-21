@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-182 rules, 43 of which cite a memory or a document that states them. Of the 62 memories of this repository, 59 are cited by no rule.
+184 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 58 are cited by no rule.
 
 ** Rules
 
@@ -196,6 +196,7 @@ memories no rule cites are the candidates for the next checks.
 | =unity_collisions= | unrecorded_collision | No two sources of a target define the same file-local name outside the unity exclusions. | =6C744720-FF73-4895-92E3-24E1E9BF518E= |
 | =unity_collisions= | missing_recorded_file | Every file the unity exclusions name exists. |  |
 | =xml_bindings= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
+| =xml_bindings= | unreadable | The check document gives every table, column and setting the generator reads, and its rows agree with each other. |  |
 | =xml_family_census= | unclassified_family | Every root element of the ORE example corpus is a classified family. |  |
 | =xml_family_census= | family_not_in_corpus | Every classified family is the root of some corpus document. |  |
 | =xml_family_census= | state_disagrees | A supported family has a generated table, and a migrating or unused one has none. |  |
@@ -206,6 +207,7 @@ memories no rule cites are the candidates for the next checks.
 | =exception= | expired | No exception is used past its expiry date. | [[id:5B528519-8BCE-4CB8-A48E-B525FD71F873][How do I excuse a finding?]] |
 | =exception= | stale | A valid exception of an enabled codec excuses some finding. | [[id:5B528519-8BCE-4CB8-A48E-B525FD71F873][How do I excuse a finding?]] |
 | /each files codec/ | drift | Every file a codec generates holds what the codec generates from its inputs; nobody edits it by hand. | =B71DDE37-CFC8-44C1-A3DA-4B50C4CBE3EE=, [[id:C88C4034-1DE6-4945-8CF1-393EC9E0805F][Fix codegen templates — never work around codegen gaps]] |
+| /each files codec/ | names_missing_file | The header of every file a codec generates names only scripts the checkout holds. |  |
 
 ** Unenforced memories
 
@@ -257,7 +259,6 @@ memories no rule cites are the candidates for the next checks.
 - [[id:9EEF7590-86C3-449F-8387-A21B5B62EF87][Regen byproduct hygiene]]
 - [[id:BA740C1B-8307-47D1-B359-AF20D0B2CBF0][Run pgTAP under a role that row-level security binds]]
 - [[id:5BDDD435-9F2A-4ABC-BA71-5BB3B980C785][compass db commands run outside the sandbox]]
-- [[id:FBA1F66D-BACF-4C5C-AD83-C6AE56131DDC][Run validate_schemas.sh before pushing any SQL schema change]]
 - [[id:6071F761-FE8E-4F06-8FE7-58377A41C294][Scaffold tasks with content; let compass wire the tables]]
 - [[id:E6D88535-E249-4730-8F6C-D50B182AD2B1][Stuck vcpkg lock: sccache daemon holds it]]
 - [[id:506B9E01-ABBB-400A-935B-63EED0ADB8E7][Search for the claim, not the phrase]]

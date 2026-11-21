@@ -636,13 +636,13 @@ void reduce(std::span<const ct::scanned_file> scanned,
         }
         const auto& fields_table = *data->find("Index fields");
         std::vector<std::string> index_fields;
-        for (const auto& row : fields_table.rows)
-            index_fields.push_back(row[fields_table.column("field")]);
+        for (const auto& cells : fields_table.rows)
+            index_fields.push_back(cells[fields_table.column("field")]);
         const auto& bdc_table = *data->find("Business day conventions");
         std::map<std::string, std::string, std::less<>> bdc;
-        for (const auto& row : bdc_table.rows)
-            bdc.insert_or_assign(row[bdc_table.column("convention")],
-                row[bdc_table.column("code")]);
+        for (const auto& cells : bdc_table.rows)
+            bdc.insert_or_assign(cells[bdc_table.column("convention")],
+                cells[bdc_table.column("code")]);
 
         const auto rows = read_tsv(text_of(*dataset));
         std::set<key> seen;
@@ -658,7 +658,11 @@ void reduce(std::span<const ct::scanned_file> scanned,
         }
 
         std::map<std::string, std::string, std::less<>> index_map;
-        for (const auto line : co::split_lines(text_of(*index_map_bytes))) {
+        // Named, because a range-for keeps alive only the outermost
+        // temporary before C++23's P2718, which MSVC lacks, and the lines
+        // view this text.
+        const auto index_map_text = text_of(*index_map_bytes);
+        for (const auto line : co::split_lines(index_map_text)) {
             const auto parts = ops::split(line, '\t');
             if (parts.size() == 2)
                 index_map.insert_or_assign(std::string(parts[0]),

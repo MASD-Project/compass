@@ -263,22 +263,32 @@ because each reads one kind of artefact and writes another:
   the file at fault.
 - *=xml_bindings=.* =xml-bindings-drift= (=regenerate_xml_bindings.sh=
   running =generate_xml_bindings.py=, which =check_xml_bindings_drift.py=
-  compares with the tree): the records and codec tables of each ORE
-  document family, a header under
-  =projects/ores.ore/core/include/ores.ore.core/xml/generated= and a source
-  under =projects/ores.ore/core/src/xml/generated=, from ORE's schemas
-  under =external/ore/xsd=, read with =compass.platform='s XML reader.
-  =ops::xml_bindings= ports the generator, keeping its edits to the schema
-  tree, its copies and its tables keyed by node identity, because the
-  output depends on them. The families are one command line each in the
-  shell script, not a Python literal, so they are a table of the codec,
-  =families= in =codecs/xml_bindings.cpp=; a family's accessor, namespace,
-  include and paths all follow from its stem. Both files go through
-  clang-format, the codec's formatter. The drift check is the =drift= rule
-  every file codec has; the script's second run, which proves the
-  generator deterministic, is not ported. A family whose schemas are
-  missing, or that the generator refuses, writes nothing, and the others
-  are written.
+  compares with the tree): the records and codec tables of each XML
+  document family a project lists, from its schemas, read with
+  =compass.platform='s XML reader. =ops::xml_bindings= ports the
+  generator, keeping its edits to the schema tree, its copies and its
+  tables keyed by node identity, because the output depends on them, and
+  names nothing of ORE Studio: what the generated files name of the
+  project is its =project= argument. Everything project-specific is the
+  five tables of the project's check document for the codec: =Families=
+  (stem, root element, root type, schemas), =Exact decimals= (family,
+  element), =Schema errata= (written, read) and =Settings=, one row per
+  setting: the schema, header and source directories, the include and
+  namespace prefixes, the engine and decimal headers, the decimal type and
+  the export macro; and =Licence=, the licence comment that heads each
+  generated file, a row per line, which compass wraps in the comment's =/*=
+  and =*=. The settings are a table, not options, because they
+  describe the project as the families do and one page then states
+  everything the bindings come from. A family's accessor, namespace,
+  include, include guard and paths all follow from its stem and the
+  settings. Each file's banner names compass and the family's schemas.
+  Both files go through clang-format, the codec's formatter. The drift
+  check is the =drift= rule every file codec has; the script's second
+  run, which proves the generator deterministic, is not ported. Besides
+  =refused=, =unreadable= reports a missing document, table, column or
+  setting, or a row that contradicts another, and nothing is written. A
+  family whose schemas are missing, or that the generator refuses, writes
+  nothing, and the others are written.
 - *=er_diagram=.* =er-diagram= (=plantuml_er_parse_sql.py=, then
   =plantuml_er_generate.py=): =ores_schema.puml=, the index, and one
   =ores_schema.<group>.puml= per table group, from the create scripts
@@ -388,7 +398,7 @@ file a good run wrote. Every generator here declares that one rule,
 =ore_renderings_tables=, =script_library_seed=, =ore_output_catalogue=
 (which adds =unreadable=),
 =er_diagram=, =conventions_dataset=, =route_inventory=,
-=ore_value_sets= and =xml_bindings=. At 545cafca45 =ore_value_sets= refuses twice, the
+=ore_value_sets= and =xml_bindings= (which adds =unreadable=). At 545cafca45 =ore_value_sets= refuses twice, the
 convention kind terms and the value set seed, both on =r.id=.
 
 Where a script reads a file with a strict UTF-8 decode and would stop on a
