@@ -56,6 +56,10 @@ endif()
 add_compile_options(
     $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Wall>
     $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Wextra>
+    # MSVC's /W4 warns when a declaration hides a local, a parameter, a
+    # member or a global (C4456 to C4459); without -Wshadow the Linux build
+    # passed what only the Windows nightly then reported.
+    $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Wshadow>
     $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-Wno-missing-field-initializers>
     $<$<CXX_COMPILER_ID:Clang>:-Wno-missing-designated-field-initializers>
     # gcc 16 reports -Warray-bounds for code this tree does not own: the control
