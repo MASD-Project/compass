@@ -12,7 +12,7 @@
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-20
-#+updated: 2026-11-20
+#+updated: 2026-11-21
 #+environment:
 #+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
 
@@ -29,12 +29,12 @@ one has to remember to run =compass gc=.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | STARTED                              |
+| State        | DONE                                 |
 | Parent story | [[id:A98E704E-B2E4-49BA-8839-B0A1DE9C3679][Keep the result cache small]] |
-| Now          | Built and measured on ORE Studio. |
+| Now          | Merged in #125 and released in v0.0.4; ORE Studio's store went from 20.3 GB to 2.88 GB on its first run. |
 | Waiting on   | Nothing.                               |
-| Next         | Review and merge; then reset ORE Studio's store. |
-| Last touched | 2026-11-20                               |
+| Next         | Nothing. |
+| Last touched | 2026-11-21                               |
 
 * Acceptance
 
@@ -82,6 +82,8 @@ task and name that file in the Command column.
 | Store after that run | 906 MB, recorded in =compass/collected= | =du -sb .git/compass/packs= | the same |
 | Retired file after a run that reran every unit | 448,969 keys, 9 MB | a script over =compass/retired= | the same |
 | What a collection with no grace period would drop | 25,666 entries, 208 MB, of 861 MB: runs older than the last two | =compass gc --dry-run --grace 0= | the same |
+| ORE Studio's store, first run of v0.0.4 | 20.3 GB in 5 packs before; 2.88 GB in 2 packs after; 834,119 entries and 17.6 GB removed; run 63 s, collection 38 s | =compass-ng check --timings= in =ores_dev_festive_dijkstra=, =du -sb ores.git/compass/packs= around it | ORE =9ed8b54cd2= |
+| What that store kept | 452k manifests 0.89 GB, 681k results 1.86 GB, 11.6k objects 0.08 GB; with no grace period only 79 MB more would go | =compass-ng gc --dry-run --grace 0=; =build/probes/result_cache/packstat.py= | the same |
 
 * Notes
 
@@ -109,3 +111,12 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+Merged in #125 and released in v0.0.4. Each worktree keeps its last three
+runs, through the keys each run retired, and a run collects the store once
+its packs reach 256 MB and have doubled since the last collection. On ORE
+Studio, after the store moved back to the SSD, the first run of v0.0.4
+collected the 20.3 GB the cache had grown to since 2026-11-17 down to 2.88
+GB, nearly all of it the other worktrees' v0.0.3 results their records
+still name. Those go once each worktree has run v0.0.4 three times, at the
+next collection, when the store reaches twice 2.88 GB.
