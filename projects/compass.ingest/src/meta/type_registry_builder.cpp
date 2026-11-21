@@ -463,18 +463,19 @@ ot::type_registry type_registry_builder::build() const {
 
     auto& t = r.types;
     for (const auto i : order) {
-        const auto& row = rows_[i];
-        t.names.values.push_back(intern(row.name));
-        t.kinds.values.push_back(row.kind);
-        t.levels.values.push_back(row.level);
-        t.folders.values.push_back(
-            row.folder.empty() ? ot::name_id::none() : intern(row.folder));
+        const auto& source = rows_[i];
+        t.names.values.push_back(intern(source.name));
+        t.kinds.values.push_back(source.kind);
+        t.levels.values.push_back(source.level);
+        t.folders.values.push_back(source.folder.empty()
+                ? ot::name_id::none()
+                : intern(source.folder));
         t.todo_firsts.values.push_back(entry());
-        add_entries(row.active);
+        add_entries(source.active);
         t.done_firsts.values.push_back(entry());
-        add_entries(row.done);
+        add_entries(source.done);
         t.section_firsts.values.push_back(entry());
-        add_entries(row.sections);
+        add_entries(source.sections);
     }
     return r;
 }

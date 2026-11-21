@@ -674,8 +674,8 @@ er_model er_model_of(std::span<const er_script> scripts,
         }
         package(head).push_back(drawn(t, conventions));
     }
-    std::ranges::stable_sort(packages, {}, [](const auto& p) {
-        return p.first.order;
+    std::ranges::stable_sort(packages, {}, [](const auto& entry) {
+        return entry.first.order;
     });
     for (auto& [head, tables] : packages) {
         std::ranges::sort(tables, {}, &er_table::name);

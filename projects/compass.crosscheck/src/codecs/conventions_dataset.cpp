@@ -42,7 +42,7 @@ namespace {
 namespace ct = compass::codec::types;
 namespace co = compass::cpp::ops;
 namespace pt = compass::platform::text;
-using kind = ops::python_value::kind;
+using value_kind = ops::python_value::kind;
 
 /**
  * @brief Where the script stops without writing, and why when known: a
@@ -187,7 +187,7 @@ ops::python_value module_value(std::string_view source,
 }
 
 std::string text_of(const ops::python_value& v) {
-    if (v.what != kind::string)
+    if (v.what != value_kind::string)
         throw stop{};
     return v.text;
 }
@@ -200,16 +200,16 @@ strings texts_of(const ops::python_value& v) {
 }
 
 std::vector<mapping> mappings_of(const ops::python_value& v) {
-    if (v.what != kind::sequence)
+    if (v.what != value_kind::sequence)
         throw stop{};
     std::vector<mapping> out;
     for (const auto& t : v.items) {
-        if (t.what != kind::sequence || t.items.size() != 3)
+        if (t.what != value_kind::sequence || t.items.size() != 3)
             throw stop{};
         const auto& f = t.items[0];
-        if (f.what == kind::name && f.text != "None")
+        if (f.what == value_kind::name && f.text != "None")
             throw stop{};
-        out.push_back({f.what == kind::name ? std::string() : text_of(f),
+        out.push_back({f.what == value_kind::name ? std::string() : text_of(f),
             text_of(t.items[1]), text_of(t.items[2])});
     }
     return out;
@@ -238,7 +238,7 @@ tables tables_of(std::string_view source) {
     const auto kinds = module_value(source, "KINDS");
     for (const auto& e : kinds.entries) {
         const auto& spec = e.value;
-        if (spec.what != kind::sequence || spec.items.size() != 2)
+        if (spec.what != value_kind::sequence || spec.items.size() != 2)
             throw stop{};
         t.kinds.insert_or_assign(e.key, std::pair{text_of(spec.items[0]),
             mappings_of(spec.items[1])});
@@ -252,7 +252,7 @@ tables tables_of(std::string_view source) {
         c.kind_code = text_of(entry_of(e.value, "kind_code"));
         c.central_table = text_of(entry_of(e.value, "central_table"));
         const auto& parts_of = entry_of(e.value, "parts_of");
-        if (parts_of.what != kind::name)
+        if (parts_of.what != value_kind::name)
             throw stop{};
         if (parts_of.text == "lambda") {
             if (parts_of.items.size() != 1)
