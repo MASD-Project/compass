@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-184 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 58 are cited by no rule.
+190 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 58 are cited by no rule.
 
 ** Rules
 
@@ -153,6 +153,12 @@ memories no rule cites are the candidates for the next checks.
 | =rule_identifiers= | duplicate | No identifier is on two rules. | =00BA1689-B060-4BD8-BC46-67034D663B7F= |
 | =rule_identifiers= | bad_citation | Every checklist line cites two-digit identifiers a page carries, or a page that carries none yet. | =00BA1689-B060-4BD8-BC46-67034D663B7F= |
 | =script_library_seed= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
+| =service_integrity= | unregistered | Every service part, a component overview of the part kind the check document names, has an entry in the service registry. |  |
+| =service_integrity= | partless | Every registry entry whose runtime has parts names a service part that exists. |  |
+| =service_integrity= | unknown_runtime | Every registry entry's runtime is one the check document's Runtimes table lists. |  |
+| =service_integrity= | unmet_obligation | Every service meets each obligation of the check document's Obligations table that applies to it. |  |
+| =service_integrity= | second_list | No file the check document scans, but the registry, lists the registry's services as a literal; the registry is their one source. |  |
+| =service_integrity= | unreadable | The check document gives every table, column and setting the codec reads, and each row reads. |  |
 | =shell_command_composition= | unregistered_unit | Every generated shell command unit of a checked component is registered by an application source. |  |
 | =shell_command_units= | menu_built_twice | One command unit builds each of its menus once. |  |
 | =shell_command_units= | menu_owned_twice | One menu name has one owning file. |  |

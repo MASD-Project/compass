@@ -36,6 +36,7 @@
 #include "compass.crosscheck/codecs/registry_gates.hpp"
 #include "compass.crosscheck/codecs/route_inventory.hpp"
 #include "compass.crosscheck/codecs/script_library_seed.hpp"
+#include "compass.crosscheck/codecs/service_integrity.hpp"
 #include "compass.crosscheck/codecs/single_writer.hpp"
 #include "compass.crosscheck/codecs/subject_conformance.hpp"
 #include "compass.crosscheck/codecs/template_sections.hpp"
@@ -46,7 +47,7 @@ namespace compass::crosscheck::codecs {
 
 std::span<const compass::codec::types::descriptor> catalogue() noexcept {
     static const auto all = [] {
-        std::array<compass::codec::types::descriptor, 22> out{
+        std::array<compass::codec::types::descriptor, 23> out{
             conventions_coverage, conventions_dataset,
             curve_sections_wiring, entity_binary_types,
             entity_writes, er_diagram, generated_column_refs,
@@ -54,7 +55,7 @@ std::span<const compass::codec::types::descriptor> catalogue() noexcept {
             open_reads, ore_output_catalogue, ore_renderings_tables,
             ore_value_sets, parameter_value_sets, protocol_twins,
             registry_exceptions, route_inventory, script_library_seed,
-            single_writer, subject_conformance, template_sections,
+            service_integrity, single_writer, subject_conformance, template_sections,
             xml_bindings};
         for (auto& d : out)
             d.code = code_hash();
