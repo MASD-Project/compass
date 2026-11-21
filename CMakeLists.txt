@@ -30,7 +30,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL "4.4")
     cmake_diagnostic(SET CMD_UNINITIALIZED IGNORE)
 endif()
 
-project(compass VERSION 0.0.7 LANGUAGES CXX
+project(compass VERSION 0.0.8 LANGUAGES CXX
     DESCRIPTION "Data-oriented codegen, gates and analysis for MASD.")
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL "4.4")
