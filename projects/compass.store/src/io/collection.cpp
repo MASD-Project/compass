@@ -267,8 +267,8 @@ types::collection_result collect(const std::filesystem::path& checkout,
     auto live = live_ids(r.worktrees);
     r.live_ids = live.size();
     std::vector<types::blob_id> keys;
-    for (const auto& dir : r.worktrees) {
-        const auto named = roots(dir);
+    for (const auto& worktree : r.worktrees) {
+        const auto named = roots(worktree);
         keys.insert(keys.end(), named.begin(), named.end());
     }
     std::ranges::sort(keys);

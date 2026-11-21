@@ -508,10 +508,10 @@ std::optional<std::vector<std::vector<blob_id>>> decode_retired(
     reader r(bytes);
     if (r.u32() != retired_magic)
         return std::nullopt;
-    const auto count = r.u32();
-    if (count > bytes.size() / 4)
+    const auto run_count = r.u32();
+    if (run_count > bytes.size() / 4)
         return std::nullopt;
-    std::vector<std::vector<blob_id>> runs(count);
+    std::vector<std::vector<blob_id>> runs(run_count);
     for (auto& run : runs) {
         const auto count = r.u32();
         if (!r.ok() || count > bytes.size() / hash_size)
