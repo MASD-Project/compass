@@ -25,17 +25,24 @@
 namespace compass::crosscheck::codecs {
 
 /**
- * @brief ORE Studio's XML bindings generator (regenerate_xml_bindings.sh
- * running generate_xml_bindings.py): the C++ records and codec tables of
- * each ORE document family, from ORE's schemas under external/ore/xsd.
+ * @brief The C++ records and codec tables of each XML document family a
+ * project lists, from the project's schemas; first ORE Studio's
+ * regenerate_xml_bindings.sh and generate_xml_bindings.py.
  *
- * The families, which the script states as one command line each, are a
- * table of the codec. Each family is a header under
- * projects/ores.ore/core/include/ores.ore.core/xml/generated and a source
- * under projects/ores.ore/core/src/xml/generated, formatted by clang-format
- * as the formatter of the codec, as the script runs it. A family whose
- * schemas cannot be read, or that the generator refuses, writes nothing;
- * the others are still written.
+ * The project's check document compass/checks/xml_bindings.org states
+ * everything: the Families table (stem, root element, root type, schemas),
+ * the Exact decimals table (family, element; "*" for every real), the
+ * Schema errata table (written, read) and the Settings table (setting,
+ * value), which names the schema directory, the header and source
+ * directories, the include and namespace prefixes, the engine and decimal
+ * headers, the decimal type and the export macro. A family of stem s is
+ * the header s.hpp and the source s.cpp under those directories, with the
+ * accessor s_document, the namespace <namespace_prefix>::s and the
+ * include <include_prefix>/s.hpp, formatted by clang-format as the
+ * formatter of the codec. A missing document, table, column or setting is
+ * an unreadable finding and writes nothing. A family whose schemas cannot
+ * be read, or that the generator refuses, writes nothing; the others are
+ * still written.
  */
 extern const compass::codec::types::descriptor xml_bindings;
 

@@ -24,19 +24,36 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
 
 /**
- * @brief The C++ records and codec tables of one ORE document family, as
- * ORE Studio's generate_xml_bindings.py emits them from ORE's schemas,
- * before clang-format.
+ * @brief The C++ records and codec tables of one document family of XML
+ * schemas, before clang-format: a port of ORE Studio's
+ * generate_xml_bindings.py that names nothing of the project it serves.
  */
 namespace compass::crosscheck::ops::xml_bindings {
 
 /**
- * @brief One run of the generator: its command line less the schemas and
- * the output paths. name_space and include default as the script's
- * --namespace and --include do when empty. exact_decimals names the real
- * elements carried as exact decimals; "*" names every real.
+ * @brief What the generated files of every family of one project name and
+ * the schemas do not: the header of the binding engine, the exact decimal
+ * type and its header, the export macro of each accessor, and the element
+ * names the schemas state wrongly, each as written and as read.
+ */
+struct project {
+    std::string_view engine_include;
+    std::string_view decimal_include;
+    std::string_view decimal_type;
+    std::string_view export_macro;
+    std::span<const std::pair<std::string, std::string>> errata;
+};
+
+/**
+ * @brief One run of the generator: one family, less the texts of its
+ * schemas and its output paths. schema_names are what the banner of each
+ * file says it was generated from. The include guard is include in upper
+ * case, every character but a letter or digit an underscore.
+ * exact_decimals names the real elements carried as exact decimals; "*"
+ * names every real.
  */
 struct family {
     std::string_view root_element;
@@ -44,6 +61,7 @@ struct family {
     std::string_view accessor;
     std::string_view name_space;
     std::string_view include;
+    std::span<const std::string> schema_names;
     std::span<const std::string_view> exact_decimals;
 };
 
@@ -65,12 +83,12 @@ public:
 };
 
 /**
- * @brief The files the generator writes for @p f from the texts of
- * @p schemas, read in that order.
+ * @brief The files the generator writes for the family @p f of the project
+ * @p p from the texts of @p schemas, read in that order.
  * @throws error where the script exits without writing.
  */
 [[nodiscard]] output generate(std::span<const std::string> schemas,
-    const family& f);
+    const family& f, const project& p);
 
 }
 

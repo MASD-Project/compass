@@ -196,6 +196,7 @@ memories no rule cites are the candidates for the next checks.
 | =unity_collisions= | unrecorded_collision | No two sources of a target define the same file-local name outside the unity exclusions. | =6C744720-FF73-4895-92E3-24E1E9BF518E= |
 | =unity_collisions= | missing_recorded_file | Every file the unity exclusions name exists. |  |
 | =xml_bindings= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
+| =xml_bindings= | unreadable | The check document gives every table, column and setting the generator reads, and its rows agree with each other. |  |
 | =xml_family_census= | unclassified_family | Every root element of the ORE example corpus is a classified family. |  |
 | =xml_family_census= | family_not_in_corpus | Every classified family is the root of some corpus document. |  |
 | =xml_family_census= | state_disagrees | A supported family has a generated table, and a migrating or unused one has none. |  |
