@@ -20,7 +20,13 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Goal
 
-(Describe what user-visible-or-internal change this task produces.)
+=ore_output_catalogue= reads the curation it parsed out of ORE Studio's
+=generate_output_catalogue.py= and =output_family_docs.py= from ORE Studio's
+check document =compass/checks/ore_output_catalogue.org=, so ORE Studio can
+retire both scripts and a refactor of their constants no longer reaches
+compass-ng. The codec writes the same files it wrote. =ore_files.py= stays
+where it is for now, because ORE Studio's seed generator also reads it, but
+a missing or unreadable copy is named as a file compass-ng reads.
 
 * Status
 
@@ -35,13 +41,41 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Acceptance
 
--
+- Every name the codec parsed from the two scripts is a table of the check
+  document, and the codec reads neither script.
+- On ORE Studio's main, this build reading the check document and v0.0.4
+  reading the Python report the same findings and write byte-identical
+  outputs; also after the same rows of both are damaged.
+- A missing table, a missing or unreadable =ore_files.py=, and an examples
+  directory with no example are =unreadable= findings on the file at fault,
+  where the codec used to refuse with "its inputs do not read".
+- The codec's tests give the data through the =data= option, and cover a
+  missing table and a table edit that changes the output.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Eleven tables, one per Python name or one per pair the inventory merges:
+  =Family conventions= (=CONVENTION=), =Numeric qualifiers=
+  (=NUMERIC_QUALIFIERS=), =Family roles= (=RISK_FACTOR_FAMILIES=,
+  =NOTEBOOK_FAMILIES=, =LEGACY_FAMILIES=, by a =role= column), =Aliases=
+  (=ALIASES=, a row per name), =Same report= (=SAME_REPORT=), =Out of scope=
+  (=OUT_OF_SCOPE=), =Kind overrides= (=KIND_OVERRIDES=), =Keys= (=KEYS= with
+  an empty =family=, and =FAMILY_KEYS=), =Prefixes= (=PREFIXES=, in order),
+  =Nulls= (=NULLS=) and =Family documentation= (=FAMILY_DOCS=).
+- =NULLS='s empty string is the cell ==, which the reader already reads as
+  the empty string, as it does a blank cell. =MONEY= is expanded in each of
+  its cells: the table states each family's units in full, and nothing of
+  the constant stays as code.
+- The codec keeps its containers, so the order of what it writes does not
+  move: maps for the lookups, which the page iterates sorted, and lists in
+  row order for the keys, aliases and prefixes.
+- The document is generated from the two scripts with Python's =ast=, as
+  =conventions_coverage='s was, so no value is retyped; sets keep their
+  order in the source.
+- A role other than =risk_factors=, =notebook= and =legacy= is
+  =unreadable=, on the document and naming the row's line. Every refusal now
+  says why: a family with no documentation, documentation of a family no
+  sample shows, a sample that is not one ORE file.
 
 * Measurements
 
@@ -55,7 +89,11 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Findings on ORE Studio's main | 0 with v0.0.4 reading the Python; 0 with this build reading the check document | =compass check --codec ore_output_catalogue= on an export of main with the example XML, the expected output CSVs and the samples | ORE =732fc2ee34=, compass =a82940b= |
+| Outputs on ORE Studio's main | the three files byte-identical: 3,378 lines of =compass diff= for them, the same from both | =compass diff= with the three outputs deleted, the hunks of the three files compared with =cmp= | the same |
+| Outputs after damaging five rows | the same 2 drift findings from each, and 452 identical diff lines: an analytic, a key, a null string, an out-of-scope reason and a family's description | =compass check --codec ore_output_catalogue= and =compass diff= after a script edits the same rows of the Python and the tables | the same |
+| Findings with one family's documentation deleted | 1 =refused= from each on the same file; v0.0.4 says "its inputs do not read", this build names the family and the table | =compass check --codec ore_output_catalogue= | the same |
+| Tests | 125 cases of =compass.crosscheck.tests= and 131 of =compass.cli.tests= pass | the test binaries | compass =a82940b= |
 
 * Notes
 
