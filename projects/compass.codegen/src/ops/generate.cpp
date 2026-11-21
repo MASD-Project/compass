@@ -353,7 +353,8 @@ constexpr context_type context_types[] = {
     {model_type::family, "family"},
     {model_type::asset_class_catalogue, "asset_class_catalogue"},
     {model_type::outcome_catalogue, "outcome_catalogue"},
-    {model_type::trade_type_catalogue, "trade_type_catalogue"}};
+    {model_type::trade_type_catalogue, "trade_type_catalogue"},
+    {model_type::service_registry, "service_registry"}};
 
 /**
  * @brief A model's shared context and what its template variants are
@@ -672,12 +673,17 @@ generation prepare_generation(const checkout_reader& reader,
     g.entities.shell_units = shell_units(docs, cache);
     g.entities.shell_local_units = g.registry.shell_registrars.unrecorded();
     for (const auto path : docs.org()) {
-        if (!regenerated.contains(path))
-            continue;
-        const auto doc = docs.get(path);
+        const auto doc = regenerated.contains(path) ||
+            is_model_candidate(path) ? docs.get(path) : std::nullopt;
         if (!doc)
             continue;
         const auto type = mops::model_type_of(mops::declared_type(*doc));
+        // regenerate --all reaches only the catalogue's modeling
+        // directories, and no component owns the service registry, so
+        // its outputs are generated wherever a modeling directory has it.
+        if (!regenerated.contains(path) &&
+            type != model_type::service_registry)
+            continue;
         if (std::ranges::any_of(context_types, [&](const context_type& c) {
                 return type && c.type == *type;
             }))

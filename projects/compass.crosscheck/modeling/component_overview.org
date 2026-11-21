@@ -192,6 +192,31 @@ ported:
   standard's checklist does not define or twice, or with no reason, no
   acceptor or a date that is not ISO. Rule =unreadable_registry=: no item,
   or a table that is not a literal.
+- *=service_integrity=.* Whether every service of a project is whole, one
+  unit for what ORE Studio's =service-registration= script and its
+  incident report asked for. The root is the service registry, the
+  documents of type =ores.codegen.service_registry= loaded by
+  =compass.model='s loader: an entry's name, runtime and enabled state come
+  from the model, and its drawer's keys from the outline. A service part is
+  a component overview whose =#+component_kind:= is the setting
+  =part_kind=, named by its =#+full_name:=. The codec names nothing of
+  ORE Studio: the project's check document gives four kinds of data.
+  =Settings= holds the part kind, the default runtime and the size of a
+  list. =Runtimes= (runtime, has part) holds the runtimes and whether an
+  entry of each is built from a part. =Obligations= (obligation, test,
+  path, value, condition, reason) holds one row per thing a service
+  needs, tested by =exists=, =contains=, =has_line= or =lacks= on a path
+  and value built from the entry's fields (={part}=, ={psql_var}=,
+  ={name[1]}=) and applied when the words of its condition are set.
+  =Single source files= and =Single source exceptions= hold globs. Rules
+  =unregistered= (a part with no entry, on its overview), =partless= (an
+  entry whose runtime has parts with no part), =unknown_runtime=,
+  =unmet_obligation= (the finding names the obligation and its reason, on
+  the entry's heading), =second_list= (a literal run of three or more
+  registry names, separated only by punctuation, in a scanned file that is
+  not excepted) and =unreadable= (a missing table, column or setting, a
+  row that does not read, or a field no entry has; nothing else is
+  checked).
 - *=template_sections=.* =template-sections=
   (=check_template_sections.py=). Rule =chained_tags=: a line of a
   template that holds two or more section tags and nothing else, one of
@@ -439,7 +464,8 @@ except =model_rules=, which reports such a model.
 - =compass.cpp= for its text helpers.
 - =compass.model= for the outline of a model, the view its loaders read,
   which =model_rules= and =open_reads= read, and the loaders, which
-  =ops::generated_shape_of= loads a model with.
+  =ops::generated_shape_of= loads a model with and =service_integrity=
+  loads the service registry with.
 - =compass.codegen= for the template library's physical-space graph and
   the component catalogue, which =protocol_twins= reads, the pystache
   renderer =er_diagram= draws through, and the steps of an entity's and a

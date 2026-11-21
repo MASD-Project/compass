@@ -38,6 +38,7 @@ add_executable(${tests_target_name}
     codecs_registry_gates_tests.cpp
     codecs_route_inventory_tests.cpp
     codecs_script_library_seed_tests.cpp
+    codecs_service_integrity_tests.cpp
     codecs_single_writer_tests.cpp
     codecs_subject_conformance_tests.cpp
     codecs_value_sets_tests.cpp
