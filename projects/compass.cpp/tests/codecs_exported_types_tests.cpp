@@ -320,11 +320,11 @@ TEST_CASE("Boost's own macros are visibility macros without a definition",
 
 namespace {
 
-std::vector<std::string_view> exportable_names(std::string_view s) {
+std::vector<std::string> exportable_names(std::string_view s) {
     const read_source r(s);
-    std::vector<std::string_view> out;
+    std::vector<std::string> out;
     for (const auto& f : ops::exportable_functions(r.lexed, r.model))
-        out.push_back(f.name);
+        out.emplace_back(f.name);
     return out;
 }
 
@@ -350,7 +350,7 @@ TEST_CASE("an exportable function is a namespace-scope declaration "
         "struct s { int member(); friend int befriended(s); };\n"
         "class c { static int counted(); };\n"
         "BOOST_DESCRIBE_ENUM(e, a, b);\n"
-        "}\n") == std::vector<std::string_view>{"plain", "marked",
+        "}\n") == std::vector<std::string>{"plain", "marked",
             "c_linkage", "operator<<"});
 }
 
