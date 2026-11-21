@@ -77,9 +77,11 @@ constexpr std::array<domain, 10> domains{{
 
 constexpr std::string_view catalogue_path =
     "doc/llm/skills/claude_code_skills.org";
-constexpr std::string_view catalogue_begin = "# BEGIN generated catalogue "
-    "(build/scripts/generate_skills_catalogue.py)";
-constexpr std::string_view catalogue_end = "# END generated catalogue";
+constexpr std::array<std::string_view, 1> former_catalogue{
+    "# BEGIN generated catalogue "
+    "(build/scripts/generate_skills_catalogue.py)"};
+constexpr ops::generated_region catalogue_region{"catalogue",
+    "skill_catalogue", former_catalogue};
 constexpr std::size_t max_description = 110;
 
 /**
@@ -124,7 +126,7 @@ void catalogue(const ct::corpus_view& v, ct::file_output& out) {
             rest.remove_prefix(std::string_view("compass-").size());
         groups[rest.substr(0, rest.find('-'))].push_back(name);
     }
-    std::vector<std::string> parts{std::string(catalogue_begin), ""};
+    std::vector<std::string> parts{ops::begin_marker(catalogue_region), ""};
     for (const auto& d : domains) {
         parts.push_back("* " + std::string(d.heading));
         parts.emplace_back();
@@ -148,9 +150,9 @@ void catalogue(const ct::corpus_view& v, ct::file_output& out) {
         }
         parts.emplace_back();
     }
-    parts.emplace_back(catalogue_end);
-    if (const auto fresh = ops::replace_region(*text, catalogue_begin,
-            catalogue_end, ops::join_lines(parts), ops::replace::first))
+    parts.push_back(ops::end_marker(catalogue_region));
+    if (const auto fresh = ops::replace_region(*text, catalogue_region,
+            ops::join_lines(parts), ops::replace::first))
         out.files.add(catalogue_path, *fresh);
     else
         co::refuse(out, catalogue_path, "the page has no generated catalogue "
@@ -158,8 +160,15 @@ void catalogue(const ct::corpus_view& v, ct::file_output& out) {
             "markers.");
 }
 
-constexpr std::string_view tables_script =
-    "build/scripts/generate_skill_type_tables.py";
+constexpr std::array<std::string_view, 1> former_types{
+    "# BEGIN generated types (build/scripts/generate_skill_type_tables.py)"};
+constexpr std::array<std::string_view, 1> former_targets{
+    "# BEGIN generated targets "
+    "(build/scripts/generate_skill_type_tables.py)"};
+constexpr ops::generated_region types_region{"types", "skill_type_tables",
+    former_types};
+constexpr ops::generated_region targets_region{"targets",
+    "skill_type_tables", former_targets};
 constexpr std::string_view templates_dir =
     "projects/ores.codegen/library/templates/";
 constexpr std::string_view compass_py = "projects/ores.compass/src/compass.py";
@@ -219,8 +228,7 @@ std::string add_table(const ct::corpus_view& v, std::string_view compass) {
         static_pair);
     const auto defaultable = python_dict(compass, "_DEFAULTABLE_PARENT",
         default_pair);
-    std::vector<std::string> lines{std::string("# BEGIN generated types (") +
-        std::string(tables_script) + ")", "",
+    std::vector<std::string> lines{ops::begin_marker(types_region), "",
         "One row per document type. The scaffold command, where it lands, "
         "and the sections the template leaves for you to fill.", "",
         "#+ATTR_HTML: :class hug-leading",
@@ -257,7 +265,7 @@ std::string add_table(const ct::corpus_view& v, std::string_view compass) {
             (filled.empty() ? std::string("\xe2\x80\x94") : filled) + " |");
     }
     lines.emplace_back();
-    lines.emplace_back("# END generated types");
+    lines.push_back(ops::end_marker(types_region));
     return ops::join_lines(lines);
 }
 
@@ -278,8 +286,7 @@ std::string show_table(std::string_view compass) {
                 std::string(co::strip(q.group(1)));
         helps.insert_or_assign(std::string(m.group(1)), joined);
     }
-    std::vector<std::string> lines{std::string("# BEGIN generated targets (") +
-        std::string(tables_script) + ")", "",
+    std::vector<std::string> lines{ops::begin_marker(targets_region), "",
         "One row per read-only command. Each shows state and changes "
         "nothing, so any of them is safe to run while deciding what to do "
         "next.", "", "#+ATTR_HTML: :class hug-leading",
@@ -302,7 +309,7 @@ std::string show_table(std::string_view compass) {
         lines.push_back("| =compass " + std::string(sub) + "= | " +
             std::string(blurb) + " |");
     lines.emplace_back();
-    lines.emplace_back("# END generated targets");
+    lines.push_back(ops::end_marker(targets_region));
     return ops::join_lines(lines);
 }
 
@@ -317,17 +324,13 @@ void type_tables(const ct::corpus_view& v, ct::file_output& out) {
     }
     struct target {
         std::string path;
-        std::string begin;
-        std::string_view end;
+        const ops::generated_region& region;
         std::string block;
     };
     const target targets[] = {
-        {add_skill,
-            "# BEGIN generated types (" + std::string(tables_script) + ")",
-            "# END generated types", add_table(v, *compass)},
+        {add_skill, types_region, add_table(v, *compass)},
         {std::string(skills_dir) + "compass-doc-show/SKILL.org",
-            "# BEGIN generated targets (" + std::string(tables_script) + ")",
-            "# END generated targets", show_table(*compass)}};
+            targets_region, show_table(*compass)}};
     for (const auto& t : targets) {
         const auto text = v.read_file(t.path);
         if (!text) {
@@ -335,11 +338,12 @@ void type_tables(const ct::corpus_view& v, ct::file_output& out) {
                 "Restore the skill with its generated region.");
             return;
         }
-        if (const auto fresh = ops::replace_region(*text, t.begin, t.end,
-                t.block, ops::replace::every))
+        if (const auto fresh = ops::replace_region(*text, t.region, t.block,
+                ops::replace::every))
             out.files.add(t.path, *fresh);
         else
-            co::refuse(out, t.path, "the page has no region " + t.begin,
+            co::refuse(out, t.path, "the page has no region " +
+                ops::begin_marker(t.region),
                 "Restore the region's BEGIN and END markers.");
     }
 }
@@ -348,7 +352,7 @@ void type_tables(const ct::corpus_view& v, ct::file_output& out) {
 
 const ct::descriptor skill_catalogue{
     .name = "skill_catalogue",
-    .version = 1,
+    .version = 2,
     .summary = "Writes the generated catalogue of the skills.",
     .reads = ct::inputs::of_types({}),
     .options = {},
@@ -358,7 +362,7 @@ const ct::descriptor skill_catalogue{
 
 const ct::descriptor skill_type_tables{
     .name = "skill_type_tables",
-    .version = 1,
+    .version = 2,
     .summary = "Writes the document type and read-only command tables of "
         "the polymorphic skills.",
     .reads = ct::inputs::of_types({}),

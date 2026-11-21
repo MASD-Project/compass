@@ -87,7 +87,7 @@ memories no rule cites are the candidates for the next checks.
 | =history_registrars= | missing_composition | A checked component that generates registrars has its composition file. | =B5492D6C-7C18-4723-BA47-232AEAA13314= |
 | =lint= | bad_filetag | Every tag of a page's first #+filetags: is lowercase: a letter, then letters, digits, _, . or -. |  |
 | =lint= | unclosed_marker | Every '# BEGIN generated X' comment has a matching '# END generated X' comment. |  |
-| =lint= | marker_without_writer | A '# BEGIN generated X (script)' marker names a script that exists and writes the page. |  |
+| =lint= | marker_without_writer | A '# BEGIN generated X (writer)' marker names a script that exists and writes the page, or 'compass generate: codec' for a codec compass.docs ships. |  |
 | =lint= | malformed_link | An id link whose target has a hyphen is a UUID. |  |
 | =lint= | dangling_link | Every id link names the :ID: of some page. |  |
 | =lint= | durable_link | A page under doc/llm, doc/meta, doc/knowledge or doc/recipes links no agile page. |  |

@@ -38,6 +38,34 @@ std::optional<std::string> replace_region(std::string_view text,
         std::string(text.substr(m->end()));
 }
 
+std::string begin_marker(const generated_region& r) {
+    return "# BEGIN generated " + std::string(r.kind) + " (" +
+        std::string(compass_writer) + std::string(r.codec) + ")";
+}
+
+std::string end_marker(const generated_region& r) {
+    return "# END generated " + std::string(r.kind);
+}
+
+std::optional<std::string> replace_region(std::string_view text,
+    const generated_region& r, std::string_view block, replace which) {
+    const auto end = end_marker(r);
+    std::optional<std::string> out;
+    const auto found_first = [&](std::string_view begin) {
+        if (auto fresh = replace_region(out ? std::string_view(*out) : text,
+                begin, end, block, which))
+            out = std::move(fresh);
+        return out && which == replace::first;
+    };
+    if (found_first(begin_marker(r)))
+        return out;
+    for (const auto former : r.former) {
+        if (found_first(former))
+            return out;
+    }
+    return out;
+}
+
 std::string join_lines(const std::vector<std::string>& lines) {
     std::string out;
     for (std::size_t i = 0; i < lines.size(); ++i) {

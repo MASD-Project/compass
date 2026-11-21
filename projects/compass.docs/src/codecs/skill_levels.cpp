@@ -40,7 +40,7 @@ namespace co = compass::cpp::ops;
 using level_entry = std::pair<std::string_view, std::string_view>;
 
 /**
- * @brief The script's LEVELS: each skill and the System it serves, sorted
+ * @brief The level table: each skill and the System it serves, sorted
  * by skill.
  */
 constexpr std::array<level_entry, 76> levels{{
@@ -138,11 +138,11 @@ constexpr std::array<system_row, 6> systems{{
 
 constexpr std::string_view levels_doc =
     "doc/llm/skills/skill_systems_levels.org";
-constexpr std::string_view inventory_begin =
-    "# BEGIN generated inventory (build/scripts/apply_skill_levels.py)";
-constexpr std::string_view old_inventory_begin =
-    "# BEGIN generated inventory (build/scripts/generate_skills_catalogue.py)";
-constexpr std::string_view inventory_end = "# END generated inventory";
+constexpr std::array<std::string_view, 2> former_inventory{
+    "# BEGIN generated inventory (build/scripts/apply_skill_levels.py)",
+    "# BEGIN generated inventory (build/scripts/generate_skills_catalogue.py)"};
+constexpr ops::generated_region inventory_region{"inventory", "skill_levels",
+    former_inventory};
 
 std::string_view level_of(std::string_view name) {
     const auto it = std::ranges::lower_bound(levels, name, {},
@@ -196,7 +196,7 @@ std::string differences(const std::vector<std::string>& names) {
 }
 
 std::string inventory(const std::vector<std::string>& names) {
-    std::vector<std::string> lines{std::string(inventory_begin), "",
+    std::vector<std::string> lines{ops::begin_marker(inventory_region), "",
         "What each System sees by default, counted from the levels the "
         "skills carry. Attenuation is advisory everywhere except the audit "
         "channel, where it is binding and enforced by what is deployed.",
@@ -218,7 +218,7 @@ std::string inventory(const std::vector<std::string>& names) {
         "appear in every advisory slice: the documents and the skills "
         "themselves, and the orientation any System starts from.");
     lines.emplace_back();
-    lines.emplace_back(inventory_end);
+    lines.push_back(ops::end_marker(inventory_region));
     return ops::join_lines(lines);
 }
 
@@ -226,9 +226,10 @@ void write_inventory(const ct::corpus_view& v, ct::file_output& out) {
     const auto names = ops::skill_names(v);
     if (const auto differ = differences(names); !differ.empty()) {
         co::refuse(out, levels_doc, "the level table and the skills "
-            "differ: " + differ, "Add each new skill to LEVELS in "
-            "build/scripts/apply_skill_levels.py and to the level table of "
-            "compass.docs, or remove the entry of a skill that is gone.");
+            "differ: " + differ, "Add each new skill to the level table of "
+            "compass's skill_levels codec, in compass's "
+            "projects/compass.docs/src/codecs/skill_levels.cpp, or remove "
+            "the entry of a skill that is gone.");
         return;
     }
     const auto text = v.read_file(levels_doc);
@@ -238,12 +239,8 @@ void write_inventory(const ct::corpus_view& v, ct::file_output& out) {
         return;
     }
     const auto block = inventory(names);
-    auto fresh = ops::replace_region(*text, inventory_begin, inventory_end,
-        block, ops::replace::every);
-    if (!fresh)
-        fresh = ops::replace_region(*text, old_inventory_begin, inventory_end,
-            block, ops::replace::every);
-    if (fresh)
+    if (const auto fresh = ops::replace_region(*text, inventory_region, block,
+            ops::replace::every))
         out.files.add(levels_doc, *fresh);
     else
         co::refuse(out, levels_doc, "the page has no generated inventory "
@@ -260,7 +257,7 @@ skill_level_table() noexcept {
 
 const ct::descriptor skill_levels{
     .name = "skill_levels",
-    .version = 3,
+    .version = 4,
     .summary = "Writes the inventory of what each System sees.",
     .reads = ct::inputs::of_types({}),
     .options = {},
