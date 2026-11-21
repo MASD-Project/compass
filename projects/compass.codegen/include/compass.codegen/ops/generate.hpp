@@ -88,7 +88,8 @@ struct planned_output {
 };
 
 /**
- * @brief What regenerate --all would render: one row per output path,
+ * @brief What regenerate --all would render, and the outputs of the
+ * service registry beside them: one row per output path,
  * with every context in tables. contexts counts the model contexts built;
  * messages names each model that failed to load.
  */
@@ -106,7 +107,9 @@ struct generation_plan {
  * the compiled templates.
  *
  * models lists, in the order resolve_targets visits them, the models
- * regenerate --all generates whose types compass builds contexts for.
+ * regenerate --all generates whose types compass builds contexts for,
+ * and every service registry of a modeling directory, which no
+ * component's catalogue entry reaches and generate --model renders.
  * facts holds what a model's generation may depend on besides the
  * documents and files it reads itself: library_fact, graph_fact, one
  * fact per template (template_fact) and those of the registries

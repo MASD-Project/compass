@@ -27,6 +27,7 @@
 #include <string>
 #include <system_error>
 #include <vector>
+#include "compass.codegen/ops/values.hpp"
 
 namespace compass::codegen::ops {
 
@@ -234,6 +235,59 @@ void derive_component(compass::model::ops::builder& b, value_id component) {
     b.set(component, "has_app_config_decl", config_decl);
 }
 
+/**
+ * @brief @p s as the body of a single-quoted SQL string literal, each
+ * quote doubled, as _sql_literal gives it.
+ */
+std::string sql_literal(std::string_view s) {
+    std::string out;
+    for (const char c : s) {
+        out += c;
+        if (c == '\'')
+            out += c;
+    }
+    return out;
+}
+
+/**
+ * @brief What generate_from_model derives for a service registry: on each
+ * service its SQL-quoted summary and display name, image code, account
+ * variable and component, and last on the last service; and, under
+ * service_registry_db_services of @p context, the services with a psql
+ * variable, last marked on the last of them.
+ */
+void derive_service_registry(compass::model::ops::builder& b,
+    value_id context, value_id registry) {
+    const auto services = values::items(b.tables(),
+        member(b.tables(), registry, "services"));
+    const auto db = b.list(context, "service_registry_db_services");
+    value_id last_db = value_id::none();
+    for (const auto s : services) {
+        const auto& t = b.tables();
+        const auto psql_var = string_member(t, s, "psql_var").value_or("");
+        const auto name = string_member(t, s, "name").value_or("");
+        const auto account_var = string_member(t, s, "account_var");
+        b.set(s, "summary_sql",
+            sql_literal(string_member(t, s, "summary").value_or("")));
+        b.set(s, "display_name_sql",
+            sql_literal(string_member(t, s, "display_name").value_or("")));
+        b.set(s, "image_code", replace_dots(name, "_"));
+        if ((!account_var || account_var->empty()) && !psql_var.empty())
+            b.set(s, "account_var", psql_var + "_user");
+        constexpr std::string_view suffix = "_service";
+        if (!psql_var.empty())
+            b.set(s, "component", psql_var.ends_with(suffix)
+                ? psql_var.substr(0, psql_var.size() - suffix.size())
+                : psql_var);
+        if (!psql_var.empty())
+            last_db = b.append_copy(db, s);
+    }
+    if (!last_db.is_none())
+        b.set(last_db, "last", true);
+    if (!services.empty())
+        b.set(services.back(), "last", true);
+}
+
 }
 
 int copyright_year(std::string_view codec, std::string_view option) {
@@ -304,6 +358,9 @@ value_id model_context(compass::model::ops::builder& b, value_id library,
         b.set_copy(context, "component", owned);
     } else if (model_type == "asset_class_catalogue" ||
         model_type == "outcome_catalogue") {
+        b.set_copy(context, model_type, owned);
+    } else if (model_type == "service_registry") {
+        derive_service_registry(b, context, owned);
         b.set_copy(context, model_type, owned);
     }
     return context;
