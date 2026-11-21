@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-185 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 58 are cited by no rule.
+199 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 58 are cited by no rule.
 
 ** Rules
 
@@ -27,6 +27,14 @@ memories no rule cites are the candidates for the next checks.
 | =bff_list_requests= | missing_member | A hand-written list request states as_of and its filter when the protocol declares them. |  |
 | =bff_list_requests= | filter_mismatch | A literal filter states exactly the members the filter struct declares. | =7E3659C3-356E-4F0F-B4BA-C54050F39A98= |
 | =bff_list_requests= | wrong_rows | readAll reads the rows a reply carries. |  |
+| =commit_provenance= | missing_trailer | Every commit of the branch, merges aside, carries each trailer the Trailers table of the check document names, unless an exemption lets its subject omit it. |  |
+| =commit_provenance= | malformed_trailer | A trailer that names a document holds an uppercase UUID, and any other trailer's value matches its pattern; so does each value of the pull request's table. |  |
+| =commit_provenance= | unknown_document | A trailer that names a document names one of the checkout: a document whose :ID: is the value. |  |
+| =commit_provenance= | wrong_document_type | The document a trailer names has the #+type: the Trailers table gives it, a story for a story's ID. |  |
+| =commit_provenance= | pull_request_table | The branch's pull request states, in its body's table, a row for each trailer the Trailers table labels, with the value in the column it names. |  |
+| =commit_provenance= | differs_from_pull_request | A commit's trailer equals the value the pull request's table states; a warning, since a branch may touch a second task. |  |
+| =commit_provenance= | no_pull_request | When require_pull_request is true, the branch has a pull request compass can read with gh. |  |
+| =commit_provenance= | unreadable | The check document of commit_provenance gives a Trailers table that reads: one key per row, a document type or a pattern that compiles, and a column for each label. |  |
 | =component_docs= | missing_overview | A component, or a part with include/ and src/, has modeling/component_overview.org. | [[id:CE17C7BB-C68C-4304-BD3D-92FA5D13272B][Document type: component]] |
 | =component_docs= | missing_id | A component overview has an :ID: property. | [[id:CE17C7BB-C68C-4304-BD3D-92FA5D13272B][Document type: component]] |
 | =component_docs= | missing_type | A component overview is #+type: component. | [[id:CE17C7BB-C68C-4304-BD3D-92FA5D13272B][Document type: component]] |
@@ -154,6 +162,12 @@ memories no rule cites are the candidates for the next checks.
 | =rule_identifiers= | duplicate | No identifier is on two rules. | =00BA1689-B060-4BD8-BC46-67034D663B7F= |
 | =rule_identifiers= | bad_citation | Every checklist line cites two-digit identifiers a page carries, or a page that carries none yet. | =00BA1689-B060-4BD8-BC46-67034D663B7F= |
 | =script_library_seed= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
+| =service_integrity= | unregistered | Every service part, a component overview of the part kind the check document names, has an entry in the service registry. |  |
+| =service_integrity= | partless | Every registry entry whose runtime has parts names a service part that exists. |  |
+| =service_integrity= | unknown_runtime | Every registry entry's runtime is one the check document's Runtimes table lists. |  |
+| =service_integrity= | unmet_obligation | Every service meets each obligation of the check document's Obligations table that applies to it. |  |
+| =service_integrity= | second_list | No file the check document scans, but the registry, lists the registry's services as a literal; the registry is their one source. |  |
+| =service_integrity= | unreadable | The check document gives every table, column and setting the codec reads, and each row reads. |  |
 | =shell_command_composition= | unregistered_unit | Every generated shell command unit of a checked component is registered by an application source. |  |
 | =shell_command_units= | menu_built_twice | One command unit builds each of its menus once. |  |
 | =shell_command_units= | menu_owned_twice | One menu name has one owning file. |  |

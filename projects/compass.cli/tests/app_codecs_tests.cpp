@@ -165,6 +165,8 @@ TEST_CASE("every codec compass knows carries the code hash of the "
             expected[d.name] = hash;
     }
     expected["rule_table"] = cli::app::code_hash();
+    expected["check_inventory"] = cli::app::code_hash();
+    expected["commit_provenance"] = cli::app::code_hash();
     hashes.insert(cli::app::code_hash());
 
     std::vector<std::string> defects;

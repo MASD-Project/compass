@@ -21,40 +21,13 @@
 
 #include <stdexcept>
 #include <system_error>
+#include "compass.cli/io/json_value.hpp"
 #include "compass.model/io/json.hpp"
 #include "compass.model/ops/builder.hpp"
 
 namespace compass::cli::io {
 
-namespace {
-
 namespace mt = compass::model::types;
-
-/**
- * @brief The member @p key of the object @p object, or none when it has
- * no such member or is not an object.
- */
-mt::value_id member(const mt::model_tables& t, mt::value_id object,
-    std::string_view key) {
-    if (object.is_none() || t.values.kinds[object] != mt::value_kind::object)
-        return mt::value_id::none();
-    for (auto v = t.values.firsts[object]; !v.is_none();
-         v = t.values.nexts[v]) {
-        if (mt::text_of(t.texts, t.values.keys[v]) == key)
-            return v;
-    }
-    return mt::value_id::none();
-}
-
-std::optional<std::string_view> string_of(const mt::model_tables& t,
-    mt::value_id v) {
-    if (v.is_none() || t.values.kinds[v] != mt::value_kind::string)
-        return std::nullopt;
-    return mt::text_of(t.texts,
-        mt::text_id{static_cast<std::uint32_t>(t.values.scalars[v])});
-}
-
-}
 
 std::expected<hook_payload, std::string> parse_hook_payload(
     std::string_view json) {

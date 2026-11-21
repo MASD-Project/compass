@@ -60,6 +60,10 @@ compass::model::types::value_id library_values(
  *   model has them too, as in ores.codegen it is the one dict.
  * - asset_class_catalogue and outcome_catalogue: the catalogue under its
  *   type's name.
+ * - service_registry: the registry under its type's name, each service
+ *   with the SQL literals, image code, account variable and component
+ *   generation derives, the last marked; and the services with a psql
+ *   variable under service_registry_db_services, the last of them marked.
  *
  * No other type gets more than the model here: entity_context and the
  * contexts of model_contexts.hpp build the entities, junctions,
