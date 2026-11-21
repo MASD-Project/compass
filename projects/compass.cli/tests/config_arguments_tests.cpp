@@ -20,8 +20,10 @@
 #include "compass.cli/config/arguments.hpp"
 
 #include <chrono>
+#include <string>
 #include <string_view>
 #include <tuple>
+#include <utility>
 #include <variant>
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
@@ -150,5 +152,50 @@ TEST_CASE("check takes each --codec, in order, and no other command does",
     for (const auto& args : std::vector<std::vector<std::string_view>>{
              {"generate", "--codec", "x"}, {"check", "--codec"},
              {"check", "--codec", "--timings"}, {"check", "--codec", ""}})
+        CHECK(std::holds_alternative<config::usage_error>(parse(args)));
+}
+
+TEST_CASE("env takes its action, version new's description and its "
+    "options", "[config][arguments]") {
+    const auto env_of = [](std::vector<std::string_view> args) {
+        const auto parsed = parse(std::move(args));
+        REQUIRE(std::holds_alternative<types::invocation>(parsed));
+        const auto& i = std::get<types::invocation>(parsed);
+        CHECK(i.which == types::command::env);
+        return i.env;
+    };
+    const auto g = env_of({"env", "generate", "--input", "name=dev",
+        "--input", "empty=", "--var", "A_B=x=y", "--file", "local.env"});
+    CHECK(g.action == types::env_action::generate);
+    CHECK(g.inputs == std::vector<std::pair<std::string, std::string>>{
+        {"name", "dev"}, {"empty", ""}});
+    CHECK(g.variables == std::vector<std::pair<std::string, std::string>>{
+        {"A_B", "x=y"}});
+    CHECK(g.file == "local.env");
+
+    CHECK(env_of({"env", "version"}).action == types::env_action::version);
+    CHECK(env_of({"env", "status"}).action == types::env_action::status);
+
+    const auto n = env_of({"env", "version", "new", "Adds two.", "--adds",
+        "A,B", "--adds", "C", "--removes", "D", "--today", "2026-11-21"});
+    CHECK(n.action == types::env_action::version_new);
+    CHECK(n.description == "Adds two.");
+    CHECK(n.adds == std::vector<std::string>{"A", "B", "C"});
+    CHECK(n.removes == std::vector<std::string>{"D"});
+    CHECK(env_of({"env", "version", "new", "Moved.", "--format-only"})
+        .format_only);
+}
+
+TEST_CASE("malformed env command lines are usage errors",
+    "[config][arguments]") {
+    for (const auto& args : std::vector<std::vector<std::string_view>>{
+             {"env"}, {"env", "frobnicate"}, {"env", "version", "new"},
+             {"env", "status", "extra"}, {"env", "status", "--input", "a=b"},
+             {"env", "generate", "--input", "novalue"},
+             {"env", "generate", "--adds", "A"},
+             {"env", "version", "--format-only"},
+             {"env", "version", "new", "x", "--file", "f"},
+             {"env", "generate", "--today", "2026-11-21"},
+             {"check", "--input", "a=b"}, {"generate", "--format-only"}})
         CHECK(std::holds_alternative<config::usage_error>(parse(args)));
 }

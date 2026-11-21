@@ -233,6 +233,18 @@ reading the contexts.
 =codecs= is a local facet, as in =compass.codec=: it holds the codec, one
 descriptor.
 
+The codec scaffolds a component as it generates any other model: a
+component overview is a component model, and the archetypes of a facet
+serving =component= whose =#+component_kind:= lists the overview's kind
+write its files. =tests/codecs_component_scaffold_tests.cpp= runs it
+over a library modelled on ORE Studio's =ores.cpp.component=,
+=ores.cpp.scaffold= and =ores.cpp.service-app= facets, the port of
+=ores.codegen='s =tests/component_scaffold/verify.py=: a flat component,
+a composite one whose group writes nothing and whose api, core and
+service parts write their file sets, a component that does not opt into
+the scaffold, and a part with =#+hidden_visibility: true= whose stub
+header exports its function, which =exported_types= then accepts.
+
 =compass-bench render <checkout> --out <dir>= runs the codec's generation
 code on the checkout read from disk, with the options its =.compass.org=
 gives; with =--oracle <dump>= it renders the dump's outputs from the dump's
@@ -250,7 +262,8 @@ either with the oracle, output by output and template by template.
 - =compass.ingest=, for the tests only: the codec's tests parse a small
   checkout.
 - =compass.cpp=, privately, for the Python text helpers =pending_models=
-  uses.
+  uses. The tests also run its =exported_types= codec over a scaffolded
+  part.
 - The C++23 standard library.
 - Catch2, for the tests only. The tests run the required files of the
   Mustache spec, expecting pystache's output for the three cases

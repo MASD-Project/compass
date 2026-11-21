@@ -24,6 +24,7 @@ add_library(${lib_target_name}
     app/blame.cpp
     app/check_inventory.cpp
     app/codecs.cpp
+    app/env.cpp
     app/pipeline.cpp
     app/steps.cpp
     config/arguments.cpp
@@ -56,6 +57,7 @@ target_link_libraries(${lib_target_name}
         compass.sql.lib
         compass.crosscheck.lib
         compass.docs.lib
+        compass.env.lib
         compass.model.lib
         compass.org.lib
         compass.platform.lib

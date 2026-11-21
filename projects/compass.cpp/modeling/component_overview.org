@@ -72,8 +72,10 @@ keeps in its =.compass.org=.
 * Inputs
 
 - The files of the checkout, through =types::corpus_view=: =list_files=
-  for the paths each gate walks and =read_file= for the bytes. No codec
-  reads a document.
+  for the paths each gate walks and =read_file= for the bytes.
+- The component overviews =exported_types= finds beside the parts it
+  checks, through =find_path=, loaded as component models by
+  =compass.model=. No other codec reads a document.
 
 * Outputs
 
@@ -106,7 +108,24 @@ keeps in its =.compass.org=.
   =struct=, a visibility macro, a name and =:=, ={= or =;=, not after
   =using=. One finding per head, at its keyword. Before this pass it was
   the =enum_attributes= codec, and the rule was
-  =enum_attributes/visibility_macro_on_enum=.
+  =enum_attributes/visibility_macro_on_enum=. Rule
+  =unexported_hidden_function=: a part is the directory above the
+  =include/= of an export header that defines its macro as above, at
+  =projects/<component>/<part>/include/<name>/export.hpp= or, for a flat
+  component, =projects/<component>/include/<name>/export.hpp=. When the
+  component model of the part's =modeling/component_overview.org= has
+  =hidden_visibility= true (=#+hidden_visibility: true=), the part is built
+  with =-fvisibility=hidden=, and every function a header under its
+  =include/= declares at namespace scope must name the macro before its
+  name, or nothing outside the library can link it. The declarations are
+  the model's (=ops::exportable_functions=): a function with a return type
+  and no body, not =inline=, =constexpr=, =consteval=, =static=, a
+  template, deleted or defaulted, a redeclaration of a qualified name or in
+  an anonymous namespace. Members and friends are not at namespace scope,
+  and a macro invoked with no return type is not a declaration. One
+  finding per declaration, at the line it starts on. The rule reads the
+  macro from the export header and the visibility from the model, so a
+  project states both where it already does.
 - *=test_case_reachability=.* ORE Studio's =reachability= gate
   (=projects/ores.codegen/scripts/check_test_case_reachability.py=). It
   is a scan whose fact is the number of cases a test source declares. It
@@ -263,8 +282,10 @@ keeps in its =.compass.org=.
 - =compass.codec= for the descriptor, the corpus view the codecs read
   through and the diagnostic table they fill.
 - =compass.platform= for regular expressions and Python's decoding.
+- =compass.model=, privately, for the component model =exported_types=
+  reads a part's visibility from.
 - The C++23 standard library.
-- =compass.store= and Catch2, for the tests only.
+- =compass.ingest=, =compass.store= and Catch2, for the tests only.
 
 * See also
 

@@ -29,6 +29,7 @@
 #include <tuple>
 #include <variant>
 #include "compass.cli/app/check_inventory.hpp"
+#include "compass.cli/app/env.hpp"
 #include "compass.cli/app/pipeline.hpp"
 #include "compass.cli/config/arguments.hpp"
 #include "compass.cli/config/precedence.hpp"
@@ -308,6 +309,7 @@ int run_command(const types::invocation& i, std::ostream& out,
     case types::command::blame:
         return run_blame(o, i.target, i.timings, out, err);
     case types::command::hook:
+    case types::command::env:
         break;
     }
     return exit_failure;
@@ -336,6 +338,8 @@ int run(std::span<const std::string_view> args,
     if (invocation.which == types::command::hook)
         return run_hook(invocation, in, out, err);
     try {
+        if (invocation.which == types::command::env)
+            return run_env(invocation, out, err);
         return run_command(invocation, out, err);
     } catch (const std::exception& e) {
         err << "compass: " << e.what() << "\n";

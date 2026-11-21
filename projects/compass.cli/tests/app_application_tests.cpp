@@ -29,6 +29,7 @@
 #include "compass.cpp/codecs/catalogue.hpp"
 #include "compass.crosscheck/codecs/catalogue.hpp"
 #include "compass.docs/codecs/catalogue.hpp"
+#include "compass.env/codecs/catalogue.hpp"
 #include "compass.sql/codecs/catalogue.hpp"
 #include "scoped_git_repo.hpp"
 
@@ -71,6 +72,7 @@ std::string gate_defaults() {
     add(compass::sql::codecs::catalogue());
     add(compass::crosscheck::codecs::catalogue());
     add(compass::docs::codecs::catalogue());
+    add(compass::env::codecs::catalogue());
     return out;
 }
 
