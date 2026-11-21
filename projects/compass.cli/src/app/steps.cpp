@@ -435,9 +435,12 @@ sink_outcome write_outputs(const std::filesystem::path& checkout,
     if (plan.problems.empty())
         r.hand_edits = codec::io::find_hand_edits(plan, previous.record);
     r.sink = codec::io::apply_outputs(plan);
-    if (r.sink.problems.empty())
-        r.record_written =
-            codec::io::write_written_outputs(record_path, r.sink.record);
+    if (!r.sink.problems.empty())
+        return r;
+    for (std::size_t i = 0; i < plan.size(); ++i)
+        r.actions.emplace_back(plan.paths[i], plan.actions[i]);
+    r.record_written =
+        codec::io::write_written_outputs(record_path, r.sink.record);
     return r;
 }
 

@@ -23,10 +23,13 @@
 #include <cctype>
 #include <chrono>
 #include <cstdint>
+#include <deque>
 #include <filesystem>
 #include <format>
 #include <fstream>
 #include <iterator>
+#include <map>
+#include <memory>
 #include <optional>
 #include <ranges>
 #include <set>
@@ -57,6 +60,9 @@
 #include "compass.codec/ops/outputs.hpp"
 #include "compass.codec/ops/parallel_for.hpp"
 #include "compass.codec/ops/registry.hpp"
+#include "compass.codec/ops/run.hpp"
+#include "compass.codec/types/corpus_view.hpp"
+#include "compass.ingest/org/parser.hpp"
 #include "compass.org/ops/document_fields.hpp"
 #include "compass.store/io/collection.hpp"
 #include "compass.store/io/git_objects.hpp"
@@ -78,7 +84,8 @@ double since(std::chrono::steady_clock::time_point start) {
  * @brief Everything a run of the pipeline read and computed, before
  * anything is written. The files, the checkout's files and the corpus
  * point into listing and, for a commit, into commit, so the pipeline is
- * never moved once evaluated.
+ * never moved once evaluated. overlaid holds the documents diff parsed
+ * from the outputs of an earlier pass, which the corpus then points into.
  */
 struct pipeline {
     std::optional<commit_source> commit;
@@ -90,6 +97,7 @@ struct pipeline {
     ct::registry codecs;
     codec::io::loaded_record previous;
     ct::run_result run;
+    std::deque<org::types::tables> overlaid;
     types::run_summary summary;
 
     /**
@@ -545,25 +553,404 @@ std::vector<types::rename> renames_of(const std::filesystem::path& checkout,
     return out;
 }
 
+/**
+ * @brief The most passes generate and diff make. A pass runs again only
+ * when it changed a file a codec of it read, so a run that needs more has
+ * outputs that feed their own inputs.
+ */
+constexpr std::uint32_t max_passes = 4;
+
+/**
+ * @brief A file of the checkout a pass changes, by path relative to the
+ * checkout, and whether the change creates or removes it, which changes
+ * the listings that match it.
+ */
+struct file_change {
+    std::string path;
+    bool listing = false;
+};
+
+/**
+ * @brief What the codecs of a run read, from its record: the paths of the
+ * files and documents read or looked up, the listing patterns, and
+ * whether any read a set of documents, looked up an ID or read the type
+ * registry, which a document anywhere may change.
+ */
+struct run_reads {
+    std::unordered_set<std::string_view> paths;
+    std::vector<std::string_view> listings;
+    bool documents = false;
+};
+
+run_reads reads_of(const ct::dependency_record& record) {
+    run_reads out;
+    for (std::uint32_t i = 0; i < record.input_count(); ++i) {
+        const ct::input_id in{i};
+        const auto key = record.input_keys[in];
+        switch (record.input_kinds[in]) {
+        case ct::input_kind::path:
+        case ct::input_kind::file:
+        case ct::input_kind::file_exists:
+            out.paths.insert(key);
+            break;
+        case ct::input_kind::listing:
+            out.listings.push_back(key);
+            break;
+        case ct::input_kind::id:
+        case ct::input_kind::type_set:
+        case ct::input_kind::type_registry:
+            out.documents = true;
+            break;
+        case ct::input_kind::fact:
+            break;
+        }
+    }
+    return out;
+}
+
+bool is_document(std::string_view path) {
+    return path.ends_with(".org") && path != config::repository_file_name;
+}
+
+/**
+ * @brief Whether @p c changes an answer a codec that read @p r got.
+ */
+bool feeds(const run_reads& r, const file_change& c) {
+    if (r.paths.contains(c.path) || (r.documents && is_document(c.path)))
+        return true;
+    if (!c.listing)
+        return false;
+    return std::ranges::any_of(r.listings, [&](std::string_view pattern) {
+        const auto star = pattern.find('*');
+        const auto prefix = pattern.substr(0, star);
+        const auto suffix = star == std::string_view::npos
+            ? std::string_view{} : pattern.substr(star + 1);
+        return c.path.size() >= prefix.size() + suffix.size() &&
+            c.path.starts_with(prefix) && c.path.ends_with(suffix);
+    });
+}
+
+/**
+ * @brief The paths of @p changes that change what a codec of @p run read,
+ * in order.
+ */
+std::vector<std::string> fed_back(const ct::run_result& run,
+    std::span<const file_change> changes) {
+    std::vector<std::string> out;
+    const auto reads = reads_of(run.record);
+    for (const auto& c : changes) {
+        if (feeds(reads, c))
+            out.push_back(c.path);
+    }
+    return out;
+}
+
+/**
+ * @brief @p path, relative to the output root of @p o, relative to its
+ * checkout; none when it lies outside the checkout, where no codec reads.
+ */
+std::optional<std::string> checkout_path(const types::options& o,
+    std::string_view path) {
+    auto relative = (o.output_root / path).lexically_normal()
+        .lexically_relative(o.checkout.lexically_normal());
+    if (relative.empty() || *relative.begin() == "..")
+        return std::nullopt;
+    return relative.generic_string();
+}
+
+/**
+ * @brief The files of the checkout that @p actions, what writing the
+ * outputs of @p p did, by path relative to the output root, changed.
+ */
+std::vector<file_change> written_changes(const pipeline& p,
+    const types::options& o,
+    const std::vector<std::pair<std::string, codec::io::output_action>>&
+        actions) {
+    std::vector<file_change> out;
+    for (const auto& [root_path, action] : actions) {
+        if (!codec::io::changes_file(action))
+            continue;
+        if (auto path = checkout_path(o, root_path)) {
+            const bool listing = action == codec::io::output_action::remove ||
+                !ct::holds_file(&p.checkout, *path);
+            out.push_back({std::move(*path), listing});
+        }
+    }
+    return out;
+}
+
+/**
+ * @brief A file of the checkout a planned pass changes, with the bytes it
+ * leaves there, none when it removes the file.
+ */
+struct planned_change {
+    file_change file;
+    std::optional<std::string> content;
+};
+
+/**
+ * @brief The files of the checkout that @p plan changes against the files
+ * the codecs of @p p saw: those it writes with other bytes, and those it
+ * removes that are listed. A pass that changes none the codecs read has
+ * reached what generate converges to.
+ */
+std::vector<planned_change> planned_changes(const pipeline& p,
+    const types::options& o, const codec::io::output_plan& plan) {
+    using codec::io::output_action;
+    std::vector<planned_change> out;
+    for (std::size_t i = 0; i < plan.size(); ++i) {
+        const auto action = plan.actions[i];
+        if (action == output_action::keep)
+            continue;
+        auto path = checkout_path(o, plan.paths[i]);
+        if (!path)
+            continue;
+        const bool listed = ct::holds_file(&p.checkout, *path);
+        if (action == output_action::remove) {
+            if (listed)
+                out.push_back({{std::move(*path), true}, std::nullopt});
+            continue;
+        }
+        const auto bytes = plan.contents[i];
+        const auto now = listed ? p.checkout.content_of(*path) : std::nullopt;
+        if (!now || *now != store::ops::blob_id_of(bytes))
+            out.push_back({{std::move(*path), !listed}, std::string(bytes)});
+    }
+    return out;
+}
+
+/**
+ * @brief Makes the files and documents the codecs of @p p read hold what
+ * @p changes leave in the checkout, in memory, so a later run of the
+ * codecs sees them as the next generate pass would read them from disk.
+ */
+void overlay(pipeline& p, std::vector<planned_change> changes) {
+    using changed_map = std::map<std::string, std::optional<std::string>,
+        std::less<>>;
+    auto over = std::make_shared<changed_map>();
+    for (auto& c : changes)
+        (*over)[std::move(c.file.path)] = std::move(c.content);
+    auto base = std::make_shared<const ct::checkout_files>(
+        std::move(p.checkout));
+
+    ct::checkout_files next;
+    for (const auto path : base->paths) {
+        const auto it = over->find(path);
+        if (it == over->end() || it->second)
+            next.paths.push_back(path);
+    }
+    for (const auto& [path, content] : *over) {
+        if (content && !ct::holds_file(base.get(), path))
+            next.paths.push_back(path);
+    }
+    std::ranges::sort(next.paths);
+    next.content_of = [base, over](std::string_view path)
+        -> std::optional<store::types::blob_id> {
+        const auto it = over->find(path);
+        if (it == over->end())
+            return base->content_of(path);
+        if (!it->second)
+            return std::nullopt;
+        return store::ops::blob_id_of(*it->second);
+    };
+    next.read = [base, over](std::string_view path)
+        -> std::optional<std::string> {
+        const auto it = over->find(path);
+        if (it == over->end())
+            return base->read(path);
+        return it->second;
+    };
+    p.checkout = std::move(next);
+    p.corpus.files = &p.checkout;
+
+    auto& c = p.corpus;
+    for (const auto& [path, content] : *over) {
+        if (!is_document(path))
+            continue;
+        const auto at = std::ranges::lower_bound(c.paths, path);
+        const auto row = at - c.paths.begin();
+        const bool present = at != c.paths.end() && *at == path;
+        if (present && !content) {
+            c.paths.erase(c.paths.begin() + row);
+            c.contents.erase(c.contents.begin() + row);
+            c.sources.erase(c.sources.begin() + row);
+            c.tables.erase(c.tables.begin() + row);
+            c.types.erase(c.types.begin() + row);
+        }
+        if (!content)
+            continue;
+        auto& parsed = p.overlaid.emplace_back();
+        ingest::org::parse(*content, parsed);
+        const auto view = org::types::view(parsed);
+        const auto id = store::ops::blob_id_of(*content);
+        const auto type = codec::ops::document_type(*content, view, p.types);
+        if (!present) {
+            c.paths.insert(c.paths.begin() + row, path);
+            c.contents.insert(c.contents.begin() + row, id);
+            c.sources.insert(c.sources.begin() + row, *content);
+            c.tables.insert(c.tables.begin() + row, view);
+            c.types.insert(c.types.begin() + row, type);
+            continue;
+        }
+        const auto u = static_cast<std::size_t>(row);
+        c.contents[u] = id;
+        c.sources[u] = *content;
+        c.tables[u] = view;
+        c.types[u] = type;
+    }
+}
+
+/**
+ * @brief Runs the codecs of @p p again over its corpus as overlay left
+ * it, from the dependency record and the result cache as evaluate ran
+ * them, adding what they ran to its summary.
+ */
+void run_again(pipeline& p, const types::options& o) {
+    p.timed("codecs", [&] {
+        p.run = run_codecs(p.codecs, p.corpus, p.types, o.threads,
+            p.previous.record, o.checkout);
+    });
+    auto& s = p.summary;
+    for (std::size_t c = 0; c < p.codecs.size(); ++c) {
+        s.ran[c] += p.run.ran[c];
+        s.skipped[c] += p.run.skipped[c];
+        s.cached[c] += p.run.cached[c];
+        s.codec_ms[c] += p.run.ms[c];
+    }
+}
+
+/**
+ * @brief Adds @p from, the summary of pass @p pass of generate, to @p to,
+ * that of the passes before it. The documents are counted as the first
+ * pass read them, and each later step is named with its pass.
+ */
+void add_pass(types::run_summary& to, types::run_summary from,
+    std::uint32_t pass) {
+    if (pass == 1) {
+        to = std::move(from);
+        return;
+    }
+    std::ranges::move(from.errors, std::back_inserter(to.errors));
+    std::ranges::move(from.problems, std::back_inserter(to.problems));
+    for (std::size_t c = 0; c < from.ran.size() && c < to.ran.size(); ++c) {
+        to.ran[c] += from.ran[c];
+        to.skipped[c] += from.skipped[c];
+        to.cached[c] += from.cached[c];
+        to.codec_ms[c] += from.codec_ms[c];
+        const auto& f = from.formats[c];
+        auto& into = to.formats[c];
+        if (!f)
+            continue;
+        if (!into) {
+            into = f;
+            continue;
+        }
+        into->hits += f->hits;
+        into->formatted += f->formatted;
+        into->unformatted += f->unformatted;
+        into->runs += f->runs;
+        into->format_ms += f->format_ms;
+    }
+    for (auto& [name, ms] : from.steps)
+        to.steps.emplace_back(std::format("{} (pass {})", name, pass), ms);
+    if (from.collection)
+        to.collection = std::move(from.collection);
+    if (!from.collection_problem.empty())
+        to.collection_problem = std::move(from.collection_problem);
+}
+
+/**
+ * @brief The counter of @p sink that a file changed by @p a counts in.
+ * @pre codec::io::changes_file(@p a).
+ */
+std::uint64_t& counter_of(codec::io::sink_result& sink,
+    codec::io::output_action a) {
+    using codec::io::output_action;
+    if (a == output_action::write)
+        return sink.written;
+    return a == output_action::restore ? sink.restored : sink.removed;
+}
+
+/**
+ * @brief Counts in @p sink, what the last pass of generate did, as
+ * @p last says file by file, each file of @p earlier, which the passes
+ * before it changed, by the last change they made to it, when the last
+ * pass left it alone. Each file is then counted once, as what the whole
+ * run did to it.
+ */
+void count_earlier(codec::io::sink_result& sink,
+    const std::map<std::string, codec::io::output_action>& earlier,
+    const std::vector<std::pair<std::string, codec::io::output_action>>&
+        last) {
+    using codec::io::output_action;
+    std::unordered_map<std::string_view, output_action> now;
+    for (const auto& [path, action] : last)
+        now.emplace(path, action);
+    for (const auto& [path, action] : earlier) {
+        const auto it = now.find(path);
+        if (it == now.end()) {
+            ++counter_of(sink, action);
+        } else if (it->second == output_action::unchanged) {
+            --sink.unchanged;
+            ++counter_of(sink, action);
+        }
+    }
+}
+
+/**
+ * @brief Why generate or diff gave up after max_passes passes, naming
+ * @p paths, the files of the checkout the last pass still changed that a
+ * codec read.
+ */
+std::string unsettled(const std::vector<std::string>& paths) {
+    std::string names;
+    for (const auto& path : paths)
+        names += (names.empty() ? "" : ", ") + path;
+    return std::format("the outputs did not settle in {} passes, as each "
+        "pass changed files the codecs read, so an output feeds its own "
+        "input; still changing: {}", max_passes, names);
+}
+
 }
 
 types::generate_result generate(const types::options& o) {
     const auto start = std::chrono::steady_clock::now();
     types::generate_result r;
     r.root = o.output_root;
-    pipeline p;
-    evaluate(p, o);
-    format(p, o);
-    persist(p, o.threads);
-    if (!p.summary.failed()) {
+    std::map<std::string, codec::io::output_action> earlier;
+    for (r.passes = 1;; ++r.passes) {
+        pipeline p;
+        evaluate(p, o);
+        format(p, o);
+        persist(p, o.threads);
+        if (p.summary.failed()) {
+            add_pass(r.run, std::move(p.summary), r.passes);
+            break;
+        }
+        sink_outcome written;
         p.timed("write", [&] {
-            auto written = write_outputs(o.checkout, o.output_root, p.codecs,
+            written = write_outputs(o.checkout, o.output_root, p.codecs,
                 p.run);
-            r.sink = std::move(written.sink);
-            r.hand_edits = std::move(written.hand_edits);
         });
+        add_pass(r.run, std::move(p.summary), r.passes);
+        std::ranges::move(written.hand_edits,
+            std::back_inserter(r.hand_edits));
+        r.sink = std::move(written.sink);
+        if (!r.sink.problems.empty())
+            break;
+        const auto changes = written_changes(p, o, written.actions);
+        const auto fed = fed_back(p.run, changes);
+        if (fed.empty() || r.passes == max_passes) {
+            count_earlier(r.sink, earlier, written.actions);
+            if (!fed.empty())
+                r.sink.problems.push_back(unsettled(fed));
+            break;
+        }
+        for (const auto& [path, action] : written.actions) {
+            if (codec::io::changes_file(action))
+                earlier[path] = action;
+        }
     }
-    r.run = p.summary;
     r.ms = since(start);
     return r;
 }
@@ -575,13 +962,27 @@ types::diff_result diff(const types::options& o) {
     pipeline p;
     evaluate(p, o);
     format(p, o);
-    if (!p.summary.failed()) {
+    for (r.passes = 1; !p.summary.failed(); ++r.passes) {
+        planned_outputs planned;
         p.timed("plan", [&] {
-            planned_outputs planned;
             plan_outputs(planned, o.checkout, o.output_root, p.codecs, p.run);
+        });
+        auto changes = planned_changes(p, o, planned.plan);
+        std::vector<file_change> files;
+        for (const auto& c : changes)
+            files.push_back(c.file);
+        const auto fed = fed_back(p.run, files);
+        if (!planned.plan.problems.empty() || fed.empty() ||
+            r.passes == max_passes) {
             r.planned = codec::io::summarise(planned.plan);
             r.diff = codec::io::diff_outputs(planned.plan);
-        });
+            if (!fed.empty() && planned.plan.problems.empty())
+                r.planned.problems.push_back(unsettled(fed));
+            break;
+        }
+        overlay(p, std::move(changes));
+        run_again(p, o);
+        format(p, o);
     }
     r.run = p.summary;
     r.ms = since(start);

@@ -20,6 +20,7 @@
 #include "compass.cli/io/report.hpp"
 
 #include <algorithm>
+#include <cstdint>
 #include <format>
 #include <sstream>
 #include <string>
@@ -45,6 +46,14 @@ std::string corpus_note(const types::run_summary& s, double ms) {
     return std::format("{} documents, {} from the store, {} parsed; "
                        "units run: {}; {:.1f} ms", s.documents, s.loaded,
         s.parsed, units.empty() ? "none" : units, ms);
+}
+
+/**
+ * @brief " in n passes" when the codecs ran @p passes times, more than
+ * once, or nothing.
+ */
+std::string passes_note(std::uint32_t passes) {
+    return passes < 2 ? std::string() : std::format(" in {} passes", passes);
 }
 
 std::string excused_note(std::size_t excused) {
@@ -252,9 +261,9 @@ void write_generate(std::ostream& out, std::ostream& err,
             h.block.lines == 1 ? "" : "s", h.block.first);
     const auto& s = r.sink;
     out << std::format("{} written, {} unchanged, {} restored, {} removed, "
-                       "{} kept under {} ({})\n", s.written, s.unchanged,
+                       "{} kept under {}{} ({})\n", s.written, s.unchanged,
         s.restored, s.removed, s.kept, r.root.generic_string(),
-        corpus_note(r.run, r.ms));
+        passes_note(r.passes), corpus_note(r.run, r.ms));
 }
 
 void write_diff(std::ostream& out, std::ostream& err,
@@ -264,9 +273,9 @@ void write_diff(std::ostream& out, std::ostream& err,
     write_lines(err, "output: ", r.planned.problems);
     const auto& p = r.planned;
     err << std::format("{} to write, {} unchanged, {} to restore, {} to "
-                       "remove, {} to keep under {} ({})\n", p.written,
+                       "remove, {} to keep under {}{} ({})\n", p.written,
         p.unchanged, p.restored, p.removed, p.kept, r.root.generic_string(),
-        corpus_note(r.run, r.ms));
+        passes_note(r.passes), corpus_note(r.run, r.ms));
 }
 
 void write_check(std::ostream& out, std::ostream& err,
