@@ -54,10 +54,28 @@ written service by service, in the registry's order, for each entry that has
 every field the row uses, and the =services= column narrows a row to the
 entries it names or, with =!=, away from them. A row's =section= block is
 written before it when the row before had another section, its =comment=
-block before it every time, and a row whose =when= expands to nothing is not
-written, nor are its blocks. The inputs =checkout=, =home= and =now= are
+block before it every time. The inputs =checkout=, =home= and =now= are
 compass's own; every input the Inputs table declares must be given, and no
 other.
+
+A row's =when= is a condition, and a row whose condition fails is not
+written, nor are its blocks:
+
+| =when=                     | Holds when                                   |
+|----------------------------+----------------------------------------------|
+| =<template>=               | the template expands to something.           |
+| =<template> = <template>=  | the two sides expand to the same text.       |
+| =<template> != <template>= | the two sides expand to different text.      |
+
+The operator has a blank on each side; the first one outside braces splits
+the condition, and the blanks around each side are dropped, so ={FLAG} != 0=
+and ={A} = {B}= compare while ={A}=1= is a plain template. A condition's
+names follow the rules of any template, and may also name the row's own
+variable, which then reads the value the row would write. A row whose
+condition fails leaves its name's value as another row of it wrote it, or
+empty for later templates. A variable may therefore have several rows with
+exclusive conditions, such as ={FLAG} != 0= and ={FLAG} = 0=: the one that
+holds is written, in the place of its row.
 
 The versions are the Versions table: a row per version, with the variables
 it adds and removes, or marked format only when it changes only values,
@@ -74,7 +92,10 @@ longer written. The =env_format= codec reports:
 - =empty_version=: a version after the baseline that names no variable and
   is not format only;
 - =unreadable=: a document, table, column, setting, kind or template that
-  does not read.
+  does not read;
+- =duplicate_variable=: two live rows of one variable, one or both without
+  a =when=, that some service could both be given; the row without a
+  =when= is always written, so the file would hold the variable twice.
 
 The environment file itself is never committed and is written only from the
 table, so no committed text can show a variable written into it without a

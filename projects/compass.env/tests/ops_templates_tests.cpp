@@ -59,3 +59,37 @@ TEST_CASE("an unknown name or a brace that opens no name fails",
 TEST_CASE("the names of a template are listed in order", "[templates]") {
     CHECK(names_in("{b}-{a:-x}-{{c}}") == std::vector<std::string>{"b", "a"});
 }
+
+TEST_CASE("a plain condition holds when its template expands to something",
+    "[templates]") {
+    CHECK(holds("{a}", known) == true);
+    CHECK(holds("{empty}", known) == false);
+    CHECK(holds("{empty:-x}", known) == true);
+}
+
+TEST_CASE("an equality condition holds when both sides expand alike",
+    "[templates]") {
+    CHECK(holds("{a} = 1", known) == true);
+    CHECK(holds("{a} = 0", known) == false);
+    CHECK(holds("{a} = {service.key}", known) == false);
+    CHECK(holds("{empty:-1} = {a}", known) == true);
+}
+
+TEST_CASE("an inequality condition holds when the sides differ",
+    "[templates]") {
+    CHECK(holds("{a} != 0", known) == true);
+    CHECK(holds("{a} != 1", known) == false);
+    CHECK(holds("{a}  !=  1 ", known) == false);
+}
+
+TEST_CASE("an operator inside braces or without blanks does not compare",
+    "[templates]") {
+    CHECK(holds("{empty:- = } = {a}", known) == false);
+    CHECK(holds("{empty}=1", known) == true);
+}
+
+TEST_CASE("a condition naming an unknown value fails on either side",
+    "[templates]") {
+    CHECK_FALSE(holds("{nope} = 1", known));
+    CHECK_FALSE(holds("{a} != {nope}", known));
+}

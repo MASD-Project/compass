@@ -19,6 +19,7 @@
  */
 #include "compass.env/ops/generate.hpp"
 
+#include <algorithm>
 #include <string>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_string.hpp>
@@ -38,10 +39,12 @@ types::env_format format_of(const tests::acme& a) {
 
 ops::sources sources_with(ops::values existing = {}) {
     return {.inputs = {{"name", "dev"}, {"base", "100"}, {"now", "T"}},
+        .overrides = {},
         .existing = std::move(existing),
         .environment = [](const std::string&) {
             return std::optional<std::string>{};
         },
+        .read_file = {},
         .secret = [](std::size_t n) { return std::string(n, 's'); }};
 }
 
@@ -170,6 +173,58 @@ TEST_CASE("generation needs every declared input and refuses any other",
     CHECK_THAT(extra.error(), ContainsSubstring("colour"));
 }
 
+TEST_CASE("of two rows of one name with exclusive conditions, the one "
+    "that holds is written in the place of its row", "[generate]") {
+    const auto f = format_of(tests::pooled_acme());
+    const auto services = ops::read_services(tests::acme_registry);
+
+    const auto on = ops::generate(f, services, sources_with());
+    REQUIRE(on);
+    CHECK_THAT(on->text, ContainsSubstring("ACME_POOLER=1\nACME_DB=105\n"
+        "ACME_DB_URL=db:105\n"));
+    CHECK_THAT(on->text, ContainsSubstring("ACME_SMALL_PORT=5432\n"
+        "ACME_SMALL_DB=105\nACME_SMALL_LISTENER=5432\n\nACME_BIG_USER"));
+    CHECK(std::ranges::count(on->names, "ACME_DB") == 1);
+
+    const auto off = ops::generate(f, services,
+        sources_with({{"ACME_POOLER", "0"}}));
+    REQUIRE(off);
+    CHECK_THAT(off->text, ContainsSubstring("ACME_POOLER=0\nACME_DB=5432\n"
+        "ACME_DB_URL=db:5432\n"));
+    CHECK_THAT(off->text, ContainsSubstring("ACME_SMALL_PORT=5432\n"
+        "ACME_SMALL_DB=5432\n\nACME_BIG_USER"));
+    CHECK_THAT(off->text, !ContainsSubstring("LISTENER"));
+    CHECK(std::ranges::count(off->names, "ACME_DB") == 1);
+}
+
+TEST_CASE("a skipped row leaves no value for later templates", "[generate]") {
+    auto a = tests::pooled_acme();
+    a.variables.insert(a.variables.begin() + 11, {
+        {"ACME_EXTRA", "value", "x", "1", "", "secrets", "",
+            "{ACME_POOLER} = 9", "", "Never written."},
+        {"ACME_EXTRA_URL", "value", "{ACME_EXTRA:-none}", "1", "",
+            "secrets", "", "", "", "Reads the skipped row."}});
+    const auto g = ops::generate(format_of(a), {}, sources_with());
+    REQUIRE(g);
+    CHECK_THAT(g->text, ContainsSubstring("ACME_DB_URL=db:105\n"));
+    CHECK_THAT(g->text, ContainsSubstring("ACME_EXTRA_URL=none\n"));
+    CHECK_THAT(g->text, !ContainsSubstring("ACME_EXTRA="));
+}
+
+TEST_CASE("a condition may compare the row's own value", "[generate]") {
+    tests::acme a;
+    a.variables.insert(a.variables.begin() + 7, tests::row{"ACME_MODE",
+        "kept", "on", "1", "", "secrets", "", "{ACME_MODE} != off", "",
+        "Written unless off."});
+    const auto on = ops::generate(format_of(a), {}, sources_with());
+    REQUIRE(on);
+    CHECK_THAT(on->text, ContainsSubstring("ACME_MODE=on\n"));
+    const auto off = ops::generate(format_of(a), {},
+        sources_with({{"ACME_MODE", "off"}}));
+    REQUIRE(off);
+    CHECK_THAT(off->text, !ContainsSubstring("ACME_MODE"));
+}
+
 TEST_CASE("an inherited value reads the process environment when the file "
     "has none, and a file value quotes a file's lines", "[generate]") {
     tests::acme a;
@@ -230,6 +285,22 @@ TEST_CASE("status finds an old version, a missing variable, a removed one "
     CHECK(s.missing == std::vector<std::string>{"ACME_BIG_POOL"});
     CHECK(s.removed == std::vector<std::string>{"ACME_OLD"});
     CHECK(s.undeclared == std::vector<std::string>{"ACME_STRAY"});
+}
+
+TEST_CASE("two rows of one name count once in status, whichever is "
+    "written", "[status]") {
+    const auto f = format_of(tests::pooled_acme());
+    const auto services = ops::read_services(tests::acme_registry);
+    for (const auto* pooler : {"1", "0"}) {
+        const auto g = ops::generate(f, services,
+            sources_with({{"ACME_POOLER", pooler}}));
+        REQUIRE(g);
+        const auto s = ops::status_of(f, services, ops::read_env(g->text));
+        CHECK_FALSE(s.stale());
+        CHECK(s.missing.empty());
+        CHECK(s.undeclared.empty());
+        CHECK(s.removed.empty());
+    }
 }
 
 TEST_CASE("a new service in the registry makes a file stale", "[status]") {
