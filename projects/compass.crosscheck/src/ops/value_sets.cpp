@@ -808,8 +808,8 @@ public:
         for (const auto& [kind_name, cat] : in_.conv_catalogue_of)
             f.sets.insert_or_assign("convention." + kind_name,
                 catalogue_set(in_.conv_catalogues, cat));
-        const auto& conventions = at(in_.convention_terms, "conventions");
-        for (const auto& [element, convention] : sorted(conventions))
+        const auto& terms_of = at(in_.convention_terms, "conventions");
+        for (const auto& [element, convention] : sorted(terms_of))
             for (const auto& term : at(*convention, "terms").items) {
                 auto [code, generated] = set_of(term, element);
                 if (generated)
