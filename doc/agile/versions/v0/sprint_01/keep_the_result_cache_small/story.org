@@ -7,7 +7,7 @@
 #+level: s2
 #+filetags: :sprint_01:v0:
 #+created: 2026-11-20
-#+updated: 2026-11-20
+#+updated: 2026-11-21
 #+environment:
 #+todo: BACKLOG STARTED | DONE ABANDONED
 
@@ -28,10 +28,10 @@ two or three runs, not every result ever written.
 |---------------+----------------------------------------|
 | State         | STARTED                                |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 01]] |
-| Now           | Scan facts per file and chunked manifests merged; collection as part of the runs built. |
-| Waiting on    | Nothing.                               |
-| Next          | Merge collection, then reset ORE Studio's store with a build that has all three. |
-| Last touched  | 2026-11-20                               |
+| Now           | Every task done and released in v0.0.4; ORE Studio's store went from 20.3 GB to 2.88 GB. |
+| Waiting on    | A day of normal use of v0.0.4 across ORE Studio's worktrees. |
+| Next          | Measure ORE Studio's cache as the investigation did, then close. |
+| Last touched  | 2026-11-21                               |
 
 * Acceptance
 
@@ -48,10 +48,22 @@ two or three runs, not every result ever written.
 | Task | State | Start | End | Description |
 |------+-------+-------+-----+-------------|
 | [[id:4FE83031-4EF0-47E0-9F5E-762FF13BD9BE][Store scan facts per file]] | DONE | 2026-11-20 | 2026-11-20 | A scan's result object holds every file's fact and findings, so one edit writes them all again. Store each file's fact and findings once, keyed by the codec's configuration, the path and the content, and keep only references in the scan table. |
-| [[id:17E153C8-C321-4A68-A0E4-E1580DA82C9D][Collect the cache, keeping a few runs per worktree]] | STARTED | 2026-11-20 | | No run collects the result cache, so it keeps every result ever written. Collect it as part of the runs, keeping each worktree's last two or three results of each unit and nothing older. |
+| [[id:17E153C8-C321-4A68-A0E4-E1580DA82C9D][Collect the cache, keeping a few runs per worktree]] | DONE | 2026-11-20 | 2026-11-21 | No run collects the result cache, so it keeps every result ever written. Collect it as part of the runs, keeping each worktree's last two or three results of each unit and nothing older. |
 | [[id:8066E3E8-998F-4405-998E-1C1432B90800][Keep manifests small]] | DONE | 2026-11-20 | 2026-11-20 | A corpus unit's manifest keeps its last eight input sets, each listing every file the unit read, so every edit rewrites manifests of megabytes: after per-file scan facts, 31 MB of the 31 MB an edit wrote on ORE Studio. |
 
 * Decisions
+
+- A scan's per-file facts are result objects keyed by codec, version,
+  configuration, path and content, so worktrees on the same content share
+  them (#123).
+- A manifest names each input set by content-addressed chunks of about 128
+  inputs, cut by the hash of each input's kind and key, in read order, so
+  an edit changes one chunk and a hit records what a call would (#124).
+- Retention follows what each run retired rather than old records, which
+  are 300 MB on ORE Studio; three runs per worktree (#125).
+- A run collects when the store has doubled since the last collection and
+  holds 256 MB, never waiting for the lock, so collecting copies no more
+  over time than runs write and never fails a run (#125).
 
 * Out of scope
 
