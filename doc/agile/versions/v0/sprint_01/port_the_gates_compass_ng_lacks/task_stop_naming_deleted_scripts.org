@@ -1,0 +1,103 @@
+:PROPERTIES:
+:ID: 90403591-6F42-4600-9BEF-236774160798
+:END:
+#+title: Task: Stop naming the scripts ORE Studio deleted
+#+description: Make every banner and message compass-ng generates name compass, not a Python script ORE Studio deleted, and report a generated header that names a script the checkout lacks.
+#+type: task
+#+level: s1
+#+filetags: :port_the_gates_compass_ng_lacks:sprint_01:v0:
+#+owner: marco
+#+branch: feature/stop-naming-deleted-scripts
+#+pr:
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-11-21
+#+updated: 2026-11-21
+#+environment:
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [[id:D2C581F3-DC01-4E1C-A7E4-5CC86F0F067C][Port the gates compass-ng lacks]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+Nothing compass-ng writes into a project sends its reader to a script the
+project has deleted. When ORE Studio deleted the Python generators whose
+gates compass-ng ports (#4946, #4950), the codecs still reproduced those
+generators' banners and fix messages: generated SQL, headers and pages said
+generate_value_sets.py, generate_output_catalogue.py and the like. This
+sweeps those texts and adds a rule that reports the next one.
+
+* Status
+
+| Field        | Value                                  |
+|--------------+----------------------------------------|
+| State        | STARTED                              |
+| Parent story | [[id:D2C581F3-DC01-4E1C-A7E4-5CC86F0F067C][Port the gates compass-ng lacks]] |
+| Now          | Built; in the v0.0.6 PR. |
+| Waiting on   | Nothing.                               |
+| Next         | Merge and release v0.0.6; ORE Studio regenerates. |
+| Last touched | 2026-11-21                               |
+
+* Acceptance
+
+- No banner, refusal or fix message of a codec names a script missing from
+  ORE Studio's main after #4950.
+- A regenerated file differs from the one it replaces only in its banner
+  lines.
+- names_missing_file, a rule every files codec declares, reports a script
+  named in the header of a generated file that the checkout lacks.
+
+* Plan
+
+- Listed the 86 script names in compass's sources and the 31 missing from
+  ORE Studio's tree at #4950's head; rewrote those that codecs emit, the
+  banners of the value sets, convention kind terms, output catalogue and
+  script library seed, and their refusals, keeping each banner's line
+  count.
+- The rule reads only a generated file's header, its first twenty lines,
+  where a codec says what generated it: text a codec copies from its
+  inputs further down is the inputs' own. Read over whole files, it
+  reported compass's rule table and document index, which copied the title
+  of an ORE Studio memory naming validate_schemas.sh; the memory was
+  removed.
+
+* Measurements
+
+Every number this task claims about a tree, with the command that produced it
+and the commit it was measured at. A number without both is not a measurement,
+because a clean-up record describes a tree and trunk moves under a branch: a
+consumer count, a gate's component count and a suite's size all change with no
+code changing, and the reader of a bare number cannot tell which tree it came
+from. Where the raw output matters, put it in an =evidence/= file beside the
+task and name that file in the Command column.
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+|      |       |         |        |
+
+* Notes
+
+* Test Scenarios
+
+Manual QA scenarios (scaffolded via =compass add test_scenario=)
+that verify this task. Link
+new ones here as they're created; the scenario doc itself links back
+via its "Verifies task" field.
+
+| Scenario | State | Notes |
+|----------+-------+-------|
+|          |       |       |
+
+* PRs
+
+| PR | Title |
+|----+-------|
+|    |       |
+
+* Review
+
+| # | Comment summary | File | Decision | Notes |
+|---+-----------------+------+----------+-------|
+|   |                 |      |          |       |
+
+* Result
