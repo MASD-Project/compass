@@ -385,7 +385,8 @@ std::expected<generated, std::string> generate(const types::env_format& f,
 
 status_report status_of(const types::env_format& f,
     std::span<const types::service> services, const values& existing) {
-    status_report out{.current = f.current()};
+    status_report out;
+    out.current = f.current();
     if (const auto it = existing.find(f.version_variable);
         it != existing.end()) {
         std::uint32_t n = 0;

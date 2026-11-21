@@ -44,7 +44,8 @@ std::expected<placeholder, std::string> placeholder_at(std::string_view text) {
     std::size_t i = 1;
     while (i < text.size() && name_char(text[i]))
         ++i;
-    placeholder p{.name = text.substr(1, i - 1)};
+    placeholder p;
+    p.name = text.substr(1, i - 1);
     if (p.name.empty())
         return std::unexpected(std::format("'{{' at \"{}\" opens no name; "
             "write {{{{ for a brace", text.substr(0, 20)));

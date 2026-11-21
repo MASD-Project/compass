@@ -149,7 +149,9 @@ struct reporter {
             .level = level,
             .message = std::move(message),
             .fix = std::move(fix),
-            .drift = {}});
+            .drift = {},
+            .subject = {},
+            .subject_text = {}});
     }
 };
 

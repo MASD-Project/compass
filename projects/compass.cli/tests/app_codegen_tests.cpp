@@ -230,6 +230,34 @@ TEST_CASE("one generate renders with the template it tangles, so check "
         !ContainsSubstring("passes"));
 }
 
+TEST_CASE("generate warns of hand-written lines only when its last pass "
+    "deletes them, not when an earlier pass's stale template did",
+    "[app][codegen][converge]") {
+    const std::string hand = "// kept by hand\n// so the template\n"
+                             "// now writes it\n";
+    scoped_git_repo repo;
+    set_up_tangled(repo, "int {{component.name}};\n");
+    REQUIRE(run_in_place(repo, "gen").status == 0);
+    repo.write("projects/ores.a/a.hpp", "int a;\n" + hand);
+
+    SECTION("the edited template writes the lines") {
+        set_up_tangled(repo, "int {{component.name}};\n" + hand);
+        const auto generated = run_in_place(repo, "gen");
+        CHECK(generated.status == 0);
+        CHECK(scoped_git_repo::read_file(header_in_place(repo)) ==
+            "int a;\n" + hand);
+        CHECK_THAT(generated.err, !ContainsSubstring("generate deleted"));
+    }
+    SECTION("the edited template does not write them") {
+        set_up_tangled(repo, "long {{component.name}};\n");
+        const auto generated = run_in_place(repo, "gen");
+        CHECK(generated.status == 0);
+        CHECK(scoped_git_repo::read_file(header_in_place(repo)) ==
+            "long a;\n");
+        CHECK_THAT(generated.err, ContainsSubstring("generate deleted"));
+    }
+}
+
 TEST_CASE("diff shows what one generate writes when an output is a "
     "template another codec renders", "[app][codegen][converge]") {
     scoped_git_repo repo;

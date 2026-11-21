@@ -57,6 +57,7 @@
 #include "compass.codec/ops/data_tables.hpp"
 #include "compass.codec/ops/dependencies.hpp"
 #include "compass.codec/ops/exceptions.hpp"
+#include "compass.codec/ops/hand_edits.hpp"
 #include "compass.codec/ops/outputs.hpp"
 #include "compass.codec/ops/parallel_for.hpp"
 #include "compass.codec/ops/registry.hpp"
@@ -343,7 +344,9 @@ types::finding drift_finding(std::string path, std::string_view source,
         .message = std::move(message),
         .fix = "run compass generate, or change the model or template "
                "that generates it",
-        .drift = std::move(sides)};
+        .drift = std::move(sides),
+        .subject = {},
+        .subject_text = {}};
 }
 
 /**
@@ -474,7 +477,9 @@ std::vector<types::finding> names_missing_of(
                     script),
                 .fix = "change the codec so it names a file the project "
                        "has, or restore the script",
-                .drift = {}});
+                .drift = {},
+                .subject = {},
+                .subject_text = {}});
         }
     }
     return out;
@@ -898,6 +903,26 @@ void count_earlier(codec::io::sink_result& sink,
 }
 
 /**
+ * @brief The hand edits generate deleted, judged once all its passes are
+ * done: the lines of each file in @p originals, as it was before generate
+ * wrote it, that the file under @p root now lacks. A pass can delete lines
+ * a later pass restores, as when it runs a template a later pass
+ * regenerates, so a pass's own judgement is only a candidate.
+ */
+std::vector<codec::io::hand_edit> hand_edits_left(
+    const std::filesystem::path& root,
+    const std::map<std::string, std::string>& originals) {
+    std::vector<codec::io::hand_edit> out;
+    for (const auto& [path, original] : originals) {
+        std::ifstream in(root / path, std::ios::binary);
+        const std::string now(std::istreambuf_iterator<char>(in), {});
+        if (auto block = codec::ops::dropped_hand_lines(original, now))
+            out.push_back({path, std::move(*block)});
+    }
+    return out;
+}
+
+/**
  * @brief Why generate or diff gave up after max_passes passes, naming
  * @p paths, the files of the checkout the last pass still changed that a
  * codec read.
@@ -918,6 +943,7 @@ types::generate_result generate(const types::options& o) {
     types::generate_result r;
     r.root = o.output_root;
     std::map<std::string, codec::io::output_action> earlier;
+    std::map<std::string, std::string> originals;
     for (r.passes = 1;; ++r.passes) {
         pipeline p;
         evaluate(p, o);
@@ -933,8 +959,7 @@ types::generate_result generate(const types::options& o) {
                 p.run);
         });
         add_pass(r.run, std::move(p.summary), r.passes);
-        std::ranges::move(written.hand_edits,
-            std::back_inserter(r.hand_edits));
+        originals.merge(written.before);
         r.sink = std::move(written.sink);
         if (!r.sink.problems.empty())
             break;
@@ -951,6 +976,7 @@ types::generate_result generate(const types::options& o) {
                 earlier[path] = action;
         }
     }
+    r.hand_edits = hand_edits_left(o.output_root, originals);
     r.ms = since(start);
     return r;
 }
@@ -1067,7 +1093,9 @@ void add_format_findings(const pipeline& p, const types::options& o,
                 .message = formatter + " formats this file differently",
                 .fix = "format it with " + formatter + ", as " +
                     std::string(d.name) + " configures it",
-                .drift = {}});
+                .drift = {},
+                .subject = {},
+                .subject_text = {}});
         }
     }
 }
@@ -1197,7 +1225,9 @@ void excuse_findings(const pipeline& p, const types::options& o,
             .level = codec::types::severity::error,
             .message = std::move(f.message),
             .fix = std::move(f.fix),
-            .drift = {}});
+            .drift = {},
+            .subject = {},
+            .subject_text = {}});
     r.findings = std::move(kept);
 }
 
@@ -1650,7 +1680,9 @@ void excuse_hook_findings(const pipeline& p, const types::options& o,
             .level = codec::types::severity::error,
             .message = std::move(f.message),
             .fix = std::move(f.fix),
-            .drift = {}});
+            .drift = {},
+            .subject = {},
+            .subject_text = {}});
     }
     findings = std::move(kept);
 }

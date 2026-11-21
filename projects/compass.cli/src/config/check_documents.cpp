@@ -487,7 +487,9 @@ parse_codec_document(std::string_view text, std::string_view path,
     const auto definition = r.heading("Definition");
     if (definition.is_none())
         return std::nullopt;
-    codec_data out{.path = std::string(path), .id = file_id(text)};
+    codec_data out;
+    out.path = std::string(path);
+    out.id = file_id(text);
     const auto [first, end] = r.properties_of(definition);
     for (auto p = first; p < end; ++p) {
         const ot::property_id id{p};
@@ -515,7 +517,8 @@ parse_codec_document(std::string_view text, std::string_view path,
                 "document's headings");
     }
 
-    codec::ops::data_tables data{.source = std::string(path)};
+    codec::ops::data_tables data;
+    data.source = std::string(path);
     for (std::uint32_t h = 0; h < tables.headings.size(); ++h) {
         const ot::heading_id id{h};
         if (tables.headings.levels[id] != 1)
@@ -528,8 +531,9 @@ parse_codec_document(std::string_view text, std::string_view path,
         const auto table = r.table_under(title);
         if (table.is_none())
             continue;
-        codec::ops::data_table t{.name = title,
-            .line = r.line_of_heading(id)};
+        codec::ops::data_table t;
+        t.name = title;
+        t.line = r.line_of_heading(id);
         bool header = true;
         for (const auto row : r.rows(table, "")) {
             std::vector<std::string> cells;

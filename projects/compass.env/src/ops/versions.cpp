@@ -137,7 +137,8 @@ std::optional<table> table_under(const std::vector<std::string>& lines,
             break;
     if (i >= lines.size() || lines[i].starts_with("* "))
         return std::nullopt;
-    table t{.first = i};
+    table t;
+    t.first = i;
     for (; i < lines.size() && trim(lines[i]).starts_with('|'); ++i) {
         const auto line = trim(lines[i]);
         if (line.starts_with("|-"))
