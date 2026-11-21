@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :port_the_gates_compass_ng_lacks:sprint_01:v0:
 #+owner: marco
-#+branch: feature/port-xml-bindings-drift
-#+pr:
+#+branch: feature/xml-bindings-codec
+#+pr: 131
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-21
@@ -32,20 +32,38 @@ script's second, determinism run.
 |--------------+----------------------------------------|
 | State        | STARTED                              |
 | Parent story | [[id:D2C581F3-DC01-4E1C-A7E4-5CC86F0F067C][Port the gates compass-ng lacks]] |
-| Now          | Being ported. |
+| Now          | Built; byte-identical to ORE Studio's committed codec tables. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Review and merge; then ORE enables the codec and drops the script. |
 | Last touched | 2026-11-21                               |
 
 * Acceptance
 
--
+- On ORE Studio's main, =compass check --codec xml_bindings= reports
+  nothing and =compass diff= leaves every generated file unchanged.
+- An edit to a generated file is reported as drift.
+- The cases of =test_generate_xml_bindings_derivation.py= pass as Catch2
+  tests.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Ported by a subagent; reviewed, rebased onto the single-writer merge
+  and verified again here.
+- =ops::xml_bindings= is the generator, a port of
+  =generate_xml_bindings.py=: it reads the XSDs through the corpus view
+  with compass's expat wrapper, and keeps the script's in-place edits to
+  the schema tree and its tables keyed by node, because the output
+  depends on them. =codecs::xml_bindings= runs it per family and formats
+  with clang-format through the format cache, with the same options as
+  =ore_output_catalogue=.
+- The 13 families of =regenerate_xml_bindings.sh= are a table in the
+  codec, each row its stem, root element and type, schemas and
+  exact-decimal elements; the accessor, namespace, include and paths
+  follow from the stem.
+- A family whose schemas are missing, or that the generator refuses, is a
+  =refused= finding and writes nothing; the others are still written.
+- The script's second, determinism run is dropped, as the gates-as-codecs
+  story decided.
 
 * Measurements
 
@@ -59,7 +77,9 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Generated files on ORE Studio's main | 26, all unchanged; 0 findings | =compass check --codec xml_bindings= and =compass diff= on an export of =projects/ores.ore=, =external/ore/xsd= and =.clang-format= | ORE =e2c161d69b= |
+| An edit to a generated header | reported as =xml_bindings/drift= on its line | the same check after editing line 42 of =calendar_adjustments.hpp= | the same |
+| Unformatted output against the script's | identical for all 26 files, 108 ms against about 4 s | =compass gen --set xml_bindings.clang_format== and =diff -r= | ORE =9f30c82fb8= |
 
 * Notes
 

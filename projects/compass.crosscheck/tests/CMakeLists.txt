@@ -40,7 +40,8 @@ add_executable(${tests_target_name}
     codecs_script_library_seed_tests.cpp
     codecs_single_writer_tests.cpp
     codecs_subject_conformance_tests.cpp
-    codecs_value_sets_tests.cpp)
+    codecs_value_sets_tests.cpp
+    codecs_xml_bindings_tests.cpp)
 
 target_link_libraries(${tests_target_name}
     PRIVATE
