@@ -882,7 +882,7 @@ using rows = std::vector<std::vector<std::string>>;
 
 /**
  * @brief The lines of the licence comment a project's Licence table holds:
- * the text of each line, without the comment's leading * or /*.
+ * the text of each line, without the comment's leading star or opener.
  */
 rows licence_lines() {
     return {{"-*- mode: c++; tab-width: 4; indent-tabs-mode: nil; "

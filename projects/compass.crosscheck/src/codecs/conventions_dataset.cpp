@@ -863,7 +863,11 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
         }
 
         std::map<std::string, std::string, std::less<>> index_map;
-        for (const auto line : co::split_lines(text_of_file(*map))) {
+        // Named, because a range-for keeps alive only the outermost
+        // temporary before C++23's P2718, which MSVC lacks, and the lines
+        // view this text.
+        const auto map_text = text_of_file(*map);
+        for (const auto line : co::split_lines(map_text)) {
             if (co::strip(line).empty())
                 continue;
             const auto tab = line.find('\t');

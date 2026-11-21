@@ -658,7 +658,11 @@ void reduce(std::span<const ct::scanned_file> scanned,
         }
 
         std::map<std::string, std::string, std::less<>> index_map;
-        for (const auto line : co::split_lines(text_of(*index_map_bytes))) {
+        // Named, because a range-for keeps alive only the outermost
+        // temporary before C++23's P2718, which MSVC lacks, and the lines
+        // view this text.
+        const auto index_map_text = text_of(*index_map_bytes);
+        for (const auto line : co::split_lines(index_map_text)) {
             const auto parts = ops::split(line, '\t');
             if (parts.size() == 2)
                 index_map.insert_or_assign(std::string(parts[0]),

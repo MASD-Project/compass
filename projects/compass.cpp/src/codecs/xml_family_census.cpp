@@ -107,7 +107,11 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
     for (const auto p : v.list_files(generated, ".cpp")) {
         if (p.find('/', generated.size()) != std::string_view::npos)
             continue;
-        for (const auto& m : binding.find_all(v.read_file(p).value_or("")))
+        // Named, because a range-for keeps alive only the outermost
+        // temporary before C++23's P2718, which MSVC lacks, and the matches
+        // view this text.
+        const auto text = v.read_file(p).value_or("");
+        for (const auto& m : binding.find_all(text))
             tabled.emplace(m.group(1));
     }
 
