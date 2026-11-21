@@ -25,17 +25,20 @@
 namespace compass::crosscheck::codecs {
 
 /**
- * @brief ORE Studio's route-inventory generator (route_inventory.py
- * --write): http_route_inventory.org, every route the BFF and ores.http
- * register, decided by route_classification.py and paired by
- * route_pairing.py, with the area map, the composed views and the
- * coverage. The decisions, pairs, families and the page's header are read
- * from those modules through the Python literal reader.
+ * @brief The HTTP route inventory: http_route_inventory.org, every route
+ * the BFF and ores.http register, decided by the rules and exemptions of
+ * the check document whose Definition names this codec, and paired by its
+ * pairs and families, with the area map, the composed views and the
+ * coverage. The document gives the page's head, the kind of a composed
+ * view and the area of a route that publishes none; a missing table or
+ * column, or a row that does not read, is reported as unreadable and
+ * writes nothing.
  *
- * The script's --check also fails on a registration it cannot read, a
- * decision with no published kind, area or note, and a pair naming a route
- * neither server answers; those judge sources, not the page, and this
- * codec does not report them.
+ * The inventory was written by ORE Studio's route_inventory.py --write,
+ * whose --check also failed on a registration it could not read, a
+ * decision with no published kind, area or note, and a pair naming a
+ * route neither server answers; those judge sources, not the page, and
+ * this codec does not report them.
  */
 extern const compass::codec::types::descriptor route_inventory;
 

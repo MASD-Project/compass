@@ -270,9 +270,16 @@ because each reads one kind of artefact and writes another:
   pipes them through it.
 - *=route_inventory=.* =route-inventory= (=route_inventory.py --write=):
   =http_route_inventory.org=, every route the BFF and =ores.http=
-  register, decided by =route_classification.py= and paired by
-  =route_pairing.py=. The script's other =--check= verdicts judge sources
-  and are not ported.
+  register, decided and paired by the seven tables of the project's check
+  document for the codec: the page's =Head=, the =Settings= naming the
+  composed kind and the area of a route that publishes none, the ordered
+  =Rules=, the =Exemptions=, the composed =Views=' obligations, and the
+  =Pairs= and =Families=. They were the script's =HEADER= and the
+  literals of =route_classification.py= and =route_pairing.py=; nothing
+  is read from the Python. A missing table or column, or a row that does
+  not read (an unknown match or need, a regex that does not compile, a key
+  stated twice), is =unreadable=. The script's other =--check= verdicts
+  judge sources and are not ported.
 - *=ore_output_catalogue=.* =ore-output-catalogue=
   (=generate_output_catalogue.py=): the output catalogue data and the
   output formats page, from the output samples ORE ships, read with
@@ -422,8 +429,9 @@ file a good run wrote. Every generator here declares that one rule,
 =ops::refusal_rules= of =compass.cpp=: =curve_sections_wiring=,
 =ore_renderings_tables=, =script_library_seed=, =ore_output_catalogue=
 (which adds =unreadable=),
-=er_diagram=, =conventions_dataset=, =route_inventory=,
-=ore_value_sets= and =xml_bindings= (which adds =unreadable=). At 545cafca45 =ore_value_sets= refuses twice, the
+=er_diagram=, =conventions_dataset=, =route_inventory= (which adds
+=unreadable=), =ore_value_sets= and =xml_bindings= (which adds
+=unreadable=). At 545cafca45 =ore_value_sets= refuses twice, the
 convention kind terms and the value set seed, both on =r.id=.
 
 Where a script reads a file with a strict UTF-8 decode and would stop on a

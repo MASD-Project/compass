@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-205 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 58 are cited by no rule.
+206 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 58 are cited by no rule.
 
 ** Rules
 
@@ -162,6 +162,7 @@ memories no rule cites are the candidates for the next checks.
 | =route_auth= | route_without_auth | Every add_route call states its authentication position: auth_required, auth_optional or roles. |  |
 | =route_auth= | too_few_routes | The scan finds at least 20 add_route calls, so a pattern that stops matching fails rather than passes. |  |
 | =route_inventory= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
+| =route_inventory= | unreadable | The check document gives every table and column the inventory is written from, and each row reads: a setting the codec has, a match it knows, a regex that compiles, a need it knows, and one row per key. |  |
 | =rule_identifiers= | unkeyed_section | No rule carries an identifier in a section the pages do not key. |  |
 | =rule_identifiers= | no_identifier | Every rule of a keyed section starts with its identifier. | =00BA1689-B060-4BD8-BC46-67034D663B7F= |
 | =rule_identifiers= | foreign_code | A rule's identifier carries its own page's code. |  |

@@ -67,7 +67,7 @@ This page lists every check and generator compass runs on this repository, and t
 | =rls_coverage= | no | check | error | Reports each table with tenant_id that does not enable row-level security, and each with party_id that has no restrictive party policy, as the er-diagram gate does. | built into compass |
 | =rls_widenings= | no | check | error | Reports each row-level security policy that admits the system tenant to every tenant's rows. | built into compass |
 | =route_auth= | no | check | error | Reports each HTTP route registered with no authentication position. | built into compass |
-| =route_inventory= | no | generator | error | Writes the HTTP route inventory from the routes the BFF and ores.http register and the route classification and pairing. | built into compass |
+| =route_inventory= | no | generator | error | Writes the HTTP route inventory from the routes the BFF and ores.http register and the decisions, views, pairs and families of its check document. | built into compass |
 | =rule_identifiers= | no | check | error | Reports each UX rule without its one identifier, and each checklist line whose citations do not resolve. | built into compass |
 | =script_library_seed= | no | generator | error | Writes the script library seed from ORE's script library. | built into compass |
 | =service_integrity= | no | check | error | Reports each service that is not whole: unregistered, without its part, or missing an obligation the project's check document lists, and each second list of the services. | built into compass |
@@ -824,7 +824,7 @@ Reports each HTTP route registered with no authentication position.
 
 *** route_inventory
 
-Writes the HTTP route inventory from the routes the BFF and ores.http register and the route classification and pairing.
+Writes the HTTP route inventory from the routes the BFF and ores.http register and the decisions, views, pairs and families of its check document.
 
 - Kind: generator.
 - Severity: error.
@@ -833,6 +833,7 @@ Writes the HTTP route inventory from the routes the BFF and ores.http register a
 | Rule | Statement |
 |------+-----------|
 | =refused= | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |
+| =unreadable= | The check document gives every table and column the inventory is written from, and each row reads: a setting the codec has, a match it knows, a regex that compiles, a need it knows, and one row per key. |
 | =drift= | Every file a codec generates holds what the codec generates from its inputs; nobody edits it by hand. |
 | =names_missing_file= | The header of every file a codec generates names only scripts the checkout holds. |
 

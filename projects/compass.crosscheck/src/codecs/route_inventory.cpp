@@ -20,6 +20,10 @@
 #include "compass.crosscheck/codecs/route_inventory.hpp"
 
 #include <algorithm>
+#include <array>
+#include <expected>
+#include <format>
+#include <stdexcept>
 #include <map>
 #include <memory>
 #include <optional>
@@ -28,11 +32,11 @@
 #include <string_view>
 #include <tuple>
 #include <vector>
+#include "compass.codec/ops/data_tables.hpp"
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.cpp/ops/glob.hpp"
 #include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
-#include "compass.crosscheck/ops/python_literals.hpp"
 #include "compass.platform/text/regex.hpp"
 
 namespace compass::crosscheck::codecs {
@@ -42,17 +46,51 @@ namespace {
 namespace ct = compass::codec::types;
 namespace co = compass::cpp::ops;
 namespace pt = compass::platform::text;
-using ops::python_value;
+namespace cops = compass::codec::ops;
 
+constexpr std::string_view codec_name = "route_inventory";
+constexpr std::string_view check_document =
+    "compass/checks/route_inventory.org";
 constexpr std::string_view inventory_path =
     "doc/knowledge/architecture/http_route_inventory.org";
-constexpr std::string_view script_path = "build/scripts/route_inventory.py";
-constexpr std::string_view classification_path =
-    "build/scripts/route_classification.py";
-constexpr std::string_view pairing_path = "build/scripts/route_pairing.py";
+
+constexpr std::uint32_t unreadable = 1;
+
+constexpr std::array<ct::rule, 2> rules{{
+    co::refusal_rules[0],
+    {"unreadable", "The check document gives every table and column the "
+        "inventory is written from, and each row reads: a setting the codec "
+        "has, a match it knows, a regex that compiles, a need it knows, and "
+        "one row per key."}}};
+
+constexpr std::array<std::string_view, 1> head_columns{"line"};
+constexpr std::array<std::string_view, 2> setting_columns{"setting",
+    "value"};
+constexpr std::array<std::string_view, 7> rule_columns{"name", "match",
+    "pattern", "server", "kind", "area", "note"};
+constexpr std::array<std::string_view, 7> exemption_columns{"server",
+    "method", "path", "name", "kind", "area", "note"};
+constexpr std::array<std::string_view, 4> view_columns{"view", "owner",
+    "computation", "cache policy"};
+constexpr std::array<std::string_view, 4> pair_columns{"BFF method",
+    "BFF path", "C++ method", "C++ path"};
+constexpr std::array<std::string_view, 7> family_columns{"BFF method",
+    "BFF path", "registry", "array", "C++ method", "C++ path", "needs"};
+
+constexpr std::array<cops::table_need, 7> needed{{
+    {"Head", head_columns},
+    {"Settings", setting_columns},
+    {"Rules", rule_columns},
+    {"Exemptions", exemption_columns},
+    {"Views", view_columns},
+    {"Pairs", pair_columns},
+    {"Families", family_columns}}};
+
+constexpr std::array<std::string_view, 4> needs{"every", "one_key",
+    "list_by", "writable"};
 
 /**
- * @brief Where the script stops without writing, and why when known.
+ * @brief Where the codec stops without writing, and why.
  */
 struct stop {
     std::string why;
@@ -85,8 +123,14 @@ struct rule {
 using key3 = std::tuple<std::string, std::string, std::string>;
 using key2 = std::pair<std::string, std::string>;
 
+/**
+ * @brief A BFF route that serves every resource of a registry at one
+ * address: the registry file and its array, the C++ method and address,
+ * and which resources must answer it.
+ */
 struct family {
-    std::string spec;
+    std::string registry;
+    std::string array;
     std::string method;
     std::string tpl;
     std::string needs;
@@ -103,118 +147,145 @@ struct tables {
     std::map<key2, family> families;
 };
 
+std::string joined(const std::vector<std::string>& parts,
+    std::string_view separator) {
+    std::string out;
+    for (std::size_t i = 0; i < parts.size(); ++i) {
+        if (i > 0)
+            out += separator;
+        out += parts[i];
+    }
+    return out;
+}
+
 std::string read(const ct::corpus_view& v, std::string_view path) {
     auto text = v.read_file(path);
     if (!text)
-        throw stop{ops::python_source_problem("route_inventory", path,
-            "its route tables", false)};
+        throw stop{"cannot read " + std::string(path)};
     return std::move(*text);
 }
 
-python_value module_value(std::string_view source, std::string_view name,
-    const std::map<std::string, std::string, std::less<>>& constants) {
-    const auto raw = ops::python_assignment(source, name);
-    if (!raw)
-        throw stop{};
-    auto v = ops::resolved(*raw, constants);
-    if (!v)
-        throw stop{};
-    return std::move(*v);
-}
-
-const std::string& text_of(const python_value& v) {
-    if (v.what != python_value::kind::string)
-        throw stop{};
-    return v.text;
-}
-
 /**
- * @brief The argument of a dataclass call at @p index, or its keyword.
+ * @brief The tables of the check document, or why a row does not read,
+ * written for the reader of the finding.
  */
-const python_value& argument(const python_value& call, std::size_t index,
-    std::string_view keyword) {
-    if (index < call.items.size())
-        return call.items[index];
-    for (const auto& e : call.entries)
-        if (e.key == keyword)
-            return e.value;
-    throw stop{};
-}
+std::expected<tables, std::string> read_document(
+    const cops::data_tables& data) {
+    const auto wrong = [&](const cops::data_table& table, std::uint32_t line,
+                           const std::string& what) {
+        return std::unexpected(std::format("{}:{}: {}, in the table \"{}\" "
+            "{} reads", data.source, line, what, table.name, codec_name));
+    };
+    const auto cell = [](const cops::data_table& table, std::size_t r,
+                          std::string_view column) -> const std::string& {
+        return table.rows[r][table.column(column)];
+    };
+    tables out;
 
-std::vector<std::string> strings(const python_value& v) {
-    auto s = ops::strings_of(v);
-    if (!s)
-        throw stop{};
-    return *s;
-}
+    const auto& h = *data.find("Head");
+    std::vector<std::string> head;
+    for (std::size_t r = 0; r < h.rows.size(); ++r)
+        head.push_back(cell(h, r, "line"));
+    out.header = joined(head, "\n");
 
-std::vector<std::string> key_strings(const ops::python_entry& e) {
-    return strings({python_value::kind::sequence, {}, e.key_items, {}});
-}
+    const auto& s = *data.find("Settings");
+    const std::array<std::pair<std::string_view, std::string*>, 2> settings{{
+        {"composed kind", &out.composed}, {"no area", &out.no_area}}};
+    std::set<std::string, std::less<>> seen;
+    for (std::size_t r = 0; r < s.rows.size(); ++r) {
+        const auto& name = cell(s, r, "setting");
+        const auto key = std::ranges::find(settings, name,
+            &std::pair<std::string_view, std::string*>::first);
+        if (key == settings.end())
+            return wrong(s, s.row_lines[r], "the setting '" + name +
+                "' is not one " + std::string(codec_name) + " has");
+        if (!seen.insert(name).second)
+            return wrong(s, s.row_lines[r], "the setting '" + name +
+                "' is stated twice");
+        if (cell(s, r, "value").empty())
+            return wrong(s, s.row_lines[r], "the setting '" + name +
+                "' has no value");
+        *key->second = cell(s, r, "value");
+    }
+    for (const auto& [name, _] : settings)
+        if (!seen.contains(name))
+            return wrong(s, s.line, "no row states the setting '" +
+                std::string(name) + "'");
 
-tables read_tables(const ct::corpus_view& v) {
-    tables t;
-    const auto script = read(v, script_path);
-    const auto header = ops::python_assignment(script, "HEADER");
-    if (!header || header->what != python_value::kind::string)
-        throw stop{};
-    t.header = header->text;
-
-    const auto source = read(v, classification_path);
-    const auto constants = ops::python_string_constants(source);
-    t.composed = text_of(module_value(source, "COMPOSED", constants));
-    t.no_area = text_of(module_value(source, "NO_AREA", constants));
-    for (const auto& r : module_value(source, "RULES", constants).items) {
+    const auto& rl = *data.find("Rules");
+    for (std::size_t r = 0; r < rl.rows.size(); ++r) {
         rule x;
-        x.d.name = text_of(argument(r, 0, "name"));
-        const auto match = strings(argument(r, 1, "match"));
-        if (match.size() != 2)
-            throw stop{};
-        x.shape = match[0];
-        x.pattern = match[1];
-        const auto& server = argument(r, 2, "server");
-        if (server.what == python_value::kind::string)
-            x.server = server.text;
-        x.d.kind = text_of(argument(r, 3, "kind"));
-        x.d.area = text_of(argument(r, 4, "area"));
-        x.d.note = text_of(argument(r, 5, "note"));
-        if (x.shape != "exact" && x.shape != "prefix")
-            x.compiled = std::make_shared<pt::regex>(x.pattern);
-        t.rules.push_back(std::move(x));
+        x.d = {cell(rl, r, "name"), cell(rl, r, "kind"), cell(rl, r, "area"),
+            cell(rl, r, "note")};
+        x.shape = cell(rl, r, "match");
+        x.pattern = cell(rl, r, "pattern");
+        if (const auto& server = cell(rl, r, "server"); !server.empty())
+            x.server = server;
+        if (x.shape == "regex") {
+            try {
+                x.compiled = std::make_shared<pt::regex>(x.pattern);
+            } catch (const std::invalid_argument& e) {
+                return wrong(rl, rl.row_lines[r], "the pattern of the rule '" +
+                    x.d.name + "' does not compile: " + e.what());
+            }
+        } else if (x.shape != "exact" && x.shape != "prefix") {
+            return wrong(rl, rl.row_lines[r], "the rule '" + x.d.name +
+                "' matches by '" + x.shape + "', not exact, prefix or regex");
+        }
+        out.rules.push_back(std::move(x));
     }
-    for (const auto& e : module_value(source, "EXCEPTIONS", constants).entries) {
-        const auto k = key_strings(e);
-        if (k.size() != 3)
-            throw stop{};
-        t.exceptions.insert_or_assign({k[0], k[1], k[2]},
-            decision{text_of(argument(e.value, 0, "name")),
-                text_of(argument(e.value, 1, "kind")),
-                text_of(argument(e.value, 2, "area")),
-                text_of(argument(e.value, 3, "note"))});
-    }
-    for (const auto& e : module_value(source, "VIEWS", constants).entries)
-        t.views.insert_or_assign(e.key, strings(e.value));
 
-    const auto pairing = read(v, pairing_path);
-    const auto pairing_constants = ops::python_string_constants(pairing);
-    for (const auto& e :
-        module_value(pairing, "PAIRS", pairing_constants).entries) {
-        const auto k = key_strings(e);
-        const auto target = strings(e.value);
-        if (k.size() != 2 || target.size() != 2)
-            throw stop{};
-        t.pairs.insert_or_assign({k[0], k[1]}, key2{target[0], target[1]});
+    const auto& e = *data.find("Exemptions");
+    for (std::size_t r = 0; r < e.rows.size(); ++r) {
+        key3 key{cell(e, r, "server"), cell(e, r, "method"),
+            cell(e, r, "path")};
+        if (!out.exceptions.emplace(std::move(key), decision{
+                cell(e, r, "name"), cell(e, r, "kind"), cell(e, r, "area"),
+                cell(e, r, "note")}).second)
+            return wrong(e, e.row_lines[r], "the route " + cell(e, r,
+                "method") + " " + cell(e, r, "path") + " of " + cell(e, r,
+                "server") + " is exempted twice");
     }
-    for (const auto& e :
-        module_value(pairing, "FAMILIES", pairing_constants).entries) {
-        const auto k = key_strings(e);
-        const auto f = strings(e.value);
-        if (k.size() != 2 || f.size() != 4)
-            throw stop{};
-        t.families.insert_or_assign({k[0], k[1]}, family{f[0], f[1], f[2],
-            f[3]});
+
+    const auto& w = *data.find("Views");
+    for (std::size_t r = 0; r < w.rows.size(); ++r) {
+        if (!out.views.emplace(cell(w, r, "view"), std::vector<std::string>{
+                cell(w, r, "owner"), cell(w, r, "computation"),
+                cell(w, r, "cache policy")}).second)
+            return wrong(w, w.row_lines[r], "the view '" + cell(w, r, "view") +
+                "' is stated twice");
     }
-    return t;
+
+    const auto& p = *data.find("Pairs");
+    for (std::size_t r = 0; r < p.rows.size(); ++r) {
+        if (!out.pairs.emplace(key2{cell(p, r, "BFF method"),
+                cell(p, r, "BFF path")}, key2{cell(p, r, "C++ method"),
+                cell(p, r, "C++ path")}).second)
+            return wrong(p, p.row_lines[r], "the BFF route " + cell(p, r,
+                "BFF method") + " " + cell(p, r, "BFF path") +
+                " is paired twice");
+    }
+
+    const auto& f = *data.find("Families");
+    for (std::size_t r = 0; r < f.rows.size(); ++r) {
+        family x{cell(f, r, "registry"), cell(f, r, "array"),
+            cell(f, r, "C++ method"), cell(f, r, "C++ path"),
+            cell(f, r, "needs")};
+        const auto route = cell(f, r, "BFF method") + " " +
+            cell(f, r, "BFF path");
+        if (x.registry.empty() || x.array.empty())
+            return wrong(f, f.row_lines[r], "the family " + route +
+                " names no registry or array");
+        if (!std::ranges::contains(needs, x.needs))
+            return wrong(f, f.row_lines[r], "the family " + route +
+                " needs '" + x.needs + "', not every, one_key, list_by or "
+                "writable");
+        if (!out.families.emplace(key2{cell(f, r, "BFF method"),
+                cell(f, r, "BFF path")}, std::move(x)).second)
+            return wrong(f, f.row_lines[r], "the family " + route +
+                " is stated twice");
+    }
+    return out;
 }
 
 std::string upper(std::string_view s) {
@@ -323,19 +394,9 @@ const decision* decide(const tables& t, const route& r) {
     return nullptr;
 }
 
-std::string joined(const std::vector<std::string>& parts,
-    std::string_view separator) {
-    std::string out;
-    for (std::size_t i = 0; i < parts.size(); ++i) {
-        if (i > 0)
-            out += separator;
-        out += parts[i];
-    }
-    return out;
-}
-
 /**
- * @brief Areas in the script's order: (none) last, the rest by name.
+ * @brief Areas in the inventory's order: the no-area setting last, the
+ * rest by name.
  */
 bool area_before(std::string_view a, std::string_view b,
     std::string_view none) {
@@ -440,11 +501,8 @@ void composed_views(const ct::corpus_view& v, const tables& t,
     const auto modules = client_modules(v);
     for (const auto& [name, addresses] : views) {
         std::vector<std::string> obligations(3);
-        if (const auto o = t.views.find(name); o != t.views.end()) {
-            if (o->second.size() != 3)
-                throw stop{};
+        if (const auto o = t.views.find(name); o != t.views.end())
             obligations = o->second;
-        }
         auto sorted = addresses;
         std::ranges::sort(sorted);
         const auto& first = addresses.front();
@@ -504,7 +562,7 @@ std::optional<resource> resource_of(const std::string& members) {
 }
 
 std::vector<resource> registry_resources(const ct::corpus_view& v,
-    std::string_view spec) {
+    const family& f) {
     static const pt::regex array_re(R"(^(?:export )?const (\w+)\b[^=]*= \[\n(.*?)^\];)",
         {.dotall = true, .multiline = true});
     static const pt::regex entry_re(R"(^    \{\n(.*?)^    \},?$)",
@@ -514,9 +572,8 @@ std::vector<resource> registry_resources(const ct::corpus_view& v,
         {.dotall = true, .multiline = true});
     static const pt::regex spread_entry(R"(^        \{\n(.*?)^        \},?$)",
         {.dotall = true, .multiline = true});
-    const auto colon = spec.rfind(':');
-    const auto text = read(v, spec.substr(0, colon));
-    const auto name = spec.substr(colon + 1);
+    const auto text = read(v, f.registry);
+    const auto& name = f.array;
     std::optional<std::string> array;
     for (const auto& m : array_re.find_all(text))
         if (m.group(1) == name) {
@@ -540,12 +597,12 @@ std::vector<resource> registry_resources(const ct::corpus_view& v,
 
 std::size_t family_targets(const ct::corpus_view& v, const family& f) {
     std::size_t n = 0;
-    for (const auto& r : registry_resources(v, f.spec)) {
-        const bool needed = f.needs == "every" ? true
-            : f.needs == "one_key" ? r.one_key
-            : f.needs == "list_by" ? r.list_by
-            : f.needs == "writable" ? r.writable : throw stop{};
-        n += needed ? 1 : 0;
+    for (const auto& r : registry_resources(v, f)) {
+        const bool answers = f.needs == "every" ||
+            (f.needs == "one_key" && r.one_key) ||
+            (f.needs == "list_by" && r.list_by) ||
+            (f.needs == "writable" && r.writable);
+        n += answers ? 1 : 0;
     }
     return n;
 }
@@ -611,8 +668,21 @@ std::string rstrip(std::string_view s) {
 }
 
 void run(const ct::corpus_view& v, ct::file_output& out) {
+    const auto data = cops::tables_for(codec_name, v.option(cops::data_option),
+        needed);
+    if (!data) {
+        co::report(out.refusals, check_document, 0, unreadable, data.error(),
+            "Give the tables the message names.");
+        return;
+    }
+    const auto document = read_document(*data);
+    if (!document) {
+        co::report(out.refusals, data->source, 0, unreadable,
+            document.error(), "Correct the row the message names.");
+        return;
+    }
+    const auto& t = *document;
     try {
-        const auto t = read_tables(v);
         const auto found = routes(v);
         std::size_t bff = 0;
         for (const auto& r : found)
@@ -639,24 +709,29 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
         lines.emplace_back();
         out.files.add(inventory_path, joined(lines, "\n"));
     } catch (const stop& s) {
-        co::refuse(out, inventory_path, s.why.empty() ? "the routes or the "
-            "route tables do not read as " + std::string(script_path) +
-            " reads them" : s.why, "Run " + std::string(script_path) +
-            ", which names the problem, and correct the table or route it "
-            "names.");
+        co::refuse(out, inventory_path, s.why, "Restore the file, or correct "
+            "the family that names it in " + data->source + ".");
     }
 }
+
+constexpr std::array<ct::option, 1> options{{
+    {cops::data_option, "", "The tables of the check document whose "
+        "Definition names this codec: the inventory's head, the kind and "
+        "area the codec gives a meaning to, the rules and exemptions that "
+        "decide each route, the composed views' obligations, and the pairs "
+        "and families that pair BFF routes with C++ ones."}}};
 
 }
 
 const ct::descriptor route_inventory{
     .name = "route_inventory",
-    .version = 1,
+    .version = 2,
     .summary = "Writes the HTTP route inventory from the routes the BFF and "
-               "ores.http register and the route classification and pairing.",
+               "ores.http register and the decisions, views, pairs and "
+               "families of its check document.",
     .reads = ct::inputs::of_types({}),
-    .options = {},
-    .rules = co::refusal_rules,
+    .options = options,
+    .rules = rules,
     .enabled_by_default = false,
     .run = ct::corpus_function<ct::file_output>{run}};
 
