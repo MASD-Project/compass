@@ -22,11 +22,11 @@ The story has two parts. First, a check that every commit on a branch, and its p
 
 | Field         | Value                                  |
 |---------------+----------------------------------------|
-| State         | STARTED                              |
+| State         | DONE                                   |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
-| Now           | The trailer and pull request check is in flight. |
+| Now           | Released in v0.0.7. |
 | Waiting on    | Nothing.                               |
-| Next          | Build blame, line and bisect first, then the added and drift methods; release in v0.0.7. |
+| Next          | Nothing. |
 | Last touched  | 2026-11-21                               |
 
 * Acceptance
@@ -40,13 +40,15 @@ The story has two parts. First, a check that every commit on a branch, and its p
 
 | Task | State | Start | End | Description |
 |------+-------+-------+-----+-------------|
-| Require story, task and environment on every commit and pull request | STARTED | 2026-11-21 | | The trailer and pull request check, beside the ratchet. |
-| Trace a finding to its likely cause | BACKLOG | | | =compass blame= and =check --blame=: per-rule methods, line, added, drift and bisect. |
+| Require story, task and environment on every commit and pull request | DONE | 2026-11-21 | 2026-11-21 | The trailer and pull request check, beside the ratchet. PR #141; trailers past a closing =Co-Authored-By= read since PR #144. |
+| Trace a finding to its likely cause | DONE | 2026-11-21 | 2026-11-21 | =check= blames findings already on main and writes one message per environment; =compass blame= traces one. PRs #144, #148. |
 
 * Decisions
 
 - 2026-11-21: blame is check-dependent, so each rule declares its tracing method, bisect by default, and the answer always names the method, so a guess is not read as a verdict. (Product owner agreed.)
 - 2026-11-21: both parts ship in v0.0.7, the trailer check first, since blame reads the trailers. (Product owner.)
+- 2026-11-21: blame runs inside =check= and addresses the agent reading it, one message per environment to forward. (Product owner.)
+- 2026-11-21: git stays a command, run directly rather than through =sh=, not libgit2. The Windows failure was the =sh= wrapper, compass already reads git objects natively, and libgit2 lacks the pickaxe and =--follow= blame relies on. If profiling shows the count of git processes is the cost, extend compass's own commit walker first. (Product owner agreed.)
 
 * Out of scope
 
