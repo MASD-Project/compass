@@ -100,9 +100,10 @@ types::ratchet_split split_new(std::span<const types::finding> base,
             group->second.erase(group->second.begin());
             excused[i] = true;
         }
-        if (excused[i])
+        if (excused[i]) {
             ++out.excused;
-        else
+            out.inherited.push_back(current[i]);
+        } else
             out.fresh.push_back(current[i]);
     }
     return out;

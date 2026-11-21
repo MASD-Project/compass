@@ -49,8 +49,8 @@ void write_diff(std::ostream& out, std::ostream& err,
 
 /**
  * @brief Writes each finding to @p out as
- * path:line:column: rule: message (fix: fix), then their count; the
- * problems go to @p err.
+ * path:line:column: rule: message (fix: fix), what blaming them found, as
+ * write_blame writes it, then their count; the problems go to @p err.
  */
 void write_check(std::ostream& out, std::ostream& err,
     const types::check_result& r);
@@ -64,8 +64,24 @@ void write_check(std::ostream& out, std::ostream& err,
 void write_provenance(std::ostream& out, const types::provenance_result& r);
 
 /**
+ * @brief Writes what blaming findings found to @p out, for the agent that
+ * reads it: a line that counts them, then, for each environment the
+ * findings already on main trace to, one message to pass on as it is,
+ * naming the environment, or, when the commits state none, the author and
+ * pull request of each, and listing each finding with its commit, pull
+ * request, trailers, the method that found it and its fix. A guess, any
+ * method but line, says "likely". The findings blame could not trace
+ * follow, with why. Findings whose commits main does not hold are the
+ * branch's own: counted, and listed only when @p all. Nothing when
+ * nothing was blamed.
+ */
+void write_blame(std::ostream& out, const types::blame_report& r,
+    bool all = false);
+
+/**
  * @brief Writes each new finding of @p r to @p out as write_check does,
- * the provenance line, then their count, how many were excused and the
+ * the provenance line, what blaming the inherited findings found, then
+ * their count, how many were excused and the
  * merge base; the problems of both checks go to @p err, those of the
  * merge base marked.
  */

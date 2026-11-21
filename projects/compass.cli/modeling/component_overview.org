@@ -58,6 +58,7 @@ thing with what the codecs produced:
 | =check=           | Prints every diagnostic as =path:line:column: rule: message (fix: ...)=, and a =codec/drift= diagnostic for each file =generate= would change. | Store and records, no output.                     |
 | =check --commit=  | The same diagnostics at a commit, read from git's objects with no checkout. | Store and result cache only.                   |
 | =check --ratchet= | Only the diagnostics the merge base of HEAD and a base lacks.            | Store and records, as =check=.                    |
+| =blame=           | Traces one finding to the commit, pull request and environment that likely caused it. | Store and result cache, for bisect.               |
 | =check --today=   | The same diagnostics, with exception expiry judged as of another date.  | As =check=.                                       |
 | =gc=              | Drops old unreferenced objects and action objects from the store, rewriting its packs into one, and removes the first layout of the store. | Rewrites the packs, unless =--dry-run=. |
 | =hook=            | Checks the one file a Claude Code PostToolUse payload on standard input names, running only the units that read or report on it. | Nothing.                                          |
@@ -208,6 +209,70 @@ codec on reports a check document that is missing or does not read
 
 compass's own commits carry no such trailers, so its =.compass.org=
 leaves =commit_provenance= off.
+
+** Blame
+
+A finding already on main was caused by some commit, and the agent that
+reads the check is rarely the one that made it. So =check= blames its
+findings: for each, it names the commit that likely caused it, the pull
+request that brought that commit into main, the commit's trailers, and
+the method that found it, and prints one message per environment for the
+agent to pass on. A plain =check= blames every finding and reports those
+whose commit main holds; =check --ratchet= blames only the findings the
+merge base already had, since a new one is the branch's own. A check of
+a commit blames nothing. =--no-blame= turns it off.
+
+How a finding is traced depends on its rule, so each rule declares its
+method in its descriptor (=codec::types::rule::blame=), bisect by
+default; =app::blame_method_of= reads it, from the codec or from the
+check document that defines the rule.
+
+| Method   | For                                                          | How                                                                 |
+|----------+--------------------------------------------------------------+---------------------------------------------------------------------|
+| =line=   | A finding on the line that is wrong: a forbidden pattern, a dangling link, a malformed row. Every rule of a forbid or format check. | =git blame --porcelain -L n,n=, over the working tree, one git per file. |
+| =added=  | Something missing that a file's addition made necessary: a missing section, an unregistered part, an unmet obligation. | The commit that added the finding's subject, a diagnostic's optional =subject=, else its file, following renames; with a =subject_text=, first =git log -S= on it, which finds the commit that removed or added it. |
+| =drift=  | A generated file that differs from its regeneration.           | Two candidates, labelled: the newest commit among the lines that differ from the output in the run's record (a hand edit), and the first commit since the file last changed to an input the record says produced it (a source changed without regenerating). |
+| =bisect= | The rest, and the fallback of the others.                      | Checks main's first-parent merges at their commits with only the reporting codec, through the result cache, to find the first that has the finding, matched by rule, path and message, then the commit of that merge's branch. |
+
+=check= runs line, added and drift; bisect runs a check per probe, so it
+is opt-in: =check --blame=bisect=, or =compass blame <path>:<line>:<rule>=
+for one finding, which also reports a finding of the branch's own. On
+ORE Studio's history a probe costs about 1.5 s with a warm result cache,
+and a bisect over 300 merges ran 15 of them in 21 s. A
+method that finds nothing falls back to bisect when bisect may run, and
+otherwise says it was not traced and why. Bisect walks the last 128 merges
+of main, or those since =--bisect-from <rev>=.
+
+Main is the upstream of the branch, else =origin/main=, else the branch
+=main=, else HEAD. A commit's pull request is the one its subject names
+(a merge's =Merge pull request #n=, a squash's =(#n)=), else that of the
+oldest first-parent merge of main whose ancestry holds it. Its trailers
+are those the =commit_provenance= check document names, read with the
+codec's own parser from the closing paragraph of the message and from
+each paragraph before it that is all trailers
+(=ops::closing_trailers=), since ORE Studio's commits often set
+=Story-ID=, =Task-ID= and =Environment= apart from a closing
+=Co-Authored-By= by a blank line, which git and =commit_provenance= do
+not read as trailers, and the titles of the story and task they name come
+from the corpus. The trailer that names who to tell is the option
+=commit_provenance.notify=, by default the first trailer with a pattern,
+=Environment= in ORE Studio; compass names none.
+
+The block is addressed to the agent that reads it. A count line comes
+first, then one message per environment, each finding with its commit,
+pull request, author, trailers, method and fix, then the findings it
+could not trace. Any method but line is a guess, so its message says
+"likely broke". Commits that state no environment are grouped last, and
+the agent is told to reach each commit's author through its pull request:
+
+#+begin_example
+compass blame: 2 findings already on main, traced to 1 environment; 0 from commits main does not hold yet; 0 not traced (41.2 ms)
+These findings were already on main. Tell environment jolly_knuth that it broke them, with these details:
+- portable_cpp/atomic_shared_ptr at src/core/cache.cpp:2: std::atomic<std::shared_ptr> is not portable
+  - commit 8bf2f80aa1 '[core] Cache the current value' in PR #4966, by Marco, Story-ID E6359881 'Story: trace a break', Task-ID C6436C51 'Task: blame a finding', Environment jolly_knuth
+  - found by: line blame: the last commit to change the line
+  - fix: ...
+#+end_example
 
 After the codecs, =check= excuses the findings a valid exception covers
 (step =exceptions=). It reads the exception comments of every document,
@@ -393,6 +458,8 @@ record again, and 0.8 s reading it.
 | =--commit <rev>=                | the files on disk                        | =check= only: check the commit =<rev>= names, as =git rev-parse <rev>^{commit}= resolves it, with that commit's =.compass.org=, or, when the commit has none, the working tree's, with a warning on standard error. The output root and meta directory must be under the checkout. |
 | =--ratchet [<base>]=            | the upstream, else =origin/main=         | =check= only: fail only on findings the merge base of HEAD and =<base>= lacks. The next argument is the base unless it starts with =-= or names a command; =--ratchet=<base>= always takes one. Not with =--commit=. |
 | =--today <YYYY-MM-DD>=          | today in UTC                             | =check= and =hook=: the date the expiry of exceptions, comments and table rows alike, is judged against, for the checkout, a commit and both sides of a ratchet. |
+| =--blame[=bisect]=, =--no-blame= | line, added and drift               | =check= only: which blame methods run on the findings already on main; =bisect= adds bisect, =--no-blame= runs none. |
+| =--bisect-from <rev>=           | the oldest of main's last 128 merges     | =check= and =blame=: the commit, without the finding, bisect starts from. |
 | =--all-findings=                | no                                       | =hook= only: report every finding on the edited file, not only those the last check did not record. |
 | =--dry-run=, =--cap=, =--grace= | no, 0 bytes, 3600 s                      | =gc= only.                                      |
 | =--help=, =-h=, =--version=     |                                          | Print and exit 0, whatever else is there.       |
@@ -481,7 +548,9 @@ the name keeps it apart from ORE Studio's Python =compass=.
   form, then, when =commit_provenance= is on, one line with the commits
   it checked and the pull request it read or why none, then one line with
   their count, the excused count, the merge base and the renamed files
-  followed. =gc= prints
+  followed. Before the count, =check= prints what blaming the findings
+  already on main found, as the Blame section shows; =blame= prints the
+  same block for its one finding. =gc= prints
   the entries and files it removed, or would remove, the size of the store
   and its packs before and after, and the files of the first layout it
   removed. =config=
@@ -530,8 +599,10 @@ range, 1-based, the column counted in bytes. The rule is written as
 | =include/compass.cli/io/version.hpp=             | =version_text=: the release, the build manifest's facts and the store formats.     |
 | =include/compass.cli/io/listing.hpp=             | The org files of a checkout, from =git ls-files=; =resolve_commit= and =resolve_base=, from =git rev-parse=; =merge_base=; =similar_renames=, from =git diff -M=. |
 | =include/compass.cli/ops/ratchet.hpp=            | =split_new= and =exact_renames=: the pure matching of ratchet mode.                |
+| =include/compass.cli/app/blame.hpp=              | =blame= and =blame_method_of=: tracing findings to commits by each rule's method.  |
+| =include/compass.cli/ops/blame.hpp=              | The pure parts of blame: =git blame --porcelain=, pull request subjects, the lines drift differs on, and the messages by environment. |
 | =include/compass.cli/ops/provenance.hpp=         | =trailers_of=, =provenance_rules_of= and =check_provenance=: the pure checks of commit provenance. |
-| =include/compass.cli/io/history.hpp=             | =branch_commits=, from =git log=; =head_branch=; =find_pull_request=, from =gh pr view=. |
+| =include/compass.cli/io/history.hpp=             | =branch_commits=, from =git log=; =head_branch=; =find_pull_request=, from =gh pr view=; =git_lines=, =read_commit= and =is_ancestor= for blame. |
 | =include/compass.cli/app/steps.hpp=              | One function per step of the pipeline.                                             |
 | =include/compass.cli/app/pipeline.hpp=           | One function per command, composed of the steps.                                   |
 | =include/compass.cli/io/report.hpp=              | Printing each result, and the hook's JSON.                                         |

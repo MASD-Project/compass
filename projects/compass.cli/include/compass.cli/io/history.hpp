@@ -21,6 +21,7 @@
 #define COMPASS_CLI_IO_HISTORY_HPP
 
 #include <expected>
+#include <optional>
 #include <filesystem>
 #include <string>
 #include <string_view>
@@ -67,6 +68,34 @@ parse_pull_request(std::string_view json);
 [[nodiscard]] std::expected<types::pull_request, std::string>
 find_pull_request(const std::filesystem::path& checkout, std::string_view gh,
     std::string_view branch);
+
+/**
+ * @brief The lines git prints for @p args, run in @p checkout, without
+ * their line ends; none when git fails, as it does for a path or a
+ * revision it does not know.
+ * @throws std::system_error when git cannot be started.
+ */
+[[nodiscard]] std::vector<std::string> git_lines(
+    const std::filesystem::path& checkout,
+    const std::vector<std::string>& args);
+
+/**
+ * @brief The commit @p id of @p checkout, a full ID or any revision: its
+ * full ID, author, subject and trailers, as ops::closing_trailers reads
+ * them; nothing when git knows no such commit.
+ */
+[[nodiscard]] std::optional<types::commit_detail> read_commit(
+    const std::filesystem::path& checkout, std::string_view id);
+
+/**
+ * @brief Whether the commit @p ancestor is @p descendant or one of its
+ * ancestors: git rev-list <descendant>..<ancestor> lists nothing. That
+ * walks only the commits since the older one, where git merge-base
+ * --is-ancestor, in a repository with no commit graph, walks the whole
+ * history to answer no.
+ */
+[[nodiscard]] bool is_ancestor(const std::filesystem::path& checkout,
+    std::string_view ancestor, std::string_view descendant);
 
 }
 

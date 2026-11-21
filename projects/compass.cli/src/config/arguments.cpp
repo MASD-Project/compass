@@ -48,6 +48,9 @@ constexpr std::string_view help =
     "from\n"
     "  hook            check the file a Claude Code PostToolUse payload on "
     "standard input names\n"
+    "  blame <path>:<line>:<codec>/<rule>\n"
+    "                  trace one finding to the commit, pull request and "
+    "environment that likely caused it\n"
     "\n"
     "options:\n"
     "  -C <dir>                    the checkout (default: the current "
@@ -68,7 +71,12 @@ constexpr std::string_view help =
     "  --ratchet [<base>]          check: fail only on diagnostics the merge "
     "base of HEAD and <base> lacks (default: the upstream, else "
     "origin/main)\n"
-    "  --today <YYYY-MM-DD>        check, hook: judge the expiry of exceptions "
+    "  --blame[=bisect]            check: blame the findings already on "
+    "main by line, added and drift (default), or also bisect main's merges\n"
+    "  --no-blame                  check: blame nothing\n"
+    "  --bisect-from <rev>         check, blame: the commit bisect starts "
+    "from (default: the oldest of the last 128 merges)\n"
+    "  --today <YYYY-MM-DD>        check, hook, blame: judge the expiry of exceptions "
     "as of this date (default: today in UTC)\n"
     "  --all-findings              hook: report every finding on the edited "
     "file, not only those the last check did not record\n"
@@ -97,6 +105,8 @@ std::optional<types::command> command_named(std::string_view name) {
         return types::command::config;
     if (name == "hook")
         return types::command::hook;
+    if (name == "blame")
+        return types::command::blame;
     return std::nullopt;
 }
 
@@ -129,7 +139,7 @@ bool takes_value(std::string_view flag) {
     return flag == "-C" || flag == "--meta" || flag == "--out" ||
         flag == "-j" || flag == "--set" || flag == "--cap" ||
         flag == "--grace" || flag == "--commit" || flag == "--today" ||
-        flag == "--codec";
+        flag == "--codec" || flag == "--bisect-from";
 }
 
 }
@@ -151,6 +161,7 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
     std::filesystem::path checkout;
     const types::origin command_line{types::origin_kind::command_line};
     std::string_view gc_flag;
+    std::string_view blame_flag;
     for (std::size_t i = 0; i < args.size(); ++i) {
         const auto arg = args[i];
         if (arg == "--dry-run") {
@@ -160,6 +171,14 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
         }
         if (arg == "--timings") {
             o.timings = true;
+            continue;
+        }
+        if (arg == "--blame" || arg == "--blame=bisect" ||
+            arg == "--no-blame") {
+            o.blame = arg == "--no-blame" ? types::blame_mode::off
+                : arg == "--blame" ? types::blame_mode::cheap
+                                   : types::blame_mode::bisect;
+            blame_flag = arg;
             continue;
         }
         if (arg == "--all-findings") {
@@ -180,6 +199,10 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
             continue;
         }
         if (!arg.starts_with("-")) {
+            if (which == types::command::blame && o.target.empty()) {
+                o.target = arg;
+                continue;
+            }
             if (which)
                 return usage_error{"unexpected argument: " + std::string(arg)};
             which = command_named(arg);
@@ -218,6 +241,10 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
             if (value.empty() || value.starts_with("-"))
                 return bad_value();
             o.revision = value;
+        } else if (arg == "--bisect-from") {
+            if (value.empty() || value.starts_with("-"))
+                return bad_value();
+            o.bisect_from = value;
         } else if (arg == "--today") {
             o.today = codec::ops::parse_date(value);
             if (!o.today)
@@ -244,10 +271,17 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
     if (o.ratchet && *which != types::command::check)
         return usage_error{"--ratchet applies to check only"};
     if (o.today && *which != types::command::check &&
-        *which != types::command::hook)
-        return usage_error{"--today applies to check and hook only"};
+        *which != types::command::hook && *which != types::command::blame)
+        return usage_error{"--today applies to check, hook and blame only"};
     if (o.all_findings && *which != types::command::hook)
         return usage_error{"--all-findings applies to hook only"};
+    if (!blame_flag.empty() && *which != types::command::check)
+        return usage_error{std::string(blame_flag) + " applies to check only"};
+    if (!o.bisect_from.empty() && *which != types::command::check &&
+        *which != types::command::blame)
+        return usage_error{"--bisect-from applies to check and blame only"};
+    if (*which == types::command::blame && o.target.empty())
+        return usage_error{"blame needs a finding: <path>:<line>:<rule>"};
     if (o.ratchet && !o.revision.empty())
         return usage_error{"--ratchet and --commit cannot be combined"};
     o.which = *which;

@@ -439,8 +439,11 @@ parse_check_document(std::string_view text, std::string_view path,
         c->rule_summaries.emplace_back("Each example of the check fires or "
             "stays quiet as its block says.");
     }
+    const auto blame = limit ? ct::blame_method::bisect
+                             : ct::blame_method::line;
     for (std::size_t i = 0; i < c->rule_names.size(); ++i)
-        c->rules.push_back({c->rule_names[i], c->rule_summaries[i]});
+        c->rules.push_back({c->rule_names[i], c->rule_summaries[i], {},
+            blame});
     c->definition = std::move(d.text);
     const auto key = limit ? compass::cpp::codecs::limit_definition_key
         : format ? compass::cpp::codecs::format_definition_key
