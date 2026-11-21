@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :meta:configuration:compass:
 #+created: 2026-11-16
-#+updated: 2026-11-18
+#+updated: 2026-11-21
 #+output: .
 #+meta: doc/meta
 
@@ -33,7 +33,9 @@ defaults. =tangle= is off: the files it writes are not committed here.
 =no_pr_triggers= is off: ORE Studio removed its pull-request checks because
 they came late and missed the paths their workflows did not name, but
 compass's one Linux workflow covers every path and builds a pull request,
-merged with main, in about eleven minutes.
+merged with main, in about eleven minutes. =commit_provenance= is off:
+compass's own commits carry no story, task or environment trailers, so
+=check --ratchet= here does not ask for them.
 
 | name              | enabled | options                                          |
 |-------------------+---------+--------------------------------------------------|
@@ -44,3 +46,4 @@ merged with main, in about eleven minutes.
 | check_inventory | yes | id=84B5F778-16CD-42D1-8F4C-B412DBE0C9C1 created=2026-11-21 updated=2026-11-21 |
 | rule_table        | yes     | path=doc/knowledge/compass/rule_table.org        |
 | no_pr_triggers    | no      |                                                  |
+| commit_provenance | no      |                                                  |
