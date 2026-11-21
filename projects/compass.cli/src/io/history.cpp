@@ -45,11 +45,11 @@ constexpr char field_separator = '\x1f';
  */
 platform::process::program_result quiet_git(
     const std::filesystem::path& checkout, std::vector<std::string> args) {
-    std::vector<std::string> command{"sh", "-c", "exec \"$@\" 2>/dev/null",
-        "sh", "git", "-C", checkout.generic_string()};
+    std::vector<std::string> command{"git", "-C", checkout.generic_string()};
     command.insert(command.end(), std::make_move_iterator(args.begin()),
         std::make_move_iterator(args.end()));
-    return platform::process::run_program({std::move(command), {}, {}});
+    return platform::process::run_program({std::move(command), {}, {},
+        platform::process::error_stream::discard});
 }
 
 std::string_view first_line(std::string_view text) {
@@ -135,16 +135,19 @@ std::expected<types::pull_request, std::string> find_pull_request(
     if (gh.empty())
         return std::unexpected(std::string("gh is off, as ") +
             std::string(ops::provenance_codec) + ".gh is empty");
+    std::vector<std::string> command{std::string(gh), "pr", "view"};
+    if (!branch.empty())
+        command.emplace_back(branch);
+    command.insert(command.end(), {"--json", "number,body,url"});
     platform::process::program_result r;
     try {
-        r = platform::process::run_program({{"sh", "-c",
-            "\"$0\" pr view ${1:+\"$1\"} --json number,body,url 2>&1",
-            std::string(gh), std::string(branch)}, checkout, {}});
+        r = platform::process::run_program({std::move(command), checkout, {},
+            platform::process::error_stream::merge});
     } catch (const std::system_error& e) {
+        if (e.code() == std::errc::no_such_file_or_directory)
+            return std::unexpected(std::string(gh) + " is not installed");
         return std::unexpected(std::string("gh could not run: ") + e.what());
     }
-    if (r.exit_code == 127)
-        return std::unexpected(std::string(gh) + " is not installed");
     if (r.exit_code != 0) {
         const auto line = first_line(r.output);
         return std::unexpected(std::string(gh) + ": " +

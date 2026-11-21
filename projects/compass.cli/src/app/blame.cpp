@@ -23,6 +23,7 @@
 #include <cctype>
 #include <chrono>
 #include <filesystem>
+#include <system_error>
 #include <format>
 #include <fstream>
 #include <iterator>
@@ -530,8 +531,16 @@ types::blame_report blame(const types::options& o,
                 break;
         }
     }
-    if (resolved.empty())
+    if (resolved.empty()) {
+        // A checkout outside git, or with no commit yet, has nothing to
+        // blame; one whose git does not answer must say so.
+        std::error_code ignored;
+        if (std::filesystem::exists(o.checkout / ".git", ignored) &&
+            t.git({"rev-parse", "--git-dir"}).empty())
+            r.not_run = "git did not answer in " +
+                o.checkout.generic_string();
         return r;
+    }
     t.base = resolved.front();
 
     const bool may_bisect = o.blame == types::blame_mode::bisect;

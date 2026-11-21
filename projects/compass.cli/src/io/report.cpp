@@ -316,6 +316,10 @@ void write_provenance(std::ostream& out, const types::provenance_result& r) {
 
 void write_blame(std::ostream& out, const types::blame_report& r,
     bool all) {
+    if (!r.not_run.empty()) {
+        out << std::format("compass blame: not run: {}\n", r.not_run);
+        return;
+    }
     if (r.findings.empty())
         return;
     const auto notices = ops::notices_of(r);
