@@ -82,11 +82,15 @@ std::string inventory_of(std::span<const ct::descriptor> built_in,
         for (const auto& c : d.codecs)
             data_of.emplace(c, &d);
 
-    cops::data_tables out{.source = "compass"};
-    cops::data_table codecs{.name = "Codecs", .columns = {"name", "enabled",
-        "kind", "severity", "summary", "path", "id"}};
-    cops::data_table rules{.name = "Rules", .columns = {"codec", "rule",
-        "statement"}};
+    cops::data_tables out;
+    out.source = "compass";
+    cops::data_table codecs;
+    codecs.name = "Codecs";
+    codecs.columns = {"name", "enabled", "kind", "severity", "summary", "path",
+        "id"};
+    cops::data_table rules;
+    rules.name = "Rules";
+    rules.columns = {"codec", "rule", "statement"};
     const auto add = [&](const ct::descriptor& d, std::string path,
                          std::string id) {
         codecs.rows.push_back({std::string(d.name),

@@ -218,10 +218,14 @@ std::expected<void, finding> read_versions(const cops::data_table& t,
 }
 
 std::expected<types::variable, finding> read_variable(const row_reader& row) {
-    types::variable v{.name = row["variable"], .argument = row["argument"],
-        .section = row["section"], .comment = row["comment"],
-        .when = row["when"], .purpose = row["purpose"],
-        .line = row.line()};
+    types::variable v;
+    v.name = row["variable"];
+    v.argument = row["argument"];
+    v.section = row["section"];
+    v.comment = row["comment"];
+    v.when = row["when"];
+    v.purpose = row["purpose"];
+    v.line = row.line();
     const auto kind = row["kind"];
     const auto removed = row["removed"];
     const auto k = std::ranges::find(kinds, kind,
@@ -404,7 +408,8 @@ std::expected<types::env_format, finding> read_format(
     if (!checked)
         return failure(problem(0, checked.error(), "Give the tables the "
             "message names."));
-    types::env_format f{.source = tables.source};
+    types::env_format f;
+    f.source = tables.source;
     if (const auto r = read_settings(*tables.find("Settings"), f); !r)
         return failure(r.error());
     if (const auto r = read_versions(*tables.find("Versions"), f); !r)
