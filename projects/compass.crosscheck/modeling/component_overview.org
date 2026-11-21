@@ -20,8 +20,8 @@ of artefact: a generated row and the SQL that creates its table, the
 generated output and the model it came from. Each gate was a Python script that read
 the tree on every run; here each is a corpus codec that reads the files of
 the checkout through its view, so a run in which none of them changed
-reuses the findings. =entity_writes=, =subject_conformance= and
-=model_rules= are scans: each file's writers, subjects or model facts are
+reuses the findings. =entity_writes=, =single_writer=,
+=subject_conformance= and =model_rules= are scans: each file's writers, subjects or model facts are
 kept per content ID, so a run after an edit maps the edited file alone.
 =generated_column_refs= and =entity_binary_types= are document codecs:
 each model is a unit of its own, so an edit to a model checks that model
@@ -141,6 +141,19 @@ ported:
   executes, never from comments. Rule =cpp_writer=: a hand-written C++ file that writes such a table
   and is not the repository of every table it writes. The 136 writers of
   the script's baseline are findings, one per function or file.
+- *=single_writer=.* =single-writer= (=check_single_writer.py=), which ran
+  only in ORE Studio's CI. Rule =second_writer=: a =.sql= file under
+  =projects/ores.sql/populate/= that inserts into a table some
+  =*_publish_from_dq_create.sql= file under =projects/ores.sql/create/=
+  also inserts into, once per table on the line of the file's first insert
+  into it. Inserts are read as the script read them: =INSERT INTO= and the
+  table name in any case, optionally quoted, after block comments and then
+  line comments are removed. A file's fact is its role and each table it
+  inserts into, so an edit maps that file alone. The script's nine listed
+  exceptions become =compass:except= comments beside the inserts they
+  excuse, and the runtime reports one that excuses nothing as stale. On
+  ORE Studio's main at =732fc2ee34= it reports the same 16 populate files
+  and 9 tables as the script.
 - *=entity_binary_types=.* =entity-binary-types=
   (=check_entity_binary_types.py=), a document codec over each entity and
   junction model whose repository row and create script code generation
