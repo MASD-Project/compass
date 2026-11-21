@@ -41,12 +41,15 @@
 #include "compass.cli/app/steps.hpp"
 #include "compass.cli/app/codecs.hpp"
 #include "compass.cli/config/repository_file.hpp"
+#include "compass.cli/io/history.hpp"
 #include "compass.cli/io/listing.hpp"
+#include "compass.cli/ops/provenance.hpp"
 #include "compass.cli/ops/ratchet.hpp"
 #include "compass.codec/io/action_cache.hpp"
 #include "compass.codec/io/dependency_file.hpp"
 #include "compass.codec/io/format_cache.hpp"
 #include "compass.codec/io/unmarked_file.hpp"
+#include "compass.codec/ops/data_tables.hpp"
 #include "compass.codec/ops/dependencies.hpp"
 #include "compass.codec/ops/exceptions.hpp"
 #include "compass.codec/ops/outputs.hpp"
@@ -793,10 +796,15 @@ void excuse_findings(const pipeline& p, const types::options& o,
     r.findings = std::move(kept);
 }
 
-types::check_result check(const types::options& o) {
+namespace {
+
+/**
+ * @brief Checks the checkout of @p o, or the commit it names, into @p p,
+ * which keeps the corpus the check read.
+ */
+types::check_result check_in(pipeline& p, const types::options& o) {
     const auto start = std::chrono::steady_clock::now();
     types::check_result r;
-    pipeline p;
     evaluate(p, o);
     format(p, o);
     persist(p, o.threads);
@@ -833,6 +841,71 @@ types::check_result check(const types::options& o) {
     });
     r.ms = since(start);
     return r;
+}
+
+/**
+ * @brief The documents of the corpus of @p p that have an :ID:, by it,
+ * with their path and #+type:.
+ */
+types::document_ids document_ids_of(const pipeline& p) {
+    types::document_ids out;
+    const auto& c = p.corpus;
+    for (std::uint32_t row = 0; row < c.size(); ++row) {
+        const auto& tables = c.tables[row];
+        const auto& source = c.sources[row];
+        const auto id = org::ops::find_document_property(tables, "ID");
+        if (id.is_none())
+            continue;
+        const auto key = org::ops::trimmed(source,
+            tables.properties.values[id]).of(source);
+        const auto type = org::ops::find_keyword(tables, "type");
+        out.try_emplace(std::string(key), types::document_ref{
+            std::string(c.paths[row]), type.is_none() ? std::string()
+                : std::string(org::ops::trimmed(source,
+                      tables.keywords.values[type]).of(source))});
+    }
+    return out;
+}
+
+/**
+ * @brief Checks the commits from @p from to @p to, and the pull request
+ * of the branch, as the commit_provenance codec of @p p is configured,
+ * against the documents of @p p; nothing is checked when the codec is
+ * off.
+ */
+types::provenance_result provenance_of(const pipeline& p,
+    const types::options& o, const store::types::object_id& from,
+    const store::types::object_id& to) {
+    const auto& codecs = p.codecs.codecs;
+    const auto it = std::ranges::find(codecs, ops::provenance_codec,
+        &ct::descriptor::name);
+    if (it == codecs.end())
+        return {};
+    const ct::codec_id id{static_cast<std::uint32_t>(it - codecs.begin())};
+    if (p.codecs.enabled[id.value] == 0)
+        return {};
+    const ct::option_values values{it->options,
+        codec::ops::option_values(p.codecs, id)};
+    const auto rules = ops::provenance_rules_of(
+        values[codec::ops::data_option], values["require_pull_request"]);
+    if (!rules) {
+        types::provenance_result r;
+        r.note = "not checked: " + rules.error();
+        return r;
+    }
+    const auto commits = io::branch_commits(o.checkout, from, to);
+    const auto branch = io::head_branch(o.checkout);
+    const auto pr = io::find_pull_request(o.checkout, values["gh"], branch);
+    return ops::check_provenance(*rules, commits, document_ids_of(p),
+        pr ? std::optional(*pr) : std::nullopt, pr ? "" : pr.error(),
+        branch);
+}
+
+}
+
+types::check_result check(const types::options& o) {
+    pipeline p;
+    return check_in(p, o);
 }
 
 namespace {
@@ -1285,7 +1358,10 @@ types::ratchet_result ratchet(const types::options& o,
     const auto tip = io::resolve_base(o.checkout, base);
     r.base = tip.name;
     r.merge_base = io::merge_base(o.checkout, head, tip.id);
-    r.current = check(o);
+    pipeline p;
+    r.current = check_in(p, o);
+    if (!r.current.run.failed())
+        r.provenance = provenance_of(p, o, r.merge_base, head);
     auto at_base = o;
     at_base.commit = r.merge_base;
     r.previous = check(at_base);
@@ -1293,6 +1369,8 @@ types::ratchet_result ratchet(const types::options& o,
         r.previous.findings);
     r.split = ops::split_new(r.previous.findings, r.current.findings,
         r.renames);
+    std::ranges::copy(r.provenance.findings,
+        std::back_inserter(r.split.fresh));
     r.ms = since(start);
     return r;
 }

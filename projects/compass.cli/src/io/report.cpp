@@ -213,6 +213,7 @@ void write_ratchet(std::ostream& out, std::ostream& err,
     write_lines(err, "merge base: ", r.previous.run.errors);
     write_lines(err, "merge base: codec registry: ", r.previous.run.problems);
     write_findings(out, r.split.fresh);
+    write_provenance(out, r.provenance);
     const auto n = r.split.fresh.size();
     out << std::format("{} new diagnostic{}{}{}, {} excused as present at "
                        "{}, the merge base of HEAD and {}; {} renamed file{} "
@@ -222,6 +223,21 @@ void write_ratchet(std::ostream& out, std::ostream& err,
         store::ops::to_hex(r.merge_base).substr(0, 12), r.base,
         r.renames.size(), r.renames.size() == 1 ? "" : "s",
         corpus_note(r.current.run, r.current.ms), r.ms);
+}
+
+void write_provenance(std::ostream& out, const types::provenance_result& r) {
+    if (!r.checked) {
+        if (!r.note.empty())
+            out << std::format("commit provenance: {}\n", r.note);
+        return;
+    }
+    out << std::format("commit provenance: {} commit{} checked, {} merge{} "
+                       "skipped; ", r.commits, r.commits == 1 ? "" : "s",
+        r.merges, r.merges == 1 ? "" : "s");
+    if (r.pull_request)
+        out << std::format("pull request #{} checked\n", *r.pull_request);
+    else
+        out << std::format("no pull request checked: {}\n", r.note);
 }
 
 void write_configuration(std::ostream& out, const types::configuration& c,
