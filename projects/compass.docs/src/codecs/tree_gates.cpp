@@ -99,7 +99,7 @@ void shell_recipes(const ct::corpus_view& v, ct::diagnostic_table& out) {
 
 constexpr std::array<ct::rule, 1> skill_rules{{
     {"outside_namespace", "Every skill under doc/llm/skills is named "
-        "compass-..."}}};
+        "compass-...", {}, ct::blame_method::added}}};
 
 void skill_names(const ct::corpus_view& v, ct::diagnostic_table& out) {
     for (const auto path : co::glob(v, "doc/llm/skills/*/SKILL.org")) {

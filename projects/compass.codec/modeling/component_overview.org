@@ -91,7 +91,10 @@ others is in its descriptor, so adding a codec adds a row to a list.
   name, unique within the codec, so that =codec/rule= names it in a finding
   and in an inline exception; a one-line statement of what it enforces;
   and =enforces=, the =:ID:= of each memory or document that states the
-  rule in prose, as uppercase UUIDs, empty when none does. The rules the
+  rule in prose, as uppercase UUIDs, empty when none does; and =blame=,
+  the =types::blame_method= compass blame traces a finding of the rule
+  with: =line=, =added=, =drift= or, by default, =bisect=. =drift_rule=
+  declares =drift=. The rules the
   runtime reports without a codec declaring them are constants beside
   =ops::excuse=: =ops::exception_rules=, under =ops::exception_codec=, and
   =ops::drift_rule= and =ops::names_missing_file_rule=, which every files
@@ -216,7 +219,7 @@ others is in its descriptor, so adding a codec adds a row to a list.
   whether it names a document or a file.
 - *Record file.* =io::dependency_file_path= is =compass/deps= under the
   checkout's own git directory, beside the worktree index, so each worktree
-  keeps its own. =ops::encode_dependency_record= lays out version 6
+  keeps its own. =ops::encode_dependency_record= lays out version 7
   little-endian: a 16-byte header (magic =CMPSDEP\n=, version, unit count);
   the head of each unit (its codec, version, configuration hash, document,
   inputs, the path, blob ID and size of each output, its findings and its
@@ -262,6 +265,9 @@ others is in its descriptor, so adding a codec adds a row to a list.
   row: its document is none and its file is the path, relative to the
   checkout, that its range points into. A message holds no line number and
   no count, so the same finding has the same message after an unrelated edit.
+  A finding may name a =subject=, the path of the file whose addition
+  created what it requires, and a =subject_text=, the text the requirement
+  is about in it; compass blame follows them, and nothing else reads them.
 - *Registry.* =ops::make_registry= resolves each descriptor against the type
   registry and applies the configuration. =types::registry= holds, per codec,
   whether it runs, its option values, and one flag per registered type saying

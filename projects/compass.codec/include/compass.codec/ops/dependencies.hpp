@@ -43,7 +43,7 @@ namespace compass::codec::ops {
  * @brief The version of the dependency record file this build writes and
  * reads. A file of any other version is not read, so every unit runs.
  */
-inline constexpr std::uint32_t dependency_record_version = 6;
+inline constexpr std::uint32_t dependency_record_version = 7;
 
 /**
  * @brief The row of every document by path and by ID property.

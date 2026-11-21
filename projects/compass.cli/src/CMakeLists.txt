@@ -21,6 +21,7 @@ set(exe_target_name ${name}.exe)
 
 add_library(${lib_target_name}
     app/application.cpp
+    app/blame.cpp
     app/check_inventory.cpp
     app/codecs.cpp
     app/env.cpp
@@ -36,6 +37,7 @@ add_library(${lib_target_name}
     io/listing.cpp
     io/report.cpp
     io/version.cpp
+    ops/blame.cpp
     ops/provenance.cpp
     ops/ratchet.cpp)
 

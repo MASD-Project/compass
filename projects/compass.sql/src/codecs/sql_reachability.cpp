@@ -40,9 +40,9 @@ namespace ct = compass::codec::types;
 
 constexpr std::array<ct::rule, 2> rules{{
     {"unreachable_file", "Every .sql file under create, populate and drop "
-        "is reached from a schema entry point."},
+        "is reached from a schema entry point.", {}, ct::blame_method::added},
     {"missing_include", "Every include and declared entry point names a "
-        "file that exists."}}};
+        "file that exists.", {}, ct::blame_method::line}}};
 
 constexpr std::array<std::string_view, 3> trees{"create", "populate", "drop"};
 

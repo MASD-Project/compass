@@ -30,6 +30,7 @@
 #include <vector>
 #include "compass.cli/config/check_documents.hpp"
 #include "compass.cli/types/configuration.hpp"
+#include "compass.cli/types/results.hpp"
 #include "compass.codec/types/configuration.hpp"
 #include "compass.codec/types/exception.hpp"
 #include "compass.store/types/collection.hpp"
@@ -41,7 +42,7 @@ namespace compass::cli::types {
  * @brief The commands of the compass executable.
  */
 enum class command : std::uint8_t {
-    generate, diff, check, gc, config, hook, env
+    generate, diff, check, gc, config, hook, env, blame
 };
 
 /**
@@ -80,8 +81,10 @@ struct env_request {
  * base of check --ratchet as written, empty for the default. today is
  * the --today of check, when given. all_findings is the --all-findings of
  * hook. only holds each --codec of check: when it is not empty, the
- * codecs and checks it names run and no other does. env holds the
- * arguments of compass env.
+ * codecs and checks it names run and no other does. blame is the
+ * --blame or --no-blame of check, bisect_from the --bisect-from of check
+ * and blame, and target the finding blame traces, as written. env holds
+ * the arguments of compass env.
  */
 struct invocation {
     command which = command::generate;
@@ -93,6 +96,9 @@ struct invocation {
     bool timings = false;
     bool all_findings = false;
     std::vector<std::string> only;
+    blame_mode blame = blame_mode::cheap;
+    std::string bisect_from;
+    std::string target;
     layer command_line;
     store::types::collection_options collection;
     env_request env;
@@ -117,7 +123,9 @@ struct invocation {
  * checks are the checks the project's check documents define, at the
  * commit, or in the checkout when there is no commit or it has none, so
  * today's checks can judge an old commit; their exceptions are among
- * exceptions.
+ * exceptions. blame says which blame methods check runs on the findings
+ * already on main, and bisect_from is the commit bisect starts from,
+ * empty for the oldest of the last merges it walks.
  */
 struct options {
     command which = command::generate;
@@ -132,6 +140,8 @@ struct options {
     std::shared_ptr<const config::check_set> checks;
     store::types::collection_options collection;
     bool all_findings = false;
+    blame_mode blame = blame_mode::cheap;
+    std::string bisect_from;
 };
 
 }

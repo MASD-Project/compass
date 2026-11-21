@@ -201,6 +201,18 @@ TEST_CASE("a branch whose commits state their work passes",
         "checked, 0 merges skipped; no pull request checked: gh is off"));
 }
 
+TEST_CASE("trailers set apart from a closing Co-Authored-By by a blank line "
+    "still count", "[app][provenance]") {
+    scoped_git_repo repo;
+    make_base(repo);
+    commit(repo, "[a] One\n\nWhy.\n\n" + trailers() +
+        "\nCo-Authored-By: A Person <a@example.com>\n");
+
+    const auto r = ratchet(repo);
+    CHECK(r.status == 0);
+    CHECK(r.findings().empty());
+}
+
 TEST_CASE("a commit with no trailer fails the ratchet", "[app][provenance]") {
     scoped_git_repo repo;
     make_base(repo);

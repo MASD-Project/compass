@@ -47,7 +47,7 @@ constexpr std::array<ct::rule, 5> rules{{
         "migrating or unused one has none."},
     {"suite_names_unused", "No XML family suite names an unused family."},
     {"bad_family", "Every family reads name=state, the state supported, "
-        "migrating or unused."}}};
+        "migrating or unused.", {}, ct::blame_method::line}}};
 
 constexpr std::array<ct::option, 3> options{{
     {"families",

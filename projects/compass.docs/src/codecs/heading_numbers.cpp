@@ -40,7 +40,7 @@ constexpr std::array<std::string_view, 1> numbered_heading_sources{
 
 constexpr std::array<ct::rule, 2> rules{{
     {"numbered_heading", "No org heading carries its own number.",
-        numbered_heading_sources},
+        numbered_heading_sources, ct::blame_method::line},
     {"unreadable_document", "Every document under doc/ and projects/ is "
         "UTF-8, which the script's strict read needs."}}};
 

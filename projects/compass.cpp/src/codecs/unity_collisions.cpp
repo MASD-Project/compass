@@ -52,7 +52,8 @@ constexpr std::array<ct::rule, 2> rules{{
         "file-local name outside the unity exclusions.",
         unrecorded_collision_sources},
     {"missing_recorded_file",
-        "Every file the unity exclusions name exists."}}};
+        "Every file the unity exclusions name exists.",
+        {}, ct::blame_method::line}}};
 
 constexpr std::string_view exclusions = "cmake/unity_exclusions.cmake";
 

@@ -43,10 +43,11 @@ constexpr std::array<std::string_view, 1> sources{
 
 constexpr std::array<ct::rule, 2> rules{{
     {"missing_rls", "A table with a tenant_id column enables row-level "
-        "security in a create script (RLS_001).", sources},
+        "security in a create script (RLS_001).", sources,
+        ct::blame_method::added},
     {"missing_party_isolation", "A table with a party_id column has a "
         "restrictive policy on party_id in a create script (RLS_002).",
-        sources}}};
+        sources, ct::blame_method::added}}};
 
 constexpr std::array<ct::option, 2> options{{
     {"create_dir", "projects/ores.sql/create",

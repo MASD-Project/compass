@@ -57,13 +57,14 @@ enum class exception_rule : std::uint8_t {
 
 inline constexpr std::array<types::rule, 4> exception_rules{{
     {"malformed", "An exception comment parses and names a rule some codec "
-        "declares, other than a rule about exceptions.", exception_documents},
+        "declares, other than a rule about exceptions.", exception_documents,
+        types::blame_method::line},
     {"incomplete", "An exception gives a reason, an approver and an "
-        "expiry.", exception_documents},
+        "expiry.", exception_documents, types::blame_method::line},
     {"expired", "No exception is used past its expiry date.",
-        exception_documents},
+        exception_documents, types::blame_method::line},
     {"stale", "A valid exception of an enabled codec excuses some "
-        "finding.", exception_documents}}};
+        "finding.", exception_documents, types::blame_method::line}}};
 
 [[nodiscard]] constexpr const types::rule& rule_of(exception_rule r) noexcept {
     return exception_rules[static_cast<std::size_t>(r)];
@@ -79,7 +80,7 @@ inline constexpr std::array<std::string_view, 2> drift_documents{
  */
 inline constexpr types::rule drift_rule{"drift", "Every file a codec "
     "generates holds what the codec generates from its inputs; nobody edits "
-    "it by hand.", drift_documents};
+    "it by hand.", drift_documents, types::blame_method::drift};
 
 /**
  * @brief The second rule every codec that emits files declares without

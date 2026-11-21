@@ -63,20 +63,21 @@ constexpr std::array<ct::rule, 8> rules{{
     {"missing_overview", "A component, or a part with include/ and src/, "
         "has modeling/component_overview.org.", component_type_sources},
     {"missing_id", "A component overview has an :ID: property.",
-        component_type_sources},
+        component_type_sources, ct::blame_method::added},
     {"missing_type", "A component overview is #+type: component.",
-        component_type_sources},
+        component_type_sources, ct::blame_method::added},
     {"missing_description", "A component overview has a #+description:.",
-        component_type_sources},
+        component_type_sources, ct::blame_method::added},
     {"missing_section", "A component overview has Summary, Inputs, "
         "Outputs, Entry points, Dependencies and See also.",
-        component_type_sources},
+        component_type_sources, ct::blame_method::added},
     {"missing_puml", "A component's modeling/ directory holds a .puml "
         "diagram."},
     {"name_collision", "No top-level component's dotted name extends "
         "another's."},
     {"backtick_link", "No bracket link a site export cannot resolve sits "
-        "inside a backtick span of a page under doc/."}}};
+        "inside a backtick span of a page under doc/.",
+        {}, ct::blame_method::line}}};
 
 constexpr std::array<ct::option, 1> options{{
     {"exceptions", "projects/ores.codegen/docs_exceptions.txt",

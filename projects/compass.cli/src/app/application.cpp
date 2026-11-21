@@ -98,6 +98,29 @@ int run_ratchet(const types::options& o, std::string_view base,
     return types::fails(r.split.fresh) ? exit_findings : exit_success;
 }
 
+int run_blame(const types::options& o, std::string_view spec, bool timings,
+    std::ostream& out, std::ostream& err) {
+    const auto target = ops::parse_target(spec);
+    if (!target) {
+        err << "compass: blame: " << spec << " is not <path>:<line>:<codec>/"
+            "<rule>, as check prints a finding\n";
+        return exit_failure;
+    }
+    const auto r = blame_one(o, *target);
+    io::write_problems(err, r.run);
+    if (timings)
+        io::write_timings(err, r.run);
+    if (r.run.failed())
+        return exit_failure;
+    if (r.findings.empty()) {
+        err << "compass: blame: the check finds no " << target->rule
+            << " on " << target->path << "\n";
+        return exit_failure;
+    }
+    io::write_blame(out, r.blame, true);
+    return exit_success;
+}
+
 /**
  * @brief The layer of the configuration file in effect for @p i: the one
  * at its commit, or the checkout's when there is no commit or the commit
@@ -213,7 +236,9 @@ std::expected<types::options, std::vector<std::string>> options_of(
         .checks = std::make_shared<const config::check_set>(
             std::move(*checks)),
         .collection = i.collection,
-        .all_findings = i.all_findings};
+        .all_findings = i.all_findings,
+        .blame = i.blame,
+        .bisect_from = i.bisect_from};
 }
 
 /**
@@ -281,6 +306,8 @@ int run_command(const types::invocation& i, std::ostream& out,
     case types::command::config:
         io::write_configuration(out, c, o.checkout);
         return exit_success;
+    case types::command::blame:
+        return run_blame(o, i.target, i.timings, out, err);
     case types::command::hook:
     case types::command::env:
         break;

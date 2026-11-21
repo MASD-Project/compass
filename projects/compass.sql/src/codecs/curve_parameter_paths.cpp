@@ -39,9 +39,10 @@ namespace pt = compass::platform::text;
 
 constexpr std::array<ct::rule, 3> rules{{
     {"undeclared_path", "Every curve parameter path the artefact names is "
-        "one the ORE curve schema declares, or an exemption explains."},
+        "one the ORE curve schema declares, or an exemption explains.",
+        {}, ct::blame_method::line},
     {"stale_exemption", "Every exemption explains some path of the "
-        "artefact."},
+        "artefact.", {}, ct::blame_method::line},
     {"unreadable_input", "The schema declares the root element, and the "
         "exemptions read."}}};
 

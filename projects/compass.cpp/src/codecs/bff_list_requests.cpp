@@ -46,8 +46,10 @@ constexpr std::array<ct::rule, 3> rules{{
     {"missing_member", "A hand-written list request states as_of and its "
         "filter when the protocol declares them."},
     {"filter_mismatch", "A literal filter states exactly the members the "
-        "filter struct declares.", filter_mismatch_sources},
-    {"wrong_rows", "readAll reads the rows a reply carries."}}};
+        "filter struct declares.", filter_mismatch_sources,
+        ct::blame_method::line},
+    {"wrong_rows", "readAll reads the rows a reply carries.",
+        {}, ct::blame_method::line}}};
 
 constexpr std::string_view bff_dir = "projects/ores.web/packages/bff/src/";
 constexpr std::string_view table_path =

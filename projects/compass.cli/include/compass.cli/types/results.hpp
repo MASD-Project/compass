@@ -30,6 +30,7 @@
 #include <vector>
 #include "compass.codec/io/format_cache.hpp"
 #include "compass.codec/io/output_sink.hpp"
+#include "compass.codec/types/descriptor.hpp"
 #include "compass.codec/types/diagnostic_table.hpp"
 #include "compass.store/types/blob_id.hpp"
 #include "compass.store/types/collection.hpp"
@@ -121,7 +122,8 @@ struct drift_sides {
 /**
  * @brief One diagnostic, located: line and column are 1-based, the column
  * counted in bytes. rule is the codec and rule name as codec/rule. drift
- * is set on a codec/drift finding only.
+ * is set on a codec/drift finding only. subject and subject_text are the
+ * diagnostic's, which compass blame reads.
  */
 struct finding {
     std::string path;
@@ -132,6 +134,8 @@ struct finding {
     std::string message;
     std::string fix;
     std::optional<drift_sides> drift;
+    std::string subject;
+    std::string subject_text;
 };
 
 /**
@@ -144,13 +148,83 @@ struct finding {
 }
 
 /**
+ * @brief Which blame methods check runs on the findings already on main:
+ * none, the cheap ones (line, added and drift), or those and bisect.
+ */
+enum class blame_mode : std::uint8_t { off, cheap, bisect };
+
+/**
+ * @brief One trailer a commit states, or fails to: its key, its value,
+ * empty when the commit has no such trailer, and, for a trailer that
+ * names a document, that document's #+title:, when the checkout has it.
+ */
+struct stated_trailer {
+    std::string key;
+    std::string value;
+    std::string title;
+};
+
+/**
+ * @brief A commit blame names as the likely cause of a finding.
+ *
+ * label tells two candidates of one finding apart, and is empty when
+ * there is one. id is the commit in hex, empty for a change not yet
+ * committed. pull_request is the number of the pull request that brought
+ * it into main. trailers are those the commit_provenance check document
+ * names, in its order, and environment the value of the one that names
+ * who to tell, empty when not stated. on_main says main holds the
+ * commit; one only the branch holds is the branch's own. inputs are the
+ * inputs of a drift candidate that the commit changed.
+ */
+struct culprit {
+    std::string label;
+    std::string id;
+    std::string subject;
+    std::string author;
+    std::optional<std::uint64_t> pull_request;
+    std::vector<stated_trailer> trailers;
+    std::string environment;
+    bool on_main = false;
+    std::vector<std::string> inputs;
+};
+
+/**
+ * @brief One finding and what blame made of it: the method that found the
+ * culprits, the subject an added blame followed, and the culprits, most
+ * likely first; note says why there is none, or what the method fell
+ * back from.
+ */
+struct blamed_finding {
+    finding found;
+    codec::types::blame_method method = codec::types::blame_method::bisect;
+    std::string subject;
+    std::vector<culprit> culprits;
+    std::string note;
+};
+
+/**
+ * @brief What blaming the findings of a run found. notify is the trailer
+ * whose value names who to tell, empty when no check document names the
+ * trailers. probes counts the checks bisect ran, and ms is the wall time
+ * of the whole blame.
+ */
+struct blame_report {
+    std::vector<blamed_finding> findings;
+    std::string notify;
+    std::size_t probes = 0;
+    double ms = 0;
+};
+
+/**
  * @brief What compass check found, sorted by path, line and column, less
- * the excused findings a valid exception covers.
+ * the excused findings a valid exception covers, and what blaming them
+ * found when check blames.
  */
 struct check_result {
     run_summary run;
     std::vector<finding> findings;
     std::size_t excused = 0;
+    blame_report blame;
     double ms = 0;
 };
 
@@ -188,11 +262,12 @@ struct rename {
 /**
  * @brief The findings of a check split against those of an earlier
  * check: fresh are the ones it did not have, in their order, and excused
- * counts the others.
+ * counts the others, which inherited holds.
  */
 struct ratchet_split {
     std::vector<finding> fresh;
     std::size_t excused = 0;
+    std::vector<finding> inherited;
 };
 
 /**
@@ -225,7 +300,8 @@ struct provenance_result {
  * that HEAD holds at another path. split holds the findings of current
  * that previous did not have. provenance is what checking the commits of
  * the branch and its pull request found, when commit_provenance is on;
- * its findings are among those of split.
+ * its findings are among those of split. blame is what blaming the
+ * inherited findings of split found.
  */
 struct ratchet_result {
     std::string base;
@@ -235,6 +311,7 @@ struct ratchet_result {
     std::vector<rename> renames;
     ratchet_split split;
     provenance_result provenance;
+    blame_report blame;
     double ms = 0;
 
     [[nodiscard]] bool failed() const noexcept {

@@ -40,7 +40,8 @@ namespace pt = compass::platform::text;
 
 constexpr std::array<ct::rule, 2> rules{{
     {"route_without_auth", "Every add_route call states its authentication "
-        "position: auth_required, auth_optional or roles."},
+        "position: auth_required, auth_optional or roles.",
+        {}, ct::blame_method::line},
     {"too_few_routes", "The scan finds at least 20 add_route calls, so a "
         "pattern that stops matching fails rather than passes."}}};
 

@@ -256,6 +256,7 @@ TEST_CASE("config prints every value with where it came from",
         "commit_provenance.data =  (default)\n"
         "commit_provenance.require_pull_request = false (default)\n"
         "commit_provenance.gh = gh (default)\n"
+        "commit_provenance.notify =  (default)\n"
         "check_inventory.enabled = false (default)\n"
         "check_inventory.path = doc/knowledge/compass/check_inventory.org "
         "(default)\n"

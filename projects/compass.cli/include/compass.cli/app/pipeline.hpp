@@ -21,6 +21,7 @@
 #define COMPASS_CLI_APP_PIPELINE_HPP
 
 #include <string_view>
+#include "compass.cli/ops/blame.hpp"
 #include "compass.cli/types/options.hpp"
 #include "compass.cli/types/results.hpp"
 
@@ -75,11 +76,25 @@ namespace compass::cli::app {
  * and the result cache, which every worktree shares, are stored; the
  * worktree index and dependency record of the checkout are left alone.
  *
+ * Unless @p o turns blame off, a check of the checkout then blames its
+ * findings, as app::blame does; a check of a commit blames nothing.
+ *
  * @throws as generate does, and std::runtime_error when the commit or a
  * tree of it cannot be read, or the meta directory or the output root is
  * not under the checkout.
  */
 [[nodiscard]] types::check_result check(const types::options& o);
+
+/**
+ * @brief Checks the checkout of @p o with only the codec of @p target's
+ * rule, and blames the finding of that rule on @p target's path nearest
+ * its line, bisect allowed. The result holds that one finding and its
+ * blame, or no finding when the check has none such.
+ *
+ * @throws as check does.
+ */
+[[nodiscard]] types::check_result blame_one(const types::options& o,
+    const ops::finding_target& target);
 
 /**
  * @brief Checks one edited file of the checkout of @p o, as an edit hook
@@ -134,6 +149,9 @@ namespace compass::cli::app {
  * The checkout is checked as check does, uncommitted changes included,
  * and renames are followed from the merge base to HEAD. See
  * ops::split_new for the matching.
+ *
+ * Unless @p o turns blame off, the findings of the checkout the merge
+ * base had are blamed, as app::blame does.
  *
  * @throws as check does, and std::runtime_error when @p base names no
  * commit, there is no default base, or HEAD and the base share no

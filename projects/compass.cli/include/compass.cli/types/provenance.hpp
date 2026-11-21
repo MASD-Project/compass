@@ -89,6 +89,17 @@ struct branch_commit {
 };
 
 /**
+ * @brief One commit, as blame reads it: its ID in hex, its author's name,
+ * its subject and the trailers of its message.
+ */
+struct commit_detail {
+    std::string id;
+    std::string author;
+    std::string subject;
+    std::vector<trailer> trailers;
+};
+
+/**
  * @brief The pull request of a branch, as gh reports it.
  */
 struct pull_request {
@@ -98,12 +109,13 @@ struct pull_request {
 };
 
 /**
- * @brief A document of the checkout, by its :ID:: its path and its
- * #+type:, empty when it has none.
+ * @brief A document of the checkout, by its :ID:: its path, its #+type:
+ * and its #+title:, each empty when it has none.
  */
 struct document_ref {
     std::string path;
     std::string type;
+    std::string title;
 };
 
 using document_ids = std::unordered_map<std::string, document_ref>;

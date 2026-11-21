@@ -44,6 +44,8 @@
 #include "compass.cli/io/history.hpp"
 #include "compass.cli/io/listing.hpp"
 #include "compass.cli/ops/provenance.hpp"
+#include "compass.cli/app/blame.hpp"
+#include "compass.cli/app/codecs.hpp"
 #include "compass.cli/ops/ratchet.hpp"
 #include "compass.codec/io/action_cache.hpp"
 #include "compass.codec/io/dependency_file.hpp"
@@ -621,7 +623,9 @@ void add_findings(const pipeline& p, std::vector<types::finding>& out) {
                                                           : t.levels[id],
                 .message = std::string(t.messages[id]),
                 .fix = std::string(t.fixes[id]),
-                .drift = {}});
+                .drift = {},
+                .subject = std::string(t.subjects[id]),
+                .subject_text = std::string(t.subject_texts[id])});
         }
     }
 }
@@ -858,11 +862,14 @@ types::document_ids document_ids_of(const pipeline& p) {
             continue;
         const auto key = org::ops::trimmed(source,
             tables.properties.values[id]).of(source);
-        const auto type = org::ops::find_keyword(tables, "type");
+        const auto keyword = [&](std::string_view name) {
+            const auto k = org::ops::find_keyword(tables, name);
+            return k.is_none() ? std::string() : std::string(
+                org::ops::trimmed(source, tables.keywords.values[k])
+                    .of(source));
+        };
         out.try_emplace(std::string(key), types::document_ref{
-            std::string(c.paths[row]), type.is_none() ? std::string()
-                : std::string(org::ops::trimmed(source,
-                      tables.keywords.values[type]).of(source))});
+            std::string(c.paths[row]), keyword("type"), keyword("title")});
     }
     return out;
 }
@@ -905,7 +912,46 @@ types::provenance_result provenance_of(const pipeline& p,
 
 types::check_result check(const types::options& o) {
     pipeline p;
-    return check_in(p, o);
+    auto r = check_in(p, o);
+    if (o.blame != types::blame_mode::off && !o.commit && !r.run.failed())
+        r.blame = blame(o, r.findings, document_ids_of(p), p.run.record);
+    return r;
+}
+
+types::check_result blame_one(const types::options& o,
+    const ops::finding_target& target) {
+    auto only = o;
+    only.blame = types::blame_mode::bisect;
+    const auto codec = target.rule.substr(0, target.rule.find('/'));
+    for (const auto& d : codecs())
+        only.settings.set(d.name, ct::enabled_key,
+            d.name == codec ? "true" : "false");
+    if (o.checks)
+        for (const auto& k : o.checks->checks)
+            only.settings.set(k->codec.name, ct::enabled_key,
+                k->codec.name == codec ? "true" : "false");
+    pipeline p;
+    auto r = check_in(p, only);
+    const types::finding* best = nullptr;
+    for (const auto& f : r.findings) {
+        if (f.path != target.path || f.rule != target.rule)
+            continue;
+        const auto distance = [&](const types::finding& x) {
+            return x.line > target.line ? x.line - target.line
+                                        : target.line - x.line;
+        };
+        if (best == nullptr || distance(f) < distance(*best))
+            best = &f;
+    }
+    if (best == nullptr) {
+        r.findings.clear();
+        return r;
+    }
+    const auto found = *best;
+    r.findings = {found};
+    if (!r.run.failed())
+        r.blame = blame(only, r.findings, document_ids_of(p), p.run.record);
+    return r;
 }
 
 namespace {
@@ -1371,6 +1417,9 @@ types::ratchet_result ratchet(const types::options& o,
         r.renames);
     std::ranges::copy(r.provenance.findings,
         std::back_inserter(r.split.fresh));
+    if (o.blame != types::blame_mode::off && !r.failed())
+        r.blame = blame(o, r.split.inherited, document_ids_of(p),
+            p.run.record);
     r.ms = since(start);
     return r;
 }

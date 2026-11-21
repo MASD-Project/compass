@@ -39,7 +39,7 @@ constexpr std::array<std::string_view, 3> system_tenant_widening_sources{
 constexpr std::array<ct::rule, 1> rules{{
     {"system_tenant_widening", "No row-level security policy lets a "
         "system-tenant session see every tenant's rows.",
-        system_tenant_widening_sources}}};
+        system_tenant_widening_sources, ct::blame_method::line}}};
 
 constexpr std::string_view create_dir = "projects/ores.sql/create/";
 

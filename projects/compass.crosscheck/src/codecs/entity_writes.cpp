@@ -52,10 +52,11 @@ constexpr std::array<std::string_view, 1> table_writes_sources{
 
 constexpr std::array<ct::rule, 2> rules{{
     {"sql_writer", "No SQL function but the purge writes an entity table "
-        "with INSERT, UPDATE or DELETE.", table_writes_sources},
+        "with INSERT, UPDATE or DELETE.", table_writes_sources,
+        ct::blame_method::line},
     {"cpp_writer", "No hand-written C++ file but the repository of each "
         "table it names writes an entity table in raw SQL.",
-        table_writes_sources}}};
+        table_writes_sources, ct::blame_method::line}}};
 
 const pt::regex& dml() {
     static const pt::regex out(

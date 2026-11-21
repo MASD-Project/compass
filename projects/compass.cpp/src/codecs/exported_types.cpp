@@ -47,12 +47,14 @@ namespace mt = compass::model::types;
 constexpr std::array<ct::rule, 3> rules{{
     {"uncompiled_exported_type",
         "No library exports a type that none of its translation units "
-        "compiles."},
+        "compiles.", {}, ct::blame_method::added},
     {"visibility_macro_on_enum",
-        "No symbol visibility or DLL storage macro decorates an enum."},
+        "No symbol visibility or DLL storage macro decorates an enum.",
+        {}, ct::blame_method::line},
     {"unexported_hidden_function",
         "A part built with hidden visibility exports every function its "
-        "public headers declare at namespace scope."}}};
+        "public headers declare at namespace scope.",
+        {}, ct::blame_method::line}}};
 
 constexpr ct::rule_id uncompiled{0};
 constexpr ct::rule_id decorated_enum{1};
@@ -355,7 +357,8 @@ void report_uncompiled(const std::vector<std::string_view>& all,
                     "consumer imports a symbol nobody defines",
                 .fix = "drop the export macro from a header-only type, or "
                     "add a .cpp to the library that includes the header",
-                .file = header});
+                .file = header,
+                .subject = header});
         }
     }
 }

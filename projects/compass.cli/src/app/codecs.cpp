@@ -77,7 +77,7 @@ void commit_provenance(const codec::types::corpus_view& v,
             : std::string_view("compass/checks/commit_provenance.org")});
 }
 
-constexpr std::array<codec::types::option, 3> provenance_options{{
+constexpr std::array<codec::types::option, 4> provenance_options{{
     {codec::ops::data_option, "", "The tables of the check document whose "
         "Definition names commit_provenance with :CODEC:: Trailers, one row "
         "per trailer with its document type or pattern and its pull request "
@@ -86,7 +86,10 @@ constexpr std::array<codec::types::option, 3> provenance_options{{
     {"require_pull_request", "false", "true makes a branch with no pull "
         "request gh can read an error, for CI; false only says so."},
     {"gh", "gh", "The program that reads the branch's pull request, run as "
-        "gh pr view <branch> --json number,body,url; empty reads none."}}};
+        "gh pr view <branch> --json number,body,url; empty reads none."},
+    {"notify", "", "The trailer whose value names who check tells about a "
+        "finding blame traces to a commit; empty is the first trailer of "
+        "the Trailers table with a pattern."}}};
 
 constexpr std::array<codec::types::option, 9> inventory_options{{
     {"path", "doc/knowledge/compass/check_inventory.org", "The page, "

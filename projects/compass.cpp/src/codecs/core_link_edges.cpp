@@ -40,10 +40,12 @@ namespace pt = compass::platform::text;
 
 constexpr std::array<ct::rule, 3> rules{{
     {"forbidden_edge", "No component's core links another component's core "
-        "or service library; it links the api contract."},
+        "or service library; it links the api contract.",
+        {}, ct::blame_method::line},
     {"unresolved_link", "Every library a core links names no variable the "
-        "check cannot resolve."},
-    {"unnamed_core", "Every core library file states its name."}}};
+        "check cannot resolve.", {}, ct::blame_method::line},
+    {"unnamed_core", "Every core library file states its name.",
+        {}, ct::blame_method::added}}};
 
 const pt::regex& name_setting() {
     static const pt::regex r(R"re(set\(\s*name\s+"?([A-Za-z0-9_.]+)"?\s*\))re");

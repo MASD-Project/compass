@@ -24,6 +24,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include "compass.cli/ops/blame.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 
 namespace compass::cli::io {
@@ -91,6 +92,77 @@ std::string json_string(std::string_view text) {
     }
     out.push_back('"');
     return out;
+}
+
+using codec::types::blame_method;
+
+std::string commit_line(const types::culprit& c) {
+    if (c.id.empty())
+        return "a change not yet committed";
+    auto line = std::format("commit {} '{}'", c.id.substr(0, 10), c.subject);
+    line += c.pull_request ? std::format(" in PR #{}", *c.pull_request)
+                           : std::string(" in no pull request compass found");
+    if (!c.author.empty())
+        line += ", by " + c.author;
+    for (const auto& t : c.trailers) {
+        if (t.value.empty()) {
+            line += std::format(", {} not stated", t.key);
+            continue;
+        }
+        line += std::format(", {} {}", t.key, t.title.empty() ? t.value
+            : t.value.substr(0, 8));
+        if (!t.title.empty())
+            line += " '" + t.title + "'";
+    }
+    if (!c.inputs.empty()) {
+        constexpr std::size_t shown_inputs = 5;
+        line += "; inputs it changed: ";
+        for (std::size_t i = 0; i < c.inputs.size() && i < shown_inputs; ++i)
+            line += (i == 0 ? "" : ", ") + c.inputs[i];
+        if (c.inputs.size() > shown_inputs)
+            line += std::format(" and {} more", c.inputs.size() -
+                shown_inputs);
+    }
+    return line;
+}
+
+std::string found_by(const types::blamed_finding& b) {
+    std::string how;
+    switch (b.method) {
+    case blame_method::line:
+        how = "line blame: the last commit to change the line";
+        break;
+    case blame_method::added:
+        how = b.found.subject_text.empty()
+            ? "added blame, likely: the commit that added " + b.subject
+            : "added blame, likely: the last commit to change '" +
+                b.found.subject_text + "' in " + b.subject + ", else the "
+                "one that added it";
+        break;
+    case blame_method::drift:
+        how = "drift blame, likely: the last commit to change lines " +
+            b.subject + " of the generated file, and the first to change an "
+            "input since the file last changed";
+        break;
+    case blame_method::bisect:
+        how = "bisect, likely: the first commit of main's merges with the "
+              "finding";
+        break;
+    }
+    if (!b.note.empty())
+        how += " (" + b.note + ")";
+    return how;
+}
+
+void write_item(std::ostream& out, const types::blamed_finding& b) {
+    const auto& f = b.found;
+    out << std::format("- {} at {}:{}: {}\n", f.rule, f.path, f.line,
+        f.message);
+    for (const auto& c : b.culprits)
+        out << std::format("  - {}{}\n", c.label.empty() ? "" : c.label +
+            ": ", commit_line(c));
+    out << std::format("  - found by: {}\n", found_by(b));
+    out << std::format("  - fix: {}\n", f.fix);
 }
 
 std::string source_of(const types::origin& o,
@@ -201,6 +273,7 @@ void write_check(std::ostream& out, std::ostream& err,
     const types::check_result& r) {
     write_problems(err, r.run);
     write_findings(out, r.findings);
+    write_blame(out, r.blame);
     out << std::format("{} diagnostic{}{}{} ({})\n", r.findings.size(),
         r.findings.size() == 1 ? "" : "s", warnings_note(r.findings),
         excused_note(r.excused),
@@ -214,6 +287,7 @@ void write_ratchet(std::ostream& out, std::ostream& err,
     write_lines(err, "merge base: codec registry: ", r.previous.run.problems);
     write_findings(out, r.split.fresh);
     write_provenance(out, r.provenance);
+    write_blame(out, r.blame);
     const auto n = r.split.fresh.size();
     out << std::format("{} new diagnostic{}{}{}, {} excused as present at "
                        "{}, the merge base of HEAD and {}; {} renamed file{} "
@@ -238,6 +312,70 @@ void write_provenance(std::ostream& out, const types::provenance_result& r) {
         out << std::format("pull request #{} checked\n", *r.pull_request);
     else
         out << std::format("no pull request checked: {}\n", r.note);
+}
+
+void write_blame(std::ostream& out, const types::blame_report& r,
+    bool all) {
+    if (r.findings.empty())
+        return;
+    const auto notices = ops::notices_of(r);
+    std::vector<const types::blamed_finding*> own;
+    std::vector<const types::blamed_finding*> untraced;
+    std::size_t on_main = 0;
+    for (const auto& b : r.findings) {
+        if (b.culprits.empty())
+            untraced.push_back(&b);
+        else if (!b.culprits.front().on_main)
+            own.push_back(&b);
+        else
+            ++on_main;
+    }
+    const auto plural = [](std::size_t n) { return n == 1 ? "" : "s"; };
+    std::size_t named = 0;
+    for (const auto& n : notices)
+        named += n.environment.empty() ? 0 : 1;
+    out << std::format("compass blame: {} finding{} already on main, traced "
+                       "to {} environment{}; {} from commits main does not "
+                       "hold yet; {} not traced ({:.1f} ms", on_main,
+        plural(on_main), named, plural(named), own.size(), untraced.size(),
+        r.ms);
+    if (r.probes != 0)
+        out << std::format(", bisect ran {} check{}", r.probes,
+            plural(r.probes));
+    out << ")\n";
+    for (const auto& n : notices) {
+        const bool guess = std::ranges::any_of(n.findings, [](const auto* b) {
+            return b->method != blame_method::line; });
+        const auto verb = guess ? "likely broke" : "broke";
+        if (!n.environment.empty())
+            out << std::format("These findings were already on main. Tell "
+                "environment {} that it {} them, with these details:\n",
+                n.environment, verb);
+        else if (r.notify.empty())
+            out << std::format("These findings were already on main, and no "
+                "check document names the trailer that states an "
+                "environment. Tell the author of each commit, through its "
+                "pull request, that it {} them, with these details:\n", verb);
+        else
+            out << std::format("These findings were already on main, and the "
+                "commits that {} them state no {} trailer. Tell the author of "
+                "each commit, through its pull request, with these "
+                "details:\n", verb, r.notify);
+        for (const auto* b : n.findings)
+            write_item(out, *b);
+    }
+    if (all && !own.empty()) {
+        out << "These findings come from commits main does not hold yet; "
+               "they are this branch's own to fix:\n";
+        for (const auto* b : own)
+            write_item(out, *b);
+    }
+    if (!untraced.empty()) {
+        out << "Not traced:\n";
+        for (const auto* b : untraced)
+            out << std::format("- {} at {}:{}: {}\n", b->found.rule,
+                b->found.path, b->found.line, found_by(*b));
+    }
 }
 
 void write_configuration(std::ostream& out, const types::configuration& c,

@@ -38,11 +38,13 @@ namespace ct = compass::codec::types;
 
 constexpr std::array<ct::rule, 4> rules{{
     {"case_in_conditional",
-        "No test case sits inside a conditional compilation block."},
+        "No test case sits inside a conditional compilation block.",
+        {}, ct::blame_method::line},
     {"unbalanced_conditional",
         "Every conditional block a file opens, it closes."},
     {"raw_string_moves",
-        "No raw string moves when the backslash-newline splices go."},
+        "No raw string moves when the backslash-newline splices go.",
+        {}, ct::blame_method::line},
     {"no_test_case", "The test sources declare at least one case."}}};
 
 constexpr std::string_view projects = "projects";
