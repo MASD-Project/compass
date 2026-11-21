@@ -30,6 +30,7 @@
 #include "compass.crosscheck/codecs/route_inventory.hpp"
 #include "compass.crosscheck/codecs/script_library_seed.hpp"
 #include "compass.crosscheck/codecs/value_sets.hpp"
+#include "compass.crosscheck/codecs/xml_bindings.hpp"
 #include "test_checkout.hpp"
 
 namespace {
@@ -45,7 +46,8 @@ const std::array generators{
     std::cref(codecs::er_diagram),
     std::cref(codecs::conventions_dataset),
     std::cref(codecs::route_inventory),
-    std::cref(codecs::ore_value_sets)};
+    std::cref(codecs::ore_value_sets),
+    std::cref(codecs::xml_bindings)};
 
 }
 

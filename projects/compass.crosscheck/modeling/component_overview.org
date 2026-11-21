@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :gates:checks:models:component:
 #+created: 2026-11-16
-#+updated: 2026-11-18
+#+updated: 2026-11-21
 
 This page is the component overview for =compass.crosscheck=, a simple
 component in the domain layer of the
@@ -253,6 +253,24 @@ because each reads one kind of artefact and writes another:
   output formats page, from the output samples ORE ships, read with
   Python's =csv= rules. Its data files go through clang-format, the
   codec's formatter, which its =clang_format= option names.
+- *=xml_bindings=.* =xml-bindings-drift= (=regenerate_xml_bindings.sh=
+  running =generate_xml_bindings.py=, which =check_xml_bindings_drift.py=
+  compares with the tree): the records and codec tables of each ORE
+  document family, a header under
+  =projects/ores.ore/core/include/ores.ore.core/xml/generated= and a source
+  under =projects/ores.ore/core/src/xml/generated=, from ORE's schemas
+  under =external/ore/xsd=, read with =compass.platform='s XML reader.
+  =ops::xml_bindings= ports the generator, keeping its edits to the schema
+  tree, its copies and its tables keyed by node identity, because the
+  output depends on them. The families are one command line each in the
+  shell script, not a Python literal, so they are a table of the codec,
+  =families= in =codecs/xml_bindings.cpp=; a family's accessor, namespace,
+  include and paths all follow from its stem. Both files go through
+  clang-format, the codec's formatter. The drift check is the =drift= rule
+  every file codec has; the script's second run, which proves the
+  generator deterministic, is not ported. A family whose schemas are
+  missing, or that the generator refuses, writes nothing, and the others
+  are written.
 - *=er_diagram=.* =er-diagram= (=plantuml_er_parse_sql.py=, then
   =plantuml_er_generate.py=): =ores_schema.puml=, the index, and one
   =ores_schema.<group>.puml= per table group, from the create scripts
@@ -346,8 +364,8 @@ so =compass check= fails where the script would, and the sink keeps the
 file a good run wrote. Every generator here declares that one rule,
 =ops::refusal_rules= of =compass.cpp=: =curve_sections_wiring=,
 =ore_renderings_tables=, =script_library_seed=, =ore_output_catalogue=,
-=er_diagram=, =conventions_dataset=, =route_inventory= and
-=ore_value_sets=. At 545cafca45 =ore_value_sets= refuses twice, the
+=er_diagram=, =conventions_dataset=, =route_inventory=,
+=ore_value_sets= and =xml_bindings=. At 545cafca45 =ore_value_sets= refuses twice, the
 convention kind terms and the value set seed, both on =r.id=.
 
 Where a script reads a file with a strict UTF-8 decode and would stop on a

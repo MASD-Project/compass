@@ -40,6 +40,7 @@ add_library(${lib_target_name}
     codecs/subject_conformance.cpp
     codecs/template_sections.cpp
     codecs/value_sets.cpp
+    codecs/xml_bindings.cpp
     ops/convention_kind_terms.cpp
     ops/csv.cpp
     ops/curve_wiring.cpp
@@ -52,7 +53,8 @@ add_library(${lib_target_name}
     ops/python_literals.cpp
     ops/subjects.cpp
     ops/value_sets.cpp
-    ops/words.cpp)
+    ops/words.cpp
+    ops/xml_bindings.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
 
