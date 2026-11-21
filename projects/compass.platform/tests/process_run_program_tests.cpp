@@ -102,7 +102,8 @@ TEST_CASE("run_program throws when the program cannot be started",
     CHECK_THROWS_AS(run_program({{"compass-no-such-program"}, {}, {}}),
         std::system_error);
     try {
-        run_program({{"compass-no-such-program"}, {}, {}});
+        const auto r = run_program({{"compass-no-such-program"}, {}, {}});
+        FAIL("ran with exit code " << r.exit_code);
     } catch (const std::system_error& e) {
         CHECK(e.code() == std::errc::no_such_file_or_directory);
     }
