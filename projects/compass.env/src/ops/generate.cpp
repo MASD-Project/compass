@@ -102,14 +102,23 @@ public:
             *value = it->second;
             used_.insert(*name);
         }
-        computed_[*name] = *value;
         if (!v.when.empty()) {
-            const auto when = expand(v.when, resolve);
+            const resolver own = [&](std::string_view n) {
+                return n == *name ? std::optional(*value) : resolve(n);
+            };
+            const auto when = holds(v.when, own);
             if (!when)
                 return failure(std::format("{}: {}", *name, when.error()));
-            if (when->empty())
+            /*
+             * A skipped row leaves its name empty for later templates, and
+             * leaves alone the value another row of the name wrote.
+             */
+            if (!*when) {
+                computed_.try_emplace(*name);
                 return {};
+            }
         }
+        computed_[*name] = *value;
         if (const auto r = blocks(v, resolve); !r)
             return r;
         text_ += *name + "=" + *value + "\n";

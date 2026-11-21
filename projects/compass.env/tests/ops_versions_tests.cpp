@@ -46,8 +46,9 @@ constexpr std::string_view document =
     "| ACME_OLD   | value | 1     |         |\n";
 
 types::env_format format() {
-    types::env_format f{.source = "env.org"};
-    f.versions.push_back({.number = 1});
+    types::env_format f;
+    f.source = "env.org";
+    f.versions.emplace_back().number = 1;
     return f;
 }
 
@@ -56,7 +57,7 @@ types::env_format format() {
 TEST_CASE("a new version appends a dated row and sets the added version of "
     "its variables", "[versions]") {
     const auto text = ops::append_version(document, format(),
-        {.description = "Adds new.", .adds = {"ACME_NEW"},
+        {.description = "Adds new.", .adds = {"ACME_NEW"}, .removes = {},
             .date = "2026-11-21"});
     REQUIRE(text);
     CHECK_THAT(*text, ContainsSubstring(
@@ -72,7 +73,7 @@ TEST_CASE("a cell too wide for its column aligns the table again",
     "[versions]") {
     const auto text = ops::append_version(document, format(),
         {.description = "A description longer than the column.",
-            .adds = {"ACME_NEW"}, .date = "2026-11-21"});
+            .adds = {"ACME_NEW"}, .removes = {}, .date = "2026-11-21"});
     REQUIRE(text);
     CHECK_THAT(*text, ContainsSubstring(
         "| 1       | 2026-01-01 |          |         |             | "
@@ -82,7 +83,7 @@ TEST_CASE("a cell too wide for its column aligns the table again",
 
 TEST_CASE("a version that removes sets the removed version", "[versions]") {
     const auto text = ops::append_version(document, format(),
-        {.description = "Drops old.", .removes = {"ACME_OLD"},
+        {.description = "Drops old.", .adds = {}, .removes = {"ACME_OLD"},
             .date = "2026-11-21"});
     REQUIRE(text);
     CHECK_THAT(*text, ContainsSubstring(
@@ -91,19 +92,34 @@ TEST_CASE("a version that removes sets the removed version", "[versions]") {
 
 TEST_CASE("a version needs a variable, unless format only", "[versions]") {
     const auto none = ops::append_version(document, format(),
-        {.description = "Nothing.", .date = "2026-11-21"});
+        {.description = "Nothing.", .adds = {}, .removes = {},
+            .date = "2026-11-21"});
     REQUIRE_FALSE(none);
     CHECK_THAT(none.error(), ContainsSubstring("--format-only"));
     const auto only = ops::append_version(document, format(),
-        {.description = "Moved ports.", .format_only = true,
+        {.description = "Moved ports.", .adds = {}, .removes = {},
+            .format_only = true,
             .date = "2026-11-21"});
     REQUIRE(only);
     CHECK_THAT(*only, ContainsSubstring("| yes         | Moved ports."));
 }
 
+TEST_CASE("a version adding a variable of two rows sets both", "[versions]") {
+    const std::string two_rows = std::string(document) +
+        "| ACME_NEW   | value |       |         |\n";
+    const auto text = ops::append_version(two_rows, format(),
+        {.description = "Adds new.", .adds = {"ACME_NEW"}, .removes = {},
+            .date = "2026-11-21"});
+    REQUIRE(text);
+    const std::string row = "| ACME_NEW   | value | 2     |         |\n";
+    const auto first = text->find(row);
+    REQUIRE(first != std::string::npos);
+    CHECK(text->find(row, first + 1) != std::string::npos);
+}
+
 TEST_CASE("a version naming a variable no row has fails", "[versions]") {
     const auto text = ops::append_version(document, format(),
-        {.description = "Ghost.", .adds = {"ACME_GHOST"},
+        {.description = "Ghost.", .adds = {"ACME_GHOST"}, .removes = {},
             .date = "2026-11-21"});
     REQUIRE_FALSE(text);
     CHECK_THAT(text.error(), ContainsSubstring("ACME_GHOST"));

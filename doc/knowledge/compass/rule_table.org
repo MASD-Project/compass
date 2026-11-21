@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-204 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 58 are cited by no rule.
+205 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 58 are cited by no rule.
 
 ** Rules
 
@@ -67,6 +67,7 @@ memories no rule cites are the candidates for the next checks.
 | =env_format= | unknown_variable | Every variable a version lists as added or removed has a row that names that version. |  |
 | =env_format= | empty_version | Every version after the baseline adds or removes a variable, or is marked format only. |  |
 | =env_format= | unreadable | The check document gives every table, column, setting, kind and template the format needs, and each row reads. |  |
+| =env_format= | duplicate_variable | Two live rows of one variable each have a when, so that exclusive conditions write it once; a row without a when is the variable's only row for the services it applies to. |  |
 | =er_diagram= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =event_registrars= | uncomposed_registrar | Every generated registrar of a checked component is called from its composition file. | =B5492D6C-7C18-4723-BA47-232AEAA13314= |
 | =event_registrars= | missing_composition | A checked component that generates registrars has its composition file. | =B5492D6C-7C18-4723-BA47-232AEAA13314= |

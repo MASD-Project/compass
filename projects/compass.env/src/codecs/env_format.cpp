@@ -33,7 +33,7 @@ namespace {
 namespace ct = compass::codec::types;
 namespace cops = compass::codec::ops;
 
-constexpr std::array<ct::rule, 5> rules{{
+constexpr std::array<ct::rule, 6> rules{{
     {"unknown_version", "Every variable of the environment file's check "
         "document names the version that added it, and any that removed "
         "it, and the Versions table has each."},
@@ -45,7 +45,10 @@ constexpr std::array<ct::rule, 5> rules{{
     {"empty_version", "Every version after the baseline adds or removes a "
         "variable, or is marked format only."},
     {"unreadable", "The check document gives every table, column, setting, "
-        "kind and template the format needs, and each row reads."}}};
+        "kind and template the format needs, and each row reads."},
+    {"duplicate_variable", "Two live rows of one variable each have a "
+        "when, so that exclusive conditions write it once; a row without a "
+        "when is the variable's only row for the services it applies to."}}};
 
 /**
  * @brief The byte offset of line @p line, from 1, of @p text; 0 for line
@@ -105,10 +108,11 @@ constexpr std::array<ct::option, 1> options{{
 
 const ct::descriptor env_format{
     .name = "env_format",
-    .version = 1,
+    .version = 2,
     .summary = "Reports each variable of the project's environment file "
-               "that no new version declares, and each version that "
-               "declares nothing.",
+               "that no new version declares, each version that declares "
+               "nothing, and each variable whose rows could write it "
+               "twice.",
     .reads = ct::inputs::of_types({}),
     .options = options,
     .rules = rules,

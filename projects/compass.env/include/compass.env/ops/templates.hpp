@@ -48,6 +48,20 @@ using resolver =
     std::string_view text, const resolver& resolve);
 
 /**
+ * @brief Whether the condition @p when holds.
+ *
+ * A condition is a template, which holds when its expansion is not empty;
+ * or two templates joined by " = " or " != ", the operator with a blank on
+ * each side, which holds when their expansions are equal or differ. The
+ * first such operator outside braces splits the condition, and the blanks
+ * around each side are dropped. Either side may name values: {A} = {B}.
+ *
+ * @return why it cannot be expanded, as expand() says.
+ */
+[[nodiscard]] std::expected<bool, std::string> holds(std::string_view when,
+    const resolver& resolve);
+
+/**
  * @brief The names @p text holds, in order, or why it does not read.
  */
 [[nodiscard]] std::expected<std::vector<std::string>, std::string> names_in(

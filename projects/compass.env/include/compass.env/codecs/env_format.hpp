@@ -41,9 +41,23 @@ namespace compass::env::codecs {
  * baseline that does not list it (undeclared), which is what a new row
  * with an old version is; a version that lists a variable no row is added
  * or removed in (unknown_variable); a version after the baseline that adds
- * and removes nothing and is not format only (empty_version); and a
- * document, table, column, setting, kind or template that does not read
- * (unreadable), which checks nothing else.
+ * and removes nothing and is not format only (empty_version); a document,
+ * table, column, setting, kind or template that does not read
+ * (unreadable), which checks nothing else; and two live rows of one name,
+ * one of them without a when, that some service could both be given
+ * (duplicate_variable), since such a file would hold the variable twice.
+ *
+ * A row's when is a condition: a template, which holds when it expands to
+ * something; or <template> = <template>, which holds when the two expand
+ * to the same text, and <template> != <template>, when they do not. The
+ * operator has a blank on each side, the first one outside braces splits
+ * the condition, and the blanks around each side are dropped:
+ * {FLAG} != 0, {FLAG} = 0, {A} = {B}. A row whose condition fails is not
+ * written, and its name keeps the value another row of it wrote, or is
+ * empty for later templates. So two rows of one name with exclusive
+ * conditions write one line, in the place of the row whose condition
+ * holds. The names a condition uses are checked as any template's are: an
+ * input, an earlier row, or the row's own variable.
  */
 extern const compass::codec::types::descriptor env_format;
 

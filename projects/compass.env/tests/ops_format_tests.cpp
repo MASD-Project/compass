@@ -148,6 +148,53 @@ TEST_CASE("unreadable formats name what does not read", "[format]") {
     CHECK_THAT(unreadable(a), ContainsSubstring("does not compile"));
 }
 
+TEST_CASE("two rows of one name with conditions read without findings",
+    "[format]") {
+    CHECK(rules_of(tests::pooled_acme()).empty());
+}
+
+TEST_CASE("two rows of one name, one or both without a when, are a "
+    "finding", "[format]") {
+    auto a = tests::pooled_acme();
+    a.variables[9][7] = "";
+    CHECK(rules_of(a) == std::vector{ops::duplicate_variable});
+    a.variables[8][7] = "";
+    const auto f = ops::read_format(a.tables());
+    REQUIRE(f);
+    const auto findings = ops::check_format(*f);
+    REQUIRE(findings.size() == 1);
+    CHECK(findings[0].rule == ops::duplicate_variable);
+    CHECK(findings[0].line == 29);
+    CHECK_THAT(findings[0].message, ContainsSubstring("lines 28 and 29"));
+    CHECK_THAT(findings[0].message, ContainsSubstring("neither has a when"));
+}
+
+TEST_CASE("two per-service rows of one name for no common service are no "
+    "finding", "[format]") {
+    auto a = tests::pooled_acme();
+    const auto per_service = a.variables.size() - 4;
+    a.variables[per_service][7] = "";
+    a.variables[per_service][8] = "big";
+    a.variables[per_service + 1][7] = "";
+    a.variables[per_service + 1][8] = "!big";
+    CHECK(rules_of(a).empty());
+    a.variables[per_service + 1][8] = "";
+    CHECK(rules_of(a) == std::vector{ops::duplicate_variable});
+}
+
+TEST_CASE("a comparing condition's names must be known when it is used",
+    "[format]") {
+    auto a = tests::pooled_acme();
+    a.variables[8][7] = "{ACME_POOLER} != {ACME_GHOST}";
+    CHECK_THAT(unreadable(a), ContainsSubstring("ACME_GHOST"));
+    a = tests::pooled_acme();
+    a.variables[8][7] = "{ACME_DB_URL} = 0";
+    CHECK_THAT(unreadable(a), ContainsSubstring("a later row"));
+    a = tests::pooled_acme();
+    a.variables[7][7] = "{ACME_POOLER} != 0";
+    CHECK(rules_of(a).empty());
+}
+
 TEST_CASE("a list cell splits at commas and blanks", "[format]") {
     CHECK(ops::list_of(" A, B  C,") ==
         std::vector<std::string>{"A", "B", "C"});
