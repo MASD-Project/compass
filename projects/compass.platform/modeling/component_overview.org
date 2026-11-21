@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :platform:filesystem:component:
 #+created: 2026-11-16
-#+updated: 2026-11-18
+#+updated: 2026-11-21
 
 This page is the component overview for =compass.platform=, a simple component
 in the foundation layer of the
@@ -19,7 +19,7 @@ in the foundation layer of the
 Other components call it instead of including raw OS headers. Each facility
 is one seam with a POSIX and a Windows implementation, chosen by the
 preprocessor inside the seam's source file, so no other component tests for
-the system. It holds four facets. =filesystem= has =mapped_file=: a
+the system. It holds five facets. =filesystem= has =mapped_file=: a
 read-only, memory-mapped view of a whole file. The pipeline reads org
 documents, C++ and SQL through it, so loading a file costs one =mmap= and no
 copy. On Windows the bytes are read into memory instead, because Windows
@@ -27,7 +27,9 @@ refuses to delete a file while a view of it is mapped, and the store deletes
 packs other processes are reading. =file_status= gives the status of a
 regular file in the fields git's index keeps, reads a whole file with the
 status of what it read, and gives the time as the file system stamps a file.
-=new_file= creates a file that must not exist and writes it, and
+=new_file= creates a file that must not exist and writes it, readable by
+its owner alone when asked, as a file of secrets must be from the moment it
+exists, and
 =file_lock= is an exclusive lock on a file that the system releases when its
 holder dies; the store's packs are written and repacked through them.
 =process= has =run_program=,
@@ -41,6 +43,11 @@ beside it, so it finds the manifest even when it runs through a link, and
 process and the programs it runs, and finds the home directory as git does.
 =liveness= tells whether a process is running, which =compass.testing= asks
 of the process that left a temporary directory behind.
+=random= has =fill_secure_random=, bytes from the system's
+cryptographically secure generator (=getentropy= on POSIX,
+=BCryptGenRandom= on Windows), and =secure_random_string=, characters
+drawn uniformly from an alphabet with it, by rejection; =compass env
+generate= makes its secrets with it.
 =standard_streams= makes the standard streams carry bytes unchanged, which
 on Windows stops LF being written as CRLF. =compiler= holds
 =COMPASS_ALWAYS_INLINE=, the inlining request MSVC has no spelling for.
@@ -100,6 +107,7 @@ systems and Windows.
 | =include/compass.platform/process/executable.hpp=     | Public functions.     |
 | =include/compass.platform/process/liveness.hpp=       | Public function.      |
 | =include/compass.platform/process/run_program.hpp=    | Public function.      |
+| =include/compass.platform/random/secure_random.hpp=   | Public functions.     |
 | =include/compass.platform/text/regex.hpp=             | Public type.          |
 | =include/compass.platform/text/decoding.hpp=          | Public functions.     |
 | =include/compass.platform/text/xml.hpp=               | Public type.          |
@@ -113,7 +121,7 @@ systems and Windows.
 
 - The C++23 standard library, and POSIX (=open=, =fstat=, =mmap=,
   =flock=, =posix_spawnp=, =kill=) or the Win32 API (=CreateFileW=,
-  =LockFileEx=, =CreateProcessW=, =OpenProcess=).
+  =LockFileEx=, =CreateProcessW=, =OpenProcess=, =BCryptGenRandom=).
 - PCRE2 (8-bit, with JIT), for =text::regex=.
 - expat, for =text::xml_document=. ElementTree runs on expat, so the text
   of CDATA, references and line ends is what the ported scripts read; a

@@ -37,12 +37,14 @@ class new_file final {
 public:
     /**
      * @brief Creates the file at @p path, which must not exist. Nothing
-     * when it already does.
+     * when it already does. On POSIX an @p owner_only file is readable and
+     * writable by its owner alone from the moment it exists, as a file of
+     * secrets must be.
      *
      * @throws std::system_error naming the path for any other failure.
      */
     [[nodiscard]] static std::optional<new_file> create(
-        const std::filesystem::path& path);
+        const std::filesystem::path& path, bool owner_only = false);
 
     ~new_file();
 

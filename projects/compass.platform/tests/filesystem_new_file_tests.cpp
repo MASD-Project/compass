@@ -96,3 +96,15 @@ TEST_CASE("file_lock is exclusive until its holder goes",
     const fs::file_lock again(path, false);
     CHECK(again.held());
 }
+
+TEST_CASE("an owner-only new_file is readable and writable by its owner "
+    "alone", "[filesystem][new_file][posix]") {
+    const scoped_directory dir("compass.platform.new_file");
+    const auto path = dir.path() / "secrets";
+    auto file = fs::new_file::create(path, true);
+    REQUIRE(file);
+    file->close();
+    namespace sfs = std::filesystem;
+    CHECK(sfs::status(path).permissions() ==
+        (sfs::perms::owner_read | sfs::perms::owner_write));
+}
