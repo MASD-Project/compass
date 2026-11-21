@@ -40,7 +40,8 @@ namespace pt = compass::platform::text;
 
 constexpr std::array<ct::rule, 1> rules{{
     {"chained_tags", "A template line that opens or closes a section "
-        "spanning lines holds that one tag, so the renderer strips it."}}};
+        "spanning lines holds that one tag, so the renderer strips it.",
+        {}, ct::blame_method::line}}};
 
 constexpr std::array<ct::option, 1> options{{
     {"templates", "projects/ores.codegen/library/templates",

@@ -41,7 +41,8 @@ namespace ct = compass::codec::types;
 
 constexpr std::array<ct::rule, 1> rules{{
     {"type_defined_twice", "No two headers that can meet in one binary "
-        "define a class or struct of the same qualified name."}}};
+        "define a class or struct of the same qualified name.",
+        {}, ct::blame_method::line}}};
 
 /**
  * @brief The binary that may include every public header.

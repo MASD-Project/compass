@@ -30,9 +30,10 @@ namespace {
 constexpr std::array<types::rule, 2> rules{{
     {"unsupported_header_argument",
         "A tangled block sets nothing whose effect on the bytes tangling "
-        "does not reproduce."},
+        "does not reproduce.", {}, types::blame_method::line},
     {"target_outside_checkout",
-        "A tangled block names a target under the root of the checkout."}}};
+        "A tangled block names a target under the root of the checkout.",
+        {}, types::blame_method::line}}};
 
 types::rule_id rule_of(ops::tangle_fault f) noexcept {
     return types::rule_id{f == ops::tangle_fault::unsupported ? 0u : 1u};

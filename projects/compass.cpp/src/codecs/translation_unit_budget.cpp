@@ -47,7 +47,8 @@ constexpr std::array<ct::rule, 3> rules{{
         "its budget: one, or the ceiling recorded for it."},
     {"below_ceiling", "A recorded ceiling is what its unit reflects, so it "
         "only comes down."},
-    {"bad_ceiling", "Every recorded ceiling reads path=count."}}};
+    {"bad_ceiling", "Every recorded ceiling reads path=count.",
+        {}, ct::blame_method::line}}};
 
 constexpr std::array<ct::option, 3> options{{
     {"registry", "projects/ores.refdata/api/include/ores.refdata.api/domain/"

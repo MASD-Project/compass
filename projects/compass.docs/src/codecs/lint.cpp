@@ -57,15 +57,19 @@ constexpr std::array<std::string_view, 1> named_patterns_sources{
 
 constexpr std::array<ct::rule, 11> rules{{
     {"bad_filetag", "Every tag of a page's first #+filetags: is "
-        "lowercase: a letter, then letters, digits, _, . or -."},
+        "lowercase: a letter, then letters, digits, _, . or -.",
+        {}, ct::blame_method::line},
     {"unclosed_marker", "Every '# BEGIN generated X' comment has a "
-        "matching '# END generated X' comment."},
+        "matching '# END generated X' comment.", {}, ct::blame_method::line},
     {"marker_without_writer", "A '# BEGIN generated X (script)' marker "
-        "names a script that exists and writes the page."},
-    {"malformed_link", "An id link whose target has a hyphen is a UUID."},
-    {"dangling_link", "Every id link names the :ID: of some page."},
+        "names a script that exists and writes the page.",
+        {}, ct::blame_method::line},
+    {"malformed_link", "An id link whose target has a hyphen is a UUID.",
+        {}, ct::blame_method::line},
+    {"dangling_link", "Every id link names the :ID: of some page.",
+        {}, ct::blame_method::line},
     {"durable_link", "A page under doc/llm, doc/meta, doc/knowledge or "
-        "doc/recipes links no agile page."},
+        "doc/recipes links no agile page.", {}, ct::blame_method::line},
     {"pattern_unknown_use", "Every page a service architecture pattern "
         "lists under In ORE Studio exists."},
     {"pattern_one_way", "A pattern and each of its uses link each other: "

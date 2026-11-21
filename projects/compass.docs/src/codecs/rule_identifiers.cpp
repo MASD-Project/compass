@@ -44,14 +44,16 @@ constexpr std::array<std::string_view, 1> ux_hub_sources{
 
 constexpr std::array<ct::rule, 5> rules{{
     {"unkeyed_section", "No rule carries an identifier in a section the "
-        "pages do not key."},
+        "pages do not key.", {}, ct::blame_method::line},
     {"no_identifier", "Every rule of a keyed section starts with its "
-        "identifier.", ux_hub_sources},
-    {"foreign_code", "A rule's identifier carries its own page's code."},
-    {"duplicate", "No identifier is on two rules.", ux_hub_sources},
+        "identifier.", ux_hub_sources, ct::blame_method::line},
+    {"foreign_code", "A rule's identifier carries its own page's code.",
+        {}, ct::blame_method::line},
+    {"duplicate", "No identifier is on two rules.", ux_hub_sources,
+        ct::blame_method::line},
     {"bad_citation", "Every checklist line cites two-digit identifiers a "
         "page carries, or a page that carries none yet.",
-        ux_hub_sources}}};
+        ux_hub_sources, ct::blame_method::line}}};
 
 using sections = std::vector<std::pair<std::string_view, std::string_view>>;
 

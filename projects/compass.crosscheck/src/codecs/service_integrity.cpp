@@ -70,16 +70,17 @@ constexpr std::uint32_t unreadable = 5;
 constexpr std::array<ct::rule, 6> rules{{
     {"unregistered", "Every service part, a component overview of the "
         "part kind the check document names, has an entry in the service "
-        "registry."},
+        "registry.", {}, ct::blame_method::added},
     {"partless", "Every registry entry whose runtime has parts names a "
         "service part that exists."},
     {"unknown_runtime", "Every registry entry's runtime is one the check "
-        "document's Runtimes table lists."},
+        "document's Runtimes table lists.", {}, ct::blame_method::line},
     {"unmet_obligation", "Every service meets each obligation of the check "
-        "document's Obligations table that applies to it."},
+        "document's Obligations table that applies to it.",
+        {}, ct::blame_method::added},
     {"second_list", "No file the check document scans, but the registry, "
         "lists the registry's services as a literal; the registry is their "
-        "one source."},
+        "one source.", {}, ct::blame_method::line},
     {"unreadable", "The check document gives every table, column and "
         "setting the codec reads, and each row reads."}}};
 
@@ -756,12 +757,23 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
                 "Add the service part, or correct the entry's name or "
                 "runtime.");
     }
-    for (const auto& [name, p] : parts)
-        if (!registered.contains(name))
-            co::report(out, p.document, p.offset, unregistered, name +
-                " is a service part with no entry in the service registry, "
-                "so nothing the registry drives provisions it",
-                "Add a heading " + name + " to " + registries.front() + ".");
+    for (const auto& [name, p] : parts) {
+        if (registered.contains(name))
+            continue;
+        const auto message = name + " is a service part with no entry in "
+            "the service registry, so nothing the registry drives "
+            "provisions it";
+        const auto fix = "Add a heading " + name + " to " +
+            registries.front() + ".";
+        out.add({.document = compass::org::types::document_id::none(),
+            .range = {p.offset, p.offset},
+            .rule = ct::rule_id{unregistered},
+            .level = ct::severity::error,
+            .message = message,
+            .fix = fix,
+            .file = p.document,
+            .subject = p.document});
+    }
 
     std::map<std::string, std::optional<std::string>, std::less<>> texts;
     const auto text_of = [&](const std::string& path)
@@ -806,8 +818,24 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
                 "\": " + describe(ob, *path, *value);
             if (!ob.reason.empty())
                 message += "; " + ob.reason;
-            co::report(out, s.document, s.offset, unmet_obligation, message,
-                fix_of(ob, *path, *value));
+            const auto fix = fix_of(ob, *path, *value);
+            // The requirement arose when the file gained or lost the value,
+            // or, for a file that is not there, when the service was added.
+            const auto p = parts.find(s.name());
+            const bool held = ob.kind != test::exists && text_of(*path);
+            const std::string_view subject = held ? std::string_view(*path)
+                : p != parts.end() ? std::string_view(p->second.document)
+                                   : std::string_view(s.document);
+            out.add({.document = compass::org::types::document_id::none(),
+                .range = {s.offset, s.offset},
+                .rule = ct::rule_id{unmet_obligation},
+                .level = ct::severity::error,
+                .message = message,
+                .fix = fix,
+                .file = s.document,
+                .subject = subject,
+                .subject_text = held ? std::string_view(*value)
+                                     : std::string_view{}});
         }
     }
 

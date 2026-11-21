@@ -48,7 +48,8 @@ namespace pt = compass::platform::text;
 
 constexpr std::array<ct::rule, 4> rules{{
     {"includes_definition_it_only_names", "A header that only names a "
-        "listed type includes its declaration, not its definition."},
+        "listed type includes its declaration, not its definition.",
+        {}, ct::blame_method::line},
     {"bad_type_list", "The list of forward-declarable types is readable "
         "and not empty."},
     {"stale_type_list", "The types option lists what the tree's own list "

@@ -43,7 +43,8 @@ constexpr std::array<std::string_view, 1> unseeded_permission_sources{
 
 constexpr std::array<ct::rule, 1> rules{{
     {"unseeded_permission", "Every permission code a handler of a checked "
-        "component checks is seeded.", unseeded_permission_sources}}};
+        "component checks is seeded.", unseeded_permission_sources,
+        ct::blame_method::line}}};
 
 constexpr std::array<ct::option, 2> declared_options{{
     {"components", "refdata,analytics,compute,assets,storage,reporting,dq,"

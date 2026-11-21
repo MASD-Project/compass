@@ -33,11 +33,15 @@ namespace ct = compass::codec::types;
 
 constexpr std::array<ct::rule, 4> rules{{
     {"unterminated_block_comment",
-        "Every block comment closes; PostgreSQL nests them."},
-    {"duplicate_index", "No file creates the same index twice."},
+        "Every block comment closes; PostgreSQL nests them.",
+        {}, ct::blame_method::line},
+    {"duplicate_index", "No file creates the same index twice.",
+        {}, ct::blame_method::line},
     {"comment_splits_literals",
-        "No comment stands between two string literals."},
-    {"not_re_runnable", "A second run of the file succeeds."}}};
+        "No comment stands between two string literals.",
+        {}, ct::blame_method::line},
+    {"not_re_runnable", "A second run of the file succeeds.",
+        {}, ct::blame_method::line}}};
 
 constexpr std::array<ct::option, 1> options{{
     {"roots", "projects/ores.sql",

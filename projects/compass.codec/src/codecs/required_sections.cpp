@@ -41,7 +41,7 @@ constexpr std::array<std::string_view, 1> missing_section_sources{
 constexpr std::array<types::rule, 1> rules{{
     {"missing_section",
         "A document has every section its type requires.",
-        missing_section_sources}}};
+        missing_section_sources, types::blame_method::added}}};
 
 bool has_section(const types::document& d, std::string_view title) {
     const auto& h = d.tables.headings;

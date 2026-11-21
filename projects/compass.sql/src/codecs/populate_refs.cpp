@@ -50,11 +50,12 @@ constexpr std::uint32_t unread_function = 2;
 constexpr std::array<ct::rule, 3> rules{{
     {"unresolved_reference", "Every name a populate script looks up is "
         "one a populate script that runs before it defines.",
-        unresolved_reference_sources},
+        unresolved_reference_sources, ct::blame_method::line},
     {"unbalanced_parentheses", "Every call and definition the check reads "
-        "closes its parentheses."},
+        "closes its parentheses.", {}, ct::blame_method::line},
     {"unread_function", "Every function a populate lookup involves is "
-        "named *_fn, as the check reads only those calls."}}};
+        "named *_fn, as the check reads only those calls.",
+        {}, ct::blame_method::line}}};
 
 constexpr std::string_view create_dir = "projects/ores.sql/create/";
 constexpr std::string_view populate_dir = "projects/ores.sql/populate/";

@@ -34,7 +34,7 @@ namespace pt = compass::platform::text;
 
 constexpr std::array<ct::rule, 1> rules{{
     {"colon_link", "No link's raw target begins with a colon, which no "
-        "link type does."}}};
+        "link type does.", {}, ct::blame_method::line}}};
 
 /**
  * @brief True for a document the site build publishes: no .packages,

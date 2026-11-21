@@ -65,25 +65,30 @@ constexpr std::array<std::string_view, 1> continuous_exact_sources{
 
 constexpr std::array<ct::rule, 13> rules{{
     {"money_not_exact", "A money column is numeric in SQL and a decimal in "
-        "C++, never a binary float or text.", money_not_exact_sources},
+        "C++, never a binary float or text.", money_not_exact_sources,
+        ct::blame_method::line},
     {"continuous_exact", "A continuous quantity is not typed numeric or "
-        "decimal, an exactness it does not have.", continuous_exact_sources},
+        "decimal, an exactness it does not have.", continuous_exact_sources,
+        ct::blame_method::line},
     {"unpublished_area", "Every #+http_area: a model declares is a "
-        "published area."},
+        "published area.", {}, ct::blame_method::line},
     {"unreadable_areas", "The route classification module states AREAS "
         "and NO_AREA as literals."},
     {"contradicted", "A model does not redeclare a feature its profile "
-        "fixes to another value."},
-    {"unset_required", "A model sets every feature its profile requires."},
+        "fixes to another value.", {}, ct::blame_method::line},
+    {"unset_required", "A model sets every feature its profile requires.",
+        {}, ct::blame_method::added},
     {"self_contradicting", "A model states a feature once, or always with "
-        "one value."},
-    {"opt_out", "No model switches the TypeScript protocol facet off."},
+        "one value.", {}, ct::blame_method::line},
+    {"opt_out", "No model switches the TypeScript protocol facet off.",
+        {}, ct::blame_method::line},
     {"outside_protocol", "Every NATS subject a model declares is inside the "
-        "entity protocol."},
+        "entity protocol.", {}, ct::blame_method::line},
     {"unreadable_model", "Every model is UTF-8."},
     {"unregistered_unit", "A component's route aggregate registers the "
         "route unit of every model that opts into one."},
-    {"twice_registered", "An aggregate registers each unit once."},
+    {"twice_registered", "An aggregate registers each unit once.",
+        {}, ct::blame_method::line},
     {"missing_unit", "Every unit an aggregate registers has its source in "
         "the component."}}};
 

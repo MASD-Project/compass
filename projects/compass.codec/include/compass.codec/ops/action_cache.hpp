@@ -41,7 +41,7 @@ namespace compass::codec::ops {
  * every key, so a build that changes a format finds none of the objects of
  * another.
  */
-inline constexpr std::uint32_t action_format_version = 6;
+inline constexpr std::uint32_t action_format_version = 7;
 
 /**
  * @brief How many input sets a manifest keeps. A new set goes first and

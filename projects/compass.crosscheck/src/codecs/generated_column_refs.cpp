@@ -40,9 +40,9 @@ enum rule : std::uint32_t { not_a_member, not_a_column };
 
 constexpr std::array<ct::rule, 2> rules{{
     {"not_a_member", "What a generated table writer streams of its entity "
-        "is a member of the entity."},
+        "is a member of the entity.", {}, ct::blame_method::line},
     {"not_a_column", "A generated index names only columns of the table it "
-        "indexes."}}};
+        "indexes.", {}, ct::blame_method::line}}};
 
 /**
  * @brief The offset in @p source of @p heading, a view into it, or 0 when

@@ -51,6 +51,11 @@ enum class severity : std::uint8_t { warning, error };
  * of a finding that is still there after an unrelated edit must not
  * change, so it holds no line number and no count: a run is compared with
  * another by path, rule and message.
+ *
+ * subject, when not empty, is the path of the file whose addition created
+ * what the finding requires, such as the overview of a part that must be
+ * registered, and subject_text the text the requirement is about, in the
+ * subject; compass blame reads them, and nothing else does.
  */
 struct diagnostic {
     compass::org::types::document_id document;
@@ -60,6 +65,8 @@ struct diagnostic {
     std::string_view message;
     std::string_view fix;
     std::string_view file = {};
+    std::string_view subject = {};
+    std::string_view subject_text = {};
 };
 
 /**
@@ -75,6 +82,8 @@ struct diagnostic_table {
     text_column<diagnostic_id> messages;
     text_column<diagnostic_id> fixes;
     text_column<diagnostic_id> files;
+    text_column<diagnostic_id> subjects;
+    text_column<diagnostic_id> subject_texts;
 
     [[nodiscard]] std::size_t size() const noexcept {
         return documents.size();
@@ -88,6 +97,8 @@ struct diagnostic_table {
         messages.add(d.message);
         fixes.add(d.fix);
         files.add(d.file);
+        subjects.add(d.subject);
+        subject_texts.add(d.subject_text);
     }
 
     void append(const diagnostic_table& other) {
@@ -102,6 +113,8 @@ struct diagnostic_table {
         messages.append(other.messages);
         fixes.append(other.fixes);
         files.append(other.files);
+        subjects.append(other.subjects);
+        subject_texts.append(other.subject_texts);
     }
 
     /**
@@ -109,7 +122,7 @@ struct diagnostic_table {
      */
     [[nodiscard]] diagnostic operator[](diagnostic_id d) const noexcept {
         return {documents[d], ranges[d], rules[d], levels[d], messages[d],
-            fixes[d], files[d]};
+            fixes[d], files[d], subjects[d], subject_texts[d]};
     }
 };
 

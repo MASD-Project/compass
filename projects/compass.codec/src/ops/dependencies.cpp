@@ -195,6 +195,8 @@ std::string encode_diagnostics(const types::corpus& c,
         put(out, static_cast<std::uint8_t>(t.levels[d]));
         put_text(out, t.messages[d]);
         put_text(out, t.fixes[d]);
+        put_text(out, t.subjects[d]);
+        put_text(out, t.subject_texts[d]);
     }
     return out;
 }
@@ -222,6 +224,8 @@ bool decode_diagnostics(std::string_view bytes,
             d.level = static_cast<types::severity>(r.u8());
             d.message = r.text();
             d.fix = r.text();
+            d.subject = r.text();
+            d.subject_text = r.text();
             if (out != nullptr)
                 out->add(d);
         }
@@ -462,6 +466,8 @@ std::vector<std::string_view> diagnostic_paths(std::string_view bytes) {
             r.u8();
             out.push_back(r.text());
             r.take(4 + 4 + 4 + 1);
+            r.text();
+            r.text();
             r.text();
             r.text();
         }

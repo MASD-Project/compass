@@ -46,7 +46,8 @@ constexpr std::array<std::string_view, 1> collapse_the_double_writers{
 constexpr std::array<ct::rule, 1> rules{{
     {"second_writer", "No table a DQ publish function writes is also "
         "written by a populate script, unless the two write different "
-        "tenants or different rows.", collapse_the_double_writers}}};
+        "tenants or different rows.", collapse_the_double_writers,
+        ct::blame_method::line}}};
 
 constexpr std::string_view create_root = "projects/ores.sql/create/";
 constexpr std::string_view populate_root = "projects/ores.sql/populate/";

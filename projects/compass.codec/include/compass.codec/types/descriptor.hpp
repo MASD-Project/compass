@@ -83,16 +83,35 @@ struct option {
 };
 
 /**
+ * @brief How compass blame traces a finding to the commit that likely
+ * caused it.
+ *
+ * line blames the line the finding is on. added finds the commit that
+ * added the finding's subject, the thing whose addition created the
+ * requirement, or the file the finding is on when the codec names no
+ * subject; with a subject text, the last commit that changed how often
+ * the subject holds it. drift, for a generated file that differs from
+ * its regeneration, names the last commit to touch the differing lines
+ * and the commits to the codec's inputs since the file last changed.
+ * bisect checks main's merges, running only the reporting codec, for
+ * the first that has the finding; it is the default, and the fallback
+ * of the others when they find nothing.
+ */
+enum class blame_method : std::uint8_t { bisect, line, added, drift };
+
+/**
  * @brief One rule a diagnostics codec enforces. name is unique within the
  * codec; with the codec's name it identifies the rule everywhere. summary
  * states in one line what the rule enforces. enforces holds the :ID: of
  * each memory or document that states the rule in prose, when one does,
- * as an uppercase UUID.
+ * as an uppercase UUID. blame is how compass blame traces a finding of
+ * the rule to the commit that likely caused it.
  */
 struct rule {
     std::string_view name;
     std::string_view summary;
     std::span<const std::string_view> enforces = {};
+    blame_method blame = blame_method::bisect;
 };
 
 /**

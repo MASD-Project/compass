@@ -53,7 +53,7 @@ constexpr std::array<ct::rule, 4> rules{{
     {"unguarded_history", "Every history provider a generated registrar "
         "registers names a literal read code."},
     {"stale_allow", "Every subject Authorised reads allow-lists is defined "
-        "by a protocol header."},
+        "by a protocol header.", {}, ct::blame_method::line},
     {"no_allow_list", "Authorised reads has its allow-list section."}}};
 
 constexpr std::array<ct::option, 1> options{{

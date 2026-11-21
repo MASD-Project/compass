@@ -116,7 +116,7 @@ void run_units(const ct::corpus_view& v, ct::diagnostic_table& out) {
 
 constexpr std::array<ct::rule, 2> menu_rules{{
     {"menu_with_prompt", "A menu is constructed from its name alone, which "
-        "Menu::Prompt() reads back."},
+        "Menu::Prompt() reads back.", {}, ct::blame_method::line},
     {"root_name_collides", "No two units own one root name."}}};
 
 void run_menus(const ct::corpus_view& v, ct::diagnostic_table& out) {

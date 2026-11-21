@@ -43,7 +43,7 @@ constexpr std::uint32_t outside_protocol = 0;
 
 constexpr std::array<ct::rule, 1> rules{{
     {"outside_protocol", "Every NATS subject the data-quality seed spells "
-        "is inside the entity protocol."}}};
+        "is inside the entity protocol.", {}, ct::blame_method::line}}};
 
 constexpr std::string_view dq =
     "projects/ores.sql/populate/dq/dq_artefact_types_populate.sql";
