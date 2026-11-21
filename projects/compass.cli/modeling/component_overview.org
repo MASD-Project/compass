@@ -23,8 +23,20 @@ codecs from the dependency record and the result cache: those
 =compass.codec= ships, the codecs of =compass.codegen=, the C++
 gates of =compass.cpp=, the SQL gates of =compass.sql=, the
 cross-artefact gates of =compass.crosscheck= and the document gates of
-=compass.docs=, which =app::codecs= lists, and last =rule_table=. That
-codec is the host's own: it binds =ops::rule_table= of =compass.codec= to
+=compass.docs=, which =app::codecs= lists, then =check_inventory= and last
+=rule_table=. =check_inventory= writes a project's page of every codec and
+check that runs there (=app::inventory_page=): whether each is enabled, its
+kind and severity, its purpose, its rules, the built-in =drift= and
+=names_missing_file= of a generator included, and the check document that
+defines it or gives it data, linked by its =:ID:=. Only the host sees
+the whole run, so =options_of= builds the inventory from the catalogue,
+the check documents and the settings (=app::inventory_of=) and sets it as
+the codec's =inventory= option: a change to what runs changes the codec's
+configuration, so the page is regenerated, and reported as drift until it
+is. Its other options are the page's =path=, which must not be under
+=compass/checks/=, and its frontmatter, the =created= and =updated= dates
+fixed so the page does not change by the day. It is off by default.
+=rule_table= is the host's own too: it binds =ops::rule_table= of =compass.codec= to
 the list, since only the host knows every codec, and its version is
 =ops::rule_table_version= of the list, so a changed rule, statement or
 citation regenerates the page; its code hash is =app::code_hash=, that of

@@ -21,6 +21,7 @@ set(exe_target_name ${name}.exe)
 
 add_library(${lib_target_name}
     app/application.cpp
+    app/check_inventory.cpp
     app/codecs.cpp
     app/pipeline.cpp
     app/steps.cpp

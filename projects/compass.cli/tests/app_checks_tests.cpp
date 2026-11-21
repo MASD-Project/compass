@@ -479,3 +479,64 @@ TEST_CASE("a document that gives data names a codec that reads tables, "
     CHECK_THAT(shared.err, !ContainsSubstring("another document"));
     CHECK_THAT(shared.err, !ContainsSubstring("reads no data tables"));
 }
+
+namespace {
+
+constexpr std::string_view inventory_configuration =
+    "#+output: .\n\n* Codecs\n\n"
+    "| name | enabled | options |\n"
+    "| document_index | no | |\n"
+    "| required_sections | no | |\n"
+    "| check_inventory | yes | id=A1D08435-9DCB-4B63-A33F-2E1A87DA62A2 "
+    "created=2026-11-21 updated=2026-11-21 |\n";
+
+std::string with_id(std::string_view id, const std::string& document) {
+    return ":PROPERTIES:\n:ID: " + std::string(id) + "\n:END:\n" + document;
+}
+
+}
+
+TEST_CASE("the check inventory lists every codec and check of the run, "
+    "enabled first, each linked to the document that defines it",
+    "[app][checks]") {
+    scoped_git_repo repo;
+    repo.write(".compass.org", inventory_configuration);
+    repo.write("compass/checks/portable_cpp.org",
+        with_id("11111111-2222-3333-4444-555555555555", check_document()));
+    repo.write("compass/checks/data.org",
+        with_id("66666666-7777-8888-9999-AAAAAAAAAAAA",
+            codec_document("conventions_coverage")));
+    repo.write("src/core/a.cpp", "int a;\n");
+    repo.git("add -A");
+    REQUIRE(generate(repo) == 0);
+    const auto page = scoped_git_repo::read_file(repo.checkout() /
+        "compass/check_inventory.org");
+
+    CHECK(page.starts_with(":PROPERTIES:\n"
+        ":ID: A1D08435-9DCB-4B63-A33F-2E1A87DA62A2\n:END:\n"
+        "#+title: Check inventory\n"));
+    CHECK_THAT(page, ContainsSubstring("#+created: 2026-11-21\n"));
+    CHECK_THAT(page, ContainsSubstring("| =portable_cpp= | yes | check | "
+        "error | "));
+    CHECK_THAT(page, ContainsSubstring("[[id:11111111-2222-3333-4444-"
+        "555555555555][compass/checks/portable_cpp.org]] |"));
+    CHECK_THAT(page, ContainsSubstring("| =conventions_coverage= | no | "
+        "check | error | "));
+    CHECK_THAT(page, ContainsSubstring("[[id:66666666-7777-8888-9999-"
+        "AAAAAAAAAAAA][compass/checks/data.org]]"));
+    CHECK_THAT(page, ContainsSubstring("| =atomic_shared_ptr= | Apple's "
+        "libc++ lacks it. |"));
+    CHECK_THAT(page, ContainsSubstring("*** check_inventory"));
+    CHECK_THAT(page, ContainsSubstring("| =names_missing_file= | "));
+    CHECK(page.find("| =portable_cpp= |") <
+        page.find("| =conventions_coverage= |"));
+    repo.git("add -A");
+    CHECK(check(repo).status == 0);
+
+    repo.write("compass/checks/more.org", check_document());
+    repo.git("add -A");
+    const auto changed = check(repo);
+    CHECK(changed.status == 1);
+    CHECK(changed.findings() == std::vector<std::string>{
+        "compass/check_inventory.org:16:check_inventory/drift"});
+}

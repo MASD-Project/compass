@@ -28,6 +28,7 @@
 #include <thread>
 #include <tuple>
 #include <variant>
+#include "compass.cli/app/check_inventory.hpp"
 #include "compass.cli/app/pipeline.hpp"
 #include "compass.cli/config/arguments.hpp"
 #include "compass.cli/config/precedence.hpp"
@@ -193,6 +194,8 @@ std::expected<types::options, std::vector<std::string>> options_of(
             settings.set(n, codec::types::enabled_key,
                 std::ranges::contains(i.only, n) ? "true" : "false");
     }
+    settings.set("check_inventory", app::inventory_option,
+        app::inventory_of(codecs(), *checks, settings));
     auto exceptions = file->exceptions;
     codec::ops::append(exceptions, std::move(checks->exceptions));
     return types::options{.which = i.which,
