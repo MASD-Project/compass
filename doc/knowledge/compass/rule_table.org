@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-179 rules, 43 of which cite a memory or a document that states them. Of the 62 memories of this repository, 59 are cited by no rule.
+180 rules, 43 of which cite a memory or a document that states them. Of the 62 memories of this repository, 59 are cited by no rule.
 
 ** Rules
 
@@ -41,6 +41,7 @@ memories no rule cites are the candidates for the next checks.
 | =conventions_coverage= | missing_convention | The dataset holds every convention ORE holds, or propose_decisions.tsv says why not. |  |
 | =conventions_coverage= | differing_convention | The dataset states a convention's terms as ORE does, or propose_decisions.tsv says why not. |  |
 | =conventions_coverage= | extract_failed | decisions.tsv reads, so the canonical set of the ORE examples can be extracted. |  |
+| =conventions_coverage= | unreadable | Every file and table the check reads is there and reads. |  |
 | =conventions_dataset= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =core_link_edges= | forbidden_edge | No component's core links another component's core or service library; it links the api contract. |  |
 | =core_link_edges= | unresolved_link | Every library a core links names no variable the check cannot resolve. |  |

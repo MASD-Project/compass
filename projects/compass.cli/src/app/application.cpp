@@ -19,6 +19,7 @@
  */
 #include "compass.cli/app/application.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <exception>
 #include <expected>
@@ -32,6 +33,7 @@
 #include "compass.cli/config/precedence.hpp"
 #include "compass.cli/config/check_documents.hpp"
 #include "compass.cli/config/repository_file.hpp"
+#include "compass.codec/ops/data_tables.hpp"
 #include "compass.codec/ops/exceptions.hpp"
 #include "compass.cli/io/hook_payload.hpp"
 #include "compass.cli/io/listing.hpp"
@@ -151,6 +153,27 @@ std::expected<types::options, std::vector<std::string>> options_of(
     if (!checks)
         return std::unexpected(std::vector<std::string>{checks.error()});
     auto settings = config::settings_of(c);
+    std::vector<std::string_view> given;
+    for (const auto& d : checks->data) {
+        const auto it = std::ranges::find(codecs(), d.codec,
+            &codec::types::descriptor::name);
+        const auto where = d.path + ":" + std::to_string(d.line) + ": ";
+        if (it == codecs().end())
+            return std::unexpected(std::vector<std::string>{where +
+                "no codec is named " + d.codec + "; fix: name one compass "
+                "config lists"});
+        if (!std::ranges::contains(it->options, codec::ops::data_option,
+                &codec::types::option::key))
+            return std::unexpected(std::vector<std::string>{where +
+                d.codec + " reads no data tables; fix: give its settings "
+                "in the configuration, or name a codec that reads tables"});
+        if (std::ranges::contains(given, d.codec))
+            return std::unexpected(std::vector<std::string>{where +
+                "another document already gives " + d.codec + "'s data; "
+                "fix: keep one document per codec"});
+        given.push_back(d.codec);
+        settings.set(d.codec, codec::ops::data_option, d.text);
+    }
     if (!i.only.empty()) {
         std::vector<std::string_view> names;
         for (const auto& d : codecs())

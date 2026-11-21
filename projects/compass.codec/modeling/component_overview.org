@@ -577,6 +577,7 @@ others is in its descriptor, so adding a codec adds a row to a list.
 | =include/compass.codec/io/output_sink.hpp=          | The plan, its apply and diff, =write_outputs= and the written-outputs file.            |
 | =include/compass.codec/ops/unified_diff.hpp=        | =unified_diff= of two texts.                                                           |
 | =include/compass.codec/types/exception.hpp=         | An exception from a comment or a table row, a malformed one, a set of them.            |
+| =include/compass.codec/ops/data_tables.hpp=         | =data_option=, =data_tables=, =encode_data_tables=, =decode_data_tables=, =tables_for=: a codec's tables from its check document. |
 | =include/compass.codec/ops/exceptions.hpp=          | =parse_exceptions=, =add_exception_row=, =append=, =excuse=, =status_of=, =parse_date= |
 | =include/compass.codec/io/unmarked_file.hpp=        | The record of contents with no exception marker.                                       |
 | =include/compass.codec/ops/tangle.hpp=              | =tangle= of a document and =tangle_body= of a block.                                   |

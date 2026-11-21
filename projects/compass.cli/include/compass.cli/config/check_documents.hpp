@@ -24,6 +24,7 @@
 #include <expected>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -69,13 +70,44 @@ struct check {
 };
 
 /**
- * @brief The checks of a checkout, in file-name order, and the exceptions
- * their documents state.
+ * @brief The data a document gives a built-in codec: the codec its
+ * Definition names with :CODEC:, the document's path and the line of that
+ * key, and the tables as codec::ops::encode_data_tables writes them, the
+ * value compass sets as the codec's data option.
+ */
+struct codec_data {
+    std::string codec;
+    std::string path;
+    std::uint32_t line = 0;
+    std::string text;
+};
+
+/**
+ * @brief The checks of a checkout, in file-name order, the data its
+ * documents give built-in codecs, and the exceptions they state.
  */
 struct check_set {
     std::vector<std::unique_ptr<const check>> checks;
+    std::vector<codec_data> data;
     codec::types::exception_set exceptions;
 };
+
+/**
+ * @brief The data the document @p text at @p path gives a built-in codec,
+ * when its Definition names one with :CODEC:, with the exceptions its
+ * table states added to @p exceptions; nothing when it names none, and is
+ * a check; or the first error in it as "<path>:<line>: <what>; fix: <how>".
+ *
+ * Each level-1 heading but Definition, Exceptions and Examples that holds
+ * a table gives one table, named by the heading's title: its first row
+ * names the columns and each other row is a row. A cell loses the = or ~
+ * that marks it verbatim, and \vert in it is a |, which org does not let
+ * a cell hold. The prose around the tables is the document's; it is not
+ * part of the data, so editing it runs nothing again.
+ */
+[[nodiscard]] std::expected<std::optional<codec_data>, std::string>
+parse_codec_document(std::string_view text, std::string_view path,
+    codec::types::exception_set& exceptions);
 
 /**
  * @brief The check that the document @p text at @p path defines, with

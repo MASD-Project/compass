@@ -35,10 +35,14 @@ namespace compass::crosscheck::codecs {
  * for its Conventions entries, and the reduce step resolves them as
  * extract.py does (variants, spelling groups, renames, decisions.tsv) into
  * the canonical table, which it reads back as propose.py reads the file.
- * Each line propose.py reports is a finding. INDEX_FIELDS and BDC are read
- * from propose.py. Rules: duplicate_row, no_source, undefined_index,
- * missing_convention, differing_convention and extract_failed, where
- * extract.py stops on a defect of decisions.tsv.
+ * Each line propose.py reports is a finding. The fields that name an index
+ * and the codes of the business day conventions, which were propose.py's
+ * INDEX_FIELDS and BDC, are the tables Index fields and Business day
+ * conventions of the check document whose Definition names this codec, read
+ * from its data option. Rules: duplicate_row, no_source, undefined_index,
+ * missing_convention, differing_convention, extract_failed, where
+ * extract.py stops on a defect of decisions.tsv, and unreadable, a table or
+ * file the codec reads that is missing.
  */
 extern const compass::codec::types::descriptor conventions_coverage;
 

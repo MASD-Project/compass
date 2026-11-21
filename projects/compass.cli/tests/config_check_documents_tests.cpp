@@ -18,6 +18,7 @@
  *
  */
 #include "compass.cli/config/check_documents.hpp"
+#include "compass.codec/ops/data_tables.hpp"
 
 #include <string>
 #include <catch2/catch_test_macros.hpp>
@@ -288,4 +289,95 @@ TEST_CASE("a check document's SEVERITY sets the severity of its findings",
         "compass/checks/portable_cpp.org:7: the severity is 'loud'; fix: "
         "write :SEVERITY: error, which fails a check that finds anything, "
         "or warning, which reports and fails nothing");
+}
+
+namespace {
+
+constexpr std::string_view codec_document =
+    "#+title: Check: conventions coverage\n"             // 1
+    "\n"
+    "Prose the data does not hold.\n"
+    "\n"
+    "* Definition\n"                                     // 5
+    ":PROPERTIES:\n"
+    ":CODEC: conventions_coverage\n"                     // 7
+    ":END:\n"
+    "\n"
+    "* Index fields\n"                                   // 10
+    "\n"
+    "The fields that name an index.\n"
+    "\n"
+    "| field |\n"
+    "|-------|\n"
+    "| =Index= |\n"                                      // 16
+    "| FlatIndex |\n"
+    "\n"
+    "* Patterns\n"                                       // 19
+    "\n"
+    "| name | pattern | note |\n"
+    "|------+---------+------|\n"
+    "| either | a\\vert{}b | |\n"                          // 23
+    "\n"
+    "* Exceptions\n"
+    "\n"
+    "| path | line | rule | expires | approver | reason |\n"
+    "| x.tsv | 1 | no_source | 2027-01-31 | marco | kept for the demo |\n";
+
+}
+
+TEST_CASE("a document whose Definition names a codec gives it tables, not "
+    "a check", "[config][check_documents]") {
+    compass::codec::types::exception_set e;
+    const auto d = config::parse_codec_document(codec_document,
+        "compass/checks/conventions_coverage.org", e);
+    REQUIRE(d);
+    REQUIRE(*d);
+    CHECK((*d)->codec == "conventions_coverage");
+    CHECK((*d)->line == 7);
+    const auto t = compass::codec::ops::decode_data_tables((*d)->text);
+    REQUIRE(t);
+    CHECK(t->source == "compass/checks/conventions_coverage.org");
+    REQUIRE(t->tables.size() == 2);
+    const auto& fields = t->tables[0];
+    CHECK(fields.name == "Index fields");
+    CHECK(fields.line == 10);
+    CHECK(fields.columns == std::vector<std::string>{"field"});
+    CHECK(fields.rows == std::vector<std::vector<std::string>>{
+        {"Index"}, {"FlatIndex"}});
+    CHECK(fields.row_lines == std::vector<std::uint32_t>{16, 17});
+    const auto& patterns = *t->find("patterns");
+    CHECK(patterns.rows == std::vector<std::vector<std::string>>{
+        {"either", "a|b", ""}});
+    CHECK(patterns.row_lines == std::vector<std::uint32_t>{23});
+    CHECK(e.exceptions.size() == 1);
+}
+
+TEST_CASE("a codec's tables hold no prose, so editing prose leaves them as "
+    "they were", "[config][check_documents]") {
+    compass::codec::types::exception_set e;
+    const auto before = config::parse_codec_document(codec_document,
+        "compass/checks/conventions_coverage.org", e);
+    const auto after = config::parse_codec_document(replaced(codec_document,
+        "The fields that name an index.", "The fields an index is named by."),
+        "compass/checks/conventions_coverage.org", e);
+    REQUIRE(before);
+    REQUIRE(after);
+    CHECK((*before)->text == (*after)->text);
+}
+
+TEST_CASE("a codec document holds only its codec's name in its drawer, and "
+    "a check document is not one", "[config][check_documents]") {
+    compass::codec::types::exception_set e;
+    const auto extra = config::parse_codec_document(replaced(codec_document,
+        ":CODEC: conventions_coverage\n",
+        ":CODEC: conventions_coverage\n:FILES: x\n"),
+        "compass/checks/conventions_coverage.org", e);
+    REQUIRE_FALSE(extra);
+    CHECK(extra.error().starts_with(
+        "compass/checks/conventions_coverage.org:8: a codec's data names "
+        "its codec and nothing else, and the drawer also holds FILES"));
+    const auto check = config::parse_codec_document(document,
+        "compass/checks/portable_cpp.org", e);
+    REQUIRE(check);
+    CHECK_FALSE(*check);
 }

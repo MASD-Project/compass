@@ -23,6 +23,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include "compass.crosscheck/ops/md5.hpp"
 #include "compass.crosscheck/ops/words.hpp"
+#include "compass.codec/ops/data_tables.hpp"
 #include "test_checkout.hpp"
 
 namespace {
@@ -38,9 +39,6 @@ const std::string header = "kind\tid\tsignature\tsource\toresmd_uri\n";
 
 files tree(const std::string& dataset) {
     return {
-        {here + "propose.py",
-         "BDC = {\"Following\": \"F\", \"ModifiedFollowing\": \"MF\"}\n"
-         "INDEX_FIELDS = (\"Index\", \"FlatIndex\")\n"},
         {here + "conventions.tsv", header + dataset},
         {here + "propose_decisions.tsv",
          "# why\norigin\tkind\tid\treason\n"
@@ -72,6 +70,27 @@ files tree(const std::string& dataset) {
         {examples + "Input/portfolio.xml", "<Portfolio/>\n"}};
 }
 
+/**
+ * @brief The tables a check document gives the codec, as compass sets
+ * them in its data option.
+ */
+tests::options data() {
+    namespace cops = compass::codec::ops;
+    cops::data_tables t{.source = "compass/checks/conventions_coverage.org"};
+    t.tables.push_back({.name = "Index fields", .line = 10,
+        .columns = {"field"}, .rows = {{"Index"}, {"FlatIndex"}},
+        .row_lines = {12, 13}});
+    t.tables.push_back({.name = "Business day conventions", .line = 20,
+        .columns = {"convention", "code"},
+        .rows = {{"Following", "F"}, {"ModifiedFollowing", "MF"}},
+        .row_lines = {22, 23}});
+    return {{std::string(cops::data_option), cops::encode_data_tables(t)}};
+}
+
+tests::outcome run(const files& t) {
+    return tests::run(codecs::conventions_coverage, t, data());
+}
+
 const std::string complete =
     "Zero\tZ1\tExtra=x ; Nested=q ; TenorBased=false\tx\t\n"
     "Zero\tZ2-CONVENTIONS\tTenor=1Y\tx\t\n"
@@ -96,7 +115,7 @@ TEST_CASE("MD5 and Python's word split give what hashlib and str.split "
 
 TEST_CASE("a dataset that holds what ORE holds passes",
     "[codecs][conventions_coverage]") {
-    CHECK(tests::run(codecs::conventions_coverage, tree(complete))
+    CHECK(run(tree(complete))
         .findings.empty());
 }
 
@@ -104,8 +123,7 @@ TEST_CASE("the rule picks the variant with most fields, then the one "
     "outside the legacy paths, a -CONVENTIONS twin is renamed, and the "
     "engine's terms are spelled as ORE does",
     "[codecs][conventions_coverage]") {
-    const auto found = tests::messages_of(tests::run(
-        codecs::conventions_coverage, tree(
+    const auto found = tests::messages_of(run(tree(
             "Zero\tZ1\tTenorBased=true\tx\t\n"
             "Zero\tZ2\tTenor=1Y\tx\t\n"
             "IborIndex\tEUR-EURIBOR\tSettlementDays=2\tx\t\n"
@@ -137,7 +155,7 @@ TEST_CASE("a pin by digest decides between variants, and a stale pin, or a "
         "Zero\tGONE\tnowhere\tTenor=2Y\n"
         "Zero\tLATER\tTODO\tTenor=5Y\n";
     t[here + "conventions.tsv"] += "Zero\tLATER\tTenor=5Y\tx\t\n";
-    CHECK(tests::messages_of(tests::run(codecs::conventions_coverage, t)) ==
+    CHECK(tests::messages_of(run(t)) ==
         std::vector<std::string>{
             "ORE examples: Zero GONE is not in the dataset",
             "ORE examples: Zero Z1 differs: ORE states 'Nested=a/A=/B=1 ; "
@@ -149,7 +167,26 @@ TEST_CASE("a decisions file extract.py refuses is one finding",
     "[codecs][conventions_coverage]") {
     auto t = tree(complete);
     t[tools + "decisions.tsv"] = "kind\tid\tdecision\n";
-    CHECK(tests::messages_of(tests::run(codecs::conventions_coverage, t)) ==
+    CHECK(tests::messages_of(run(t)) ==
         std::vector<std::string>{"extract.py stops: expected the header "
             "kind, id, decision, signature"});
+}
+
+TEST_CASE("a codec whose check document gives no tables says which "
+    "document to write, and a missing file is named, not skipped",
+    "[codecs][conventions_coverage]") {
+    const auto no_data = tests::run(codecs::conventions_coverage,
+        tree(complete));
+    REQUIRE(no_data.findings.size() == 1);
+    CHECK(tests::messages_of(no_data).front().starts_with(
+        "conventions_coverage reads its data from a check document, and none "
+        "gives it: write compass/checks/conventions_coverage.org"));
+
+    auto t = tree(complete);
+    t.erase(here + "oresmd_index_map.tsv");
+    CHECK(tests::messages_of(run(t)) == std::vector<std::string>{
+        "conventions_coverage reads this file, and it is missing"});
+    CHECK(tests::places(run(t).findings) ==
+        std::vector<std::pair<std::string, std::uint32_t>>{
+            {here + "oresmd_index_map.tsv", 0}});
 }

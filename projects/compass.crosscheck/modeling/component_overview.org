@@ -307,8 +307,12 @@ because each reads one kind of artefact and writes another:
   =propose.py= reports is a finding: =duplicate_row=, =no_source=,
   =undefined_index=, =missing_convention= and =differing_convention=;
   =extract_failed= is a =decisions.tsv= =extract.py= refuses.
-  =INDEX_FIELDS= and =BDC= are read from =propose.py=. The audit files
-  =extract.py= also writes under =tmp/= are not ported.
+  The fields that name an index and the business day codes, which were
+  =propose.py='s =INDEX_FIELDS= and =BDC=, are the tables =Index fields=
+  and =Business day conventions= of the project's check document for the
+  codec; =unreadable= reports a missing table or file, where the codec
+  used to return without a word. The audit files =extract.py= also writes
+  under =tmp/= are not ported.
 
 Three gates of the parameter value sets are one model here, not three
 ports. ORE Studio's =generate_value_sets.py=, =generate_ore_element_map.py=

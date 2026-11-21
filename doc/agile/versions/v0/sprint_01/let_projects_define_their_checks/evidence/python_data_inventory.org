@@ -1,0 +1,891 @@
+:PROPERTIES:
+:ID: 66EADA53-4D74-4425-8CEA-CF283177C351
+:END:
+#+title: Inventory: the data compass reads out of ORE Studio's Python
+#+description: Every module-level Python value compass-ng's codecs parse out of ORE Studio's scripts, with its shape, size, parse site, class, proposed org table and whether ORE still runs the script.
+#+type: investigation
+#+level: s1
+#+filetags: :gates:checks:let_projects_define_their_checks:sprint_01:v0:evidence:
+#+created: 2026-11-21
+#+updated: 2026-11-21
+
+A point-in-time record of an [[id:A7F8D9E2-3C4B-4A5D-B67C-8E9F0A1B2C3D][investigation]] into the data compass-ng reads
+out of ORE Studio's Python files. It is evidence for the
+[[id:DAB2F48A-E47A-4895-9026-056AF21E6CCC][Let projects define their own checks]] story and the input to the
+design and migration plan that moves this data into literate org
+documents. It was written on 2026-11-21, at compass =80a2a31= and ORE
+Studio =732fc2ee34= (origin/main, exported without =external/=).
+
+It is a snapshot, not a description of the system. The design that acts
+on it is [[id:225B524C-1638-4A03-B02F-66EB6759619D][Design: literate project checks]].
+
+* Context
+
+Several codecs ported ORE Studio's Python gates and generators but left
+the curated data in the Python. They open ORE's =.py= files as text and
+parse module-level assignments out of them with
+=ops::python_assignment=, =ops::python_string_constants=,
+=ops::resolved= (=compass.crosscheck/src/ops/python_literals.cpp=) and
+=ops::module_table= (=compass.crosscheck/src/ops/json_value.cpp:383-392=,
+which is =python_assignment=, then =resolved= against the module's string
+constants, then =json_of=). One codec, =skill_type_tables=, reads
+ORE's =compass.py= with regular expressions instead. The consequences:
+
+- ORE cannot delete a script compass reads, even once compass answers
+  for its gate.
+- A Python refactor that keeps behaviour (a computed value, a renamed
+  constant, a helper call in a literal) breaks a codec.
+- Nothing on ORE's side says compass reads the file.
+
+The product owner decided the data moves into compass check documents:
+org files that hold each table under a level-1 heading, with prose that
+explains it, as =compass/checks/wide_types.org='s =* Ceilings= does.
+
+* Methodology
+
+- The readers. =grep= over =projects/*/src= and =projects/*/include=
+  (excluding =projects/compass.legacy=) for =.py=, =python_assignment=,
+  =python_string_constants=, =module_table= and =python_dict=. Eleven
+  source files name a =.py= path that they read; every other hit is a
+  comment, a generated banner or a fix message. The eleven are the files
+  the brief named, so there is no other codec that reads a =.py= file as
+  data.
+- The shapes and sizes. A script parsed each ORE file with Python's
+  =ast= module (no import, no execution) and printed, per name, its line
+  range, its shape and its entry count. Nested counts (=KINDS= mappings,
+  =COMPOSITE_KINDS= parts, =RULES= match shapes, cells holding a =|=)
+  were counted by the same means. No size below is estimated.
+- The parse sites. Each =file:line= was read in the codec source at
+  =80a2a31=.
+- The callers. =grep= over the export for imports of each module
+  (=import=, =from=, =spec_from_file_location=), for each script's path
+  in =build/scripts/local_checks.py=, in =.github/workflows/*.yml= and in
+  shell scripts.
+- The classes.
+  - /curated/: a table a person edits.
+  - /machinery/: a regular expression or a function the codec
+    reimplements; it belongs in compass code.
+  - /template/: output text the codec copies verbatim (a licence block,
+    a page header).
+  - /provenance/: a name or version string only.
+
+* Conclusions
+
+1. *Much of this is not check data, and some of it is ORE's runtime
+   data.* ORE's own tools read the same values while they run:
+   =compass.py='s =_STATIC_PARENT= and =_DEFAULTABLE_PARENT= decide
+   where ORE's =compass add= writes a document; =ore_files.py='s =FILES=
+   is the source of the =reporting_ore_files_populate.sql= seed;
+   =COMPONENTS_UNDER_TEST= drives =check_component_drift.py --all=, which
+   regenerates code; =COMPONENT_PREFIXES= drives ORE's SQL validator
+   (=validate_schemas.sh=). Moving these into a compass check document
+   either makes ORE's Python read org or leaves two copies.
+2. *Eight of the seventeen files compass reads still run in ORE whatever
+   compass does.* =local_checks.py= runs a ported gate
+   as Python only when =compass-ng= is not on the PATH
+   (=COMPASS_CODECS=, =local_checks.py:1443-1519=). But the codegen and
+   build-script test suites, the conventions generator tests, the
+   file-types seed and three workflows on push to =main= (=doc-lint.yml=,
+   =codegen-drift.yml=, =continuous-linux.yml=) import or run
+   =generate_sql.py=, the three route modules, =component_registry.py=,
+   =plantuml_er_parse_sql.py=, =ore_files.py=, =compass.py= and
+   =generate_skill_type_tables.py= directly. The migration has to retire
+   those callers in ORE, or teach them to read the org tables, before
+   the data can leave the Python.
+3. *Six of the eleven codecs are generators, not checks.*
+   =ore_value_sets=, =conventions_dataset=, =route_inventory=,
+   =er_diagram=, =ore_output_catalogue= and =skill_type_tables= write
+   files (=corpus_function<ct::file_output>=). Their data is a
+   generator's input, not a check's parameter, and the =check= document
+   type, whose compiler reads only =* Definition=, =* Ceilings=,
+   =* Exceptions= and =* Examples= (=check_documents.cpp:166-185=,
+   =395=), has no place for it. A data-table document type, or a
+   generic table reader, is needed whatever the home.
+4. *Three tables strain an org table.*
+   - =route_classification.RULES=: 289 ordered rows whose first match
+     wins; 133 are regular expressions and 113 of those hold a =|=. An org
+     table needs =\vert= for each, and compass's org reader does not
+     unescape it (=compass.cli/src/config/org_reader.cpp:30-35= strips
+     only === and =~=).
+   - =generate_sql.KINDS= and =COMPOSITE_KINDS=: nested three deep
+     (kind, part, column mapping), with two parts lists computed by
+     Python functions. They flatten into five tables, and the two
+     functions stay code. The design's rule ("a check that needs nesting
+     is a sign it should be code") applies to the functions, not to the
+     mappings.
+   - Two =HEADER= values are multi-line output templates (42 and 58
+     lines). They belong in a source block or a template file, not a
+     table.
+
+A fifth point affects scope rather than shape: the same data is stated
+more than once. =CATALOGUES= and =SCHEMA_TYPE_SETS= are identical in
+=convention_value_sets.py= and =curve_value_sets.py=; =INDEX_FIELDS= is
+identical in =propose.py= and =generate_sql.py=; =PERIOD_PATTERN= repeats
+=OWN_SETS["convention.period"]["pattern"]=. compass also holds copies it
+does not read (see [[*Data compass copies instead of reading][Data compass copies instead of reading]]).
+
+* Summary
+
+Entries count the top-level rows of the curated names only. "Fallback
+only" means ORE runs the file only through =local_checks.py= when
+=compass-ng= is not on the PATH.
+
+| Codec | ORE file | Names | Curated entries | Fits org tables? | ORE still runs the file? |
+|-------+----------+-------+-----------------+------------------+--------------------------|
+| =ore_value_sets=, =parameter_value_sets= | =ores.sql/utility/convention_value_sets.py= | 9 | 24 | Yes; =TYPE_OVERRIDE='s key needs an "any element" cell | Fallback only (imported by =generate_value_sets.py=, =generate_ore_element_map.py=) |
+| =ore_value_sets=, =parameter_value_sets= | =ores.sql/utility/curve_value_sets.py= | 7 | 42 | Yes; its =OWN_SETS= (not read) calls a function | Fallback only (same importers) |
+| =ore_value_sets=, =parameter_value_sets= | =ores.sql/utility/ore_aliases.py= | 2 | 10 | Yes | Fallback only (imported by both value-set modules) |
+| =ore_value_sets=, =parameter_value_sets= | =ores.sql/utility/ore_schema_types.py= | 1 | 14 | Yes | Fallback only (imported by three modules) |
+| =ore_value_sets=, =parameter_value_sets= | =ores.sql/utility/generate_ore_element_map.py= | 4 | 17 | Yes; =ITEM_WORDS= has a =None= value | Fallback only |
+| =ore_value_sets=, =parameter_value_sets= (via =projection_columns=) | =ores.sql/utility/generate_convention_kind_terms.py= | 8 | 19 | Yes | Fallback only |
+| =conventions_coverage= | =ores.seeder/datasets/conventions/propose.py= | 2 | 12 | Yes | Fallback only |
+| =conventions_dataset= | =ores.seeder/datasets/conventions/generate_sql.py= | 18 | 142, plus 237 column mappings | Partly: five tables; two functions stay code; =HEADER= is a template | Yes: =test_generate_sql.py= (=conventions-generator-tests=) |
+| =model_rules= | =build/scripts/route_classification.py= | 2 | 17 | Yes | Yes: =test_route_pairing.py= (=build-script-tests=) |
+| =route_inventory= | =build/scripts/route_classification.py= | 5 | 329 | Partly: =RULES= needs =\vert= in 113 rows | Yes: =test_route_pairing.py= |
+| =route_inventory= | =build/scripts/route_pairing.py= | 2 | 295 | Yes | Yes: =test_route_pairing.py= |
+| =route_inventory= | =build/scripts/route_inventory.py= | 1 | 0 (template) | No: a 58-line page header | Yes: =test_route_pairing.py= |
+| =protocol_twins= | =ores.codegen/scripts/component_registry.py= | 1 | 24 | Yes | Yes: =codegen-drift.yml=, =codegen-tests= |
+| =registry_exceptions= | =ores.codegen/scripts/component_registry.py= | 2 | 24 + 6 | Yes | Yes: =codegen-drift.yml=, =codegen-tests= |
+| =er_diagram= | =ores.codegen/src/plantuml_er_parse_sql.py= | 3 | 42 | Yes | Yes: =continuous-linux.yml=, =codegen-drift.yml=, =codegen-tests= |
+| =ore_output_catalogue= | =ores.ore/scripts/generate_output_catalogue.py= | 13 | 151 | Yes; =NULLS= holds the empty string | Fallback only |
+| =ore_output_catalogue= | =ores.ore/scripts/output_family_docs.py= | 1 | 80 | Yes, once =MONEY= is expanded | Fallback only |
+| =ore_output_catalogue= | =ores.sql/utility/ore_files.py= | 2 | 24 + 124 | Yes, but it is product seed data | Yes: =generate_file_types_populate.py= (=file-types-seed=) |
+| =skill_type_tables= | =ores.compass/src/compass.py= | 3 (two dicts, the =help= of 13 subparsers) | 12 | No: it is ORE's CLI source | Yes: it is ORE's =compass= CLI |
+| =skill_type_tables= | =build/scripts/generate_skill_type_tables.py= | 0 (named in banners only) | 0 read; 30 copied into C++ | Not applicable | Yes: =doc-lint.yml= |
+
+* Paths taken
+
+Paths of ORE files are relative to ORE's root. Paths of codecs are
+relative to =projects/= in this repository.
+
+** =ore_value_sets= and =parameter_value_sets=
+
+Codec registration: =compass.crosscheck/src/codecs/value_sets.cpp:218-238=.
+Both run one resolution, =ops::value_sets::evaluate=, whose =inputs=
+constructor reads the five modules as text
+(=compass.crosscheck/src/ops/value_sets.cpp:577-581=) and parses each
+name through =table()= (=value_sets.cpp:82-88=, which calls
+=module_table=). =ore_value_sets= writes the value set seed, the ORE
+element map and its columns, and the convention kind terms;
+=parameter_value_sets= reports the problems of the same resolution.
+
+The constructor also reads five JSON files beside the modules
+(=ore_renderings.json=, =convention_terms.json=, =curve_terms.json=,
+=ore_parameter_vocabularies.json=, =curve_value_set_curation.json=;
+=value_sets.cpp:605=, =623-626=) and the XSDs under =external/ore/xsd/=.
+JSON is out of scope here.
+
+*** =convention_value_sets.py=
+
+| Name | Lines | Shape | Entries | Class | Meaning |
+|------+-------+-------+---------+-------+---------|
+| =CATALOGUES= | 55-61 | dict of str to dict (=name=, =relation=, =description=) | 1 | curated | The catalogues a convention value may name, with the relation that holds their codes. |
+| =CATALOGUE_OF= | 63-65 | dict str to str | 1 | curated | The convention kind whose values one catalogue holds. |
+| =RENDERED_OF= | 71-74 | dict str to str | 2 | curated | The kinds ORE's reader converts before the store sees them, and the rendering table that states their forms. |
+| =WITHOUT_LIST= | 77 | dict str to str | 3 | curated | The kinds whose parser states no list, and the set each takes. |
+| =LIST_OF= | 80 | dict str to str | 1 | curated | A kind whose values one parser lists, whichever parser the term names. |
+| =SCHEMA_TYPE_SETS= | 83-84 | dict str to str | 4 | curated | The schema kind, as this family's =TYPE_SETS= names it. |
+| =TYPE_SETS= | 86-91 | dict str to str | 4 | curated | The value set each extractor type takes. |
+| =OWN_SETS= | 93-107 | dict str to dict (4 or 5 keys, =bool= and =str=) | 2 | curated | The sets this family defines itself: whole number and period. |
+| =TYPE_OVERRIDE= | 187-215 | dict of (str, str or =None=) to (str, str) | 6 | curated | Leaves whose extracted type is wrong, the type that holds and why. |
+
+Parse sites: =value_sets.cpp:585-594=. Uses: =CATALOGUES= at
+=value_sets.cpp:810=, =827=; =CATALOGUE_OF= at =768=, =808=;
+=RENDERED_OF= at =764-765=; =WITHOUT_LIST= at =788-789=; =LIST_OF= at
+=776-777=; =SCHEMA_TYPE_SETS= at =791=; =TYPE_SETS= at =770-771=, =792=;
+=OWN_SETS= at =805-807=; =TYPE_OVERRIDE= at =751-753=.
+
+=TYPE_OVERRIDE='s key is not one shape: =("SettlementDays", None)= is
+(term, any element), and =("CommodityForward", "SpotDays")= is (element,
+term); =override_of= (=convention_value_sets.py:218-224=) tries both.
+As a table it becomes element and term columns, with an empty element
+meaning any.
+
+Proposed shape. =CATALOGUES= is one table shared with the curve family
+(it is identical there); the five string maps are one table keyed by
+family and map name, or five small tables.
+
+- =* Catalogues=
+
+  | code | name | relation | description |
+  |------+------+----------+-------------|
+  | refdata.currency | Currencies | ores_refdata_currency_catalogue_v | The currencies reference data holds. |
+
+- =* Kind sets=, one row per (map, key) of =CATALOGUE_OF=, =RENDERED_OF=,
+  =WITHOUT_LIST=, =LIST_OF=, =TYPE_SETS=, =SCHEMA_TYPE_SETS=
+
+  | family | map | key | value |
+  |--------+-----+-----+-------|
+  | convention | rendered_of | day_counter | day_counters |
+
+- =* Own sets=
+
+  | code | name | description | source_kind | pattern | is_ordered |
+  |------+------+-------------+-------------+---------+------------|
+  | convention.integer | Whole number | A whole number the ORE code parses as an integer. | integer | | no |
+
+- =* Type overrides=
+
+  | element | term | type | reason |
+  |---------+------+------+--------|
+  | CommodityForward | SpotDays | integer | The ORE schema declares the commodity forward's SpotDays xs:integer, and the extractor typed it text because no parser reaches it. |
+
+*** =curve_value_sets.py=
+
+| Name | Lines | Shape | Entries | Class | Meaning |
+|------+-------+-------+---------+-------+---------|
+| =CURATION_KEYS= | 56 | tuple of str | 6 | curated (a schema) | The keys every entry of =curve_value_set_curation.json= must state. |
+| =SOURCES= | 57 | tuple of str | 5 | curated (a schema) | The sources a curation entry may cite. |
+| =CATALOGUES= | 59-65 | dict str to dict | 1 | curated | Identical to the convention family's. |
+| =LIST_ITEM= | 144-268 | dict str to dict (=kind=, =source=, =source_ref=, =reason=; some =None=) | 17 | curated | List leaves ORE reads as strings, the kind of one item, and the ORE code or guide line that proves it. |
+| =TYPE_SETS= | 270-279 | dict str to str | 8 | curated | The value set each extractor type takes. |
+| =SCHEMA_TYPE_SETS= | 282-283 | dict str to str | 4 | curated | Identical to the convention family's. |
+| =PERIOD_PATTERN= | 285 | str (a regex) | 1 | curated | The pattern of a period; the same text as the convention family's =convention.period= pattern. |
+
+Parse sites: =value_sets.cpp:595-602=. Uses: =CATALOGUES= at =981=,
+=1032=, =1113=; =CURATION_KEYS= at =1125=; =SOURCES= at =1133=;
+=LIST_ITEM= at =950=, =1464=; =TYPE_SETS= at =935-956=, =1667=;
+=SCHEMA_TYPE_SETS= at =943=, =1660-1663=; =PERIOD_PATTERN= at =1073=,
+=1078=.
+
+The module's =OWN_SETS= (8 entries, lines 287-349) is not read: one
+entry's pattern calls =schema_types.restriction("date")=, so compass
+states the eight sets as C++ literals (=value_sets.cpp:1065-1083=).
+
+Proposed shape. =* Catalogues= and =* Kind sets= as above, with
+=family= curve. =CURATION_KEYS= and =SOURCES= validate a JSON file; if
+the curation moves to org they become the table's columns and a
+=source= column's allowed values, not tables of their own.
+=PERIOD_PATTERN= is one row of =* Own sets=.
+
+- =* List items=
+
+  | leaf | kind | source | source_ref | reason |
+  |------+------+--------+------------+--------|
+  | CapStrikes | number_list | ore_guide | Docs/UserGuide/parameterisation/curveconfig.tex:50 | The guide states the strikes for which cap prices are quoted, so one item is a number. |
+
+*** =ore_aliases.py=
+
+| Name | Lines | Shape | Entries | Class | Meaning |
+|------+-------+-------+---------+-------+---------|
+| =PARSER_TABLE= | 135-141 | dict str to str | 5 | curated | The ORE parser whose list names one rendering table. |
+| =SETS= | 147-178 | dict str to dict (=name=, =description=, =label=, the label a string constant) | 5 | curated | What each rendering family is called, and how a row of its set reads. |
+
+Parse site: =value_sets.cpp:603-607=, into =class renderings=
+(=value_sets.cpp:205-=). =SETS='s =label= values are the names
+=WORDS_LABEL= and =VALUE_LABEL=; =module_table= resolves them through
+=python_string_constants=.
+
+Proposed shape.
+
+- =* Rendering families=
+
+  | table | parser | name | description | label |
+  |-------+--------+------+-------------+-------|
+  | day_counters | parseDayCounter | Day counters | The day counters, as the form a configuration holds and every other rendering ORE's reader accepts. | value |
+
+*** =ore_schema_types.py=
+
+| Name | Lines | Shape | Entries | Class | Meaning |
+|------+-------+-------+---------+-------+---------|
+| =KIND_OF= | 50-58 | dict str to str | 14 | curated | The XSD types narrower than a string, and the kind of value each states. |
+
+Parse site: =value_sets.cpp:615-616=, passed to
+=ore_schema::schemas= (=compass.crosscheck/src/ops/ore_schema.cpp=).
+The rest of the module (the XSD walk) is machinery compass already
+reimplements in =ore_schema.cpp=.
+
+Proposed shape: =* Schema kinds=, columns =xsd_type=, =kind=; example
+row =xs:integer= , =integer=.
+
+*** =generate_ore_element_map.py=
+
+| Name | Lines | Shape | Entries | Class | Meaning |
+|------+-------+-------+---------+-------+---------|
+| =UNREAD_ALLOWED= | 59 | int | 1 | curated (a ceiling) | How many leaves may name no authority; it may only fall, and it is 0. |
+| =ITEM_WORDS= | 174-183 | dict str to str or =None= | 8 | curated | The words a reader sees for one item of a list, by set kind; =text= is =None=. |
+| =SCHEMA_WORDS= | 186-191 | dict str to str | 4 | curated | The words for a schema-typed value. |
+| =SCHEMA_NAMES= | 194-199 | dict str to str | 4 | curated | The name of the set a schema type takes. |
+
+Parse sites: =value_sets.cpp:617-622=. Uses: =ITEM_WORDS= at =1502=;
+=SCHEMA_WORDS= at =1490-1491=, =1662-1664=; =SCHEMA_NAMES= at =1661=,
+=1664=; =UNREAD_ALLOWED= at =1803=.
+
+Proposed shape. =UNREAD_ALLOWED= is a =limit= ceiling: a =:CEILING:=
+drawer key, not a table. =SCHEMA_WORDS= and =SCHEMA_NAMES= share keys
+and merge into one table.
+
+- =* Item words=: columns =kind=, =words=; example row =number=,
+  =a number=. =None= for =text= needs a stated empty-cell meaning
+  ("no words").
+- =* Schema kinds words=
+
+  | kind | name | words |
+  |------+------+-------|
+  | integer | Whole number | a whole number |
+
+** =projection_columns= (inside the value set codecs)
+
+=ops::convention_terms= (=compass.crosscheck/src/ops/projection_columns.cpp:347-=)
+reads =generate_convention_kind_terms.py= (path at =projection_columns.cpp:45-46=,
+read at =350=) and parses it in =read_tables=
+(=projection_columns.cpp:104-132=). Its callers are the value set codecs
+(=codecs/value_sets.cpp:45=, =ops/value_sets.cpp:643=); the convention
+kind terms are written by =ore_value_sets=.
+
+| Name | Lines | Shape | Entries | Class | Meaning |
+|------+-------+-------+---------+-------+---------|
+| =ASSET_CLASSES= | 58 | tuple of str | 6 | curated | The asset classes a kind may serve. |
+| =NOT_A_COLUMN= | 61-67 | dict of (str, str, str) to str | 2 | curated | A mapper read whose target is no entity column, with why. |
+| =SCHEMA_NAME= | 69 | str | 1 | curated | The schema the terms are read against, =conventions.xsd=. |
+| =FILE_KIND= | 72 | dict str to str | 1 | curated | The kind a mapper file serves where its name does not say. |
+| =SPELLED_OTHERWISE= | 76-82 | dict str to dict (=xpath=, =reason=) | 1 | curated | A term whose element the mapper spells otherwise than ORE reads it. Only =xpath= is read (=projection_columns.cpp:116-124=). |
+| =READ_ELSEWHERE= | 86-89 | dict of (str, str) to str | 1 | curated | A block another ORE parser reads whole. |
+| =ELEMENT_OF= | 92-96 | dict str to str | 5 | curated | The element a kind is written as, where no =pack_family= call names it. |
+| =MEMBER_ENTITY= | 111 | dict str to str | 2 | curated | The entity a projection struct member holds. |
+| =FUNCTION=, =DECLARED=, =ALIAS=, =CHILD=, =READ=, =PACK= | 98-107 | =re.compile= | 6 | machinery | Not read: compass states its own copies (=projection_columns.cpp:176-186=). |
+
+Parse sites: =projection_columns.cpp:106= (=ASSET_CLASSES=), =110-113=
+(=NOT_A_COLUMN=), =114= (=SCHEMA_NAME=), =115= (=FILE_KIND=), =116-124=
+(=SPELLED_OTHERWISE=), =125-128= (=READ_ELSEWHERE=), =129=
+(=ELEMENT_OF=), =130-131= (=MEMBER_ENTITY=). Uses: =ASSET_CLASSES= at
+=301=; =NOT_A_COLUMN= at =243=; =SCHEMA_NAME= at =355=; =FILE_KIND= at
+=198=; =SPELLED_OTHERWISE= at =369-370=; =READ_ELSEWHERE= at =362=;
+=ELEMENT_OF= at =188=; =MEMBER_ENTITY= at =211=.
+
+Proposed shape. =SCHEMA_NAME= is a drawer key. =ASSET_CLASSES= is a
+one-column table. The three "with why" maps keep their reasons.
+
+- =* Asset classes=: column =asset_class=; example row =interest-rates=.
+- =* Not a column=
+
+  | kind | variable | column | reason |
+  |------+----------+--------+--------|
+  | CURRENCY_PAIR | r | spot_days | the FX projection's spot days, which the projection carries and no entity stores |
+
+- =* Spelled otherwise=: columns =term=, =xpath=, =reason=; example row
+  =BMA_BASIS_SWAP:bma_basis_swap_convention.overnight_lockout_days=,
+  =/Conventions/BMABasisSwap/OvernightLockouDays=, "ORE's fromXML reads
+  OvernightLockouDays and its toXML writes OvernightLockoutDays; the
+  mapper uses the written spelling."
+- =* Read elsewhere=: columns =kind=, =element=, =reason=; example row
+  =INFLATION_SWAP=, =PublicationSchedule=, "a ScheduleData block that
+  ScheduleData::fromXML reads, not the conventions parser".
+- =* Element of=: columns =kind=, =element=; example row
+  =TENOR_BASIS_SWAP=, =TenorBasisSwap=. =FILE_KIND= (=file=, =kind=)
+  and =MEMBER_ENTITY= (=member=, =entity=) are two-column tables of the
+  same form.
+
+** =conventions_coverage=
+
+Option =propose= (=compass.crosscheck/src/codecs/conventions_coverage.cpp:82-84=);
+the file is read at =conventions_coverage.cpp:595= and parsed at
+=613-624=.
+
+| Name | Lines | Shape | Entries | Class | Meaning |
+|------+-------+-------+---------+-------+---------|
+| =BDC= | 59-60 | dict str to str | 3 | curated | The short spelling of a business day convention the ORE engine states in full. |
+| =INDEX_FIELDS= | 64-65 | tuple of str | 9 | curated | The convention fields whose value names an index. Identical to =generate_sql.py='s =INDEX_FIELDS=. |
+
+Uses: =INDEX_FIELDS= at =conventions_coverage.cpp:679= (rule
+=undefined_index=); =BDC= at =704-706= (the engine conventions'
+signatures). =propose.py='s =ENGINE_SOURCE= (line 67) is not read; the
+codec states ="ORE engine"= itself (=conventions_coverage.cpp:718=).
+
+The codec also reads TSV data (out of scope): =conventions.tsv= (=557=),
+=propose_decisions.tsv= (=597=), =oresmd_index_map.tsv= (=598=),
+=tools/ore_conventions/builtin_index_fields.tsv= (=599=, written by
+=mine_builtin_conventions.py=) and =tools/ore_conventions/decisions.tsv=
+(=606-607=). It does not read the TSV that =extract.py= writes
+(=tmp/ore_conventions/conventions-canonical.tsv=): it reimplements
+=extract.py= (=canonical_table=, =conventions_coverage.cpp:395=) and
+builds that table in memory.
+
+Proposed shape. =INDEX_FIELDS= has one home shared with
+=conventions_dataset=.
+
+- =* Index fields=: column =field=; example row =BMAIndex=.
+- =* Engine spellings=: columns =spelling=, =short=; example row
+  =ModifiedFollowing=, =MF=.
+
+** =conventions_dataset=
+
+Option =script= (=compass.crosscheck/src/codecs/conventions_dataset.cpp:120-122=);
+=tables_of= (=conventions_dataset.cpp:227-286=) parses the file, called at
+=828=; =module_value= is at =181-187=. The codec writes
+=refdata_conventions_artefact_populate.sql=. It also reads
+=conventions.tsv=, =oresmd_index_map.tsv= and =methodology.txt=
+(=817-824=).
+
+| Name | Lines | Shape | Entries | Class | Meaning |
+|------+-------+-------+---------+-------+---------|
+| =DAY_COUNTER= | 54-89 | dict str to str | 34 | curated | Spelling of a day counter to its canonical form. |
+| =BDC= | 91-108 | dict str to str | 16 | curated | Spelling of a business day convention to its canonical form (the inverse direction of =propose.py='s =BDC=). |
+| =FREQUENCY= | 110-129 | dict str to str | 18 | curated | Spelling of a frequency to its canonical form. |
+| =COMPOUNDING= | 131-136 | dict str to str | 4 | curated | Spelling of a compounding to its canonical form. |
+| =DATE_RULE= | 138-154 | dict str to str | 15 | curated | Spelling of a date generation rule to its canonical form. |
+| =KINDS= | 210-384 | dict str to (str, list of (str or =None=, str, str)) | 20 kinds, 132 mappings | curated | Each flat convention kind, its table, and each (XML field, column, parser type). |
+| =CUT_KINDS= | 387-394 | dict str to str | 2 | curated | Kinds left out of the dataset, with why. |
+| =COMPOSITE_KINDS= | 436-659 | dict str to dict (=kind_code=, =central_table=, =parts_of=, =parts= dict of part to dict (=table=, =mapping=)) | 4 kinds, 13 parts, 105 mappings | curated, with two functions | Each atomised kind, its central table, its parts and each part's mappings. |
+| =WORLD_KINDS= | 662 | set of str | 2 | curated | The kinds that are world data. |
+| =DATASET_CODE= | 680 | str | 1 | curated (metadata) | =refdata.conventions=. |
+| =METHODOLOGY= | 681 | str | 1 | curated (metadata) | The methodology's name. |
+| =METHODOLOGY_DESCRIPTION= | 682-684 | str | 1 | curated (metadata) | Its description. |
+| =METHODOLOGY_URL= | 685-686 | str | 1 | curated (metadata) | Its URL. |
+| =INDEX_FIELDS= | 691-692 | tuple of str | 9 | curated | Identical to =propose.py='s. |
+| =INDEX_KINDS= | 693 | tuple of str | 4 | curated | The kinds that define an index. |
+| =PRIMARY_INDEX= | 701-711 | dict str to tuple of str (1 or 2) | 9 | curated | The fields of a kind whose index is its primary one. |
+| =HEADER= | 1094-1135 | str, 42 lines | 1 | template | The licence block of the generated SQL. |
+| =NESTED_COLUMNS= | 1139-1141 | dict str to list of str | 1 | curated | Columns a kind stores as nested values. |
+
+Parse sites, all in =tables_of=: the five normalisers at
+=conventions_dataset.cpp:229-237=; =KINDS= at =238-245=; =CUT_KINDS= at
+=246-248=; =COMPOSITE_KINDS= at =249-268=; =WORLD_KINDS= at =269-270=;
+=INDEX_FIELDS= at =271=; =INDEX_KINDS= at =272=; =PRIMARY_INDEX= at
+=273-275=; =NESTED_COLUMNS= at =276-278=; =HEADER=, =DATASET_CODE= and
+the three methodology strings at =279-284=. =HEADER= and the metadata
+are substituted into the output at =899-903=.
+
+Machinery. A =COMPOSITE_KINDS= entry's =parts_of= is either a =lambda=
+that returns a fixed list (=CrossCurrencyBasis=,
+=CrossCurrencyFixFloat=) or a function of the script
+(=commodity_future_parts=, =tenor_basis_swap_parts=,
+=generate_sql.py:407-433=). compass reads the lambda's list
+(=conventions_dataset.cpp:254-262=) and reimplements both functions by
+name (=parts_of=, =conventions_dataset.cpp:629-660=), including a C++
+copy of =COMMODITY_FUTURE_OPTION_FIELDS= (=636-642=).
+
+Proposed shape. Flattening needs five tables; the nesting rule of the
+design applies to the two =parts_of= functions, which stay code (a
+=parts= column naming either a fixed list or a rule compass knows).
+=HEADER= is a template; the metadata is drawer keys.
+
+- =* Spellings=, one table for the five normalisers
+
+  | type | spelling | canonical |
+  |------+----------+-----------|
+  | daycounter | A360 | ACT/360 |
+
+- =* Kinds=: columns =kind=, =table=; example row =AverageOIS=,
+  =average_ois=.
+- =* Kind columns=
+
+  | kind | field | column | type |
+  |------+-------+--------+------|
+  | AverageOIS | SpotLag | spot_lag | int |
+
+- =* Composite kinds=
+
+  | kind | kind_code | central_table | parts |
+  |------+-----------+---------------+-------|
+  | CrossCurrencyBasis | CROSS_CURRENCY_BASIS | ores_dq_conventions_artefact_tbl | swap_terms flat_leg spread_leg |
+
+- =* Composite parts=: columns =kind=, =part=, =table=; example row
+  =CrossCurrencyBasis=, =swap_terms=,
+  =ores_dq_cross_currency_basis_swap_terms_artefact_tbl=.
+- =* Composite part columns=: columns =kind=, =part=, =field=, =column=,
+  =type=; example row =CrossCurrencyBasis=, =swap_terms=,
+  =SettlementDays=, =settlement_days=, =int=.
+- =* Cut kinds=: columns =kind=, =reason=; example row =FX=, "FX
+  conventions are world data already carried by the
+  refdata.currency_pair_conventions dataset; there is no party-scoped
+  FX convention table."
+- =* Primary index=: columns =kind=, =fields=; example row
+  =BMABasisSwap=, =Index BMAIndex=. =NESTED_COLUMNS= (=kind=,
+  =columns=), =WORLD_KINDS= and =INDEX_KINDS= (one column each) take the
+  same forms.
+
+A field that is =None= in a mapping (a decoded column,
+=conventions_dataset.cpp:209-212=) needs a stated empty-cell meaning.
+
+** =model_rules=
+
+Option =classification= (=compass.crosscheck/src/codecs/model_rules.cpp:107-109=);
+=published_areas= reads and parses the module at =model_rules.cpp:646-662=.
+
+| Name | Lines | Shape | Entries | Class | Meaning |
+|------+-------+-------+---------+-------+---------|
+| =AREAS= | 50-67 | tuple of str | 16 | curated | The published HTTP areas a model's =http_area= may name. |
+| =NO_AREA= | 48 | str | 1 | curated | The marker =(none)=, removed from the published set; it is not in =AREAS=, so the removal changes nothing today. |
+
+Parse sites: =model_rules.cpp:650= (=AREAS=), =651= (=NO_AREA=). Use:
+rule =unpublished_area=, =model_rules.cpp:688-701=.
+
+Proposed shape: =* Published areas=, columns =area=, =description=
+(the module states none; prose would be new); example row =market-data=.
+The same table serves =route_inventory=.
+
+** =route_inventory=
+
+Paths at =compass.crosscheck/src/codecs/route_inventory.cpp:49-52=;
+=read_tables= at =route_inventory.cpp:154-215=, called at =614=. The
+codec writes =doc/knowledge/architecture/http_route_inventory.org=.
+
+| File | Name | Lines | Shape | Entries | Class | Meaning |
+|------+------+-------+-------+---------+-------+---------|
+| =route_inventory.py= | =HEADER= | 53-110 | raw str, 58 lines | 1 | template | The inventory page's front matter and prose. |
+| =route_classification.py= | =COMPOSED= | 42 | str | 1 | curated (an enum value) | The kind name =composed view=. |
+| =route_classification.py= | =NO_AREA= | 48 | str | 1 | curated | =(none)=. |
+| =route_classification.py= | =RULES= | 93-1674 | tuple of =Rule(name, (shape, pattern), server, kind, area, note)= calls | 289 | curated | The ordered decisions: the first rule whose server and match fit a route decides its kind and area. 147 =exact=, 9 =prefix=, 133 =regex= matches; servers =bff= 157, =ores.http= 121, any 11. |
+| =route_classification.py= | =EXCEPTIONS= | 1677-1693 | dict of (server, method, path) to =Exemption(name, kind, area, note)= | 3 | curated | Decisions for one route that no rule makes. |
+| =route_classification.py= | =VIEWS= | 1702-1879 | dict str to (str, str, str) | 35 | curated | Each composed view's owner, what it reads and its caching obligation. |
+| =route_pairing.py= | =PAIRS= | 22-416 | dict of (method, path) to (method, path) | 285 | curated | Each BFF route and the new server's equivalent. One value is an f-string over =REFDATA=. |
+| =route_pairing.py= | =FAMILIES= | 428-439 | dict of (method, path) to (records, method, template, needs) | 10 | curated | BFF routes served by one generic family of the new server. |
+
+Parse sites: =HEADER= at =route_inventory.cpp:157-160=; =COMPOSED= at
+=164=; =NO_AREA= at =165=; =RULES= at =166-183=; =EXCEPTIONS= at
+=184-193=; =VIEWS= at =194-195=; =PAIRS= at =198-206=; =FAMILIES= at
+=207-214=. The rules' constants (=BFF=, =CPP=, =RESOURCE= and the
+others) and =route_pairing.py='s =REFDATA= and =REFDATA_RECORDS= reach
+the values through =python_string_constants= and =resolved=. Uses:
+=EXCEPTIONS= at =310-311=, =RULES= at =314=, =NO_AREA= at =363=, =561=,
+=586=, =COMPOSED= at =417=, =VIEWS= at =442=, =PAIRS= and =FAMILIES= at
+=563-569=, =HEADER= at =619=.
+
+Proposed shape. =RULES= keeps its order as row order. 113 regex
+patterns hold a =|=, which an org table cell cannot hold unescaped; the
+reader must unescape =\vert= (it does not today) or the pattern must
+move out of the table. Notes run to 643 characters.
+
+- =* Rules=
+
+  | name | match | pattern | server | kind | area | note |
+  |------+-------+---------+--------+------+------+------|
+  | the adapters screen's route | exact | GET /api/marketdata/adapters | ores.http | resource | market-data | Every adapter the market data service tracks, with what it serves, what it was asked to serve, and the kind of source its feed reads, joined from the feeds and the sessions. |
+
+- =* Route exceptions=
+
+  | server | method | path | name | kind | area | note |
+  |--------+--------+------+------+------+------+------|
+  | bff | GET | /api/overview | the deployment overview | composed view | tenancy | The system administrator's home: ... (truncated here) |
+
+- =* Composed views=: columns =view=, =owner=, =reads=, =caching=;
+  example row =the deployment overview=, =ores.iam=, "the tenant roster
+  counted by status, its first page, and the newest setups, each count
+  a separate list read", "ETag on the whole view, revalidated at each
+  read, because provisioning changes it".
+- =* Route pairs=
+
+  | method | path | new_method | new_path |
+  |--------+------+------------+----------|
+  | GET | /api/accounts | GET | /api/accounts |
+
+- =* Route families=: columns =method=, =path=, =records=,
+  =new_method=, =template=, =needs=; example row =GET=,
+  =/api/refdata/:resource=,
+  =projects/ores.web/packages/wire-protocol/src/records.ts:REFDATA_RECORDS=,
+  =GET=, =/api/refdata/{resource}=, =every=.
+- =HEADER=: a source block or a template file beside the output.
+
+** =protocol_twins= and =registry_exceptions=
+
+Option =registry=, =projects/ores.codegen/scripts/component_registry.py=
+(=compass.crosscheck/src/codecs/protocol_twins.cpp:63=,
+=registry_gates.cpp:60=).
+
+| Name | Lines | Shape | Entries | Class | Meaning |
+|------+-------+-------+---------+-------+---------|
+| =COMPONENTS_UNDER_TEST= | 302 | tuple of str | 24 | curated | The components every clean-standard gate checks, and that codegen regenerates. |
+| =ACCEPTED_EXCEPTIONS= | 148-245 | dict str to tuple of =AcceptedException(item, reason, accepted_by, accepted_on)= calls | 3 components, 6 exceptions (=iam= 4, =marketdata= 1, =variability-cpp= 1) | curated | Checklist items a listed component may fail, with who accepted it and when. |
+
+Parse sites: =protocol_twins.cpp:119-121= (=COMPONENTS_UNDER_TEST=);
+=registry_gates.cpp:91-98= (both names). Uses: =protocol_twins.cpp:140=
+(a component's twins are required only if it is listed);
+=registry_gates.cpp:110-133= (each exception is for a listed component,
+names a standard item, once, with a reason, an acceptor and an ISO
+date).
+
+Proposed shape.
+
+- =* Components under test=: column =component=; example row =iam=.
+- =* Accepted exceptions=
+
+  | component | item | reason | accepted_by | accepted_on |
+  |-----------+------+--------+-------------+-------------|
+  | variability-cpp | V08 | The in-process facade added by this work, system_settings_service, has no unit test of its own. ... (truncated here) | marco | 2026-09-26 |
+
+** =er_diagram=
+
+Option =parser= (=compass.crosscheck/src/codecs/er_diagram.cpp:54-56=),
+read at =er_diagram.cpp:205=; =conventions_of= (=er_diagram.cpp:91-127=)
+parses it, called at =216=. The codec writes the PlantUML diagrams.
+
+| Name | Lines | Shape | Entries | Class | Meaning |
+|------+-------+-------+---------+-------+---------|
+| =COMPONENT_PREFIXES= | 38-61 | dict str to dict (=name=, =description=, =schema=, =color=, =order=) | 22 | curated | Each table-name prefix's component, its colour and its order in the diagrams. =schema= is not read. |
+| =FK_COLUMNS= | 67-84 | set of str | 16 | curated | Column names that are foreign keys by convention. |
+| =TABLE_STYLES= | 100-105 | dict str to dict (=stereotype=, =color=) | 4 | curated | Each table kind's stereotype and colour. |
+| =SOFT_FK_PATTERN=, =REFERENCE_PATTERN=, =CONSTRAINT_FK_PATTERN= | 90-97 | =re.compile= | 3 | machinery | Not read; compass's SQL model has its own (=compass.sql/include/compass.sql/ops/er_model.hpp=). |
+
+Parse sites: =er_diagram.cpp:93-95= (the three names), =98-113=
+(=COMPONENT_PREFIXES=), =114-117= (=FK_COLUMNS=), =118-121=
+(=TABLE_STYLES=). Use: =so::er_model_of= at =er_diagram.cpp:238=.
+
+Proposed shape.
+
+- =* Components=
+
+  | prefix | name | description | color | order |
+  |--------+------+-------------+-------+-------|
+  | ores_iam_ | iam | Identity & Access Management | #E8F4FD | 1 |
+
+- =* Key columns=: column =column=; example row =account_id=.
+- =* Table styles=: columns =kind=, =stereotype=, =color=; example row
+  =temporal=, =<<temporal>>=, =#C6F0D8=.
+
+** =ore_output_catalogue=
+
+Paths at =compass.crosscheck/src/codecs/ore_output_catalogue.cpp:49-53=;
+=read_tables= (=ore_output_catalogue.cpp:138-167=) and =ore_files=
+(=173-218=) are called at =790-791=; =FAMILY_DOCS= is parsed at
+=809-819=. The codec writes =output_catalogue_data.cpp=, its header and
+=doc/knowledge/external/ore_output_formats.org=.
+
+*** =generate_output_catalogue.py=
+
+| Name | Lines | Shape | Entries | Class | Meaning |
+|------+-------+-------+---------+-------+---------|
+| =CONVENTION= | 57-104 | dict str to str | 46 | curated | Files the engine names by its own convention, and the analytic that writes them. |
+| =NUMERIC_QUALIFIERS= | 108-110 | set of str | 6 | curated | Numeric columns that state a figure's context, not the figure. |
+| =RISK_FACTOR_FAMILIES= | 114 | set of str | 3 | curated | Families whose figures are the simulated risk factors. |
+| =NOTEBOOK_FAMILIES= | 119-120 | set of str | 6 | curated | Families read from the notebook examples only. |
+| =LEGACY_FAMILIES= | 125-126 | set of str | 8 | curated | Families read from the legacy examples only. |
+| =ALIASES= | 136-142 | dict str to list of str | 5 | curated | Other names a family is written under. |
+| =SAME_REPORT= | 147 | dict str to str | 1 | curated | A sample written under another report's name. |
+| =OUT_OF_SCOPE= | 153-169 | dict str to str | 15 | curated | Seeded outputs that are not read into rows, with why. |
+| =KIND_OVERRIDES= | 172-178 | dict of (str, str) to str | 5 | curated | Column kinds no sample can show. |
+| =KEYS= | 182-189 | list of str | 27 | curated | Columns that identify a row. |
+| =FAMILY_KEYS= | 193-207 | dict str to list of str | 13 | curated | Keys of one family only. |
+| =PREFIXES= | 210-219 | list of (str, str) | 8 | curated | File-name prefixes and the family they mean. |
+| =NULLS= | 223 | set of str | 8 | curated | Cell values that mean no value; one is the empty string. |
+
+Parse sites: =ore_output_catalogue.cpp:140-165=, one line per name in
+the order above. Uses: =PREFIXES= at =235=; =SAME_REPORT= at =239=;
+=NOTEBOOK_FAMILIES= and =LEGACY_FAMILIES= at =295-296=; =NULLS= at =368=;
+=KEYS= and =FAMILY_KEYS= at =454-455=; =KIND_OVERRIDES= at =464-465=;
+=NUMERIC_QUALIFIERS= at =476=, =490=; =RISK_FACTOR_FAMILIES= at =495=;
+=CONVENTION= at =506-507=; =ALIASES= at =525=; =OUT_OF_SCOPE= at =723=,
+=801=.
+
+Proposed shape. The four family sets are one table with a =role=
+column. =NULLS='s empty string needs a token (a cell cannot state it
+apart from a blank).
+
+- =* Family conventions=: columns =family=, =analytic=; example row
+  =colva-nettingset=, =xva=.
+- =* Family roles=: columns =family=, =role=; example row
+  =scenariodump=, =notebook=.
+- =* Out of scope=: columns =file=, =reason=; example row
+  =amcBuffer.dat=, "binary path data the AMC engine reads back, not a
+  report".
+- =* Kind overrides=
+
+  | family | column | kind |
+  |--------+--------+------|
+  | dividends | dividendRate | decimal |
+
+- =* Keys=: columns =column=, =family= (empty for every family); example
+  rows =TradeId=, (empty) and =datumDate=, =marketdata=. This merges
+  =KEYS= and =FAMILY_KEYS=.
+- =* Aliases=, =* Same report=, =* Prefixes=: two-column tables; example
+  =PREFIXES= row =colva_nettingset_=, =colva-nettingset=.
+- =* Nulls=: column =value=, with a token for the empty string; example
+  row =#N/A=.
+
+*** =output_family_docs.py=
+
+| Name | Lines | Shape | Entries | Class | Meaning |
+|------+-------+-------+---------+-------+---------|
+| =FAMILY_DOCS= | 15-256 | dict str to (str, str) | 80 | curated | Each output family's description and its units. 21 values are the constant =MONEY= and 12 are =MONEY + "..."=. |
+
+Parse site: =ore_output_catalogue.cpp:809-819=, with =MONEY= resolved
+through =python_string_constants=. Use: the formats page, =page()=,
+=820=.
+
+Proposed shape: =* Family documentation=, columns =family=,
+=description=, =units=; example row =additional_results_report=, "The
+extra results a pricer reports for each trade beyond its NPV: the
+engine and model it used, intermediate values and projected
+cashflows.", "Each value states its own type: string, double or
+cashflows; a double is in the trade's currency unless its name says
+otherwise." =MONEY= is either expanded in each of its 33 cells or kept
+as a named sentence the table refers to.
+
+*** =ore_files.py=
+
+| Name | Lines | Shape | Entries | Class | Meaning |
+|------+-------+-------+---------+-------+---------|
+| =SCHEMAS= | 92-120 | list of (str, str, str) | 24 | curated (product data) | The ORE schemas: code, name, file. |
+| =FILES= | 126-364 | list of =entry(code, name, category, origin, format, typical, *variants, section, xsd, configuration_type, patterns)= calls | 124 | curated (product data) | Every file of an ORE run. 21 calls name variant file names; one names a regex pattern (=RESULT_ARCHIVE=). |
+
+=FILES= is reassigned at line 366 (=SCHEMAS= entries prepended);
+=python_assignment= takes the literal at 126. Parse site: =ore_files= at
+=ore_output_catalogue.cpp:200-205= (=SCHEMAS=) and =206-216= (=FILES=),
+reading only the code (argument 0), the typical and variant names
+(arguments 5 and on) and =patterns=; it rebuilds =entry='s
+=filename_regex= (=ore_files.py:72-82=), which is machinery. Use: a
+sample's file code, =ore_output_catalogue.cpp:515=.
+
+Proposed shape: =* ORE files=, columns =code=, =typical=, =variants=,
+=pattern=; example row =todays_market=, =todaysmarket.xml=, (empty),
+(empty). But this is ORE's product reference data: it is the source of
+=reporting_ore_files_populate.sql=, through
+=generate_file_types_populate.py=, which compass does not port. It
+belongs in an ORE dataset, not in a compass check document.
+
+** =skill_type_tables=
+
+=compass.docs/src/codecs/skill_tables.cpp=. The codec reads
+=projects/ores.compass/src/compass.py= (path at =skill_tables.cpp:165=,
+read at =312=) and writes the generated regions of the
+=compass-doc-add= and =compass-doc-show= skills.
+
+| File | Name | Lines | Shape | Entries | Class | Meaning |
+|------+------+-------+-------+---------+-------+---------|
+| =compass.py= | =_STATIC_PARENT= | 3106-3122 | dict str to str, with comments | 10 | runtime data of ORE's CLI | The fixed folder a document type is added under. |
+| =compass.py= | =_DEFAULTABLE_PARENT= | 3103 | dict str to str | 2 | runtime data of ORE's CLI | The types whose parent is the current sprint or version. |
+| =compass.py= | =help== of =subparsers.add_parser= | (38 calls) | call keyword | 13 read | runtime data of ORE's CLI | The one-line help of each read-only command. |
+| =generate_skill_type_tables.py= | (none) | | | 0 | provenance | Named in the generated banners only. |
+
+Parse sites: =python_dict= (=skill_tables.cpp:199-210=), a regex over
+the dict's body, called at =218-221= with the pair regexes at
+=213-215=; =show_table= (=skill_tables.cpp:264-299=) finds each
+subparser's =help== by regex (=265-269=). These regexes are machinery:
+they are the ones =generate_skill_type_tables.py:83-120= uses.
+=generate_skill_type_tables.py= is named at =skill_tables.cpp:161-162=
+and written into the banners at =223=, =282=, =326=, =329=.
+
+Proposed shape: none. These values are ORE's CLI behaviour, read from
+its source; a compass check document would be a second copy of them.
+The options are that ORE's =compass.py= states the table itself, or the
+codec reads a document ORE's CLI also reads.
+
+* Data compass copies instead of reading
+
+These are not Python reads, but they are the same dependency in the
+other direction: a C++ copy of a Python literal, which drifts silently.
+
+| ORE source | Entries | compass copy |
+|------------+---------+--------------|
+| =generate_skill_type_tables.py= =MODEL_TYPES=, =READ_ONLY=, =READ_ONLY_SUB= | 7, 13, 10 | =compass.docs/src/codecs/skill_tables.cpp:167-193= |
+| =curve_value_sets.py= =OWN_SETS= | 8 | =compass.crosscheck/src/ops/value_sets.cpp:1065-1083= |
+| =generate_sql.py= =COMMODITY_FUTURE_OPTION_FIELDS= and the two =parts_of= functions | 10 | =compass.crosscheck/src/codecs/conventions_dataset.cpp:629-660= |
+| =tools/ore_conventions/extract.py= =LEGACY_MARKERS=, =CONVENTIONS_SUFFIX=, =STALE_SOURCE= | 5, 1, 1 | =compass.crosscheck/src/codecs/conventions_coverage.cpp:204-205=, =350=, =454-481= |
+| =propose.py= =ENGINE_SOURCE= (its prefix) | 1 | =conventions_coverage.cpp:718= |
+| =generate_convention_kind_terms.py= =FUNCTION= ... =PACK= | 6 regexes | =compass.crosscheck/src/ops/projection_columns.cpp:176-186= |
+
+* Who in ORE still runs each file
+
+=build/scripts/local_checks.py= maps each ported gate to its codecs in
+=COMPASS_CODECS= (=local_checks.py:1443-1519=) and, with =compass-ng= on
+the PATH, runs =compass-ng check --ratchet= instead of the scripts
+(=through_compass=, =1535-1548=). Every gate in this inventory is in
+=COMPASS_CODECS=. The callers that remain:
+
+- =convention_value_sets.py=, =curve_value_sets.py=, =ore_aliases.py=,
+  =ore_schema_types.py=, =generate_ore_element_map.py=,
+  =generate_convention_kind_terms.py=: imported only by
+  =generate_value_sets.py= and =generate_ore_element_map.py= (and by
+  each other); those run as the =ore-parameter-value-sets=,
+  =ore-element-map=, =convention-kind-terms= and
+  =parameter-value-sets-only= gates, all mapped. No workflow or test
+  suite runs them. Fallback only.
+- =propose.py=: =conventions-coverage= gate (=local_checks.py:1239=),
+  mapped. Fallback only.
+- =generate_sql.py=: =conventions-dataset= gate (mapped), and
+  =test_generate_sql.py= loads it in =conventions-generator-tests=
+  (=local_checks.py:1257=), which is not mapped. Still run.
+- =route_classification.py=, =route_pairing.py=, =route_inventory.py=:
+  the =http-areas= and =route-inventory= gates (mapped);
+  =build/scripts/tests/test_route_pairing.py= imports =route_inventory=,
+  which imports both modules, in =build-script-tests=
+  (=local_checks.py:1302=), not mapped. Still run.
+- =component_registry.py=: imported by =check_registry_exceptions.py=,
+  =check_protocol_twin_coverage.py= and =check_component_drift.py=;
+  =codegen-drift.yml= runs =check_component_drift.py --all= and
+  =check_protocol_twin_coverage.py= on push to =main=;
+  =projects/ores.codegen/tests/test_component_registry.py= runs in
+  =codegen-tests=. Still run, and =check_component_drift.py= also
+  regenerates components.
+- =plantuml_er_parse_sql.py=: =validate_schemas.sh= (run by
+  =continuous-linux.yml=), =plantuml_er_generate.sh=, =codegen-drift.yml=,
+  and three test files in =codegen-tests=. Still run; it is also ORE's
+  SQL validator.
+- =generate_output_catalogue.py=, =output_family_docs.py=:
+  =ore-output-catalogue= gate, mapped.
+  =projects/ores.ore/scripts/tests/test_output_catalogue_literals.py=
+  exists, but neither =local_checks.py= nor a workflow runs it. Fallback
+  only.
+- =ore_files.py=: =generate_file_types_populate.py=, the
+  =file-types-seed= gate (=local_checks.py:714=), not mapped, writes
+  four reporting seeds. Still run.
+- =compass.py=: ORE's own =compass= CLI. Always run.
+- =generate_skill_type_tables.py=: =doc-lint.yml= runs it with =--check=
+  on push to =main=, over the same regions compass writes. Still run.
+
+* Risks and open questions
+
+- Two writers of one output. Where ORE still runs a generator in CI
+  (=generate_skill_type_tables.py --check=, =plantuml_er_generate.py=,
+  =check_component_drift.py=), the Python's copy of the data and the
+  org table must stay equal, or one of the two fails. Each such script
+  must be retired, or read the org table, in the same change that moves
+  the data.
+- Runtime data. =_STATIC_PARENT=, =_DEFAULTABLE_PARENT=, the subparser
+  help, =FILES=, =SCHEMAS=, =COMPONENTS_UNDER_TEST= and
+  =COMPONENT_PREFIXES= serve ORE's own tools. Their home is ORE's
+  decision; compass should read them where ORE keeps them, not own a
+  copy.
+- Where the documents live. The design puts check documents in ORE's
+  =compass/checks/=. Much of this data is a generator's input
+  (value sets, conventions, routes, output catalogue). Is a generator's
+  data a check document, a new document type, or a dataset under the
+  component that owns it?
+- The table reader. The check compiler reads named tables only
+  (=* Ceilings=, =* Exceptions=). Every codec here needs a generic
+  reader of a named table with named columns, and a rule for empty
+  cells: =None= values (=ITEM_WORDS["text"]=, =LIST_ITEM= sources,
+  =KINDS= decoded fields, =TYPE_OVERRIDE='s any-element key) and the
+  empty string (=NULLS=, =TABLE_STYLES= stereotypes) are both
+  meaningful today.
+- =\vert=. 113 route rules hold a =|= in a regular expression. Either
+  compass's org reader unescapes =\vert= in cells, or the patterns
+  leave the table.
+- Order. =RULES= is first-match; =PREFIXES=, =KEYS= and
+  =COMPONENT_PREFIXES= (where =ores_dq_= and =ores_dq_fsm_= overlap) may
+  be order-sensitive. The reader must keep row order.
+- Size. =route_classification.py= is 1,879 lines, most of it notes; as
+  one org table its rows run to 643 characters. A table per area may
+  read better than one table.
+- Duplicates to decide once: =CATALOGUES= and =SCHEMA_TYPE_SETS= (two
+  value-set modules), =INDEX_FIELDS= (=propose.py=, =generate_sql.py=),
+  =PERIOD_PATTERN= and the =convention.period= pattern, the =BDC= maps in
+  opposite directions (=propose.py=, =generate_sql.py=), and
+  =COMPONENTS_UNDER_TEST= (two codecs).
+- Schemas of JSON files. =CURATION_KEYS= and =SOURCES= validate
+  =curve_value_set_curation.json=; moving them without the JSON splits
+  one contract across two formats.
+- The brief's premise about =extract.py=: =conventions_coverage= does
+  not read the TSV =extract.py= writes; it reimplements =extract.py= and
+  reads =decisions.tsv= and =builtin_index_fields.tsv= directly.
+
+* Recommendations
+
+The product owner decided on 2026-11-21, from this inventory:
+
+- Move the curated data into check documents, org tables with prose,
+  which the codecs read through their data option, as the =* Codec data=
+  section of [[id:225B524C-1638-4A03-B02F-66EB6759619D][Design: literate project checks]] describes.
+- Phase it. First the infrastructure and the nine files only compass reads
+  (=conventions_coverage=, the value sets, the output catalogue); that
+  gates v0.0.5. Then the eight files ORE Studio's own tools still run, each
+  in the change that makes those tools read the org table, so there is one
+  copy.
+- Data a tool of ORE Studio's also needs lives in the check document, and
+  the tool reads the table.
+
+* See also
+
+- [[id:225B524C-1638-4A03-B02F-66EB6759619D][Design: literate project checks]]: the format this data moves into.
+- [[id:5C4E5883-CBA5-4018-9A65-1CFD276AF198][Investigation: what compass hard-codes to ORE Studio]]: the C++
+  literals, the other half of the same question.
