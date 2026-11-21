@@ -319,6 +319,31 @@ exit status, so the tests drive the executable's behaviour without spawning
 it. =main= only hands =app::run= the arguments, the working directory and
 the standard streams.
 
+One codec's output may be another's input: =tangle= writes a template
+from its org source and =codegen= renders models with it. The codecs of
+a run all read the checkout as it was before the run, so =generate=
+makes passes until the outputs settle. After a pass writes, it reads
+the dependency record of that pass: when a file it wrote, restored or
+removed is one a codec read (a file or document read or looked up at
+its path, a listing it joins or leaves, or, for a document, a set of
+documents, an ID lookup or the type registry), the whole pass runs
+again over the checkout as written. The units whose inputs did not
+change come from the record, so a second pass runs only what the first
+fed. =generate= stops at the first pass that changes nothing a codec
+read, so one =generate= leaves what =check= accepts, and prints one line
+of counts for the whole run, each file counted once by the last change
+made to it, with =in <n> passes= when it took more than one. After four
+passes it stops with an output problem naming the files still changing,
+as outputs that feed their own inputs never settle, and exits 2. =diff=
+makes the same passes in memory: =app::diff= overlays the files and
+documents a pass would change on what the codecs read, parsing the
+documents, runs the codecs again from the record and the result cache,
+and prints the diff of the last pass against the disk. The order of the
+codecs cannot be decided once from what they declare, since the files a
+codec reads, such as the template an archetype names, are known only
+from the documents. =check= makes one pass, as it reports the checkout as
+it is.
+
 =hook= is =app::hook=, the edit hook; the
 [[id:388AD0F9-D5B5-4FC2-8722-9F88655BA5EC][How do I check edits as Claude
 Code makes them?]] recipe has the settings that install it. =app::run=
@@ -555,8 +580,9 @@ the name keeps it apart from ORE Studio's Python =compass=.
 * Outputs
 
 - Standard output: =generate= prints one line of counts (written,
-  unchanged, restored, removed, kept), the output root, the corpus, the
-  units each codec ran rather than reused, and the wall time. =diff= prints the unified diffs. =check= prints one line per
+  unchanged, restored, removed, kept), the output root, the passes when
+  more than one, the corpus, the units each codec ran rather than reused
+  over every pass, and the wall time. =diff= prints the unified diffs. =check= prints one line per
   diagnostic, sorted by path, line and column, then the count and, when
   any, how many findings exceptions excused. Its
   diagnostics include one per file =generate= would write, restore or
@@ -586,6 +612,8 @@ the name keeps it apart from ORE Studio's Python =compass=.
   them before the write; the summary of =diff=; with =--timings=, one line per
   step (=tree= for a commit, =types=, =list=, =resolve=, =load=, =record=,
   =codecs=, =format=, =persist=, =collect=, =write= or =plan=, =exceptions=) with its wall time,
+  a step of a later =generate= pass named with its pass, as
+  =codecs (pass 2)=,
   and one line per codec
   with the units it ran, took from the record and took from the cache,
   and what formatting its files did; every error of the configuration

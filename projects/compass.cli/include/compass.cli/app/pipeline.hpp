@@ -46,6 +46,17 @@ namespace compass::cli::app {
  * Outputs are written only when every file loaded and the registry has no
  * problem.
  *
+ * One codec's output may be another's input, as a template one tangles
+ * and another renders. So when writing changes a file that a codec read,
+ * as the dependency record of the pass says (a file or document read at
+ * its path, a listing it joins or leaves, or, for a document, a set of
+ * documents, an ID lookup or the type registry), the whole pass runs
+ * again over the checkout as written, and the units whose inputs did not
+ * change come from the record. Generate stops at the first pass that
+ * changes nothing a codec read, so one generate leaves what check
+ * accepts. After four passes it stops with a problem naming the files
+ * still changing: outputs that feed their own inputs never settle.
+ *
  * @throws std::system_error or std::filesystem::filesystem_error when the
  * checkout, the meta directory or the output root cannot be read or
  * written.
@@ -55,6 +66,10 @@ namespace compass::cli::app {
 /**
  * @brief Runs the pipeline and diffs what generate would write against
  * the files under the output root. Writes nothing anywhere.
+ *
+ * It makes the passes generate would, in memory: the files and documents
+ * a pass would change are read from the plan of that pass by the next,
+ * and the diff is that of the last pass against the files on disk.
  *
  * @throws as generate does.
  */

@@ -28,6 +28,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 #include "compass.cli/io/listing.hpp"
 #include "compass.codec/io/action_cache.hpp"
@@ -283,13 +284,15 @@ bool write_dependency_record(const std::filesystem::path& checkout,
     const codec::types::run_result& run);
 
 /**
- * @brief What writing the outputs did: sink, the files whose rewrite
- * deleted what may be code written by hand, why the written-outputs
- * record read was not used when it was not, and whether the record was
- * rewritten.
+ * @brief What writing the outputs did: sink, what it did to each file,
+ * by path relative to the output root, the files whose rewrite deleted
+ * what may be code written by hand, why the written-outputs record read
+ * was not used when it was not, and whether the record was rewritten.
+ * actions is empty when the sink had a problem.
  */
 struct sink_outcome {
     codec::io::sink_result sink;
+    std::vector<std::pair<std::string, codec::io::output_action>> actions;
     std::vector<codec::io::hand_edit> hand_edits;
     std::string record_problem;
     bool record_written = false;

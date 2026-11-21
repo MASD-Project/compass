@@ -82,28 +82,33 @@ struct run_summary {
 
 /**
  * @brief What compass generate did: sink counts what writing the outputs
- * under root did, and its problems why nothing could be written.
- * hand_edits are the files whose rewrite deleted what may be code
- * written by hand, which generate warns of. ms is
- * the wall time of the whole command.
+ * under root did, each file once over every pass, and its problems why
+ * nothing could be written or the outputs did not settle. passes counts
+ * the runs of the codecs: generate runs them again while a pass changes
+ * a file one of them read. run sums what every pass ran. hand_edits are
+ * the files whose rewrite deleted what may be code written by hand, which
+ * generate warns of. ms is the wall time of the whole command.
  */
 struct generate_result {
     run_summary run;
     std::filesystem::path root;
     codec::io::sink_result sink;
     std::vector<codec::io::hand_edit> hand_edits;
+    std::uint32_t passes = 1;
     double ms = 0;
 };
 
 /**
  * @brief What compass diff found: planned counts what generate would do,
- * and diff is the unified diff of every file it would change.
+ * and diff is the unified diff of every file it would change, over as
+ * many passes as generate would make, which passes counts.
  */
 struct diff_result {
     run_summary run;
     std::filesystem::path root;
     codec::io::sink_result planned;
     std::string diff;
+    std::uint32_t passes = 1;
     double ms = 0;
 };
 

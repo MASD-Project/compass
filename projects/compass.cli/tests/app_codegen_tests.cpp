@@ -161,3 +161,115 @@ TEST_CASE("a codegen formatter that cannot be found fails the command",
     CHECK_THAT(r.err, ContainsSubstring("bin/missing"));
     CHECK_FALSE(std::filesystem::exists(header(repo)));
 }
+
+namespace {
+
+outcome run_in_place(const scoped_git_repo& repo, const std::string& command,
+    const std::vector<std::string>& more = {}) {
+    std::vector<std::string> args{command, "-C",
+        repo.checkout().generic_string(), "--out",
+        repo.checkout().generic_string(), "-j", "2"};
+    args.insert(args.end(), more.begin(), more.end());
+    const std::vector<std::string_view> views(args.begin(), args.end());
+    std::istringstream in;
+    std::ostringstream out;
+    std::ostringstream err;
+    const auto status = compass::cli::app::run(views, "/", in, out, err);
+    return {status, out.str(), err.str()};
+}
+
+/**
+ * @brief The library of set_up with tangle on and the checkout as the
+ * output root, so the template codegen renders is the one tangle writes
+ * from @p block, the body of the archetype's mustache block.
+ */
+void set_up_tangled(const scoped_git_repo& repo, std::string_view block) {
+    set_up(repo);
+    repo.write(".compass.org", "* Codecs\n"
+        "| codegen | yes | library=lib convention_component=a year=2031 |\n"
+        "| tangle | yes | |\n");
+    repo.write("lib/templates/ores.cpp.component.header.org",
+        "#+title: ores.cpp.component.header\n#+type: archetype\n"
+        "#+facet: ores.cpp.component\n#+component_kind: flat\n"
+        "#+output: projects/{component_dir}/a.hpp\n"
+        "#+begin_src mustache :tangle header.mustache\n" +
+        std::string(block) + "#+end_src\n");
+    repo.git("add -A");
+}
+
+std::filesystem::path header_in_place(const scoped_git_repo& repo) {
+    return repo.checkout() / "projects/ores.a/a.hpp";
+}
+
+}
+
+TEST_CASE("one generate renders with the template it tangles, so check "
+    "finds no drift and a second generate writes nothing",
+    "[app][codegen][converge]") {
+    scoped_git_repo repo;
+    set_up_tangled(repo, "int {{component.name}};\n");
+    REQUIRE(run_in_place(repo, "gen").status == 0);
+    REQUIRE(scoped_git_repo::read_file(header_in_place(repo)) == "int a;\n");
+    set_up_tangled(repo, "long {{component.name}};\n");
+
+    const auto generated = run_in_place(repo, "gen");
+
+    REQUIRE(generated.status == 0);
+    CHECK(scoped_git_repo::read_file(repo.checkout() /
+        "lib/templates/header.mustache") == "long {{component.name}};\n");
+    CHECK(scoped_git_repo::read_file(header_in_place(repo)) == "long a;\n");
+    CHECK_THAT(generated.out, StartsWith("2 written, 1 unchanged, ") &&
+        ContainsSubstring(" in 2 passes "));
+    const auto checked = run_in_place(repo, "check", {"--codec", "codegen",
+        "--codec", "tangle"});
+    CHECK_THAT(checked.out, !ContainsSubstring("drift"));
+    CHECK(checked.status == 0);
+    const auto again = run_in_place(repo, "gen");
+    CHECK(again.status == 0);
+    CHECK_THAT(again.out, StartsWith("0 written, 3 unchanged, ") &&
+        !ContainsSubstring("passes"));
+}
+
+TEST_CASE("diff shows what one generate writes when an output is a "
+    "template another codec renders", "[app][codegen][converge]") {
+    scoped_git_repo repo;
+    set_up_tangled(repo, "int {{component.name}};\n");
+    REQUIRE(run_in_place(repo, "gen").status == 0);
+    set_up_tangled(repo, "long {{component.name}};\n");
+
+    const auto diffed = run_in_place(repo, "diff");
+
+    CHECK(diffed.status == 1);
+    CHECK_THAT(diffed.out, ContainsSubstring("-int a;\n+long a;\n") &&
+        ContainsSubstring("-int {{component.name}};\n"
+                          "+long {{component.name}};\n"));
+    CHECK_THAT(diffed.err, StartsWith("2 to write, 1 unchanged, ") &&
+        ContainsSubstring(" in 2 passes "));
+    CHECK(scoped_git_repo::read_file(header_in_place(repo)) == "int a;\n");
+}
+
+TEST_CASE("generate stops with a problem when an output feeds its own "
+    "input without end", "[app][codegen][converge]") {
+    scoped_git_repo repo;
+    set_up(repo);
+    repo.write(".compass.org", "* Codecs\n"
+        "| codegen | yes | library=lib convention_component=a year=2031 |\n");
+    repo.write("lib/templates/ores.cpp.component.header.org",
+        "#+title: ores.cpp.component.header\n#+type: archetype\n"
+        "#+facet: ores.cpp.component\n#+component_kind: flat\n"
+        "#+output: lib/templates/header.mustache\n"
+        "#+begin_src mustache :tangle header.mustache\n#+end_src\n");
+    repo.write("lib/templates/header.mustache", "{{{component.brief}}}\n");
+    repo.write("projects/ores.a/modeling/component_overview.org",
+        "#+title: ores.a\n#+type: ores.codegen.component\n#+name: a\n"
+        "#+full_name: ores.a\n#+brief: x{{{component.brief}}}\n"
+        "#+component_kind: flat\n");
+    repo.git("add -A");
+
+    const auto generated = run_in_place(repo, "gen");
+
+    CHECK(generated.status == 2);
+    CHECK_THAT(generated.err, ContainsSubstring("did not settle in 4 passes")
+        && ContainsSubstring("lib/templates/header.mustache"));
+    CHECK_THAT(generated.out, ContainsSubstring(" in 4 passes "));
+}
