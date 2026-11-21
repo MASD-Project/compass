@@ -19,7 +19,9 @@
  */
 #include "compass.cli/app/codecs.hpp"
 
+#include <array>
 #include <vector>
+#include "compass.cli/app/check_inventory.hpp"
 #include "compass.codec/codecs/catalogue.hpp"
 #include "compass.codec/ops/rule_table.hpp"
 #include "compass.codec/types/corpus_view.hpp"
@@ -38,6 +40,29 @@ void rule_table(const codec::types::corpus_view& v,
     out.files.add(v.option("path"), codec::ops::rule_table(codecs(), v));
 }
 
+void check_inventory(const codec::types::corpus_view& v,
+    codec::types::file_output& out) {
+    out.files.add(v.option("path"), inventory_page(v));
+}
+
+constexpr std::array<codec::types::option, 9> inventory_options{{
+    {"path", "doc/knowledge/compass/check_inventory.org", "The page, "
+        "relative to the output root: a knowledge page, so under "
+        "doc/knowledge/ by the knowledge contract, and never under "
+        "compass/checks/, whose every page is read as a check document."},
+    {"id", "", "The page's :ID:, a fixed uppercase UUID, so links to it "
+        "survive regeneration; no drawer when empty."},
+    {"title", "Check inventory", "The page's #+title:."},
+    {"type", "knowledge", "The page's #+type:."},
+    {"level", "cross", "The page's #+level:."},
+    {"filetags", ":compass:checks:inventory:", "The page's #+filetags:."},
+    {"created", "", "The page's #+created:, a fixed date; none when empty."},
+    {"updated", "", "The page's #+updated:, a fixed date the project moves "
+        "when it wants to; none when empty."},
+    {inventory_option, "", "The codecs and checks of the run, which compass "
+        "sets from the configuration and the check documents; not a "
+        "setting."}}};
+
 }
 
 std::span<const codec::types::descriptor> codecs() noexcept {
@@ -55,6 +80,19 @@ std::span<const codec::types::descriptor> codecs() noexcept {
             out.push_back(d);
         for (const auto& d : docs::codecs::catalogue())
             out.push_back(d);
+        out.push_back({
+            .name = "check_inventory",
+            .version = 1,
+            .code = code_hash(),
+            .summary = "Writes the page of every codec and check that runs "
+                       "here: whether it is on, its purpose, its rules and "
+                       "where it is defined.",
+            .reads = codec::types::inputs::of_types({}),
+            .options = inventory_options,
+            .rules = {},
+            .enabled_by_default = false,
+            .run = codec::types::corpus_function<codec::types::file_output>{
+                check_inventory}});
         out.push_back({
             .name = "rule_table",
             .version = codec::ops::rule_table_version(out),

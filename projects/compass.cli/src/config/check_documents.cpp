@@ -260,6 +260,24 @@ std::vector<std::string_view> words_of(std::string_view s) {
 namespace {
 
 /**
+ * @brief The :ID: of the property drawer that opens @p text, before its
+ * first heading, or nothing.
+ */
+std::string file_id(std::string_view text) {
+    const auto heading = text.starts_with("* ") ? 0 : text.find("\n* ");
+    const auto head = text.substr(0, heading);
+    const auto at = head.find(":ID:");
+    if (at == std::string_view::npos)
+        return {};
+    const auto end = std::min(head.find('\n', at), head.size());
+    return std::string(trim(head.substr(at + 4, end - at - 4)));
+}
+
+}
+
+namespace {
+
+/**
  * @brief @p cell as data: without the = or ~ that mark it verbatim, and
  * with each \vert, which org's tables need for a |, a |.
  */
@@ -329,6 +347,7 @@ parse_check_document(std::string_view text, std::string_view path,
         file.remove_suffix(4);
     c->name = std::string(file);
     c->path = std::string(path);
+    c->id = file_id(text);
 
     const auto definition = r.heading("Definition");
     if (definition.is_none())
@@ -465,7 +484,7 @@ parse_codec_document(std::string_view text, std::string_view path,
     const auto definition = r.heading("Definition");
     if (definition.is_none())
         return std::nullopt;
-    codec_data out{.path = std::string(path)};
+    codec_data out{.path = std::string(path), .id = file_id(text)};
     const auto [first, end] = r.properties_of(definition);
     for (auto p = first; p < end; ++p) {
         const ot::property_id id{p};

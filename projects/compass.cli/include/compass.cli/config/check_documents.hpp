@@ -46,7 +46,8 @@ inline constexpr std::string_view checks_directory = "compass/checks";
  * it. The descriptor's spans point into the check, so a check is never
  * moved once built.
  *
- * name is the document's file name without .org, and summary its
+ * name is the document's file name without .org, id the :ID: of its file
+ * drawer, empty when it has none, and summary its
  * #+description:, or its path when it has none. definition is the text
  * its engine's parser reads, compass::cpp::ops::parse_forbid_definition
  * or parse_format_definition, made from the drawers of the document's
@@ -56,6 +57,7 @@ inline constexpr std::string_view checks_directory = "compass/checks";
 struct check {
     std::string name;
     std::string path;
+    std::string id;
     std::string summary;
     std::string definition;
     std::vector<std::string> rule_names;
@@ -71,8 +73,8 @@ struct check {
 
 /**
  * @brief The data a document gives built-in codecs: the codecs its
- * Definition names with :CODEC:, the document's path and the line of that
- * key, and the tables as codec::ops::encode_data_tables writes them, the
+ * Definition names with :CODEC:, the document's path, the :ID: of its file
+ * drawer and the line of that key, and the tables as codec::ops::encode_data_tables writes them, the
  * value compass sets as each codec's data option. Codecs that resolve one
  * model from the same data, as a generator and the gate on its input do,
  * are named together, so the data has one copy.
@@ -80,6 +82,7 @@ struct check {
 struct codec_data {
     std::vector<std::string> codecs;
     std::string path;
+    std::string id;
     std::uint32_t line = 0;
     std::string text;
 };
