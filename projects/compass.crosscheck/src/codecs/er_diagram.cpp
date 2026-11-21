@@ -207,6 +207,15 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
     const auto index_source = v.read_file(v.option("index_template"));
     const auto unread = !parser ? "parser" : !group_source ? "template"
         : !index_source ? "index_template" : "";
+    constexpr std::string_view parser_names =
+        "COMPONENT_PREFIXES, FK_COLUMNS and TABLE_STYLES";
+    if (!parser) {
+        co::refuse(out, v.option("output"), ops::python_source_problem(
+            "er_diagram", v.option("parser"), parser_names, false),
+            "Restore the file, or set the option parser to the file that "
+            "holds it.");
+        return;
+    }
     if (*unread != '\0') {
         co::refuse(out, v.option("output"), "cannot read " +
             std::string(v.option(unread)) + ", the option " + unread,
@@ -215,10 +224,9 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
     }
     const auto conventions = conventions_of(text_of(*parser));
     if (!conventions) {
-        co::refuse(out, v.option("output"), std::string(v.option("parser")) +
-            " does not state COMPONENT_PREFIXES, FK_COLUMNS and TABLE_STYLES "
-            "in the shape the parser reads", "Correct the literals of the "
-            "parser.");
+        co::refuse(out, v.option("output"), ops::python_source_problem(
+            "er_diagram", v.option("parser"), parser_names, true),
+            "Correct the literals of the parser.");
         return;
     }
 

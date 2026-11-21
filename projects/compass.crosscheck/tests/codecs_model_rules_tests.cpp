@@ -126,8 +126,17 @@ TEST_CASE("an HTTP area outside the published ones is reported",
         {"projects/ores.a/modeling/a.org",
          "#+type: ores.codegen.entity\n#+http_area: trading\n"}};
     CHECK(tests::messages_of(tests::run(codecs::model_rules, t)) ==
-        std::vector<std::string>{"AREAS or NO_AREA is not a literal this "
-            "check can read"});
+        std::vector<std::string>{"model_rules reads AREAS and NO_AREA from "
+            "build/scripts/route_classification.py, and they are not "
+            "literals it can read: compass-ng reads this file until that "
+            "data moves to a check document"});
+    auto gone = t;
+    gone.erase(module);
+    CHECK(tests::messages_of(tests::run(codecs::model_rules, gone)) ==
+        std::vector<std::string>{"model_rules reads AREAS and NO_AREA from "
+            "build/scripts/route_classification.py, and the file is missing: "
+            "compass-ng reads this file until that data moves to a check "
+            "document"});
     const files u{
         {module,
          "NO_AREA = \"(none)\"\n\nAREAS = (\n    \"access\",  # people\n"

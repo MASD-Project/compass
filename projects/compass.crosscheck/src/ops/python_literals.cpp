@@ -442,4 +442,14 @@ std::optional<std::vector<std::string>> strings_of(const python_value& v) {
     return out;
 }
 
+std::string python_source_problem(std::string_view codec,
+    std::string_view path, std::string_view names, bool present) {
+    const auto who = std::string(codec) + " reads " + std::string(names) +
+        " from " + std::string(path);
+    const std::string why = ": compass-ng reads this file until that data "
+        "moves to a check document";
+    return present ? who + ", and they are not literals it can read" + why
+                   : who + ", and the file is missing" + why;
+}
+
 }
