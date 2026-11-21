@@ -70,7 +70,17 @@ TEST_CASE("a list request that disagrees with the protocol is reported",
         {"projects/ores.web/packages/bff/src/books.ts", 1},
         {"projects/ores.web/packages/bff/src/books.ts", 3},
         {"projects/ores.web/packages/bff/src/books.ts", 4},
-        {"projects/ores.web/packages/bff/src/books.ts", 6},
-        {"projects/ores.web/packages/wire-protocol/src/generated/"
-         "list_requests.ts", 0}});
+        {"projects/ores.web/packages/bff/src/books.ts", 6}});
+}
+
+TEST_CASE("the list request table names each request's subject and filter, "
+    "and says to regenerate it with compass", "[codecs][list_request_table]") {
+    const auto out = tests::generate(codecs::list_request_table, tree());
+    REQUIRE(out.size() == 1);
+    const auto& [path, table] = *out.begin();
+    CHECK(path ==
+        "projects/ores.web/packages/wire-protocol/src/generated/list_requests.ts");
+    CHECK(table.find("books.list") != std::string::npos);
+    CHECK(table.find("run ./compass.sh generate instead") != std::string::npos);
+    CHECK(table.find(".py") == std::string::npos);
 }

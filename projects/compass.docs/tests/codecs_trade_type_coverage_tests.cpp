@@ -76,7 +76,7 @@ TEST_CASE("the coverage block counts and tabulates the catalogue's types",
 
     CHECK(out.at(document) == "Head.\n# BEGIN GENERATED\n\n"
         "Read at ORE commit =3d75a6908=. Regenerate with "
-        "=build/scripts/generate_trade_type_coverage.py --write=.\n\n"
+        "=./compass.sh generate=.\n\n"
         "** Counts\n\n"
         "- The catalogue declares 2 types. ORE registers 1 of them, 0 read "
         "through a =ScriptedTrade= class and 1 natively.\n"

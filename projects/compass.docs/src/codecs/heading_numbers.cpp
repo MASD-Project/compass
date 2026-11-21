@@ -101,8 +101,7 @@ void run(const ct::document& d, const ct::corpus_view&,
         out.add({d.row, {begin, begin}, ct::rule_id{0},
             ct::severity::error, "the heading carries its own number",
             "Remove the number: the exporter numbers headings, and a "
-            "written number goes stale when a section is inserted above. "
-            "build/scripts/check_heading_numbers.py --write strips them."});
+            "written number goes stale when a section is inserted above."});
     }
 }
 
@@ -110,7 +109,7 @@ void run(const ct::document& d, const ct::corpus_view&,
 
 const ct::descriptor heading_numbers{
     .name = "heading_numbers",
-    .version = 2,
+    .version = 3,
     .summary = "Reports each org heading under doc/ and projects/ that "
         "carries its own number.",
     .reads = ct::inputs::every_document(),

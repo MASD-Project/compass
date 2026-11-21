@@ -382,7 +382,7 @@ void coverage(const ct::corpus_view& v, ct::file_output& out) {
         const generated_trades trades(v);
         std::vector<std::string> block{std::string(begin_marker), "",
             "Read at ORE commit =" + std::string(version[2]) + "=. Regenerate "
-            "with =build/scripts/generate_trade_type_coverage.py --write=.",
+            "with =./compass.sh generate=.",
             "", "** Counts", ""};
         for (auto& line : counts(rows, cat, trades))
             block.push_back(std::move(line));
@@ -419,9 +419,8 @@ void coverage(const ct::corpus_view& v, ct::file_output& out) {
             end_marker.size());
         out.files.add(document_path, head + joined(block, "\n") + tail);
     } catch (const stopped& e) {
-        co::refuse(out, document_path, e.what(), "Run "
-            "build/scripts/generate_trade_type_coverage.py, which names the "
-            "problem, and correct the source it names.");
+        co::refuse(out, document_path, e.what(), "Correct the source the "
+            "message names, then run ./compass.sh generate.");
     }
 }
 
@@ -429,7 +428,7 @@ void coverage(const ct::corpus_view& v, ct::file_output& out) {
 
 const ct::descriptor trade_type_coverage{
     .name = "trade_type_coverage",
-    .version = 1,
+    .version = 2,
     .summary = "Writes the generated block of the ORE trade type coverage "
         "note.",
     .reads = ct::inputs::of_types({}),
