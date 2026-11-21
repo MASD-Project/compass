@@ -28,37 +28,40 @@
 namespace compass::docs::codecs {
 
 /**
- * @brief ORE Studio's skill-catalogue generator
- * (generate_skills_catalogue.py): the generated region of
+ * @brief The skill catalogue: the generated region of
  * doc/llm/skills/claude_code_skills.org.
  *
  * Each skill directory under doc/llm/skills with a SKILL.org is grouped by
- * the segment after compass-, in the script's domain order, as a row of
- * its ID, name, title and description, the description cut to 110
- * characters. The first region between the script's BEGIN and END markers
- * is replaced; a catalogue without them is not written.
+ * the segment after compass-, in a fixed domain order, as a row of its
+ * ID, name, title and description, the description cut to 110 characters.
+ * The first region between the BEGIN and END generated catalogue markers,
+ * the BEGIN marker naming this codec or the script that wrote the region
+ * before it, is replaced under a marker naming this codec; a catalogue
+ * without them is not written.
  */
 extern const compass::codec::types::descriptor skill_catalogue;
 
 /**
- * @brief ORE Studio's skill-type-tables generator
- * (generate_skill_type_tables.py): the document types table of
+ * @brief The skill type tables: the document types table of
  * compass-doc-add and the read-only commands table of compass-doc-show.
  *
  * The types come from the doc_*.org.mustache templates and the parents
  * compass.py's _STATIC_PARENT and _DEFAULTABLE_PARENT name; the commands
  * from the help of compass.py's subparsers. Every region between a
- * table's markers is replaced.
+ * table's markers, its BEGIN marker naming this codec or the script that
+ * wrote the table before it, is replaced under a marker naming this codec.
  */
 extern const compass::codec::types::descriptor skill_type_tables;
 
 /**
- * @brief The inventory half of ORE Studio's skill-levels generator
- * (apply_skill_levels.py): the generated region of
+ * @brief The skill-levels inventory: the generated region of
  * doc/llm/skills/skill_systems_levels.org, the count of skills each
- * System sees by the script's table. A skill missing from the table, or a
- * table entry with no skill, writes nothing, where the script stops, and
- * the refusal names each; an inventory without its markers is not written.
+ * System sees by skill_level_table. Every region between the inventory's
+ * markers, its BEGIN marker naming this codec or a script that wrote the
+ * inventory before it, is replaced under a marker naming this codec. A
+ * skill missing from the table, or a table entry with no skill, writes
+ * nothing, and the refusal names each; an inventory without its markers
+ * is not written.
  */
 extern const compass::codec::types::descriptor skill_levels;
 

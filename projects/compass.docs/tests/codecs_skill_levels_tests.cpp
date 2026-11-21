@@ -30,7 +30,7 @@ using namespace compass::docs;
 
 const std::string levels_doc = "doc/llm/skills/skill_systems_levels.org";
 const std::string begin = "# BEGIN generated inventory "
-    "(build/scripts/apply_skill_levels.py)";
+    "(compass generate: skill_levels)";
 
 std::string skill_path(std::string_view name) {
     return "doc/llm/skills/" + std::string(name) + "/SKILL.org";
@@ -64,6 +64,22 @@ TEST_CASE("the inventory counts each System's slice, the auditor's by its "
     CHECK(text.find("| =s3star= | Auditor | Continuous | 5 skills | "
         "binding |") != std::string::npos);
     CHECK(text.find("\n15 skills are tagged =cross=") != std::string::npos);
+}
+
+TEST_CASE("an inventory under either script's marker is rewritten under "
+    "the marker naming compass", "[codecs][skill_levels]") {
+    for (const std::string script : {"build/scripts/apply_skill_levels.py",
+             "build/scripts/generate_skills_catalogue.py"}) {
+        auto all = full_tree();
+        all[levels_doc] = "Intro.\n# BEGIN generated inventory (" + script +
+            ")\nstale\n# END generated inventory\nOutro.\n";
+        const auto out = tests::generate(codecs::skill_levels, all);
+
+        const auto& text = out.at(levels_doc);
+        CHECK(text.starts_with("Intro.\n" + begin + "\n\nWhat each System"));
+        CHECK(text.find(script) == std::string::npos);
+        CHECK(text.find("stale") == std::string::npos);
+    }
 }
 
 TEST_CASE("a skill the table lacks and an entry with no skill write no "

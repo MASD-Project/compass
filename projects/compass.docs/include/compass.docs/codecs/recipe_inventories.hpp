@@ -25,9 +25,7 @@
 namespace compass::docs::codecs {
 
 /**
- * @brief ORE Studio's recipe-inventories generators
- * (regenerate_shell_recipe_inventory.py and
- * regenerate_http_recipe_inventory.py): doc/recipes/shell/shell.org and
+ * @brief The recipe inventories: doc/recipes/shell/shell.org and
  * doc/recipes/http/generated_recipes.org.
  *
  * The shell inventory keeps its head and the prose of each section, and
@@ -35,7 +33,8 @@ namespace compass::docs::codecs {
  * doc/recipes/shell, grouped by the category of their filetags or their
  * directory and sorted by title; a category with no section is appended,
  * a section no category claims is dropped. The HTTP inventory is rewritten
- * whole from its fixed frontmatter and the recipes one directory under
+ * whole from its fixed frontmatter, which names compass generate as its
+ * writer, and the recipes one directory under
  * doc/recipes/http, keeping the paragraph under each heading. Both keep the
  * note written beside a link. An inventory holding a merge conflict
  * marker, or a missing shell inventory, is not written.

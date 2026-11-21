@@ -93,6 +93,27 @@ TEST_CASE("a marker must name a script that exists and names the page",
             "marker names tools/other.py, which never writes this file"});
 }
 
+TEST_CASE("a marker naming compass generate needs a codec compass ships, "
+    "and no script", "[codecs][lint]") {
+    const files t{
+        {"doc/a.org", page(target_id, "knowledge",
+            "# BEGIN generated a (compass generate: skill_levels)\n"
+            "# END generated a\n"
+            "# BEGIN generated b ( compass generate: skill_type_tables )\n"
+            "# END generated b\n"
+            "# BEGIN generated c (compass generate: no_such_codec)\n"
+            "# END generated c\n"
+            "# BEGIN generated d (tools/gone.py)\n# END generated d\n")}};
+    const auto found = tests::run(codecs::lint, t);
+    CHECK(tests::messages(found) == std::vector<std::string>{
+        "marker names compass generate: no_such_codec, but compass has no "
+        "codec no_such_codec",
+        "marker names tools/gone.py, which does not exist"});
+    CHECK(tests::places(found) ==
+        std::vector<std::pair<std::string, std::uint32_t>>{
+            {"doc/a.org", 9}, {"doc/a.org", 11}});
+}
+
 TEST_CASE("a link to an ID no linted page holds dangles, and one that is "
     "not a UUID is malformed", "[codecs][lint]") {
     const files t{

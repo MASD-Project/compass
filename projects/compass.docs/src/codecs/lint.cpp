@@ -31,8 +31,10 @@
 #include "compass.cpp/ops/paths.hpp"
 #include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
+#include "compass.docs/codecs/catalogue.hpp"
 #include "compass.docs/ops/link_graph.hpp"
 #include "compass.docs/ops/org_text.hpp"
+#include "compass.docs/ops/regions.hpp"
 #include "compass.org/ops/document_fields.hpp"
 #include "compass.platform/text/decoding.hpp"
 #include "compass.platform/text/regex.hpp"
@@ -61,8 +63,9 @@ constexpr std::array<ct::rule, 11> rules{{
         {}, ct::blame_method::line},
     {"unclosed_marker", "Every '# BEGIN generated X' comment has a "
         "matching '# END generated X' comment.", {}, ct::blame_method::line},
-    {"marker_without_writer", "A '# BEGIN generated X (script)' marker "
-        "names a script that exists and writes the page.",
+    {"marker_without_writer", "A '# BEGIN generated X (writer)' marker "
+        "names a script that exists and writes the page, or 'compass "
+        "generate: codec' for a codec compass.docs ships.",
         {}, ct::blame_method::line},
     {"malformed_link", "An id link whose target has a hyphen is a UUID.",
         {}, ct::blame_method::line},
@@ -292,13 +295,25 @@ void map_page(const ct::document& d, const ct::option_values&,
 }
 
 /**
- * @brief Whether the script a marker names writes the page: its source,
- * read with invalid bytes replaced, mentions the page's file name, or
- * the directory of a SKILL.org.
+ * @brief Whether the writer a marker names exists. A marker naming compass
+ * generate names a codec of this component, whose drift check holds the
+ * region; any other names a script whose source, read with invalid bytes
+ * replaced, mentions the page's file name, or the directory of a
+ * SKILL.org.
  */
 void check_marker(const ct::corpus_view& v, std::string_view path,
     const dop::marker& m, ct::diagnostic_table& out) {
     const auto named = std::string(co::strip(m.script));
+    if (named.starts_with(dop::compass_writer)) {
+        const auto codec = std::string_view(named).substr(
+            dop::compass_writer.size());
+        if (!std::ranges::contains(catalogue(), codec,
+                &ct::descriptor::name))
+            co::report(out, path, m.line, marker_without_writer,
+                "marker names " + named + ", but compass has no codec " +
+                std::string(codec), "Name the codec that writes this page.");
+        return;
+    }
     const auto script = checkout_path(named);
     const auto bytes = script ? v.read_file(*script) : std::nullopt;
     if (!bytes) {
@@ -542,7 +557,7 @@ void reduce(std::span<const ct::scanned_file> scanned,
 
 const ct::descriptor lint{
     .name = "lint",
-    .version = 4,
+    .version = 5,
     .summary = "Reports each malformed filetag, generated marker and id link "
         "of the org pages, as compass lint does, each pattern and use that "
         "do not link each other, and each page a structure note orders "
