@@ -33,34 +33,44 @@
 #include "compass.cpp/ops/exported_types.hpp"
 #include "compass.cpp/ops/lexer.hpp"
 #include "compass.cpp/ops/paths.hpp"
+#include "compass.model/ops/builder.hpp"
+#include "compass.model/ops/load.hpp"
 
 namespace compass::cpp::codecs {
 
 namespace {
 
 namespace ct = compass::codec::types;
+namespace mo = compass::model::ops;
+namespace mt = compass::model::types;
 
-constexpr std::array<ct::rule, 2> rules{{
+constexpr std::array<ct::rule, 3> rules{{
     {"uncompiled_exported_type",
         "No library exports a type that none of its translation units "
         "compiles."},
     {"visibility_macro_on_enum",
-        "No symbol visibility or DLL storage macro decorates an enum."}}};
+        "No symbol visibility or DLL storage macro decorates an enum."},
+    {"unexported_hidden_function",
+        "A part built with hidden visibility exports every function its "
+        "public headers declare at namespace scope."}}};
 
 constexpr ct::rule_id uncompiled{0};
 constexpr ct::rule_id decorated_enum{1};
+constexpr ct::rule_id unexported_function{2};
 
 /**
  * @brief The fact of a file: its quoted includes, the export macro it
- * defines when it is a library's export header, the types it exports
- * with any macro, the visibility macros it defines, and each enum an
- * identifier stands before.
+ * defines when it is a part's export header, the types it exports with
+ * any macro, the visibility macros it defines, the functions it declares
+ * that a part with hidden symbols must export, when it is a header under
+ * an include directory, and each enum an identifier stands before.
  */
 struct file_fact {
     std::vector<std::string_view> includes;
     std::optional<std::string_view> macro;
     std::vector<ops::exported_type> types;
     std::vector<std::string_view> visibility_macros;
+    std::vector<ops::exportable_function> functions;
     std::vector<ops::enum_site> enums;
 };
 
@@ -80,6 +90,14 @@ file_fact read_fact(std::string_view fact) {
     }
     for (auto n = r.number(); n > 0; --n)
         out.visibility_macros.push_back(r.text());
+    for (auto n = r.number(); n > 0; --n) {
+        ops::exportable_function f;
+        f.offset = r.number();
+        f.name = r.text();
+        for (auto k = r.number(); k > 0; --k)
+            f.decorations.push_back(r.text());
+        out.functions.push_back(std::move(f));
+    }
     while (!r.done()) {
         ops::enum_site e;
         e.offset = r.number();
@@ -96,16 +114,44 @@ bool is_export_header(std::string_view path) {
         parts[3] == "include" && parts[5] == "export.hpp";
 }
 
+/**
+ * @brief The directory of the part whose export header @p path is, for
+ * projects/<component>/<part>/include/<name>/export.hpp and for a flat
+ * component's projects/<component>/include/<name>/export.hpp; nothing
+ * for any other path.
+ */
+std::optional<std::string_view> part_of_export_header(std::string_view path) {
+    const auto parts = ops::components_of(path);
+    if ((parts.size() != 5 && parts.size() != 6) || parts[0] != "projects" ||
+        parts[parts.size() - 3] != "include" || parts.back() != "export.hpp")
+        return std::nullopt;
+    return ops::parent_of(ops::parent_of(ops::parent_of(path)));
+}
+
+/**
+ * @brief True for a header under the include directory of a part.
+ */
+bool is_public_header(std::string_view path) {
+    if (!path.ends_with(".hpp"))
+        return false;
+    const auto parts = ops::components_of(path);
+    return parts.size() > 4 && parts[0] == "projects" &&
+        (parts[2] == "include" || parts[3] == "include");
+}
+
 void map(std::string_view path, std::string_view bytes,
     const ct::option_values&, ct::file_scan& out) {
     const auto lexed = ops::lex(bytes);
-    const auto model = ops::model_of(bytes, lexed, ops::model_parts::heads);
+    const bool is_public = is_public_header(path);
+    const auto model = ops::model_of(bytes, lexed, is_public
+        ? ops::model_parts::heads | ops::model_parts::declarations
+        : ops::model_parts::heads);
     ct::fact_writer w(out.fact);
     const auto includes = ops::quoted_includes(model);
     w.number(static_cast<std::uint32_t>(includes.size()));
     for (const auto i : includes)
         w.text(i);
-    const auto macro = is_export_header(path)
+    const auto macro = part_of_export_header(path)
         ? ops::export_macro(lexed, model) : std::nullopt;
     w.number(macro ? 1 : 0);
     if (macro)
@@ -120,6 +166,16 @@ void map(std::string_view path, std::string_view bytes,
     w.number(static_cast<std::uint32_t>(macros.size()));
     for (const auto m : macros)
         w.text(m);
+    const auto functions = is_public
+        ? ops::exportable_functions(lexed, model)
+        : std::vector<ops::exportable_function>{};
+    w.number(static_cast<std::uint32_t>(functions.size()));
+    for (const auto& f : functions) {
+        w.number(f.offset).text(f.name);
+        w.number(static_cast<std::uint32_t>(f.decorations.size()));
+        for (const auto d : f.decorations)
+            w.text(d);
+    }
     for (const auto& e : ops::macro_enum_sites(lexed, model))
         w.number(e.offset).text(e.macro).text(e.source);
 }
@@ -334,8 +390,88 @@ void report_decorated_enums(std::span<const ct::scanned_file> scanned_files,
     }
 }
 
+/**
+ * @brief True when the component model of the overview at @p path says
+ * its part is built with hidden visibility; false when there is no such
+ * overview or it does not load.
+ */
+bool hides_symbols(const ct::corpus_view& v, const std::string& path) {
+    const auto d = v.find_path(path);
+    if (!d)
+        return false;
+    const mo::document_finder find = [&v](std::string_view p)
+        -> std::optional<mo::document> {
+        const auto found = v.find_path(p);
+        if (!found)
+            return std::nullopt;
+        return mo::document{found->path, found->source, &found->tables};
+    };
+    const mo::document_lister list = [&v](std::string_view prefix) {
+        return v.list_files(prefix, ".org");
+    };
+    mt::model_tables tables;
+    mo::builder b(tables);
+    mo::load_cache cache;
+    std::string error;
+    const auto id = mo::load_model(b, {d->path, d->source, &d->tables},
+        mt::model_type::component, find, list, cache, &error);
+    if (!error.empty())
+        return false;
+    const auto component = b.find(tables.models.roots[id], "component");
+    if (component.is_none())
+        return false;
+    const auto hidden = b.find(component, "hidden_visibility");
+    return !hidden.is_none() &&
+        tables.values.kinds[hidden] == mt::value_kind::boolean &&
+        tables.values.scalars[hidden] != 0;
+}
+
+/**
+ * @brief Reports each function a public header of a part built with
+ * hidden visibility declares at namespace scope without the part's export
+ * macro. @p all is every scanned path, sorted.
+ */
+void report_unexported_functions(const std::vector<std::string_view>& all,
+    const std::unordered_map<std::string_view, file_fact>& facts,
+    const ct::corpus_view& v, ct::diagnostic_table& out) {
+    std::vector<std::string_view> export_headers;
+    for (const auto p : under(all, "projects/", "/export.hpp")) {
+        if (part_of_export_header(p))
+            export_headers.push_back(p);
+    }
+    std::ranges::sort(export_headers, ops::component_less);
+    for (const auto export_header : export_headers) {
+        const auto macro = facts.at(export_header).macro;
+        if (!macro)
+            continue;
+        const std::string part(*part_of_export_header(export_header));
+        if (!hides_symbols(v, part + "/modeling/component_overview.org"))
+            continue;
+        auto headers = under(all, part + "/include/", ".hpp");
+        std::ranges::sort(headers, ops::component_less);
+        for (const auto header : headers) {
+            for (const auto& f : facts.at(header).functions) {
+                if (std::ranges::contains(f.decorations, *macro))
+                    continue;
+                out.add({.document =
+                        compass::org::types::document_id::none(),
+                    .range = {f.offset, f.offset},
+                    .rule = unexported_function,
+                    .level = ct::severity::error,
+                    .message = "declares " + std::string(f.name) +
+                        " without " + std::string(*macro) + ", and " +
+                        part + " is built with hidden visibility, so no "
+                        "binary outside the library can link it",
+                    .fix = "mark the declaration " + std::string(*macro) +
+                        ", or define the function inline in the header",
+                    .file = header});
+            }
+        }
+    }
+}
+
 void reduce(std::span<const ct::scanned_file> scanned_files,
-    const ct::corpus_view&, ct::diagnostic_table& out) {
+    const ct::corpus_view& v, ct::diagnostic_table& out) {
     std::unordered_map<std::string_view, file_fact> facts;
     std::vector<std::string_view> all;
     all.reserve(scanned_files.size());
@@ -346,17 +482,19 @@ void reduce(std::span<const ct::scanned_file> scanned_files,
     std::ranges::sort(all);
     report_uncompiled(all, facts, out);
     report_decorated_enums(scanned_files, facts, out);
+    report_unexported_functions(all, facts, v, out);
 }
 
 }
 
 const ct::descriptor exported_types{
     .name = "exported_types",
-    .version = 3,
+    .version = 4,
     .summary = "Reports each header whose library exports a type that no "
-        "translation unit of the library compiles, and each enum a "
-        "visibility macro decorates.",
-    .reads = ct::inputs::of_types({}),
+        "translation unit of the library compiles, each enum a "
+        "visibility macro decorates, and each function a part built with "
+        "hidden visibility declares without its export macro.",
+    .reads = ct::inputs::every_document(),
     .options = {},
     .rules = rules,
     .enabled_by_default = false,

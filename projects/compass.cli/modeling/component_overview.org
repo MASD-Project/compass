@@ -151,6 +151,77 @@ the checkout and 1.8 s for the merge base, 0.8 s of each reading the
 dependency record. The same line added to a generated SQL file failed
 twice: on the line, and on the drift the edit caused.
 
+Ratchet mode also checks the branch's provenance, when the
+=commit_provenance= codec is on: that every commit of the branch, and its
+pull request, state the story, task and environment they belong to, so a
+break on main can be traced to the work that caused it. It runs in
+=check --ratchet= rather than a codec run or a command of its own. Commit
+messages and a pull request's body are not content of the checkout, so a
+codec, cached by its inputs, cannot read them. The ratchet already has
+the branch: its commits are =merge-base(base, HEAD)..HEAD=. Projects
+already run =check --ratchet= on pull requests, so turning the codec on
+is the only change their CI needs. =app::ratchet= keeps the corpus of the
+checkout's check, and =provenance_of= hands =ops::check_provenance= the
+branch's commits (=io::branch_commits=, one =git log=), the :ID: and
+=#+type:= of every document of that corpus, and the pull request
+=io::find_pull_request= reads with =gh pr view <branch> --json
+number,body,url=. The branch is the one HEAD is on or, detached as in a
+pull request's CI run, =GITHUB_HEAD_REF=.
+
+What a commit must carry is the project's, never compass's. The check
+document whose =* Definition= names =commit_provenance= with =:CODEC:=
+gives a =Trailers= table, one row per trailer, and an optional
+=Exemptions= table. A table, not codec options, because a project names
+any number of trailers, and an option value can hold neither a space nor
+a =|=. The codec's own options are what CI flips with =--set=:
+=require_pull_request= and =gh=. ORE Studio's document would read:
+
+#+begin_example
+,* Definition
+:PROPERTIES:
+:CODEC: commit_provenance
+:END:
+
+,* Trailers
+
+| trailer     | document type | pattern         | pull request label | pull request column |
+|-------------+---------------+-----------------+--------------------+---------------------|
+| Story-ID    | story         |                 | Story              | 3                   |
+| Task-ID     | task          |                 | Task               | 3                   |
+| Environment |               | =[a-z]+_[a-z]+= | Environment        | 2                   |
+
+,* Exemptions
+
+| subject                    | omits       |
+|----------------------------+-------------|
+| =^\[agile\] Record PR #= | Environment |
+#+end_example
+
+A trailer with a =document type= holds an uppercase UUID that must be the
+=:ID:= of a document of that type in the checkout; any other value must
+match its =pattern= whole. Its =pull request label= names the row of the
+pull request body's Markdown table that states the same value, in the
+=pull request column=, the label's own cell being 1. A commit whose
+subject an exemption's pattern finds may omit the trailers it lists; one
+it carries is still checked. Merge commits are skipped.
+
+The findings are ordinary ones under =commit_provenance/<rule>=, among
+the new findings of the ratchet, and fail it like any other: a commit's
+at =commit/<first twelve digits>=, on the line of its message the
+trailer is on, the pull request's at =pull/<number>=. A commit whose
+value differs from the pull request's is a warning
+(=differs_from_pull_request=), since a branch may touch a second task. A
+branch with no pull request, or a =gh= that is missing, signed out or set
+empty, gets one line, =commit provenance: ... no pull request checked:
+<why>=, and its commits are still checked; =require_pull_request=true=
+makes it the error =no_pull_request=, for CI. A plain =check= with the
+codec on reports a check document that is missing or does not read
+(=unreadable=), which the ratchet then skips with a
+=commit provenance: not checked: <why>= line.
+
+compass's own commits carry no such trailers, so its =.compass.org=
+leaves =commit_provenance= off.
+
 After the codecs, =check= excuses the findings a valid exception covers
 (step =exceptions=). It reads the exception comments of every document,
 every file a codec read (the =file= inputs of the run's record) and every
@@ -425,8 +496,10 @@ the name keeps it apart from ORE Studio's Python =compass=.
   remove, under the rule =drift= of the codec that emits it, at the first
   byte that differs; a file outside the checkout is named by its absolute
   path. =check --ratchet= prints only the new diagnostics, in the same
-  form, then one line with their count, the excused count, the merge base
-  and the renamed files followed. =gc= prints
+  form, then, when =commit_provenance= is on, one line with the commits
+  it checked and the pull request it read or why none, then one line with
+  their count, the excused count, the merge base and the renamed files
+  followed. =gc= prints
   the entries and files it removed, or would remove, the size of the store
   and its packs before and after, and the files of the first layout it
   removed. =config=
@@ -475,6 +548,8 @@ range, 1-based, the column counted in bytes. The rule is written as
 | =include/compass.cli/io/version.hpp=             | =version_text=: the release, the build manifest's facts and the store formats.     |
 | =include/compass.cli/io/listing.hpp=             | The org files of a checkout, from =git ls-files=; =resolve_commit= and =resolve_base=, from =git rev-parse=; =merge_base=; =similar_renames=, from =git diff -M=. |
 | =include/compass.cli/ops/ratchet.hpp=            | =split_new= and =exact_renames=: the pure matching of ratchet mode.                |
+| =include/compass.cli/ops/provenance.hpp=         | =trailers_of=, =provenance_rules_of= and =check_provenance=: the pure checks of commit provenance. |
+| =include/compass.cli/io/history.hpp=             | =branch_commits=, from =git log=; =head_branch=; =find_pull_request=, from =gh pr view=. |
 | =include/compass.cli/app/steps.hpp=              | One function per step of the pipeline.                                             |
 | =include/compass.cli/app/pipeline.hpp=           | One function per command, composed of the steps.                                   |
 | =include/compass.cli/io/report.hpp=              | Printing each result, and the hook's JSON.                                         |
@@ -504,13 +579,16 @@ range, 1-based, the column counted in bytes. The rule is written as
 - =compass.crosscheck= for the cross-artefact gates.
 - =compass.docs= for the document gates.
 - =compass.env= for the =env_format= codec and =compass env=.
-- =compass.model= for its JSON reader, which reads the hook's payload.
+- =compass.model= for its JSON reader, which reads the hook's payload
+  and what =gh= prints.
 - =compass.ingest= for the parser and the type registry builder.
 - =compass.store= for IDs, the store, collection and the git object
   reader.
 - =compass.org= and =compass.platform= for the tables and mapped files,
   which the steps' =corpus_files= exposes, and =compass.platform= for the
   executable's own path.
+- =gh=, at run time, for the pull request of a branch, when
+  =commit_provenance= is on; without it the commits are still checked.
 - Catch2, git and bash, for the tests only.
 
 * See also

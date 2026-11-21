@@ -302,6 +302,7 @@ private:
             d.is_inline = d.is_inline || w == "inline";
             d.is_const = d.is_const || w == "const";
             d.is_constexpr = d.is_constexpr || w == "constexpr";
+            d.is_consteval = d.is_consteval || w == "consteval";
             d.is_extern = d.is_extern || w == "extern";
             ++k;
         }
@@ -498,6 +499,8 @@ private:
             return skip_balanced(j, "{", "}");
         }
         if (is(j, ";") || is(j, "=")) {
+            d.definition = is(j, "=") &&
+                (is(j + 1, "delete") || is(j + 1, "default"));
             add(d);
             return skip_statement(j);
         }

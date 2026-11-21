@@ -156,4 +156,25 @@ std::vector<enum_site> macro_enum_sites(const lexed& l,
     return out;
 }
 
+std::vector<exportable_function> exportable_functions(const lexed& l,
+    const source_model& m) {
+    const std::string_view code(l.code);
+    std::vector<exportable_function> out;
+    for (const auto& d : m.declarations) {
+        if (d.kind != declaration_kind::function || d.definition ||
+            d.is_inline || d.is_constexpr || d.is_consteval ||
+            d.is_static || d.is_template || d.qualified || d.anonymous)
+            continue;
+        // A macro invocation at namespace scope reads as a function with
+        // no return type, so a declaration needs one.
+        auto decorations = components_of_name(code.substr(d.start,
+            d.offset - d.start));
+        if (decorations.empty())
+            continue;
+        out.push_back({line_start(code, d.start), d.name,
+            std::move(decorations)});
+    }
+    return out;
+}
+
 }

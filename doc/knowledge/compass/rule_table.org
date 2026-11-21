@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-195 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 58 are cited by no rule.
+204 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 58 are cited by no rule.
 
 ** Rules
 
@@ -27,6 +27,14 @@ memories no rule cites are the candidates for the next checks.
 | =bff_list_requests= | missing_member | A hand-written list request states as_of and its filter when the protocol declares them. |  |
 | =bff_list_requests= | filter_mismatch | A literal filter states exactly the members the filter struct declares. | =7E3659C3-356E-4F0F-B4BA-C54050F39A98= |
 | =bff_list_requests= | wrong_rows | readAll reads the rows a reply carries. |  |
+| =commit_provenance= | missing_trailer | Every commit of the branch, merges aside, carries each trailer the Trailers table of the check document names, unless an exemption lets its subject omit it. |  |
+| =commit_provenance= | malformed_trailer | A trailer that names a document holds an uppercase UUID, and any other trailer's value matches its pattern; so does each value of the pull request's table. |  |
+| =commit_provenance= | unknown_document | A trailer that names a document names one of the checkout: a document whose :ID: is the value. |  |
+| =commit_provenance= | wrong_document_type | The document a trailer names has the #+type: the Trailers table gives it, a story for a story's ID. |  |
+| =commit_provenance= | pull_request_table | The branch's pull request states, in its body's table, a row for each trailer the Trailers table labels, with the value in the column it names. |  |
+| =commit_provenance= | differs_from_pull_request | A commit's trailer equals the value the pull request's table states; a warning, since a branch may touch a second task. |  |
+| =commit_provenance= | no_pull_request | When require_pull_request is true, the branch has a pull request compass can read with gh. |  |
+| =commit_provenance= | unreadable | The check document of commit_provenance gives a Trailers table that reads: one key per row, a document type or a pattern that compiles, and a column for each label. |  |
 | =component_docs= | missing_overview | A component, or a part with include/ and src/, has modeling/component_overview.org. | [[id:CE17C7BB-C68C-4304-BD3D-92FA5D13272B][Document type: component]] |
 | =component_docs= | missing_id | A component overview has an :ID: property. | [[id:CE17C7BB-C68C-4304-BD3D-92FA5D13272B][Document type: component]] |
 | =component_docs= | missing_type | A component overview is #+type: component. | [[id:CE17C7BB-C68C-4304-BD3D-92FA5D13272B][Document type: component]] |
@@ -64,6 +72,7 @@ memories no rule cites are the candidates for the next checks.
 | =event_registrars= | missing_composition | A checked component that generates registrars has its composition file. | =B5492D6C-7C18-4723-BA47-232AEAA13314= |
 | =exported_types= | uncompiled_exported_type | No library exports a type that none of its translation units compiles. |  |
 | =exported_types= | visibility_macro_on_enum | No symbol visibility or DLL storage macro decorates an enum. |  |
+| =exported_types= | unexported_hidden_function | A part built with hidden visibility exports every function its public headers declare at namespace scope. |  |
 | =forward_declarable_includes= | includes_definition_it_only_names | A header that only names a listed type includes its declaration, not its definition. |  |
 | =forward_declarable_includes= | bad_type_list | The list of forward-declarable types is readable and not empty. |  |
 | =forward_declarable_includes= | stale_type_list | The types option lists what the tree's own list file lists. |  |

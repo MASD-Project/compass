@@ -252,6 +252,10 @@ TEST_CASE("config prints every value with where it came from",
         "component_files.library = projects/ores.codegen/library (default)\n"
         "component_files.year =  (default)\n"
         "pending_models.enabled = false (default)\n" + gate_defaults() +
+        "commit_provenance.enabled = false (default)\n"
+        "commit_provenance.data =  (default)\n"
+        "commit_provenance.require_pull_request = false (default)\n"
+        "commit_provenance.gh = gh (default)\n"
         "check_inventory.enabled = false (default)\n"
         "check_inventory.path = doc/knowledge/compass/check_inventory.org "
         "(default)\n"

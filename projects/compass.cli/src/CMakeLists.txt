@@ -31,10 +31,12 @@ add_library(${lib_target_name}
     config/org_reader.cpp
     config/precedence.cpp
     config/repository_file.cpp
+    io/history.cpp
     io/hook_payload.cpp
     io/listing.cpp
     io/report.cpp
     io/version.cpp
+    ops/provenance.cpp
     ops/ratchet.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
