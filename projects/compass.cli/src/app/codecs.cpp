@@ -29,6 +29,7 @@
 #include "compass.cpp/codecs/catalogue.hpp"
 #include "compass.crosscheck/codecs/catalogue.hpp"
 #include "compass.docs/codecs/catalogue.hpp"
+#include "compass.env/codecs/catalogue.hpp"
 #include "compass.sql/codecs/catalogue.hpp"
 
 namespace compass::cli::app {
@@ -79,6 +80,8 @@ std::span<const codec::types::descriptor> codecs() noexcept {
         for (const auto& d : crosscheck::codecs::catalogue())
             out.push_back(d);
         for (const auto& d : docs::codecs::catalogue())
+            out.push_back(d);
+        for (const auto& d : env::codecs::catalogue())
             out.push_back(d);
         out.push_back({
             .name = "check_inventory",

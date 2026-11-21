@@ -342,5 +342,5 @@ TEST_CASE("The --today option takes a date and applies to check only",
     const std::vector<std::string_view> generate{"generate", "-C", checkout,
         "--today", "2026-11-16"};
     CHECK(app::run(generate, "/", in, out, err) == 2);
-    CHECK_THAT(err.str(), ContainsSubstring("--today applies to check and hook only"));
+    CHECK_THAT(err.str(), ContainsSubstring("--today applies to check, hook and env version new only"));
 }

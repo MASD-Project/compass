@@ -24,7 +24,9 @@
 #include <chrono>
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <system_error>
+#include <utility>
 #include <vector>
 #include "compass.cli/config/precedence.hpp"
 #include "compass.codec/ops/exceptions.hpp"
@@ -48,6 +50,13 @@ constexpr std::string_view help =
     "from\n"
     "  hook            check the file a Claude Code PostToolUse payload on "
     "standard input names\n"
+    "  env generate    write the environment file the check document of "
+    "env_format describes\n"
+    "  env version     print the environment file format's version\n"
+    "  env version new <description>\n"
+    "                  record a new version of the format\n"
+    "  env status      say whether the environment file is current; exit 1 "
+    "when it is not\n"
     "\n"
     "options:\n"
     "  -C <dir>                    the checkout (default: the current "
@@ -77,6 +86,18 @@ constexpr std::string_view help =
     "(default: 0)\n"
     "  --grace <seconds>           gc: never remove a file younger than this "
     "(default: 3600)\n"
+    "  --input <name>=<value>      env generate: give an input the format "
+    "declares; repeatable\n"
+    "  --var <NAME>=<value>        env generate: set a variable outright; "
+    "repeatable\n"
+    "  --file <path>               env generate, status: the environment "
+    "file, under the checkout (default: the format's file setting)\n"
+    "  --adds <A,B>                env version new: the variables the "
+    "version adds; repeatable\n"
+    "  --removes <C>               env version new: the variables the "
+    "version removes; repeatable\n"
+    "  --format-only               env version new: the version changes "
+    "only values, layout or the services the registry expands\n"
     "  -h, --help                  print this help\n"
     "  --version                   print the version\n"
     "\n"
@@ -97,6 +118,8 @@ std::optional<types::command> command_named(std::string_view name) {
         return types::command::config;
     if (name == "hook")
         return types::command::hook;
+    if (name == "env")
+        return types::command::env;
     return std::nullopt;
 }
 
@@ -129,7 +152,102 @@ bool takes_value(std::string_view flag) {
     return flag == "-C" || flag == "--meta" || flag == "--out" ||
         flag == "-j" || flag == "--set" || flag == "--cap" ||
         flag == "--grace" || flag == "--commit" || flag == "--today" ||
-        flag == "--codec";
+        flag == "--codec" || flag == "--input" || flag == "--var" ||
+        flag == "--file" || flag == "--adds" || flag == "--removes";
+}
+
+/**
+ * @brief Adds @p s, NAME=value, to @p to; false when it has no '=' or no
+ * name.
+ */
+bool add_pair(std::string_view s,
+    std::vector<std::pair<std::string, std::string>>& to) {
+    const auto equals = s.find('=');
+    if (equals == std::string_view::npos || equals == 0)
+        return false;
+    to.emplace_back(std::string(s.substr(0, equals)),
+        std::string(s.substr(equals + 1)));
+    return true;
+}
+
+/**
+ * @brief Appends the names of @p s, split at commas, to @p to; false when
+ * it names none.
+ */
+bool add_names(std::string_view s, std::vector<std::string>& to) {
+    const auto before = to.size();
+    std::size_t at = 0;
+    while (at <= s.size()) {
+        const auto comma = std::min(s.find(',', at), s.size());
+        const auto name = s.substr(at, comma - at);
+        if (!name.empty())
+            to.emplace_back(name);
+        at = comma + 1;
+    }
+    return to.size() > before;
+}
+
+/**
+ * @brief Takes @p word, a word after env, as the next part of @p r: the
+ * action, then new after version, then version new's description.
+ */
+std::optional<usage_error> env_word(std::string_view word,
+    bool& has_action, types::env_request& r) {
+    using types::env_action;
+    if (!has_action) {
+        has_action = true;
+        if (word == "generate")
+            r.action = env_action::generate;
+        else if (word == "version")
+            r.action = env_action::version;
+        else if (word == "status")
+            r.action = env_action::status;
+        else
+            return usage_error{"unknown env action: " + std::string(word)};
+        return std::nullopt;
+    }
+    if (r.action == env_action::version && word == "new") {
+        r.action = env_action::version_new;
+        return std::nullopt;
+    }
+    if (r.action == env_action::version_new && r.description.empty()) {
+        r.description = word;
+        return std::nullopt;
+    }
+    return usage_error{"unexpected argument: " + std::string(word)};
+}
+
+/**
+ * @brief Why the env arguments of @p o do not fit together, if they do
+ * not: env needs an action, version new a description, and each env
+ * option its action.
+ */
+std::optional<usage_error> env_usage(types::command which,
+    bool has_action, std::string_view flag, const types::invocation& o) {
+    using types::env_action;
+    if (which != types::command::env) {
+        if (!flag.empty())
+            return usage_error{std::string(flag) + " applies to env only"};
+        return std::nullopt;
+    }
+    const auto& r = o.env;
+    if (!has_action)
+        return usage_error{"env needs an action: generate, version or "
+            "status"};
+    if (r.action == env_action::version_new && r.description.empty())
+        return usage_error{"env version new needs a description"};
+    if ((!r.inputs.empty() || !r.variables.empty()) &&
+        r.action != env_action::generate)
+        return usage_error{"--input and --var apply to env generate only"};
+    if (!r.file.empty() && r.action != env_action::generate &&
+        r.action != env_action::status)
+        return usage_error{"--file applies to env generate and env status "
+            "only"};
+    if ((!r.adds.empty() || !r.removes.empty() || r.format_only) &&
+        r.action != env_action::version_new)
+        return usage_error{"--adds, --removes and --format-only apply to env "
+            "version new only"};
+    return std::nullopt;
 }
 
 }
@@ -151,8 +269,15 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
     std::filesystem::path checkout;
     const types::origin command_line{types::origin_kind::command_line};
     std::string_view gc_flag;
+    std::string_view env_flag;
+    bool has_env_action = false;
     for (std::size_t i = 0; i < args.size(); ++i) {
         const auto arg = args[i];
+        if (arg == "--format-only") {
+            o.env.format_only = true;
+            env_flag = arg;
+            continue;
+        }
         if (arg == "--dry-run") {
             o.collection.dry_run = true;
             gc_flag = arg;
@@ -180,6 +305,11 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
             continue;
         }
         if (!arg.starts_with("-")) {
+            if (which == types::command::env) {
+                if (auto e = env_word(arg, has_env_action, o.env))
+                    return *e;
+                continue;
+            }
             if (which)
                 return usage_error{"unexpected argument: " + std::string(arg)};
             which = command_named(arg);
@@ -218,6 +348,21 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
             if (value.empty() || value.starts_with("-"))
                 return bad_value();
             o.revision = value;
+        } else if (arg == "--input" || arg == "--var") {
+            if (!add_pair(value, arg == "--input" ? o.env.inputs
+                                                  : o.env.variables))
+                return bad_value();
+            env_flag = arg;
+        } else if (arg == "--file") {
+            if (value.empty())
+                return bad_value();
+            o.env.file = value;
+            env_flag = arg;
+        } else if (arg == "--adds" || arg == "--removes") {
+            if (!add_names(value, arg == "--adds" ? o.env.adds
+                                                  : o.env.removes))
+                return bad_value();
+            env_flag = arg;
         } else if (arg == "--today") {
             o.today = codec::ops::parse_date(value);
             if (!o.today)
@@ -235,6 +380,8 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
     }
     if (!which)
         return usage_error{"no command"};
+    if (const auto e = env_usage(*which, has_env_action, env_flag, o))
+        return *e;
     if (!gc_flag.empty() && *which != types::command::gc)
         return usage_error{std::string(gc_flag) + " applies to gc only"};
     if (!o.revision.empty() && *which != types::command::check)
@@ -244,8 +391,11 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
     if (o.ratchet && *which != types::command::check)
         return usage_error{"--ratchet applies to check only"};
     if (o.today && *which != types::command::check &&
-        *which != types::command::hook)
-        return usage_error{"--today applies to check and hook only"};
+        *which != types::command::hook &&
+        !(*which == types::command::env &&
+            o.env.action == types::env_action::version_new))
+        return usage_error{"--today applies to check, hook and env version "
+            "new only"};
     if (o.all_findings && *which != types::command::hook)
         return usage_error{"--all-findings applies to hook only"};
     if (o.ratchet && !o.revision.empty())
