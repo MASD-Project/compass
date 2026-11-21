@@ -61,7 +61,7 @@ constexpr std::array<ct::option, 3> options{{
         "ScriptLibrary=unused,CollateralBalances=unused,"
         "SIMMCalibrationData=unused,CrossAssetModel=unused",
         "Each ORE document family and its state, as name=state, "
-        "comma-separated: the census of check_xml_family_coverage.py."},
+        "comma-separated: which families the codebase reads."},
     {"corpus", "external/ore/examples",
         "The ORE example corpus whose root elements are the families."},
     {"generated", "projects/ores.ore/core/src/xml/generated",
