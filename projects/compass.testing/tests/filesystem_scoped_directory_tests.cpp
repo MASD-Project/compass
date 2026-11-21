@@ -100,8 +100,12 @@ TEST_CASE("a fixture that throws after making its directory removes it",
 
 TEST_CASE("a scoped directory removes those its prefix's dead processes left",
     "[filesystem][scoped_directory]") {
-    const auto orphan = leave_behind(prefix + "." + dead + ".0");
-    const scoped_directory d(prefix);
+    // CTest runs each case in a process of its own, and every scoped
+    // directory of a prefix clears its dead processes' directories, so a
+    // prefix shared with other cases could clear the orphan mid-creation.
+    const std::string own = prefix + "_orphans";
+    const auto orphan = leave_behind(own + "." + dead + ".0");
+    const scoped_directory d(own);
     CHECK_FALSE(std::filesystem::exists(orphan));
 }
 
