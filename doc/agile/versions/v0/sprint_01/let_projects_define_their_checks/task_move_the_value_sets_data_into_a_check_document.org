@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :let_projects_define_their_checks:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/codec-data-in-check-documents
+#+pr: 133
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-21
@@ -32,11 +32,11 @@ mislead the codecs. The generated files do not change.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:DAB2F48A-E47A-4895-9026-056AF21E6CCC][Let projects define their own checks]] |
-| Now          | Not yet started.                       |
+| Now          | Built and verified on ORE Studio's main; in #133. |
 | Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Next         | Merge, release v0.0.5, and ORE Studio commits its check document. |
 | Last touched | 2026-11-21                               |
 
 * Acceptance

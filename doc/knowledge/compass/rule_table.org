@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-181 rules, 43 of which cite a memory or a document that states them. Of the 62 memories of this repository, 59 are cited by no rule.
+182 rules, 43 of which cite a memory or a document that states them. Of the 62 memories of this repository, 59 are cited by no rule.
 
 ** Rules
 
