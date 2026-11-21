@@ -192,10 +192,16 @@ keeps in its =.compass.org=.
 - *=bff_list_requests=.* =bff-list-requests=
   (=check_bff_list_requests.py=). A hand-written BFF list request states
   what the C++ protocol decodes (=missing_member=, =filter_mismatch=,
-  =wrong_rows=), and the generated =list_requests.ts= is the table the
-  protocol headers give (=stale_table=). The script's generator runs
-  prettier; the codec lays out each array as prettier does at the width
-  =.prettierrc.yaml= sets, which reproduces the committed table.
+  =wrong_rows=).
+- *=list_request_table=.* Writes the generated =list_requests.ts=, the
+  table of the list requests the protocol headers declare, which
+  =regenerate_list_request_descriptors.py= wrote until ORE Studio deleted
+  it. Its drift rule replaces the =stale_table= rule =bff_list_requests=
+  had while only the script could write the table: a generator codec
+  that reported findings would refuse, and keep the table it wrote
+  before. The script ran prettier; the codec lays out each array as
+  prettier does at the width =.prettierrc.yaml= sets, which reproduces the
+  committed table but for the two header lines that name the generator.
 - *=translation_unit_budget=.* =translation-unit-budget=. Rule
   =over_budget=: a unit with an =#include= of
   =conventions_family_pack.hpp= names more convention families than one or

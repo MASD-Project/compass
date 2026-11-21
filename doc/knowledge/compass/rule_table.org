@@ -27,7 +27,6 @@ memories no rule cites are the candidates for the next checks.
 | =bff_list_requests= | missing_member | A hand-written list request states as_of and its filter when the protocol declares them. |  |
 | =bff_list_requests= | filter_mismatch | A literal filter states exactly the members the filter struct declares. | =7E3659C3-356E-4F0F-B4BA-C54050F39A98= |
 | =bff_list_requests= | wrong_rows | readAll reads the rows a reply carries. |  |
-| =bff_list_requests= | stale_table | The generated list request table is what the protocol headers give. |  |
 | =component_docs= | missing_overview | A component, or a part with include/ and src/, has modeling/component_overview.org. | [[id:CE17C7BB-C68C-4304-BD3D-92FA5D13272B][Document type: component]] |
 | =component_docs= | missing_id | A component overview has an :ID: property. | [[id:CE17C7BB-C68C-4304-BD3D-92FA5D13272B][Document type: component]] |
 | =component_docs= | missing_type | A component overview is #+type: component. | [[id:CE17C7BB-C68C-4304-BD3D-92FA5D13272B][Document type: component]] |
@@ -82,6 +81,7 @@ memories no rule cites are the candidates for the next checks.
 | =lint= | pattern_not_a_pattern | A page lists only service architecture patterns under Patterns used. | =470D4571-47A4-4AEF-9A93-2B4DE0279C1E= |
 | =lint= | pattern_shared_id | No two pages of a pattern link share an ID. |  |
 | =lint= | missing_backlink | Every page a structure note orders links the note back. |  |
+| =list_request_table= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =marketdata_identity_columns= | table_columns | The identity table holds the context columns, the identity fields and the index columns, and nothing else. |  |
 | =marketdata_identity_columns= | projector_switch | The projector's switch names every field, places each identity field in its own column and no coordinate. |  |
 | =marketdata_identity_columns= | views | Each asset class with series has one view exposing the context, its identity fields and its instrument types. |  |

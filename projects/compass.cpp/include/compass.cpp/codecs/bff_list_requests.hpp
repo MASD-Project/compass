@@ -35,12 +35,21 @@ namespace compass::cpp::codecs {
  * request key, outside a readAll call: rule missing_member when it leaves
  * out as_of or the filter the request declares; rule filter_mismatch when
  * a literal filter states other members than the filter struct. Rule
- * wrong_rows: readAll reads a rows key the reply does not carry. Rule
- * stale_table: the wire-protocol list_requests.ts is not the table the
- * headers give. prettier is not run: an array goes on one line when it
- * fits the 100 columns .prettierrc.yaml sets, as prettier lays it out.
+ * wrong_rows: readAll reads a rows key the reply does not carry.
  */
 extern const compass::codec::types::descriptor bff_list_requests;
+
+/**
+ * @brief Writes the wire protocol's list request table,
+ * projects/ores.web/packages/wire-protocol/src/generated/list_requests.ts:
+ * each list_*_request of the protocol headers bff_list_requests reads,
+ * with its subject and the members of its filter, as
+ * regenerate_list_request_descriptors.py wrote it. prettier is not run:
+ * an array goes on one line when it fits the 100 columns .prettierrc.yaml
+ * sets, as prettier lays it out. Its drift rule replaces the stale_table
+ * rule bff_list_requests had while the script wrote the table.
+ */
+extern const compass::codec::types::descriptor list_request_table;
 
 }
 
