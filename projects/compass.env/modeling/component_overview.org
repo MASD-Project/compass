@@ -1,0 +1,138 @@
+:PROPERTIES:
+:ID: CCF4B5C4-0570-4D51-9BCC-0EC7EF427E07
+:END:
+#+title: compass.env
+#+description: A project's uncommitted environment file: its format read from a check document, its generation from inputs and the existing file, its versions and its staleness, and the env_format codec that holds every new variable to a new version.
+#+type: component
+#+level: cross
+#+filetags: :environment:versioning:checks:component:
+#+created: 2026-11-21
+#+updated: 2026-11-21
+
+This page is the component overview for =compass.env=, a simple component in
+the domain layer of the
+[[id:8A9A460F-8024-4890-B091-C0D02FD84218][System Model]].
+
+* Summary
+
+=compass.env= writes and versions a project's environment file, such as ORE
+Studio's =.env=: a file every checkout generates, never commits, and keeps
+its secrets in. The project states the file in a check document under
+=compass/checks/= whose =* Definition= names the =env_format= codec; its
+tables are the file's settings, inputs, versions, variables and comments.
+The component holds no project's names: everything ORE Studio's
+=env_init.py= wrote as a template is data in that document.
+
+=ops::read_format= reads the tables into an =env_format= and refuses one
+that does not read: a kind it does not know, versions that do not rise, a
+template naming an input the Inputs table lacks or a variable of a later
+row, a section or comment the Comments table lacks. =ops::check_format=
+holds the versions to the variables. =ops::generate= writes the file from
+the format, the inputs, the existing file, the process environment and the
+service registry; =ops::status_of= says how an existing file stands;
+=ops::append_version= records a version in the check document.
+
+A variable's kind says how its value is made:
+
+| Kind          | Value                                                                                   |
+|---------------+-----------------------------------------------------------------------------------------|
+| =value=       | Its argument, a template.                                                               |
+| =offset=      | The sum of the whole numbers its argument's terms expand to, as base port plus offset. |
+| =secret=      | The existing file's value, else a new alphanumeric secret of the argument's length, 32 by default. |
+| =kept=        | The existing file's value, else the argument.                                           |
+| =inherited=   | The existing file's value, else the process environment's, else the argument.           |
+| =environment= | The process environment's value, else the argument; never the file's.                   |
+| =version=     | The highest version; the row of the =version_variable= setting.                         |
+| =file=        | A file's lines, each followed by the two characters =\n=, in double quotes.             |
+| =carried=     | Every variable of the existing file whose name matches the argument, a regular expression, in name order. |
+
+A template replaces ={name}= with an input or the value of an earlier
+variable, ={name:-default}= with the default when the value is empty, and
+={service.<field>}= with a field of a service; ={{= and =}}= are braces. A
+name holding ={service.<field>}= is a per-service variable: a run of them is
+written service by service, in the registry's order, for each entry that has
+every field the row uses, and the =services= column narrows a row to the
+entries it names or, with =!=, away from them. A row's =section= block is
+written before it when the row before had another section, its =comment=
+block before it every time, and a row whose =when= expands to nothing is not
+written, nor are its blocks. The inputs =checkout=, =home= and =now= are
+compass's own; every input the Inputs table declares must be given, and no
+other.
+
+The versions are the Versions table: a row per version, with the variables
+it adds and removes, or marked format only when it changes only values,
+layout or the services the registry expands. A variable's row names the
+version that added it and any that removed it, and a removed row is no
+longer written. The =env_format= codec reports:
+
+- =unknown_version=: a variable that names no version, or one the table
+  lacks;
+- =undeclared=: a variable whose version, after the baseline, does not list
+  it, which is what a new row with an old version is;
+- =unknown_variable=: a version that lists a variable no row is added or
+  removed in;
+- =empty_version=: a version after the baseline that names no variable and
+  is not format only;
+- =unreadable=: a document, table, column, setting, kind or template that
+  does not read.
+
+The environment file itself is never committed and is written only from the
+table, so no committed text can show a variable written into it without a
+row: the check holds the table, and =compass env status= holds each
+environment's file against the table and the registry. A file is stale when
+its version is older than the table's, when it lacks a variable a row
+without =when= gives it (a new service in the registry adds such
+variables without a new row), or when it holds a removed or undeclared one.
+
+* Inputs
+
+- The data tables of the check document that names =env_format=, which
+  =compass.cli= compiles into the codec's =data= option and hands to
+  =compass env=.
+- For generation: the inputs, the overrides, the existing file, the process
+  environment, the files a =file= row names, the service registry's text
+  and a maker of secrets.
+
+* Outputs
+
+- The text of the environment file and the names it holds, in order.
+- A status: the file's version, the current one, and the variables missing,
+  removed and undeclared.
+- The check document with a new version appended; a touched row keeps the
+  table's alignment when it fits, and the table is aligned again when it
+  does not.
+- The =env_format= codec's findings, at the rows of the check document.
+
+* Entry points
+
+| Path                                          | Role                                                         |
+|-----------------------------------------------+--------------------------------------------------------------|
+| =include/compass.env/types/env_format.hpp=    | The format, a variable, a version, a service and a finding.  |
+| =include/compass.env/ops/format.hpp=          | =read_format=, =check_format= and the rule numbers.          |
+| =include/compass.env/ops/templates.hpp=       | =expand= and =names_in=.                                     |
+| =include/compass.env/ops/generate.hpp=        | =read_env=, =read_services=, =generate= and =status_of=.     |
+| =include/compass.env/ops/versions.hpp=        | =append_version=.                                            |
+| =include/compass.env/codecs/env_format.hpp=   | The =env_format= codec.                                      |
+| =include/compass.env/codecs/catalogue.hpp=    | The codecs of the component and its code hash.               |
+| =tests/=                                      | Catch2 tests over a made-up project, Acme.                   |
+
+| Target              | Kind                                      |
+|---------------------+-------------------------------------------|
+| =compass.env.lib=   | Library.                                  |
+| =compass.env.tests= | Catch2 executable, registered with CTest. |
+
+* Dependencies
+
+- =compass.codec= for the data tables and the codec runtime.
+- =compass.platform= for regular expressions; =compass.cli= gives it the
+  secure random generator of =compass.platform= as its maker of secrets.
+- =compass.ingest= and =compass.model=, privately, to read the service
+  registry: the parser and the outline the model's loader reads it with.
+- Catch2, for the tests only.
+
+* See also
+
+- [[id:8A0E6F32-C4BC-4667-88E8-7F80CA25437C][Component architecture]] --- layout,
+  naming and facets.
+- [[id:8A9A460F-8024-4890-B091-C0D02FD84218][System Model]] --- where the
+  domain layer sits.

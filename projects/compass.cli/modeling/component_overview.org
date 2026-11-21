@@ -2,7 +2,7 @@
 :ID: 45FA67C9-60BC-420D-BB66-8A272CB1106C
 :END:
 #+title: compass.cli
-#+description: The compass executable and the library behind it: one function per command (generate, diff, check, gc, config, hook) that runs the pipeline over a checkout and returns a result, the command-line parser, the reader of the repository's .compass.org, and the report that prints each result with its exit status.
+#+description: The compass executable and the library behind it: one function per command (generate, diff, check, gc, config, hook, env) that runs the pipeline over a checkout and returns a result, the command-line parser, the reader of the repository's .compass.org, and the report that prints each result with its exit status.
 #+type: component
 #+level: cross
 #+filetags: :cli:application:pipeline:component:
@@ -62,6 +62,19 @@ thing with what the codecs produced:
 | =gc=              | Drops old unreferenced objects and action objects from the store, rewriting its packs into one, and removes the first layout of the store. | Rewrites the packs, unless =--dry-run=. |
 | =hook=            | Checks the one file a Claude Code PostToolUse payload on standard input names, running only the units that read or report on it. | Nothing.                                          |
 | =config=          | Prints every path and codec setting in effect, and where it came from.   | Nothing.                                          |
+| =env generate=    | Writes the project's environment file from the check document of =env_format=, the inputs and the file it replaces. | The file, owner-only, and =<file>.old=. |
+| =env version=     | Prints the highest version of the environment file's format.             | Nothing.                                          |
+| =env version new= | Appends the next version to the check document and sets the added and removed versions of the rows it names. | The check document.                    |
+| =env status=      | Says whether the environment file is current, and exits 1 when it is not. | Nothing.                                         |
+
+=env= runs outside the pipeline: =app::run_env= reads the check documents
+(=config::read_check_documents=), takes the one whose Definition names
+=env_format=, and hands its tables to =compass.env=. =generate= gives the
+format the built-in inputs =checkout=, =home= and =now=, each =--input=,
+each =--var= as an override, the process environment, the old file and a
+secret maker over =platform::random=, and writes the file through a new
+file created readable by its owner alone that replaces the old one in one
+step.
 
 The library holds the pipeline and prints nothing. =app/steps.hpp=
 exposes it as one function per step, so a caller can time each:
@@ -392,9 +405,14 @@ record again, and 0.8 s reading it.
 | =--timings=                     | no                                       | =generate=, =diff=, =check=, =hook=: print each step's time and what each codec ran or reused, and how long its units ran. |
 | =--commit <rev>=                | the files on disk                        | =check= only: check the commit =<rev>= names, as =git rev-parse <rev>^{commit}= resolves it, with that commit's =.compass.org=, or, when the commit has none, the working tree's, with a warning on standard error. The output root and meta directory must be under the checkout. |
 | =--ratchet [<base>]=            | the upstream, else =origin/main=         | =check= only: fail only on findings the merge base of HEAD and =<base>= lacks. The next argument is the base unless it starts with =-= or names a command; =--ratchet=<base>= always takes one. Not with =--commit=. |
-| =--today <YYYY-MM-DD>=          | today in UTC                             | =check= and =hook=: the date the expiry of exceptions, comments and table rows alike, is judged against, for the checkout, a commit and both sides of a ratchet. |
+| =--today <YYYY-MM-DD>=          | today in UTC                             | =check= and =hook=: the date the expiry of exceptions, comments and table rows alike, is judged against, for the checkout, a commit and both sides of a ratchet. =env version new=: the date of the new version. |
 | =--all-findings=                | no                                       | =hook= only: report every finding on the edited file, not only those the last check did not record. |
 | =--dry-run=, =--cap=, =--grace= | no, 0 bytes, 3600 s                      | =gc= only.                                      |
+| =--input <name>=<value>=        | none                                     | =env generate= only: an input the format declares; repeatable. Every declared input must be given, and no other. |
+| =--var <NAME>=<value>=          | none                                     | =env generate= only: a variable's value, whatever its kind; repeatable. |
+| =--file <path>=                 | the format's =file= setting              | =env generate= and =env status=: the environment file, relative to the checkout. |
+| =--adds <A,B>=, =--removes <C>= | none                                     | =env version new= only: the variables the version adds and removes; repeatable. |
+| =--format-only=                 | no                                       | =env version new= only: the version changes only values, layout or the services the registry expands, so it names no variable. |
 | =--help=, =-h=, =--version=     |                                          | Print and exit 0, whatever else is there.       |
 
 =--version= prints one fact per line: the release; the full and short commit;
@@ -537,6 +555,7 @@ range, 1-based, the column counted in bytes. The rule is written as
 | =include/compass.cli/io/report.hpp=              | Printing each result, and the hook's JSON.                                         |
 | =include/compass.cli/io/hook_payload.hpp=        | The file a PostToolUse payload names, and the checkout that holds it.              |
 | =include/compass.cli/app/application.hpp=        | =app::run= and the exit statuses.                                                  |
+| =include/compass.cli/app/env.hpp=                | =app::run_env=: =compass env=.                                                     |
 | =src/main.cpp=                                   | The executable.                                                                    |
 | =tests/end_to_end.sh=                            | The built executable over a fresh repository, then configured by a =.compass.org=. |
 | =tests/install_compass.sh=                       | The install script over copies of the executable, in a temporary =HOME=.           |
@@ -559,6 +578,7 @@ range, 1-based, the column counted in bytes. The rule is written as
 - =compass.sql= for the SQL gates.
 - =compass.crosscheck= for the cross-artefact gates.
 - =compass.docs= for the document gates.
+- =compass.env= for the =env_format= codec and =compass env=.
 - =compass.model= for its JSON reader, which reads the hook's payload
   and what =gh= prints.
 - =compass.ingest= for the parser and the type registry builder.

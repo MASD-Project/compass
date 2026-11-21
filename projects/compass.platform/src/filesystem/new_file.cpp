@@ -72,8 +72,12 @@ HANDLE native(std::intptr_t handle) noexcept {
 
 }
 
-std::optional<new_file> new_file::create(const std::filesystem::path& path) {
+std::optional<new_file> new_file::create(const std::filesystem::path& path,
+    bool owner_only) {
 #if defined(_WIN32)
+    // A file's access on Windows follows its directory's, so owner_only
+    // asks nothing more of it.
+    (void)owner_only;
     const HANDLE h = ::CreateFileW(path.c_str(), GENERIC_WRITE,
         FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr, CREATE_NEW,
         FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -85,7 +89,7 @@ std::optional<new_file> new_file::create(const std::filesystem::path& path) {
     return new_file(path, reinterpret_cast<std::intptr_t>(h));
 #else
     const int fd = ::open(path.c_str(),
-        O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0644);
+        O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, owner_only ? 0600 : 0644);
     if (fd == -1) {
         if (errno == EEXIST)
             return std::nullopt;

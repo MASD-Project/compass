@@ -28,6 +28,7 @@ add_library(${lib_target_name}
     process/liveness.cpp
     process/run_program.cpp
     process/standard_streams.cpp
+    random/secure_random.cpp
     text/decoding.cpp
     text/regex.cpp
     text/xml.cpp)
@@ -41,3 +42,7 @@ target_link_libraries(${lib_target_name}
     PRIVATE
         PCRE2::8BIT
         expat::expat)
+
+if(WIN32)
+    target_link_libraries(${lib_target_name} PRIVATE bcrypt)
+endif()

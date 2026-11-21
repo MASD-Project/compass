@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :modeling:architecture:system_model:masd:
 #+created: 2026-10-27
-#+updated: 2026-11-18
+#+updated: 2026-11-21
 
 compass-ng follows the ORE Studio system model: components grouped into layers,
 with one invariant --- *a layer depends only on layers below it*. In MASD terms
@@ -72,6 +72,7 @@ beside it, it reads one of git's formats and keeps nothing.
 | =compass.sql=     | Checks over SQL sources as text: a byte scanner that follows PostgreSQL's lexer as ORE Studio's sql-hygiene script does, the entity-relationship model of the create scripts, and the codecs that run the SQL gates.                    |
 | =compass.crosscheck= | Checks that hold the models against the C++, SQL, templates and generated output beside them: ports of ORE Studio's cross-artefact gates, run as codecs. |
 | =compass.docs=    | Checks and generators over the org documents and the plain files of a checkout that read no model and no source language: ports of ORE Studio's document gates and of the generators some gates compare against, run as codecs over the parsed corpus. |
+| =compass.env=     | A project's environment file: its format read from a check document, its generation from inputs and the existing file, its versions, its staleness, and the codec that holds every new variable to a new version. |
 
 =compass.codec= is in the domain layer because a codec is defined in terms of
 the document model: its inputs are document types and its diagnostics name
@@ -166,6 +167,18 @@ skill tables and levels, the structure-note back-links, the backlog
 indexes, the physical-space inventories and the trade type coverage): each is a codec that emits files, so =compass
 generate= replaces the script and =compass check='s drift findings replace
 the gate.
+
+=compass.env= writes and versions a project's uncommitted environment file
+(ORE Studio's =.env=) from the tables of a check document. It is a
+component of its own, not part of =compass.docs=, because most of it is no
+codec: =compass env= generates the file, records versions and says whether
+a file is stale outside the pipeline, reading the same tables the
+=env_format= codec checks. It depends on =compass.codec= for the data
+tables and the codec, on =compass.platform= for the secure random
+generator and regular expressions, and privately on =compass.ingest= and
+=compass.model= to read the service registry its per-service variables
+expand over. It holds no project's names: the variables, inputs, comments
+and versions are the project's data.
 
 Work management (stories, tasks, sprints) is not a separate component: a unit
 of work is a document with a lifecycle state, read through the same tables.

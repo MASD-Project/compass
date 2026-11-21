@@ -26,6 +26,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 #include "compass.cli/config/check_documents.hpp"
 #include "compass.cli/types/configuration.hpp"
@@ -39,7 +40,34 @@ namespace compass::cli::types {
 /**
  * @brief The commands of the compass executable.
  */
-enum class command : std::uint8_t { generate, diff, check, gc, config, hook };
+enum class command : std::uint8_t {
+    generate, diff, check, gc, config, hook, env
+};
+
+/**
+ * @brief What compass env does: write the environment file, print the
+ * format's version, record a new version, or say whether the file is
+ * current.
+ */
+enum class env_action : std::uint8_t { generate, version, version_new, status };
+
+/**
+ * @brief The arguments of compass env.
+ *
+ * inputs holds each --input and variables each --var, as name and value;
+ * file is --file, the environment file in place of the format's own;
+ * description, adds, removes and format_only are those of version new.
+ */
+struct env_request {
+    env_action action = env_action::status;
+    std::vector<std::pair<std::string, std::string>> inputs;
+    std::vector<std::pair<std::string, std::string>> variables;
+    std::string file;
+    std::string description;
+    std::vector<std::string> adds;
+    std::vector<std::string> removes;
+    bool format_only = false;
+};
 
 /**
  * @brief What the command line asked for, before the configuration file
@@ -52,7 +80,8 @@ enum class command : std::uint8_t { generate, diff, check, gc, config, hook };
  * base of check --ratchet as written, empty for the default. today is
  * the --today of check, when given. all_findings is the --all-findings of
  * hook. only holds each --codec of check: when it is not empty, the
- * codecs and checks it names run and no other does.
+ * codecs and checks it names run and no other does. env holds the
+ * arguments of compass env.
  */
 struct invocation {
     command which = command::generate;
@@ -66,6 +95,7 @@ struct invocation {
     std::vector<std::string> only;
     layer command_line;
     store::types::collection_options collection;
+    env_request env;
 };
 
 /**

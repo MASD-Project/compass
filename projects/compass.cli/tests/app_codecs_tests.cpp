@@ -37,6 +37,7 @@
 #include "compass.cpp/codecs/catalogue.hpp"
 #include "compass.crosscheck/codecs/catalogue.hpp"
 #include "compass.docs/codecs/catalogue.hpp"
+#include "compass.env/codecs/catalogue.hpp"
 #include "compass.sql/codecs/catalogue.hpp"
 #include "scoped_git_repo.hpp"
 
@@ -147,13 +148,14 @@ TEST_CASE("the check of a rule's metadata refuses a malformed citation",
 TEST_CASE("every codec compass knows carries the code hash of the "
     "component that defines it", "[app][codecs]") {
     const std::array<std::pair<std::span<const ct::descriptor>,
-        std::string_view>, 6> components{{
+        std::string_view>, 7> components{{
         {codec::codecs::catalogue(), codec::codecs::code_hash()},
         {codegen::codecs::catalogue(), codegen::codecs::code_hash()},
         {cpp::codecs::catalogue(), cpp::codecs::code_hash()},
         {sql::codecs::catalogue(), sql::codecs::code_hash()},
         {crosscheck::codecs::catalogue(), crosscheck::codecs::code_hash()},
-        {docs::codecs::catalogue(), docs::codecs::code_hash()}}};
+        {docs::codecs::catalogue(), docs::codecs::code_hash()},
+        {env::codecs::catalogue(), env::codecs::code_hash()}}};
     std::map<std::string_view, std::string_view> expected;
     std::set<std::string_view> hashes;
     for (const auto& [catalogue, hash] : components) {

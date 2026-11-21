@@ -1,0 +1,37 @@
+/* -*- mode: c++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+#include "compass.env/codecs/catalogue.hpp"
+
+#include <array>
+#include "compass.env/codecs/env_format.hpp"
+
+namespace compass::env::codecs {
+
+std::span<const compass::codec::types::descriptor> catalogue() noexcept {
+    static const auto all = [] {
+        std::array<compass::codec::types::descriptor, 1> out{env_format};
+        for (auto& d : out)
+            d.code = code_hash();
+        return out;
+    }();
+    return all;
+}
+
+}
