@@ -41,5 +41,6 @@ merged with main, in about eleven minutes.
 | required_sections | yes     |                                                  |
 | tangle            | no      |                                                  |
 | tangle_check      | yes     |                                                  |
+| check_inventory | yes | id=84B5F778-16CD-42D1-8F4C-B412DBE0C9C1 created=2026-11-21 updated=2026-11-21 |
 | rule_table        | yes     | path=doc/knowledge/compass/rule_table.org        |
 | no_pr_triggers    | no      |                                                  |

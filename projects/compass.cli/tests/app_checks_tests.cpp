@@ -510,12 +510,16 @@ TEST_CASE("the check inventory lists every codec and check of the run, "
     repo.git("add -A");
     REQUIRE(generate(repo) == 0);
     const auto page = scoped_git_repo::read_file(repo.checkout() /
-        "compass/check_inventory.org");
+        "doc/knowledge/compass/check_inventory.org");
 
     CHECK(page.starts_with(":PROPERTIES:\n"
         ":ID: A1D08435-9DCB-4B63-A33F-2E1A87DA62A2\n:END:\n"
         "#+title: Check inventory\n"));
     CHECK_THAT(page, ContainsSubstring("#+created: 2026-11-21\n"));
+    CHECK_FALSE(page.contains("\n* Summary"));
+    CHECK(page.find("\n\nThis page lists every check") <
+        page.find("\n* Detail\n"));
+    CHECK(page.find("\n* Detail\n") < page.find("\n* See also\n"));
     CHECK_THAT(page, ContainsSubstring("| =portable_cpp= | yes | check | "
         "error | "));
     CHECK_THAT(page, ContainsSubstring("[[id:11111111-2222-3333-4444-"
@@ -538,5 +542,5 @@ TEST_CASE("the check inventory lists every codec and check of the run, "
     const auto changed = check(repo);
     CHECK(changed.status == 1);
     CHECK(changed.findings() == std::vector<std::string>{
-        "compass/check_inventory.org:16:check_inventory/drift"});
+        "doc/knowledge/compass/check_inventory.org:12:check_inventory/drift"});
 }

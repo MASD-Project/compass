@@ -251,7 +251,8 @@ TEST_CASE("config prints every value with where it came from",
         "component_files.year =  (default)\n"
         "pending_models.enabled = false (default)\n" + gate_defaults() +
         "check_inventory.enabled = false (default)\n"
-        "check_inventory.path = compass/check_inventory.org (default)\n"
+        "check_inventory.path = doc/knowledge/compass/check_inventory.org "
+        "(default)\n"
         "check_inventory.id =  (default)\n"
         "check_inventory.title = Check inventory (default)\n"
         "check_inventory.type = knowledge (default)\n"

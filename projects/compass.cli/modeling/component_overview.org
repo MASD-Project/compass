@@ -33,8 +33,10 @@ the whole run, so =options_of= builds the inventory from the catalogue,
 the check documents and the settings (=app::inventory_of=) and sets it as
 the codec's =inventory= option: a change to what runs changes the codec's
 configuration, so the page is regenerated, and reported as drift until it
-is. Its other options are the page's =path=, which must not be under
-=compass/checks/=, and its frontmatter, the =created= and =updated= dates
+is. The page is a knowledge page, kept to that contract: a blurb, then
+=* Detail= with the table and a section per codec, and =* See also= for
+compass itself. Its other options are its =path=, under =doc/knowledge/=
+by that contract and never under =compass/checks/=, and its frontmatter, the =created= and =updated= dates
 fixed so the page does not change by the day. It is off by default.
 =rule_table= is the host's own too: it binds =ops::rule_table= of =compass.codec= to
 the list, since only the host knows every codec, and its version is

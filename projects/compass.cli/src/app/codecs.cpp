@@ -46,9 +46,10 @@ void check_inventory(const codec::types::corpus_view& v,
 }
 
 constexpr std::array<codec::types::option, 9> inventory_options{{
-    {"path", "compass/check_inventory.org", "The page, relative to the "
-        "output root; not under compass/checks/, whose every page is read "
-        "as a check document."},
+    {"path", "doc/knowledge/compass/check_inventory.org", "The page, "
+        "relative to the output root: a knowledge page, so under "
+        "doc/knowledge/ by the knowledge contract, and never under "
+        "compass/checks/, whose every page is read as a check document."},
     {"id", "", "The page's :ID:, a fixed uppercase UUID, so links to it "
         "survive regeneration; no drawer when empty."},
     {"title", "Check inventory", "The page's #+title:."},
