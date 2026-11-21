@@ -24,6 +24,7 @@
 #include <fstream>
 #include <iterator>
 #include <optional>
+#include <span>
 #include "compass.cli/config/org_reader.hpp"
 #include "compass.codec/ops/data_tables.hpp"
 #include "compass.codec/ops/exceptions.hpp"
@@ -277,10 +278,10 @@ std::string cell_value(std::string_view cell) {
 /**
  * @brief Adds to @p exceptions a row per row of the first table under the
  * level-1 heading Exceptions of @p r, whose rule column names a rule of
- * @p owner without it.
+ * the one of @p owners without it, or <owner>/<rule> of one of several.
  */
-void add_exceptions(const check_reader& r, std::string_view owner,
-    ct::exception_set& exceptions) {
+void add_exceptions(const check_reader& r,
+    std::span<const std::string> owners, ct::exception_set& exceptions) {
     const auto table = r.table_under("Exceptions");
     if (table.is_none())
         return;
@@ -294,8 +295,18 @@ void add_exceptions(const check_reader& r, std::string_view owner,
                     cells.size())});
             continue;
         }
-        const auto rule = std::string(owner) + "/" +
-            std::string(verbatim(cells[2]));
+        const std::string named(verbatim(cells[2]));
+        const auto slash = named.find('/');
+        const bool owned = slash != std::string::npos &&
+            std::ranges::contains(owners, named.substr(0, slash));
+        if (owners.size() > 1 && !owned) {
+            exceptions.malformed.push_back({std::string(r.path), line,
+                std::format("the rule {} names none of the codecs the "
+                    "document gives data to; write <codec>/<rule>", named)});
+            continue;
+        }
+        const auto rule = owners.size() > 1 ? named
+            : owners.front() + "/" + named;
         codec::ops::add_exception_row(exceptions, r.path, line, {
             .path = verbatim(cells[0]), .line = cells[1], .rule = rule,
             .expires = cells[3], .approver = cells[4], .reason = cells[5]});
@@ -441,7 +452,7 @@ parse_check_document(std::string_view text, std::string_view path,
         c->codec.formatting_check = true;
     }
 
-    add_exceptions(r, c->name, exceptions);
+    add_exceptions(r, std::span(&c->name, 1), exceptions);
     return c;
 }
 
@@ -462,11 +473,12 @@ parse_codec_document(std::string_view text, std::string_view path,
             r.t.properties.names[id]);
         const auto value = trimmed(text, r.t.properties.values[id]);
         if (key == "CODEC") {
-            out.codec = std::string(value.of(text));
+            for (const auto name : words_of(value.of(text)))
+                out.codecs.emplace_back(name);
             out.line = line_of(text, value.begin);
         }
     }
-    if (out.codec.empty())
+    if (out.codecs.empty())
         return std::nullopt;
     for (auto p = first; p < end; ++p) {
         const ot::property_id id{p};
@@ -513,7 +525,7 @@ parse_codec_document(std::string_view text, std::string_view path,
         data.tables.push_back(std::move(t));
     }
     out.text = codec::ops::encode_data_tables(data);
-    add_exceptions(r, out.codec, exceptions);
+    add_exceptions(r, out.codecs, exceptions);
     return out;
 }
 

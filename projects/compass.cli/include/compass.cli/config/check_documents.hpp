@@ -70,13 +70,15 @@ struct check {
 };
 
 /**
- * @brief The data a document gives a built-in codec: the codec its
+ * @brief The data a document gives built-in codecs: the codecs its
  * Definition names with :CODEC:, the document's path and the line of that
  * key, and the tables as codec::ops::encode_data_tables writes them, the
- * value compass sets as the codec's data option.
+ * value compass sets as each codec's data option. Codecs that resolve one
+ * model from the same data, as a generator and the gate on its input do,
+ * are named together, so the data has one copy.
  */
 struct codec_data {
-    std::string codec;
+    std::vector<std::string> codecs;
     std::string path;
     std::uint32_t line = 0;
     std::string text;
@@ -93,10 +95,14 @@ struct check_set {
 };
 
 /**
- * @brief The data the document @p text at @p path gives a built-in codec,
- * when its Definition names one with :CODEC:, with the exceptions its
- * table states added to @p exceptions; nothing when it names none, and is
- * a check; or the first error in it as "<path>:<line>: <what>; fix: <how>".
+ * @brief The data the document @p text at @p path gives built-in codecs,
+ * when its Definition names them with :CODEC:, separated by spaces, with
+ * the exceptions its table states added to @p exceptions; nothing when it
+ * names none, and is a check; or the first error in it as
+ * "<path>:<line>: <what>; fix: <how>".
+ *
+ * The rule of an exception is the rule's name when the document names one
+ * codec, and <codec>/<rule> when it names several.
  *
  * Each level-1 heading but Definition, Exceptions and Examples that holds
  * a table gives one table, named by the heading's title: its first row

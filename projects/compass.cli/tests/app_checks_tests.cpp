@@ -468,4 +468,14 @@ TEST_CASE("a document that gives data names a codec that reads tables, "
     CHECK(twice.status == 2);
     CHECK_THAT(twice.err, ContainsSubstring("compass/checks/more.org:5: "
         "another document already gives conventions_coverage's data"));
+
+    repo.write("compass/checks/more.org",
+        codec_document("ore_value_sets conventions_coverage"));
+    CHECK_THAT(check(repo).err, ContainsSubstring("compass/checks/more.org:5: "
+        "another document already gives conventions_coverage's data"));
+    repo.write("compass/checks/more.org",
+        codec_document("ore_value_sets parameter_value_sets"));
+    const auto shared = check(repo);
+    CHECK_THAT(shared.err, !ContainsSubstring("another document"));
+    CHECK_THAT(shared.err, !ContainsSubstring("reads no data tables"));
 }

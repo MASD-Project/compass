@@ -332,7 +332,7 @@ TEST_CASE("a document whose Definition names a codec gives it tables, not "
         "compass/checks/conventions_coverage.org", e);
     REQUIRE(d);
     REQUIRE(*d);
-    CHECK((*d)->codec == "conventions_coverage");
+    CHECK((*d)->codecs == std::vector<std::string>{"conventions_coverage"});
     CHECK((*d)->line == 7);
     const auto t = compass::codec::ops::decode_data_tables((*d)->text);
     REQUIRE(t);
@@ -363,6 +363,28 @@ TEST_CASE("a codec's tables hold no prose, so editing prose leaves them as "
     REQUIRE(before);
     REQUIRE(after);
     CHECK((*before)->text == (*after)->text);
+}
+
+TEST_CASE("a document gives one copy of its tables to several codecs, "
+    "whose exceptions name the codec", "[config][check_documents]") {
+    compass::codec::types::exception_set e;
+    auto text = replaced(codec_document, ":CODEC: conventions_coverage\n",
+        ":CODEC: ore_value_sets  parameter_value_sets\n");
+    text = replaced(text, "| x.tsv | 1 | no_source |",
+        "| x.tsv | 1 | parameter_value_sets/clash |");
+    text += "| y.tsv | 2 | clash | 2027-01-31 | marco | no codec named |\n";
+    const auto d = config::parse_codec_document(text,
+        "compass/checks/value_sets.org", e);
+    REQUIRE(d);
+    REQUIRE(*d);
+    CHECK((*d)->codecs == std::vector<std::string>{"ore_value_sets",
+        "parameter_value_sets"});
+    REQUIRE(e.exceptions.size() == 1);
+    CHECK(e.exceptions[0].rule == "parameter_value_sets/clash");
+    REQUIRE(e.malformed.size() == 1);
+    CHECK(e.malformed[0].line == 29);
+    CHECK(e.malformed[0].why.starts_with("the rule clash names none of "
+        "the codecs the document gives data to"));
 }
 
 TEST_CASE("a codec document holds only its codec's name in its drawer, and "
