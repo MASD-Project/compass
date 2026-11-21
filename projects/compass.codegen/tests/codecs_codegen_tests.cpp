@@ -149,6 +149,13 @@ std::vector<std::pair<std::string, std::string>> rows_of(
     return out;
 }
 
+files by_path(const ct::file_table& t) {
+    files out;
+    for (auto& [path, text] : rows_of(t))
+        out.emplace(std::move(path), std::move(text));
+    return out;
+}
+
 /**
  * @brief Runs codegen over @p all from @p previous, and checks that its
  * files are those of a run from nothing, which generates every model.
@@ -181,6 +188,9 @@ std::set<std::string> generated(const ct::run_result& r) {
 constexpr std::string_view model_a =
     "projects/ores.a/modeling/component_overview.org";
 
+constexpr std::string_view registry_model =
+    "projects/modeling/service_registry.org";
+
 /**
  * @brief library() with a second archetype of the component, whose
  * template lists the convention families, and an entity model of the
@@ -205,6 +215,80 @@ files library_with_family() {
     all["projects/ores.a/modeling/ores.a.swap.org"] =
         "#+title: Swap\n#+type: ores.codegen.entity\n"
         "#+convention_family: swaps\n#+entity_singular: swap\n";
+    return all;
+}
+
+/**
+ * @brief library() with the two facets of the service registry, three of
+ * their archetypes, and a registry in projects/modeling, which no
+ * catalogue entry names: two services with a psql variable, one with an
+ * apostrophe in its display name, and a disabled one without.
+ */
+files library_with_registry() {
+    auto all = library();
+    all["lib/templates/ores.sql.service.org"] =
+        "#+title: ores.sql.service\n#+type: facet\n"
+        "#+facet_group: ores.sql\n#+model_types: service_registry\n";
+    all["lib/templates/ores.shell.service.org"] =
+        "#+title: ores.shell.service\n#+type: facet\n"
+        "#+facet_group: ores.shell\n#+model_types: service_registry\n";
+    all["lib/templates/ores.sql.service.db_grants.org"] =
+        "#+title: ores.sql.service.db_grants\n#+type: archetype\n"
+        "#+facet: ores.sql.service\n"
+        "#+output: projects/ores.sql/create/grants.sql\n"
+        "#+begin_src mustache :tangle grants.mustache\n#+end_src\n";
+    all["lib/templates/grants.mustache"] =
+        "to\n"
+        "{{#service_registry_db_services}}\n"
+        "    :{{psql_var}}_user{{^last}},{{/last}}{{#last}};{{/last}}\n"
+        "{{/service_registry_db_services}}\n"
+        "{{#service_registry_db_services}}\n"
+        "{{#dml_prefixes}}\n"
+        "select dml('{{prefix}}', :'{{psql_var}}_user');\n"
+        "{{/dml_prefixes}}\n"
+        "{{#select_tables}}\n"
+        "grant select on {{table}} to :{{psql_var}}_user;\n"
+        "{{/select_tables}}\n"
+        "{{/service_registry_db_services}}\n";
+    all["lib/templates/ores.sql.service.expected.org"] =
+        "#+title: ores.sql.service.expected\n#+type: archetype\n"
+        "#+facet: ores.sql.service\n"
+        "#+output: projects/ores.sql/populate/expected.sql\n"
+        "#+begin_src mustache :tangle expected.mustache\n#+end_src\n";
+    all["lib/templates/expected.mustache"] =
+        "{{#service_registry.services}}\n"
+        "{{#enabled}}\n"
+        "('{{name}}', {{replicas}}, '{{display_name_sql}}', "
+        "'{{summary_sql}}', {{#account_var}}:'{{account_var}}'"
+        "{{/account_var}}{{^account_var}}null{{/account_var}}, "
+        "'{{image_code}}')\n"
+        "{{/enabled}}\n"
+        "{{/service_registry.services}}\n";
+    all["lib/templates/ores.shell.service.vars.org"] =
+        "#+title: ores.shell.service.vars\n#+type: archetype\n"
+        "#+facet: ores.shell.service\n"
+        "#+output: projects/ores.sql/service_vars.sh\n"
+        "#+begin_src mustache :tangle vars.mustache\n#+end_src\n";
+    all["lib/templates/vars.mustache"] =
+        "SERVICE_NAMES=(\n"
+        "{{#service_registry_db_services}}\n"
+        "    {{component}}\n"
+        "{{/service_registry_db_services}}\n"
+        ")\n";
+    all[std::string(registry_model)] =
+        "#+title: Service registry\n"
+        "#+type: ores.codegen.service_registry\n\n"
+        "* ores.iam.service\n:PROPERTIES:\n:psql_var: iam_service\n"
+        ":display_name: Identity\n:summary: Signs people in.\n"
+        ":replicas: 2\n:END:\n\n"
+        "** DML prefixes\n\n- ores_iam_\n\n"
+        "** Select tables\n\n- table=ores_refdata_x_tbl\n\n"
+        "* ores.wt.service\n:PROPERTIES:\n:psql_var: wt\n"
+        ":display_name: Walt's\n:summary: It's a test.\n"
+        ":replicas: 1\n:END:\n\n"
+        "** DML prefixes\n\n- ores_wt_\n\n"
+        "* ores.fleet\n:PROPERTIES:\n:replicas: 1\n:enabled: false\n"
+        ":END:\n";
     return all;
 }
 
@@ -394,6 +478,55 @@ TEST_CASE("an output two models name is written once, from the later",
     const auto edited = run(all, r.run.record);
     REQUIRE(edited.run.files[0].size() == 1);
     CHECK(edited.text.find("project(ores.b)") != std::string::npos);
+}
+
+TEST_CASE("the service registry, which no catalogue entry names, renders "
+    "the outputs of its facets", "[codegen][codec]") {
+    const auto r = run(library_with_registry());
+
+    CHECK(by_path(r.run.files[0]) == files{
+            {"projects/ores.a/CMakeLists.txt", "project(ores.a)\n"},
+            {"projects/ores.sql/service_vars.sh",
+             "SERVICE_NAMES=(\n    iam\n    wt\n)\n"},
+            {"projects/ores.sql/create/grants.sql",
+             "to\n    :iam_service_user,\n    :wt_user;\n"
+             "select dml('ores_iam_', :'iam_service_user');\n"
+             "grant select on ores_refdata_x_tbl to :iam_service_user;\n"
+             "select dml('ores_wt_', :'wt_user');\n"},
+            {"projects/ores.sql/populate/expected.sql",
+             "('ores.iam.service', 2, 'Identity', 'Signs people in.', "
+             ":'iam_service_user', 'ores_iam_service')\n"
+             "('ores.wt.service', 1, 'Walt''s', 'It''s a test.', "
+             ":'wt_user', 'ores_wt_service')\n"}});
+}
+
+TEST_CASE("a service added to the registry reaches every output of the "
+    "registry", "[codegen][codec]") {
+    const auto first = run(library_with_registry());
+    auto all = library_with_registry();
+    all[std::string(registry_model)] +=
+        "\n* ores.new.service\n:PROPERTIES:\n:psql_var: new_service\n"
+        ":account_var: new_account\n:replicas: 3\n:END:\n\n"
+        "** DML prefixes\n\n- ores_new_\n";
+
+    const auto second = run(all, first.run.record);
+
+    CHECK(generated(second.run) ==
+        std::set<std::string>{"", std::string(registry_model)});
+    auto rows = by_path(second.run.files[0]);
+    REQUIRE(rows.size() == 4);
+    CHECK(rows["projects/ores.sql/service_vars.sh"] ==
+        "SERVICE_NAMES=(\n    iam\n    wt\n    new\n)\n");
+    CHECK(rows["projects/ores.sql/create/grants.sql"] ==
+        "to\n    :iam_service_user,\n    :wt_user,\n"
+        "    :new_service_user;\n"
+        "select dml('ores_iam_', :'iam_service_user');\n"
+        "grant select on ores_refdata_x_tbl to :iam_service_user;\n"
+        "select dml('ores_wt_', :'wt_user');\n"
+        "select dml('ores_new_', :'new_service_user');\n");
+    CHECK(rows["projects/ores.sql/populate/expected.sql"].ends_with(
+        "('ores.new.service', 3, '', '', :'new_account', "
+        "'ores_new_service')\n"));
 }
 
 TEST_CASE("the codegen codec needs its library, convention component and "

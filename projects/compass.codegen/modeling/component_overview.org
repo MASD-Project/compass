@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :codegen:mustache:render:component:
 #+created: 2026-11-16
-#+updated: 2026-11-17
+#+updated: 2026-11-21
 
 This page is the component overview for =compass.codegen=, a simple component
 in the domain layer of the
@@ -26,14 +26,18 @@ a tree of =compass.model= values, the same tables a model loads into, so a
 model renders without being converted. Building the context ores.codegen
 builds for an output is most of the work of code generation: the engine is
 complete, the contexts are not. The ones built today are those of component
-models and of the asset class and outcome catalogues.
+models, of the asset class and outcome catalogues and of the service
+registry.
 
 =build/scripts/codegen_render_dump.py= is the oracle. It runs
 ores.codegen's =regenerate --all= with the formatters patched out and
 captures, per output, the text it writes and the context it rendered from.
 
 The =codegen= codec runs the whole of =regenerate --all= in the codec
-runtime of =compass.codec=: =compass generate= writes, =compass diff= shows
+runtime of =compass.codec=, and generates the service registry besides,
+which no catalogue entry reaches and ores.codegen renders only through
+=generate --model=, so that a hand edit to one of its outputs shows as
+drift: =compass generate= writes, =compass diff= shows
 and a later run reuses what it produced while none of its inputs changed.
 Where the library is and which programs format the outputs are options of
 the codec, set in the checkout's =.compass.org=.
@@ -59,7 +63,9 @@ the codec, set in the checkout's =.compass.org=.
   each archetype tangles.
 - =library/data/licence-GPL-v3.txt= and =library/data/modeline.org=, which
   every context starts from, and =library/component_catalogue.org=, whose
-  modeling directories say which models =regenerate --all= visits.
+  modeling directories say which models =regenerate --all= visits. Every
+  =ores.codegen.service_registry= model of a =modeling/= directory under
+  =projects/= is generated too.
 - The models, as =compass.model= loads them, and each model document's
   file-level drawer, whose =:ores.<address>.enabled:= entries override the
   graph's defaults.
@@ -83,7 +89,9 @@ the codec, set in the checkout's =.compass.org=.
   output's drawer, and the =<<paste:UUID>>= blocks of the model.
 - *Contexts.* =ops::library_values= builds the licence and modeline values;
   =ops::model_context= adds a model and what =generate_from_model= derives
-  for its type. The steps of an entity's context are public one by one
+  for its type; for the service registry, each service's SQL literals,
+  image code, account variable and component, and the services with a
+  psql variable under =service_registry_db_services=. The steps of an entity's context are public one by one
   (=entity_steps.hpp=), and =ops::flag_junction_columns= gives a
   junction's columns and sides their type flags, so a check can run the
   steps that read no other model without building the whole context.
@@ -101,7 +109,7 @@ the codec, set in the checkout's =.compass.org=.
   every model's generation shares, an =ops::generation=: the library's
   licence and modeline, the physical-space graph, the entity and checkout
   registries, the compiled templates and the models =regenerate --all=
-  visits, in order. =ops::generate_model= generates one of those models:
+  visits with the service registries, in order. =ops::generate_model= generates one of those models:
   it loads the model, builds its context and renders its outputs in the
   order its units name them, and throws when the model does not load,
   since a codec that emits files cannot report findings.
