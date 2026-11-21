@@ -87,7 +87,7 @@ std::vector<types::branch_commit> branch_commits(
             .parents = parents.empty() ? 0 : static_cast<std::size_t>(
                 std::ranges::count(parents, ' ') + 1),
             .subject = std::string(first_line(message)),
-            .trailers = ops::trailers_of(message)});
+            .trailers = ops::closing_trailers(message)});
     }
     return out;
 }
