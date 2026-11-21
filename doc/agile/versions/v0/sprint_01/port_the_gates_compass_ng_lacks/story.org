@@ -1,0 +1,55 @@
+:PROPERTIES:
+:ID: D2C581F3-DC01-4E1C-A7E4-5CC86F0F067C
+:END:
+#+title: Story: Port the gates compass-ng lacks
+#+description: Port the ORE Studio gates that still run as Python, starting with the ones nothing in compass-ng covers: single-writer, which ran only in CI, and xml-bindings-drift, whose port was decided but not done.
+#+type: story
+#+level: s2
+#+filetags: :sprint_01:v0:
+#+created: 2026-11-21
+#+updated: 2026-11-21
+#+environment:
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+Every ORE Studio gate that guards the tree runs in compass-ng, so ORE
+Studio can delete the Python scripts behind them. A comparison of ORE
+Studio's local checks and CI workflows with compass-ng's codecs on
+2026-11-21 found two gates nothing in compass-ng covers: single-writer,
+which ran only in CI, and xml-bindings-drift, whose port was decided in
+the gates-as-codecs story but not done.
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | STARTED                              |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | single-writer built and matched to the script on ORE Studio; xml-bindings-drift in progress. |
+| Waiting on    | Nothing.                               |
+| Next          | Merge single-writer; finish xml-bindings-drift. |
+| Last touched  | 2026-11-21                               |
+
+* Acceptance
+
+- Each ported gate reports, on ORE Studio's main, what its script reports.
+- A generator gate's output is byte-identical to the committed files, so
+  its drift rule replaces the script's comparison.
+- ORE Studio has what it needs to switch each gate over: the codec name to
+  enable and any exception comments its script's lists become.
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+| [[id:89714AA4-EB8D-4F01-B793-FFB118B2EC51][Port single-writer]] | STARTED | 2026-11-21 | | Port ORE Studio's single-writer gate, which ran only in CI: no table a DQ publish function writes is also written by a populate script, unless the two write different tenants or rows. |
+| [[id:4457EB7A-F74A-4E93-AC65-2647DF829F82][Port xml-bindings-drift]] | STARTED | 2026-11-21 | | Port ORE Studio's XML bindings generator as a compass generator codec whose output is byte-identical to the committed codec tables, so the drift rule replaces xml-bindings-drift and its second determinism run. |
+
+* Decisions
+
+* Out of scope
+
+-

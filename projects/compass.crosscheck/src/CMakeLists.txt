@@ -36,6 +36,7 @@ add_library(${lib_target_name}
     codecs/registry_gates.cpp
     codecs/route_inventory.cpp
     codecs/script_library_seed.cpp
+    codecs/single_writer.cpp
     codecs/subject_conformance.cpp
     codecs/template_sections.cpp
     codecs/value_sets.cpp

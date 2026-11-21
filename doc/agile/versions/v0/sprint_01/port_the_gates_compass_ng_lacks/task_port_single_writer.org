@@ -1,0 +1,101 @@
+:PROPERTIES:
+:ID: 89714AA4-EB8D-4F01-B793-FFB118B2EC51
+:END:
+#+title: Task: Port single-writer
+#+description: Port ORE Studio's single-writer gate, which ran only in CI: no table a DQ publish function writes is also written by a populate script, unless the two write different tenants or rows.
+#+type: task
+#+level: s1
+#+filetags: :port_the_gates_compass_ng_lacks:sprint_01:v0:
+#+owner: marco
+#+branch: feature/port-single-writer
+#+pr:
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-11-21
+#+updated: 2026-11-21
+#+environment:
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [[id:D2C581F3-DC01-4E1C-A7E4-5CC86F0F067C][Port the gates compass-ng lacks]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+ORE Studio's single-writer gate runs as the compass-ng codec
+=single_writer=: no table a DQ publish function writes is also written by a
+populate script, unless the two write different tenants or rows.
+
+* Status
+
+| Field        | Value                                  |
+|--------------+----------------------------------------|
+| State        | STARTED                              |
+| Parent story | [[id:D2C581F3-DC01-4E1C-A7E4-5CC86F0F067C][Port the gates compass-ng lacks]] |
+| Now          | Built; matches the script on ORE Studio's main. |
+| Waiting on   | Nothing.                               |
+| Next         | Review and merge; then ORE adds the exception comments and enables the codec. |
+| Last touched | 2026-11-21                               |
+
+* Acceptance
+
+- On ORE Studio's main the codec reports the same populate files and
+  tables as =check_single_writer.py=.
+- The script's exceptions become =compass:except= comments that excuse
+  every finding, with no exception left stale.
+- An edit to one SQL file maps that file alone.
+
+* Plan
+
+- A scan codec in =compass.crosscheck=, modelled on =entity_writes=. A
+  file's fact is its role, publish or populate, and each table it inserts
+  into with the line of its first insert. The reduce step intersects the
+  two roles.
+- Inserts are read as the script read them: block comments are removed
+  first, then line comments, keeping each kept byte's offset, so the
+  finding lands on the real line.
+- The script's exception list, nine tables with reasons, becomes inline
+  =compass:except= comments, one per populate insert, as every other
+  ORE exception is written. The runtime's stale rule replaces the
+  script's check for exceptions that excuse nothing.
+
+* Measurements
+
+Every number this task claims about a tree, with the command that produced it
+and the commit it was measured at. A number without both is not a measurement,
+because a clean-up record describes a tree and trunk moves under a branch: a
+consumer count, a gate's component count and a suite's size all change with no
+code changing, and the reader of a bare number cannot tell which tree it came
+from. Where the raw output matters, put it in an =evidence/= file beside the
+task and name that file in the Command column.
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+| Findings on ORE Studio's main | 16 populate-file and table pairs over 9 tables, the same as the script's | =compass check --codec single_writer= against =check_single_writer.writers()= on an export of main | ORE =732fc2ee34= |
+| The same with the 16 exception comments added | 0 findings, 16 excused, no exception findings | the same, after inserting the comments | the same |
+| Run time, cold, over 11,203 documents | 4.9 s for the whole check, all parsing included | =compass check --codec single_writer= | the same |
+
+* Notes
+
+* Test Scenarios
+
+Manual QA scenarios (scaffolded via =compass add test_scenario=)
+that verify this task. Link
+new ones here as they're created; the scenario doc itself links back
+via its "Verifies task" field.
+
+| Scenario | State | Notes |
+|----------+-------+-------|
+|          |       |       |
+
+* PRs
+
+| PR | Title |
+|----+-------|
+|    |       |
+
+* Review
+
+| # | Comment summary | File | Decision | Notes |
+|---+-----------------+------+----------+-------|
+|   |                 |      |          |       |
+
+* Result
