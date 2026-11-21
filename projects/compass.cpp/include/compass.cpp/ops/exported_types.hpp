@@ -95,6 +95,29 @@ struct enum_site {
 [[nodiscard]] std::vector<enum_site> macro_enum_sites(const lexed& l,
     const source_model& m);
 
+/**
+ * @brief A function declared at namespace scope that a library built with
+ * hidden symbols must export: where the line of its declaration starts,
+ * its name, and the identifiers written before the name, among which its
+ * export macro is when it has one.
+ */
+struct exportable_function {
+    std::uint32_t offset = 0;
+    std::string_view name;
+    std::vector<std::string_view> decorations;
+};
+
+/**
+ * @brief The functions @p m declares at namespace scope, with a return
+ * type and without a body, that have external linkage and are emitted
+ * only where they are defined: not inline, constexpr, consteval, static,
+ * a template, a deleted or defaulted function, a redeclaration of a
+ * qualified name, or in an anonymous namespace. Members and friends are
+ * not at namespace scope.
+ */
+[[nodiscard]] std::vector<exportable_function> exportable_functions(
+    const lexed& l, const source_model& m);
+
 }
 
 #endif

@@ -21,6 +21,7 @@
 #define COMPASS_CPP_TESTS_TEST_CHECKOUT_HPP
 
 #include <array>
+#include <deque>
 #include <filesystem>
 #include <catch2/catch_test_macros.hpp>
 #include "compass.codec/io/action_cache.hpp"
@@ -34,6 +35,7 @@
 #include "compass.codec/ops/run.hpp"
 #include "compass.codec/types/corpus.hpp"
 #include "compass.cpp/ops/text.hpp"
+#include "compass.ingest/org/parser.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 #include "compass.testing/filesystem/scoped_directory.hpp"
 
@@ -59,8 +61,8 @@ struct outcome {
 };
 
 /**
- * @brief Runs @p codec, enabled, over a checkout of @p all and no
- * documents, from @p previous and, when @p cache is not empty, the
+ * @brief Runs @p codec, enabled, over a checkout of @p all, its .org
+ * files parsed into untyped documents, from @p previous and, when @p cache is not empty, the
  * result cache under it, where it then stores what ran.
  */
 inline outcome run(const compass::codec::types::descriptor& codec,
@@ -77,7 +79,20 @@ inline outcome run(const compass::codec::types::descriptor& codec,
     checkout.read = [&](std::string_view p) {
         return std::optional(all.find(p)->second);
     };
+    namespace ot = compass::org::types;
+    std::deque<ot::tables> tables;
     ct::corpus corpus;
+    for (const auto& [path, bytes] : all) {
+        if (!path.ends_with(".org"))
+            continue;
+        auto& t = tables.emplace_back();
+        ingest::org::parse(bytes, t);
+        corpus.paths.emplace_back(path);
+        corpus.contents.push_back(store::ops::blob_id_of(bytes));
+        corpus.sources.emplace_back(bytes);
+        corpus.tables.push_back(ot::view(t));
+        corpus.types.push_back(ot::type_id::none());
+    }
     corpus.files = &checkout;
     const compass::org::types::type_registry types;
     ct::configuration settings;

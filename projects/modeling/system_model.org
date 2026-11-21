@@ -117,7 +117,9 @@ must not grow a reader for each language a check reads, and not part of
 =compass.ingest=, whose fact extractors fill tables for the store: these
 scanners reproduce the rules of particular scripts and keep nothing. It
 depends on =compass.codec= and on =compass.platform= for regular
-expressions; =compass.cli= adds its codecs to the ones it runs.
+expressions, and privately on =compass.model= for the component model a
+check reads a part's build settings from; =compass.cli= adds its codecs
+to the ones it runs.
 
 =compass.sql= is the same for SQL: =sql_hygiene=, whose scanner follows
 PostgreSQL's lexer as ORE Studio's script does, and the other SQL gates. It

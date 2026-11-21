@@ -317,3 +317,146 @@ TEST_CASE("Boost's own macros are visibility macros without a definition",
         {"projects/x.cc", "enum struct BOOST_SYMBOL_IMPORT e { a };\n"}});
     CHECK(tests::places(r.findings) == places{{"projects/x.cc", 1}});
 }
+
+namespace {
+
+std::vector<std::string_view> exportable_names(std::string_view s) {
+    const read_source r(s);
+    std::vector<std::string_view> out;
+    for (const auto& f : ops::exportable_functions(r.lexed, r.model))
+        out.push_back(f.name);
+    return out;
+}
+
+}
+
+TEST_CASE("an exportable function is a namespace-scope declaration "
+    "emitted only where it is defined", "[ops][exported_types]") {
+    CHECK(exportable_names(
+        "namespace n {\n"
+        "std::string plain();\n"
+        "ORES_X_EXPORT int marked(int a);\n"
+        "extern \"C\" void c_linkage();\n"
+        "std::ostream& operator<<(std::ostream& s, const t& v);\n"
+        "inline int in_line();\n"
+        "constexpr int folded();\n"
+        "consteval int immediate();\n"
+        "static int internal();\n"
+        "template <typename T> T templated();\n"
+        "int defined() { return 1; }\n"
+        "void deleted(int) = delete;\n"
+        "int n::qualified();\n"
+        "namespace { int hidden(); }\n"
+        "struct s { int member(); friend int befriended(s); };\n"
+        "class c { static int counted(); };\n"
+        "BOOST_DESCRIBE_ENUM(e, a, b);\n"
+        "}\n") == std::vector<std::string_view>{"plain", "marked",
+            "c_linkage", "operator<<"});
+}
+
+TEST_CASE("an exportable function lists the identifiers before its name "
+    "and starts at the line of its declaration", "[ops][exported_types]") {
+    const read_source r("namespace n {\n"
+        "ORES_X_EXPORT\nstd::string /* note */ f(int a);\n}\n");
+    const auto functions = ops::exportable_functions(r.lexed, r.model);
+    REQUIRE(functions.size() == 1);
+    CHECK(functions[0].offset == 14);
+    CHECK(functions[0].decorations == std::vector<std::string_view>{
+        "ORES_X_EXPORT", "std", "string"});
+}
+
+namespace {
+
+constexpr std::string_view hidden_overview =
+    "#+title: ores.h.core\n#+type: ores.codegen.component\n"
+    "#+name: core\n#+full_name: ores.h.core\n#+hidden_visibility: true\n";
+
+constexpr std::string_view hidden_export_hpp =
+    "#ifdef ORES_H_CORE_LIBRARY\n"
+    "#define ORES_H_CORE_EXPORT BOOST_SYMBOL_EXPORT\n"
+    "#else\n"
+    "#define ORES_H_CORE_EXPORT BOOST_SYMBOL_IMPORT\n"
+    "#endif\n";
+
+/**
+ * @brief A part ores.h/core built with hidden visibility, with one
+ * exported and one unexported function in its public headers and a
+ * source declaring an unexported function, and a flat component ores.f
+ * with an unexported function and no hidden visibility.
+ */
+files hidden_part() {
+    return {
+        {"projects/ores.h/core/modeling/component_overview.org",
+         std::string(hidden_overview)},
+        {"projects/ores.h/core/include/ores.h.core/export.hpp",
+         std::string(hidden_export_hpp)},
+        {"projects/ores.h/core/include/ores.h.core/domain/stub.hpp",
+         "#include \"ores.h.core/export.hpp\"\n"
+         "namespace ores::h::core::domain {\n"
+         "ORES_H_CORE_EXPORT std::string exported();\n"
+         "std::string stub_function();\n"
+         "inline int helper() { return 0; }\n"
+         "}\n"},
+        {"projects/ores.h/core/src/domain/stub.cpp",
+         "#include \"ores.h.core/domain/stub.hpp\"\n"
+         "std::string local_function();\n"},
+        {"projects/ores.f/modeling/component_overview.org",
+         "#+title: ores.f\n#+type: ores.codegen.component\n"
+         "#+name: f\n#+full_name: ores.f\n"},
+        {"projects/ores.f/include/ores.f/export.hpp",
+         "#ifdef ORES_F_LIBRARY\n"
+         "#define ORES_F_EXPORT BOOST_SYMBOL_EXPORT\n#endif\n"},
+        {"projects/ores.f/include/ores.f/stub.hpp",
+         "std::string stub_function();\n"}};
+}
+
+}
+
+TEST_CASE("a function a hidden-visibility part declares in a public "
+    "header without its export macro is reported",
+    "[codecs][exported_types]") {
+    const auto r = tests::run(codecs::exported_types, hidden_part());
+    CHECK(tests::places(r.findings) == places{
+        {"projects/ores.h/core/include/ores.h.core/domain/stub.hpp", 4}});
+    REQUIRE(r.findings.size() == 1);
+    CHECK(std::get<2>(r.findings[0]) == "declares stub_function without "
+        "ORES_H_CORE_EXPORT, and projects/ores.h/core is built with hidden "
+        "visibility, so no binary outside the library can link it");
+}
+
+TEST_CASE("a flat component is a part when its overview hides its "
+    "symbols", "[codecs][exported_types]") {
+    auto all = hidden_part();
+    all["projects/ores.f/modeling/component_overview.org"] +=
+        "#+hidden_visibility: yes\n";
+    CHECK(tests::places(tests::run(codecs::exported_types, all).findings) ==
+        places{
+            {"projects/ores.f/include/ores.f/stub.hpp", 1},
+            {"projects/ores.h/core/include/ores.h.core/domain/stub.hpp", 4}});
+}
+
+TEST_CASE("an edit to a part's overview or to its headers changes the "
+    "functions reported", "[codecs][exported_types]") {
+    const auto overview =
+        "projects/ores.h/core/modeling/component_overview.org";
+    auto shown = hidden_part();
+    shown[overview] = "#+title: ores.h.core\n#+type: ores.codegen.component\n"
+        "#+name: core\n#+full_name: ores.h.core\n"
+        "#+hidden_visibility: false\n";
+    CHECK(tests::run_after_edit(codecs::exported_types, hidden_part(), shown)
+        .findings.empty());
+    CHECK(tests::run_after_edit(codecs::exported_types, shown, hidden_part())
+        .findings.size() == 1);
+
+    auto missing = hidden_part();
+    missing.erase(overview);
+    CHECK(tests::run(codecs::exported_types, missing).findings.empty());
+
+    auto fixed = hidden_part();
+    fixed["projects/ores.h/core/include/ores.h.core/domain/stub.hpp"] =
+        "#include \"ores.h.core/export.hpp\"\n"
+        "namespace ores::h::core::domain {\n"
+        "ORES_H_CORE_EXPORT std::string stub_function();\n}\n";
+    CHECK(tests::run_after_edit(codecs::exported_types, hidden_part(), fixed)
+        .findings.empty());
+}
