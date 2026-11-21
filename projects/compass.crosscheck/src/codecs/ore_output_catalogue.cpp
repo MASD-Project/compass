@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <map>
 #include <optional>
 #include <set>
@@ -28,6 +29,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include "compass.codec/ops/data_tables.hpp"
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
@@ -46,10 +48,8 @@ namespace co = compass::cpp::ops;
 namespace pt = compass::platform::text;
 using ops::python_value;
 
-constexpr std::string_view script_path =
-    "projects/ores.ore/scripts/generate_output_catalogue.py";
-constexpr std::string_view docs_path =
-    "projects/ores.ore/scripts/output_family_docs.py";
+constexpr std::string_view check_document =
+    "compass/checks/ore_output_catalogue.org";
 constexpr std::string_view files_path = "projects/ores.sql/utility/ore_files.py";
 constexpr std::string_view examples = "external/ore/examples/";
 constexpr std::string_view samples = "projects/ores.ore/data/samples/";
@@ -63,18 +63,64 @@ constexpr std::string_view data_hpp_path =
     "projects/ores.ore/core/include/ores.ore.core/results/output_catalogue_data.hpp";
 constexpr std::string_view page_id = "34C68112-7A34-4557-835C-BDCAA7BB9C2A";
 
+constexpr std::uint32_t unreadable = 1;
+
+constexpr std::array<ct::rule, 2> rules{{
+    co::refusal_rules[0],
+    {"unreadable", "Every file and table the generator reads is there and "
+        "reads."}}};
+
 /**
- * @brief Where the script stops without writing, and why when known.
+ * @brief Where the generator stops without writing, and why.
  */
 struct stop {
+    std::string why;
+};
+
+/**
+ * @brief An input that is missing or does not read: the file the finding
+ * is on, and why.
+ */
+struct missing {
+    std::string path;
     std::string why;
 };
 
 using strings = std::vector<std::string>;
 using text_map = std::map<std::string, std::string, std::less<>>;
 
+constexpr std::array<std::string_view, 2> convention_columns{"family",
+    "analytic"};
+constexpr std::array<std::string_view, 1> qualifier_columns{"column"};
+constexpr std::array<std::string_view, 2> role_columns{"family", "role"};
+constexpr std::array<std::string_view, 2> alias_columns{"family", "name"};
+constexpr std::array<std::string_view, 2> same_report_columns{"sample",
+    "family"};
+constexpr std::array<std::string_view, 2> out_of_scope_columns{"file",
+    "reason"};
+constexpr std::array<std::string_view, 3> override_columns{"family",
+    "column", "kind"};
+constexpr std::array<std::string_view, 2> key_columns{"column", "family"};
+constexpr std::array<std::string_view, 2> prefix_columns{"prefix", "family"};
+constexpr std::array<std::string_view, 1> null_columns{"value"};
+constexpr std::array<std::string_view, 3> doc_columns{"family",
+    "description", "units"};
+constexpr std::array<compass::codec::ops::table_need, 11> needed{{
+    {"Family conventions", convention_columns},
+    {"Numeric qualifiers", qualifier_columns},
+    {"Family roles", role_columns},
+    {"Aliases", alias_columns},
+    {"Same report", same_report_columns},
+    {"Out of scope", out_of_scope_columns},
+    {"Kind overrides", override_columns},
+    {"Keys", key_columns},
+    {"Prefixes", prefix_columns},
+    {"Nulls", null_columns},
+    {"Family documentation", doc_columns}}};
+
 /**
- * @brief The tables the script keeps as module-level literals.
+ * @brief The curation the samples cannot state, from the tables of the
+ * check document.
  */
 struct tables {
     text_map convention;
@@ -90,6 +136,8 @@ struct tables {
     std::map<std::string, strings, std::less<>> family_keys;
     std::vector<std::pair<std::string, std::string>> prefixes;
     std::set<std::string, std::less<>> nulls;
+    std::map<std::string, std::pair<std::string, std::string>, std::less<>>
+        docs;
 };
 
 std::string read(const ct::corpus_view& v, std::string_view path) {
@@ -123,46 +171,69 @@ strings string_list(const python_value& v) {
     return *s;
 }
 
-text_map text_dict(const python_value& v) {
-    text_map out;
-    for (const auto& e : v.entries)
-        out.insert_or_assign(e.key, text_of(e.value));
-    return out;
+/**
+ * @brief Calls @p row with the cells of each row of the table @p name of
+ * @p data, by column name, and the row's line.
+ */
+template <typename Row>
+void each_row(const compass::codec::ops::data_tables& data,
+    std::string_view name, Row&& row) {
+    const auto& table = *data.find(name);
+    for (std::size_t r = 0; r < table.rows.size(); ++r)
+        row([&](std::string_view column) -> const std::string& {
+            return table.rows[r][table.column(column)];
+        }, table.row_lines[r]);
 }
 
-std::set<std::string, std::less<>> string_set(const python_value& v) {
-    const auto s = string_list(v);
-    return {s.begin(), s.end()};
-}
-
-tables read_tables(std::string_view source) {
+tables read_tables(const compass::codec::ops::data_tables& data) {
     tables t;
-    t.convention = text_dict(literal(source, "CONVENTION"));
-    t.numeric_qualifiers = string_set(literal(source, "NUMERIC_QUALIFIERS"));
-    t.risk_factor_families = string_set(literal(source, "RISK_FACTOR_FAMILIES"));
-    t.notebook_families = string_set(literal(source, "NOTEBOOK_FAMILIES"));
-    t.legacy_families = string_set(literal(source, "LEGACY_FAMILIES"));
-    for (const auto& e : literal(source, "ALIASES").entries)
-        t.aliases.insert_or_assign(e.key, string_list(e.value));
-    t.same_report = text_dict(literal(source, "SAME_REPORT"));
-    t.out_of_scope = text_dict(literal(source, "OUT_OF_SCOPE"));
-    for (const auto& e : literal(source, "KIND_OVERRIDES").entries) {
-        const auto k = string_list({python_value::kind::sequence, {},
-            e.key_items, {}});
-        if (k.size() != 2)
-            throw stop{};
-        t.kind_overrides.insert_or_assign({k[0], k[1]}, text_of(e.value));
-    }
-    t.keys = string_list(literal(source, "KEYS"));
-    for (const auto& e : literal(source, "FAMILY_KEYS").entries)
-        t.family_keys.insert_or_assign(e.key, string_list(e.value));
-    for (const auto& p : literal(source, "PREFIXES").items) {
-        const auto pair = string_list(p);
-        if (pair.size() != 2)
-            throw stop{};
-        t.prefixes.emplace_back(pair[0], pair[1]);
-    }
-    t.nulls = string_set(literal(source, "NULLS"));
+    each_row(data, "Family conventions", [&](auto cell, auto) {
+        t.convention.insert_or_assign(cell("family"), cell("analytic"));
+    });
+    each_row(data, "Numeric qualifiers", [&](auto cell, auto) {
+        t.numeric_qualifiers.insert(cell("column"));
+    });
+    each_row(data, "Family roles", [&](auto cell, std::uint32_t line) {
+        const auto& role = cell("role");
+        if (role == "risk_factors")
+            t.risk_factor_families.insert(cell("family"));
+        else if (role == "notebook")
+            t.notebook_families.insert(cell("family"));
+        else if (role == "legacy")
+            t.legacy_families.insert(cell("family"));
+        else
+            throw missing{data.source, data.source + ":" +
+                std::to_string(line) + ": the role " + role + " is none of "
+                "risk_factors, notebook and legacy"};
+    });
+    each_row(data, "Aliases", [&](auto cell, auto) {
+        t.aliases[cell("family")].push_back(cell("name"));
+    });
+    each_row(data, "Same report", [&](auto cell, auto) {
+        t.same_report.insert_or_assign(cell("sample"), cell("family"));
+    });
+    each_row(data, "Out of scope", [&](auto cell, auto) {
+        t.out_of_scope.insert_or_assign(cell("file"), cell("reason"));
+    });
+    each_row(data, "Kind overrides", [&](auto cell, auto) {
+        t.kind_overrides.insert_or_assign({cell("family"), cell("column")},
+            cell("kind"));
+    });
+    each_row(data, "Keys", [&](auto cell, auto) {
+        const auto& family = cell("family");
+        (family.empty() ? t.keys : t.family_keys[family]).push_back(
+            cell("column"));
+    });
+    each_row(data, "Prefixes", [&](auto cell, auto) {
+        t.prefixes.emplace_back(cell("prefix"), cell("family"));
+    });
+    each_row(data, "Nulls", [&](auto cell, auto) {
+        t.nulls.insert(cell("value"));
+    });
+    each_row(data, "Family documentation", [&](auto cell, auto) {
+        t.docs.insert_or_assign(cell("family"),
+            std::pair{cell("description"), cell("units")});
+    });
     return t;
 }
 
@@ -302,7 +373,8 @@ std::map<std::string, family_entry> collect(const ct::corpus_view& v,
                 names.insert(std::string(rest.substr(0, slash)));
         }
         if (names.empty())
-            throw stop{};
+            throw missing{parent, "ore_output_catalogue reads the examples "
+                "under this directory, and it holds none"};
         for (const auto& name : names)
             sources.push_back({parent + name + "/ExpectedOutput", only, false});
     }
@@ -516,7 +588,9 @@ std::vector<row> rows_of(const tables& t,
             if (regex.fullmatch(name))
                 hits.push_back(code);
         if (hits.size() != 1)
-            throw stop{};
+            throw stop{"the family " + family + " (" + entry.pattern +
+                ") matches " + std::to_string(hits.size()) + " files of " +
+                std::string(files_path) + ", not one"};
         r.family = hits.front();
         r.pattern = entry.pattern;
         r.required = {required.begin(), required.end()};
@@ -667,17 +741,20 @@ std::string cell(std::string_view text) {
 }
 
 std::string page(const std::vector<row>& catalogue, const tables& t,
-    const std::map<std::string, std::pair<std::string, std::string>,
-        std::less<>>& docs) {
+    std::string_view source) {
+    const auto& docs = t.docs;
     std::set<std::string> families;
     for (const auto& r : catalogue)
         families.insert(r.family);
     for (const auto& f : families)
         if (!docs.contains(f))
-            throw stop{};
+            throw stop{"the family " + f + " has no row in the table Family "
+                "documentation of " + std::string(source)};
     for (const auto& [f, d] : docs)
         if (!families.contains(f))
-            throw stop{};
+            throw stop{"the table Family documentation of " +
+                std::string(source) + " describes " + f + ", which no "
+                "sample shows"};
     strings out{":PROPERTIES:", ":ID: " + std::string(page_id), ":END:",
         "#+title: ORE output formats",
         "#+description: Every output file ORE writes, as ORE Studio reads it: "
@@ -785,10 +862,37 @@ std::string page(const std::vector<row>& catalogue, const tables& t,
     return joined(out, "\n");
 }
 
-void run(const ct::corpus_view& v, ct::file_output& out) {
+/**
+ * @brief The filename_regex of every ORE file, from ore_files.py, which
+ * ORE Studio's seed generator also reads, or why it cannot be had.
+ */
+std::vector<std::pair<std::string, pt::regex>> ore_files_of(
+    const ct::corpus_view& v) {
+    const auto source = v.read_file(files_path);
+    if (!source)
+        throw missing{std::string(files_path), "compass-ng's "
+            "ore_output_catalogue reads this file, and it is missing"};
     try {
-        const auto t = read_tables(read(v, script_path));
-        const auto files = ore_files(read(v, files_path));
+        return ore_files(*source);
+    } catch (const stop&) {
+        throw missing{std::string(files_path), "compass-ng's "
+            "ore_output_catalogue reads SCHEMAS and FILES from this file, "
+            "and they do not read as the literals it reads"};
+    }
+}
+
+void run(const ct::corpus_view& v, ct::file_output& out) {
+    namespace cops = compass::codec::ops;
+    const auto data = cops::tables_for("ore_output_catalogue",
+        v.option(cops::data_option), needed);
+    if (!data)
+        co::report(out.refusals, check_document, 0, unreadable, data.error(),
+            "Give the tables the message names.");
+    try {
+        const auto files = ore_files_of(v);
+        if (!data)
+            return;
+        const auto t = read_tables(*data);
         const auto families = collect(v, t);
         const auto seed = seed_outputs(v);
         const auto catalogue = rows_of(t, families, seed, files);
@@ -806,38 +910,32 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
                 throw stop{"the ORE output " + name + " matches no pattern "
                     "of the catalogue"};
         }
-        const auto docs_source = read(v, docs_path);
-        const auto constants = ops::python_string_constants(docs_source);
-        std::map<std::string, std::pair<std::string, std::string>,
-            std::less<>> docs;
-        for (const auto& e : literal(docs_source, "FAMILY_DOCS",
-                 constants).entries) {
-            const auto pair = string_list(e.value);
-            if (pair.size() != 2)
-                throw stop{};
-            docs.insert_or_assign(e.key, std::pair{pair[0], pair[1]});
-        }
-        const auto formats_page = page(catalogue, t, docs);
+        const auto formats_page = page(catalogue, t, data->source);
         out.files.add(data_path, render(catalogue));
         out.files.add(data_hpp_path, data_hpp);
         out.files.add(page_path, formats_page);
+    } catch (const missing& m) {
+        co::report(out.refusals, m.path, 0, unreadable, m.why,
+            "Restore it, or correct it as the message says.");
     } catch (const stop& s) {
-        co::refuse(out, data_path, s.why.empty() ? "its inputs do not read "
-            "as " + std::string(script_path) + " reads them" : s.why,
-            "Run " + std::string(script_path) + ", which names the problem, "
-            "and correct the input it names.");
+        co::refuse(out, data_path, s.why, "Correct the input or the table "
+            "the reason names.");
     } catch (const ops::csv_error& e) {
         co::refuse(out, data_path, std::string("an ORE output sample is not "
             "CSV: ") + e.what(), "Correct the sample the reason names.");
     }
 }
 
-constexpr std::array<ct::option, 2> options{{
+constexpr std::array<ct::option, 3> options{{
     {"clang_format", "clang-format",
         "The clang-format the generator runs over the data files, a program "
         "on PATH or a path under the checkout; empty for none."},
     {"clang_format_style", ".clang-format",
-        "The style file under the checkout clang-format reads."}}};
+        "The style file under the checkout clang-format reads."},
+    {compass::codec::ops::data_option, "", "The tables of the check "
+        "document whose Definition names this codec: the curation of the "
+        "output families the samples cannot state, and what each family "
+        "means."}}};
 
 std::vector<ct::formatter> formatters_of(const ct::option_values& o,
     const std::filesystem::path& checkout) {
@@ -861,12 +959,12 @@ std::vector<ct::formatter> formatters_of(const ct::option_values& o,
 
 const ct::descriptor ore_output_catalogue{
     .name = "ore_output_catalogue",
-    .version = 1,
+    .version = 2,
     .summary = "Writes the ORE output catalogue data and the output formats "
                "page from the output samples ORE ships.",
     .reads = ct::inputs::of_types({}),
     .options = options,
-    .rules = co::refusal_rules,
+    .rules = rules,
     .enabled_by_default = false,
     .run = ct::corpus_function<ct::file_output>{run},
     .formatters = formatters_of};

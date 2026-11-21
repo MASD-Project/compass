@@ -252,7 +252,15 @@ because each reads one kind of artefact and writes another:
   (=generate_output_catalogue.py=): the output catalogue data and the
   output formats page, from the output samples ORE ships, read with
   Python's =csv= rules. Its data files go through clang-format, the
-  codec's formatter, which its =clang_format= option names.
+  codec's formatter, which its =clang_format= option names. The curation
+  the samples cannot state, which was the script's module constants and
+  =output_family_docs.py='s =FAMILY_DOCS=, is the eleven tables of the
+  project's check document for the codec, from =Family conventions= to
+  =Family documentation=; =ore_files.py='s =SCHEMAS= and =FILES=, which
+  ORE Studio's seed generator also reads, are still read from the Python.
+  Besides =refused=, =unreadable= reports a missing table, a missing or
+  unreadable =ore_files.py=, or an examples directory with no example, on
+  the file at fault.
 - *=xml_bindings=.* =xml-bindings-drift= (=regenerate_xml_bindings.sh=
   running =generate_xml_bindings.py=, which =check_xml_bindings_drift.py=
   compares with the tree): the records and codec tables of each ORE
@@ -367,7 +375,8 @@ nothing and reports a =refused= finding on its first output that says why,
 so =compass check= fails where the script would, and the sink keeps the
 file a good run wrote. Every generator here declares that one rule,
 =ops::refusal_rules= of =compass.cpp=: =curve_sections_wiring=,
-=ore_renderings_tables=, =script_library_seed=, =ore_output_catalogue=,
+=ore_renderings_tables=, =script_library_seed=, =ore_output_catalogue=
+(which adds =unreadable=),
 =er_diagram=, =conventions_dataset=, =route_inventory=,
 =ore_value_sets= and =xml_bindings=. At 545cafca45 =ore_value_sets= refuses twice, the
 convention kind terms and the value set seed, both on =r.id=.

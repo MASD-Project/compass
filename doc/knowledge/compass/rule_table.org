@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-180 rules, 43 of which cite a memory or a document that states them. Of the 62 memories of this repository, 59 are cited by no rule.
+181 rules, 43 of which cite a memory or a document that states them. Of the 62 memories of this repository, 59 are cited by no rule.
 
 ** Rules
 
@@ -108,6 +108,7 @@ memories no rule cites are the candidates for the next checks.
 | =open_reads= | stale_allow | Every subject Authorised reads allow-lists is defined by a protocol header. |  |
 | =open_reads= | no_allow_list | Authorised reads has its allow-list section. |  |
 | =ore_output_catalogue= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
+| =ore_output_catalogue= | unreadable | Every file and table the generator reads is there and reads. |  |
 | =ore_renderings_tables= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =ore_value_sets= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =org_links= | colon_link | No link's raw target begins with a colon, which no link type does. |  |

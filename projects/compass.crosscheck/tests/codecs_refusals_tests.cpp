@@ -59,9 +59,15 @@ TEST_CASE("a generator whose inputs are missing writes nothing and says "
         const auto r = tests::run(d, {});
         CHECK(tests::generate(d, {}).empty());
         REQUIRE_FALSE(r.findings.empty());
-        for (const auto& f : r.findings)
-            CHECK_THAT(std::get<2>(f), ContainsSubstring("is not generated: "));
-        REQUIRE(d.rules.size() == 1);
+        REQUIRE_FALSE(d.rules.empty());
         CHECK(d.rules[0].name == "refused");
+        if (d.rules.size() == 1) {
+            for (const auto& f : r.findings)
+                CHECK_THAT(std::get<2>(f),
+                    ContainsSubstring("is not generated: "));
+        } else {
+            REQUIRE(d.rules.size() == 2);
+            CHECK(d.rules[1].name == "unreadable");
+        }
     }
 }
