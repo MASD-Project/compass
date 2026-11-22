@@ -43,6 +43,7 @@ add_library(${lib_target_name}
     ops/search_paths.cpp
     ops/search_stage.cpp
     ops/store_stage.cpp
+    ops/testing_stage.cpp
     ops/types_stage.cpp
     ops/warm_stage.cpp)
 

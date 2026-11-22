@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :serve_the_documents:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/show-what-needs-testing
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -20,44 +20,105 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Goal
 
-(Describe what user-visible-or-internal change this task produces.)
+A tester asks what needs testing in an environment and gets the present
+sprint's stories, each story's test scenarios and each scenario's state from
+its latest run there: untested, failed, passed or changed, with the open note
+counts. A developer asks for the same sprint's stories and tasks with their
+states. Both are library functions in =compass.db=, as search is, so the HTTP
+routes and MCP tools that will be generated from the service's models call
+them and add nothing.
 
 * Status
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                                 |
 | Parent story | [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]] |
-| Now          | Not yet started.                       |
-| Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Now          | =what_needs_testing= and =sprint_state= answer over ORE Studio's present sprint, Sprint 30: 144 stories, 4 scenarios, 783 tasks. |
+| Waiting on   | Review of the pull request.            |
+| Next         | Record test campaigns writes the runs and notes these functions read. |
 | Last touched | 2026-11-22                               |
 
 * Acceptance
 
--
+- =compass.db::query::what_needs_testing(connection, view_filter,
+  sprint_request)= returns a =testing_response=: the sprint, its stories in
+  path order, each with its campaign in the environment when it has one, its
+  open note count and its scenarios, and the environment's =synced_at=.
+  =sprint_state(connection, view_filter, sprint_request)= returns the
+  sprint's stories with their tasks and the State row of each. The types are
+  plain structs shaped as search's are; no JSON is read or written, and no
+  route or MCP handler is built.
+- The sprint is the present one by default: the sprint page whose State is
+  =STARTED=, the latest created when several are. An earlier sprint is asked
+  for by its =:ID:=, its title or the name of its directory. No such sprint,
+  and an unknown environment, are errors.
+- A sprint's stories are search's sprint membership, =corpus.sprint_members=,
+  of =type = story=; a story's scenarios are the =test.scenario= rows placed
+  in the environment whose =story_id= is the story. A story's tasks are the
+  =task= pages whose preamble links to it. The caller's view applies to
+  sprints, stories, scenarios and tasks.
+- A scenario's state comes from its latest finished run in the environment,
+  by =finished_at=: none is untested; failed or blocked is failed; passed
+  against the scenario's current =definition= is passed; passed against
+  another is changed. An unfinished run changes nothing, and neither do runs
+  and notes of another environment.
+- Each scenario carries the open notes naming it in the environment and each
+  story the open notes of its campaign; addressed notes are not counted.
+- Each behaviour has a Catch2 test on a throwaway cluster, and two of them
+  fail on an injected fault.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+1. =types/testing.hpp=: the request, the responses and the four states.
+2. =query/testing.hpp=: =what_needs_testing= and =sprint_state=, one SQL
+   statement each once the sprint is found, with the state derived in C++
+   from the latest run.
+3. Tests on a small corpus of two sprints, three stories and three
+   scenarios in two environments, with activity rows written by SQL, because
+   the writes are the next task's.
+4. =compass-bench testing=: asks both questions, prints the counts by state
+   and times them. =evidence/testing_ore_studio.sh= syncs ORE Studio into a
+   private cluster, asks, writes a few activity rows and asks again.
+
+No schema change: the tables of migration 1 and the sprint membership of
+migration 2 answer both questions.
 
 * Measurements
 
-Every number this task claims about a tree, with the command that produced it
-and the commit it was measured at. A number without both is not a measurement,
-because a clean-up record describes a tree and trunk moves under a branch: a
-consumer count, a gate's component count and a suite's size all change with no
-code changing, and the reader of a bare number cannot tell which tree it came
-from. Where the raw output matters, put it in an =evidence/= file beside the
-task and name that file in the Command column.
+Raw output is in [[file:evidence/testing_ore_studio.txt][evidence/testing_ore_studio.txt]], from
+=evidence/testing_ore_studio.sh <compass bin dir> <scratch>=, which syncs an
+archive of ORE Studio into an =initdb= cluster on a Unix socket with no TCP
+port. Release build, 8 cores at load average about 60, so the latencies are
+upper bounds.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Sprints whose State is STARTED | 2: Sprint 28 (created 2026-10-13) and Sprint 30 (2026-11-08); Sprint 30 is the present one | =testing_ore_studio.sh= | ORE =9ed8b54cd2=, compass =074d0be= plus this branch |
+| Present sprint, before any run | 144 stories, 4 with scenarios, 4 scenarios: 4 untested, 0 failed, 0 passed, 0 changed | as above | as above |
+| Sprint 28, asked by title | 152 stories, 9 with scenarios, 12 scenarios, all untested | as above | as above |
+| Sprint 30, asked by directory =sprint_30= | resolves to Sprint 30 | as above | as above |
+| Present sprint after the activity rows | 0 untested, 2 failed (one failed after a pass, one blocked), 1 passed, 1 changed; the passed one also has an unfinished run and a failure in another environment; 2 open notes on the failed one, 1 addressed not counted | as above | as above |
+| Sprint state of Sprint 30 | 144 stories, 783 tasks: 440 DONE, 300 BACKLOG, 27 ABANDONED, 13 STARTED, 3 BLOCKED | as above | as above |
+| Latency, what needs testing | first 54.0 ms, warm median 32.9 ms over 5 | as above | as above |
+| Latency, sprint state | first 45.4 ms, warm median 26.0 ms over 5 | as above | as above |
+| Catch2 tests | 10 cases, 95 assertions, =[testing]= | =compass.db.tests '[testing]'= | this branch |
+| Injected faults | blocked read as passed: 2 assertions fail; runs of every environment counted: 2 fail; code restored, all pass | as above, with the fault | this branch |
 
 * Notes
+
+- *Two STARTED sprints.* ORE Studio has Sprint 28 and Sprint 30 both
+  =STARTED=. The design says the present sprint is the one whose state is
+  =STARTED=; with two, the latest created is taken, and the response names
+  the sprint it chose. A tester who wants the other asks for it by name.
+- *Latest run.* The latest finished run, by =finished_at= and then by id. An
+  unfinished run is a tester at work and says nothing yet.
+- *Changed.* A run records =definition=, the hash of the page without its
+  results and State row, so a result written into the page by older tooling
+  does not make a pass changed; a test edits the page both ways.
+- *Which campaign.* Runs and notes are read by environment and scenario
+  =:ID:=, not by campaign, so a scenario moved to another story keeps its
+  history in the environment.
 
 * Test Scenarios
 
@@ -83,3 +144,6 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+=compass.db= answers what needs testing and the sprint state, through
+=compass.db/query/testing.hpp=; =compass-bench testing= prints both.
