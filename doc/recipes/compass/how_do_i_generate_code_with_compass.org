@@ -40,8 +40,31 @@ This is the configuration for ORE Studio:
 
 The options:
 
-- =library= :: The directory of ores.codegen's library, with =templates/=,
-  =data/= and =component_catalogue.org=. Required.
+- =library= :: The directories of the library, comma-separated, in order.
+  Together they hold =templates/=, =data/= and =component_catalogue.org=.
+  An entry is =@compass=, the MASD library that ships with compass; a path
+  relative to the checkout; or an absolute path. Required. The layering
+  rule:
+  - A template (=templates/*.mustache=) of a later directory replaces the
+    template of the same name in an earlier one, so a project's own
+    template wins over compass's.
+  - A data file (=data/licence-GPL-v3.txt=, =data/modeline.org=) and
+    =component_catalogue.org= are read from the last directory that has
+    them, so the licence is the project's.
+  - A node of the physical-space graph (=templates/<product>.*.org=) may
+    be in one directory only; a node in two is an error, so a page moved
+    from one library to another cannot be left in both.
+
+  List =@compass= first and the project's library last:
+  =library=@compass,projects/ores.codegen/library=. =@compass= is
+  =share/compass/masd= beside the directory of the running binary: the
+  package installs it there, the build stages it beside =publish/bin=, and
+  =build/scripts/install_compass.sh= copies it beside
+  =~/.local/opt/compass/bin=. To work on the MASD library before a release,
+  name a compass checkout's =share/masd= by its absolute path instead.
+  compass records no read outside the checkout, so every file of such a
+  directory keys the codec's configuration: a change to one runs codegen
+  again over every model.
 - =product= :: The project's product, =ores= for ORE Studio. It is the root
   of every physical-space address, so the library's nodes are
   =<product>.*.org= and a model switches a facet with

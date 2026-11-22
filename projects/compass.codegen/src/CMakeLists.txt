@@ -57,6 +57,7 @@ add_library(${lib_target_name}
     ops/facts.cpp
     ops/generate.cpp
     ops/junction_context.cpp
+    ops/library.cpp
     ops/manifest.cpp
     ops/model_steps.cpp
     ops/operation_context.cpp

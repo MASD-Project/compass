@@ -44,8 +44,16 @@ the codec, set in the checkout's =.compass.org=.
 
 * Inputs
 
-- The options of the =codegen= codec: =library=, the directory of
-  ores.codegen's library (=projects/ores.codegen/library= in ORE Studio);
+- The options of the =codegen= codec: =library=, the comma-separated
+  directories of ores.codegen's library in order
+  (=@compass,projects/ores.codegen/library= in ORE Studio), each =@compass=
+  (=share/compass/masd= beside the running binary's directory,
+  =ops::compass_library_directory=), an absolute directory or one relative
+  to the checkout. A later directory's template replaces an earlier one's;
+  data files and the catalogue come from the last directory that has them;
+  a node in two directories is an error. A directory outside the checkout
+  is read from disk (=ops::with_files_outside=), and the digest of its
+  files is the codec's =environment=, which keys its configuration;
   =product=, the project's product (=ores= in ORE Studio), required: the
   root of every physical-space address and of the drawer keys that switch
   them, the prefix of the component directories in output paths, and the
@@ -227,6 +235,7 @@ reading the contexts.
 | =include/compass.codegen/ops/physical_space.hpp=      | The graph and a model's units.                                 |
 | =include/compass.codegen/ops/manifest.hpp=            | The models =regenerate --all= visits.                          |
 | =include/compass.codegen/ops/generate.hpp=            | The reader, what the models share, and one model's generation. |
+| =include/compass.codegen/ops/library.hpp=             | The library's directories, =@compass= and reads outside.       |
 | =include/compass.codegen/ops/facts.hpp=               | The facts of the registries.                                   |
 | =include/compass.codegen/types/recorded.hpp=          | A collection that says what was read of it.                    |
 | =include/compass.codegen/codecs/codegen.hpp=          | The codec, its settings and formatters.                        |
