@@ -1366,7 +1366,8 @@ types::attribution attribution_of(const pipeline& p,
             ? std::nullopt
             : std::optional(store::ops::blob_id_of(plan.contents[i]));
         f.cause = c.head.cause(plan.paths[i], generated, p.previous.record);
-        c.left.erase(plan.paths[i]);
+        if (const auto it = c.left.find(plan.paths[i]); it != c.left.end())
+            c.left.erase(it);
         files.emplace(f.path, std::move(f));
     }
     types::attribution out;
