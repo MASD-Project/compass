@@ -697,7 +697,7 @@ Reports every rule the parameter value sets break, from the same resolution the 
 | =override_column= | No pair setting table, model or reader states a per-pair control the value set states. |
 | =value_check= | No engine settings part states a value as a column check. |
 | =missing_file= | Every file the override rules guard exists. |
-| =unreadable= | Every table the value sets are resolved with is there and reads. |
+| =unreadable= | Every table the value sets are resolved with is there and reads, and every entity it names has one model. |
 
 *** pending_models
 

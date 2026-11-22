@@ -140,7 +140,7 @@ memories no rule cites are the candidates for the next checks.
 | =parameter_value_sets= | override_column | No pair setting table, model or reader states a per-pair control the value set states. |  |
 | =parameter_value_sets= | value_check | No engine settings part states a value as a column check. |  |
 | =parameter_value_sets= | missing_file | Every file the override rules guard exists. |  |
-| =parameter_value_sets= | unreadable | Every table the value sets are resolved with is there and reads. |  |
+| =parameter_value_sets= | unreadable | Every table the value sets are resolved with is there and reads, and every entity it names has one model. |  |
 | =pending_models= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =populate_refs= | unresolved_reference | Every name a populate script looks up is one a populate script that runs before it defines. | =7B477025-132E-4B20-80B4-D8C9420880B8= |
 | =populate_refs= | unbalanced_parentheses | Every call and definition the check reads closes its parentheses. |  |
