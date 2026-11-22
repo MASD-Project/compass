@@ -23,12 +23,12 @@ to rebuild by hand.
 
 | Field         | Value                                  |
 |---------------+----------------------------------------|
-| State         | BACKLOG                              |
+| State         | ABANDONED |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
-| Now           | Not yet started.                       |
+| Now           | Abandoned: agents search through the service's MCP tools. |
 | Waiting on    | Nothing.                               |
-| Next          | Break the story into tasks.            |
-| Last touched  | 2026-11-18                               |
+| Next          | Nothing. |
+| Last touched  | 2026-11-22 |
 
 * Acceptance
 
@@ -55,10 +55,8 @@ to rebuild by hand.
 
 * Decisions
 
-- 2026-11-22: the index lives in compass's PostgreSQL database, built by
-  [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]], and =compass search= runs the same query as the
-  service, so both rank alike. The acceptance on a codec output in the store
-  and on needing no server is to be rewritten when this story starts.
+- Abandoned on 2026-11-22: agents search through the MCP tools of
+  [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]], so compass needs no search command.
 
 * Out of scope
 

@@ -45,11 +45,25 @@ The documents are read-only. The only writes are the testers' runs and notes.
 - *One service per repository, many environments.* As compass's store does
   for a repository's worktrees, the service serves every environment at once:
   each worktree, =main= and each release is a named environment pointing at
-  its current corpus. A document is stored once by its git blob id and shared
-  by every environment that holds it; a compass run in a worktree updates that
-  environment's corpus with the documents that changed; each environment keeps
-  its last few corpora, and collection removes the rows no environment names.
+  its current corpus. A document is stored once by the hash of its content,
+  as git hashes a blob, and shared by every environment that holds it.
+  Collection removes the rows that no environment and no test run names.
   Every request names an environment.
+- *Fresh as the files change.* An environment's corpus is its set of paths
+  and content hashes; a sync compares that set with the database's and loads
+  only the documents whose hash is new, from the parses compass's store
+  already holds, then repoints the environment in one transaction. Uncommitted
+  edits count. A sync runs:
+  - after each edit an agent makes, from the edit hook, for the file edited;
+  - at the end of every compass run in a worktree;
+  - from git's post-checkout, post-merge and post-rewrite hooks, which
+    compass installs, so a pull or a branch switch is seen;
+  - on demand, through =compass sync= and an MCP tool;
+  - in production, once, when a release is deployed.
+  Worktrees syncing at once share rows without conflict: a document row is
+  written once per hash, and each environment's pointer changes only in its
+  own transaction. A query answers from the last sync, and reports when that
+  was.
 - *compass's own database.* compass creates and migrates its own PostgreSQL
   database (a compass cluster or a database on the project's server); no
   project writes or migrates a schema for documents.
@@ -60,9 +74,8 @@ The documents are read-only. The only writes are the testers' runs and notes.
   on any keyword or property with no migration.
 - *Search.* Full-text search in PostgreSQL over sections, weighted by title,
   heading path and text, with snippets and filters by type, tags, state,
-  sprint, level, audience and any keyword or property. Search the documents'
-  command line and the service rank the same way, because they run the same
-  query. The same sections are the retrieval unit for assistants.
+  sprint, level, audience and any keyword or property. The same sections are
+  the retrieval unit for assistants.
 - *Read API and HTML.* An HTTP API returns search results, filtered lists,
   one document with its metadata and its body as HTML, backlinks and facets.
   compass renders the HTML itself, with =id:= links resolved through a link
@@ -93,8 +106,10 @@ The documents are read-only. The only writes are the testers' runs and notes.
   notes as TODO headings and addressed ones as DONE, and the screenshots as
   small PNG files beside it. IDs come from the database's, so a second export
   updates the same files and duplicates nothing.
-- *Agents.* Assistants use the HTTP API through a thin tool; MCP comes once the
-  endpoints settle.
+- *Agents.* The service speaks MCP: search, read a document, list by
+  metadata and an environment's sprint state are MCP tools, answering as the
+  HTTP API does. A coding agent and a project's assistant both use them, so
+  compass needs no search command of its own.
 - *ORE Studio is the first client*: its ores.web search, manual, sprint and
   testing pages, and its assistant, read the service through its gateway, and
   its own document pipeline (ores.orgmode's load, index and service) can be
@@ -121,6 +136,8 @@ The documents are read-only. The only writes are the testers' runs and notes.
   a developer, and the result goes through a pull request.
 - Serve search with Typesense is abandoned; PostgreSQL's text search serves
   every client.
+- Search the documents is abandoned: agents search through the service's MCP
+  tools, so compass has no search command.
 - Screenshots go into git as small PNG files beside the campaign page.
 - A test campaign is a new document type, =test_campaign=; ORE Studio's
   document contract needs its page.
