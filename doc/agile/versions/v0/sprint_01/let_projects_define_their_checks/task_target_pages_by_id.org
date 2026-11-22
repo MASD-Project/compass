@@ -1,0 +1,121 @@
+:PROPERTIES:
+:ID: 2A35EE3D-5EB8-4739-A802-8D2FD0A47CD9
+:END:
+#+title: Task: Target pages by ID
+#+description: Codecs find the pages they write or read by the :ID: a project's configuration names, not by an ORE Studio path built into compass, so a project can rename a page.
+#+type: task
+#+level: s1
+#+filetags: :let_projects_define_their_checks:sprint_01:v0:
+#+owner: marco
+#+branch: feature/target-pages-by-id
+#+pr:
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-11-22
+#+updated: 2026-11-22
+#+environment:
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [[id:DAB2F48A-E47A-4895-9026-056AF21E6CCC][Let projects define their own checks]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+A project can rename or move any page a compass codec writes or reads. ORE
+Studio retitled "Which trade types ORE carries and ORE Studio holds" and could
+not rename its file to match: =trade_type_coverage= named the page by a path
+built into compass, and refused with "the note does not exist". The
+=title_file_mismatch= lint will ask every file name to match its title, so
+every page a codec targets must be renameable without a compass change.
+
+* Status
+
+| Field        | Value                                  |
+|--------------+----------------------------------------|
+| State        | STARTED                                |
+| Parent story | [[id:DAB2F48A-E47A-4895-9026-056AF21E6CCC][Let projects define their own checks]] |
+| Now          | The codecs find their pages by the :ID: an option names; the pull request is open. |
+| Waiting on   | Review of the pull request.            |
+| Next         | ORE Studio sets the options, from the handoff, when it takes the build. |
+| Last touched | 2026-11-22                               |
+
+* Acceptance
+
+- No codec names an ORE Studio page by a path built into compass:
+  =trade_type_coverage=, =ore_output_catalogue=, =rule_identifiers=,
+  =registry_exceptions= and =route_inventory= read the page from an option.
+- A renamed page is still found, and a unit that found it runs again when
+  it moves; Catch2 tests fail on the old code.
+- An option that is empty, or names an ID no document has, is reported as
+  =<codec>/unreadable= on =.compass.org=, and nothing is written.
+- On a copy of ORE Studio main with the options set, compass gives the same
+  findings and the same diff as before, and still generates the coverage
+  note after the note is renamed.
+
+* Plan
+
+- =ops::page_of= in =compass.codec= returns the document whose :ID: an
+  option names, through =corpus_view::find_id=. The lookup is an ID input
+  whose recorded answer is the page's path, so a move changes the answer and
+  the unit runs again; opening the document adds a path input on its content.
+  The codecs declare =every_document= so the lookup sees the page whatever its
+  type, and enumerate nothing, so they gain no other input.
+- =route_inventory= takes a path: ORE Studio's page has no :ID:, and the codec
+  writes it whole from its check document's Head table, so there is nothing
+  to look up.
+- =ore_output_catalogue= writes the ID its option names into the page drawer,
+  in place of the ID it hard-coded.
+- =check_inventory= keeps its =path= option: it is compass's own page and
+  already a setting.
+
+* Measurements
+
+Every number this task claims about a tree, with the command that produced it
+and the commit it was measured at. A number without both is not a measurement,
+because a clean-up record describes a tree and trunk moves under a branch: a
+consumer count, a gate's component count and a suite's size all change with no
+code changing, and the reader of a bare number cannot tell which tree it came
+from. Where the raw output matters, put it in an =evidence/= file beside the
+task and name that file in the Command column.
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+| Findings of the five codecs on ORE main, before and after, options set | 3 and 3, identical | =compass -C <copy> check --no-blame --codec ...= | ORE =9ed8b54cd2=, compass =15ea0c2= and this branch |
+| Files =diff= would change on ORE main, before and after | 26 and 26, identical hunks | =compass -C <copy> diff= | the same |
+| Coverage note renamed to =coverage_of_ore_trade_types_in_ore_studio.org= | the same hunk at the new path; =generate= writes it | =compass -C <copy> diff=, =generate= | the same |
+| The old binary on the renamed copy | =trade_type_coverage/refused=: the note does not exist | =compass -C <copy> check --codec trade_type_coverage= | ORE =9ed8b54cd2=, compass =15ea0c2= |
+
+* Notes
+
+- ORE Studio paths compass still names that are not pages a rename can
+  break, or are left for their own work: the data files of
+  =trade_type_coverage= (=external/ore/catalogue/=, the generated trades
+  folder) and its three task IDs; the inputs of =ore_output_catalogue= and
+  =route_inventory=; the =registry= default of =registry_exceptions=; the
+  model paths of =value_sets=; =open_reads='s =allow_list= default; the recipe
+  indexes of =recipe_inventories=; =skill_tables='s skills page; the
+  =doc/prototypes/= tree of =prototypes=; the folder lists of =lint=.
+
+* Test Scenarios
+
+Manual QA scenarios (scaffolded via =compass add test_scenario=)
+that verify this task. Link
+new ones here as they're created; the scenario doc itself links back
+via its "Verifies task" field.
+
+| Scenario | State | Notes |
+|----------+-------+-------|
+|          |       |       |
+
+* PRs
+
+| PR | Title |
+|----+-------|
+|    |       |
+
+* Review
+
+| # | Comment summary | File | Decision | Notes |
+|---+-----------------+------+----------+-------|
+|   |                 |      |          |       |
+
+* Result
