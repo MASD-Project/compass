@@ -23,6 +23,7 @@
 #include "compass.docs/codecs/backlog_indexes.hpp"
 #include "compass.docs/codecs/component_docs.hpp"
 #include "compass.docs/codecs/heading_numbers.hpp"
+#include "compass.docs/codecs/knowledge_titles.hpp"
 #include "compass.docs/codecs/lint.hpp"
 #include "compass.docs/codecs/org_links.hpp"
 #include "compass.docs/codecs/physical_inventory.hpp"
@@ -38,9 +39,9 @@ namespace compass::docs::codecs {
 
 std::span<const compass::codec::types::descriptor> catalogue() noexcept {
     static const auto all = [] {
-        std::array<compass::codec::types::descriptor, 18> out{
+        std::array<compass::codec::types::descriptor, 19> out{
             backlog_indexes, component_docs, heading_numbers,
-            http_recipe_library, lint, no_pr_triggers, org_links,
+            http_recipe_library, knowledge_titles, lint, no_pr_triggers, org_links,
             physical_inventory, prototypes, recipe_inventories,
             rule_identifiers, shell_recipe_library, shell_recipe_provenance,
             skill_catalogue, skill_levels, skill_namespace, skill_type_tables,
