@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :publish_installable_binaries:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/install-a-main-build
+#+pr: https://github.com/MASD-Project/compass/pull/191
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-22
@@ -132,7 +132,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/191][#191]] | [cli] Install a green build of main before its release is out |
 
 * Review
 
