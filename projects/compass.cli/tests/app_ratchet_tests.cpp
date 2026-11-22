@@ -40,6 +40,13 @@ constexpr std::string_view configuration =
     "| required_sections | no | |\n"
     "| sql_hygiene | yes | roots=sql |\n";
 
+constexpr std::string_view renderings_configuration =
+    "#+output: .\n\n* Codecs\n\n"
+    "| name | enabled | options |\n"
+    "| document_index | no | |\n"
+    "| required_sections | no | |\n"
+    "| ore_renderings_tables | yes | |\n";
+
 constexpr std::string_view table_a = "create table a (x int);\n";
 constexpr std::string_view table_b = "create table b (x int);\n";
 constexpr std::string_view table_c = "create table c (x int);\n";
@@ -254,6 +261,62 @@ TEST_CASE("ratchet excuses drift only when neither side changed",
         CHECK(r.status == 1);
         CHECK(r.fresh() == std::vector<std::string>{
             "out/doc/document_index.tsv:1"});
+    }
+}
+
+TEST_CASE("ratchet judges the scripts a generated header names by the "
+    "files of each side", "[app][ratchet]") {
+    scoped_git_repo repo;
+    const auto generate_and_commit = [&] {
+        const std::string dir = repo.checkout().generic_string();
+        const std::vector<std::string_view> args{"generate", "-C", dir,
+            "-j", "2"};
+        std::istringstream in;
+        std::ostringstream out;
+        std::ostringstream err;
+        REQUIRE(app::run(args, "/", in, out, err) == 0);
+        commit_all(repo);
+    };
+    const auto write_renderings = [&] {
+        repo.write("projects/ores.sql/utility/ore_renderings.json",
+            "{\"tables\": {\"a\": {\"A\": [\"A\"]}}}");
+    };
+    repo.write(".compass.org", renderings_configuration);
+
+    SECTION("a missing script the base already named is inherited") {
+        write_renderings();
+        generate_and_commit();
+        repo.git("branch base");
+        repo.write("doc/notes.txt", "not a document\n");
+        commit_all(repo);
+        const auto r = ratchet(repo);
+        CHECK(r.status == 0);
+        CHECK(r.fresh().empty());
+        CHECK_THAT(r.out, ContainsSubstring("0 new diagnostics, 1 excused"));
+    }
+    SECTION("a missing script the change names is new") {
+        commit_all(repo);
+        repo.git("branch base");
+        write_renderings();
+        generate_and_commit();
+        const auto r = ratchet(repo);
+        CHECK(r.status == 1);
+        CHECK(r.fresh().size() == 1);
+        CHECK_THAT(r.out, ContainsSubstring(
+            "ore_renderings_tables/names_missing_file"));
+    }
+    SECTION("a named script the change deletes is new") {
+        write_renderings();
+        repo.write("compass.sh", "#!/bin/sh\n");
+        generate_and_commit();
+        repo.git("branch base");
+        repo.git("rm -q compass.sh");
+        commit_all(repo);
+        const auto r = ratchet(repo);
+        CHECK(r.status == 1);
+        CHECK(r.fresh().size() == 1);
+        CHECK_THAT(r.out, ContainsSubstring(
+            "ore_renderings_tables/names_missing_file"));
     }
 }
 

@@ -1,0 +1,17 @@
+# compass check -C <copy> --ratchet base --no-blame -j 2
+# <copy>: git archive of ORE Studio main 9ed8b54cd2, committed as base,
+# then one commit that adds trivial_change.txt.
+
+## Before: compass at origin/main 15ea0c2
+
+projects/ores.codegen/library/templates/doc_archetype.org.mustache:16:26: tangle/names_missing_file: tangle generates this file naming generator.py, which the checkout does not hold (fix: change the codec so it names a file the project has, or restore the script)
+projects/ores.codegen/library/templates/doc_facet.org.mustache:17:31: tangle/names_missing_file: tangle generates this file naming generator.py, which the checkout does not hold (fix: change the codec so it names a file the project has, or restore the script)
+projects/ores.codegen/library/templates/doc_facet_group.org.mustache:16:43: tangle/names_missing_file: tangle generates this file naming generator.py, which the checkout does not hold (fix: change the codec so it names a file the project has, or restore the script)
+projects/ores.codegen/library/templates/sql_service_db_grants.mustache:19:39: tangle/names_missing_file: tangle generates this file naming setup_database.sh, which the checkout does not hold (fix: change the codec so it names a file the project has, or restore the script)
+4 new diagnostics, 202 excused by exceptions, 1687 excused as present at f8b477306eb0
+exit status 1
+
+## After: compass at feature/ratchet-tangle-missing-files
+
+0 new diagnostics, 202 excused by exceptions, 1691 excused as present at f8b477306eb0
+exit status 0
