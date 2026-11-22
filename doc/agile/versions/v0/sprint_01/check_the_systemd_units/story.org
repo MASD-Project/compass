@@ -1,0 +1,103 @@
+:PROPERTIES:
+:ID: 0E48C104-E554-4E34-8395-C611D1DC70B3
+:END:
+#+title: Story: Generate and check the systemd units
+#+description: Generate the systemd units of a project's services, compass's own document service among them, from the project's service data, and check that each unit orders and requires every service it depends on and that the deployed units match what would be generated now, so no environment starts its fleet from stale or wrongly wired units.
+#+type: story
+#+level: s2
+#+filetags: :service:systemd:sprint_01:v0:
+#+created: 2026-11-22
+#+updated: 2026-11-22
+#+environment:
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+An environment never starts its fleet from units that are stale or wired
+wrongly. On 2026-11-22 an ORE Studio environment started its services from
+systemd units deployed on 13 November: nothing deployed them again after
+13 days of changes, the pooler dependency and the =After==/=Requires==
+wiring among them, and nothing reported it. Regenerating would not have been
+enough, because the generated units themselves encode only part of each
+service's dependencies:
+
+#+begin_example
+ores.iam.service:  After=nats-server,            Requires=nats-server
+ores.dq.service:   After=nats-server ores.iam,   Requires=nats-server ores.iam
+#+end_example
+
+compass generates the units itself, from the project's data, and checks
+them: each unit orders itself after, and requires, every service it depends
+on, and the deployed units match what would be generated now. compass needs
+the same for its own document service, which runs as a unit in every
+environment.
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | BACKLOG                              |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | Not yet started.                       |
+| Waiting on    | Nothing.                               |
+| Next          | Break the story into tasks.            |
+| Last touched  | 2026-11-22                               |
+
+* Acceptance
+
+- *Generation.* compass generates each service's unit, and its drop-ins,
+  from the project's data: the service registry, a codegen model, with each
+  service's command, environment file, user, restart policy and
+  dependencies. The unit templates are MASD templates in compass, rendered by
+  compass's codegen; nothing about a service is in compass's code.
+- *Templates are literate documents.* Each unit template (the service unit,
+  each drop-in, any target or slice) is an org-mode document of =#+type:
+  archetype=, as ORE Studio's codegen templates are: its header names the
+  facet (a systemd facet, such as =masd.systemd.service=) and the =#+output:=
+  path pattern, its prose explains every directive the unit sets and why, and
+  its =* Template= section holds the Mustache source in a block that compass's
+  tangle codec writes to the =.mustache= file. A template edited outside its
+  document is drift; a template without its document is reported. ORE
+  Studio's =systemd_generate.py= is retired, and its units do not change but
+  for the wiring this story fixes.
+- *compass's own units.* =compass serve= gets its units from the same
+  templates and data, in compass's own repository, per environment.
+- *Wiring.* A check reads each generated unit and the project's data on what
+  a service depends on (its registry: messaging, database or pooler, other
+  services it calls) and reports a unit whose =After== or =Requires== lacks
+  one of them, naming the missing unit. On ORE Studio it reports the gap in
+  the units above.
+- *Generated units are current.* Units the project generates are outputs
+  compass checks for drift like any other, so a change to the registry or the
+  template that is not regenerated fails the gate.
+- *Deployed units are current, by content.* A command generates, in memory,
+  the units the environment would deploy now, and compares each with the
+  deployed file's content: it reports a unit whose content differs, with its
+  diff, one that would be deployed but is missing, and one deployed that no
+  service names any more. A file's modification time decides nothing: an old
+  unit with the right content is current, and a new one with the wrong
+  content is not. The age is shown only as context. It is read-only, as
+  =compass env status= is for =.env=; deploying stays the project's tool.
+- The dependency data is the project's, in a check document or its
+  registry; compass names no ORE Studio service.
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+|      |       |       |     |             |
+
+* Decisions
+
+- compass generates the units as well as checking them, from data, because
+  every project with services needs them and compass's own document service
+  needs them too (2026-11-22).
+- Captured from an ORE Studio environment's report of 2026-11-22. Related:
+  the service removal checklist bright faraday proposed the same day, whose
+  remove side covers deployed units left behind.
+
+* Out of scope
+
+- Deploying or restarting units; the project's tooling does that.
