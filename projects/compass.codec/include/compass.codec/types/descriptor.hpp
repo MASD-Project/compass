@@ -313,6 +313,17 @@ using formatters_function = std::vector<formatter> (*)(
     const option_values& options, const std::filesystem::path& checkout);
 
 /**
+ * @brief The input that a file of a codec was rendered from, such as its
+ * template, as a path relative to the checkout, from the codec's option
+ * values and the bytes of the file; empty when the bytes do not say. A
+ * unit may render many files from many inputs, and the record keeps only
+ * what the unit read, so this names the one input behind one file. Hosts
+ * call it to report what produced a file; a run never does.
+ */
+using origin_function = std::string (*)(const option_values& options,
+    std::string_view content);
+
+/**
  * @brief A codec: what it is, what it reads and the function that runs it.
  *
  * version is bumped by hand to discard every result the codec has stored.
@@ -323,7 +334,8 @@ using formatters_function = std::vector<formatter> (*)(
  * documents read, so a change to any of them runs the codec again.
  * rules holds, for a codec of files, the reasons it may refuse an output,
  * and is empty for one that never refuses. formatters is null for a codec
- * whose files are written as it emits them.
+ * whose files are written as it emits them, and origin for one whose
+ * files name no input they were rendered from.
  *
  * A formatting check is a codec of files with formatters whose files are
  * files of the checkout, emitted as they are. They are formatted and never
@@ -350,6 +362,7 @@ struct descriptor {
     formatters_function formatters = nullptr;
     bool formatting_check = false;
     severity level = severity::error;
+    origin_function origin = nullptr;
 };
 
 enum class unit : std::uint8_t { document, corpus, staged };

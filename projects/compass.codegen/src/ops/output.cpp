@@ -69,10 +69,13 @@ bool truthy(const model_tables& t, value_id v) {
     return false;
 }
 
+constexpr std::string_view template_label = "Template: ";
+constexpr std::string_view template_suffix = ".mustache";
+
 std::string generated_marker(std::string_view template_name, bool cmake) {
     const std::string lines[] = {
         "AUTO-GENERATED FILE - DO NOT EDIT MANUALLY",
-        "Template: " + std::string(template_name),
+        std::string(template_label) + std::string(template_name),
         "To modify, update the template and regenerate."};
     std::string out;
     if (cmake) {
@@ -149,8 +152,8 @@ std::string_view strip(std::string_view s) {
 std::string insert_org_marker(std::string_view rendered,
     std::string_view template_name) {
     const std::string marker =
-        "#+generated: AUTO-GENERATED FILE - DO NOT EDIT MANUALLY. Template: " +
-        std::string(template_name) +
+        "#+generated: AUTO-GENERATED FILE - DO NOT EDIT MANUALLY. " +
+        std::string(template_label) + std::string(template_name) +
         ". To modify, update the template and regenerate.";
     std::vector<std::string_view> lines;
     std::size_t start = 0;
@@ -295,6 +298,19 @@ void render_output(std::string& out, std::string_view template_name,
     if (template_name.ends_with(".org.mustache"))
         rendered = insert_org_marker(rendered, template_name);
     out += substitute_paste_markers(rendered, values, context);
+}
+
+std::string_view marked_template(std::string_view content) {
+    const auto head = content.substr(0, marker_window);
+    const auto label = head.find(template_label);
+    if (label == std::string_view::npos)
+        return {};
+    const auto name = head.substr(label + template_label.size());
+    const auto end = name.find(template_suffix);
+    if (end == std::string_view::npos ||
+        name.substr(0, end).find('\n') != std::string_view::npos)
+        return {};
+    return name.substr(0, end + template_suffix.size());
 }
 
 }

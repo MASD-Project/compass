@@ -399,6 +399,14 @@ others is in its descriptor, so adding a codec adds a row to a list.
   bytes the codec emitted, so a unit is reused whatever the formatters
   are, and a change of formatter or style file costs only the
   formatting.
+- *Origin of a file.* A files codec may also name a
+  =types::origin_function=: given its =types::option_values= and the bytes
+  of one of its files, it returns the input that file was rendered from,
+  such as its template, relative to the checkout, or nothing. The record
+  keeps what a unit read, and one unit may render many files from many
+  inputs, so this names the one input behind one file. No run calls it;
+  =compass generate= and =compass diff= do, to say what produced each file
+  they change and to take the files of =--scope=.
 - *Output set.* =types::output_set= is what a run asks to have on disk: per
   file its codec, its path relative to the output root, its bytes and its
   blob ID, and the names of the /complete/ codecs, whose every unit ran or
