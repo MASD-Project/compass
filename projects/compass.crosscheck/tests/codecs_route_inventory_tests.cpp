@@ -19,98 +19,107 @@
  */
 #include "compass.crosscheck/codecs/route_inventory.hpp"
 
+#include <algorithm>
 #include <string>
+#include <vector>
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_string.hpp>
+#include "compass.codec/ops/data_tables.hpp"
 #include "test_checkout.hpp"
 
 namespace {
 
 using namespace compass::crosscheck;
 using tests::files;
+using Catch::Matchers::ContainsSubstring;
 
 const std::string inventory_path =
     "doc/knowledge/architecture/http_route_inventory.org";
 
-// route_inventory.py --write was run on this fixture; the expected text is
-// what it wrote after its header.
-const std::string file0 = R"f(from dataclasses import dataclass
+namespace cops = compass::codec::ops;
+using rows = std::vector<std::vector<std::string>>;
 
-RESOURCE = "resource"
-COMPOSED = "composed view"
-NOT_API = "not an API"
+const std::string document = "compass/checks/route_inventory.org";
 
-KINDS = (RESOURCE, COMPOSED, NOT_API)
-
-NO_AREA = "(none)"
-
-AREAS = (
-    "access",
-    "trading",
-)
-
-BFF = "bff"
-CPP = "ores.http"
-
-
-@dataclass(frozen=True)
-class Rule:
-    name: str
-    match: tuple
-    server: str | None
-    kind: str
-    area: str
-    note: str
-
-
-@dataclass(frozen=True)
-class Exemption:
-    name: str
-    kind: str
-    area: str
-    note: str
-
-
-RULES = (
-    # A comment between rules.
-    Rule("the books' route",
-         ("regex", r"^(GET|PUT) /api/books(/\{id\})?$"),
-         None, RESOURCE, "trading",
-         "Books, read" ' and written.'),
-    Rule("the storage capability", ("prefix", "GET {"), CPP, NOT_API, NO_AREA, ""),
-    Rule("the blotter", ("exact", "GET /api/blotter"), BFF, COMPOSED, "trading",
-         "One page of trades."),
-    Rule(name="the accounts", match=("prefix", "GET /api/accounts"), server=None,
-         kind=RESOURCE, area="access", note="Accounts."),
-)
-
-
-EXCEPTIONS = {
-    (BFF, "GET", "/api/overview"): Exemption(
-        "the deployment overview", COMPOSED, "access",
-        "The administrator's home."),
+cops::data_table table(std::string name, std::uint32_t line,
+    std::vector<std::string> columns, rows cells) {
+    cops::data_table t{.name = std::move(name), .line = line,
+        .columns = std::move(columns), .rows = std::move(cells),
+        .row_lines = {}};
+    for (std::size_t r = 0; r < t.rows.size(); ++r)
+        t.row_lines.push_back(line + 2 + static_cast<std::uint32_t>(r));
+    return t;
 }
 
-
-VIEWS = {
-    "the blotter": ("ores.trading", "the summaries", "ETag"),
-    "the deployment overview": ("ores.iam", "the roster", "none"),
+/**
+ * @brief The check document of a made-up project: its head, settings,
+ * rules, exemptions, views, pairs and families. route_inventory.py
+ * --write was run on the same decisions over this fixture; the expected
+ * text is what it wrote after its header.
+ */
+cops::data_tables check_document() {
+    cops::data_tables t{.source = document, .tables = {}};
+    t.tables = {
+        table("Head", 10, {"line"},
+            {{"\\"}, {"#+title: Fixture"}, {""}, {"* How"}}),
+        table("Settings", 20, {"setting", "value"},
+            {{"composed kind", "composed view"}, {"no area", "(none)"}}),
+        table("Rules", 30, {"name", "match", "pattern", "server", "kind",
+            "area", "note"},
+            {{"the books' route", "regex", R"(^(GET|PUT) /api/books(/\{id\})?$)",
+              "", "resource", "trading", "Books, read and written."},
+             {"the storage capability", "prefix", "GET {", "ores.http",
+              "not an API", "(none)", ""},
+             {"the blotter", "exact", "GET /api/blotter", "bff",
+              "composed view", "trading", "One page of trades."},
+             {"the accounts", "prefix", "GET /api/accounts", "", "resource",
+              "access", "Accounts."}}),
+        table("Exemptions", 40, {"server", "method", "path", "name", "kind",
+            "area", "note"},
+            {{"bff", "GET", "/api/overview", "the deployment overview",
+              "composed view", "access", "The administrator's home."}}),
+        table("Views", 50, {"view", "owner", "computation", "cache policy"},
+            {{"the blotter", "ores.trading", "the summaries", "ETag"},
+             {"the deployment overview", "ores.iam", "the roster", "none"}}),
+        table("Pairs", 60, {"BFF method", "BFF path", "C++ method",
+            "C++ path"},
+            {{"GET", "/api/accounts", "GET", "/api/v1/access/accounts"},
+             {"GET", "/api/books", "GET", "/api/books"}}),
+        table("Families", 70, {"BFF method", "BFF path", "registry", "array",
+            "C++ method", "C++ path", "needs"},
+            {{"GET", "/api/refdata/:resource",
+              "projects/ores.web/packages/wire-protocol/src/records.ts",
+              "REFDATA_RECORDS", "GET", "/api/refdata/{resource}", "every"},
+             {"PUT", "/api/refdata/:resource",
+              "projects/ores.web/packages/wire-protocol/src/records.ts",
+              "REFDATA_RECORDS", "PUT", "/api/refdata/{resource}",
+              "writable"}})};
+    return t;
 }
-)f";
 
-const std::string file1 = R"f(ACCESS = "/api/v1/access"
-
-PAIRS = {
-    ("GET", "/api/accounts"): ("GET", f"{ACCESS}/accounts"),
-    ("GET", "/api/books"): ("GET", "/api/books"),
+tests::options data(const cops::data_tables& t) {
+    return {{std::string(cops::data_option), cops::encode_data_tables(t)}};
 }
 
-REFDATA_RECORDS = "projects/ores.web/packages/wire-protocol/src/records.ts:REFDATA_RECORDS"
-
-FAMILIES = {
-    ("GET", "/api/refdata/:resource"): (REFDATA_RECORDS, "GET", "/api/refdata/{resource}", "every"),
-    ("PUT", "/api/refdata/:resource"): (REFDATA_RECORDS, "PUT", "/api/refdata/{resource}", "writable"),
+cops::data_table& in(cops::data_tables& t, std::string_view name) {
+    for (auto& table : t.tables)
+        if (table.name == name)
+            return table;
+    FAIL("no table " << name);
+    return t.tables.front();
 }
-)f";
+
+/**
+ * @brief The messages of what one run over @p t with @p doc found.
+ */
+std::vector<std::string> messages(const files& t,
+    const cops::data_tables& doc) {
+    std::vector<std::string> out;
+    for (const auto& f : tests::run(codecs::route_inventory, t,
+             data(doc)).findings)
+        out.push_back(std::get<2>(f));
+    return out;
+}
 
 const std::string file2 = R"f(export function register(server) {
     server.get('/api/books', async () => 1);
@@ -257,11 +266,7 @@ prove it; the port tasks prove each route against the answer the BFF gives.
 
 
 files tree() {
-    return {{"build/scripts/route_inventory.py",
-        "HEADER = r\"\"\"\\\n#+title: Fixture\n\n* How\n\"\"\"\n"},
-        {"build/scripts/route_classification.py", file0},
-        {"build/scripts/route_pairing.py", file1},
-        {"projects/ores.web/packages/bff/src/books.ts", file2},
+    return {{"projects/ores.web/packages/bff/src/books.ts", file2},
         {"projects/ores.web/packages/bff/src/books.test.ts", file3},
         {"projects/ores.http/trading/src/routes/books.cpp", file4},
         {"projects/ores.http/trading/tests/routes.cpp", file5},
@@ -271,40 +276,117 @@ files tree() {
         {"projects/ores.web/packages/wire-protocol/src/records.ts", file9}};
 }
 
-void replace(std::string& text, const std::string& from,
-    const std::string& to) {
-    const auto at = text.find(from);
-    REQUIRE(at != std::string::npos);
-    text.replace(at, from.size(), to);
-}
-
 }
 
 TEST_CASE("the inventory decides, pairs and counts every registered route "
-    "as the script writes it", "[codecs][route_inventory]") {
-    const auto out = tests::generate(codecs::route_inventory, tree());
+    "from the tables of the check document", "[codecs][route_inventory]") {
+    const auto out = tests::generate(codecs::route_inventory, tree(),
+        data(check_document()));
     REQUIRE(out.size() == 1);
     const auto& text = out.at(inventory_path);
     CHECK(text.starts_with("\\\n#+title: Fixture\n\n* How\n\n* The area map\n"));
     CHECK(text.ends_with(expected_tail));
 }
 
-TEST_CASE("an edited rule in the classification module is seen",
+TEST_CASE("a checkout without the route scripts writes the inventory and "
+    "reports nothing", "[codecs][route_inventory]") {
+    const auto t = tree();
+    REQUIRE(std::ranges::none_of(t, [](const auto& f) {
+        return f.first.starts_with("build/scripts/");
+    }));
+    CHECK(tests::run(codecs::route_inventory, t,
+        data(check_document())).findings.empty());
+    CHECK(tests::generate(codecs::route_inventory, t,
+        data(check_document())).size() == 1);
+}
+
+TEST_CASE("an edited row of the check document is seen",
     "[codecs][route_inventory]") {
-    auto t = tree();
-    replace(t.at("build/scripts/route_classification.py"),
-        "\"Books, read\" ' and written.'", "\"Books, planted.\"");
-    const auto out = tests::generate(codecs::route_inventory, t);
-    CHECK(out.at(inventory_path).find(
+    auto doc = check_document();
+    in(doc, "Rules").rows[0][6] = "Books, planted.";
+    in(doc, "Pairs").rows[1][3] = "/api/v2/books";
+    const auto out = tests::generate(codecs::route_inventory, tree(),
+        data(doc));
+    const auto& text = out.at(inventory_path);
+    CHECK(text.find(
         "| resource | trading | get | =/api/books= | bff | "
         "projects/ores.web/packages/bff/src/books.ts:2 | Books, planted. |") !=
         std::string::npos);
+    CHECK(text.find("| GET =/api/books= | GET /api/v2/books |") !=
+        std::string::npos);
 }
 
-TEST_CASE("a pair module the reader cannot read writes nothing",
+TEST_CASE("a check document missing a table or a column is unreadable and "
+    "writes nothing", "[codecs][route_inventory]") {
+    auto no_table = check_document();
+    std::erase_if(no_table.tables, [](const cops::data_table& t) {
+        return t.name == "Families";
+    });
+    CHECK(tests::generate(codecs::route_inventory, tree(),
+        data(no_table)).empty());
+    auto found = messages(tree(), no_table);
+    REQUIRE(found.size() == 1);
+    CHECK_THAT(found.front(), ContainsSubstring("compass/checks/"
+        "route_inventory.org has no table under the level-1 heading "
+        "\"* Families\", which route_inventory reads"));
+
+    auto no_column = check_document();
+    in(no_column, "Views").columns[3] = "cache";
+    CHECK(tests::generate(codecs::route_inventory, tree(),
+        data(no_column)).empty());
+    found = messages(tree(), no_column);
+    REQUIRE(found.size() == 1);
+    CHECK_THAT(found.front(), ContainsSubstring("the table \"Views\" has no "
+        "column cache policy, which route_inventory reads"));
+
+    const auto none = tests::run(codecs::route_inventory, tree()).findings;
+    REQUIRE(none.size() == 1);
+    CHECK_THAT(std::get<2>(none.front()), ContainsSubstring("write compass/checks/"
+        "route_inventory.org with :CODEC: route_inventory"));
+}
+
+TEST_CASE("a row of the check document that does not read is unreadable "
+    "and names its line", "[codecs][route_inventory]") {
+    const auto unreadable = [](auto edit, std::string_view why) {
+        auto doc = check_document();
+        edit(doc);
+        CHECK(tests::generate(codecs::route_inventory, tree(),
+            data(doc)).empty());
+        const auto found = messages(tree(), doc);
+        REQUIRE(found.size() == 1);
+        CHECK_THAT(found.front(), ContainsSubstring(std::string(why)));
+    };
+    unreadable([](cops::data_tables& d) {
+        in(d, "Rules").rows[1][1] = "glob";
+    }, "compass/checks/route_inventory.org:33: the rule 'the storage "
+       "capability' matches by 'glob', not exact, prefix or regex, in the "
+       "table \"Rules\"");
+    unreadable([](cops::data_tables& d) {
+        in(d, "Rules").rows[0][2] = "^(GET";
+    }, "the pattern of the rule 'the books' route' does not compile");
+    unreadable([](cops::data_tables& d) {
+        in(d, "Families").rows[1][6] = "some";
+    }, "the family PUT /api/refdata/:resource needs 'some'");
+    unreadable([](cops::data_tables& d) {
+        auto& pairs = in(d, "Pairs");
+        pairs.rows.push_back(pairs.rows[0]);
+        pairs.row_lines.push_back(64);
+    }, ":64: the BFF route GET /api/accounts is paired twice");
+    unreadable([](cops::data_tables& d) {
+        auto& settings = in(d, "Settings");
+        settings.rows.pop_back();
+        settings.row_lines.pop_back();
+    }, "no row states the setting 'no area'");
+}
+
+TEST_CASE("a family whose registry the checkout lacks is refused",
     "[codecs][route_inventory]") {
     auto t = tree();
-    replace(t.at("build/scripts/route_pairing.py"), "f\"{ACCESS}/accounts\"",
-        "f\"{MISSING}/accounts\"");
-    CHECK(tests::generate(codecs::route_inventory, t).empty());
+    t.erase("projects/ores.web/packages/wire-protocol/src/records.ts");
+    CHECK(tests::generate(codecs::route_inventory, t,
+        data(check_document())).empty());
+    const auto found = messages(t, check_document());
+    REQUIRE(found.size() == 1);
+    CHECK_THAT(found.front(), ContainsSubstring("cannot read projects/"
+        "ores.web/packages/wire-protocol/src/records.ts"));
 }
