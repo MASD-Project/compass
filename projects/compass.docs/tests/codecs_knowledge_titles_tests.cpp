@@ -115,6 +115,18 @@ TEST_CASE("an ambiguous word counts only when a determiner opens the title",
         "finite verb 'books'"});
 }
 
+TEST_CASE("a determiner licenses the ambiguous words of its own side of a "
+    "colon only", "[codecs][knowledge_titles]") {
+    const files subtitle{{"doc/k/the_cut_model_recorded_facts_and_books.org",
+        page("The cut model: recorded facts and books")}};
+    CHECK(run(subtitle).empty());
+    const files clause{{"doc/k/booking_the_desk_books_a_trade.org",
+        page("Booking: the desk books a trade")}};
+    CHECK(tests::messages(run(clause)) == std::vector<std::string>{
+        "the title \"Booking: the desk books a trade\" is a sentence: it "
+        "holds the finite verb 'books'"});
+}
+
 TEST_CASE("a structure note is not held to the verbs, and its file name "
     "ends in the hub suffix", "[codecs][knowledge_titles]") {
     const files hub{{"doc/k/fixings_hub.org",

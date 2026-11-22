@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <expected>
 #include <format>
+#include <ranges>
 #include <set>
 #include <string>
 #include <string_view>
@@ -228,19 +229,26 @@ std::expected<project_data, std::string> read_document(
 }
 
 /**
- * @brief The words of @p words that make the title a sentence, each once,
- * in the order they come.
+ * @brief The words of @p title that make it a sentence, each once, in the
+ * order they come.
+ *
+ * A colon separates a title from its subtitle, and each part opens its own
+ * subject, so a determiner licenses the ambiguous words of its part only:
+ * "The cut model: recorded facts, derived states" is a noun phrase.
  */
 std::vector<std::string> finite_verbs(const project_data& d,
-    const std::vector<std::string>& words) {
-    const bool determined = !words.empty() &&
-        d.determiners.contains(words.front());
+    std::string_view title) {
     std::vector<std::string> out;
-    for (const auto& w : words) {
-        const bool verb = d.verbs.contains(w) ||
-            (determined && d.ambiguous.contains(w));
-        if (verb && std::ranges::find(out, w) == out.end())
-            out.push_back(w);
+    for (const auto part : std::views::split(title, ':')) {
+        const auto words = words_of(std::string_view(part));
+        const bool determined = !words.empty() &&
+            d.determiners.contains(words.front());
+        for (const auto& w : words) {
+            const bool verb = d.verbs.contains(w) ||
+                (determined && d.ambiguous.contains(w));
+            if (verb && std::ranges::find(out, w) == out.end())
+                out.push_back(w);
+        }
     }
     return out;
 }
@@ -275,7 +283,7 @@ void check(const project_data& d, const ct::document& doc,
         d.skip_tag);
 
     if (!structure) {
-        const auto verbs = finite_verbs(d, words_of(title));
+        const auto verbs = finite_verbs(d, title);
         if (!verbs.empty()) {
             std::string listed;
             for (const auto& v : verbs)
