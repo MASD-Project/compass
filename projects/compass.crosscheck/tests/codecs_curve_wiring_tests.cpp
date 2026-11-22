@@ -24,6 +24,7 @@
 #include "compass.crosscheck/ops/curve_wiring.hpp"
 #include "curve_fixture.hpp"
 #include "test_checkout.hpp"
+#include "value_sets_data.hpp"
 
 namespace {
 
@@ -192,7 +193,7 @@ export function curveSectionOf(section: string): CurveSectionWiring | undefined 
 )ts";
 
 files tree() {
-    return {
+    files out{
         {"projects/ores.ore/core/src/domain/curve_configuration_projection.cpp",
             curve_projection},
         {"external/ore/xsd/curveconfig.xsd", curve_schema},
@@ -200,6 +201,18 @@ files tree() {
             tests::yield_curve_model},
         {"projects/ores.refdata/modeling/ores.refdata.default_curve.org",
             tests::default_curve_model}};
+    out.merge(tests::value_set_models());
+    return out;
+}
+
+files generate(const files& t,
+    const tests::value_sets_data& d = tests::value_sets_data{}) {
+    return tests::generate(codecs::curve_sections_wiring, t, d.settings());
+}
+
+tests::outcome run(const files& t) {
+    return tests::run(codecs::curve_sections_wiring, t,
+        tests::value_sets_data{}.settings());
 }
 
 void replace(std::string& text, const std::string& from,
@@ -213,7 +226,7 @@ void replace(std::string& text, const std::string& from,
 
 TEST_CASE("the wiring names each section's columns, blocks, segment kinds "
     "and parts as the script writes them", "[codecs][curve_sections_wiring]") {
-    const auto out = tests::generate(codecs::curve_sections_wiring, tree());
+    const auto out = generate(tree());
     REQUIRE(out.size() == 7);
     CHECK(out.at(module_path).ends_with(sections_tail));
     CHECK(out.at(parts_path).ends_with(R"(
@@ -246,7 +259,7 @@ TEST_CASE("a column whose leaf the schema does not declare writes nothing",
     auto t = tree();
     replace(t.at("external/ore/xsd/curveconfig.xsd"),
         "<xs:element name=\"DayCounter\" type=\"xs:string\"/>", "");
-    CHECK(tests::generate(codecs::curve_sections_wiring, t).empty());
+    CHECK(generate(t).empty());
 }
 
 TEST_CASE("sections the projection and the schema order differently write "
@@ -258,12 +271,12 @@ TEST_CASE("sections the projection and the schema order differently write "
         "        {default_section, \"DefaultCurve\"},\n",
         "        {default_section, \"DefaultCurve\"},\n"
         "        {yield_section, \"YieldCurve\"},\n");
-    CHECK(tests::generate(codecs::curve_sections_wiring, t).empty());
+    CHECK(generate(t).empty());
 }
 
 TEST_CASE("the column map holds each family column in code order, with the "
     "table its model names", "[codecs][curve_sections_wiring]") {
-    const auto out = tests::generate(codecs::curve_sections_wiring, tree());
+    const auto out = generate(tree());
     REQUIRE(out.size() == 7);
     CHECK(out.at(map_path).find(") values\n"
         "    ('default_curve|currency', ores_utility_system_tenant_id_fn(), 0, "
@@ -312,14 +325,43 @@ TEST_CASE("two entities on one table, or an entity with no model, write no "
     auto missing = tree();
     missing.erase("projects/ores.refdata/modeling/ores.refdata.yield_curve.org");
     for (const auto& t : {shared, missing}) {
-        const auto out = tests::generate(codecs::curve_sections_wiring, t);
+        const auto out = generate(t);
         CHECK(out.size() == 4);
         CHECK(out.contains(module_path));
         CHECK_FALSE(out.contains(map_path));
-        const auto r = tests::run(codecs::curve_sections_wiring, t);
+        const auto r = run(t);
         REQUIRE(r.findings.size() == 1);
         CHECK(std::get<0>(r.findings[0]) == map_path);
     }
+}
+
+TEST_CASE("the guard reads the tables and calls the functions the value "
+    "set models name, and without them is not written",
+    "[codecs][curve_sections_wiring]") {
+    auto t = tree();
+    std::erase_if(t, [](const auto& f) {
+        return f.first.find("/modeling/ores.reporting.ore_") !=
+            std::string::npos;
+    });
+    t.merge(tests::value_set_models("ore", ""));
+    tests::value_sets_data d;
+    d["Value set entities"] = tests::value_set_entities("");
+    const auto guard = generate(t, d).at(guard_path);
+    CHECK(guard.find("          from ores_ore_element_map_columns_tbl k\n"
+        "          join ores_ore_parameter_vocabularies_tbl m\n") !=
+        std::string::npos);
+    CHECK(guard.find("if not ores_ore_value_in_set_fn(v_column.value_set_code"
+        ", v_value) then") != std::string::npos);
+    CHECK(guard.find("v_canonical := ores_ore_canonical_value_fn(v_column."
+        "value_set_code, v_value);") != std::string::npos);
+    CHECK(guard.find("ores_reporting") == std::string::npos);
+
+    const auto out = tests::generate(codecs::curve_sections_wiring, t);
+    CHECK_FALSE(out.contains(guard_path));
+    CHECK(out.contains(map_path));
+    const auto r = tests::run(codecs::curve_sections_wiring, t);
+    REQUIRE(r.findings.size() == 1);
+    CHECK(std::get<0>(r.findings[0]) == guard_path);
 }
 
 TEST_CASE("a list is filled to 80 columns as textwrap fills it",
@@ -337,7 +379,7 @@ TEST_CASE("a list is filled to 80 columns as textwrap fills it",
 
 TEST_CASE("the gateway's wiring is the same table in C++, a row too wide "
     "for one line broken a value a line", "[codecs][curve_sections_wiring]") {
-    const auto out = tests::generate(codecs::curve_sections_wiring, tree());
+    const auto out = generate(tree());
     const auto& header = out.at("projects/ores.http/refdata/include/"
         "ores.http/routes/refdata/curve_section_wiring.hpp");
     CHECK(header.starts_with("/* -*- mode: c++;"));

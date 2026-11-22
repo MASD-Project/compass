@@ -210,7 +210,8 @@ drop function if exists ores_refdata_validate_convention_terms_fn();
 
 
 files tree() {
-    return {{file0_path, file0},
+    auto models = tests::value_set_models();
+    files out{{file0_path, file0},
         {file1_path, file1},
         {file2_path, file2},
         {file3_path, file3},
@@ -220,6 +221,8 @@ files tree() {
         {file7_path, file7},
         {file8_path, file8},
         {file9_path, file9}};
+    out.merge(models);
+    return out;
 }
 
 void replace(std::string& text, const std::string& from,
@@ -261,8 +264,7 @@ TEST_CASE("the terms' tables decide which reads are terms, and without "
     CHECK(tests::places(refused.findings) ==
         std::vector<std::pair<std::string, std::uint32_t>>{
             {populate_path, 0},
-            {"projects/ores.sql/populate/reporting/"
-             "reporting_ore_parameter_value_sets_populate.sql", 0}});
+            {"compass/checks/value_sets.org", 0}});
     CHECK(tests::messages_of(refused).front().find("has no table under the "
         "level-1 heading \"* Asset classes\", which ore_value_sets reads") !=
         std::string::npos);

@@ -20,6 +20,8 @@
 #ifndef COMPASS_CROSSCHECK_OPS_VALUE_SETS_HPP
 #define COMPASS_CROSSCHECK_OPS_VALUE_SETS_HPP
 
+#include <array>
+#include <cstdint>
 #include <expected>
 #include <map>
 #include <optional>
@@ -43,12 +45,6 @@
  */
 namespace compass::crosscheck::ops::value_sets {
 
-inline constexpr std::string_view seed_path = "projects/ores.sql/populate/"
-    "reporting/reporting_ore_parameter_value_sets_populate.sql";
-inline constexpr std::string_view map_path = "projects/ores.sql/populate/"
-    "reporting/reporting_ore_parameter_vocabularies_populate.sql";
-inline constexpr std::string_view columns_path = "projects/ores.sql/populate/"
-    "reporting/reporting_ore_element_map_columns_populate.sql";
 inline constexpr std::string_view terms_path = "projects/ores.sql/populate/"
     "refdata/refdata_convention_kind_terms_populate.sql";
 inline constexpr std::string_view generator_path =
@@ -199,11 +195,98 @@ struct unreadable {
  * (PARSER_TABLE) and Rendering families (SETS). From ore_schema_types.py:
  * Schema kinds (KIND_OF). From generate_ore_element_map.py: Unread leaves
  * allowed (UNREAD_ALLOWED), Item words (ITEM_WORDS), and Schema words
- * (SCHEMA_WORDS and SCHEMA_NAMES, which share their keys).
+ * (SCHEMA_WORDS and SCHEMA_NAMES, which share their keys). And Value set
+ * entities (entities_table), which read_storage() reads.
  */
 [[nodiscard]] std::expected<compass::codec::ops::data_tables, unreadable>
 read_tables(const compass::codec::types::corpus_view& v,
     std::string_view codec);
+
+/**
+ * @brief The role an entity the value sets are stored in plays, in the
+ * order of role_names.
+ */
+enum class role : std::uint8_t {
+    vocabulary,
+    element_map_column,
+    value_set,
+    value_set_value,
+    value_set_catalogue,
+    setting_value_set
+};
+
+inline constexpr std::array<std::string_view, 6> role_names{"vocabulary",
+    "element_map_column", "value_set", "value_set_value",
+    "value_set_catalogue", "setting_value_set"};
+
+inline constexpr std::array<std::string_view, 2> entity_columns{"role",
+    "entity"};
+
+/**
+ * @brief The table of the check document that names, by role, the entity
+ * each part of the value sets is stored in.
+ */
+inline constexpr compass::codec::ops::table_need entities_table{
+    "Value set entities", entity_columns};
+
+/**
+ * @brief What the model of one stored entity states: its product (the
+ * :product: flag), its component (#+component:), its table (the first
+ * :tablename:) and its plural (#+entity_plural:, or the singular with an
+ * s, as code generation derives it).
+ */
+struct stored_entity {
+    std::string product;
+    std::string component;
+    std::string table;
+    std::string plural;
+};
+
+/**
+ * @brief The entities the value sets are stored in, by role, and the
+ * names the seeds and the validators derive from them.
+ */
+struct storage {
+    std::array<stored_entity, role_names.size()> entities;
+
+    [[nodiscard]] const stored_entity& operator[](role r) const;
+
+    /**
+     * @brief projects/<product>.sql/populate/<component>/<component>_
+     * <plural>_populate.sql, the seed of @p r's entity, where code
+     * generation puts an entity's scripts.
+     */
+    [[nodiscard]] std::string seed_path(role r) const;
+
+    /**
+     * @brief <product>_<component>_service, the writer a seed of @p r's
+     * entity stamps.
+     */
+    [[nodiscard]] std::string writer(role r) const;
+
+    /**
+     * @brief <product>_<component>_<stem>_fn, a function of the component
+     * that owns the value set entity.
+     */
+    [[nodiscard]] std::string function(std::string_view stem) const;
+
+    /**
+     * @brief @p text with {{vocabulary_table}},
+     * {{element_map_column_table}}, {{value_in_set_fn}} and
+     * {{canonical_value_fn}} replaced by their names.
+     */
+    [[nodiscard]] std::string fill(std::string_view text) const;
+};
+
+/**
+ * @brief The storage the Value set entities table of @p data names: each
+ * role's entity, found by name as the one model <anything>.<entity>.org
+ * under a modeling/ directory of projects/. A role with no row, or an
+ * entity with no model or several, is unreadable at the table's line.
+ */
+[[nodiscard]] std::expected<storage, unreadable> read_storage(
+    const compass::codec::types::corpus_view& v,
+    const compass::codec::ops::data_tables& data, std::string_view codec);
 
 /**
  * @brief Resolves the value sets and the element map from the checkout
@@ -218,21 +301,22 @@ read_tables(const compass::codec::types::corpus_view& v,
  * @p terms, or a refusal of the seed that says why not.
  */
 void write_convention_kind_terms(const compass::codec::types::corpus_view& v,
-    const std::optional<convention_terms_result>& terms,
+    const std::optional<convention_terms_result>& terms, const storage& names,
     compass::codec::types::file_output& out);
 
 /**
  * @brief The value set seed, as generate_value_sets.render() writes it.
  */
-[[nodiscard]] std::string render_seed(const model& m);
+[[nodiscard]] std::string render_seed(const model& m, const storage& names);
 
 /**
  * @brief The element map seed and its columns seed, as
  * generate_ore_element_map.py writes them.
  */
-[[nodiscard]] std::string render_map(const std::vector<map_row>& rows);
+[[nodiscard]] std::string render_map(const std::vector<map_row>& rows,
+    const storage& names);
 [[nodiscard]] std::string render_columns(
-    const std::vector<map_column>& columns);
+    const std::vector<map_column>& columns, const storage& names);
 
 }
 
