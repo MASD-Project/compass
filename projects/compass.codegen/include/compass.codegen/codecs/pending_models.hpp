@@ -25,9 +25,9 @@
 namespace compass::codegen::codecs {
 
 /**
- * @brief ORE Studio's pending-models generator (derive_pending_models.py,
- * codegen.pending_change): the pending-change model of every gated model
- * under projects/X/modeling/ores.*.org.
+ * @brief The pending-change model of every gated model under
+ * projects/X/modeling/ores.*.org, as ORE Studio's derive_pending_models.py
+ * derived it. Each pending model names this codec as its writer.
  *
  * A model is gated when its first Flags section sets :gated: or
  * :pending_change: true. Its pending model, ores.C.S_change.org beside it,
