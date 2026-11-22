@@ -6,6 +6,10 @@
     "dependencies": [
         "catch2",
         "expat",
+        {
+            "name": "libpq",
+            "default-features": false
+        },
         "pcre2",
         "tree-sitter",
         "tree-sitter-cpp",

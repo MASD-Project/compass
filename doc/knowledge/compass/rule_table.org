@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-209 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 58 are cited by no rule.
+214 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 58 are cited by no rule.
 
 ** Rules
 
@@ -86,6 +86,9 @@ memories no rule cites are the candidates for the next checks.
 | =heading_numbers= | unreadable_document | Every document under doc/ and projects/ is UTF-8, which the script's strict read needs. |  |
 | =history_registrars= | uncomposed_registrar | Every generated registrar of a checked component is called from its composition file. | =B5492D6C-7C18-4723-BA47-232AEAA13314= |
 | =history_registrars= | missing_composition | A checked component that generates registrars has its composition file. | =B5492D6C-7C18-4723-BA47-232AEAA13314= |
+| =knowledge_titles= | sentence_title | A knowledge page's title is a noun phrase, like the title of a paper: it holds no word of the table "Finite verbs", and no word of the table "Ambiguous" when it opens with a word of the table "Determiners". |  |
+| =knowledge_titles= | title_file_mismatch | A knowledge page's file name is its title in snake case; a structure note's ends in the hub suffix. |  |
+| =knowledge_titles= | unreadable | The check document gives every table, column and setting the codec reads, and its rows agree with each other. |  |
 | =lint= | bad_filetag | Every tag of a page's first #+filetags: is lowercase: a letter, then letters, digits, _, . or -. |  |
 | =lint= | unclosed_marker | Every '# BEGIN generated X' comment has a matching '# END generated X' comment. |  |
 | =lint= | marker_without_writer | A '# BEGIN generated X (writer)' marker names a script that exists and writes the page, or 'compass generate: codec' for a codec compass.docs ships. |  |
@@ -123,7 +126,7 @@ memories no rule cites are the candidates for the next checks.
 | =open_reads= | stale_allow | Every subject Authorised reads allow-lists is defined by a protocol header. |  |
 | =open_reads= | no_allow_list | Authorised reads has its allow-list section. |  |
 | =ore_output_catalogue= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
-| =ore_output_catalogue= | unreadable | Every file and table the generator reads is there and reads. |  |
+| =ore_output_catalogue= | unreadable | Every file and table the generator reads is there and reads, and a document has the :ID: the option page names. |  |
 | =ore_renderings_tables= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =ore_value_sets= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =org_links= | colon_link | No link's raw target begins with a colon, which no link type does. |  |
@@ -154,7 +157,7 @@ memories no rule cites are the candidates for the next checks.
 | =prototypes= | copy_differs | The copies of a file a group shares are identical, save one that may add rules after the shared text. |  |
 | =recipe_inventories= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =registry_exceptions= | bad_exception | Each accepted exception of the component registry names a listed component, a checklist item the standard defines once, a reason, who accepted it and an ISO date. | =E22B9A3C-DF20-4EC3-8BEC-C193E1560745=, =7B477025-132E-4B20-80B4-D8C9420880B8= |
-| =registry_exceptions= | unreadable_registry | The registry and the standard state their tables in a form this check reads. |  |
+| =registry_exceptions= | unreadable_registry | The registry and the standard state their tables in a form this check reads, and a document has the :ID: the option standard names. |  |
 | =required_sections= | missing_section | A document has every section its type requires. | [[id:8B29A8D8-E004-4E87-B81D-ABEAF68F2B98][Document Types]] |
 | =rls_coverage= | missing_rls | A table with a tenant_id column enables row-level security in a create script (RLS_001). | =46AC210B-6BDF-49D2-BA47-35404AAEBA18= |
 | =rls_coverage= | missing_party_isolation | A table with a party_id column has a restrictive policy on party_id in a create script (RLS_002). | =46AC210B-6BDF-49D2-BA47-35404AAEBA18= |
@@ -162,12 +165,13 @@ memories no rule cites are the candidates for the next checks.
 | =route_auth= | route_without_auth | Every add_route call states its authentication position: auth_required, auth_optional or roles. |  |
 | =route_auth= | too_few_routes | The scan finds at least 20 add_route calls, so a pattern that stops matching fails rather than passes. |  |
 | =route_inventory= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
-| =route_inventory= | unreadable | The check document gives every table and column the inventory is written from, and each row reads: a setting the codec has, a match it knows, a regex that compiles, a need it knows, and one row per key. |  |
+| =route_inventory= | unreadable | The check document gives every table and column the inventory is written from, and each row reads: a setting the codec has, a match it knows, a regex that compiles, a need it knows, and one row per key; and the configuration names the inventory's page. |  |
 | =rule_identifiers= | unkeyed_section | No rule carries an identifier in a section the pages do not key. |  |
 | =rule_identifiers= | no_identifier | Every rule of a keyed section starts with its identifier. | =00BA1689-B060-4BD8-BC46-67034D663B7F= |
 | =rule_identifiers= | foreign_code | A rule's identifier carries its own page's code. |  |
 | =rule_identifiers= | duplicate | No identifier is on two rules. | =00BA1689-B060-4BD8-BC46-67034D663B7F= |
 | =rule_identifiers= | bad_citation | Every checklist line cites two-digit identifiers a page carries, or a page that carries none yet. | =00BA1689-B060-4BD8-BC46-67034D663B7F= |
+| =rule_identifiers= | unreadable | The options name each keyed page and the checklist by its :ID:, and a document has each ID. |  |
 | =script_library_seed= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =service_integrity= | unregistered | Every service part, a component overview of the part kind the check document names, has an entry in the service registry. |  |
 | =service_integrity= | partless | Every registry entry whose runtime has parts names a service part that exists. |  |
@@ -214,6 +218,7 @@ memories no rule cites are the candidates for the next checks.
 | =test_case_reachability= | raw_string_moves | No raw string moves when the backslash-newline splices go. |  |
 | =test_case_reachability= | no_test_case | The test sources declare at least one case. |  |
 | =trade_type_coverage= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
+| =trade_type_coverage= | unreadable | The options name, by :ID:, the coverage note, the trade type catalogue and the story whose tasks close the gaps, and a document has each ID. |  |
 | =translation_unit_budget= | over_budget | No reflecting unit names more convention families than its budget: one, or the ceiling recorded for it. |  |
 | =translation_unit_budget= | below_ceiling | A recorded ceiling is what its unit reflects, so it only comes down. |  |
 | =translation_unit_budget= | bad_ceiling | Every recorded ceiling reads path=count. |  |

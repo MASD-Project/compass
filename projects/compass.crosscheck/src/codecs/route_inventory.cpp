@@ -51,8 +51,6 @@ namespace cops = compass::codec::ops;
 constexpr std::string_view codec_name = "route_inventory";
 constexpr std::string_view check_document =
     "compass/checks/route_inventory.org";
-constexpr std::string_view inventory_path =
-    "doc/knowledge/architecture/http_route_inventory.org";
 
 constexpr std::uint32_t unreadable = 1;
 
@@ -61,7 +59,8 @@ constexpr std::array<ct::rule, 2> rules{{
     {"unreadable", "The check document gives every table and column the "
         "inventory is written from, and each row reads: a setting the codec "
         "has, a match it knows, a regex that compiles, a need it knows, and "
-        "one row per key."}}};
+        "one row per key; and the configuration names the inventory's "
+        "page."}}};
 
 constexpr std::array<std::string_view, 1> head_columns{"line"};
 constexpr std::array<std::string_view, 2> setting_columns{"setting",
@@ -682,6 +681,14 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
             document.error(), "Correct the row the message names.");
         return;
     }
+    const auto inventory_path = v.option("page");
+    if (inventory_path.empty()) {
+        co::report(out.refusals, ".compass.org", 0, unreadable,
+            "route_inventory: the option 'page' names no page; set it to "
+            "the path of the inventory's page", "Set the option in the "
+            "codec's row of .compass.org.");
+        return;
+    }
     const auto& t = *document;
     try {
         const auto found = routes(v);
@@ -715,7 +722,10 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
     }
 }
 
-constexpr std::array<ct::option, 1> options{{
+constexpr std::array<ct::option, 2> options{{
+    {"page", "", "The path of the page the codec writes whole, its header "
+        "from the Head table. A path, not an :ID:: the page is generated "
+        "from the check document and carries no ID to look up."},
     {cops::data_option, "", "The tables of the check document whose "
         "Definition names this codec: the inventory's head, the kind and "
         "area the codec gives a meaning to, the rules and exemptions that "
@@ -726,7 +736,7 @@ constexpr std::array<ct::option, 1> options{{
 
 const ct::descriptor route_inventory{
     .name = "route_inventory",
-    .version = 3,
+    .version = 4,
     .summary = "Writes the HTTP route inventory from the routes the BFF and "
                "ores.http register and the decisions, views, pairs and "
                "families of its check document.",

@@ -1,0 +1,128 @@
+:PROPERTIES:
+:ID: 1CC3C917-9434-48F3-B90B-D1BA225E1BBB
+:END:
+#+title: Task: Ratchet the scripts a generated header names
+#+description: Report names_missing_file at the merge base too, so a ratchet excuses a missing script the base already named and fails only on one the change names or deletes.
+#+type: task
+#+level: s1
+#+filetags: :let_projects_define_their_checks:sprint_01:v0:
+#+owner: marco
+#+branch: feature/ratchet-tangle-missing-files
+#+pr: https://github.com/MASD-Project/compass/pull/175
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-11-22
+#+updated: 2026-11-22
+#+environment:
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [[id:DAB2F48A-E47A-4895-9026-056AF21E6CCC][Let projects define their own checks]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+=compass check --ratchet= fails only on what the change made worse. A
+generated file whose header names a script the tree lacks
+(=names_missing_file=) was reported only for the checkout, never for the
+merge base, so every such finding was new on every ratchet run. On a copy of
+ORE Studio's main with one trivial commit on top, the ratchet failed with four
+new =tangle/names_missing_file= findings that the change did not cause.
+
+* Status
+
+| Field        | Value                                  |
+|--------------+----------------------------------------|
+| State        | STARTED                              |
+| Parent story | [[id:DAB2F48A-E47A-4895-9026-056AF21E6CCC][Let projects define their own checks]] |
+| Now          | The merge base reports names_missing_file from its own files; the pull request is open. |
+| Waiting on   | Review of the pull request.            |
+| Next         | Merge the pull request.                |
+| Last touched | 2026-11-22                               |
+
+* Acceptance
+
+- A ratchet excuses a missing script that the merge base already named.
+- A ratchet reports as new a missing script that the change names for the
+  first time.
+- A ratchet reports as new a script that the change deletes while a
+  generated header still names it.
+- On a copy of ORE Studio's main with one trivial commit, the ratchet reports
+  no new =names_missing_file= findings.
+
+* Plan
+
+=names_missing_of= read an =output_plan=, the plan for writing outputs to
+disk, which exists only for a checkout. The check of a commit builds the
+outputs but no plan, so it never called =names_missing_of=. The rule itself
+reads nothing from disk: it scans the bytes the codec generates and the file
+listing, and for a commit that listing comes from the commit's tree.
+
+- =names_missing_of= reads the =output_set=, which a checkout and a commit
+  both have, instead of the plan. A removed output has no row in the set, as
+  it had no contents in the plan.
+- The check of a commit adds the findings after =commit_drift_of=, from
+  =p.listed.files=, the commit's tree.
+- The checkout and the edit hook keep reporting them only when the plan has
+  no problems, as before.
+
+The two branches of =check_in= were compared for other findings that only
+a checkout reports:
+
+- =drift= with the =remove= action ("compass wrote this file and X no longer
+  generates it") comes from the local written-outputs record, which no
+  commit holds. It is left as it is: a fresh clone, which is what CI checks,
+  has no record and never reports it, and computing it at the base would
+  mean inventing a record.
+- Every other drift finding is keyed by the blob IDs of the file and of what
+  is generated, and =commit_drift_of= gives the same IDs, so it matches.
+- Formatting findings, codec findings and exceptions read through the same
+  checkout or commit file source, so both sides report them. Provenance
+  findings are added to the new set on purpose.
+
+* Measurements
+
+Every number this task claims about a tree, with the command that produced it
+and the commit it was measured at. A number without both is not a measurement,
+because a clean-up record describes a tree and trunk moves under a branch: a
+consumer count, a gate's component count and a suite's size all change with no
+code changing, and the reader of a bare number cannot tell which tree it came
+from. Where the raw output matters, put it in an =evidence/= file beside the
+task and name that file in the Command column.
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+| New / inherited diagnostics of the ratchet, before | 4 / 1,687; the four are =tangle/names_missing_file= | =compass check -C <copy> --ratchet base --no-blame -j 2=, see [[file:evidence/ratchet_names_missing_file_ore_9ed8b54cd2.txt][evidence/ratchet_names_missing_file_ore_9ed8b54cd2.txt]] | ORE =9ed8b54cd2=, compass =15ea0c2= |
+| New / inherited diagnostics of the ratchet, after | 0 / 1,691 | the same | ORE =9ed8b54cd2=, compass =feature/ratchet-tangle-missing-files= |
+
+* Notes
+
+- The copy is =git archive= of ORE Studio's main, committed in a new
+  repository. Its tree lacks 38 of main's files, which ORE Studio's
+  =.gitignore= excludes. None of them is =generator.py= or
+  =setup_database.sh=, so the four findings are real on main too.
+- Of the three new tests, only the inherited case fails on the old code. The
+  two fresh cases pin that the fix does not excuse too much.
+
+* Test Scenarios
+
+Manual QA scenarios (scaffolded via =compass add test_scenario=)
+that verify this task. Link
+new ones here as they're created; the scenario doc itself links back
+via its "Verifies task" field.
+
+| Scenario | State | Notes |
+|----------+-------+-------|
+|          |       |       |
+
+* PRs
+
+| PR | Title |
+|----+-------|
+| [[https://github.com/MASD-Project/compass/pull/175][#175]] | Report names_missing_file at the ratchet's merge base |
+
+* Review
+
+| # | Comment summary | File | Decision | Notes |
+|---+-----------------+------+----------+-------|
+|   |                 |      |          |       |
+
+* Result

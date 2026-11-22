@@ -47,7 +47,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 # The tools that the build uses: a C compiler for the vcpkg ports, git, archive
 # tools, Python for the scripts, sudo for the scripts that call it, valgrind for
-# the nightly memcheck, the coverage runtime, and libraries that the vcpkg ports
+# the nightly memcheck, the coverage runtime, the PostgreSQL server the
+# database tests start a throwaway cluster of, and libraries that the vcpkg ports
 # link against. Clang takes the C++ standard library of the newest GCC it finds,
 # and g++-${GCC_MAJOR} gives it that libstdc++.
 RUN apt-get update -q -o Acquire::Retries=3 \
@@ -58,7 +59,8 @@ RUN apt-get update -q -o Acquire::Retries=3 \
         "libclang-rt-${LLVM_MAJOR}-dev" \
         cmake "g++-${GCC_MAJOR}" gh libltdl-dev libssl-dev libtool \
         linux-libc-dev lsb-release nasm ninja-build openssl \
-        pkg-config python3 procps python3-pip python3-venv sudo tar tzdata \
+        pkg-config postgresql python3 procps python3-pip python3-venv sudo tar \
+        tzdata \
         unzip valgrind xz-utils zip zstd \
  && rm -rf /var/lib/apt/lists/*
 

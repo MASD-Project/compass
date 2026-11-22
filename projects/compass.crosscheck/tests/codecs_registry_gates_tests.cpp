@@ -31,10 +31,14 @@ using places = std::vector<place>;
 
 }
 
-TEST_CASE("an accepted exception must be justified",
-    "[codecs][registry_exceptions]") {
-    const files t{
+namespace {
+
+const tests::options standard{{"standard", "STANDARD"}};
+
+files registry_tree() {
+    return {
         {"doc/knowledge/architecture/component_clean_standard.org",
+         ":PROPERTIES:\n:ID: STANDARD\n:END:\n"
          "| B01 | All | item | evidence |\n| V08 | x | y | z |\n"},
         {"projects/ores.codegen/scripts/component_registry.py",
          "from dataclasses import dataclass\n\n@dataclass(frozen=True)\n"
@@ -53,7 +57,14 @@ TEST_CASE("an accepted exception must be justified",
          "accepted_by=\"m\", accepted_on=\"2026-01-01\"),\n    ),\n"
          "    \"ghost\": (),\n}\n\n"
          "COMPONENTS_UNDER_TEST = (\"iam\", \"refdata\")\n"}};
-    CHECK(tests::messages_of(tests::run(codecs::registry_exceptions, t)) ==
+}
+
+}
+
+TEST_CASE("an accepted exception must be justified",
+    "[codecs][registry_exceptions]") {
+    CHECK(tests::messages_of(tests::run(codecs::registry_exceptions,
+        registry_tree(), standard)) ==
         std::vector<std::string>{
             "ghost: carries accepted exceptions but is not listed in "
             "COMPONENTS_UNDER_TEST; an exception only means something for a "
@@ -62,6 +73,28 @@ TEST_CASE("an accepted exception must be justified",
             "iam V08: names nobody as having accepted it",
             "iam V08: accepted_on is 'Sept', not an ISO date",
             "iam Z99: not an item the standard defines"});
+}
+
+TEST_CASE("the standard renamed under its ID still defines the items",
+    "[codecs][registry_exceptions]") {
+    auto t = registry_tree();
+    const std::string old_path =
+        "doc/knowledge/architecture/component_clean_standard.org";
+    t["doc/knowledge/architecture/the_clean_standard.org"] = t.at(old_path);
+    t.erase(old_path);
+    CHECK(tests::messages_of(tests::run(codecs::registry_exceptions, t,
+        standard)) == tests::messages_of(tests::run(
+            codecs::registry_exceptions, registry_tree(), standard)));
+    CHECK(tests::messages_of(tests::run(codecs::registry_exceptions, t,
+        standard)).size() == 6);
+}
+
+TEST_CASE("a standard option with no document of its ID is reported",
+    "[codecs][registry_exceptions]") {
+    CHECK(tests::run(codecs::registry_exceptions, registry_tree(),
+        {{"standard", "GONE"}}).findings == std::vector<tests::finding>{
+            {".compass.org", 0, "registry_exceptions: no document has the "
+                ":ID: GONE that the option 'standard' names"}});
 }
 
 TEST_CASE("a line chaining the tags of a section that spans lines is "
