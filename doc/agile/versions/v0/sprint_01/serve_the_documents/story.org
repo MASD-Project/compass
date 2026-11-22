@@ -35,9 +35,9 @@ The documents are read-only. The only writes are the testers' runs and notes.
 |---------------+----------------------------------------|
 | State         | STARTED                              |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
-| Now           | Not yet started.                       |
+| Now           | Create compass's database and Load and sync the corpus are in review. |
 | Waiting on    | Nothing.                               |
-| Next          | Create compass's database. |
+| Next          | Search the corpus. |
 | Last touched  | 2026-11-22                               |
 
 * Acceptance
@@ -119,8 +119,8 @@ The documents are read-only. The only writes are the testers' runs and notes.
 
 | Task | State | Start | End | Description |
 |------+-------+-------+-----+-------------|
-| [[id:8EA07ED7-30B4-4EEA-AE29-1968A0856330][Create compass's database]] | BACKLOG | | | Give compass its own PostgreSQL database per repository: the compass.db component over libpq, the corpus, test and activity schemas, compass db init and db migrate, and the connection in local settings. |
-| [[id:2872EB0E-C981-4566-ACED-3957458973A3][Load and sync the corpus]] | BACKLOG | | | Load each environment's documents into the corpus schema by content hash and keep it in step with the files: the sync, its triggers in the edit hook, at the end of each run, in git's hooks, compass sync and at deploy, and collection. |
+| [[id:8EA07ED7-30B4-4EEA-AE29-1968A0856330][Create compass's database]] | STARTED | 2026-11-22 | | Give compass its own PostgreSQL database per repository: the compass.db component over libpq, the corpus, test and activity schemas, compass db init and db migrate, and the connection in local settings. |
+| [[id:2872EB0E-C981-4566-ACED-3957458973A3][Load and sync the corpus]] | STARTED | 2026-11-22 | | Load each environment's documents into the corpus schema by content hash and keep it in step with the files: the sync, its triggers in the edit hook, at the end of each run, in git's hooks, compass sync and at deploy, and collection. |
 | [[id:318B663E-885D-4821-BE16-8CBD8E26A060][Search the corpus]] | BACKLOG | | | Search sections with PostgreSQL text search, weighted by title, heading path and text, with snippets, filters on any metadata and facets, measured against a recorded set of questions over ORE Studio. |
 | [[id:186C4AF8-CAB4-4754-B8AC-76D571B1B3E9][Serve the documents over HTTP]] | BACKLOG | | | Add compass serve: the query layer and the versioned read endpoints, per environment, with views compiled to SQL and the caller's name taken from the gateway. |
 | [[id:D61F946E-BC7E-40FD-B7B4-BB88E49F4D95][Render documents as HTML]] | DONE | 2026-11-22 | 2026-11-22 | Render a document's element tree as sanitised HTML with stable heading anchors, id links through the project's link template and images under the caller's view. |

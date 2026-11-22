@@ -1,0 +1,171 @@
+:PROPERTIES:
+:ID: 493B7D68-516E-4430-B4CE-688C6FBE1271
+:END:
+#+title: compass.db
+#+description: compass's own PostgreSQL database: a small RAII wrapper over libpq, the versioned migrations of the corpus, test and activity schemas, the corpus rows a parsed document becomes, the transaction that writes an environment's documents and placements, and collection.
+#+type: component
+#+level: cross
+#+filetags: :database:postgresql:corpus:component:
+#+created: 2026-11-22
+#+updated: 2026-11-22
+
+This page is the component overview for =compass.db=, a simple component in
+the domain layer of the
+[[id:8A9A460F-8024-4890-B091-C0D02FD84218][System Model]].
+
+* Summary
+
+=compass.db= holds compass's database: one PostgreSQL database per
+repository, which every environment of it shares. Environments are
+worktrees, branches and releases. Each one is a set of paths, and each path
+points at a document stored once by the blob ID of its content, as the
+store keys its objects. The design is
+[[id:21C1D3CC-9EE3-48C3-8EDD-BA0C16032AB2][Design: the document service]].
+
+The component has three parts.
+
+- *The connection* (=io/connection.hpp=). A =connection= opens a libpq
+  connection string and closes it on destruction. =exec= runs one statement
+  with text parameters, =run_script= runs several statements, and =copy_in=
+  sends rows to =COPY ... FROM STDIN=. A =result= owns the rows a statement
+  returned, and a =transaction= rolls back unless it is committed. Failures
+  throw =error=, which carries the SQLSTATE. Notices are dropped, so a
+  migration's =IF NOT EXISTS= prints nothing.
+- *The schema* (=ops/migrations.hpp=, =io/schema.hpp=). Migrations are
+  numbered from 1 with no gap, and a released migration is never edited.
+  =compass.migration= records the migrations applied, and =compass.setting=
+  holds the text search configuration and what the last collection left.
+  =migrate= applies each missing migration in its own transaction, under an
+  advisory lock, and refuses a schema newer than it knows. =refusal_of=
+  says why a command cannot use a database. A database is refused when it
+  was never initialised, when it is newer than this compass, or when it is
+  older; only =compass db migrate= updates an older one.
+- *The corpus* (=ops/extract.hpp=, =io/corpus.hpp=). =extract= turns
+  compass's parse of a document, the =compass.org= tables, into the rows of
+  =corpus.document=, =heading=, =section=, =link= and, for a page of
+  =#+type: test_scenario=, =test.scenario= and =test.step=. It never parses,
+  so a document is parsed at most once per repository, by whoever needs it
+  first. =write_environment= writes those rows and an environment's
+  placements in one transaction, and =collect= removes what nothing names.
+
+* Inputs
+
+- A libpq connection string, from the repository's local settings.
+- For extraction: the bytes of a document, its blob ID and its
+  =compass.org= tables, as the store holds them or a parse makes them.
+- For a write: the environment's name, kind, root and head commit; the
+  documents the corpus lacks; and the environment's placements, all of them
+  or only those of a list of paths.
+
+* Outputs
+
+- *Schemas.* Migration 1 creates three schemas, from the design's tables.
+  =corpus= holds =document=, =heading=, =section=, =link=, =environment=
+  and =placement=. =test= holds =scenario= and =step=. =activity= holds
+  =campaign=, =run=, =step_result=, =note=, =attachment= and =attached=. A
+  document's rows are keyed by its blob ID (=bytea=) and an =ord=, and they
+  cascade from =corpus.document=. Activity names documents by =:ID:= and by
+  the hash of the definition it used. Nothing in =activity= references the
+  corpus, so a test run outlives the document version it ran against.
+- *Documents.* The common metadata become columns: =org_id= (the =:ID:= of
+  the drawer before the first heading), =title=, =description=, =type=,
+  =level=, =audience=, =created= and =updated=. =tags= is =#+filetags:=.
+  =keywords= is every keyword before the first heading, each a list, so a
+  repeated keyword keeps every value. =properties= is that drawer. =source=
+  is the document's text. =tags= has a GIN index, and so do =keywords= and
+  =properties=, with =jsonb_path_ops=, so a project filters on a new keyword
+  with no migration. The dates stay text, because a document may write one
+  badly.
+- *Headings.* Each heading has its level, its title as plain text, its path
+  from the outermost heading, its TODO keyword, priority, tags and
+  properties. Its anchor is its =:ID:= when it has one. Otherwise the
+  anchor is a slug of its path, numbered from 2 when an earlier heading
+  took the slug.
+- *Sections.* There is one section per heading, and one for the preamble
+  when the preamble has prose. The text is the heading's own section as
+  plain text, without drawers, keywords, planning lines, clocks or comments.
+  A link becomes its description, or the link as written. =tsv= is computed
+  by the insert: the document's title weighs A, the heading path B and the
+  text D, under the database's text search configuration, =english= unless
+  =db init= was given another. A database keeps its configuration, so
+  every =tsv= in it is computed the same way.
+- *Links.* Each link has the heading it sits under, its type, its path as
+  written, the target of an =id:= link and the text it reads as.
+- *Test definitions.* The test definitions come from the =Scenario Info=
+  table. =task_id= and =story_id= are the =id:= links of the =Verifies
+  task= and =Parent story= rows. =target= is the =Target ...= row, else
+  =#+target_dialog:=. =environment= is =#+environment:=. A step is a heading
+  right under =* Steps=: its title, and its text without the heading line
+  and any =Result= subheading. =definition= is the blob ID of the page
+  without every =Result= or =Results= heading and without the =State= row,
+  so writing a result into the page leaves the definition unchanged.
+- *Writing an environment.* =write_environment= runs one transaction. It
+  upserts the environment row, which locks it against a concurrent sync of
+  the same environment, and stages the placements with =COPY=. It locks
+  every document a placement names =FOR KEY SHARE=. When a placement names a
+  document that is neither in the corpus nor among the documents given, the
+  transaction rolls back and the result asks the caller to retry with those
+  documents loaded. This happens when a collection removed a document after
+  the caller asked what was present. Otherwise the transaction stages the
+  documents' rows with =COPY= and inserts them with =ON CONFLICT DO
+  NOTHING=, so two syncs may write the same document at once. It deletes,
+  updates and adds placements, then sets =head= and =synced_at=. A reader
+  sees the old placements or the new ones, never a mix. With a list of
+  paths, only those paths change: this is what the edit hook writes.
+- *Collection.* =collect= takes an advisory lock and gives up at once when
+  another collection holds it. It deletes every document that no placement
+  and no =activity.run= names, skipping a row a sync has locked
+  (=FOR UPDATE SKIP LOCKED=), and records how many documents are left.
+  =collect_when_grown= collects as the store does. It runs only when the
+  corpus holds at least =collection_floor= documents (4,096) and at least
+  twice what the last collection left, so the corpus is swept at most once
+  per doubling. =drop_environment= removes an environment and its
+  placements, and its documents wait for the next collection.
+
+* Entry points
+
+| Path | Role |
+|------+------|
+| =include/compass.db/io/connection.hpp= | =connection=, =result=, =transaction=, =error=. |
+| =include/compass.db/ops/migrations.hpp= | =migrations=, =known_version=, =bookkeeping_sql=. |
+| =include/compass.db/io/schema.hpp= | =read_status=, =migrate=, =init=, =refusal_of=, =require_current=. |
+| =include/compass.db/types/corpus_document.hpp= | The rows of one document. |
+| =include/compass.db/types/environment.hpp= | =environment=, =placement=, =environment_summary=. |
+| =include/compass.db/ops/extract.hpp= | =extract=, =slug=. |
+| =include/compass.db/ops/copy_text.hpp= | =copy_writer=: COPY's text format. |
+| =include/compass.db/io/corpus.hpp= | =present=, =write_environment=, =collect=, =collect_when_grown=, =environments=, =drop_environment=. |
+| =tests/ops_extract_tests.cpp= | Metadata, headings, anchors, sections, links, test scenarios and their definition hash. |
+| =tests/ops_copy_text_tests.cpp= | Escapes, NULL, =bytea=, arrays, NUL and bad UTF-8. |
+| =tests/io_schema_tests.cpp= | Init, idempotence, newer and older schemas, the text search configuration. |
+| =tests/io_corpus_tests.cpp= | Writing, sharing between environments, scoped writes, the retry, search weights, the test schema, collection. |
+
+| Target | Kind |
+|--------+------|
+| =compass.db.lib= | Library. |
+| =compass.db.tests= | Catch2 executable, registered with CTest. |
+
+The =io= tests run against a throwaway cluster from
+[[id:0F1D33BA-2BD8-456C-BD71-324C3B46E5FB][compass.testing]]. They skip, and
+say why, on a machine without the PostgreSQL server programs.
+
+* Dependencies
+
+- libpq, from its vcpkg port, without its default features: compass reaches
+  its database on a Unix socket or a private network, so the port builds
+  without OpenSSL, lz4 or zlib. A server that requires TLS needs the
+  =openssl= feature turned on.
+- [[id:44C128E0-BCF3-4574-B171-BF5E72325085][compass.org]] for the tables
+  that extraction reads.
+- [[id:EB285F25-4AF8-482D-B679-C650DA718CF6][compass.store]] for the blob ID
+  and its hex form.
+- [[id:73F4046A-896C-4F38-864C-572B10F47389][compass.platform]] for UTF-8
+  checking.
+- For the tests: Catch2, =compass.ingest= to parse, and =compass.testing=
+  for the cluster.
+
+* See also
+
+- [[id:21C1D3CC-9EE3-48C3-8EDD-BA0C16032AB2][Design: the document service]].
+- [[id:45FA67C9-60BC-420D-BB66-8A272CB1106C][compass.cli]], which hosts
+  =compass sync= and =compass db= and runs the syncs.
+- [[id:8A0E6F32-C4BC-4667-88E8-7F80CA25437C][Component architecture]].

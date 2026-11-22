@@ -29,6 +29,7 @@
 #include <tuple>
 #include <variant>
 #include "compass.cli/app/check_inventory.hpp"
+#include "compass.cli/app/database.hpp"
 #include "compass.cli/app/env.hpp"
 #include "compass.cli/app/pipeline.hpp"
 #include "compass.cli/config/arguments.hpp"
@@ -269,11 +270,13 @@ int run_hook(types::invocation i, std::istream& in, std::ostream& out,
             io::write_hook(out, err, r);
             return exit_success;
         }
-        r = hook(*o, p->file.lexically_relative(*checkout).generic_string(),
-            p->created);
+        const auto path =
+            p->file.lexically_relative(*checkout).generic_string();
+        r = hook(*o, path, p->created);
         io::write_hook(out, err, r);
         if (i.timings)
             io::write_timings(err, r.run);
+        sync_after_edit(*checkout, path, i.timings, err);
     } catch (const std::exception& e) {
         r.findings.clear();
         r.note = std::string("failed (") + e.what() + "); nothing was checked";
@@ -294,14 +297,19 @@ int run_command(const types::invocation& i, std::ostream& out,
     for (const auto& w : c.warnings)
         err << "compass: warning: " << w << "\n";
     const auto& o = *resolved;
+    const auto then_sync = [&](int status) {
+        if (!o.commit)
+            sync_after_run(o.checkout, o.threads, i.timings, err);
+        return status;
+    };
     switch (o.which) {
     case types::command::generate:
-        return run_generate(o, i, out, err);
+        return then_sync(run_generate(o, i, out, err));
     case types::command::diff: return run_diff(o, i, out, err);
     case types::command::check:
         if (i.ratchet)
-            return run_ratchet(o, *i.ratchet, i.timings, out, err);
-        return run_check(o, i.timings, out, err);
+            return then_sync(run_ratchet(o, *i.ratchet, i.timings, out, err));
+        return then_sync(run_check(o, i.timings, out, err));
     case types::command::gc:
         io::write_gc(out, gc(o));
         return exit_success;
@@ -312,6 +320,8 @@ int run_command(const types::invocation& i, std::ostream& out,
         return run_blame(o, i.target, i.timings, out, err);
     case types::command::hook:
     case types::command::env:
+    case types::command::sync:
+    case types::command::db:
         break;
     }
     return exit_failure;
@@ -342,6 +352,10 @@ int run(std::span<const std::string_view> args,
     try {
         if (invocation.which == types::command::env)
             return run_env(invocation, out, err);
+        if (invocation.which == types::command::sync)
+            return run_sync(invocation, out, err);
+        if (invocation.which == types::command::db)
+            return run_db(invocation, out, err);
         return run_command(invocation, out, err);
     } catch (const std::exception& e) {
         err << "compass: " << e.what() << "\n";
