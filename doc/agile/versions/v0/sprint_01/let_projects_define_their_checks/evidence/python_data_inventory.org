@@ -5,7 +5,7 @@
 #+description: Every module-level Python value compass-ng's codecs parse out of ORE Studio's scripts, with its shape, size, parse site, class, proposed org table and whether ORE still runs the script.
 #+type: investigation
 #+level: s1
-#+filetags: :gates:checks:let_projects_define_their_checks:sprint_01:v0:evidence:
+#+filetags: :gates:checks:let_projects_define_their_checks:sprint_01:v0:
 #+created: 2026-11-21
 #+updated: 2026-11-21
 

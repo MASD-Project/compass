@@ -5,7 +5,7 @@
 #+description: Every failed CI run of ORE Studio from 2026-09-19 to 2026-11-18, day by day, with its failing job, step, reason, pattern and whether compass could catch it before a build.
 #+type: investigation
 #+level: s1
-#+filetags: :gates:llm:catch_llm_error_patterns:sprint_01:v0:evidence:
+#+filetags: :gates:llm:catch_llm_error_patterns:sprint_01:v0:
 #+created: 2026-11-18
 #+updated: 2026-11-18
 

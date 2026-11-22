@@ -5,7 +5,7 @@
 #+description: No C++ class, struct or union holds more than fifteen data members, save the types its Ceilings table records, whose ceilings only come down.
 #+type: check
 #+level: cross
-#+filetags: :compass:check:cpp:design:
+#+filetags: :compass:check:cpp:design:evidence:
 #+created: 2026-11-19
 #+updated: 2026-11-19
 #+options: prop:t

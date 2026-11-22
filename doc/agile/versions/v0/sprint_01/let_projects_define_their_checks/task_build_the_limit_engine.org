@@ -89,7 +89,7 @@ task and name that file in the Command column.
 | Types over 10 / 15 / 20 / 30 fields in ORE Studio's C++ | 1,505 / 598 / 240 / 39 | scratch driver over =type_widths=, every =.hpp=, =.cpp= and =.h= under =projects/= | ORE =76d6a65b85= |
 | Of the 598 over 15, structs | 588 | the same | ORE =76d6a65b85= |
 | Findings of the check with no rows recorded | 598 | =compass check -C <snapshot> --codec wide_types= | ORE =76d6a65b85=, compass =feature/wide-types-check= |
-| Findings with the 598 rows recorded | 0 | the same, with [[file:evidence/wide_types_ore_76d6a65b85.org.txt][evidence/wide_types_ore_76d6a65b85.org.txt]] as =compass/checks/wide_types.org= | the same |
+| Findings with the 598 rows recorded | 0 | the same, with [[file:evidence/wide_types_ore_76d6a65b85.org][evidence/wide_types_ore_76d6a65b85.org]] as =compass/checks/wide_types.org= | the same |
 | Cold run of the check alone | 5.1 s | =time= of the first command | the same |
 
 * Notes

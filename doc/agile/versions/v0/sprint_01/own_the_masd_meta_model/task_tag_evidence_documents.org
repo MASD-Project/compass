@@ -1,0 +1,121 @@
+:PROPERTIES:
+:ID: 8BA1802D-350E-42FB-8DAC-F51B6F1A4604
+:END:
+#+title: Task: Tag evidence documents
+#+description: Mark recorded artefacts kept for reference with the evidence filetag so they keep the .org extension, are held to no contract, lend their IDs only when no live page has them, and are read by no codec that does not ask for evidence.
+#+type: task
+#+level: s1
+#+filetags: :documentation:own_the_masd_meta_model:sprint_01:v0:
+#+owner: marco
+#+branch:
+#+pr:
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-11-22
+#+updated: 2026-11-22
+#+environment:
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [[id:E3C81059-FE00-4403-AA56-190FDBB9904A][Own the MASD meta model and generate compass with it]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+An org document kept for the record, such as a probe input or a copy of
+another project's page, is saved as =.org= with the =evidence= filetag
+instead of hiding behind a =.org.txt= extension. compass reads the tag in one
+place and treats the document as a record: no contract holds it, its IDs
+yield to live pages, no codec takes it as input unless the codec asks for
+evidence, and it is still parsed and indexed.
+
+* Status
+
+| Field        | Value                                  |
+|--------------+----------------------------------------|
+| State        | STARTED                              |
+| Parent story | [[id:E3C81059-FE00-4403-AA56-190FDBB9904A][Own the MASD meta model and generate compass with it]] |
+| Now          | Implemented; pull request open.        |
+| Waiting on   | Review.                                |
+| Next         | Merge.                                 |
+| Last touched | 2026-11-22                               |
+
+* Acceptance
+
+- The three =.org.txt= evidence files are =.org= files tagged =evidence=,
+  and =render_probe.sh= and the pages that link them name the new paths.
+- =required_sections= does not report an evidence document.
+- A live document holds an ID an evidence document also carries, and a
+  link to an ID only evidence carries resolves in =lint=.
+- A codec that does not declare evidence neither sees, finds nor lists an
+  evidence document, and a check document tagged =evidence= defines nothing.
+- =document_index= lists evidence with its type.
+- =evidence_location= reports an evidence document outside an =evidence/=
+  directory.
+- [[id:8B29A8D8-E004-4E87-B81D-ABEAF68F2B98][Document Types]] and the
+  [[id:F94957C5-382A-4D6E-B292-C02C2772F038][Tag inventory]] state the rule.
+
+* Plan
+
+- One predicate, =org::ops::is_evidence=, reads the first =#+filetags:=.
+- =codec::ops::index_corpus= flags evidence rows and lets live documents
+  win an ID. =types::inputs::with_evidence()= is the only way for a codec to
+  see evidence; =corpus_view= and the runner's recorded-input answers apply
+  the same =read_scope=, so visibility, lookups and listings agree.
+- Codecs that read evidence on purpose: =document_index= (lists it),
+  =lint= (resolves links to its IDs, checks nothing in it) and the new
+  =evidence_location=.
+- =read_check_documents= skips evidence, since it reads files outside the
+  corpus.
+- The four investigations under =evidence/= that carried =:evidence:= as a
+  topic tag lose it: they are live investigations held to their contract.
+
+* Measurements
+
+Every number this task claims about a tree, with the command that produced it
+and the commit it was measured at. A number without both is not a measurement,
+because a clean-up record describes a tree and trunk moves under a branch: a
+consumer count, a gate's component count and a suite's size all change with no
+code changing, and the reader of a bare number cannot tell which tree it came
+from. Where the raw output matters, put it in an =evidence/= file beside the
+task and name that file in the Command column.
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+| New diagnostics from renaming the three files to =.org=, untagged | 0; =document_index= gains three rows | =compass generate=, =compass check --no-blame= | 7b19f03 |
+| New diagnostics once tagged | 0; the index keeps the three rows | the same | 7b19f03 |
+| Pages under =evidence/= carrying =:evidence:= before this task | 4 investigations, all live | =grep -rl ':evidence:' doc= | 69e87fe |
+| Evidence tests that fail with =is_evidence= forced false | 7 of 9 | =ctest -R 'evidence\|lends its IDs'= | 7b19f03 |
+
+* Notes
+
+- The converse rule, that every page under =evidence/= carries the tag, is
+  wrong: =evidence/= directories here and in ORE Studio also hold live
+  investigations written to their contract.
+- The captured =.hpp.txt= and =.sql.txt= files keep their suffix. They are
+  not documents, so the tag cannot apply to them, and the suffix is what
+  keeps clang-format, clang-tidy, the build and the SQL codecs, which find
+  their inputs by extension, from treating a captured output as source.
+
+* Test Scenarios
+
+Manual QA scenarios (scaffolded via =compass add test_scenario=)
+that verify this task. Link
+new ones here as they're created; the scenario doc itself links back
+via its "Verifies task" field.
+
+| Scenario | State | Notes |
+|----------+-------+-------|
+|          |       |       |
+
+* PRs
+
+| PR | Title |
+|----+-------|
+|    |       |
+
+* Review
+
+| # | Comment summary | File | Decision | Notes |
+|---+-----------------+------+----------+-------|
+|   |                 |      |          |       |
+
+* Result

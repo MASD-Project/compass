@@ -102,7 +102,7 @@ Studio byte for byte.
 *** The probe
 
 =corpus.document= was written as an ORE Studio entity in
-[[file:evidence/ores.geo.document.org.txt][evidence/ores.geo.document.org.txt]],
+[[file:evidence/ores.geo.document.org][evidence/ores.geo.document.org]],
 bound to =read-only-current-state=, without a tenant, with the hash as a
 =bytea= key, =text[]= tags, =jsonb= keywords, a =now()= default and a gin
 index:
@@ -213,7 +213,7 @@ struct document_entity {
 #+end_src
 
 =activity.run=
-([[file:evidence/ores.geo.run.org.txt][evidence/ores.geo.run.org.txt]]) has
+([[file:evidence/ores.geo.run.org][evidence/ores.geo.run.org]]) has
 a =bigint= identity key, a foreign key to its campaign and a check on its
 outcome:
 
