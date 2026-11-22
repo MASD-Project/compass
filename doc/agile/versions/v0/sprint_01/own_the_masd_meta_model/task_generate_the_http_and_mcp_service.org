@@ -22,7 +22,7 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 Generate Serve the documents' HTTP and MCP service from its
 operation models: cpp-httplib routes, MCP tool descriptions and the tool table,
-and the JSON codec of the messages. The query functions, the caller and binding
+over the messages' generated JSON codecs and schemas. The query functions, the caller and binding
 helpers and the =/mcp= dispatcher are written by hand once.
 
 * Status
@@ -32,7 +32,7 @@ helpers and the =/mcp= dispatcher are written by hand once.
 | State        | BACKLOG                              |
 | Parent story | [[id:E3C81059-FE00-4403-AA56-190FDBB9904A][Own the MASD meta model and generate compass with it]] |
 | Now          | Not yet started.                       |
-| Waiting on   | [[id:55F578C5-6F25-4385-B0F2-CDFBDF9A753C][Model compass's service]]; [[id:B8F7849D-1477-4C30-80A1-49706AB2AA57][Generate compass's schema and row types]]. |
+| Waiting on   | [[id:E754BE53-3A6B-4491-BB26-450D1A34F159][Generate JSON codecs]]; [[id:55F578C5-6F25-4385-B0F2-CDFBDF9A753C][Model compass's service]]; [[id:B8F7849D-1477-4C30-80A1-49706AB2AA57][Generate compass's schema and row types]]. |
 | Next         | Begin implementation.                  |
 | Last touched | 2026-11-22                               |
 
