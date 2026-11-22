@@ -1968,6 +1968,7 @@ std::expected<cops::data_tables, unreadable> read_tables(
     const ct::corpus_view& v, std::string_view codec) {
     std::vector<cops::table_need> needs(needed.begin(), needed.end());
     std::ranges::copy(convention_terms_tables(), std::back_inserter(needs));
+    needs.push_back(entities_table);
     const auto text = v.option(cops::data_option);
     auto data = cops::tables_for(codec, text, needs);
     if (!data) {
@@ -2078,9 +2079,10 @@ outcome evaluate(const ct::corpus_view& v, const cops::data_tables& data) {
     return out;
 }
 
-std::string render_seed(const model& m) {
+std::string render_seed(const model& m, const storage& names) {
     const std::string tenant = "ores_utility_system_tenant_id_fn()";
-    const std::string actor = "'ores_reporting_service', 'system.initial_load'";
+    const auto actor = sql_quoted(names.writer(role::value_set)) +
+        ", 'system.initial_load'";
     const auto seed = q("Seed parameter value sets");
     std::vector<std::vector<std::string>> catalogues, sets, values, links;
     for (const auto& [code, c] : m.catalogues)
@@ -2117,24 +2119,25 @@ std::string render_seed(const model& m) {
  */
 
 )" + write("Value Set Catalogues",
-        "ores_reporting_ore_parameter_value_set_catalogues_tbl",
+        names[role::value_set_catalogue].table,
         "code, tenant_id, version, name, relation, description, is_active, "
         "modified_by, change_reason_code, change_commentary", catalogues) +
-        write("Value Sets", "ores_reporting_ore_parameter_value_sets_tbl",
+        write("Value Sets", names[role::value_set].table,
         "code, tenant_id, version, name, description, source_kind, cardinality, "
         "catalogue_code, minimum, maximum, pattern, is_ordered, modified_by, "
         "change_reason_code, change_commentary", sets) +
-        write("Value Set Values", "ores_reporting_ore_parameter_value_set_values_tbl",
+        write("Value Set Values", names[role::value_set_value].table,
         "code, tenant_id, version, value_set_code, value, label, description, "
         "display_order, is_active, canonical_value, modified_by, "
         "change_reason_code, change_commentary", values) +
-        write("Setting Value Sets",
-        "ores_reporting_ore_parameter_setting_value_sets_tbl",
+        write("Setting Value Sets", names[role::setting_value_set].table,
         "code, tenant_id, version, scope, name, value_set_code, modified_by, "
         "change_reason_code, change_commentary", links);
 }
 
-std::string render_columns(const std::vector<map_column>& columns) {
+std::string render_columns(const std::vector<map_column>& columns,
+    const storage& names) {
+    const auto& table = names[role::element_map_column].table;
     std::string values;
     for (const auto& c : columns) {
         if (!values.empty())
@@ -2143,8 +2146,9 @@ std::string render_columns(const std::vector<map_column>& columns) {
             ", ores_utility_system_tenant_id_fn(), 0, " + sql_quoted(c.map_code) +
             ", " + sql_quoted(c.entity) + ", " + sql_quoted(c.table) + ", " +
             sql_quoted(c.column) + ", " + sql_quoted(c.xpath) + ", " +
-            std::to_string(c.position) +
-            ", 'ores_reporting_service', 'system.initial_load', " +
+            std::to_string(c.position) + ", " +
+            sql_quoted(names.writer(role::element_map_column)) +
+            ", 'system.initial_load', " +
             sql_quoted("Seed the ORE element map columns") + ")";
     }
     return std::string(map_licence) + R"(
@@ -2158,7 +2162,7 @@ std::string render_columns(const std::vector<map_column>& columns) {
  * edit it by hand. This script is idempotent.
  */
 
-insert into ores_reporting_ore_element_map_columns_tbl (
+insert into )" + table + R"( (
     code, tenant_id, version, element_map_code, entity_name, table_name,
     column_name, xpath, position, modified_by, change_reason_code,
     change_commentary
@@ -2169,12 +2173,14 @@ where valid_to = ores_utility_infinity_timestamp_fn()
 do nothing;
 
 select 'Ore Element Map Columns' as entity, count(*) as count
-from ores_reporting_ore_element_map_columns_tbl
+from )" + table + R"(
 where valid_to = ores_utility_infinity_timestamp_fn();
 )";
 }
 
-std::string render_map(const std::vector<map_row>& rows) {
+std::string render_map(const std::vector<map_row>& rows,
+    const storage& names) {
+    const auto& table = names[role::vocabulary].table;
     std::string values;
     for (const auto& r : rows) {
         if (!values.empty())
@@ -2184,7 +2190,8 @@ std::string render_map(const std::vector<map_row>& rows) {
             ", " + sql_quoted(r.xpath) + ", " + sql_quoted(r.element) + ", " +
             sql_quoted(r.set) + ", " + sql_quoted(r.name) + ", " + sql_quoted(r.source) +
             ", " + sql_quoted(r.source_ref) + ", " + sql_quoted(r.reason) +
-            ", 'ores_reporting_service', 'system.initial_load', " +
+            ", " + sql_quoted(names.writer(role::vocabulary)) +
+            ", 'system.initial_load', " +
             sql_quoted("Seed the ORE element map") + ")";
     }
     return std::string(map_licence) + R"(
@@ -2202,7 +2209,7 @@ std::string render_map(const std::vector<map_row>& rows) {
  * pass.
  */
 
-insert into ores_reporting_ore_parameter_vocabularies_tbl (
+insert into )" + table + R"( (
     code, tenant_id, version, schema_name, xpath, element_name, value_set_code,
     name, source, source_ref, reason, modified_by, change_reason_code,
     change_commentary
@@ -2213,7 +2220,7 @@ where valid_to = ores_utility_infinity_timestamp_fn()
 do nothing;
 
 select 'ORE Element Map' as entity, count(*) as count
-from ores_reporting_ore_parameter_vocabularies_tbl
+from )" + table + R"(
 where valid_to = ores_utility_infinity_timestamp_fn();
 )";
 }
