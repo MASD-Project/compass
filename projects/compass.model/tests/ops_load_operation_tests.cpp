@@ -300,3 +300,66 @@ Runs a widget.
 }
 )json");
 }
+
+/*
+ * A time of day crosses the wire as "HH:MM:SS" text and, like a date, is
+ * not a shell token; its sentinel is midnight.
+ */
+TEST_CASE("a time of day field is text with a midnight sentinel",
+    "[model][operation]") {
+    constexpr std::string_view path =
+        "projects/ores.demo/modeling/ores.demo.cut_operations.org";
+    compass::model::tests::checkout c;
+    c.add_modeling_documents();
+    c.add(std::string(path), R"org(#+title: ores.demo.cut_operations
+#+type: ores.codegen.operation
+#+product: ores
+#+component: demo
+#+subcomponent: api
+#+entity_singular: cut
+#+namespace: ores::demo::messaging
+#+brief: Operations on cuts.
+
+Takes a cut.
+
+* Messages
+
+** take_cut_request
+:PROPERTIES:
+:subject:  demo.v1.cuts.take
+:response: take_cut_response
+:shell_command: take
+:END:
+
+*** at
+:PROPERTIES:
+:cpp_type: ores::platform::time::time_of_day
+:END:
+
+*** until
+:PROPERTIES:
+:cpp_type: std::optional<ores::platform::time::time_of_day>
+:default:  std::nullopt
+:END:
+
+** take_cut_response
+:PROPERTIES:
+:END:
+
+*** ok
+:PROPERTIES:
+:cpp_type: bool
+:END:
+)org");
+    const auto json = c.load_json(path);
+    INFO(json);
+    CHECK(json.contains(R"("invocation": "take 00:00:00")"));
+    CHECK(json.contains(R"("name": "at",
+            "ts_type": "string")"));
+    CHECK(json.contains(R"("name": "until",
+            "ts_type": "string | null")"));
+    CHECK(json.contains(R"("unsupported": [
+          "at",
+          "until"
+        ])"));
+}

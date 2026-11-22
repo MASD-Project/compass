@@ -65,6 +65,8 @@ struct column_flags {
     bool is_date = false;
     bool is_optional_date = false;
     bool is_required_date = false;
+    bool is_time = false;
+    bool is_optional_time = false;
     bool is_decimal = false;
     bool is_optional_decimal = false;
     bool is_required_decimal = false;
@@ -147,6 +149,8 @@ column_flags derive(const model_tables& t, value_id col, bool plain,
         {"timestamp", "timestamptz", "timestamp with time zone"});
     const bool is_enum_type = values::truthy(t, col, "is_enum");
     const bool is_inet_type = cpp_type.contains("boost::asio::ip::address");
+    const bool is_time_type = is_one_of(sql_type,
+        {"time", "time without time zone"});
 
     std::string domain_type(values::strip(cpp_type));
     if (values::is(t, name_value, compass::model::types::value_kind::string)) {
@@ -161,6 +165,14 @@ column_flags derive(const model_tables& t, value_id col, bool plain,
     f.is_optional_date = f.is_date && nullable;
     f.is_required_date = f.is_date && !nullable;
 
+    /*
+     * The repository row holds a time of day as its "HH:MM:SS" text and the
+     * mapper converts, so no generic member branch takes the column.
+     */
+    const bool is_time = plain && is_time_type;
+    f.is_time = is_time && !nullable;
+    f.is_optional_time = is_time && nullable;
+
     const bool is_numeric_sql_type = sql_type.starts_with("numeric");
     const bool is_decimal_domain = is_one_of(domain_type,
         {"ores::utility::decimal::decimal",
@@ -170,7 +182,8 @@ column_flags derive(const model_tables& t, value_id col, bool plain,
     f.is_required_decimal = f.is_decimal && !nullable;
 
     const bool already_optional = cpp_type.starts_with("std::optional<") &&
-        !is_uuid_type && !is_timestamp_type && !f.is_date && !f.is_decimal;
+        !is_uuid_type && !is_timestamp_type && !f.is_date && !f.is_decimal &&
+        !is_time;
     f.is_already_optional = already_optional;
     f.is_uuid = is_uuid_type && !nullable;
     f.is_optional_uuid = is_uuid_type && nullable;
@@ -181,18 +194,18 @@ column_flags derive(const model_tables& t, value_id col, bool plain,
     f.is_enum = is_enum_type && !nullable;
     f.is_value_type = values::truthy(t, col, "is_value_type") && !nullable &&
         !is_enum_type && !is_uuid_type && !is_timestamp_type &&
-        !already_optional;
+        !already_optional && !is_time;
     const bool plain_nullable = nullable && !is_uuid_type &&
         !is_timestamp_type && !is_enum_type && !already_optional &&
-        !f.is_decimal;
+        !f.is_decimal && !is_time;
     f.is_nullable_string = plain_nullable && !f.is_date &&
         cpp_type == "std::string";
     f.is_nullable_numeric = plain_nullable && is_one_of(cpp_type,
         {"int", "std::int64_t", "std::uint64_t", "double", "float", "bool"});
     f.is_simple = !nullable && !is_uuid_type && !is_timestamp_type &&
         !is_inet_type && !is_enum_type && !already_optional && !f.is_date &&
-        !f.is_decimal && !f.is_base64 && !f.is_value_type;
-    f.is_text_stored = is_one_of(sql_type, {"jsonb", "inet"}) ||
+        !f.is_decimal && !f.is_base64 && !f.is_value_type && !is_time;
+    f.is_text_stored = is_one_of(sql_type, {"jsonb", "inet"}) || is_time ||
         (sql_type == "date" && !is_date_domain) ||
         (is_numeric_sql_type && !is_decimal_domain);
 
@@ -232,6 +245,8 @@ void write(builder& b, value_id col, const column_flags& f,
     b.set(col, "is_date", f.is_date);
     b.set(col, "is_optional_date", f.is_optional_date);
     b.set(col, "is_required_date", f.is_required_date);
+    b.set(col, "is_time", f.is_time);
+    b.set(col, "is_optional_time", f.is_optional_time);
     b.set(col, "is_decimal", f.is_decimal);
     b.set(col, "is_optional_decimal", f.is_optional_decimal);
     b.set(col, "is_required_decimal", f.is_required_decimal);
@@ -318,6 +333,8 @@ void derive_column_aggregates(builder& b, value_id entity) {
         "is_required_inet"));
     b.set(entity, "has_base64_columns", any_column(t, entity, "is_base64"));
     b.set(entity, "has_plain_date_columns", any_column(t, entity, "is_date"));
+    b.set(entity, "has_time_columns", any_column(t, entity, "is_time") ||
+        any_column(t, entity, "is_optional_time"));
     b.set(entity, "has_decimal_columns", any_column(t, entity, "is_decimal"));
 }
 

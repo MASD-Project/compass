@@ -122,7 +122,7 @@ void run(const ct::document& d, const ct::corpus_view& v,
 
 const ct::descriptor generated_column_refs{
     .name = "generated_column_refs",
-    .version = 2,
+    .version = 3,
     .summary = "Reports each column a model's table display or index names "
         "that its generated struct or table does not have.",
     .reads = ct::inputs::every_document(),

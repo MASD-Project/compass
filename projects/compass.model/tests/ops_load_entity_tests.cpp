@@ -425,3 +425,63 @@ drop table if exists x;
 }
 )json");
 }
+
+namespace {
+
+/*
+ * A widget with one nullable column of @p cpp_type, @p extra appended to
+ * its properties.
+ */
+std::string widget_with_nullable(std::string_view cpp_type,
+    std::string_view extra) {
+    return std::string(R"org(#+title: ores.demo.widget
+#+type: ores.codegen.entity
+#+entity_singular: widget
+#+entity_plural: widgets
+
+* Flags
+:PROPERTIES:
+:schema:       public
+:product:      ores
+:component:    demo
+:subcomponent: api
+:END:
+
+* Columns
+
+** code
+:PROPERTIES:
+:type:        text
+:cpp_type:    std::string
+:primary_key: true
+:END:
+
+** opens_at
+:PROPERTIES:
+:type:     time
+:nullable: true
+:cpp_type: )org") + std::string(cpp_type) + "\n" + std::string(extra) +
+        ":END:\n";
+}
+
+}
+
+/*
+ * A nullable column whose C++ type cannot be null needs a value to stand
+ * for null, for a time of day as for a date.
+ */
+TEST_CASE("a nullable bare time of day needs a default value",
+    "[model][entity]") {
+    const std::string path = "projects/ores.demo/modeling/ores.demo.widget.org";
+    const auto loads = [&](std::string_view cpp_type,
+        std::string_view extra) {
+        compass::model::tests::checkout c;
+        c.add_modeling_documents();
+        c.add(path, widget_with_nullable(cpp_type, extra));
+        return !c.load_json(path).contains(R"("error": "ValueError")");
+    };
+    CHECK_FALSE(loads("ores::platform::time::time_of_day", ""));
+    CHECK(loads("ores::platform::time::time_of_day",
+        ":default_value: ores::platform::time::time_of_day{}\n"));
+    CHECK(loads("std::optional<ores::platform::time::time_of_day>", ""));
+}

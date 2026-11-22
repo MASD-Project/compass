@@ -153,6 +153,7 @@ void validate_entity(load_context& c, value_id de) {
     }
     constexpr std::string_view bare[] = {"bool", "int", "std::int64_t",
         "std::uint64_t", "float", "double", "std::chrono::year_month_day",
+        "ores::platform::time::time_of_day",
         "std::chrono::system_clock::time_point"};
     for (const auto col : checked) {
         const bool nullable = truthy(b, b.find(col, "nullable"));
