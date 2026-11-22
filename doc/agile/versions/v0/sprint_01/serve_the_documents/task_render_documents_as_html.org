@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :serve_the_documents:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/render-documents-as-html
+#+pr: 174
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-22
@@ -20,28 +20,73 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Goal
 
-(Describe what user-visible-or-internal change this task produces.)
+compass renders a parsed org document as HTML that a front end can show as it
+is: headings a search hit can link to, links that follow the project's URLs
+and the caller's view, and no markup from the source. The renderer is a pure
+library, so the service, a static export and a test call it the same way.
 
 * Status
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                                 |
 | Parent story | [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]] |
-| Now          | Not yet started.                       |
-| Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Now          | =compass.html= renders ORE Studio's 872 knowledge and manual pages in about 65 ms. |
+| Waiting on   | Review of the pull request.            |
+| Next         | The service calls =render= from its document endpoint. |
 | Last touched | 2026-11-22                               |
 
 * Acceptance
 
--
+- =compass.html::ops::render= takes a document's source and tables, its
+  path, a =render_config= and a =link_resolver=, and returns the document's
+  =:ID:=, title and description as metadata and its body as HTML. It reads
+  no file, database or network.
+- Headings, paragraphs, plain, ordered and description lists, tables with
+  header rows from the first rule, source and example blocks with their
+  language as a class, quote blocks, bold, italic, underline, verbatim,
+  code, strike-through, links and the keyword header each render, and each
+  has a test.
+- A heading's anchor is its =:ID:=, or else the slug of its heading path,
+  unique within the document. =heading_anchors= gives the same anchors to
+  the corpus loader.
+- An =id:= link goes through the link template, with the heading's ID as the
+  anchor for a heading. A =file:= image link becomes =<img>= through the
+  image template. Another =file:= link resolves like an =id:= link when its
+  document is known. =http= and =https= links stay as written.
+- A link to a document that is unknown or that the caller's predicate does
+  not see renders as its description, identically in both cases.
+- Every byte from the source is escaped. A =<script>= in text, in a link
+  description and in a link target stays inert, and an html export block or
+  snippet renders as escaped text. The output needs no sanitiser.
+- Drawers and property drawers are not rendered. Planning lines, TODO
+  keywords, priorities and tags render as classed spans.
+- An unsupported element or object renders as its escaped source in an
+  =org-unsupported= element and is counted.
+- Every knowledge and manual page of ORE Studio renders, with the time and
+  every fallback reported.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- A component of its own, =compass.html=, in the domain layer, depending on
+  =compass.org= alone. The design put rendering in =compass.serve=, which
+  does not exist yet; a component keeps the renderer free of the service's
+  libraries, and the anchors are shared with the corpus loader of
+  =compass.db=, which should not depend on the service.
+- One walk of the element tree in pre-order. Detail rows are found through
+  arrays indexed by element, built once per document; objects are walked by
+  their subtree ends, with plain text read from the source between them.
+- The caller's view is a predicate, =visible=, over document IDs, beside two
+  lookups: =document_of= for an org ID and =document_at= for a path. The
+  renderer never learns why a document is hidden.
+- Safety by construction: a single =escape= for every byte from the source,
+  percent-encoding for every value put in a URL template, an allow-list for
+  the characters of a class built from a name, and no passthrough of export
+  blocks, export snippets or =#+attr_html:=. html exports render escaped,
+  rather than being dropped, so an author's text is not lost; exports for
+  other backends are left out, as org's HTML export leaves them out.
+- =compass-bench html= is the lever for the corpus run: it reads a tree,
+  resolves links within it under the knowledge view and reports.
 
 * Measurements
 
@@ -55,9 +100,31 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Org files read | 11,183 | =compass-bench html <ore> --out <dir> --repeat 10=, raw output in =evidence/render_ore_knowledge.txt= | ORE =9ed8b54cd2=, compass =f01975b= |
+| Knowledge and manual pages rendered | 872 of 874; the two others have no =:ID:= | as above | as above |
+| HTML written | 11,309,496 bytes | as above | as above |
+| Render time, all pages | 59 to 80 ms over 10 repetitions, median 67 ms, on 8 cores at load average 58 | as above | as above |
+| Parse time, all pages | 143 ms, once | as above | as above |
+| Links to documents | 12,463; 349 to an unknown target, 4,861 outside the knowledge view, both rendered as text | as above | as above |
+| Fallbacks to =org-unsupported= | =latex-fragment= 1,099, =latex-environment= 34, =footnote-reference= 9, =footnote-definition= 8, on 70 pages | as above | as above |
+| Raw markup in the output | 0 pages with =<script=, =<style=, =<iframe=, =onerror== or =onclick== | =grep -rlP= over the output | as above |
 
 * Notes
+
+- Mathematics is the only fallback of weight: 1,133 of the 1,150 fallbacks
+  are LaTeX, on 64 pages of quantitative finance. They render as their
+  escaped source in a span or div that names the kind, so a front end can
+  hand them to KaTeX. Rendering them, and footnotes, is the next step if the
+  manual needs it.
+- Subscripts and superscripts render as their source, because a
+  =snake_case= word outside code parses as a subscript.
+- An =id:= link to a heading of the same document is a fragment, =#anchor=,
+  so the page does not reload; a fuzzy =[[*Heading]]= or =custom-id= link
+  to a heading of the document is one too.
+- The backlog story
+  [[id:BC1B09C4-CF0F-4C8F-9895-2F60C59F7AE2][Export HTML identical to Emacs]]
+  wants a different output, the site's byte for byte; it can sit beside
+  =render= in =compass.html= and share the walk.
 
 * Test Scenarios
 
@@ -74,7 +141,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/174][#174]] | [html] Render documents as HTML |
 
 * Review
 
@@ -83,3 +150,8 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+=compass.html= renders a parsed document as HTML with no sanitiser: 31 Catch2
+cases cover each construct, anchors, each link kind, hidden targets and
+escaping, and ORE Studio's 872 knowledge and manual pages render in about
+65 ms with LaTeX and footnotes as the only fallbacks.
