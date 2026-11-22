@@ -27,6 +27,7 @@
 #include <vector>
 #include <system_error>
 #include <utility>
+#include "compass.platform/filesystem/file_status.hpp"
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -203,6 +204,55 @@ void replace_file(const std::filesystem::path& from,
     if (std::rename(from.c_str(), to.c_str()) != 0)
         fail(what.c_str(), to);
 #endif
+}
+
+bool update_file(const std::filesystem::path& path,
+    std::span<const std::byte> bytes, bool owner_only) {
+    std::error_code error;
+    const auto existing = std::filesystem::symlink_status(path, error);
+    const bool regular = !error && std::filesystem::is_regular_file(existing);
+    if (regular) {
+        std::string current;
+        bool read = true;
+        try {
+            read_file(path, current);
+        } catch (const std::system_error&) {
+            read = false;
+        }
+        if (read && current.size() == bytes.size() && (bytes.empty() ||
+            std::memcmp(current.data(), bytes.data(), bytes.size()) == 0))
+            return false;
+    } else if (path.has_parent_path()) {
+        std::filesystem::create_directories(path.parent_path());
+    }
+
+    auto temporary = path;
+    temporary += update_suffix;
+    std::filesystem::remove(temporary, error);
+    auto file = new_file::create(temporary, owner_only);
+    if (!file)
+        throw std::system_error(std::make_error_code(std::errc::file_exists),
+            "cannot create " + temporary.generic_string());
+    try {
+        file->write(bytes);
+        file->close();
+        if (regular && !owner_only)
+            std::filesystem::permissions(temporary, existing.permissions(),
+                std::filesystem::perm_options::replace);
+        replace_file(temporary, path);
+    } catch (...) {
+        file.reset();
+        std::error_code ignored;
+        std::filesystem::remove(temporary, ignored);
+        throw;
+    }
+    return true;
+}
+
+bool update_file(const std::filesystem::path& path, std::string_view text,
+    bool owner_only) {
+    return update_file(path, std::as_bytes(std::span(text.data(), text.size())),
+        owner_only);
 }
 
 }

@@ -129,7 +129,14 @@ TEST_CASE("env generate writes the file, owner-only, with a secret per "
     const auto again = run(repo, {"env", "generate", "--input", "name=dev"});
     REQUIRE(again.status == app::exit_success);
     CHECK(scoped_git_repo::read_file(path) == text);
+    CHECK_FALSE(std::filesystem::exists(repo.checkout() / ".env.old"));
+
+    const auto changed = run(repo, {"env", "generate", "--input",
+        "name=prod"});
+    REQUIRE(changed.status == app::exit_success);
     CHECK(scoped_git_repo::read_file(repo.checkout() / ".env.old") == text);
+    CHECK(value_of(scoped_git_repo::read_file(path), "ACME_SECRET") ==
+        value_of(text, "ACME_SECRET"));
 }
 
 TEST_CASE("env generate fails without a declared input", "[app][env]") {

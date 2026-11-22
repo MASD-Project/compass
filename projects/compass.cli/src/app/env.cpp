@@ -26,8 +26,8 @@
 #include <fstream>
 #include <iterator>
 #include <optional>
-#include <span>
 #include <string>
+#include <system_error>
 #include <vector>
 #include "compass.cli/app/application.hpp"
 #include "compass.cli/config/check_documents.hpp"
@@ -58,23 +58,6 @@ std::optional<std::string> read_text(const fs::path& p) {
     if (!is)
         return std::nullopt;
     return std::string(std::istreambuf_iterator<char>(is), {});
-}
-
-/**
- * @brief Writes @p text to @p path through a file beside it, created
- * readable by its owner alone, that then replaces it in one step.
- */
-void write_private(const fs::path& path, std::string_view text) {
-    auto temporary = path;
-    temporary += ".compass-new";
-    std::error_code ec;
-    fs::remove(temporary, ec);
-    auto file = platform::filesystem::new_file::create(temporary, true);
-    if (!file)
-        throw std::runtime_error("cannot create " + temporary.string());
-    file->write(std::as_bytes(std::span(text.data(), text.size())));
-    file->close();
-    platform::filesystem::replace_file(temporary, path);
 }
 
 /**
@@ -163,12 +146,17 @@ int run_generate(const types::invocation& i, const et::env_format& f,
         err << "compass: env generate: " << g.error() << "\n";
         return exit_failure;
     }
+    if (old && eo::same_but_time(*old, g->text, s.inputs.at("now"))) {
+        out << "compass: " << relative << " unchanged: version "
+            << f.current() << ", " << g->names.size() << " variables\n";
+        return exit_success;
+    }
     if (old) {
         auto backup = path;
         backup += ".old";
-        write_private(backup, *old);
+        platform::filesystem::update_file(backup, *old, true);
     }
-    write_private(path, g->text);
+    platform::filesystem::update_file(path, g->text, true);
     out << "compass: wrote " << relative << ": version " << f.current()
         << ", " << g->names.size() << " variables\n";
     return exit_success;
@@ -236,11 +224,10 @@ int run_version_new(const types::invocation& i, const loaded& l,
         err << "compass: env version new: " << updated.error() << "\n";
         return exit_failure;
     }
-    std::ofstream os(path, std::ios::binary | std::ios::trunc);
-    os << *updated;
-    os.close();
-    if (!os) {
-        err << "compass: cannot write " << l.path << "\n";
+    try {
+        platform::filesystem::update_file(path, *updated);
+    } catch (const std::system_error& e) {
+        err << "compass: cannot write " << l.path << ": " << e.what() << "\n";
         return exit_failure;
     }
     out << "compass: recorded version " << l.format.current() + 1 << " ("
