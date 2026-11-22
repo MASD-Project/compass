@@ -1,0 +1,86 @@
+:PROPERTIES:
+:ID: 2D0A4E24-ECAD-48FF-9357-E44B99B4AD13
+:END:
+#+title: compass.db.step
+#+description: Codegen entity model for test.step: one step of a test scenario, keyed by the scenario's blob ID and its place under * Steps.
+#+type: masd.codegen.entity
+#+component: db
+#+filetags: :model:entity:database:
+#+brief: One step of a test scenario.
+#+entity_singular: step
+#+entity_plural: steps
+#+created: 2026-11-22
+#+updated: 2026-11-22
+
+One row per heading right under =* Steps= of a test scenario, in order: its
+title, and its text without the heading line and any =Result= subheading.
+
+* Flags
+:PROPERTIES:
+:product:    compass
+:component:  db
+:schema:     test
+:profile:    owned-child-row
+:END:
+
+The profile =owned-child-row= fixes =read_only=, =current_state= and =insert_conflict: do_nothing=, as =content-addressed-row= does, for a row its owner's key and its =ord= identify, deleted with its owner.
+
+* Columns
+
+** hash
+:PROPERTIES:
+:type:         bytea
+:cpp_type:     store::types::blob_id
+:primary_key:  true
+:key_kind:     content_hash
+:END:
+
+The scenario's key, the blob ID of its document: the owner's key. The writer takes it as an argument, so the row type leaves it out.
+
+** ord
+:PROPERTIES:
+:type:         integer
+:cpp_type:     std::uint32_t
+:primary_key:  true
+:key_kind:     ord
+:END:
+
+The step's place under =* Steps=, from 0: the index of the row in =scenario_row::steps=.
+
+** title
+:PROPERTIES:
+:type:  text
+:END:
+
+The step heading's title.
+
+** body
+:PROPERTIES:
+:type:  text
+:END:
+
+The step's text, without the heading line and any =Result= subheading.
+
+* Foreign keys
+
+** hash
+:PROPERTIES:
+:references:  test.scenario
+:on_delete:   cascade
+:END:
+
+Deleting the scenario, which its document's deletion does, deletes its steps.
+
+* C++
+
+The row is =compass::db::types::step_row= of
+=compass.db/types/corpus_document.hpp=: =title= and =body=.
+
+* Notes
+
+The table has no index beyond its key.
+
+* See also
+
+- [[id:493B7D68-516E-4430-B4CE-688C6FBE1271][compass.db]]: the component overview, which lists every model.
+- [[id:7FD52505-1436-4925-A1DE-4A3EC88F0133][Investigation: How compass generates itself]]: the features, key kinds and profiles these models use.

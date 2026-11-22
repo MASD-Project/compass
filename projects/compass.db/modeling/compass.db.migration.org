@@ -1,0 +1,76 @@
+:PROPERTIES:
+:ID: B8F4A8F1-C6A0-4B18-A3B9-42804288B7A4
+:END:
+#+title: compass.db.migration
+#+description: Codegen entity model for compass.migration: the record of each migration applied to the database. It describes the hand-written table and generates nothing.
+#+type: masd.codegen.entity
+#+component: db
+#+filetags: :model:entity:database:
+#+brief: One migration applied to the database.
+#+entity_singular: migration
+#+entity_plural: migrations
+#+created: 2026-11-22
+#+updated: 2026-11-22
+
+One row per migration applied. =migrate= inserts the row in the same
+transaction as the migration's SQL, under an advisory lock, and reads
+=max(version)= as the schema's version.
+
+* Flags
+:PROPERTIES:
+:product:    compass
+:component:  db
+:schema:     compass
+:profile:    bookkeeping
+:END:
+
+The profile =bookkeeping= is not one the investigation names; this model proposes it. It fixes =current_state= and withdraws the table template: the [[id:02089780-F445-4220-89E1-3CBCA0347B37][task]] keeps the schema =compass= hand-written, because the migration runner creates it before any migration runs. The model describes the table and generates nothing.
+
+* Columns
+
+** version
+:PROPERTIES:
+:type:         integer
+:cpp_type:     std::uint32_t
+:primary_key:  true
+:key_kind:     natural
+:END:
+
+The migration's number, from 1 with no gap.
+
+** name
+:PROPERTIES:
+:type:  text
+:END:
+
+The migration's name, such as =the corpus, test and activity schemas=.
+
+** applied_at
+:PROPERTIES:
+:type:        timestamptz
+:default:     now()
+:written_by:  database
+:END:
+
+When it was applied. The database writes it.
+
+* C++
+
+None. =schema_status= of =compass.db/io/schema.hpp= reads the version as a
+=std::uint32_t=, and =migrate= inserts =version= and =name= with =exec=.
+
+* Notes
+
+- The table is created by =bookkeeping_sql()= with =CREATE TABLE IF NOT
+  EXISTS=, before and outside the numbered migrations, so it can never be
+  created by one. The model cannot say =IF NOT EXISTS=, and it should not:
+  the bookkeeping SQL stays hand-written, and a generated =schema.sql=
+  leaves this schema out.
+- The [[id:02089780-F445-4220-89E1-3CBCA0347B37][task]]'s acceptance keeps the schema =compass= hand-written. This
+  model exists so the product owner reviews every table in one form; whether
+  it stays is the product owner's call.
+
+* See also
+
+- [[id:493B7D68-516E-4430-B4CE-688C6FBE1271][compass.db]]: the component overview, which lists every model.
+- [[id:7FD52505-1436-4925-A1DE-4A3EC88F0133][Investigation: How compass generates itself]]: the features, key kinds and profiles these models use.

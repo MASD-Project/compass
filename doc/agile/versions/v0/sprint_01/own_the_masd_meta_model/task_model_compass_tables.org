@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :own_the_masd_meta_model:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/model-compass-tables
+#+pr: https://github.com/MASD-Project/compass/pull/182
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-22
@@ -33,11 +33,11 @@ through.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                                |
 | Parent story | [[id:E3C81059-FE00-4403-AA56-190FDBB9904A][Own the MASD meta model and generate compass with it]] |
-| Now          | Not yet started.                       |
-| Waiting on   | [[id:BECA92D2-95DA-46B4-9D3E-AC30FDDB7294][Move the MASD pages and templates to compass]]. |
-| Next         | Begin implementation.                  |
+| Now          | Started early: a model for every table, for the product owner's review. |
+| Waiting on   | [[id:BECA92D2-95DA-46B4-9D3E-AC30FDDB7294][Move the MASD pages and templates to compass]], for the entity context and the feature and profile pages. |
+| Next         | The product owner reviews the models and the gaps their Notes list. |
 | Last touched | 2026-11-22                               |
 
 * Acceptance
@@ -47,9 +47,15 @@ through.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+The models come first, ahead of the move, so the product owner can review the
+form before any context builder or template is written. Each table that
+=projects/compass.db/src/ops/migrations.cpp= creates gets one model,
+=projects/compass.db/modeling/compass.db.<table>.org=, of =#+type:
+masd.codegen.entity=, in the format of the investigation's two worked
+examples. Each model states the table exactly as migration 1 or the
+bookkeeping SQL creates it, and the row type as #176 wrote it. Where the
+format cannot say something, the model's =* Notes= says what. The entity
+context, the feature and profile pages and the templates follow the move.
 
 * Measurements
 
@@ -63,9 +69,87 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Tables the migrations and the bookkeeping SQL create | 16 | =grep -c 'CREATE TABLE' projects/compass.db/src/ops/migrations.cpp= | =5c4b31a= |
+| Models whose columns, types, nullability, defaults and key differ from that DDL | 0 of 16 | A parser of =migrations.cpp= compared with each model's =* Columns= (scratch script; a flipped =:nullable:= makes it report the model) | =eb198fd= |
+| Models that load with the type, profile and subcomponent changed | 16 of 16, none renders without error | [[file:evidence/model_load_probe.sh][model_load_probe.sh]], output in [[file:evidence/model_load_probe.txt][model_load_probe.txt]] | ORE Studio =9ed8b54cd2=, compass-ng 0.0.12 |
 
 * Notes
+
+** What loads
+
+In compass's own checkout the codegen codec is off, so =compass-ng check=
+reads the models only as documents; it reports nothing on them, and =compass-ng
+diff --scope projects/compass.db/modeling= has nothing to write. With
+=--set codegen.enabled=true= the codec stops at once: compass has no template
+library (=codegen: set the option library=). Nothing was written into
+compass's tree.
+
+[[file:evidence/model_load_probe.sh][evidence/model_load_probe.sh]] loads
+each model on a scratch copy of ORE Studio, the one checkout with a library,
+in four stages; [[file:evidence/model_load_probe.txt][evidence/model_load_probe.txt]]
+is its output.
+
+| Stage | Change to the models | Result for all 16 |
+|-------+----------------------+-------------------|
+| =as_written= | None. | Skipped without a word: =masd.codegen.entity= is not a codegen type. No output. |
+| =ores_type= | =#+type: ores.codegen.entity=. | Refused: =unknown profile= (each of the five). |
+| =no_profile= | Also no =:profile:=. | Refused: =Missing required flag: subcomponent=. |
+| =no_subcomp= | Also =:no_subcomponent: true= under =* C++ ** Flags=. | Loads into ORE Studio's entity context and renders; the run fails when prettier formats the TypeScript domain file, whose field types are empty for =bytea=, =bigint=, =text[]= and =jsonb= columns. |
+
+The first run on the fresh copy, =as_written= of =compass.db.attached=, also
+failed with =codegen: cannot read projects/ores.codegen/library/data/licence-GPL-v3.txt=,
+a file the copy has; every later run read it. That is a cold-store fault
+of the codec, not of the model.
+
+** What the models say that compass's codegen does not read
+
+Searched for as string literals in =projects/compass.codegen/src= and
+=projects/compass.model/src=; none of these occurs:
+
+| Property | Where | Meaning in the models |
+|----------+-------+-----------------------|
+| =#+type: masd.codegen.entity= | header | The model type; not in the codec's list of codegen types, so the codec skips the page. |
+| =:key_kind:= | key column | =content_hash=, =identity=, =ord= or =natural=. |
+| =:values:= | column | A closed list of text values: a =CHECK ... IN= and a C++ enumeration. |
+| =:written_by:= | column | =database=: a defaulted column the writer never sets. |
+| =:computed:= | column | =writer=: computed in the insert, out of the row and the =COPY= list. |
+| =:references:= | foreign key | The referenced table, schema-qualified. ORE Studio's loader reads =:table:=. |
+| =:on_delete:= | foreign key | =cascade=. |
+| =where= | index row | A partial index. ORE Studio's loader reads =where_extra=. |
+| =opclass= | index row | An operator class, =jsonb_path_ops=. |
+
+=:schema:= is read into the context but rendered by no template, as the
+investigation found. The profiles =content-addressed-row=,
+=owned-child-row=, =activity-record=, =environment-state= and =bookkeeping=
+do not exist, and the loader refuses a model that names an unknown profile.
+
+** What the models cannot say
+
+Each model's =* Notes= has the detail. In short:
+
+- A row member named other than its column: =section_row::heading= and
+  =link_row::heading= are the column =heading_ord=.
+- A row type named other than =<entity>_row=: #176's =environment= and
+  =placement=.
+- An owner's key that is not a content hash: =corpus.placement.environment=
+  is left out of the row, which no key kind says.
+- A column the writer sets that has no default: =corpus.environment.synced_at=.
+- An empty string standing for NULL: =environment::root=.
+- A table-level =UNIQUE= constraint: =activity.campaign= states it as a
+  unique index, a different catalog object.
+- An input of a computed column that is not a column: the heading path that
+  =corpus.section.tsv= weighs B, which only the staging table carries.
+- A member that is not a column: =scenario_row::steps=.
+- The profile =activity-record= fixes an identity key, which
+  =activity.step_result= and =activity.attachment= do not have.
+
+** Decision for the product owner
+
+The acceptance keeps the schema =compass= hand-written. The models
+=compass.db.migration= and =compass.db.setting= exist anyway, bound to a
+proposed =bookkeeping= profile that generates nothing, so every table is
+reviewed in one form. Delete them if the schema is better left out of the
+models altogether.
 
 * Test Scenarios
 
@@ -82,7 +166,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/182][#182]] | [db] Model compass's tables |
 
 * Review
 

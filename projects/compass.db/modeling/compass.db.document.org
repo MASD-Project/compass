@@ -1,0 +1,179 @@
+:PROPERTIES:
+:ID: F0E18F50-AEBC-4511-829A-0DDAF06BD340
+:END:
+#+title: compass.db.document
+#+description: Codegen entity model for corpus.document: one org document of the corpus, its common metadata as columns, its keywords and properties as JSON and its source, keyed by the blob ID of the source.
+#+type: masd.codegen.entity
+#+component: db
+#+filetags: :model:entity:database:
+#+brief: One org document of the corpus.
+#+entity_singular: document
+#+entity_plural: documents
+#+created: 2026-11-22
+#+updated: 2026-11-22
+
+One row per distinct org document, keyed by the blob ID of its source, as the
+store keys its objects. Every environment that places the same bytes shares the
+row. A sync stages the row with =COPY= and inserts it with =ON CONFLICT DO
+NOTHING=, so nothing updates a document: a changed file is a new row.
+
+* Flags
+:PROPERTIES:
+:product:    compass
+:component:  db
+:schema:     corpus
+:profile:    content-addressed-row
+:END:
+
+The profile =content-addressed-row= fixes =read_only=, =current_state= and =insert_conflict: do_nothing=: a row is keyed by the blob ID of what it describes, is written once with =ON CONFLICT DO NOTHING= and never updated.
+
+* Columns
+
+** hash
+:PROPERTIES:
+:type:         bytea
+:cpp_type:     store::types::blob_id
+:primary_key:  true
+:key_kind:     content_hash
+:END:
+
+The blob ID of the source. It is the document's identity, so the row type leaves it out and the writer takes it as an argument.
+
+** org_id
+:PROPERTIES:
+:type:      text
+:nullable:  true
+:END:
+
+The =:ID:= of the drawer before the first heading, when it has one.
+
+** title
+:PROPERTIES:
+:type:      text
+:nullable:  true
+:END:
+
+=#+title:=.
+
+** description
+:PROPERTIES:
+:type:      text
+:nullable:  true
+:END:
+
+=#+description:=.
+
+** type
+:PROPERTIES:
+:type:      text
+:nullable:  true
+:END:
+
+=#+type:=.
+
+** level
+:PROPERTIES:
+:type:      text
+:nullable:  true
+:END:
+
+=#+level:=.
+
+** audience
+:PROPERTIES:
+:type:      text
+:nullable:  true
+:END:
+
+=#+audience:=.
+
+** created
+:PROPERTIES:
+:type:      text
+:nullable:  true
+:END:
+
+=#+created:= as written. The dates stay text, because a document may write one badly.
+
+** updated
+:PROPERTIES:
+:type:      text
+:nullable:  true
+:END:
+
+=#+updated:= as written.
+
+** tags
+:PROPERTIES:
+:type:     text[]
+:default:  '{}'
+:END:
+
+=#+filetags:=, one element per tag.
+
+** keywords
+:PROPERTIES:
+:type:     jsonb
+:default:  '{}'
+:END:
+
+Every keyword before the first heading, its name in lower case mapped to the list of its values in order, so a repeated keyword keeps every value.
+
+** properties
+:PROPERTIES:
+:type:     jsonb
+:default:  '{}'
+:END:
+
+The drawer before the first heading, each property in upper case mapped to its value.
+
+** source
+:PROPERTIES:
+:type:      text
+:cpp_type:  std::string_view
+:END:
+
+The document's text. The row holds a view of it, which the caller keeps alive.
+
+** loaded_at
+:PROPERTIES:
+:type:        timestamptz
+:default:     now()
+:written_by:  database
+:END:
+
+When the row was inserted. The database writes it, so it is in neither the row type nor the =COPY= column list.
+
+* SQL
+
+** Indexes
+
+| name       | columns    | unique | where | using | opclass        |
+|------------+------------+--------+-------+-------+----------------|
+| org_id     | org_id     | false  |       |       |                |
+| type       | type       | false  |       |       |                |
+| level      | level      | false  |       |       |                |
+| audience   | audience   | false  |       |       |                |
+| tags       | tags       | false  |       | gin   |                |
+| keywords   | keywords   | false  |       | gin   | jsonb_path_ops |
+| properties | properties | false  |       | gin   | jsonb_path_ops |
+
+* C++
+
+The row is =compass::db::types::document_row= of
+=compass.db/types/corpus_document.hpp=, field for field: =hash= and
+=loaded_at= are left out, a nullable =text= is =std::optional<std::string>=
+(#176 spells it =nullable=), =text[]= is =std::vector<std::string>= and
+=jsonb= is the JSON text. The aggregate =corpus_document=, which holds the
+hash and the vectors of child rows, stays hand-written.
+
+* Notes
+
+Collection deletes a document that no placement and no =activity.run= names;
+that rule lives in =io/corpus.cpp=, not in the table, and the model does not
+state it.
+
+* See also
+
+- [[id:493B7D68-516E-4430-B4CE-688C6FBE1271][compass.db]]: the component overview, which lists every model.
+- [[id:7FD52505-1436-4925-A1DE-4A3EC88F0133][Investigation: How compass generates itself]]: the features, key kinds and profiles these models use.

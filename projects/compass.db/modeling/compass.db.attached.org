@@ -1,0 +1,128 @@
+:PROPERTIES:
+:ID: B931E413-26D0-49C0-A61C-084B15779E70
+:END:
+#+title: compass.db.attached
+#+description: Codegen entity model for activity.attached: where an attachment is attached, to a run or to a note, with an optional step and caption.
+#+type: masd.codegen.entity
+#+component: db
+#+filetags: :model:entity:database:
+#+brief: An attachment attached to a run or a note.
+#+entity_singular: attached
+#+entity_plural: attached
+#+created: 2026-11-22
+#+updated: 2026-11-22
+
+One row per place an attachment is attached: to a run, optionally at a step,
+or to a note, never both. It is deleted with its run or note; the attachment's
+bytes stay until nothing names them.
+
+* Flags
+:PROPERTIES:
+:product:    compass
+:component:  db
+:schema:     activity
+:profile:    activity-record
+:END:
+
+The profile =activity-record= fixes =current_state= and =retained=: the table holds test activity that exists nowhere else, so a model change that drops or retypes one of its columns needs a migration in the same pull request.
+
+* Columns
+
+** id
+:PROPERTIES:
+:type:         bigint
+:primary_key:  true
+:key_kind:     identity
+:END:
+
+The attachment's placement's identity. =GENERATED ALWAYS AS IDENTITY=: read back, never written.
+
+** attachment
+:PROPERTIES:
+:type:      bytea
+:cpp_type:  store::types::blob_id
+:END:
+
+The blob ID of the attachment.
+
+** run
+:PROPERTIES:
+:type:      bigint
+:nullable:  true
+:END:
+
+The run it is attached to, if it is attached to a run.
+
+** note
+:PROPERTIES:
+:type:      bigint
+:nullable:  true
+:END:
+
+The note it is attached to, if it is attached to a note.
+
+** step_ord
+:PROPERTIES:
+:type:      integer
+:nullable:  true
+:END:
+
+The =ord= of the step of the run it is attached at, if any.
+
+** caption
+:PROPERTIES:
+:type:      text
+:nullable:  true
+:END:
+
+The caption the tester gave it.
+
+* Foreign keys
+
+** attachment
+:PROPERTIES:
+:references:  activity.attachment
+:END:
+
+An attachment that is attached somewhere cannot be deleted.
+
+** run
+:PROPERTIES:
+:references:  activity.run
+:on_delete:   cascade
+:END:
+
+Deleting a run deletes what is attached to it.
+
+** note
+:PROPERTIES:
+:references:  activity.note
+:on_delete:   cascade
+:END:
+
+Deleting a note deletes what is attached to it.
+
+* SQL
+
+** Checks
+
+| expression                      |
+|---------------------------------|
+| (run is null) <> (note is null) |
+
+* C++
+
+#176 has no C++ for this table; [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]]
+will need its row, reader and insert. The row the model generates is the
+specification of that code.
+
+* Notes
+
+The check makes =run= and =note= a choice of one. A generated row carries
+both as optionals; a sum type would say it better, and the model has no way
+to ask for one.
+
+* See also
+
+- [[id:493B7D68-516E-4430-B4CE-688C6FBE1271][compass.db]]: the component overview, which lists every model.
+- [[id:7FD52505-1436-4925-A1DE-4A3EC88F0133][Investigation: How compass generates itself]]: the features, key kinds and profiles these models use.

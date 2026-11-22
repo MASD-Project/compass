@@ -1,0 +1,73 @@
+:PROPERTIES:
+:ID: 94510E3F-8CBD-4D7A-B11D-2FC11C423EED
+:END:
+#+title: compass.db.attachment
+#+description: Codegen entity model for activity.attachment: the bytes of a file a tester attached, stored once by their blob ID.
+#+type: masd.codegen.entity
+#+component: db
+#+filetags: :model:entity:database:
+#+brief: The bytes of an attached file, stored once.
+#+entity_singular: attachment
+#+entity_plural: attachments
+#+created: 2026-11-22
+#+updated: 2026-11-22
+
+One row per distinct attached file, keyed by the blob ID of its bytes, so the
+same screenshot attached twice is stored once. =activity.attached= says where
+it is attached.
+
+* Flags
+:PROPERTIES:
+:product:    compass
+:component:  db
+:schema:     activity
+:profile:    activity-record
+:END:
+
+The profile =activity-record= fixes =current_state= and =retained=: the table holds test activity that exists nowhere else, so a model change that drops or retypes one of its columns needs a migration in the same pull request.
+
+The investigation's =activity-record= fixes an =identity= key; this table is
+keyed by a content hash. The model states the key on its column.
+
+* Columns
+
+** hash
+:PROPERTIES:
+:type:         bytea
+:cpp_type:     store::types::blob_id
+:primary_key:  true
+:key_kind:     content_hash
+:END:
+
+The blob ID of the bytes.
+
+** media_type
+:PROPERTIES:
+:type:  text
+:END:
+
+The file's media type, such as =image/png=.
+
+** bytes
+:PROPERTIES:
+:type:  bytea
+:END:
+
+The file's bytes.
+
+* C++
+
+#176 has no C++ for this table; [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]]
+will need its row, reader and insert. The row the model generates is the
+specification of that code.
+
+* Notes
+
+=bytes= is the only =bytea= column of the schema that is not a blob ID; the
+model states no =cpp_type= for it and leaves the choice of byte container to
+the MASD entity context.
+
+* See also
+
+- [[id:493B7D68-516E-4430-B4CE-688C6FBE1271][compass.db]]: the component overview, which lists every model.
+- [[id:7FD52505-1436-4925-A1DE-4A3EC88F0133][Investigation: How compass generates itself]]: the features, key kinds and profiles these models use.

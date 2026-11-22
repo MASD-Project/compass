@@ -1,0 +1,110 @@
+:PROPERTIES:
+:ID: D7327443-286D-41B1-9A8C-1FBB0CDE2BD6
+:END:
+#+title: compass.db.campaign
+#+description: Codegen entity model for activity.campaign: the testing of one story in one environment, which runs and notes belong to.
+#+type: masd.codegen.entity
+#+component: db
+#+filetags: :model:entity:database:
+#+brief: The testing of one story in one environment.
+#+entity_singular: campaign
+#+entity_plural: campaigns
+#+created: 2026-11-22
+#+updated: 2026-11-22
+
+One row per story tested in an environment. Runs and notes belong to a
+campaign. A campaign is exported back to the story's pages, and the
+export time records when.
+
+* Flags
+:PROPERTIES:
+:product:    compass
+:component:  db
+:schema:     activity
+:profile:    activity-record
+:END:
+
+The profile =activity-record= fixes =current_state= and =retained=: the table holds test activity that exists nowhere else, so a model change that drops or retypes one of its columns needs a migration in the same pull request.
+
+* Columns
+
+** id
+:PROPERTIES:
+:type:         bigint
+:primary_key:  true
+:key_kind:     identity
+:END:
+
+The campaign's identity. =GENERATED ALWAYS AS IDENTITY=: read back, never written.
+
+** environment
+:PROPERTIES:
+:type:  text
+:END:
+
+The name of the environment tested. It is text, not a reference to =corpus.environment=, so a campaign outlives its environment.
+
+** story_id
+:PROPERTIES:
+:type:  text
+:END:
+
+The =:ID:= of the story tested.
+
+** sprint_id
+:PROPERTIES:
+:type:      text
+:nullable:  true
+:END:
+
+The =:ID:= of the sprint the campaign belongs to.
+
+** opened_at
+:PROPERTIES:
+:type:        timestamptz
+:default:     now()
+:written_by:  database
+:END:
+
+When the campaign was opened. The database writes it.
+
+** exported_at
+:PROPERTIES:
+:type:      timestamptz
+:nullable:  true
+:END:
+
+When the campaign was last exported to the story's pages; NULL until then.
+
+* SQL
+
+** Indexes
+
+The schema has a =UNIQUE (environment, story_id)= table constraint, not an
+index. The model states it as a unique index, the only form its indexes table
+has; see Notes.
+
+| name                 | columns               | unique | where | using | opclass |
+|----------------------+-----------------------+--------+-------+-------+---------|
+| environment_story_id | environment, story_id | true   |       |       |         |
+
+* C++
+
+#176 has no C++ for this table; [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]]
+will need its row, reader and insert. The row the model generates is the
+specification of that code.
+
+* Notes
+
+A unique index and a =UNIQUE= constraint enforce the same rule but are
+different catalog objects: the constraint is named
+=campaign_environment_story_id_key= and is listed in =pg_constraint=, and
+=ON CONFLICT ON CONSTRAINT= can name it. A template rendering this row writes
+=CREATE UNIQUE INDEX campaign_environment_story_id=, which a catalog
+comparison against migration 1 would report. The model needs a table-level
+unique constraint, such as a =** Unique= table under =* SQL=.
+
+* See also
+
+- [[id:493B7D68-516E-4430-B4CE-688C6FBE1271][compass.db]]: the component overview, which lists every model.
+- [[id:7FD52505-1436-4925-A1DE-4A3EC88F0133][Investigation: How compass generates itself]]: the features, key kinds and profiles these models use.

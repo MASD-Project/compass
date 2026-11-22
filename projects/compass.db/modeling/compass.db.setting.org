@@ -1,0 +1,64 @@
+:PROPERTIES:
+:ID: 6B9B593B-5ADF-44A6-8F90-A2FBB1A66F7F
+:END:
+#+title: compass.db.setting
+#+description: Codegen entity model for compass.setting: the database's key-value settings, such as its text search configuration and what the last collection left. It describes the hand-written table and generates nothing.
+#+type: masd.codegen.entity
+#+component: db
+#+filetags: :model:entity:database:
+#+brief: One setting of the database.
+#+entity_singular: setting
+#+entity_plural: settings
+#+created: 2026-11-22
+#+updated: 2026-11-22
+
+One row per setting. =init= writes =text_search=, the text search
+configuration every =tsv= is computed with, once; a database keeps it.
+=collect= writes =collection_left=, the number of documents the last
+collection left, which =collect_when_grown= compares with the corpus.
+
+* Flags
+:PROPERTIES:
+:product:    compass
+:component:  db
+:schema:     compass
+:profile:    bookkeeping
+:END:
+
+The profile =bookkeeping= is not one the investigation names; this model proposes it. It fixes =current_state= and withdraws the table template: the [[id:02089780-F445-4220-89E1-3CBCA0347B37][task]] keeps the schema =compass= hand-written, because the migration runner creates it before any migration runs. The model describes the table and generates nothing.
+
+* Columns
+
+** key
+:PROPERTIES:
+:type:         text
+:primary_key:  true
+:key_kind:     natural
+:END:
+
+The setting's name. Two exist: =text_search= and =collection_left=.
+
+** value
+:PROPERTIES:
+:type:  text
+:END:
+
+The setting's value as text.
+
+* C++
+
+None. =io/schema.cpp= and =io/corpus.cpp= read and write a setting with
+=exec=.
+
+* Notes
+
+- The keys are a closed list in the code, =text_search= and
+  =collection_left=, but the table takes any key. The model states no
+  =:values:= on =key=, because the table has no check.
+- Created by =bookkeeping_sql()= like =compass.migration=; the same note
+  applies.
+
+* See also
+
+- [[id:493B7D68-516E-4430-B4CE-688C6FBE1271][compass.db]]: the component overview, which lists every model.
+- [[id:7FD52505-1436-4925-A1DE-4A3EC88F0133][Investigation: How compass generates itself]]: the features, key kinds and profiles these models use.

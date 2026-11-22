@@ -1,0 +1,92 @@
+:PROPERTIES:
+:ID: 2F4009D7-B19E-4AE1-92C0-85DC07D5ED58
+:END:
+#+title: compass.db.step_result
+#+description: Codegen entity model for activity.step_result: the outcome of one step of a run, with the tester's notes.
+#+type: masd.codegen.entity
+#+component: db
+#+filetags: :model:entity:database:
+#+brief: The outcome of one step of a run.
+#+entity_singular: step_result
+#+entity_plural: step_results
+#+created: 2026-11-22
+#+updated: 2026-11-22
+
+One row per step a run recorded, keyed by the run and the step's =ord= in
+=test.step=. It is deleted with its run.
+
+* Flags
+:PROPERTIES:
+:product:    compass
+:component:  db
+:schema:     activity
+:profile:    activity-record
+:END:
+
+The profile =activity-record= fixes =current_state= and =retained=: the table holds test activity that exists nowhere else, so a model change that drops or retypes one of its columns needs a migration in the same pull request.
+
+The investigation's =activity-record= fixes an =identity= key; this table's
+key is =(run, step_ord)=. The model states the key on its columns, which the
+profile must allow.
+
+* Columns
+
+** run
+:PROPERTIES:
+:type:         bigint
+:primary_key:  true
+:key_kind:     natural
+:END:
+
+The run the result belongs to.
+
+** step_ord
+:PROPERTIES:
+:type:         integer
+:primary_key:  true
+:key_kind:     natural
+:END:
+
+The step's =ord= in =test.step= of the scenario the run ran. It is a value, not a position in a vector, so its key kind is =natural=, not =ord=.
+
+** outcome
+:PROPERTIES:
+:type:    text
+:values:  pass fail blocked skipped
+:END:
+
+The step's outcome.
+
+** notes
+:PROPERTIES:
+:type:      text
+:nullable:  true
+:END:
+
+What the tester wrote about the step.
+
+* Foreign keys
+
+** run
+:PROPERTIES:
+:references:  activity.run
+:on_delete:   cascade
+:END:
+
+Deleting a run deletes its step results.
+
+* C++
+
+#176 has no C++ for this table; [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]]
+will need its row, reader and insert. The row the model generates is the
+specification of that code.
+
+* Notes
+
+=step_ord= names a step by its place in a scenario's definition without a
+foreign key, since =activity= never references the corpus.
+
+* See also
+
+- [[id:493B7D68-516E-4430-B4CE-688C6FBE1271][compass.db]]: the component overview, which lists every model.
+- [[id:7FD52505-1436-4925-A1DE-4A3EC88F0133][Investigation: How compass generates itself]]: the features, key kinds and profiles these models use.

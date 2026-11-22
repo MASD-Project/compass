@@ -1,0 +1,64 @@
+as_written compass.db.attached.org exit=2 codegen_writes=0 compass: codegen: cannot read projects/ores.codegen/library/data/licence-GPL-v3.txt
+as_written compass.db.attachment.org exit=0 codegen_writes=0 0 to write, 43 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore (11183 docum
+as_written compass.db.campaign.org exit=0 codegen_writes=0 0 to write, 43 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore (11183 docum
+as_written compass.db.document.org exit=0 codegen_writes=0 0 to write, 43 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore (11183 docum
+as_written compass.db.environment.org exit=0 codegen_writes=0 0 to write, 43 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore (11183 docum
+as_written compass.db.heading.org exit=0 codegen_writes=0 0 to write, 43 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore (11183 docum
+as_written compass.db.link.org exit=0 codegen_writes=0 0 to write, 43 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore (11183 docum
+as_written compass.db.migration.org exit=0 codegen_writes=0 0 to write, 43 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore (11183 docum
+as_written compass.db.note.org exit=0 codegen_writes=0 0 to write, 43 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore (11183 docum
+as_written compass.db.placement.org exit=0 codegen_writes=0 0 to write, 43 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore (11183 docum
+as_written compass.db.run.org exit=0 codegen_writes=0 0 to write, 43 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore (11183 docum
+as_written compass.db.scenario.org exit=0 codegen_writes=0 0 to write, 43 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore (11183 docum
+as_written compass.db.section.org exit=0 codegen_writes=0 0 to write, 43 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore (11183 docum
+as_written compass.db.setting.org exit=0 codegen_writes=0 0 to write, 43 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore (11183 docum
+as_written compass.db.step.org exit=0 codegen_writes=0 0 to write, 43 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore (11183 docum
+as_written compass.db.step_result.org exit=0 codegen_writes=0 0 to write, 43 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore (11183 docum
+ores_type compass.db.attached.org exit=2 codegen_writes=0 compass: unknown profile 'activity-record'
+ores_type compass.db.attachment.org exit=2 codegen_writes=0 compass: unknown profile 'activity-record'
+ores_type compass.db.campaign.org exit=2 codegen_writes=0 compass: unknown profile 'activity-record'
+ores_type compass.db.document.org exit=2 codegen_writes=0 compass: unknown profile 'content-addressed-row'
+ores_type compass.db.environment.org exit=2 codegen_writes=0 compass: unknown profile 'environment-state'
+ores_type compass.db.heading.org exit=2 codegen_writes=0 compass: unknown profile 'owned-child-row'
+ores_type compass.db.link.org exit=2 codegen_writes=0 compass: unknown profile 'owned-child-row'
+ores_type compass.db.migration.org exit=2 codegen_writes=0 compass: unknown profile 'bookkeeping'
+ores_type compass.db.note.org exit=2 codegen_writes=0 compass: unknown profile 'activity-record'
+ores_type compass.db.placement.org exit=2 codegen_writes=0 compass: unknown profile 'environment-state'
+ores_type compass.db.run.org exit=2 codegen_writes=0 compass: unknown profile 'activity-record'
+ores_type compass.db.scenario.org exit=2 codegen_writes=0 compass: unknown profile 'content-addressed-row'
+ores_type compass.db.section.org exit=2 codegen_writes=0 compass: unknown profile 'owned-child-row'
+ores_type compass.db.setting.org exit=2 codegen_writes=0 compass: unknown profile 'bookkeeping'
+ores_type compass.db.step.org exit=2 codegen_writes=0 compass: unknown profile 'owned-child-row'
+ores_type compass.db.step_result.org exit=2 codegen_writes=0 compass: unknown profile 'activity-record'
+no_profile compass.db.attached.org exit=2 codegen_writes=0 compass: codegen: a model did not load: projects/ores.geo/modeling/compass.db.attached.org: Missing required flag: subcomponent
+no_profile compass.db.attachment.org exit=2 codegen_writes=0 compass: codegen: a model did not load: projects/ores.geo/modeling/compass.db.attachment.org: Missing required flag: subcomponent
+no_profile compass.db.campaign.org exit=2 codegen_writes=0 compass: codegen: a model did not load: projects/ores.geo/modeling/compass.db.campaign.org: Missing required flag: subcomponent
+no_profile compass.db.document.org exit=2 codegen_writes=0 compass: codegen: a model did not load: projects/ores.geo/modeling/compass.db.document.org: Missing required flag: subcomponent
+no_profile compass.db.environment.org exit=2 codegen_writes=0 compass: codegen: a model did not load: projects/ores.geo/modeling/compass.db.environment.org: Missing required flag: subcomponent
+no_profile compass.db.heading.org exit=2 codegen_writes=0 compass: codegen: a model did not load: projects/ores.geo/modeling/compass.db.heading.org: Missing required flag: subcomponent
+no_profile compass.db.link.org exit=2 codegen_writes=0 compass: codegen: a model did not load: projects/ores.geo/modeling/compass.db.link.org: Missing required flag: subcomponent
+no_profile compass.db.migration.org exit=2 codegen_writes=0 compass: codegen: a model did not load: projects/ores.geo/modeling/compass.db.migration.org: Missing required flag: subcomponent
+no_profile compass.db.note.org exit=2 codegen_writes=0 compass: codegen: a model did not load: projects/ores.geo/modeling/compass.db.note.org: Missing required flag: subcomponent
+no_profile compass.db.placement.org exit=2 codegen_writes=0 compass: codegen: a model did not load: projects/ores.geo/modeling/compass.db.placement.org: Missing required flag: subcomponent
+no_profile compass.db.run.org exit=2 codegen_writes=0 compass: codegen: a model did not load: projects/ores.geo/modeling/compass.db.run.org: Missing required flag: subcomponent
+no_profile compass.db.scenario.org exit=2 codegen_writes=0 compass: codegen: a model did not load: projects/ores.geo/modeling/compass.db.scenario.org: Missing required flag: subcomponent
+no_profile compass.db.section.org exit=2 codegen_writes=0 compass: codegen: a model did not load: projects/ores.geo/modeling/compass.db.section.org: Missing required flag: subcomponent
+no_profile compass.db.setting.org exit=2 codegen_writes=0 compass: codegen: a model did not load: projects/ores.geo/modeling/compass.db.setting.org: Missing required flag: subcomponent
+no_profile compass.db.step.org exit=2 codegen_writes=0 compass: codegen: a model did not load: projects/ores.geo/modeling/compass.db.step.org: Missing required flag: subcomponent
+no_profile compass.db.step_result.org exit=2 codegen_writes=0 compass: codegen: a model did not load: projects/ores.geo/modeling/compass.db.step_result.org: Missing required flag: subcomponent
+no_subcomp compass.db.attached.org exit=2 codegen_writes=0 [error] 0/projects/ores.web/packages/wire-protocol/src/generated/db/domain/attached.ts: SyntaxError: Type expected. (36:17) [error]   34 |
+no_subcomp compass.db.attachment.org exit=2 codegen_writes=0 [error] 0/projects/ores.web/packages/wire-protocol/src/generated/db/domain/attachment.ts: SyntaxError: Type expected. (35:11) [error]   33
+no_subcomp compass.db.campaign.org exit=2 codegen_writes=0 [error] 0/projects/ores.web/packages/wire-protocol/src/generated/db/domain/campaign.ts: SyntaxError: Type expected. (36:18) [error]   34 |
+no_subcomp compass.db.document.org exit=2 codegen_writes=0 [error] 0/projects/ores.web/packages/wire-protocol/src/generated/db/domain/document.ts: SyntaxError: Type expected. (35:11) [error]   33 | ex
+no_subcomp compass.db.environment.org exit=2 codegen_writes=0 [error] 0/projects/ores.web/packages/wire-protocol/src/generated/db/domain/environment.ts: SyntaxError: Type expected. (36:11) [error]   3
+no_subcomp compass.db.heading.org exit=2 codegen_writes=0 [error] 0/projects/ores.web/packages/wire-protocol/src/generated/db/domain/heading.ts: SyntaxError: Type expected. (35:11) [error]   33 | expo
+no_subcomp compass.db.link.org exit=2 codegen_writes=0 [error] 0/projects/ores.web/packages/wire-protocol/src/generated/db/domain/link.ts: SyntaxError: Type expected. (35:11) [error]   33 | export int
+no_subcomp compass.db.migration.org exit=2 codegen_writes=0 [error] 0/projects/ores.web/packages/wire-protocol/src/generated/db/domain/migration.ts: SyntaxError: Type expected. (36:11) [error]   34 |
+no_subcomp compass.db.note.org exit=2 codegen_writes=0 [error] 0/projects/ores.web/packages/wire-protocol/src/generated/db/domain/note.ts: SyntaxError: Type expected. (36:15) [error]   34 |     versio
+no_subcomp compass.db.placement.org exit=2 codegen_writes=0 [error] 0/projects/ores.web/packages/wire-protocol/src/generated/db/domain/placement.ts: SyntaxError: Type expected. (37:11) [error]   35 |
+no_subcomp compass.db.run.org exit=2 codegen_writes=0 [error] 0/projects/ores.web/packages/wire-protocol/src/generated/db/domain/run.ts: SyntaxError: Type expected. (36:15) [error]   34 |     version:
+no_subcomp compass.db.scenario.org exit=2 codegen_writes=0 [error] 0/projects/ores.web/packages/wire-protocol/src/generated/db/domain/scenario.ts: SyntaxError: Type expected. (35:11) [error]   33 | ex
+no_subcomp compass.db.section.org exit=2 codegen_writes=0 [error] 0/projects/ores.web/packages/wire-protocol/src/generated/db/domain/section.ts: SyntaxError: Type expected. (35:11) [error]   33 | expo
+no_subcomp compass.db.setting.org exit=2 codegen_writes=0 [error] 0/projects/ores.web/packages/wire-protocol/src/generated/db/domain/setting.ts: SyntaxError: Type expected. (36:12) [error]   34 |
+no_subcomp compass.db.step.org exit=2 codegen_writes=0 [error] 0/projects/ores.web/packages/wire-protocol/src/generated/db/domain/step.ts: SyntaxError: Type expected. (35:11) [error]   33 | export int
+no_subcomp compass.db.step_result.org exit=2 codegen_writes=0 [error] 0/projects/ores.web/packages/wire-protocol/src/generated/db/domain/step_result.ts: SyntaxError: Type expected. (37:14) [error]   3

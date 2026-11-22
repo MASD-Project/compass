@@ -1,0 +1,120 @@
+:PROPERTIES:
+:ID: B98265D5-4604-41A0-8DA4-614188437D47
+:END:
+#+title: compass.db.link
+#+description: Codegen entity model for corpus.link: one link of a corpus document, with the heading it sits under and the target of an id: link.
+#+type: masd.codegen.entity
+#+component: db
+#+filetags: :model:entity:database:
+#+brief: One link of a corpus document.
+#+entity_singular: link
+#+entity_plural: links
+#+created: 2026-11-22
+#+updated: 2026-11-22
+
+One row per link of a document, in document order. Backlinks read
+=target_id=.
+
+* Flags
+:PROPERTIES:
+:product:    compass
+:component:  db
+:schema:     corpus
+:profile:    owned-child-row
+:END:
+
+The profile =owned-child-row= fixes =read_only=, =current_state= and =insert_conflict: do_nothing=, as =content-addressed-row= does, for a row its owner's key and its =ord= identify, deleted with its owner.
+
+* Columns
+
+** hash
+:PROPERTIES:
+:type:         bytea
+:cpp_type:     store::types::blob_id
+:primary_key:  true
+:key_kind:     content_hash
+:END:
+
+The blob ID of the document's source: the owner's key. The writer takes it as an argument, so the row type leaves it out.
+
+** ord
+:PROPERTIES:
+:type:         integer
+:cpp_type:     std::uint32_t
+:primary_key:  true
+:key_kind:     ord
+:END:
+
+The row's place among its document's rows of this table, from 0. It is the index of the row in the aggregate's vector, so the row type leaves it out.
+
+** heading_ord
+:PROPERTIES:
+:type:      integer
+:cpp_type:  std::uint32_t
+:nullable:  true
+:END:
+
+The =ord= of the heading the link sits under; NULL before the first heading. The row type names the member =heading=; see Notes.
+
+** type
+:PROPERTIES:
+:type:  text
+:END:
+
+The link type: =id=, =file=, =https= and so on.
+
+** path
+:PROPERTIES:
+:type:  text
+:END:
+
+The link's path as written.
+
+** target_id
+:PROPERTIES:
+:type:      text
+:nullable:  true
+:END:
+
+The path of an =id:= link; NULL for any other type.
+
+** text
+:PROPERTIES:
+:type:  text
+:END:
+
+The link's description, or its path when it has none.
+
+* Foreign keys
+
+** hash
+:PROPERTIES:
+:references:  corpus.document
+:on_delete:   cascade
+:END:
+
+The document this row belongs to. Deleting the document deletes the row.
+
+* SQL
+
+** Indexes
+
+| name      | columns   | unique | where                 | using | opclass |
+|-----------+-----------+--------+-----------------------+-------+---------|
+| target_id | target_id | false  | target_id is not null |       |         |
+
+* C++
+
+The row is =compass::db::types::link_row= of
+=compass.db/types/corpus_document.hpp=: =heading=, =type=, =path=,
+=target_id= and =text=.
+
+* Notes
+
+The member is =heading= and the column =heading_ord=, as in
+=compass.db.section=; the model cannot say so.
+
+* See also
+
+- [[id:493B7D68-516E-4430-B4CE-688C6FBE1271][compass.db]]: the component overview, which lists every model.
+- [[id:7FD52505-1436-4925-A1DE-4A3EC88F0133][Investigation: How compass generates itself]]: the features, key kinds and profiles these models use.
