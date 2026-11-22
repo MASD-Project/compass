@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :serve_the_documents:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/compass-database
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -20,28 +20,63 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Goal
 
-(Describe what user-visible-or-internal change this task produces.)
+compass has a PostgreSQL database of its own for each repository, which every
+environment of the repository shares. A developer names it once per machine
+with =compass db init --database <connection string>=, and every compass
+command that touches it finds it in the repository's local settings, refuses
+a schema newer than it knows, and migrates an older one only when asked.
 
 * Status
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]] |
-| Now          | Not yet started.                       |
-| Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Now          | In review on feature/compass-database. |
+| Waiting on   | Review of the pull request.            |
+| Next         | Merge, then Search the corpus.         |
 | Last touched | 2026-11-22                               |
 
 * Acceptance
 
--
+- =compass.db= is a component of its own, in the domain layer, over libpq
+  from vcpkg behind a small RAII wrapper: a connection, statements with
+  parameters, result rows, transactions and =COPY=.
+- The connection string is =#+database:= of the repository's local
+  settings, =compass/local.org= under the git directory every worktree
+  shares, written owner-only by =compass db init --database=.
+- Versioned migrations create the =corpus=, =test= and =activity= schemas
+  from the design's tables; =compass.migration= records them.
+- =compass db init=, =compass db migrate= and =compass db status= work
+  against a fresh database and an initialised one, and running either
+  again changes nothing.
+- A schema newer than the binary knows is refused by every command,
+  =migrate= and =init= included; an older one is refused by every command
+  but =migrate=, =init= and =status=.
+- The text search configuration is chosen at init, =english= by default,
+  and kept in the database, so every =tsvector= in it is computed the same
+  way.
+- Tests run against a throwaway cluster that =compass.testing= makes with
+  =initdb= and =pg_ctl= on a Unix socket in a temporary directory, with no
+  TCP port, and skip with a message where the server programs are missing.
+  The Linux CI image installs them.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Local settings did not exist before this task: =.compass.org= is
+  committed, and the =compass/local.org= of the design of Let projects
+  define their checks was never built. A connection is per machine and per
+  repository, and a worktree made tomorrow must find it, so it goes under
+  the git common directory, beside the store, rather than in the checkout.
+  Each worktree's own git directory may hold a =local.org= too, which wins;
+  that is where a worktree's =#+environment:= goes.
+- Bookkeeping is a fourth, small schema, =compass=: =migration= and
+  =setting=. It belongs to none of the three data schemas.
+- libpq is built without its default features (OpenSSL, lz4, zlib). The
+  database is reached on a Unix socket or a private network; a server that
+  requires TLS needs the =openssl= feature turned on.
+- Each migration runs in its own transaction under an advisory lock, and
+  re-reads the version under the lock, so two migrates apply each one once.
 
 * Measurements
 
@@ -55,7 +90,8 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| =compass db init= on a fresh database | Schema version 1, text search =english=; connection recorded in =.git/compass/local.org= | =evidence/corpus_sync_ore_studio.sh=, output in =evidence/corpus_sync_ore_studio.txt= | =855ea19= |
+| compass.db tests | 26 test cases, 153 assertions, 15 of them against a throwaway cluster in 1.8 s | =compass.db.tests= | =855ea19= |
 
 * Notes
 
