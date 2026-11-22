@@ -97,8 +97,10 @@ cops::data_tables check_document() {
     return t;
 }
 
-tests::options data(const cops::data_tables& t) {
-    return {{std::string(cops::data_option), cops::encode_data_tables(t)}};
+tests::options data(const cops::data_tables& t,
+    const std::string& page = inventory_path) {
+    return {{std::string(cops::data_option), cops::encode_data_tables(t)},
+        {"page", page}};
 }
 
 cops::data_table& in(cops::data_tables& t, std::string_view name) {
@@ -390,4 +392,26 @@ TEST_CASE("a family whose registry the checkout lacks is refused",
     REQUIRE(found.size() == 1);
     CHECK_THAT(found.front(), ContainsSubstring("cannot read projects/"
         "ores.web/packages/wire-protocol/src/records.ts"));
+}
+
+TEST_CASE("the inventory is written at the path its page option names",
+    "[codecs][route_inventory]") {
+    const std::string renamed = "doc/knowledge/architecture/routes.org";
+    const auto before = tests::generate(codecs::route_inventory, tree(),
+        data(check_document()));
+    const auto out = tests::generate(codecs::route_inventory, tree(),
+        data(check_document(), renamed));
+    CHECK_FALSE(out.contains(inventory_path));
+    REQUIRE(out.contains(renamed));
+    CHECK(out.at(renamed) == before.at(inventory_path));
+}
+
+TEST_CASE("an inventory with no page option is reported and not written",
+    "[codecs][route_inventory]") {
+    CHECK(tests::generate(codecs::route_inventory, tree(),
+        data(check_document(), "")).empty());
+    CHECK(tests::run(codecs::route_inventory, tree(),
+        data(check_document(), "")).findings == std::vector<tests::finding>{
+            {".compass.org", 0, "route_inventory: the option 'page' names "
+                "no page; set it to the path of the inventory's page"}});
 }

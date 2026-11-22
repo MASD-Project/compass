@@ -34,6 +34,7 @@ namespace cops = compass::codec::ops;
 const std::string data_path =
     "projects/ores.ore/core/src/results/output_catalogue_data.cpp";
 const std::string page_path = "doc/knowledge/external/ore_output_formats.org";
+const std::string page_id = "FORMATS-1";
 const std::string files_path = "projects/ores.sql/utility/ore_files.py";
 const std::string document = "compass/checks/ore_output_catalogue.org";
 
@@ -90,7 +91,8 @@ cops::data_tables curation() {
 }
 
 tests::options data(const cops::data_tables& t = curation()) {
-    return {{std::string(cops::data_option), cops::encode_data_tables(t)}};
+    return {{std::string(cops::data_option), cops::encode_data_tables(t)},
+        {"page", page_id}};
 }
 
 /**
@@ -316,7 +318,8 @@ files tree() {
         {"projects/ores.ore/data/samples/synthetic/flows.csv", file8},
         {"projects/ores.ore/data/samples/captured/npv.csv", file9},
         {"projects/ores.sql/populate/reporting/reporting_file_types_populate.sql", file10},
-        {"projects/ores.sql/utility/ore_files.py", file11}};
+        {"projects/ores.sql/utility/ore_files.py", file11},
+        {page_path, ":PROPERTIES:\n:ID: " + page_id + "\n:END:\n"}};
 }
 
 void replace(std::string& text, const std::string& from,
@@ -378,13 +381,15 @@ TEST_CASE("an edit to a table changes what the codec writes",
 
 TEST_CASE("a codec whose check document gives no tables, or lacks one, says "
     "which, and writes nothing", "[codecs][ore_output_catalogue]") {
-    const auto none = tests::run(codecs::ore_output_catalogue, tree());
+    const auto none = tests::run(codecs::ore_output_catalogue, tree(),
+        {{"page", page_id}});
     REQUIRE(none.findings.size() == 1);
     CHECK(std::get<0>(none.findings.front()) == document);
     CHECK(tests::messages_of(none).front().starts_with(
         "ore_output_catalogue reads its data from a check document, and none "
         "gives it: write compass/checks/ore_output_catalogue.org"));
-    CHECK(tests::generate(codecs::ore_output_catalogue, tree()).empty());
+    CHECK(tests::generate(codecs::ore_output_catalogue, tree(),
+        {{"page", page_id}}).empty());
 
     auto t = curation();
     std::erase_if(t.tables, [](const cops::data_table& table) {
@@ -423,4 +428,33 @@ TEST_CASE("a missing or unreadable ore_files.py is named, as a file "
             "they do not read as the literals it reads"});
     CHECK(tests::generate(codecs::ore_output_catalogue, broken, data())
         .empty());
+}
+
+TEST_CASE("the formats page renamed under its ID is written whole at its "
+    "new path, with that ID", "[codecs][ore_output_catalogue]") {
+    auto t = tree();
+    const std::string renamed = "doc/knowledge/external/output_formats.org";
+    t[renamed] = t.at(page_path);
+    t.erase(page_path);
+    const auto before = tests::generate(codecs::ore_output_catalogue, tree(),
+        data());
+
+    const auto out = tests::generate(codecs::ore_output_catalogue, t, data());
+
+    CHECK_FALSE(out.contains(page_path));
+    REQUIRE(out.contains(renamed));
+    CHECK(out.at(renamed) == before.at(page_path));
+    CHECK(out.at(renamed).starts_with(":PROPERTIES:\n:ID: FORMATS-1\n"));
+}
+
+TEST_CASE("a page option whose ID no document has is reported, and nothing "
+    "is written", "[codecs][ore_output_catalogue]") {
+    auto options = data();
+    options[1].second = "FORMATS-404";
+    CHECK(tests::generate(codecs::ore_output_catalogue, tree(), options)
+        .empty());
+    CHECK(tests::run(codecs::ore_output_catalogue, tree(), options).findings ==
+        std::vector<tests::finding>{{".compass.org", 0, "ore_output_catalogue: "
+            "no document has the :ID: FORMATS-404 that the option 'page' "
+            "names"}});
 }

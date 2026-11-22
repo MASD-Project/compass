@@ -152,10 +152,11 @@ The recipes in [[file:doc/recipes/compass/compass.org][doc/recipes/compass]] cov
 | Component            | Holds                                                     |
 |----------------------+-----------------------------------------------------------|
 | =compass.platform=   | Mapped files, processes, Python-compatible text and XML   |
-| =compass.testing=    | Test infrastructure: self-removing temporary directories  |
+| =compass.testing=    | Test infrastructure: self-removing temporary directories, throwaway PostgreSQL clusters |
 | =compass.store=      | Git index and object reading, the content-addressed store |
 | =compass.org=        | Org tables and the document type registry                 |
 | =compass.ingest=     | The org parser                                            |
+| =compass.db=         | compass's PostgreSQL database, its schema and the corpus sync |
 | =compass.codec=      | The codec runtime, records, caches, drift and the sink    |
 | =compass.model=      | The codegen model loader                                  |
 | =compass.codegen=    | Mustache rendering, render contexts, the codegen codec    |

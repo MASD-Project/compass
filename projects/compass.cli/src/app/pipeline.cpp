@@ -433,14 +433,15 @@ std::vector<std::pair<std::string_view, std::uint32_t>> scripts_named(
 }
 
 /**
- * @brief One finding for each script the header of a file of @p plan, its
- * first codec::ops::generated_header_lines lines, names and the checkout,
- * listed in @p files, lacks: a path must be one of them, a file name the
- * name of one. A generated banner that names a deleted script sends its
- * reader nowhere.
+ * @brief One finding for each script the header of a file of @p outputs,
+ * its first codec::ops::generated_header_lines lines, names and the
+ * checkout or commit, listed in @p files, lacks: a path must be one of
+ * them, a file name the name of one. A generated banner that names a
+ * deleted script sends its reader nowhere.
  */
 std::vector<types::finding> names_missing_of(
-    const codec::io::output_plan& plan, std::span<const std::string> files) {
+    const codec::types::output_set& outputs,
+    std::span<const std::string> files) {
     std::set<std::string_view> names;
     for (const auto& f : files) {
         const auto slash = f.rfind('/');
@@ -448,10 +449,9 @@ std::vector<types::finding> names_missing_of(
             : std::string_view(f).substr(slash + 1));
     }
     std::vector<types::finding> out;
-    for (std::size_t i = 0; i < plan.size(); ++i) {
-        if (plan.actions[i] == codec::io::output_action::remove)
-            continue;
-        const auto whole = plan.contents[i];
+    for (std::uint32_t i = 0; i < outputs.size(); ++i) {
+        const codec::types::file_id id{i};
+        const auto whole = outputs.files.contents[id];
         auto header_end = std::string_view::size_type{0};
         for (std::uint32_t l = 0; l < codec::ops::generated_header_lines &&
              header_end != std::string_view::npos; ++l) {
@@ -468,14 +468,14 @@ std::vector<types::finding> names_missing_of(
             if (held)
                 continue;
             const auto [line, column] = position_of(text, at);
-            out.push_back({.path = std::string(plan.paths[i]),
+            out.push_back({.path = std::string(outputs.files.paths[id]),
                 .line = line,
                 .column = column,
-                .rule = std::format("{}/{}", plan.codecs[i],
+                .rule = std::format("{}/{}", outputs.codecs[id],
                     codec::ops::names_missing_file_rule.name),
                 .level = codec::types::severity::error,
                 .message = std::format("{} generates this file naming {}, "
-                    "which the checkout does not hold", plan.codecs[i],
+                    "which the checkout does not hold", outputs.codecs[id],
                     script),
                 .fix = "change the codec so it names a file the project "
                        "has, or restore the script",
@@ -1711,9 +1711,12 @@ types::check_result check_in(pipeline& p, const types::options& o) {
             const auto problems = codec::ops::check_outputs(outputs);
             for (const auto& problem : problems)
                 p.summary.errors.push_back("output: " + problem);
-            if (problems.empty())
-                r.findings = commit_drift_of(*p.commit, outputs,
-                    in_commit(o.output_root, o.checkout));
+            if (!problems.empty())
+                return;
+            r.findings = commit_drift_of(*p.commit, outputs,
+                in_commit(o.output_root, o.checkout));
+            std::ranges::move(names_missing_of(outputs, p.listed.files),
+                std::back_inserter(r.findings));
         });
     } else if (!p.summary.failed()) {
         p.timed("plan", [&] {
@@ -1722,8 +1725,9 @@ types::check_result check_in(pipeline& p, const types::options& o) {
             for (const auto& problem : planned.plan.problems)
                 p.summary.errors.push_back("output: " + problem);
             r.findings = drift_of(planned.plan, o.output_root, o.checkout);
-            std::ranges::move(names_missing_of(planned.plan, p.listed.files),
-                std::back_inserter(r.findings));
+            if (planned.plan.problems.empty())
+                std::ranges::move(names_missing_of(planned.outputs,
+                    p.listed.files), std::back_inserter(r.findings));
         });
     }
     add_findings(p, r.findings);
@@ -2084,8 +2088,9 @@ std::vector<types::finding> hook_drift(pipeline& p, const types::options& o,
     for (const auto& problem : plan.plan.problems)
         p.summary.errors.push_back("output: " + problem);
     auto found = drift_of(plan.plan, o.output_root, o.checkout);
-    std::ranges::move(names_missing_of(plan.plan, p.listed.files),
-        std::back_inserter(found));
+    if (plan.plan.problems.empty())
+        std::ranges::move(names_missing_of(plan.outputs, p.listed.files),
+            std::back_inserter(found));
     return found;
 }
 

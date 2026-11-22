@@ -1,0 +1,63 @@
+# Output of corpus_sync_ore_studio.sh, beside this file, over an archive of
+# ORE Studio main at 9ed8b54cd2, with compass at 855ea19, a release build,
+# on 8 cores at load average 10 to 16. <scratch> is the scratch directory.
+== db init
+compass: the database is at schema version 1 with text search configuration english; its connection is in <scratch>/ore/.git/compass/local.org
+== first sync
+compass: synced ore: 11182 documents placed, 11180 new to the corpus (11180 parsed), placements 11182 added, 0 changed, 0 removed, in 18233 ms
+compass: collected the corpus: 0 documents removed, 11180 left
+compass: sync step list: 207.8 ms
+compass: sync step resolve: 78.4 ms
+compass: sync step present: 6.8 ms
+compass: sync step load: 322.9 ms
+compass: sync step extract: 85.9 ms
+compass: sync step write: 17513.0 ms
+compass: sync step collect: 8.9 ms
+wall: 18317 ms
+== no-change sync (3 runs)
+compass: synced ore: 11182 documents placed, 0 new to the corpus (0 parsed), placements 0 added, 0 changed, 0 removed, in 387 ms
+wall: 398 ms
+compass: synced ore: 11182 documents placed, 0 new to the corpus (0 parsed), placements 0 added, 0 changed, 0 removed, in 393 ms
+wall: 404 ms
+compass: synced ore: 11182 documents placed, 0 new to the corpus (0 parsed), placements 0 added, 0 changed, 0 removed, in 381 ms
+wall: 392 ms
+== counts after the first environment
+scenarios|164
+steps|1101
+placements|11182
+id links|55444
+links|65680
+documents|11180
+headings|111941
+sections|122223
+database size|264 MB
+corpus.section size|152 MB
+corpus.document size|57 MB
+== one-file sync through the edit hook
+compass: synced ore: 1 documents placed, 1 new to the corpus (1 parsed), placements 0 added, 1 changed, 0 removed, in 19 ms
+compass: synced ore: 1 documents placed, 1 new to the corpus (1 parsed), placements 0 added, 1 changed, 0 removed, in 18 ms
+compass: synced ore: 1 documents placed, 1 new to the corpus (1 parsed), placements 0 added, 1 changed, 0 removed, in 18 ms
+documents after three edits|11183
+== a second environment: a worktree with one file edited
+compass: synced ore2: 11182 documents placed, 1 new to the corpus (1 parsed), placements 11182 added, 0 changed, 0 removed, in 506 ms
+wall: 516 ms
+documents: 11183 -> 11184
+sections: 122307 -> 122314
+ore|11182
+ore2|11182
+database size|268 MB
+== collection after the second worktree is gone
+compass: dropped ore2, whose worktree <scratch>/ore2 is gone
+compass: collected the corpus: 4 documents removed, 11180 left
+documents|11180
+sections|122223
+environments|1
+database: configured in <scratch>/ore/.git/compass/local.org
+schema: version 1 of 1
+text search: english
+corpus.document: 11180 rows
+corpus.section: 122223 rows
+corpus.link: 65680 rows
+test.scenario: 164 rows
+size: 268 MB
+environment ore: worktree, 11182 documents, synced 2026-11-22T13:50:36Z, at <scratch>/ore

@@ -1,0 +1,116 @@
+:PROPERTIES:
+:ID: 2F0235E0-2F30-4D7C-966B-BA472B061711
+:END:
+#+title: compass.html
+#+description: Renders a parsed org document as HTML that needs no sanitiser: stable heading anchors, links through the project's URL templates and a caller's view, and every unsupported construct kept as escaped text.
+#+type: component
+#+level: cross
+#+filetags: :html:org:render:component:
+#+created: 2026-11-22
+#+updated: 2026-11-22
+
+This page is the component overview for =compass.html=, a simple component
+in the domain layer of the
+[[id:8A9A460F-8024-4890-B091-C0D02FD84218][System Model]].
+
+* Summary
+
+=compass.html= turns the =compass.org= tables of one document into an HTML
+string. It is a pure library: the document's source and tables, its path, a
+render configuration and a link resolver go in, and the body and the
+document's metadata come out. It reads no file, opens no database and serves
+nothing, so the document service, a static export and a test all call it
+the same way.
+
+* Inputs
+
+- The source of the document and its =tables_view=, from
+  [[id:D2B611DE-6D20-4408-B322-DF83B151AD94][compass.ingest]] or a mapped
+  object.
+- The document's path from the root of its environment, against which
+  relative file links resolve.
+- A =render_config=: the link template, such as =/docs/{id}#{anchor}=, and
+  the image template, such as =/files/{path}=.
+- A =link_resolver=: which document holds an org ID, which document is at a
+  path, and whether the caller may see a document. The caller's view is this
+  predicate.
+
+* Outputs
+
+A =rendered_document=: the document's =:ID:=, title and description as plain
+text, the body as HTML, and the kind of each construct that fell to the
+=org-unsupported= fallback.
+
+| Construct                         | HTML                                                                     |
+|-----------------------------------+--------------------------------------------------------------------------|
+| Heading                           | =<section>= with =<h2>= to =<h6>=, its anchor as =id=; TODO keyword, priority and tags as classed spans |
+| Paragraph                         | =<p>=                                                                    |
+| Plain, ordered, description list  | =<ul>=, =<ol>=, =<dl>=; a checkbox as a classed span                     |
+| Table                             | =<table>=; the rows before the first rule in =<thead>= as =<th>=         |
+| Source, example, =html= export    | =<pre><code>=, escaped; a source block's language as =language-<name>=    |
+| Quote, center, special, dynamic   | =<blockquote>= or a classed =<div>= around the children                  |
+| Verse block, fixed width, rule    | =<p class="org-verse">=, =<pre class="org-fixed-width">=, =<hr>=         |
+| Keywords before the first heading | =<dl class="org-keywords">=, except title and description               |
+| Planning line, clock              | Classed spans                                                            |
+| Bold, italic, underline, strike   | =<strong>=, =<em>=, =<span class="underline">=, =<del>=                  |
+| Code, verbatim                    | =<code>=, =<code class="org-verbatim">=                                  |
+| Timestamp, statistics cookie      | Classed spans                                                            |
+| Subscript, superscript            | Their source text, since =snake_case= words parse as subscripts          |
+
+- *Anchors.* =heading_anchors= gives each heading its =:ID:=, or else the
+  slug of its heading path, made unique in the document. The document
+  service stores the same anchors, so a search hit links where the page puts
+  its =id=.
+- *Links.* An =id:= link to a heading of the same document is a fragment.
+  Any other =id:= link, and a =file:= link to a known document, goes through
+  the link template with the document's =:ID:= and, for a heading, its ID as
+  the anchor. A =file:= link with no description to an image becomes =<img>=
+  through the image template. =http= and =https= links stay as written; a
+  fuzzy or =custom-id= link to a heading of the document is a fragment.
+  Every other link, and a link to a document that is unknown or that the
+  caller cannot see, renders as its description: the two read the same, so
+  the page does not show that a hidden document exists.
+- *Safety.* Every byte from the source is escaped and every URL is
+  percent-encoded where it is put in a template. An =html= export block or
+  export snippet renders its content as escaped text, never as markup;
+  =#+attr_html:= is ignored; a class built from a block's name is used only
+  when the name is letters, digits, =-=, =_= and =+=. The output needs no
+  sanitiser.
+- *Left out.* Drawers, property drawers, comments and comment blocks,
+  export blocks and snippets for other backends, and headings marked
+  =COMMENT= or tagged =noexport=, as org's HTML export leaves them out.
+- *Unsupported.* Any other construct renders as its escaped source in a
+  =<div>= or =<span>= of class =org-unsupported=, with its org-element name
+  in =data-org-kind=, and is counted in =unsupported=.
+
+* Entry points
+
+| Path                                            | Role                                       |
+|-------------------------------------------------+--------------------------------------------|
+| =include/compass.html/ops/render.hpp=           | =render=.                                  |
+| =include/compass.html/ops/anchors.hpp=          | =heading_anchors=.                         |
+| =include/compass.html/types/render_config.hpp=  | =render_config=, =link_resolver=, =rendered_document=. |
+| =tests/ops_render_tests.cpp=                    | Each construct, each link kind, escaping.  |
+| =tests/ops_anchors_tests.cpp=                   | IDs, slugs and their uniqueness.           |
+
+| Target               | Kind                                      |
+|----------------------+-------------------------------------------|
+| =compass.html.lib=   | Library.                                  |
+| =compass.html.tests= | Catch2 executable, registered with CTest. |
+
+=compass-bench html <root> [--out <dir>]= renders every knowledge and manual
+page of a tree, with links resolved within it, and reports the time and every
+fallback by kind.
+
+* Dependencies
+
+- [[id:44C128E0-BCF3-4574-B171-BF5E72325085][compass.org]], for the tables.
+- The C++23 standard library.
+- Catch2 and =compass.ingest=, for the tests only.
+
+* See also
+
+- [[id:21C1D3CC-9EE3-48C3-8EDD-BA0C16032AB2][Design: the document service]]
+  --- where the renderer serves documents.
+- [[id:8A0E6F32-C4BC-4667-88E8-7F80CA25437C][Component architecture]] ---
+  layout, naming and facets.

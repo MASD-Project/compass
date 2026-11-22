@@ -2,7 +2,7 @@
 :ID: 45FA67C9-60BC-420D-BB66-8A272CB1106C
 :END:
 #+title: compass.cli
-#+description: The compass executable and the library behind it: one function per command (generate, diff, check, gc, config, hook, env) that runs the pipeline over a checkout and returns a result, the command-line parser, the reader of the repository's .compass.org, and the report that prints each result with its exit status.
+#+description: The compass executable and the library behind it: one function per command (generate, diff, check, gc, config, hook, env, sync, db) that runs the pipeline over a checkout and returns a result, the command-line parser, the reader of the repository's .compass.org, and the report that prints each result with its exit status.
 #+type: component
 #+level: cross
 #+filetags: :cli:application:pipeline:component:
@@ -67,6 +67,28 @@ thing with what the codecs produced:
 | =env version=     | Prints the highest version of the environment file's format.             | Nothing.                                          |
 | =env version new= | Appends the next version to the check document and sets the added and removed versions of the rows it names. | The check document.                    |
 | =env status=      | Says whether the environment file is current, and exits 1 when it is not. | Nothing.                                         |
+| =sync=            | Loads the worktree's org documents into compass's database (=compass.db=): the documents the corpus lacks, from the store or parsed, and the environment's placements. =--commit <rev> --environment <name>= syncs a release from git's objects. | The database; the store, for what it parsed. |
+| =db init=         | Creates the database's schemas, or migrates them, with =--text-search= as the configuration, and records =--database= in the local settings. | The database and =<git common dir>/compass/local.org=, owner-only. |
+| =db migrate=      | Applies the migrations the database lacks.                               | The database.                                     |
+| =db status=       | Prints the schema version, the text search configuration, row counts, the size and every environment; exits 1 when the schema is not current. | Nothing.                     |
+| =db hooks install= | Writes git's =post-checkout=, =post-merge= and =post-rewrite= hooks to run =compass sync= in the background, leaving a hook that is not compass's as it is and exiting 1. | The hooks directory git names. |
+| =db prune=        | Drops the environments whose worktree is gone, or the one =--environment= names, then collects the corpus. | The database. |
+
+=sync= and =db= run outside the pipeline's evaluation: =app::run_sync= and
+=app::run_db= read the local settings (=config::read_local_settings=). The
+repository's file is =compass/local.org= under the git directory every
+worktree shares; each worktree's own git directory may hold one too, which
+wins. =#+database:= is a libpq connection string and =#+environment:= names
+the worktree's environment; without one the environment is the checkout's
+directory name. =app::sync_environment= lists, resolves and loads with the
+steps below, asks the database which blob IDs it lacks, loads only those,
+extracts their rows with =db::ops::extract= on every thread and writes them
+with the placements in one transaction. A run with a database configured
+syncs at its end: =generate= and =check= of a worktree call
+=app::sync_after_run=, and =hook= calls =app::sync_after_edit= for the one
+file it checked. Neither fails the run: a sync that fails prints a warning.
+Without a database they read the local settings and nothing else, so a run
+behaves as before.
 
 =env= runs outside the pipeline: =app::run_env= reads the check documents
 (=config::read_check_documents=), takes the one whose Definition names
@@ -744,6 +766,10 @@ range, 1-based, the column counted in bytes. The rule is written as
 | =include/compass.cli/io/hook_payload.hpp=        | The file a PostToolUse payload names, and the checkout that holds it.              |
 | =include/compass.cli/app/application.hpp=        | =app::run= and the exit statuses.                                                  |
 | =include/compass.cli/app/env.hpp=                | =app::run_env=: =compass env=.                                                     |
+| =include/compass.cli/config/local_settings.hpp=  | The machine's local settings: =#+database:= and =#+environment:=, and the environment's name. |
+| =include/compass.cli/app/sync.hpp=               | =sync_environment= and =sync_file=: the corpus sync over the pipeline's steps.     |
+| =include/compass.cli/app/database.hpp=           | =run_sync=, =run_db=, and the syncs at the end of a run and in the edit hook.      |
+| =tests/app_sync_tests.cpp=                       | =db init=, =sync=, =--commit=, the syncs of a run and of the hook, =db prune= and =db hooks install=, against a throwaway cluster. |
 | =src/main.cpp=                                   | The executable.                                                                    |
 | =tests/end_to_end.sh=                            | The built executable over a fresh repository, then configured by a =.compass.org=. |
 | =tests/install_compass.sh=                       | The install script over copies of the executable, in a temporary =HOME=.           |
@@ -767,6 +793,8 @@ range, 1-based, the column counted in bytes. The rule is written as
 - =compass.crosscheck= for the cross-artefact gates.
 - =compass.docs= for the document gates.
 - =compass.env= for the =env_format= codec and =compass env=.
+- =compass.db= for the database, its schema and the corpus rows, over
+  libpq.
 - =compass.model= for its JSON reader, which reads the hook's payload
   and what =gh= prints.
 - =compass.ingest= for the parser and the type registry builder.
@@ -777,7 +805,8 @@ range, 1-based, the column counted in bytes. The rule is written as
   executable's own path.
 - =gh=, at run time, for the pull request of a branch, when
   =commit_provenance= is on; without it the commits are still checked.
-- Catch2, git and bash, for the tests only.
+- Catch2, git and bash, for the tests only, and =compass.testing='s
+  PostgreSQL cluster for the sync tests, which skip without one.
 
 * See also
 

@@ -199,3 +199,39 @@ TEST_CASE("malformed env command lines are usage errors",
              {"check", "--input", "a=b"}, {"generate", "--format-only"}})
         CHECK(std::holds_alternative<config::usage_error>(parse(args)));
 }
+
+TEST_CASE("sync takes an environment and, for a release, a commit",
+    "[config][arguments]") {
+    const auto plain = parse({"sync"});
+    REQUIRE(std::holds_alternative<types::invocation>(plain));
+    CHECK(std::get<types::invocation>(plain).which == types::command::sync);
+    const auto release = parse({"sync", "--environment", "v1", "--commit",
+        "v1.0"});
+    REQUIRE(std::holds_alternative<types::invocation>(release));
+    const auto& o = std::get<types::invocation>(release);
+    CHECK(o.environment == "v1");
+    CHECK(o.revision == "v1.0");
+    CHECK(std::holds_alternative<config::usage_error>(
+        parse({"sync", "--commit", "v1.0"})));
+}
+
+TEST_CASE("db takes an action and the options of init",
+    "[config][arguments]") {
+    const auto init = parse({"db", "init", "--database", "dbname=compass",
+        "--text-search", "simple"});
+    REQUIRE(std::holds_alternative<types::invocation>(init));
+    const auto& o = std::get<types::invocation>(init);
+    CHECK(o.which == types::command::db);
+    CHECK(o.db.action == types::db_action::init);
+    CHECK(o.db.database == "dbname=compass");
+    CHECK(o.db.text_search == "simple");
+    const auto hooks = parse({"db", "hooks", "install"});
+    REQUIRE(std::holds_alternative<types::invocation>(hooks));
+    CHECK(std::get<types::invocation>(hooks).db.action ==
+        types::db_action::hooks_install);
+    for (const auto& args : std::vector<std::vector<std::string_view>>{
+             {"db"}, {"db", "drop"}, {"db", "hooks"},
+             {"db", "status", "--database", "x"},
+             {"check", "--environment", "x"}, {"gen", "--commit", "HEAD"}})
+        CHECK(std::holds_alternative<config::usage_error>(parse(args)));
+}

@@ -21,8 +21,11 @@
 
 #include <array>
 #include <map>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
+#include "compass.codec/ops/pages.hpp"
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.cpp/ops/report.hpp"
 #include "compass.platform/text/decoding.hpp"
@@ -37,12 +40,12 @@ namespace co = compass::cpp::ops;
 namespace pt = compass::platform::text;
 
 enum rule : std::uint32_t { unkeyed_section, no_identifier, foreign_code,
-    duplicate, bad_citation };
+    duplicate, bad_citation, unreadable };
 
 constexpr std::array<std::string_view, 1> ux_hub_sources{
     "00BA1689-B060-4BD8-BC46-67034D663B7F"};
 
-constexpr std::array<ct::rule, 5> rules{{
+constexpr std::array<ct::rule, 6> rules{{
     {"unkeyed_section", "No rule carries an identifier in a section the "
         "pages do not key.", {}, ct::blame_method::line},
     {"no_identifier", "Every rule of a keyed section starts with its "
@@ -53,23 +56,24 @@ constexpr std::array<ct::rule, 5> rules{{
         ct::blame_method::line},
     {"bad_citation", "Every checklist line cites two-digit identifiers a "
         "page carries, or a page that carries none yet.",
-        ux_hub_sources, ct::blame_method::line}}};
+        ux_hub_sources, ct::blame_method::line},
+    {"unreadable", "The options name each keyed page and the checklist by "
+        "its :ID:, and a document has each ID."}}};
 
 using sections = std::vector<std::pair<std::string_view, std::string_view>>;
 
 /**
- * @brief A keyed page: its code, its path, and the code of each level-two
- * section whose bullets are rules.
+ * @brief A keyed page: its code, which is also the option that names it
+ * by :ID:, and the code of each level-two section whose bullets are rules.
  */
 struct page {
     std::string_view code;
-    std::string_view path;
     sections keyed;
 };
 
 const std::array<page, 2>& pages() {
     static const std::array<page, 2> out{{
-        {"RS", "doc/knowledge/ui/record_screen_standard.org", {
+        {"RS", {
             {"Where this standard applies", "SCOPE"},
             {"What a record kind declares", "DECL"},
             {"The layers", "LAYER"}, {"Addresses", "ADDR"},
@@ -80,7 +84,7 @@ const std::array<page, 2>& pages() {
             {"Feedback, access and safety", "FEEDBACK"},
             {"Naming", "NAME"}, {"Exceptions", "EXCEPT"},
             {"Building a record screen", "BUILD"}}},
-        {"ES", "doc/knowledge/ui/entity_screen_specification.org", {
+        {"ES", {
             {"User journeys and screens", "JOURNEY"},
             {"The shape of an entity screen", "SHAPE"},
             {"The list", "LIST"}, {"The page", "PAGE"},
@@ -108,8 +112,6 @@ const std::array<page, 2>& pages() {
 
 constexpr std::array<std::string_view, 5> unkeyed_pages{"UXL", "UDP", "CFG",
     "FSS", "OLS"};
-constexpr std::string_view checklist =
-    "doc/knowledge/ui/screen_review_checklist.org";
 
 std::vector<std::string_view> lines_of(std::string_view text) {
     std::vector<std::string_view> out;
@@ -183,6 +185,14 @@ std::vector<bullet> rules_of(const page& p, std::string_view text,
     return out;
 }
 
+constexpr std::array<ct::option, 3> options{{
+    {"RS", "", "The :ID: of the record screen standard, whose rules carry "
+        "RS- identifiers."},
+    {"ES", "", "The :ID: of the entity screen specification, whose rules "
+        "carry ES- identifiers."},
+    {"checklist", "", "The :ID: of the screen review checklist, whose lines "
+        "cite the identifiers."}}};
+
 void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
     static const pt::regex start(R"(^(?:- )?\*((?:RS|ES)-[A-Z]+-\d{2})\* )");
     static const pt::regex token(R"(\b((?:RS|ES)-[A-Z]+-\d+)\b)");
@@ -201,9 +211,31 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
             "without an identifier; cite an identifier on the checklist line "
             "it names.");
     };
+    std::vector<std::pair<const page*, ct::document>> keyed;
+    bool configured = true;
+    const auto resolve = [&](std::string_view key) {
+        auto found = compass::codec::ops::page_of(v, key);
+        if (!found) {
+            configured = false;
+            co::report(out, ".compass.org", 0, unreadable,
+                "rule_identifiers: " + found.error(), "Set the option in "
+                "the codec's row of .compass.org to the :ID: of the page.");
+            return std::optional<ct::document>{};
+        }
+        return std::optional<ct::document>{*found};
+    };
+    for (const auto& p : pages())
+        if (auto d = resolve(p.code))
+            keyed.emplace_back(&p, *d);
+    const auto listing = resolve("checklist");
+    if (!configured)
+        return;
+
     std::map<std::string, std::string> seen;
-    for (const auto& p : pages()) {
-        const auto bytes = v.read_file(p.path).value_or("");
+    for (const auto& [pp, d] : keyed) {
+        const auto& p = *pp;
+        const auto path = d.path;
+        const auto bytes = d.source;
         const auto text = pt::universal_newlines(pt::decode_replacing(bytes));
         const auto lines = lines_of(text);
         for (const auto& b : rules_of(p, text, lines)) {
@@ -211,27 +243,28 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
             const auto m = start.match(line);
             if (b.code.empty()) {
                 if (m)
-                    report(unkeyed_section, p.path, bytes, b.line,
+                    report(unkeyed_section, path, bytes, b.line,
                         "a rule under '" + b.title + "', a section this "
                         "check does not key");
                 continue;
             }
             if (!m) {
-                report(no_identifier, p.path, bytes, b.line, "a rule without "
+                report(no_identifier, path, bytes, b.line, "a rule without "
                     "an identifier at its start under '" + b.title + "'");
                 continue;
             }
             const std::string ident(m->group(1));
             if (!ident.starts_with(std::string(p.code) + "-"))
-                report(foreign_code, p.path, bytes, b.line, ident +
+                report(foreign_code, path, bytes, b.line, ident +
                     " carries another page's code");
             if (const auto it = seen.find(ident); it != seen.end())
-                report(duplicate, p.path, bytes, b.line, ident + " is also "
+                report(duplicate, path, bytes, b.line, ident + " is also "
                     "on a rule of " + it->second);
-            seen[ident] = p.path;
+            seen[ident] = path;
         }
     }
-    const auto bytes = v.read_file(checklist).value_or("");
+    const auto checklist = listing->path;
+    const auto bytes = listing->source;
     const auto text = pt::universal_newlines(pt::decode_replacing(bytes));
     const auto lines = lines_of(text);
     for (std::size_t i = 0; i < lines.size(); ++i) {
@@ -268,11 +301,11 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
 
 const ct::descriptor rule_identifiers{
     .name = "rule_identifiers",
-    .version = 1,
+    .version = 2,
     .summary = "Reports each UX rule without its one identifier, and each "
         "checklist line whose citations do not resolve.",
-    .reads = ct::inputs::of_types({}),
-    .options = {},
+    .reads = ct::inputs::every_document(),
+    .options = options,
     .rules = rules,
     .enabled_by_default = false,
     .run = ct::corpus_function<ct::diagnostic_table>{run}};

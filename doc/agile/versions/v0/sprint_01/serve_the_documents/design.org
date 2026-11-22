@@ -74,8 +74,9 @@ runs, loses every run but the last, and needs git to record a result.
 | =compass.serve= | The query layer; the HTTP server; the MCP endpoint; HTML rendering; the test campaign writes and the export |
 | =compass.cli= | =compass serve=, =compass sync=, =compass db=, =compass test export=; the sync at the end of each run and in the hook |
 
-The names are to be checked against =component_architecture.org= when the
-first task starts. The CLI gains a dependency on =libpq= for the sync; the HTTP
+The names were checked against =component_architecture.org= when the
+first task started: =compass.db= is a simple component in the domain layer,
+since it reads the =compass.org= tables. The CLI gains a dependency on =libpq= for the sync; the HTTP
 server and its libraries stay in =compass.serve=.
 
 Dependencies to add through vcpkg: =libpq=; an HTTP server, =cpp-httplib=

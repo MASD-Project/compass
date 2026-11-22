@@ -1,0 +1,21 @@
+compass-bench html <ORE Studio main 9ed8b54cd2, from git archive> --out <dir> --repeat 10
+compass f01975b, linux-clang-release-ninja, 8 cores, load average 58
+
+scanned 11183 org files
+rendered 872 knowledge and manual pages, 11309496 bytes of HTML
+links to documents 12463, unknown 349, outside the view 4861
+parse 142.761 ms
+render 80.2079 ms
+render 68.5273 ms
+render 64.9657 ms
+render 66.3961 ms
+render 68.0842 ms
+render 60.2537 ms
+render 59.0893 ms
+render 61.1263 ms
+render 74.6555 ms
+render 77.363 ms
+unsupported footnote-definition 8
+unsupported footnote-reference 9
+unsupported latex-environment 34
+unsupported latex-fragment 1099

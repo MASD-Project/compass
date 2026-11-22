@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :serve_the_documents:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/compass-database
+#+pr: https://github.com/MASD-Project/compass/pull/176
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-22
@@ -20,28 +20,72 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Goal
 
-(Describe what user-visible-or-internal change this task produces.)
+Every environment's org documents are in compass's database, each stored once
+by the blob ID of its content, and stay in step with the files without anyone
+asking: after an agent's edit, at the end of each compass run, after a pull,
+a branch switch or a rebase, and at a deploy. A row no environment and no test
+run names is collected.
 
 * Status
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]] |
-| Now          | Not yet started.                       |
-| Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Now          | In review on feature/compass-database. |
+| Waiting on   | Review of the pull request.            |
+| Next         | Merge, then Search the corpus.         |
 | Last touched | 2026-11-22                               |
 
 * Acceptance
 
--
+- The corpus tables =document=, =heading=, =section=, =link=,
+  =environment= and =placement= are filled from compass's parse as the
+  store holds it; no second parser.
+- Each section's =tsvector= is computed in the insert: the document's title
+  weighs A, the heading path B and the text D, under the database's text
+  search configuration.
+- Pages of =#+type: test_scenario= fill =test.scenario= and =test.step=: the
+  task and story from =Scenario Info=, the target, the environment, the
+  steps under =* Steps= without their =Result=, and a definition hash that
+  a written result does not change.
+- Inserts use =ON CONFLICT DO NOTHING=, and the documents and the placement
+  swap are written in one transaction.
+- =compass sync [--environment <name>] [--commit <rev>]= syncs a worktree, or
+  a release from git's objects.
+- =generate= and =check= of a worktree sync at their end when a database is
+  configured; without one they behave exactly as before.
+- The edit hook syncs the one file it names.
+- =compass db hooks install= writes git's =post-checkout=, =post-merge= and
+  =post-rewrite= hooks, and leaves a hook that is not compass's as it is,
+  saying so.
+- An environment is named by =#+environment:= of the local settings, else by
+  the worktree's directory.
+- Collection removes the documents no placement and no =activity.run= names,
+  as part of a sync once the corpus has doubled, and on =compass db prune=.
+- Measured on a copy of ORE Studio: the counts, the first, unchanged and
+  one-file sync times, the size, two environments sharing rows, and
+  collection after one is dropped.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+- Reuse the pipeline's steps: =list=, =open_files=, =resolve= and =load= of
+  =compass.cli= give each document's blob ID, its bytes and its tables from
+  the store. A sync resolves every document, asks the database which IDs it
+  lacks, and loads only those; =db::ops::extract= turns their tables into
+  rows on every thread. Documents it had to parse go into the store too.
+- One transaction per sync: upsert the environment row (which serialises
+  syncs of one environment), stage the placements and the rows with =COPY=,
+  lock every placed document =FOR KEY SHARE=, insert with =ON CONFLICT DO
+  NOTHING=, then delete, update and add placements. A placement whose
+  document a collection removed since the sync looked makes the transaction
+  roll back and the sync load it and try again, up to three times.
+- Collection deletes =FOR UPDATE SKIP LOCKED=, so it never removes a document
+  a sync is placing, and takes an advisory lock it does not wait for.
+- The edit hook's sync hashes the one file, places it alone, and removes its
+  placement when the file is gone.
+- A git hook runs =compass-ng sync= in the background, so a pull is not
+  slowed by it.
 
 * Measurements
 
@@ -55,9 +99,34 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Documents placed, ORE Studio main at =9ed8b54cd2= | 11,182 paths, 11,180 distinct documents | =evidence/corpus_sync_ore_studio.sh=, output in =evidence/corpus_sync_ore_studio.txt= | =855ea19= |
+| Headings, sections, links | 111,941; 122,223; 65,680 (55,444 of them =id:=) | =evidence/corpus_sync_ore_studio.sh=, output in =evidence/corpus_sync_ore_studio.txt= | =855ea19= |
+| Test scenarios and steps | 164; 1,101 | =evidence/corpus_sync_ore_studio.sh=, output in =evidence/corpus_sync_ore_studio.txt= | =855ea19= |
+| First sync, cold store | 18.3 s wall; 17.5 s of it the write transaction | =evidence/corpus_sync_ore_studio.sh=, output in =evidence/corpus_sync_ore_studio.txt= | =855ea19= |
+| First sync, warm store | 16.2 s; the section insert, with its =tsvector=, is 10.7 s of the 15.8 s write | =evidence/corpus_sync_statements.sh= | =855ea19= |
+| No-change sync | 398, 404 and 392 ms wall; listing the files with git is 208 ms of it | =evidence/corpus_sync_ore_studio.sh=, output in =evidence/corpus_sync_ore_studio.txt= | =855ea19= |
+| One-file sync from the edit hook | 19, 18 and 18 ms | =evidence/corpus_sync_ore_studio.sh=, output in =evidence/corpus_sync_ore_studio.txt= | =855ea19= |
+| Database size after one environment | 264 MB (sections 152 MB, documents 57 MB) | =evidence/corpus_sync_ore_studio.sh=, output in =evidence/corpus_sync_ore_studio.txt= | =855ea19= |
+| Second environment, a worktree with one file edited | 516 ms; documents 11,183 to 11,184, sections 122,307 to 122,314; 268 MB | =evidence/corpus_sync_ore_studio.sh=, output in =evidence/corpus_sync_ore_studio.txt= | =855ea19= |
+| Collection after the second worktree is removed | =db prune= dropped it and removed 4 documents (its edit and the three hook edits); 11,180 left, 122,223 sections | =evidence/corpus_sync_ore_studio.sh=, output in =evidence/corpus_sync_ore_studio.txt= | =855ea19= |
 
 * Notes
+
+- The numbers were measured on a shared machine at load average 10 to 16 on 8
+  cores, so they are indicative. The first sync is bound by the server
+  computing each section's =tsvector= and maintaining the GIN index: the
+  section insert alone took 10.7 s of a 15.8 s write. A first sync happens
+  once per database; every later one loads only new content.
+- A no-change sync is bound by listing the worktree's files with =git
+  ls-files= (208 ms of 390 ms); the database answers in under 10 ms.
+- The two files of ORE Studio with the same bytes share one document row,
+  so 11,182 paths place 11,180 documents.
+- =test.scenario.definition= also leaves out a top-level =* Results=
+  heading, which ORE Studio's scenarios use for the outcome of the whole
+  scenario; it is a result, like the =Result= of a step.
+- Anchors follow the design: a heading's =:ID:=, else a slug of its path made
+  unique in the document. Render documents as HTML computes anchors too, and
+  the two must agree; =db::ops::slug= is the one to share.
 
 * Test Scenarios
 
@@ -74,7 +143,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/176][#176]] | [db] compass's database, and the corpus sync |
 
 * Review
 
