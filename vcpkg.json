@@ -2,7 +2,7 @@
     "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
     "name": "compass",
     "description": "Data-oriented codegen, gates and analysis over org documents, C++ and SQL.",
-    "version-string": "0.0.11",
+    "version-string": "0.0.12",
     "dependencies": [
         "catch2",
         "expat",
