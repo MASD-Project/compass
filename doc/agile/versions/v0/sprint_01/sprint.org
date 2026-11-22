@@ -68,6 +68,7 @@ Know what we build and what we must beat: the repository shape, and measured bas
 | [[id:0CC46638-093A-4D82-A465-CB4339DEC6EE][Make a service whole]] | DONE | 2026-11-21 | 2026-11-21 | One check that a service has everything it needs, from the registry entry to its build, generated SQL and certificates, with the obligations stated by the project. |
 | [[id:41FD3A9B-6D52-44A2-9676-6EC5FD28F8A9][Trace a break to its cause]] | DONE | 2026-11-21 | 2026-11-21 | Every commit and pull request states its story, task and environment, and compass traces a finding on main to the commit, pull request and environment that likely caused it. |
 | [[id:67224021-6300-4FEE-BA62-518F2FEB22AB][Move the skill levels to the project]] | BACKLOG | | | The level of each skill becomes the project's data in a check document, compass stamps it and reports the slices, and ORE Studio's apply_skill_levels.py goes. |
+| [[id:F9ED1184-6A62-4B08-A2F7-D109E2C28605][Gate the knowledge titles]] | STARTED | 2026-11-22 | | A check codec holds every knowledge page's title to a noun phrase and its file name to the title in snake case, from words a project's check document lists. |
 
 * Release Notes
 
