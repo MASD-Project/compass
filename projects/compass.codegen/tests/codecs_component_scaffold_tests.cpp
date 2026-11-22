@@ -258,6 +258,7 @@ ct::configuration settings() {
     ct::configuration c;
     c.set("codegen", ct::enabled_key, "true");
     c.set("codegen", "library", "lib/");
+    c.set("codegen", "product", "ores");
     c.set("codegen", "convention_component", "sample_flat");
     c.set("codegen", "year", "2031");
     return c;

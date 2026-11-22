@@ -97,7 +97,8 @@ finished, is not ported:
   verb and no page.
 - *=component_docs=.* =component-docs=
   (=projects/ores.codegen/validate_docs.py=). Every component
-  =projects/ores.*= and every part with =include/= and =src/= has a
+  =projects/<product>.*=, the option =product= naming it, and every part
+  with =include/= and =src/= has a
   =modeling/component_overview.org= with an =:ID:=, =#+type: component=, a
   =#+description:= and the six sections, and a =.puml= beside it; no
   top-level name extends another's; no page under =doc/= holds a bare
@@ -267,7 +268,9 @@ They are off by default.
   script and the codec both add.
 - *=physical_inventory=.* =physical-inventory=
   (=regenerate_physical_space_inventories.py=): the child tables of the
-  physical-space pages in the template library.
+  physical-space pages in the template library. The options =directory=
+  and =product= say where the pages are and which technical space is the
+  root; both are required.
 - *=trade_type_coverage=.* =trade-type-coverage=
   (=generate_trade_type_coverage.py --write=): the generated block of
   =doc/knowledge/domain/ore_trade_type_coverage.org= from ORE's mined

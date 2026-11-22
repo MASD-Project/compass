@@ -36,9 +36,12 @@ namespace {
 
 namespace ct = compass::codec::types;
 
-constexpr std::array<ct::option, 7> options{{
+constexpr std::array<ct::option, 8> options{{
     {"library", "", "The directory of ores.codegen's library, relative to "
         "the checkout: templates/, data/ and component_catalogue.org."},
+    {"product", "", "The project's product: the root of every "
+        "physical-space address, the prefix of its component directories "
+        "and the templates' product."},
     {"convention_component", "", "The component of the catalogue whose "
         "modeling directory declares the convention families."},
     {"year", "", "The copyright year of the licence blocks. Required: the "
@@ -142,6 +145,7 @@ ops::generation_settings settings_of(const ct::option_values& o) {
     s.library = required(o, "library");
     while (s.library.ends_with('/'))
         s.library.pop_back();
+    s.product = required(o, "product");
     s.convention_component = required(o, "convention_component");
     s.year = ops::copyright_year("codegen", o["year"]);
     return s;
@@ -186,7 +190,7 @@ ops::checkout_reader reader_of(const ct::corpus_view& v) {
 
 const ct::descriptor codegen{
     .name = "codegen",
-    .version = 3,
+    .version = 4,
     .summary = "Generates what ores.codegen's regenerate --all writes, "
         "and the outputs of the service registry.",
     .reads = ct::inputs::every_document(),

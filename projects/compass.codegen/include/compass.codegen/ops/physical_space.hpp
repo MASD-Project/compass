@@ -30,7 +30,7 @@
 namespace compass::codegen::ops {
 
 /**
- * @brief One ores.*.org node document of the template library: its file
+ * @brief One <root>.*.org node document of the template library: its file
  * name and its text.
  */
 struct node_document {
@@ -41,9 +41,10 @@ struct node_document {
 /**
  * @brief The graph physical_space.load_graph builds from @p nodes, which
  * must be in file-name order: each node's #+ keywords up to its first
- * heading, and the template its :tangle names.
+ * heading, and the template its :tangle names. @p root is the address
+ * every node's title starts with, the project's product.
  */
-[[nodiscard]] types::physical_space load_physical_space(
+[[nodiscard]] types::physical_space load_physical_space(std::string_view root,
     std::span<const node_document> nodes);
 
 /**
@@ -56,13 +57,13 @@ struct drawer_property {
 
 /**
  * @brief _facet_enabled: whether every one of @p addresses of @p facet is
- * enabled under the ores.cpp tech space, after the
- * :ores.<address>.enabled: entries of @p properties, the most specific
+ * enabled under the <root>.cpp tech space, after the
+ * :<root>.<address>.enabled: entries of @p properties, the most specific
  * address first, @p fallback when none speaks.
  */
 [[nodiscard]] bool facet_enabled(std::span<const drawer_property> properties,
-    std::string_view facet, std::span<const std::string_view> addresses,
-    bool fallback);
+    std::string_view root, std::string_view facet,
+    std::span<const std::string_view> addresses, bool fallback);
 
 /**
  * @brief Whether the archetype @p address of @p facet, whose technical
@@ -71,11 +72,11 @@ struct drawer_property {
  * the graph enables by default and no gate withholds: the facet is on,
  * because it or one of its archetypes is switched on or nothing switches
  * it off, and nothing switches the archetype off, the most specific
- * address first.
+ * address first, then @p root.
  */
 [[nodiscard]] bool archetype_enabled(
-    std::span<const drawer_property> properties, std::string_view address,
-    std::string_view facet, std::string_view ts);
+    std::span<const drawer_property> properties, std::string_view root,
+    std::string_view address, std::string_view facet, std::string_view ts);
 
 /**
  * @brief _protocol_owned_by_operation: whether an operation model in the
@@ -111,10 +112,10 @@ struct checkout_file {
  * models (by #+type:), the plural each projects/<component>/modeling/
  * document states first (#+entity_plural: or #+name:), and the
  * #+shell_command_aggregator: of each
- * projects/ores.shell/<component>/modeling/component_overview.org.
+ * projects/<product>.shell/<component>/modeling/component_overview.org.
  */
 [[nodiscard]] types::checkout_registry read_checkout_registry(
-    std::span<const checkout_file> files);
+    std::string_view product, std::span<const checkout_file> files);
 
 /**
  * @brief What generate.resolve_targets returns, with no --address, for a
@@ -136,8 +137,8 @@ struct checkout_file {
  * for the types whose patterns name no placeholder, such as the
  * catalogues. @p properties is the model's
  * drawer followed by its physical_space_overrides, a later key winning;
- * their :ores.<address>.enabled: entries override the defaults, the most
- * specific address first.
+ * their :<root>.<address>.enabled: entries override the defaults, the
+ * most specific address first, where <root> is the graph's root.
  */
 [[nodiscard]] std::vector<unit> model_units(
     const types::physical_space& graph,

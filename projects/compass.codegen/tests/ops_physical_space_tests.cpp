@@ -61,7 +61,7 @@ const codegen::ops::node_document nodes[] = {
 
 TEST_CASE("the graph reads facets and archetypes from node headers",
     "[codegen][physical_space]") {
-    const auto g = codegen::ops::load_physical_space(nodes);
+    const auto g = codegen::ops::load_physical_space("ores", nodes);
     REQUIRE(g.facets.size() == 2);
     REQUIRE(g.archetypes.size() == 3);
     CHECK(g.archetypes.template_names[0] == "cmake_component_root.mustache");
@@ -74,7 +74,7 @@ TEST_CASE("the graph reads facets and archetypes from node headers",
 
 TEST_CASE("a component renders the archetypes of its kind it enables",
     "[codegen][physical_space]") {
-    const auto g = codegen::ops::load_physical_space(nodes);
+    const auto g = codegen::ops::load_physical_space("ores", nodes);
     model::types::model_tables t;
     model::ops::builder b(t);
     const auto flat = model::io::read_json(b, R"({"component":
@@ -219,7 +219,7 @@ std::vector<std::string> outputs(const std::vector<codegen::ops::unit>& us) {
 std::vector<std::string> entity_outputs(const std::string& json,
     const codegen::types::checkout_registry& registry = {},
     std::span<const codegen::ops::drawer_property> properties = shell_on) {
-    const auto g = codegen::ops::load_physical_space(entity_nodes);
+    const auto g = codegen::ops::load_physical_space("ores", entity_nodes);
     model::types::model_tables t;
     model::ops::builder b(t);
     const auto model = model::io::read_json(b,
@@ -261,6 +261,71 @@ TEST_CASE("a domain entity's outputs resolve its component and names",
     CHECK(std::ranges::none_of(off, [](const std::string& o) {
         return o.contains("ores.shell") || o.contains("recipes/shell");
     }));
+}
+
+namespace {
+
+/**
+ * @brief The outputs model_units lists for the domain entity @p json at
+ * entity_path, with entity_nodes rooted at compass instead of ores.
+ */
+std::vector<std::string> compass_outputs(const std::string& json,
+    std::span<const codegen::ops::drawer_property> properties) {
+    const auto rooted = [](std::string s) {
+        for (auto p = s.find("ores."); p != std::string::npos;
+             p = s.find("ores.", p + 8))
+            s.replace(p, 5, "compass.");
+        return s;
+    };
+    std::vector<std::string> names;
+    std::vector<std::string> texts;
+    for (const auto& n : entity_nodes) {
+        names.push_back(rooted(std::string(n.name)));
+        texts.push_back(rooted(std::string(n.text)));
+    }
+    std::vector<codegen::ops::node_document> nodes;
+    for (std::size_t i = 0; i < names.size(); ++i)
+        nodes.push_back({names[i], texts[i]});
+    const auto g = codegen::ops::load_physical_space("compass", nodes);
+    model::types::model_tables t;
+    model::ops::builder b(t);
+    const auto model = model::io::read_json(b,
+        "{\"domain_entity\": " + json + "}");
+    return outputs(codegen::ops::model_units(g, {}, "domain_entity", t,
+        model, "projects/compass.analytics/modeling/c.org", properties));
+}
+
+bool has_output(const std::vector<std::string>& outputs, std::string_view o) {
+    return std::ranges::find(outputs, o) != outputs.end();
+}
+
+}
+
+TEST_CASE("the product roots the addresses and the component directories",
+    "[codegen][physical_space]") {
+    const codegen::ops::drawer_property shell[] = {
+        {"compass.cpp.shell-command.enabled", "true"}};
+    const auto on = compass_outputs(credit_simulation_config, shell);
+    CHECK(has_output(on, "projects/compass.analytics/api/include/"
+        "compass.analytics.api/domain/credit_simulation_config.hpp"));
+    CHECK(has_output(on, "projects/compass.shell/analytics/include/"
+        "compass.shell/app/commands/analytics/"
+        "credit_simulation_config_commands.hpp"));
+
+    const codegen::ops::drawer_property foreign[] = {
+        {"ores.cpp.shell-command.enabled", "true"}};
+    CHECK(std::ranges::none_of(compass_outputs(credit_simulation_config,
+        foreign), [](const std::string& o) { return o.contains(".shell"); }));
+
+    const codegen::ops::drawer_property all_off[] = {
+        {"compass.enabled", "false"}};
+    CHECK(compass_outputs(credit_simulation_config, all_off).empty());
+
+    CHECK(compass_outputs(R"({"component": "compute",
+        "entity_singular": "grid_sample", "entity_plural": "grid_samples",
+        "sql_only": true})", {}) == std::vector<std::string>{
+            "projects/compass.sql/create/compute/"
+            "compute_grid_samples_create.sql"});
 }
 
 TEST_CASE("a web placeholder resolves only for an entity that states it",
@@ -362,7 +427,7 @@ namespace {
  * path of ores.refdata.party_country_junction, the shell command on.
  */
 std::vector<std::string> junction_outputs(const std::string& json) {
-    const auto g = codegen::ops::load_physical_space(entity_nodes);
+    const auto g = codegen::ops::load_physical_space("ores", entity_nodes);
     model::types::model_tables t;
     model::ops::builder b(t);
     const auto model = model::io::read_json(b, "{\"junction\": " + json + "}");
@@ -427,7 +492,7 @@ TEST_CASE("the registry reads operations, plurals and shell opt-ins",
          "#+shell_command_local_units: trading_navigator  book_tree\n"},
         {"projects/ores.shell/iam/modeling/component_overview.org",
          "#+title: x\n#+shell_command_aggregator: false\n"}};
-    const auto r = codegen::ops::read_checkout_registry(files);
+    const auto r = codegen::ops::read_checkout_registry("ores", files);
 
     CHECK(r.protocol_owners == std::set<std::tuple<std::string, std::string,
         std::string>>{

@@ -46,6 +46,10 @@ the codec, set in the checkout's =.compass.org=.
 
 - The options of the =codegen= codec: =library=, the directory of
   ores.codegen's library (=projects/ores.codegen/library= in ORE Studio);
+  =product=, the project's product (=ores= in ORE Studio), required: the
+  root of every physical-space address and of the drawer keys that switch
+  them, the prefix of the component directories in output paths, and the
+  =product= every template context starts with;
   =convention_component=, the component of the catalogue whose modeling
   directory declares the convention families (=refdata=, which
   =convention_family_registry.py= names); =year=, the copyright year,
@@ -57,7 +61,7 @@ the codec, set in the checkout's =.compass.org=.
   a path relative to the checkout, empty for none; and
   =clang_format_style= and =prettier_style=, their style files.
 - The =.mustache= files of the library's =templates/= directory.
-- The =ores.*.org= node documents of the same directory, whose =#+= header
+- The =<product>.*.org= node documents of the same directory, whose =#+= header
   keywords state the physical-space graph: facets, archetypes, their model
   types, component kinds, defaults and output patterns, and the template
   each archetype tangles.
@@ -171,8 +175,8 @@ the codec, set in the checkout's =.compass.org=.
   licence block has no marker, and no origin.
 - *=component_files=.* ORE Studio's =cmake-sources= generator
   (=regenerate_cmake_component_files.py --all=), off by default. Its
-  options are =library= and =year=, which, as for =codegen=, is required
-  and never the clock. A corpus
+  options are =library=, required, and =year=, which, as for =codegen=, is
+  required and never the clock. A corpus
   codec that reads no document: each =projects/**/modeling/component_overview.org=
   with a =#+full_name:= line is a component, the later path winning a
   shared name. For its =src= and =tests= directories that hold a

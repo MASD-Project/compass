@@ -31,7 +31,7 @@ code.
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
 | Now           | [[id:7FD52505-1436-4925-A1DE-4A3EC88F0133][Investigation: How compass generates itself]] written; eight tasks planned from it. |
 | Waiting on    | Nothing.                               |
-| Next          | Name the product root.                 |
+| Next          | Review Name the product root; then Ship the MASD library with compass. |
 | Last touched  | 2026-11-22                               |
 
 * Acceptance
@@ -61,7 +61,7 @@ code.
 
 | Task | State | Start | End | Description |
 |------+-------+-------+-----+-------------|
-| [[id:65C91AED-EE91-4730-94B0-598248F5921D][Name the product root]] | BACKLOG | | | Make the physical-space root, the library path and the meta model directories configuration instead of the literal ores, so compass's codec, docs codecs and add command serve any project; ORE Studio's output does not change. |
+| [[id:65C91AED-EE91-4730-94B0-598248F5921D][Name the product root]] | STARTED | 2026-11-22 | | Make the physical-space root, the library path and the meta model directories configuration instead of the literal ores, so compass's codec, docs codecs and add command serve any project; ORE Studio's output does not change. |
 | [[id:10FBAF8A-D1B9-4800-A867-CF1BC77C95D3][Ship the MASD library with compass]] | BACKLOG | | | Install the MASD library under share/compass/masd in every compass package, and let the codegen library option layer @compass under a project's own library, with the licence and product taken from the project. |
 | [[id:BECA92D2-95DA-46B4-9D3E-AC30FDDB7294][Move the MASD pages and templates to compass]] | BACKLOG | | | Move every page and template family the investigation classifies as MASD to compass, split the mixed ones, and delete them from ORE Studio in the same release, with ORE Studio's generated output unchanged by a byte. |
 | [[id:02089780-F445-4220-89E1-3CBCA0347B37][Model compass's tables]] | STARTED | 2026-11-22 | | Write the MASD entity context and the features compass's tables need (schema, key kinds, written_by, values, opclass, on_delete, computed and generated columns), the profiles content-addressed-row, owned-child-row and activity-record, and a model for each table of the corpus, test and activity schemas. |

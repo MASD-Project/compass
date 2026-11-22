@@ -464,7 +464,7 @@ std::string component_model(std::string_view name) {
 void setup_codegen(const scoped_git_repo& repo) {
     repo.write(".compass.org", "#+output: .\n\n* Codecs\n\n"
         "| name | enabled | options |\n"
-        "| codegen | yes | library=lib convention_component=a year=2031 |\n");
+        "| codegen | yes | library=lib product=ores convention_component=a year=2031 |\n");
     repo.write("lib/data/licence-GPL-v3.txt", "Licence.\n");
     repo.write("lib/data/modeline.org", "#+title: Modelines\n");
     repo.write("lib/component_catalogue.org",

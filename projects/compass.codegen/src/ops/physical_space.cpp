@@ -34,77 +34,79 @@ namespace {
 using compass::model::types::model_tables;
 using compass::model::types::value_id;
 
+// The addresses of these lists are under the graph's root, which is the
+// project's product, and are spelled without it.
 constexpr std::string_view protocol_dependent_facets[] = {
-    "ores.cpp.http-route", "ores.doc.http-recipe", "ores.cpp.nats-eventing",
-    "ores.cpp.nats-event-registrar", "ores.cpp.eventing-integration-test",
-    "ores.cpp.shell-command", "ores.doc.shell-recipe"};
+    "cpp.http-route", "doc.http-recipe", "cpp.nats-eventing",
+    "cpp.nats-event-registrar", "cpp.eventing-integration-test",
+    "cpp.shell-command", "doc.shell-recipe"};
 
 /**
  * @brief _PROTOCOL_FACETS: what an operation model that owns an entity's
  * protocol takes from the entity.
  */
 constexpr std::string_view protocol_facets[] = {
-    "ores.cpp.protocol", "ores.ts.protocol", "ores.cpp.nats-eventing",
-    "ores.cpp.nats-event-registrar", "ores.cpp.eventing-integration-test",
-    "ores.cpp.shell-command", "ores.doc.shell-recipe", "ores.cpp.http-route",
-    "ores.doc.http-recipe"};
+    "cpp.protocol", "ts.protocol", "cpp.nats-eventing",
+    "cpp.nats-event-registrar", "cpp.eventing-integration-test",
+    "cpp.shell-command", "doc.shell-recipe", "cpp.http-route",
+    "doc.http-recipe"};
 
 /**
  * @brief _NO_FLAT_AUDIT_HISTORY_PROVIDER_FACETS: what needs version rows
  * with a flat actor.
  */
 constexpr std::string_view no_flat_audit_facets[] = {
-    "ores.cpp.history-provider-registrar"};
+    "cpp.history-provider-registrar"};
 
 /**
  * @brief _STAGING_ONLY_FACETS: the menu a staging shim must not render
  * when another component models its plural.
  */
 constexpr std::string_view staging_only_facets[] = {
-    "ores.cpp.shell-command", "ores.doc.shell-recipe"};
+    "cpp.shell-command", "doc.shell-recipe"};
 
 /**
  * @brief _STAGING_ONLY_EVENTING_FACETS: what a model with no notify
  * trigger cannot announce.
  */
 constexpr std::string_view staging_only_eventing_facets[] = {
-    "ores.cpp.nats-eventing", "ores.cpp.nats-event-registrar",
-    "ores.cpp.eventing-integration-test"};
+    "cpp.nats-eventing", "cpp.nats-event-registrar",
+    "cpp.eventing-integration-test"};
 
 /**
  * @brief _NO_TEMPORAL_HISTORY_ARCHETYPES: what a current-state entity,
  * which has no version rows, cannot build.
  */
 constexpr std::string_view no_temporal_archetypes[] = {
-    "ores.cpp.presentation.history_field_mapper_header",
-    "ores.cpp.presentation.history_field_mapper_impl",
-    "ores.cpp.eventing-integration-test.nats_integration_test"};
+    "cpp.presentation.history_field_mapper_header",
+    "cpp.presentation.history_field_mapper_impl",
+    "cpp.eventing-integration-test.nats_integration_test"};
 
 /**
  * @brief _JUNCTION_MESSAGING_FACETS: what serves a junction's list reads,
  * which one with no :list_by: side does not have.
  */
 constexpr std::string_view junction_messaging_facets[] = {
-    "ores.cpp.nats-handler", "ores.cpp.nats-sub-registrar",
-    "ores.cpp.protocol", "ores.cpp.service", "ores.ts.protocol"};
+    "cpp.nats-handler", "cpp.nats-sub-registrar",
+    "cpp.protocol", "cpp.service", "ts.protocol"};
 
 /**
  * @brief _JUNCTION_HISTORY_FACETS: what reads the history of a junction
  * that states :history: true.
  */
 constexpr std::string_view junction_history_facets[] = {
-    "ores.cpp.history-provider-registrar", "ores.cpp.presentation"};
+    "cpp.history-provider-registrar", "cpp.presentation"};
 
 /**
  * @brief _JUNCTION_EVENT_FACETS and _JUNCTION_EVENT_ARCHETYPES: what
  * announces the changes of a junction that states :events: true.
  */
 constexpr std::string_view junction_event_facets[] = {
-    "ores.cpp.nats-eventing", "ores.cpp.nats-event-registrar",
-    "ores.sql.schema.notify_trigger", "ores.sql.schema.notify_trigger_drop"};
+    "cpp.nats-eventing", "cpp.nats-event-registrar",
+    "sql.schema.notify_trigger", "sql.schema.notify_trigger_drop"};
 
 constexpr std::string_view junction_event_archetypes[] = {
-    "ores.sql.schema.notify_trigger", "ores.sql.schema.notify_trigger_drop"};
+    "sql.schema.notify_trigger", "sql.schema.notify_trigger_drop"};
 
 constexpr std::string_view shell_aggregator_templates[] = {
     "cpp_shell_command_aggregator_header.hpp.mustache",
@@ -245,9 +247,10 @@ std::string get_or(const model_tables& t, value_id object,
 using overrides = std::map<std::string, bool, std::less<>>;
 
 /**
- * @brief _enabled_overrides: each ores[.part]*.enabled key of the drawer.
+ * @brief _enabled_overrides: each <root>[.part]*.enabled key of the drawer.
  */
-overrides enabled_overrides(std::span<const drawer_property> properties) {
+overrides enabled_overrides(std::span<const drawer_property> properties,
+    std::string_view root) {
     overrides out;
     constexpr std::string_view suffix = ".enabled";
     for (const auto& p : properties) {
@@ -255,10 +258,11 @@ overrides enabled_overrides(std::span<const drawer_property> properties) {
         if (!key.ends_with(suffix))
             continue;
         const auto address = key.substr(0, key.size() - suffix.size());
-        if (address != "ores" && !address.starts_with("ores."))
+        if (address != root && !(address.starts_with(root) &&
+                address.size() > root.size() && address[root.size()] == '.'))
             continue;
         bool valid = true;
-        for (std::size_t i = 4; i < address.size(); ++i) {
+        for (std::size_t i = root.size(); i < address.size(); ++i) {
             if (address[i] == '.') {
                 valid = valid && i + 1 < address.size() &&
                     address[i + 1] != '.';
@@ -276,8 +280,9 @@ overrides enabled_overrides(std::span<const drawer_property> properties) {
 }
 
 bool is_enabled(std::string_view address, std::string_view facet,
-    std::string_view ts, const overrides& o, bool fallback) {
-    for (const auto key : {address, facet, ts, std::string_view("ores")}) {
+    std::string_view ts, std::string_view root, const overrides& o,
+    bool fallback) {
+    for (const auto key : {address, facet, ts, root}) {
         if (key.empty())
             continue;
         const auto it = o.find(key);
@@ -312,8 +317,8 @@ bool facet_renders(const types::physical_space& g, std::string_view facet,
     if (row && !serves(g.facets.model_types[*row], type))
         return false;
     return is_enabled(facet, facet,
-        row ? std::string_view(g.facets.technical_spaces[*row]) : "", o,
-        row ? g.facets.defaults[*row] != 0 : true);
+        row ? std::string_view(g.facets.technical_spaces[*row]) : "",
+        g.root, o, row ? g.facets.defaults[*row] != 0 : true);
 }
 
 void replace_all(std::string& s, std::string_view from, std::string_view to) {
@@ -324,9 +329,17 @@ void replace_all(std::string& s, std::string_view from, std::string_view to) {
 
 using facet_set = std::set<std::string, std::less<>>;
 
-void drop(facet_set& facets, std::span<const std::string_view> dropped) {
+/**
+ * @brief The address @p relative names under the root @p root.
+ */
+std::string under(std::string_view root, std::string_view relative) {
+    return std::string(root) + "." + std::string(relative);
+}
+
+void drop(facet_set& facets, std::string_view root,
+    std::span<const std::string_view> dropped) {
     for (const auto d : dropped) {
-        const auto it = facets.find(d);
+        const auto it = facets.find(under(root, d));
         if (it != facets.end())
             facets.erase(it);
     }
@@ -457,9 +470,10 @@ std::optional<std::string> resolve(std::string pattern,
  */
 std::vector<placeholder> component_placeholders(const model_tables& t,
     value_id component, std::optional<std::string_view> kind,
-    std::string_view model_path) {
+    std::string_view model_path, std::string_view product) {
     const auto name = get_or(t, component, "name", "unknown");
-    const auto full_name = get_or(t, component, "full_name", "ores." + name);
+    const auto full_name = get_or(t, component, "full_name",
+        under(product, name));
     std::string_view dir = parent(parent(model_path));
     if (dir.starts_with("projects/"))
         dir.remove_prefix(9);
@@ -476,11 +490,11 @@ std::vector<placeholder> component_placeholders(const model_tables& t,
  * @brief _component_path_vars of @p model, as placeholders.
  */
 std::vector<placeholder> path_placeholders(const model_tables& t,
-    value_id model) {
+    value_id model, std::string_view product) {
     const auto component = get_or(t, model, "component", "unknown");
     const auto subcomponent = get_or(t, model, "subcomponent", "");
     const bool split = !subcomponent.empty();
-    const auto own_dir = "ores." + component;
+    const auto own_dir = under(product, component);
     const auto cached_by = get_or(t, model, "cached_by", component);
     const auto dot = cached_by.find('.');
     const auto cache_component = cached_by.substr(0, dot);
@@ -497,7 +511,7 @@ std::vector<placeholder> path_placeholders(const model_tables& t,
             : get_or(t, model, "component_core", component)},
         {"{component_service}", split ? component + ".service"
             : get_or(t, model, "component_service", component)},
-        {"{cache_component_dir}", "ores." + cache_component},
+        {"{cache_component_dir}", under(product, cache_component)},
         {"{cache_component}", cache_component},
         {"{cache_subcomponent}", cache_subcomponent},
         {"{generator_facet_name}",
@@ -533,8 +547,8 @@ void add_flagged_placeholders(std::vector<placeholder>& out,
  * flagged placeholders.
  */
 std::vector<placeholder> entity_placeholders(const model_tables& t,
-    value_id entity) {
-    auto out = path_placeholders(t, entity);
+    value_id entity, std::string_view product) {
+    auto out = path_placeholders(t, entity, product);
     const auto singular = get_or(t, entity, "entity_singular", "unknown");
     const auto plural = get_or(t, entity, "entity_plural", singular + "s");
     const auto menu = values::str(t, entity, "entity_plural");
@@ -552,8 +566,8 @@ std::vector<placeholder> entity_placeholders(const model_tables& t,
  * is its name.
  */
 std::vector<placeholder> junction_placeholders(const model_tables& t,
-    value_id junction) {
-    auto out = path_placeholders(t, junction);
+    value_id junction, std::string_view product) {
+    auto out = path_placeholders(t, junction, product);
     const auto name = get_or(t, junction, "name", "unknown");
     const std::string singular(values::str(t, junction, "name_singular"));
     const auto plural = values::str(t, junction, "entity_plural");
@@ -572,8 +586,8 @@ std::vector<placeholder> junction_placeholders(const model_tables& t,
  * and plural are its entity singular.
  */
 std::vector<placeholder> operation_placeholders(const model_tables& t,
-    value_id operation) {
-    auto out = path_placeholders(t, operation);
+    value_id operation, std::string_view product) {
+    auto out = path_placeholders(t, operation, product);
     const auto singular = get_or(t, operation, "entity_singular", "unknown");
     const std::string menu(values::str(t, operation, "entity_singular"));
     out.push_back({"{entity}", singular});
@@ -587,8 +601,8 @@ std::vector<placeholder> operation_placeholders(const model_tables& t,
  * @brief resolve_output_path's placeholders for a family.
  */
 std::vector<placeholder> family_placeholders(const model_tables& t,
-    value_id family) {
-    auto out = path_placeholders(t, family);
+    value_id family, std::string_view product) {
+    auto out = path_placeholders(t, family, product);
     const auto singular = get_or(t, family, "entity_singular", "unknown");
     out.push_back({"{entity_plural}",
         get_or(t, family, "entity_plural", singular + "s")});
@@ -601,7 +615,7 @@ std::vector<placeholder> family_placeholders(const model_tables& t,
  * @brief resolve_output_path's placeholders for a field group.
  */
 std::vector<placeholder> field_group_placeholders(const model_tables& t,
-    value_id group) {
+    value_id group, std::string_view product) {
     const auto component = get_or(t, group, "component", "unknown");
     const auto subcomponent = get_or(t, group, "subcomponent", "");
     const auto stated_include = values::str(t, group, "component_include");
@@ -611,8 +625,8 @@ std::vector<placeholder> field_group_placeholders(const model_tables& t,
         : std::string(stated_include);
     const auto singular = get_or(t, group, "entity_singular", "unknown");
     return {
-        {"{component_dir}", subcomponent.empty() ? "ores." + component
-            : "ores." + component + "/" + subcomponent},
+        {"{component_dir}", subcomponent.empty() ? under(product, component)
+            : under(product, component) + "/" + subcomponent},
         {"{component_include}", include},
         {"{component}", component},
         {"{header}", get_or(t, group, "header", "")},
@@ -632,19 +646,20 @@ bool gate_entity(facet_set& facets, const types::physical_space& g,
     if (values::truthy(t, entity, "sql_only")) {
         std::erase_if(facets, [&](const std::string& f) {
             const auto row = facet_row(g, f);
-            return !row || g.facets.technical_spaces[*row] != "ores.sql";
+            return !row ||
+                g.facets.technical_spaces[*row] != under(g.root, "sql");
         });
     }
     if (registry.protocol_owners.contains({std::string(parent(model_path)),
             std::string(values::str(t, entity, "component")),
             std::string(values::str(t, entity, "entity_singular"))}))
-        drop(facets, protocol_facets);
+        drop(facets, g.root, protocol_facets);
 
     const auto sql = values::member(t, entity, "sql");
     const bool current_state = values::truthy(t, sql, "current_state");
     if (values::truthy(t, entity, "domain_audit_group") ||
         values::truthy(t, sql, "no_audit_columns") || current_state)
-        drop(facets, no_flat_audit_facets);
+        drop(facets, g.root, no_flat_audit_facets);
 
     const auto profiles = values::str(t, entity, "profile");
     if (has_profile(profiles, "artefact-staging-only")) {
@@ -654,11 +669,11 @@ bool gate_entity(facet_set& facets, const types::physical_space& g,
         if (!plural.empty() && owners != registry.plural_owners.end() &&
             std::ranges::any_of(owners->second,
                 [&](const std::string& c) { return c != component; }))
-            drop(facets, staging_only_facets);
-        drop(facets, staging_only_eventing_facets);
+            drop(facets, g.root, staging_only_facets);
+        drop(facets, g.root, staging_only_eventing_facets);
     }
     if (has_profile(profiles, "read-model"))
-        drop(facets, staging_only_eventing_facets);
+        drop(facets, g.root, staging_only_eventing_facets);
     return current_state;
 }
 
@@ -674,23 +689,24 @@ bool gate_junction(facet_set& facets, const types::physical_space& g,
     if (values::truthy(t, junction, "sql_only")) {
         std::erase_if(facets, [&](const std::string& f) {
             const auto row = facet_row(g, f);
-            return !row || g.facets.technical_spaces[*row] != "ores.sql";
+            return !row ||
+                g.facets.technical_spaces[*row] != under(g.root, "sql");
         });
     }
     if (registry.protocol_owners.contains({std::string(parent(model_path)),
             std::string(values::str(t, junction, "component")),
             std::string(values::str(t, junction, "name_singular"))}))
-        drop(facets, protocol_facets);
+        drop(facets, g.root, protocol_facets);
     if (!values::truthy(t, values::member(t, junction, "left"), "list_by") &&
         !values::truthy(t, values::member(t, junction, "right"), "list_by")) {
-        drop(facets, junction_messaging_facets);
-        drop(facets, protocol_facets);
+        drop(facets, g.root, junction_messaging_facets);
+        drop(facets, g.root, protocol_facets);
     }
     if (!values::truthy(t, junction, "history"))
-        drop(facets, junction_history_facets);
+        drop(facets, g.root, junction_history_facets);
     const bool silent = !values::truthy(t, junction, "events");
     if (silent)
-        drop(facets, junction_event_facets);
+        drop(facets, g.root, junction_event_facets);
     return silent;
 }
 
@@ -707,30 +723,33 @@ bool protocol_owned(const types::checkout_registry& registry,
 }
 
 bool facet_enabled(std::span<const drawer_property> properties,
-    std::string_view facet, std::span<const std::string_view> addresses,
-    bool fallback) {
-    const auto o = enabled_overrides(properties);
+    std::string_view root, std::string_view facet,
+    std::span<const std::string_view> addresses, bool fallback) {
+    const auto o = enabled_overrides(properties, root);
+    const auto ts = under(root, "cpp");
     return std::ranges::all_of(addresses, [&](std::string_view a) {
-        return is_enabled(a, facet, "ores.cpp", o, fallback);
+        return is_enabled(a, facet, ts, root, o, fallback);
     });
 }
 
 bool archetype_enabled(std::span<const drawer_property> properties,
-    std::string_view address, std::string_view facet, std::string_view ts) {
-    const auto o = enabled_overrides(properties);
+    std::string_view root, std::string_view address, std::string_view facet,
+    std::string_view ts) {
+    const auto o = enabled_overrides(properties, root);
     const bool named = std::ranges::any_of(o, [&](const auto& entry) {
         const std::string_view key = entry.first;
         return entry.second && key.size() > facet.size() + 1 &&
             key.starts_with(facet) && key[facet.size()] == '.' &&
             key.find('.', facet.size() + 1) == std::string_view::npos;
     });
-    return (named || is_enabled(facet, facet, ts, o, true)) &&
-        is_enabled(address, facet, ts, o, true);
+    return (named || is_enabled(facet, facet, ts, root, o, true)) &&
+        is_enabled(address, facet, ts, root, o, true);
 }
 
-types::physical_space load_physical_space(
+types::physical_space load_physical_space(std::string_view root,
     std::span<const node_document> nodes) {
     types::physical_space g;
+    g.root = root;
     auto& f = g.facets;
     auto& a = g.archetypes;
     std::vector<std::optional<std::string>> raw_defaults;
@@ -779,10 +798,10 @@ types::physical_space load_physical_space(
     return g;
 }
 
-types::checkout_registry read_checkout_registry(
+types::checkout_registry read_checkout_registry(std::string_view product,
     std::span<const checkout_file> files) {
     types::checkout_registry r;
-    constexpr std::string_view shell = "projects/ores.shell/";
+    const auto shell = "projects/" + under(product, "shell") + "/";
     constexpr std::string_view overview = "/modeling/component_overview.org";
     for (const auto& f : files) {
         const auto dir = parent(f.path);
@@ -819,7 +838,7 @@ std::vector<unit> model_units(const types::physical_space& g,
     const types::checkout_registry& registry, std::string_view type,
     const model_tables& models, value_id model, std::string_view model_path,
     std::span<const drawer_property> properties) {
-    const auto o = enabled_overrides(properties);
+    const auto o = enabled_overrides(properties, g.root);
     const auto& f = g.facets;
     const auto& a = g.archetypes;
 
@@ -835,7 +854,7 @@ std::vector<unit> model_units(const types::physical_space& g,
             named = named || (it != o.end() && it->second);
         }
         if (named || is_enabled(f.addresses[i], f.addresses[i],
-                f.technical_spaces[i], o, f.defaults[i] != 0))
+                f.technical_spaces[i], g.root, o, f.defaults[i] != 0))
             facets.insert(f.addresses[i]);
     }
 
@@ -849,8 +868,8 @@ std::vector<unit> model_units(const types::physical_space& g,
     if (type == "junction" &&
         gate_junction(facets, g, registry, models, owned, model_path))
         withheld = junction_event_archetypes;
-    if (!facet_renders(g, "ores.cpp.protocol", type, o))
-        drop(facets, protocol_dependent_facets);
+    if (!facet_renders(g, under(g.root, "cpp.protocol"), type, o))
+        drop(facets, g.root, protocol_dependent_facets);
 
     const bool is_component = type == "component" && !owned.is_none();
     const auto kind = is_component
@@ -859,12 +878,13 @@ std::vector<unit> model_units(const types::physical_space& g,
         .contains(values::str(models, owned, "component"));
     const auto placeholders = owned.is_none() ? std::vector<placeholder>{}
         : type == "component"
-        ? component_placeholders(models, owned, kind, model_path)
-        : type == "domain_entity" ? entity_placeholders(models, owned)
-        : type == "junction" ? junction_placeholders(models, owned)
-        : type == "operation" ? operation_placeholders(models, owned)
-        : type == "field_group" ? field_group_placeholders(models, owned)
-        : type == "family" ? family_placeholders(models, owned)
+        ? component_placeholders(models, owned, kind, model_path, g.root)
+        : type == "domain_entity" ? entity_placeholders(models, owned, g.root)
+        : type == "junction" ? junction_placeholders(models, owned, g.root)
+        : type == "operation" ? operation_placeholders(models, owned, g.root)
+        : type == "field_group"
+        ? field_group_placeholders(models, owned, g.root)
+        : type == "family" ? family_placeholders(models, owned, g.root)
         : std::vector<placeholder>{};
 
     std::vector<std::size_t> deferred;
@@ -879,9 +899,12 @@ std::vector<unit> model_units(const types::physical_space& g,
             if (!a.kinds[j].empty() && (!kind ||
                 std::ranges::find(a.kinds[j], *kind) == a.kinds[j].end()))
                 continue;
-            if (std::ranges::find(withheld, a.addresses[j]) != withheld.end())
+            if (std::ranges::any_of(withheld, [&](std::string_view w) {
+                    return a.addresses[j] == under(g.root, w);
+                }))
                 continue;
-            if (!is_enabled(a.addresses[j], facet, ts, o, a.defaults[j] != 0))
+            if (!is_enabled(a.addresses[j], facet, ts, g.root, o,
+                    a.defaults[j] != 0))
                 continue;
             if (a.template_names[j].empty() || a.outputs[j].empty())
                 continue;

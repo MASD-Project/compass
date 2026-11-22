@@ -59,7 +59,7 @@ outcome run_on(const scoped_git_repo& repo, const std::string& command) {
  */
 void set_up(const scoped_git_repo& repo) {
     repo.write(".compass.org", "* Codecs\n"
-        "| codegen | yes | library=lib convention_component=a year=2031 "
+        "| codegen | yes | library=lib product=ores convention_component=a year=2031 "
         "clang_format=bin/fake-format clang_format_style=style |\n");
     repo.write("lib/data/licence-GPL-v3.txt", "Licence.\n");
     repo.write("lib/data/modeline.org", "#+title: Modelines\n");
@@ -152,7 +152,7 @@ TEST_CASE("a codegen formatter that cannot be found fails the command",
     scoped_git_repo repo;
     set_up(repo);
     repo.write(".compass.org", "* Codecs\n"
-        "| codegen | yes | library=lib convention_component=a year=2031 "
+        "| codegen | yes | library=lib product=ores convention_component=a year=2031 "
         "clang_format=bin/missing clang_format_style=style |\n");
 
     const auto r = run_on(repo, "gen");
@@ -186,7 +186,7 @@ outcome run_in_place(const scoped_git_repo& repo, const std::string& command,
 void set_up_tangled(const scoped_git_repo& repo, std::string_view block) {
     set_up(repo);
     repo.write(".compass.org", "* Codecs\n"
-        "| codegen | yes | library=lib convention_component=a year=2031 |\n"
+        "| codegen | yes | library=lib product=ores convention_component=a year=2031 |\n"
         "| tangle | yes | |\n");
     repo.write("lib/templates/ores.cpp.component.header.org",
         "#+title: ores.cpp.component.header\n#+type: archetype\n"
@@ -281,7 +281,7 @@ TEST_CASE("generate stops with a problem when an output feeds its own "
     scoped_git_repo repo;
     set_up(repo);
     repo.write(".compass.org", "* Codecs\n"
-        "| codegen | yes | library=lib convention_component=a year=2031 |\n");
+        "| codegen | yes | library=lib product=ores convention_component=a year=2031 |\n");
     repo.write("lib/templates/ores.cpp.component.header.org",
         "#+title: ores.cpp.component.header\n#+type: archetype\n"
         "#+facet: ores.cpp.component\n#+component_kind: flat\n"

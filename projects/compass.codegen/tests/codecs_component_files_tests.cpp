@@ -36,9 +36,11 @@ using files = std::map<std::string, std::string, std::less<>>;
 
 /**
  * @brief Runs component_files alone over a checkout of @p all, none of it
- * a document, with the option year @p year, and returns what it writes.
+ * a document, with the options year @p year and library @p library, and
+ * returns what it writes.
  */
-files generate(const files& all, std::string_view year = "2026") {
+files generate(const files& all, std::string_view year = "2026",
+    std::string_view library = "projects/ores.codegen/library") {
     ct::checkout_files checkout;
     for (const auto& [path, bytes] : all)
         checkout.paths.push_back(path);
@@ -54,6 +56,7 @@ files generate(const files& all, std::string_view year = "2026") {
     ct::configuration configuration;
     configuration.set("component_files", "enabled", "true");
     configuration.set("component_files", "year", year);
+    configuration.set("component_files", "library", library);
     const std::array codecs{codegen::codecs::component_files};
     const auto r = codec::ops::run(codec::ops::make_registry(codecs, types,
         configuration), corpus, types, 2);
@@ -122,6 +125,12 @@ TEST_CASE("the copyright year is the configured one, and an empty year is "
         std::string::npos);
     CHECK_THROWS_WITH(generate(tree(), ""), "component_files: set the option "
         "year, the copyright year of the licence blocks");
+}
+
+TEST_CASE("the library is configuration, with no default",
+    "[codecs][component_files]") {
+    CHECK_THROWS_WITH(generate(tree(), "2031", ""),
+        "component_files: set the option library");
 }
 
 TEST_CASE("a component with no include directory lists no headers",

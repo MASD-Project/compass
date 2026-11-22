@@ -300,3 +300,33 @@ Runs a widget.
 }
 )json");
 }
+
+namespace {
+
+std::string odd_operation(std::string_view drawer) {
+    return ":PROPERTIES:\n" + std::string(drawer) + ":END:\n"
+        "#+title: compass.demo.odd_operations\n"
+        "#+type: ores.codegen.operation\n#+component: demo\n"
+        "#+entity_singular: odd\n#+brief: Odd.\n\nOdd.\n\n* Messages\n\n"
+        "** odd_request\n:PROPERTIES:\n:subject:  demo.v1.odd\n"
+        ":response: odd_response\n:END:\n\n*** value\n:PROPERTIES:\n"
+        ":cpp_type: my::odd_type\n:END:\n\n"
+        "** odd_response\n:PROPERTIES:\n:END:\n";
+}
+
+}
+
+TEST_CASE("the TypeScript switch of an operation is read under its product",
+    "[model][operation]") {
+    const std::string path =
+        "projects/compass.demo/modeling/compass.demo.odd_operations.org";
+    compass::model::tests::checkout on;
+    on.add_modeling_documents();
+    on.add(path, odd_operation(""));
+    CHECK(on.load_json(path).contains("\"error\""));
+
+    compass::model::tests::checkout off;
+    off.add_modeling_documents();
+    off.add(path, odd_operation(":compass.ts.protocol.enabled: false\n"));
+    CHECK_FALSE(off.load_json(path).contains("\"error\""));
+}

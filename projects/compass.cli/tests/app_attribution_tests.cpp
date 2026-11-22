@@ -74,7 +74,7 @@ constexpr std::string_view model_a =
  */
 void set_up(const scoped_git_repo& repo) {
     repo.write(".compass.org", "* Codecs\n"
-        "| codegen | yes | library=lib convention_component=a year=2031 |\n");
+        "| codegen | yes | library=lib product=ores convention_component=a year=2031 |\n");
     repo.write("lib/data/licence-GPL-v3.txt", "Licence.\n");
     repo.write("lib/data/modeline.org", "#+title: Modelines\n");
     repo.write("lib/component_catalogue.org",
@@ -254,7 +254,7 @@ TEST_CASE("a scope follows what the files it writes feed, pass by pass",
             "{{{cpp_license}}}\n" + std::string(body) + "#+end_src\n");
     };
     repo.write(".compass.org", "* Codecs\n"
-        "| codegen | yes | library=lib convention_component=a year=2031 |\n"
+        "| codegen | yes | library=lib product=ores convention_component=a year=2031 |\n"
         "| tangle | yes | |\n");
     archetype("long {{component.name}};\n");
     repo.write("lib/templates/ores.cpp.component.header.org",

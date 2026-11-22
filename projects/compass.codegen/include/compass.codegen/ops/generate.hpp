@@ -58,12 +58,16 @@ struct checkout_reader {
  * @brief Where ores.codegen's library is and what it is told.
  * library is the directory, relative to the checkout, that holds
  * templates/, data/ and component_catalogue.org.
+ * product is the project's product: the root of every physical-space
+ * address, the prefix of the component directories and the templates'
+ * product.
  * convention_component names the component of the catalogue whose
  * modeling directory declares the convention families. year is the
  * copyright year the licence block states.
  */
 struct generation_settings {
     std::string library;
+    std::string product;
     std::string convention_component;
     int year = 0;
 };
