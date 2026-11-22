@@ -26,7 +26,12 @@ on:  # yamllint disable-line rule:truthy
     # The matrix is linux-clang debug and release only, every three hours as
     # in ORE Studio. The relevance-guard below skips runs when no code changed.
     - cron: '0 */3 * * *'
+  # A tag builds the packages of its release. A merge to main builds the
+  # Linux packages too, so install_compass.sh --build can install main before
+  # the release of it is out.
   push:
+    branches:
+      - main
     tags:
       - '*'
   # A pull request builds linux-clang release, merged with main.
@@ -49,9 +54,9 @@ jobs:
       should_build: ${{ steps.check.outputs.should_build }}
     steps:
       - uses: actions/checkout@v7
-        # Manual and tag runs always build; scheduled and pull request runs
-        # compare commits, so they need the history.
-        if: github.event_name == 'schedule' || github.event_name == 'pull_request'
+        # Manual and tag runs always build; scheduled, pull request and main
+        # runs compare commits, so they need the history.
+        if: github.event_name != 'workflow_dispatch' && github.ref_type != 'tag'
         with:
           fetch-depth: 0
       - name: Check if code changed since last successful run
@@ -64,6 +69,8 @@ jobs:
             # A pull request's merge commit is compared with main as it was
             # merged, so the diff is the pull request's own change.
             last_sha="${{ github.event.pull_request.base.sha }}"
+          elif [[ "${{ github.ref }}" == "refs/heads/main" && "${{ github.event_name }}" == "push" ]]; then
+            last_sha="${{ github.event.before }}"
           elif [[ "${{ github.event_name }}" == "schedule" ]]; then
             workflow_file=$(basename "${GITHUB_WORKFLOW_REF%%@*}")
             last_sha=$(gh api \
@@ -147,9 +154,10 @@ jobs:
       fail-fast: false
       matrix:
         name: [linux-clang]
-        # A pull request builds release alone: it is the faster of the two,
-        # and the scheduled runs on main build debug with coverage.
-        buildtype: ${{ fromJSON(github.event_name == 'pull_request' && '["release"]' || '["debug", "release"]') }}
+        # A pull request and a merge to main build release alone: it is the
+        # faster of the two and the one that is packaged, and the scheduled
+        # runs on main build debug with coverage.
+        buildtype: ${{ fromJSON((github.event_name == 'pull_request' || github.ref == 'refs/heads/main' && github.event_name == 'push') && '["release"]' || '["debug", "release"]') }}
         include:
           - name: linux-clang
             family: linux
@@ -242,9 +250,11 @@ jobs:
           # Continuous proves the tree builds and the suites pass. The debug
           # build also collects coverage, so that Continuous and the Nightly
           # Build measure the same configuration. The release build of a tag
-          # is the Linux package of that release, so only it runs cpack.
+          # is the Linux package of that release, and the release build of
+          # main is the package install_compass.sh --build installs, so only
+          # they run cpack.
           export cmake_args="build_group=Continuous,preset=${preset}"
-          if [[ "${{github.ref_type}}" != "tag" || "${{matrix.buildtype}}" != "release" ]]; then
+          if [[ "${{matrix.buildtype}}" != "release" || ( "${{github.ref_type}}" != "tag" && "${{github.ref}}" != "refs/heads/main" ) ]]; then
               cmake_args="${cmake_args},package=0"
           fi
           if [[ "${{matrix.buildtype}}" == "debug" ]]; then
@@ -254,11 +264,13 @@ jobs:
           du -sh .git llvm .sccache vcpkg-cache build/output "$RUNNER_TEMP" 2>/dev/null || true
           ctest -VV --preset ${preset} --script "CTest.cmake,${cmake_args}"
 
-      - name: Upload the package of a tag
-        if: ${{ github.ref_type == 'tag' && matrix.buildtype == 'release' }}
+      - name: Upload the package
+        # install_compass.sh --build finds main's package by this name.
+        if: ${{ (github.ref_type == 'tag' || github.ref == 'refs/heads/main') && matrix.buildtype == 'release' }}
         uses: actions/upload-artifact@v7
         with:
           name: ${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja
+          retention-days: 30
           path: |
             ./build/output/${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja/packages/compass_*_amd64.deb
             ./build/output/${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja/packages/compass-*-Linux-*.tar.gz
