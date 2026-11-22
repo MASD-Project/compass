@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :documentation:own_the_masd_meta_model:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/tag-evidence-documents
+#+pr: https://github.com/MASD-Project/compass/pull/181
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-22
@@ -110,7 +110,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/181][#181]] | Tag evidence documents instead of naming them .org.txt |
 
 * Review
 
