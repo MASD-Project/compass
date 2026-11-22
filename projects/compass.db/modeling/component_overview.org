@@ -22,7 +22,7 @@ points at a document stored once by the blob ID of its content, as the
 store keys its objects. The design is
 [[id:21C1D3CC-9EE3-48C3-8EDD-BA0C16032AB2][Design: the document service]].
 
-The component has three parts.
+The component has four parts.
 
 - *The connection* (=io/connection.hpp=). A =connection= opens a libpq
   connection string and closes it on destruction. =exec= runs one statement
@@ -47,6 +47,13 @@ The component has three parts.
   so a document is parsed at most once per repository, by whoever needs it
   first. =write_environment= writes those rows and an environment's
   placements in one transaction, and =collect= removes what nothing names.
+- *Search* (=query/search.hpp=). =search= answers the sections of an
+  environment that match a query, ranked, with a snippet each, inside the
+  caller's view and filters, a page at a time. =facets= counts the values of
+  each filter over the documents a query matches. Their request and
+  response types (=types/search.hpp=) are plain structs shaped as the
+  service's generated messages will be, which replace them; nothing here
+  reads or writes JSON.
 
 * Inputs
 
@@ -78,9 +85,10 @@ The component has three parts.
   badly.
 - *Headings.* Each heading has its level, its title as plain text, its path
   from the outermost heading, its TODO keyword, priority, tags and
-  properties. Its anchor is its =:ID:= when it has one. Otherwise the
-  anchor is a slug of its path, numbered from 2 when an earlier heading
-  took the slug.
+  properties. Its anchor is the =id= that
+  [[id:2F0235E0-2F30-4D7C-966B-BA472B061711][compass.html]] gives the
+  heading, from =heading_anchors=, so a search hit links to where the
+  rendered page puts the heading.
 - *Sections.* There is one section per heading, and one for the preamble
   when the preamble has prose. The text is the heading's own section as
   plain text, without drawers, keywords, planning lines, clocks or comments.
@@ -112,6 +120,33 @@ The component has three parts.
   updates and adds placements, then sets =head= and =synced_at=. A reader
   sees the old placements or the new ones, never a mix. With a list of
   paths, only those paths change: this is what the edit hook writes.
+- *State and sprint.* Migration 2 adds =state=, a column generated from the
+  source: the value of the first table row named =State=, which in a page
+  of the document contract is its =* Status= table. It adds
+  =corpus.sprint_members(environment, sprint)=, the documents in a sprint,
+  read from the =id:= links of preambles, the sentence that names a page's
+  parent: a sprint page is in itself, a story or a test scenario names its
+  sprint, and a task names its story, which names the sprint. The sprint
+  and the story must be placed in the environment. The links are followed
+  backwards from the sprint through =link_target_id=, so a sprint costs a
+  few index scans, not a probe per document.
+- *Search.* The query is =websearch_to_tsquery= under the database's text
+  search configuration, over =corpus.section.tsv=. A hit is a section of a
+  document placed in the environment that passes the view, a SQL condition
+  over =corpus.document= aliased =d=, and every filter. Hits are ordered by
+  =ts_rank_cd=, with normalization 2 (rank divided by the section's length)
+  unless the caller asks otherwise, then by the document type's place in
+  the ranking's type order, then type, path and section. That default is
+  the best of the rankings measured against the recorded questions over ORE
+  Studio, in the task Search the corpus. Only the page of hits asked for gets
+  a =ts_headline= snippet. The total counts every matching section. The
+  filters are =type=, =tags= (every one), =state=, =sprint=, =level=,
+  =audience=, keywords and properties; a keyword or property filter is a
+  =@>= containment, so it uses the GIN index.
+- *Facets.* Over the documents with at least one matching section, or
+  every document when the query is empty, =facets= counts each type, tag,
+  state, sprint (with the sprint's title), level and audience, and the
+  values of the keywords and properties named, most frequent first.
 - *Collection.* =collect= takes an advisory lock and gives up at once when
   another collection holds it. It deletes every document that no placement
   and no =activity.run= names, skipping a row a sync has locked
@@ -131,13 +166,16 @@ The component has three parts.
 | =include/compass.db/io/schema.hpp= | =read_status=, =migrate=, =init=, =refusal_of=, =require_current=. |
 | =include/compass.db/types/corpus_document.hpp= | The rows of one document. |
 | =include/compass.db/types/environment.hpp= | =environment=, =placement=, =environment_summary=. |
-| =include/compass.db/ops/extract.hpp= | =extract=, =slug=. |
+| =include/compass.db/ops/extract.hpp= | =extract=. |
+| =include/compass.db/types/search.hpp= | =search_request=, =search_response=, =search_hit=, =document_filter=, =view_filter=, =ranking=, =facets_request=, =facets_response=. |
+| =include/compass.db/query/search.hpp= | =search=, =facets=, =unknown_environment=. |
 | =include/compass.db/ops/copy_text.hpp= | =copy_writer=: COPY's text format. |
 | =include/compass.db/io/corpus.hpp= | =present=, =write_environment=, =collect=, =collect_when_grown=, =environments=, =drop_environment=. |
 | =tests/ops_extract_tests.cpp= | Metadata, headings, anchors, sections, links, test scenarios and their definition hash. |
 | =tests/ops_copy_text_tests.cpp= | Escapes, NULL, =bytea=, arrays, NUL and bad UTF-8. |
 | =tests/io_schema_tests.cpp= | Init, idempotence, newer and older schemas, the text search configuration. |
 | =tests/io_corpus_tests.cpp= | Writing, sharing between environments, scoped writes, the retry, search weights, the test schema, collection. |
+| =tests/query_search_tests.cpp= | Ranking order and the type tie-break, hit fields and snippets, each filter, the view, environment isolation, facets, paging. |
 
 | Target | Kind |
 |--------+------|
@@ -156,6 +194,8 @@ say why, on a machine without the PostgreSQL server programs.
   =openssl= feature turned on.
 - [[id:44C128E0-BCF3-4574-B171-BF5E72325085][compass.org]] for the tables
   that extraction reads.
+- [[id:2F0235E0-2F30-4D7C-966B-BA472B061711][compass.html]] for the
+  heading anchors, so the corpus and the rendered page agree.
 - [[id:EB285F25-4AF8-482D-B679-C650DA718CF6][compass.store]] for the blob ID
   and its hex form.
 - [[id:73F4046A-896C-4F38-864C-572B10F47389][compass.platform]] for UTF-8

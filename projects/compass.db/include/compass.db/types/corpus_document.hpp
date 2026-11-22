@@ -62,8 +62,8 @@ struct document_row {
 /**
  * @brief A row of corpus.heading. title is the title as plain text, a
  * link replaced by its description; path is the titles from the
- * outermost heading down to this one. anchor is the heading's :ID: where
- * it has one, else a slug of its path, unique in the document.
+ * outermost heading down to this one. anchor is the id compass.html gives
+ * the heading, so a search hit lands where the rendered page puts it.
  */
 struct heading_row {
     std::uint32_t level = 0;

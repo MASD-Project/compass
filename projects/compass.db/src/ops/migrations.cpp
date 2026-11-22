@@ -216,8 +216,52 @@ CREATE TABLE activity.attached (
 );
 )sql";
 
+/*
+ * A document's state is the State row of its Status table, the first table
+ * row that names one. A sprint's members follow the id: links of preambles,
+ * the sentence that names a page's parent: a sprint page is in itself, a
+ * story or scenario names its sprint, a task names its story. The links are
+ * followed backwards from the sprint, through link_target_id, so a sprint
+ * costs a few index scans rather than one probe per document.
+ */
+constexpr std::string_view search_columns = R"sql(
+ALTER TABLE corpus.document ADD COLUMN state text GENERATED ALWAYS AS (
+    substring(source from '(?n)^[ \t]*\|[ \t]*State[ \t]*\|[ \t]*([^|[:space:]]+)')
+) STORED;
+CREATE INDEX document_state ON corpus.document (state);
+
+CREATE FUNCTION corpus.sprint_members(environment bigint, sprint text)
+RETURNS SETOF bytea LANGUAGE sql STABLE AS $$
+    WITH page AS (
+        SELECT d.hash FROM corpus.document d
+        JOIN corpus.placement p ON p.hash = d.hash
+            AND p.environment = sprint_members.environment
+        WHERE d.org_id = sprint AND d.type = 'sprint'
+    ),
+    child AS (
+        SELECT l.hash FROM corpus.link l
+        WHERE l.target_id = sprint AND l.heading_ord IS NULL
+          AND EXISTS (SELECT 1 FROM page)
+    ),
+    story AS (
+        SELECT d.org_id FROM child c
+        JOIN corpus.document d ON d.hash = c.hash AND d.type = 'story'
+        JOIN corpus.placement p ON p.hash = d.hash
+            AND p.environment = sprint_members.environment
+        WHERE d.org_id IS NOT NULL
+    )
+    SELECT hash FROM page
+    UNION
+    SELECT hash FROM child
+    UNION
+    SELECT l.hash FROM story s
+    JOIN corpus.link l ON l.target_id = s.org_id AND l.heading_ord IS NULL
+$$;
+)sql";
+
 constexpr std::array all{
     migration{1, "the corpus, test and activity schemas", create_schemas},
+    migration{2, "the document state and sprint for search", search_columns},
 };
 
 }

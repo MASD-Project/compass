@@ -41,6 +41,7 @@ add_library(${lib_target_name}
     ops/read_stage.cpp
     ops/render_stage.cpp
     ops/search_paths.cpp
+    ops/search_stage.cpp
     ops/store_stage.cpp
     ops/types_stage.cpp
     ops/warm_stage.cpp)
@@ -54,6 +55,7 @@ target_link_libraries(${lib_target_name}
     PUBLIC
         compass.codec.lib
         compass.codegen.lib
+        compass.db.lib
         compass.html.lib
         compass.ingest.lib
         compass.model.lib

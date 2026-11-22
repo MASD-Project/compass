@@ -116,6 +116,13 @@ and call it directly.
 cache that any worktree's dependency record names (=compass.codec='s
 =io::action_keys=), and reports what it found and removed.
 
+=search= is not a stage of a checkout. It asks each question of a recorded
+set through =compass.db='s =query::search=, against a database a sync
+filled, and scores where the first page that answers it ranks among the
+documents hit: hit@1, hit@5 and MRR, overall and by audience. It times a
+page of 20 hits for each question, once and then =--repeat= times, and
+reports the median and p95 of the first runs and of the repeats.
+
 =org-dump= is not a stage. It parses one org file and prints its tables in
 the line format of =compass::org::io::dump=, which
 =build/scripts/org_element_dump.el= prints for org-element.
@@ -164,6 +171,11 @@ the line format of =compass::org::io::dump=, which
 - =compass-bench render <checkout> [--oracle <dir>] [--out <dir>]
   [--format <git-dir>] [-j N] [--repeat R]=. The checkout's =.compass.org=
   must configure the =codegen= codec.
+- =compass-bench search <conninfo> --environment <name> --questions <file>
+  [--weights D,C,B,A] [--normalization N] [--type-order <type>,...]
+  [--repeat R]=. The questions file holds one question a line: its audience,
+  the query as typed and the =:ID:= of each answering page, space-separated,
+  separated by tabs. The ranking options override =compass.db='s defaults.
 - =compass-bench org-dump <file>= prints to standard output.
   =compass-bench org-dump --list <list>= reads one input path, a tab and an
   output path per line and writes each dump to its output.

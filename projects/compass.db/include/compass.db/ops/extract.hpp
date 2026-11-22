@@ -20,7 +20,6 @@
 #ifndef COMPASS_DB_OPS_EXTRACT_HPP
 #define COMPASS_DB_OPS_EXTRACT_HPP
 
-#include <string>
 #include <string_view>
 #include "compass.db/types/corpus_document.hpp"
 #include "compass.org/types/tables.hpp"
@@ -37,13 +36,6 @@ namespace compass::db::ops {
 [[nodiscard]] types::corpus_document extract(
     const store::types::blob_id& hash, std::string_view source,
     const org::types::tables_view& t);
-
-/**
- * @brief @p text as an anchor: lower-case ASCII letters and digits, each
- * run of anything else one hyphen, with none at either end; "section"
- * when nothing is left.
- */
-[[nodiscard]] std::string slug(std::string_view text);
 
 }
 

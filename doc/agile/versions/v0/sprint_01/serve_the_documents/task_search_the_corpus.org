@@ -7,7 +7,7 @@
 #+level: s1
 #+filetags: :serve_the_documents:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/search-the-corpus
 #+pr:
 #+blocked_on:
 #+blocked_since:
@@ -20,44 +20,138 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Goal
 
-(Describe what user-visible-or-internal change this task produces.)
+The document service answers a search with the sections that match, best
+first, each with its document's metadata, the anchor of its heading and a
+snippet, inside the caller's view and any filter on the documents' metadata,
+with counts of each filter's values. The query functions live in
+=compass.db=, so the HTTP routes and MCP tools that will be generated from
+the service's models call them and add nothing.
 
 * Status
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                                 |
 | Parent story | [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]] |
-| Now          | Not yet started.                       |
-| Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Now          | =search= and =facets= answer over ORE Studio's 11,180 documents; the default ranking puts an answering page in the top five for 12 of 25 recorded questions. |
+| Waiting on   | Review of the pull request.            |
+| Next         | The generated HTTP route and MCP tool call =search= and =facets=. |
 | Last touched | 2026-11-22                               |
 
 * Acceptance
 
--
+- =compass.db::query::search(connection, view_filter, search_request,
+  ranking)= returns a =search_response=: hits, the total of matching
+  sections and the environment's =synced_at=. =facets(connection,
+  view_filter, facets_request)= returns a =facets_response=. The request and
+  response types are plain structs shaped as the investigation's
+  =search_request= and =search_response= messages; no JSON is read or
+  written, and no route or MCP handler is built.
+- The query is =websearch_to_tsquery= under the database's stored text
+  search configuration over =corpus.section.tsv=, ranked by =ts_rank_cd=,
+  with the document type as a tie-break through the ranking's type order.
+- A hit carries the document's =:ID:=, title, type, description and path in
+  the environment, the section's heading path and anchor, a =ts_headline=
+  snippet and its rank. Hits are paged by limit and offset; the total is
+  the same on every page, including a page past the end.
+- The filters are type, tags, state, sprint, level, audience, keywords and
+  properties, applied to the environment's placements inside the caller's
+  view condition. State is the =State= row of the document's =* Status=
+  table. Sprint is decided from the documents' links: see Notes.
+- Facets count each filter's values over the documents the query matches.
+- An unknown environment is an error, never a default.
+- A search hit's anchor is the =id= compass.html gives the heading:
+  =compass.db= calls =compass.html::ops::heading_anchors= and has no slug of
+  its own, and a test renders a document and compares.
+- Each behaviour has a Catch2 test against a throwaway cluster: ranking
+  order and the type tie-break, each filter, the view, environment
+  isolation, facets, paging, snippets and hit fields.
+- A recorded set of 25 questions over ORE Studio scores the ranking on
+  hit@1, hit@5 and MRR, and can be rerun; the best of the variations tried
+  is the default.
+- EXPLAIN on ORE Studio's corpus shows every filter and the search using an
+  index; latency is reported cold and warm.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+1. Make the corpus's anchors the renderer's: =ops::extract= calls
+   =heading_anchors=, and =db::ops::slug= goes. =compass.html= depends on
+   =compass.org= alone, so =compass.db= depending on it makes no cycle in
+   the domain layer.
+2. Migration 2: a generated =state= column and its index, and a function for
+   a sprint's members. Migration 1 is not edited.
+3. =types/search.hpp= and =query/search.hpp=: the request and response
+   structs, =search= and =facets=, one SQL statement each.
+4. Tests on small corpora.
+5. =compass-bench search=: reads a question set, runs each question through
+   =search=, scores it and times it. The question set and a script that
+   syncs ORE Studio into a private cluster and runs it go in =evidence/=.
+6. Try two ranking variations, keep the best, check the plans.
 
 * Measurements
 
-Every number this task claims about a tree, with the command that produced it
-and the commit it was measured at. A number without both is not a measurement,
-because a clean-up record describes a tree and trunk moves under a branch: a
-consumer count, a gate's component count and a suite's size all change with no
-code changing, and the reader of a bare number cannot tell which tree it came
-from. Where the raw output matters, put it in an =evidence/= file beside the
-task and name that file in the Command column.
+Raw output for every number below is in =evidence/search_ore_studio.txt=,
+from =evidence/search_ore_studio.sh <compass bin dir> <scratch>=, which
+syncs an archive of ORE Studio into an =initdb= cluster on a Unix socket
+with no TCP port, then runs =compass-bench search= with
+=evidence/search_questions.tsv=. Measured over ORE Studio =9ed8b54cd2= with
+compass at this task's branch, a release build, 8 cores at load average
+about 10.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Corpus | 11,180 documents, 122,223 sections, 6,142 documents with a state | =search_ore_studio.sh= | ORE =9ed8b54cd2= |
+| Ranking, normalization 0 (=ts_rank_cd='s default) | hit@1 0.04, hit@5 0.36, MRR 0.174 | as above | as above |
+| Ranking, normalization 1 (divide by 1 + log of the length) | hit@1 0.16, hit@5 0.36, MRR 0.266 | as above | as above |
+| Ranking, normalization 2 (divide by the length), kept | hit@1 0.20, hit@5 0.48, MRR 0.327; developer MRR 0.380, business 0.269 | as above | as above |
+| Questions with no answering page in the first 200 hits, kept ranking | 7 of 25 | as above | as above |
+| Latency of a 20-hit page, kept ranking, buffers cold after a restart | median 23.2 ms, p95 130.2 ms over 25 queries | as above | as above |
+| Latency of a 20-hit page, kept ranking, warm | median 16.8 ms, p95 176.8 ms over 125 queries | as above | as above |
+| Latency, normalization 0, warm | median 66.9 ms, p95 109.6 ms; its first pages hold the long sections, whose snippets cost most | as above | as above |
+| One search, =nats subject naming=, from =auto_explain= | 15 ms; =section_tsv= bitmap scan, =document_pkey=, =placement_hash= | as above | as above |
+| Sprint filter, Sprint 30, every document of the environment | 956 documents in 15 ms; 573 ms for the first version, which probed each document, in an earlier run of the script | as above | as above |
+| Tag and keyword filters together | 0.8 to 1.7 ms; =BitmapAnd= of =document_tags= and =document_keywords= | as above | as above |
+| Sprint facet over every document | 30 sprints in 53 ms; 717 ms for the first version, in the same earlier run | as above | as above |
+| Largest section and the cost of its snippet | 1,384,228 bytes (=Product backlog — inbox=), =ts_headline= 124 ms; median section 242 bytes | =psql= against the same cluster | as above |
 
 * Notes
+
+- *Sprint.* A document is in a sprint when it is the sprint page, when its
+  preamble links to the sprint page, or when its preamble links to a story
+  whose preamble links to the sprint page. The preamble is the sentence
+  each page of the contract opens with to name its parent: a story and a
+  test scenario name their sprint there, a task names its story. Links under
+  a heading are not followed, because a page links to related stories and
+  past sprints in its body. The sprint page and the story must be placed in
+  the same environment. =corpus.sprint_members(environment, sprint)= walks
+  the links backwards from the sprint through =link_target_id=; the first
+  version walked forwards from each document and cost 573 ms over ORE
+  Studio's corpus against 15 ms.
+- *State.* A generated column over =source=, the first table row named
+  =State=, so documents already in a corpus get it when the migration runs
+  and the sync writes nothing new.
+- *Ranking.* Without normalization, =ts_rank_cd= rewards a long section that
+  holds every word: =Product backlog — inbox=, one section of 1.4 MB, was the
+  first document for most questions. Normalization 2 divides by length and
+  nearly doubles MRR. The weights stay at PostgreSQL's defaults.
+- *Recall.* =websearch_to_tsquery= requires every word, so a question
+  phrased differently from the page finds nothing: =what is tom next= finds
+  8 sections and none is the answering page. Seven questions miss this way.
+  An =or= between the words, or a fallback to it when the strict query finds
+  little, is the next change to measure.
+- *Latency.* A typical search, =nats subject naming=, ranks its 410
+  sections in 13 of its 15 ms, reading section pages from disk. The slow
+  queries are those with few hits, whose first page holds a huge section:
+  =ts_headline= over the 1.4 MB backlog section alone takes 124 ms. Capping
+  the text a snippet reads would remove the tail.
+- *Indexes.* Every filter and the search use an index already in migration
+  1 or the new =document_state=. The environment's placements are read by a
+  sequential scan when every placement is in one environment, which is the
+  right plan there; =placement_hash= serves the join otherwise.
+- *Types.* The structs follow the investigation's operation model: the
+  environment is a field of the request, the view is passed beside it, as
+  the caller's header will be. They are deleted when the generated messages
+  land.
 
 * Test Scenarios
 
@@ -83,3 +177,7 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+=search= and =facets= in =compass.db=, measured over ORE Studio: the kept
+ranking finds an answering page first for 5 of 25 questions and in the top
+five for 12, at a median of 17 ms a page.
