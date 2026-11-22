@@ -163,6 +163,95 @@ bash "$script" --release v9.9.9 >"$root/out" 2>&1 &&
 printf 'commit: x\n' >"$root/pin"
 bash "$script" --pin "$root/pin" >"$root/out" 2>&1 &&
     fail "a pin file with no release: line installed"
+
+# Builds of main served by a gh that answers from $root/gh: runs.txt lists
+# the green Continuous Linux runs as "<id> <commit>", artifacts/<id> holds
+# the package of a run that has one, tags.txt lists "<tag> <commit>" and
+# assets/<tag> the asset names of a release.
+if [ "$(uname -s)-$(uname -m)" = Linux-x86_64 ]; then
+    gh_dir="$root/gh"
+    mkdir -p "$gh_dir/bin" "$gh_dir/artifacts/101" "$gh_dir/artifacts/102" \
+        "$gh_dir/assets"
+    cat >"$gh_dir/bin/gh" <<EOF
+#!/bin/bash
+dir="$gh_dir"
+EOF
+    cat >>"$gh_dir/bin/gh" <<'EOF'
+case "$1 $2" in
+    "api repos/test/compass/commits/"*)
+        grep -m1 " ${2##*/}" "$dir/runs.txt" | cut -d' ' -f2 | grep . ;;
+    "api repos/test/compass/actions/workflows/"*)
+        if [[ "$2" == *head_sha=* ]]; then
+            grep " ${2##*head_sha=}\$" "$dir/runs.txt"
+        else
+            cat "$dir/runs.txt"
+        fi ;;
+    "api repos/test/compass/actions/runs/"*)
+        id="${2#repos/test/compass/actions/runs/}"
+        ls "$dir/artifacts/${id%%/*}" 2>/dev/null | grep -q . && echo 7 ;;
+    "api repos/test/compass/tags"*)
+        sha="$(sed -n 's/.*commit.sha == "\([0-9a-f]*\)".*/\1/p' <<<"$4")"
+        grep " $sha\$" "$dir/tags.txt" | cut -d' ' -f1 ;;
+    "release view") cat "$dir/assets/$3" ;;
+    "run download") mkdir -p "${@: -1}" && cp "$dir/artifacts/$3"/* "${@: -1}" ;;
+    *) echo "unexpected gh $*" >&2; exit 1 ;;
+esac
+EOF
+    chmod +x "$gh_dir/bin/gh"
+    export COMPASS_REPOSITORY=test/compass
+    main_archive="compass-0.0.2-Linux-x86_64.tar.gz"
+    pack() {
+        local tree="$root/pack/$1"
+        mkdir -p "$tree/compass-0.0.2/opt/compass"
+        cp -rp "$(build "$1" false)/.." "$tree/compass-0.0.2/opt/compass/0.0.2"
+        tar -czf "$2/$main_archive" -C "$tree" compass-0.0.2
+        echo "deb" >"$2/compass_0.0.2_amd64.deb"
+    }
+    built=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+    docs=ffffffffffffffffffffffffffffffffffffffff
+    pack "$built" "$gh_dir/artifacts/101"
+    printf '100 %s\n101 %s\n' "$docs" "$built" >"$gh_dir/runs.txt"
+    : >"$gh_dir/tags.txt"
+
+    PATH="$gh_dir/bin:$PATH" bash "$script" --build main >"$root/out" 2>&1 ||
+        fail "the newest green build of main did not install"
+    expect_version "tag: none (pre-release build from https://github.com/test/compass/actions/runs/101)"
+    expect_version "commit: $built (eeeeeee)"
+    [ "$(cat "$masd/templates/t.mustache")" = "$built" ] ||
+        fail "the MASD library of the build of main was not installed"
+
+    bash "$script" --from "$(build $clean false)" >"$root/out" 2>&1 ||
+        fail "a reinstall of the clean build did not succeed"
+    expect_version "tag: none"
+
+    PATH="$gh_dir/bin:$PATH" bash "$script" --build "${built:0:7}" \
+        >"$root/out" 2>&1 || fail "the build of a commit did not install"
+    expect_version "commit: $built (eeeeeee)"
+
+    PATH="$gh_dir/bin:$PATH" bash "$script" --build "${docs:0:7}" \
+        >"$root/out" 2>&1 && fail "a commit with no package installed"
+    grep -q "no green Continuous Linux run of ${docs:0:7}" "$root/out" ||
+        fail "a commit with no package was not named"
+
+    pack "$clean" "$gh_dir/artifacts/102"
+    echo "102 $docs" >>"$gh_dir/runs.txt"
+    PATH="$gh_dir/bin:$PATH" bash "$script" --build "${docs:0:7}" \
+        >"$root/out" 2>&1 && fail "a package of another commit installed"
+    grep -q "built $clean, not $docs" "$root/out" ||
+        fail "a package of another commit was not named"
+    expect_version "commit: $built (eeeeeee)"
+
+    echo "v0.0.1 $built" >"$gh_dir/tags.txt"
+    echo "$archive" >"$gh_dir/assets/v0.0.1"
+    (cd "$releases/v0.0.1" && sha256sum "$archive" >"$archive.sha256")
+    PATH="$gh_dir/bin:$PATH" bash "$script" --build "${built:0:7}" \
+        >"$root/out" 2>&1 || fail "the release of a built commit did not install"
+    grep -qx "eeeeeee is release v0.0.1; installing the release" "$root/out" ||
+        fail "the release that replaces the build was not named"
+    expect_version "tag: v0.0.1"
+    expect_version "commit: cccccccccccccccccccccccccccccccccccccccc (ccccccc)"
+    unset COMPASS_REPOSITORY
+fi
 unset COMPASS_RELEASE_URL
 
 echo "garbage" >"$opt/bin/compass.manifest"

@@ -195,6 +195,21 @@ TEST_CASE("version_text names the release tag on the commit, or none",
     CHECK_THAT(version_text(bin.executable()), ContainsSubstring("\ntag: none\n"));
 }
 
+TEST_CASE("version_text names the CI run of a pre-release build",
+    "[io][version]") {
+    scoped_bin bin;
+    const std::string run = "https://github.com/o/r/actions/runs/42";
+    bin.write_manifest(std::string(clean_manifest) + "prerelease=" + run + "\n");
+    CHECK_THAT(version_text(bin.executable()),
+        ContainsSubstring("\ntag: none (pre-release build from " + run +
+            ")\ncommit: "));
+
+    bin.write_manifest(std::string(clean_manifest) + "tag=v0.0.1\nprerelease=" +
+        run + "\n");
+    CHECK_THAT(version_text(bin.executable()),
+        ContainsSubstring("\ntag: v0.0.1\n"));
+}
+
 TEST_CASE("version_text says the tag is unknown without a usable manifest",
     "[io][version]") {
     scoped_bin bin;
