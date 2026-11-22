@@ -50,6 +50,7 @@
 #include "compass.bench/ops/render_stage.hpp"
 #include "compass.bench/ops/search_paths.hpp"
 #include "compass.bench/ops/search_stage.hpp"
+#include "compass.bench/ops/testing_stage.hpp"
 #include "compass.bench/ops/store_stage.hpp"
 #include "compass.bench/ops/types_stage.hpp"
 #include "compass.bench/ops/warm_stage.hpp"
@@ -92,12 +93,14 @@ constexpr std::string_view usage =
     "       compass-bench search <conninfo> --environment <name>\n"
     "           --questions <file> [--weights D,C,B,A] [--normalization N]\n"
     "           [--type-order <type>,...] [--repeat R]\n"
+    "       compass-bench testing <conninfo> --environment <name>\n"
+    "           [--sprint <id, title or directory>] [--repeat R]\n"
     "       compass-bench org-dump <file>\n"
     "       compass-bench org-dump --list <list>\n";
 
 enum class stage {
     read, includes, parse, org, types, store, warm, codecs, gc, ids,
-    models, render, html, search, org_dump
+    models, render, html, search, testing, org_dump
 };
 
 struct options {
@@ -124,6 +127,7 @@ struct options {
     std::string conninfo;
     std::string environment;
     std::filesystem::path questions;
+    std::optional<std::string> sprint;
     compass::db::types::ranking ranking;
 };
 
@@ -219,6 +223,31 @@ std::optional<options> parse_search_options(int argc, char** argv) {
     return o;
 }
 
+std::optional<options> parse_testing_options(int argc, char** argv) {
+    options o;
+    o.which = stage::testing;
+    o.conninfo = argv[2];
+    for (int i = 3; i + 1 < argc; i += 2) {
+        const std::string_view flag = argv[i];
+        const std::string_view value = argv[i + 1];
+        if (flag == "--environment") {
+            o.environment = value;
+        } else if (flag == "--sprint") {
+            o.sprint = std::string(value);
+        } else if (flag == "--repeat") {
+            const auto n = parse_positive(value);
+            if (!n)
+                return std::nullopt;
+            o.repetitions = *n;
+        } else {
+            return std::nullopt;
+        }
+    }
+    if ((argc - 3) % 2 != 0 || o.environment.empty())
+        return std::nullopt;
+    return o;
+}
+
 std::optional<options> parse_options(int argc, char** argv) {
     if (argc < 3)
         return std::nullopt;
@@ -254,6 +283,8 @@ std::optional<options> parse_options(int argc, char** argv) {
         return parse_dump_options(argc, argv);
     else if (name == "search")
         return parse_search_options(argc, argv);
+    else if (name == "testing")
+        return parse_testing_options(argc, argv);
     else
         return std::nullopt;
     o.checkout = argv[2];
@@ -547,6 +578,15 @@ int run_search(const options& o) {
     return 0;
 }
 
+int run_testing(const options& o) {
+    compass::db::types::sprint_request r;
+    r.environment = o.environment;
+    r.sprint = o.sprint;
+    ops::write_testing_report(std::cout,
+        ops::run_testing_stage(o.conninfo, r, o.repetitions));
+    return 0;
+}
+
 int run_org_dump(const options& o) {
     if (o.dump_list.empty())
         ops::dump_org_file(o.dump_file, std::cout);
@@ -572,6 +612,7 @@ int run(const options& o) {
     case stage::render: return run_render(o);
     case stage::html: return run_html(o);
     case stage::search: return run_search(o);
+    case stage::testing: return run_testing(o);
     case stage::org_dump: return run_org_dump(o);
     }
     return 2;

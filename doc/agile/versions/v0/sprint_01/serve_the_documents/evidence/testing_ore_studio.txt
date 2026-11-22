@@ -1,0 +1,86 @@
+# Output of testing_ore_studio.sh, beside this file, over an archive of ORE
+# Studio main at 9ed8b54cd2, with compass at feature/show-what-needs-testing
+# on 074d0be, a release build, on 8 cores at load average about 60.
+# <scratch> is the scratch directory. Latencies are under that load.
+== sync
+compass: the database is at schema version 2 with text search configuration english; its connection is in <scratch>/ore/.git/compass/local.org
+compass: synced ore: 11182 documents placed, 11180 new to the corpus (0 parsed), placements 11182 added, 0 changed, 0 removed, in 43997 ms
+compass: collected the corpus: 0 documents removed, 11180 left
+VACUUM
+scenarios|164
+scenarios with a story|164
+== sprints whose state is STARTED
+Sprint 28|2026-10-13|3CEE598D-47C8-4EC0-9E01-19CE79CCA4CD
+Sprint 30|2026-11-08|9F7C5484-E2D1-40E0-B24D-AD1B69A057F5
+== what needs testing, present sprint, before any run
+sprint Sprint 30 (9F7C5484-E2D1-40E0-B24D-AD1B69A057F5) STARTED, synced 2026-11-22T20:39:22Z
+stories 144, with scenarios 4, scenarios 4, open notes 0
+  untested  4
+  failed    0
+  passed    0
+  changed   0
+
+scenarios by story
+  Story: Author the report configurations on guided screens [BACKLOG] campaign - open notes 0
+    untested  notes 0 Test Scenario: Verify the pricing engine screens
+  Story: Follow the child run a workflow hands off [DONE] campaign - open notes 0
+    untested  notes 0 Test Scenario: Provision a tenant as a non-system administrator
+  Story: See the market as the vendors quote it [STARTED] campaign - open notes 0
+    untested  notes 0 Test Scenario: Watch the vendors' quotes as a party and as the system tenant
+  Story: Support volatility surfaces — the remaining work [STARTED] campaign - open notes 0
+    untested  notes 0 Test Scenario: Verify the FX forward ladder screen
+
+sprint state: stories 144, tasks 783
+  tasks ABANDONED  27
+  tasks BACKLOG    300
+  tasks BLOCKED    3
+  tasks DONE       440
+  tasks STARTED    13
+
+latency what needs testing: first 28.5 ms, warm median 21.3 ms over 5
+latency sprint state:       first 31.9 ms, warm median 33.5 ms over 5
+== what needs testing, Sprint 28 by title
+sprint Sprint 28 (3CEE598D-47C8-4EC0-9E01-19CE79CCA4CD) STARTED, synced 2026-11-22T20:39:22Z
+stories 152, with scenarios 9, scenarios 12, open notes 0
+  untested  12
+  failed    0
+  passed    0
+  changed   0
+
+== Sprint 30 by directory name
+sprint Sprint 30 (9F7C5484-E2D1-40E0-B24D-AD1B69A057F5) STARTED, synced 2026-11-22T20:39:22Z
+== writing activity rows
+passed:                2BCB9FC2-7D48-4046-85C2-86D49A9E0921|D119E90A-FC7B-4ED2-8CCF-4658C7351345
+passed, then failed:   5BA0964E-4FF2-46BC-BE6D-83AFCFA4F424|F601BA2C-C879-4880-95C2-02110E5D168E
+blocked:               109B7D07-EA58-42D4-A304-666B37EEAC6C|726A5326-E52C-44FB-9453-133D1E51C242
+passed, earlier def:   535F4797-2CB5-459B-A0D5-7286537F3EB1|95541791-E25C-44A5-9625-C8A1E44976D7
+then unfinished:       2BCB9FC2-7D48-4046-85C2-86D49A9E0921|D119E90A-FC7B-4ED2-8CCF-4658C7351345
+then failed elsewhere: 2BCB9FC2-7D48-4046-85C2-86D49A9E0921|D119E90A-FC7B-4ED2-8CCF-4658C7351345
+notes on 5BA0964E-4FF2-46BC-BE6D-83AFCFA4F424|F601BA2C-C879-4880-95C2-02110E5D168E: 2 open, 1 addressed
+== what needs testing, present sprint, after the runs
+sprint Sprint 30 (9F7C5484-E2D1-40E0-B24D-AD1B69A057F5) STARTED, synced 2026-11-22T20:39:22Z
+stories 144, with scenarios 4, scenarios 4, open notes 2
+  untested  0
+  failed    2
+  passed    1
+  changed   1
+
+scenarios by story
+  Story: Author the report configurations on guided screens [BACKLOG] campaign 1 open notes 0
+    passed    notes 0 Test Scenario: Verify the pricing engine screens (run 1 by evidence: passed)
+  Story: Follow the child run a workflow hands off [DONE] campaign 2 open notes 2
+    failed    notes 2 Test Scenario: Provision a tenant as a non-system administrator (run 3 by evidence: failed)
+  Story: See the market as the vendors quote it [STARTED] campaign 4 open notes 0
+    failed    notes 0 Test Scenario: Watch the vendors' quotes as a party and as the system tenant (run 4 by evidence: blocked)
+  Story: Support volatility surfaces — the remaining work [STARTED] campaign 5 open notes 0
+    changed   notes 0 Test Scenario: Verify the FX forward ladder screen (run 5 by evidence: passed)
+
+sprint state: stories 144, tasks 783
+  tasks ABANDONED  27
+  tasks BACKLOG    300
+  tasks BLOCKED    3
+  tasks DONE       440
+  tasks STARTED    13
+
+latency what needs testing: first 54.0 ms, warm median 32.9 ms over 5
+latency sprint state:       first 45.4 ms, warm median 26.0 ms over 5
