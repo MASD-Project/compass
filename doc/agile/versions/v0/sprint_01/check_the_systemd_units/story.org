@@ -51,7 +51,15 @@ environment.
   from the project's data: the service registry, a codegen model, with each
   service's command, environment file, user, restart policy and
   dependencies. The unit templates are MASD templates in compass, rendered by
-  compass's codegen; nothing about a service is in compass's code. ORE
+  compass's codegen; nothing about a service is in compass's code.
+- *Templates are literate documents.* Each unit template (the service unit,
+  each drop-in, any target or slice) is an org-mode document of =#+type:
+  archetype=, as ORE Studio's codegen templates are: its header names the
+  facet (a systemd facet, such as =masd.systemd.service=) and the =#+output:=
+  path pattern, its prose explains every directive the unit sets and why, and
+  its =* Template= section holds the Mustache source in a block that compass's
+  tangle codec writes to the =.mustache= file. A template edited outside its
+  document is drift; a template without its document is reported. ORE
   Studio's =systemd_generate.py= is retired, and its units do not change but
   for the wiring this story fixes.
 - *compass's own units.* =compass serve= gets its units from the same
