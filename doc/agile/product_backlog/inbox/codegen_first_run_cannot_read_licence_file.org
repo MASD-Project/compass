@@ -1,0 +1,47 @@
+:PROPERTIES:
+:ID: 58F5233A-54CB-489D-A22F-68B36E821DDE
+:END:
+#+title: Codegen's first run cannot read the licence file on a fresh copy
+#+description: On a fresh git-archive copy of ORE Studio, the first compass-ng run with the codegen codec failed with 'cannot read licence-GPL-v3.txt' though the file existed; unreproduced.
+#+type: capture
+#+level: cross
+#+filetags: :compass:codegen:
+#+created: 2026-11-22
+#+updated: 2026-11-22
+
+This page is a [[id:671F18E4-E09C-4B3B-BD24-D33DF8AE38A6][capture]] in the *inbox* bucket of the product backlog — a pre-sprint idea, not yet pulled into a sprint as a story.
+
+* Note
+
+On a fresh scratch copy of ORE Studio, the first =compass-ng= run with the
+codegen codec enabled failed with =cannot read .../licence-GPL-v3.txt=, although
+the file existed on disk. Every later run on the same copy read it. This is
+*unreproduced*: it was seen once, while probing models on a copy extracted with
+=git archive=.
+
+* Actions
+
+The suspects and steps to try follow. A first-run failure that vanishes on retry points to a bug in how codegen reads
+its inputs, not to a missing file. The suspects are:
+
+- A read before the store had the file: codegen asks the store for the licence
+  before the copy's files are in it, and a later run finds it.
+- A race in parallel unit execution: one unit reads the licence while another
+  is still loading the store.
+
+Steps to try:
+
+- Extract a fresh copy with =git archive HEAD | tar -x -C <empty dir>= and run
+  =compass-ng= there with the codegen codec enabled. Use a new empty directory
+  each time, since only the first run on a copy failed.
+- Run the same first run at different parallelism and compare failure rates.
+- If it fails, rerun on the same copy to confirm the second run succeeds, and
+  keep the copy.
+- If it never fails, read the code path from the codegen codec to the licence
+  read and check whether it can run before the store holds the file.
+
+- The file named in the error is =licence-GPL-v3.txt= in the ORE Studio copy.
+
+* See also
+
+-
