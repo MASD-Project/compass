@@ -198,11 +198,12 @@ std::optional<std::string> string_member(const model_tables& t,
  * and service siblings, and whether it pastes the service app's run body
  * or options declaration.
  */
-void derive_component(compass::model::ops::builder& b, value_id component) {
+void derive_component(compass::model::ops::builder& b, value_id component,
+    const std::string& product) {
     const auto& t = b.tables();
     const auto name = string_member(t, component, "name").value_or("unknown");
     const auto full_name = string_member(t, component, "full_name")
-        .value_or("ores." + name);
+        .value_or(product + "." + name);
     b.set(component, "full_name_upper", upper(replace_dots(full_name, "_")));
     b.set(component, "name_upper", upper(replace_dots(name, "_")));
     b.set(component, "namespace", replace_dots(full_name, "::"));
@@ -214,7 +215,7 @@ void derive_component(compass::model::ops::builder& b, value_id component) {
         ? std::string(name_parts.back()) : std::string());
     const auto full_parts = split(full_name, '.');
     const auto base_full = full_parts.size() > 1 && name_parts.size() > 1
-        ? join(full_parts, full_parts.size() - 1) : "ores." + base_name;
+        ? join(full_parts, full_parts.size() - 1) : product + "." + base_name;
     b.set(component, "api_full_name", base_full + ".api");
     b.set(component, "core_full_name", base_full + ".core");
     b.set(component, "service_full_name", base_full + ".service");
@@ -354,7 +355,9 @@ value_id model_context(compass::model::ops::builder& b, value_id library,
         b.tables().values.kinds[owned] != value_kind::object)
         return context;
     if (model_type == "component") {
-        derive_component(b, owned);
+        derive_component(b, owned,
+            std::string(string_member(b.tables(), library, "product")
+                .value_or("")));
         b.set_copy(context, "component", owned);
     } else if (model_type == "asset_class_catalogue" ||
         model_type == "outcome_catalogue") {

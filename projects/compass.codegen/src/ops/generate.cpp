@@ -121,15 +121,16 @@ bool is_model_candidate(std::string_view path) {
 }
 
 /**
- * @brief The physical-space graph of the library's ores.*.org nodes, read
- * in file-name order as load_graph reads them, with the name and the
+ * @brief The physical-space graph of the library's <root>.*.org nodes,
+ * read in file-name order as load_graph reads them, with the name and the
  * bytes of each node appended to @p read.
  */
 types::physical_space load_graph(const checkout_reader& reader,
-    const std::string& templates, std::string& read) {
+    const std::string& templates, std::string_view root, std::string& read) {
     std::vector<std::string> names;
     std::vector<std::string> texts;
-    for (const auto path : reader.list(templates + "/ores.", ".org")) {
+    for (const auto path : reader.list(templates + "/" + std::string(root) +
+             ".", ".org")) {
         if (path.find('/', templates.size() + 1) != std::string_view::npos)
             continue;
         names.emplace_back(file_name(path));
@@ -143,14 +144,15 @@ types::physical_space load_graph(const checkout_reader& reader,
         read += texts[i];
         read.push_back('\0');
     }
-    return load_physical_space(nodes);
+    return load_physical_space(root, nodes);
 }
 
 /**
  * @brief The registry of the checkout's models resolve_targets consults,
  * read from every .org file under a modeling/ directory of projects/.
  */
-types::checkout_registry load_registry(documents& docs) {
+types::checkout_registry load_registry(documents& docs,
+    std::string_view product) {
     std::vector<checkout_file> files;
     for (const auto path : docs.org()) {
         if (path.find("/modeling/") == std::string_view::npos)
@@ -158,7 +160,7 @@ types::checkout_registry load_registry(documents& docs) {
         if (const auto d = docs.get(path))
             files.push_back({path, d->source});
     }
-    return read_checkout_registry(files);
+    return read_checkout_registry(product, files);
 }
 
 /**
@@ -293,12 +295,12 @@ model_properties drawer_properties(const mops::document& doc,
 /**
  * @brief _shell_command_units for every modeling directory of projects/:
  * the singulars of the entity and junction models in it, or one level
- * below it, that enable ores.cpp.shell-command.
+ * below it, that enable <product>.cpp.shell-command.
  */
 std::map<std::string, std::set<std::string>, std::less<>> shell_units(
-    documents& docs, mops::load_cache& cache) {
-    constexpr std::string_view facet = "ores.cpp.shell-command";
-    constexpr std::string_view addresses[] = {facet};
+    documents& docs, std::string_view product, mops::load_cache& cache) {
+    const auto facet = std::string(product) + ".cpp.shell-command";
+    const std::string_view addresses[] = {facet};
     const auto& find = docs.finder();
     model_tables scratch;
     mops::builder b(scratch);
@@ -314,7 +316,7 @@ std::map<std::string, std::set<std::string>, std::less<>> shell_units(
         if (type != model_type::entity && type != model_type::junction)
             continue;
         if (!facet_enabled(drawer_properties(*doc, outline, find, cache)
-                .properties, facet, addresses, false))
+                .properties, product, facet, addresses, false))
             continue;
         std::string error;
         const auto id = mops::load_model(b, *doc, *type, find, docs.lister(),
@@ -543,15 +545,18 @@ model_plan plan_model(mops::builder& b, value_id library,
     if (units.empty())
         return out;
     const auto stem = std::filesystem::path(path).stem().string();
-    constexpr std::string_view wire_codec_addresses[] = {
-        "ores.cpp.wire-codec.codec_header",
-        "ores.cpp.wire-codec.codec_impl",
-        "ores.cpp.wire-codec.protocol_codec_impl"};
-    constexpr std::string_view protocol_addresses[] = {"ores.cpp.protocol"};
+    const auto& product = g.graph.root;
+    const auto wire_codec = product + ".cpp.wire-codec";
+    const auto protocol = product + ".cpp.protocol";
+    const std::string wire_codec_archetypes[] = {wire_codec + ".codec_header",
+        wire_codec + ".codec_impl", wire_codec + ".protocol_codec_impl"};
+    const std::string_view wire_codec_addresses[] = {wire_codec_archetypes[0],
+        wire_codec_archetypes[1], wire_codec_archetypes[2]};
+    const std::string_view protocol_addresses[] = {protocol};
     const types::entity_site site{std::string(path),
-        facet_enabled(properties, "ores.cpp.wire-codec",
-            wire_codec_addresses, false),
-        facet_enabled(properties, "ores.cpp.protocol", protocol_addresses,
+        facet_enabled(properties, product, wire_codec, wire_codec_addresses,
+            false),
+        facet_enabled(properties, product, protocol, protocol_addresses,
             true),
         protocol_owned(registry, b.tables(),
             values::member(b.tables(), root, type_name), path)};
@@ -638,6 +643,17 @@ std::string template_fact(std::string_view name) {
     return types::fact_name("template", name);
 }
 
+/**
+ * @brief The library values of @p g, with the product the templates name
+ * as product.
+ */
+value_id generation_values(mops::builder& b, const generation& g) {
+    const auto library = library_values(b, g.licence, g.modeline,
+        g.settings.year);
+    b.set(library, "product", g.settings.product);
+    return library;
+}
+
 template_map compile_templates(const checkout_reader& reader,
     const generation_settings& s) {
     return read_templates(reader, s, nullptr);
@@ -653,10 +669,10 @@ generation prepare_generation(const checkout_reader& reader,
         std::string(1, '\0') + g.modeline + std::string(1, '\0') +
         std::to_string(s.year)));
     std::string nodes;
-    g.graph = load_graph(reader, s.library + "/templates", nodes);
+    g.graph = load_graph(reader, s.library + "/templates", s.product, nodes);
     g.facts.push_back(fact_of(std::string(graph_fact), nodes));
     documents docs(reader);
-    g.registry = load_registry(docs);
+    g.registry = load_registry(docs, s.product);
 
     const auto catalogue = read_component_catalogue(
         read_or_throw(reader, s.library + "/component_catalogue.org"));
@@ -670,7 +686,7 @@ generation prepare_generation(const checkout_reader& reader,
     mops::load_cache cache;
     g.entities = load_entity_registry(docs,
         modeling_dir_of(catalogue, s.convention_component), cache);
-    g.entities.shell_units = shell_units(docs, cache);
+    g.entities.shell_units = shell_units(docs, s.product, cache);
     g.entities.shell_local_units = g.registry.shell_registrars.unrecorded();
     for (const auto path : docs.org()) {
         const auto doc = regenerated.contains(path) ||
@@ -699,7 +715,7 @@ void plan_generation(generation_plan& plan, const checkout_reader& reader,
     const generation_settings& s) {
     const auto g = prepare_generation(reader, s);
     mops::builder b(plan.tables);
-    const auto library = library_values(b, g.licence, g.modeline, s.year);
+    const auto library = generation_values(b, g);
     auto entities = g.entities;
     entities.header_exists = reader.exists;
     mops::load_cache cache;
@@ -750,8 +766,7 @@ void generate_model(const generation& g, std::string_view model,
         : template_filter{};
     generation_plan plan;
     mops::builder b(plan.tables);
-    const auto library = library_values(b, g.licence, g.modeline,
-        g.settings.year);
+    const auto library = generation_values(b, g);
     const auto planned = plan_model(b, library, g, registry, entities, model,
         reader, cache, wanted);
     if (!planned.error.empty())

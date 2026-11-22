@@ -442,14 +442,14 @@ std::optional<generated_shape> generated_shape_of(const ct::corpus_view& v,
         for (const auto& [key, enabled] : overrides)
             properties.push_back({key, enabled ? "true" : "false"});
         const bool sql_only = values::truthy(tables, body, "sql_only");
-        shape.creates_table = cg::archetype_enabled(properties, entity
+        shape.creates_table = cg::archetype_enabled(properties, "ores", entity
             ? "ores.sql.schema.domain_entity_create"
             : "ores.sql.schema.junction_create", "ores.sql.schema", "ores.sql");
         shape.has_row = !sql_only && cg::archetype_enabled(properties,
-            "ores.cpp.repository.entity_header", "ores.cpp.repository",
+            "ores", "ores.cpp.repository.entity_header", "ores.cpp.repository",
             "ores.cpp");
         shape.has_table_writer = !sql_only && cg::archetype_enabled(
-            properties, "ores.cpp.domain.table_impl", "ores.cpp.domain",
+            properties, "ores", "ores.cpp.domain.table_impl", "ores.cpp.domain",
             "ores.cpp");
         return shape;
     } catch (const std::exception&) {

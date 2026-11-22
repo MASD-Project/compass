@@ -76,10 +76,12 @@ struct archetype_table {
 
 /**
  * @brief ores.codegen's physical-space graph: the facets and archetypes the
- * ores.*.org node documents of the template library declare in their
- * headers.
+ * <root>.*.org node documents of the template library declare in their
+ * headers. root is the first part of every address, the project's
+ * product.
  */
 struct physical_space {
+    std::string root;
     facet_table facets;
     archetype_table archetypes;
 };

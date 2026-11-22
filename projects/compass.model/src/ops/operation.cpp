@@ -398,16 +398,26 @@ void load_operation(load_context& c, value_id root) {
                 b.find(f, "ts_type").is_none());
         }
     }
-    const auto lowered = [&](std::string_view key) {
-        return to_lower(trim(file_property(o, key).value));
+    // The key's first part is the project's product, which the model
+    // does not state; any one-part root matches, the last key winning.
+    const auto lowered = [&](std::string_view address) {
+        std::string_view value;
+        for (std::size_t i = 0; i < o.file_property_keys.size(); ++i) {
+            const std::string_view key = o.file_property_keys[i];
+            const auto dot = key.find('.');
+            if (dot != std::string_view::npos && dot > 0 &&
+                key.substr(dot + 1) == address)
+                value = o.file_property_values[i];
+        }
+        return to_lower(trim(value));
     };
     if (unmapped) {
-        const auto ts = lowered("ores.ts.protocol.enabled");
+        const auto ts = lowered("ts.protocol.enabled");
         if (ts != "nil" && ts != "false" && ts != "no" && ts != "0")
             throw model_error("no TypeScript projection for a field type");
     }
     if (!unsupported.empty()) {
-        const auto shell = lowered("ores.cpp.shell-command.enabled");
+        const auto shell = lowered("cpp.shell-command.enabled");
         if (shell == "true" || shell == "yes" || shell == "1")
             throw model_error("no shell token form for a field");
     }

@@ -31,17 +31,23 @@ This is the configuration for ORE Studio:
 
 ,* Codecs
 
-| name              | enabled | options                                                                                                                                                                                                                       |
-|-------------------+---------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| document_index    | no      |                                                                                                                                                                                                                               |
-| required_sections | no      |                                                                                                                                                                                                                               |
-| codegen           | yes     | library=projects/ores.codegen/library convention_component=refdata clang_format=clang-format clang_format_style=.clang-format prettier=projects/ores.web/node_modules/.bin/prettier,prettier prettier_style=.prettierrc.yaml |
+| name              | enabled | options                                                                                                                                                                                                                                   |
+|-------------------+---------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| document_index    | no      |                                                                                                                                                                                                                                           |
+| required_sections | no      |                                                                                                                                                                                                                                           |
+| codegen           | yes     | library=projects/ores.codegen/library product=ores convention_component=refdata clang_format=clang-format clang_format_style=.clang-format prettier=projects/ores.web/node_modules/.bin/prettier,prettier prettier_style=.prettierrc.yaml |
 #+end_src
 
 The options:
 
 - =library= :: The directory of ores.codegen's library, with =templates/=,
   =data/= and =component_catalogue.org=. Required.
+- =product= :: The project's product, =ores= for ORE Studio. It is the root
+  of every physical-space address, so the library's nodes are
+  =<product>.*.org= and a model switches a facet with
+  =:<product>.<address>.enabled:=; it prefixes the component directories
+  (=projects/<product>.<component>=); and the templates read it as
+  ={{product}}=. Required.
 - =convention_component= :: The catalogue component whose modeling
   directory declares the convention families. Required.
 - =year= :: The copyright year of the licence blocks. Empty, the default,
