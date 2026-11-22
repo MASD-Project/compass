@@ -1,0 +1,152 @@
+:PROPERTIES:
+:ID: 4052422E-F153-4531-A646-33552C5692A9
+:END:
+#+title: compass.db.heading
+#+description: Codegen entity model for corpus.heading: one heading of a corpus document, keyed by the document's blob ID and its place in the document.
+#+type: masd.codegen.entity
+#+component: db
+#+filetags: :model:entity:database:
+#+brief: One heading of a corpus document.
+#+entity_singular: heading
+#+entity_plural: headings
+#+created: 2026-11-22
+#+updated: 2026-11-22
+
+One row per heading of a document, in document order. The key is the
+document's blob ID and the heading's =ord=, so the rows of one document are
+written once with it and deleted with it.
+
+* Flags
+:PROPERTIES:
+:product:    compass
+:component:  db
+:schema:     corpus
+:profile:    owned-child-row
+:END:
+
+The profile =owned-child-row= fixes =read_only=, =current_state= and =insert_conflict: do_nothing=, as =content-addressed-row= does, for a row its owner's key and its =ord= identify, deleted with its owner.
+
+* Columns
+
+** hash
+:PROPERTIES:
+:type:         bytea
+:cpp_type:     store::types::blob_id
+:primary_key:  true
+:key_kind:     content_hash
+:END:
+
+The blob ID of the document's source: the owner's key. The writer takes it as an argument, so the row type leaves it out.
+
+** ord
+:PROPERTIES:
+:type:         integer
+:cpp_type:     std::uint32_t
+:primary_key:  true
+:key_kind:     ord
+:END:
+
+The row's place among its document's rows of this table, from 0. It is the index of the row in the aggregate's vector, so the row type leaves it out.
+
+** level
+:PROPERTIES:
+:type:      integer
+:cpp_type:  std::uint32_t
+:END:
+
+The heading's level: 1 for =*=.
+
+** title
+:PROPERTIES:
+:type:  text
+:END:
+
+The title as plain text, a link replaced by its description.
+
+** path
+:PROPERTIES:
+:type:  text[]
+:END:
+
+The titles from the outermost heading down to this one.
+
+** anchor
+:PROPERTIES:
+:type:  text
+:END:
+
+The heading's =:ID:= where it has one, else a slug of its path, numbered from 2 when an earlier heading took the slug. Unique in the document; the table does not enforce it.
+
+** org_id
+:PROPERTIES:
+:type:      text
+:nullable:  true
+:END:
+
+The heading's =:ID:=.
+
+** todo
+:PROPERTIES:
+:type:      text
+:nullable:  true
+:END:
+
+The heading's TODO keyword.
+
+** priority
+:PROPERTIES:
+:type:      text
+:nullable:  true
+:END:
+
+The heading's priority cookie.
+
+** tags
+:PROPERTIES:
+:type:     text[]
+:default:  '{}'
+:END:
+
+The heading's own tags.
+
+** properties
+:PROPERTIES:
+:type:     jsonb
+:default:  '{}'
+:END:
+
+The heading's drawer as a JSON object.
+
+* Foreign keys
+
+** hash
+:PROPERTIES:
+:references:  corpus.document
+:on_delete:   cascade
+:END:
+
+The document this row belongs to. Deleting the document deletes the row.
+
+* SQL
+
+** Indexes
+
+| name   | columns | unique | where              | using | opclass |
+|--------+---------+--------+--------------------+-------+---------|
+| org_id | org_id  | false  | org_id is not null |       |         |
+
+* C++
+
+The row is =compass::db::types::heading_row= of
+=compass.db/types/corpus_document.hpp=, field for field: =hash= and =ord=
+are left out by their key kinds.
+
+* Notes
+
+=path= has no default in the table, unlike =tags=: the model states it as the
+table has it.
+
+* See also
+
+- [[id:493B7D68-516E-4430-B4CE-688C6FBE1271][compass.db]]: the component overview, which lists every model.
+- [[id:7FD52505-1436-4925-A1DE-4A3EC88F0133][Investigation: How compass generates itself]]: the features, key kinds and profiles these models use.

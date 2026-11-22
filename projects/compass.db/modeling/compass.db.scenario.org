@@ -1,0 +1,139 @@
+:PROPERTIES:
+:ID: C5D4EA97-AF1F-4E6C-A121-F43FF42221CE
+:END:
+#+title: compass.db.scenario
+#+description: Codegen entity model for test.scenario: the test definition a document of type test_scenario holds, keyed by the document's blob ID.
+#+type: masd.codegen.entity
+#+component: db
+#+filetags: :model:entity:database:
+#+brief: The test definition of a test_scenario document.
+#+entity_singular: scenario
+#+entity_plural: scenarios
+#+created: 2026-11-22
+#+updated: 2026-11-22
+
+One row per corpus document of =#+type: test_scenario=, from its =Scenario
+Info= table. It shares the document's key and is deleted with it.
+=definition= hashes the page without its results, so writing a result into
+the page changes the document's hash and leaves the definition's alone.
+
+* Flags
+:PROPERTIES:
+:product:    compass
+:component:  db
+:schema:     test
+:profile:    content-addressed-row
+:END:
+
+The profile =content-addressed-row= fixes =read_only=, =current_state= and =insert_conflict: do_nothing=: a row is keyed by the blob ID of what it describes, is written once with =ON CONFLICT DO NOTHING= and never updated.
+
+The row is a one-to-one extension of its document rather than an owned child
+with an =ord=, so it binds =content-addressed-row=, like the document.
+
+* Columns
+
+** hash
+:PROPERTIES:
+:type:         bytea
+:cpp_type:     store::types::blob_id
+:primary_key:  true
+:key_kind:     content_hash
+:END:
+
+The blob ID of the document's source, shared with =corpus.document=. The writer takes it as an argument, so the row type leaves it out.
+
+** org_id
+:PROPERTIES:
+:type:      text
+:nullable:  true
+:END:
+
+The document's =:ID:=.
+
+** title
+:PROPERTIES:
+:type:      text
+:nullable:  true
+:END:
+
+The document's title.
+
+** task_id
+:PROPERTIES:
+:type:      text
+:nullable:  true
+:END:
+
+The =id:= link of the =Verifies task= row.
+
+** story_id
+:PROPERTIES:
+:type:      text
+:nullable:  true
+:END:
+
+The =id:= link of the =Parent story= row.
+
+** target
+:PROPERTIES:
+:type:      text
+:nullable:  true
+:END:
+
+The =Target ...= row, else =#+target_dialog:=.
+
+** environment
+:PROPERTIES:
+:type:      text
+:nullable:  true
+:END:
+
+=#+environment:=.
+
+** definition
+:PROPERTIES:
+:type:      bytea
+:cpp_type:  store::types::blob_id
+:END:
+
+The blob ID of the page without every =Result= or =Results= heading and without the =State= row of =Scenario Info=.
+
+* Foreign keys
+
+** hash
+:PROPERTIES:
+:references:  corpus.document
+:on_delete:   cascade
+:END:
+
+The scenario is deleted with its document.
+
+* SQL
+
+** Indexes
+
+| name     | columns  | unique | where | using | opclass |
+|----------+----------+--------+-------+-------+---------|
+| org_id   | org_id   | false  |       |       |         |
+| story_id | story_id | false  |       |       |         |
+
+* C++
+
+The row is =compass::db::types::scenario_row= of
+=compass.db/types/corpus_document.hpp=: the six nullable texts and
+=definition=. Its member =std::vector<step_row> steps= is not a column: it
+holds the =test.step= rows the scenario owns. A generated row has no such
+member, so the steps move to the hand-written aggregate, or the row keeps a
+hand-written wrapper.
+
+* Notes
+
+The key is also a foreign key. The model states it twice, once under
+=* Columns= and once under =* Foreign keys=, which the DDL of migration 1
+writes as one column constraint, =hash bytea PRIMARY KEY REFERENCES
+corpus.document ON DELETE CASCADE=.
+
+* See also
+
+- [[id:493B7D68-516E-4430-B4CE-688C6FBE1271][compass.db]]: the component overview, which lists every model.
+- [[id:7FD52505-1436-4925-A1DE-4A3EC88F0133][Investigation: How compass generates itself]]: the features, key kinds and profiles these models use.

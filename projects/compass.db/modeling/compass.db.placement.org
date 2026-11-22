@@ -1,0 +1,100 @@
+:PROPERTIES:
+:ID: 7D21B661-16D5-4347-8F57-7335D954D2A0
+:END:
+#+title: compass.db.placement
+#+description: Codegen entity model for corpus.placement: a path of an environment and the blob ID of the document it holds.
+#+type: masd.codegen.entity
+#+component: db
+#+filetags: :model:entity:database:
+#+brief: A path of an environment and the document it holds.
+#+entity_singular: placement
+#+entity_plural: placements
+#+created: 2026-11-22
+#+updated: 2026-11-22
+
+One row per path of an environment. A sync deletes the placements whose paths
+went, updates those whose content changed and adds the new ones, all in one
+transaction, so a reader sees the old placements or the new ones, never a mix.
+
+* Flags
+:PROPERTIES:
+:product:    compass
+:component:  db
+:schema:     corpus
+:profile:    environment-state
+:END:
+
+The profile =environment-state= is not one the investigation names; this model proposes it. It fixes =current_state= and neither =read_only= nor =retained=: a sync rewrites the row, and =drop_environment= deletes it.
+
+* Columns
+
+** environment
+:PROPERTIES:
+:type:         bigint
+:primary_key:  true
+:key_kind:     natural
+:END:
+
+The environment that places the path: the owner's key. The writer takes it as an argument, so the row type leaves it out; see Notes.
+
+** path
+:PROPERTIES:
+:type:         text
+:primary_key:  true
+:key_kind:     natural
+:END:
+
+The path, relative to the environment's root.
+
+** hash
+:PROPERTIES:
+:type:      bytea
+:cpp_type:  store::types::blob_id
+:END:
+
+The blob ID of the document at the path.
+
+* Foreign keys
+
+** environment
+:PROPERTIES:
+:references:  corpus.environment
+:on_delete:   cascade
+:END:
+
+Deleting an environment deletes its placements.
+
+** hash
+:PROPERTIES:
+:references:  corpus.document
+:END:
+
+A placement keeps its document: a document is deleted only by collection, which skips any document a placement names.
+
+* SQL
+
+** Indexes
+
+| name | columns | unique | where | using | opclass |
+|------+---------+--------+-------+-------+---------|
+| hash | hash    | false  |       |       |         |
+
+* C++
+
+The row is =compass::db::types::placement= of
+=compass.db/types/environment.hpp=: =path= and =hash=.
+
+* Notes
+
+- =environment= is part of the key and left out of the row, as an owner's key
+  is. None of the investigation's key kinds says that: =content_hash= is a
+  blob ID, =identity= is generated, =ord= is a position and =natural= stays in
+  the row. The model states =natural=, which is true of the column but would
+  put it in the row; the key kind this column needs is an owner's key, such
+  as =key_kind: owner=.
+- #176's type is named =placement=, not =placement_row=.
+
+* See also
+
+- [[id:493B7D68-516E-4430-B4CE-688C6FBE1271][compass.db]]: the component overview, which lists every model.
+- [[id:7FD52505-1436-4925-A1DE-4A3EC88F0133][Investigation: How compass generates itself]]: the features, key kinds and profiles these models use.

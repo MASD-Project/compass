@@ -1,0 +1,128 @@
+:PROPERTIES:
+:ID: 5849DE0D-34D0-45A2-8575-92DB0BC73B1C
+:END:
+#+title: compass.db.section
+#+description: Codegen entity model for corpus.section: the plain text a heading holds before its first subheading, or the preamble's, with the search vector computed from it.
+#+type: masd.codegen.entity
+#+component: db
+#+filetags: :model:entity:database:
+#+brief: The searchable text of one heading of a corpus document.
+#+entity_singular: section
+#+entity_plural: sections
+#+created: 2026-11-22
+#+updated: 2026-11-22
+
+One section per heading, and one for the preamble when the preamble has prose.
+The text is the heading's own section as plain text, without drawers,
+keywords, planning lines, clocks or comments. Search reads =tsv=.
+
+* Flags
+:PROPERTIES:
+:product:    compass
+:component:  db
+:schema:     corpus
+:profile:    owned-child-row
+:END:
+
+The profile =owned-child-row= fixes =read_only=, =current_state= and =insert_conflict: do_nothing=, as =content-addressed-row= does, for a row its owner's key and its =ord= identify, deleted with its owner.
+
+* Columns
+
+** hash
+:PROPERTIES:
+:type:         bytea
+:cpp_type:     store::types::blob_id
+:primary_key:  true
+:key_kind:     content_hash
+:END:
+
+The blob ID of the document's source: the owner's key. The writer takes it as an argument, so the row type leaves it out.
+
+** ord
+:PROPERTIES:
+:type:         integer
+:cpp_type:     std::uint32_t
+:primary_key:  true
+:key_kind:     ord
+:END:
+
+The row's place among its document's rows of this table, from 0. It is the index of the row in the aggregate's vector, so the row type leaves it out.
+
+** heading_ord
+:PROPERTIES:
+:type:      integer
+:cpp_type:  std::uint32_t
+:nullable:  true
+:END:
+
+The =ord= of the section's heading in =corpus.heading=; NULL for the preamble. The row type names the member =heading=, not =heading_ord=; see Notes.
+
+** text
+:PROPERTIES:
+:type:  text
+:END:
+
+The section's text as plain text. A link becomes its description, or the link as written.
+
+** tsv
+:PROPERTIES:
+:type:      tsvector
+:computed:  writer
+:END:
+
+The search vector. The writer computes it in the insert: the document's title
+weighs A, the heading path B and the text D, under the database's text search
+configuration (=compass.setting= =text_search=):
+
+#+begin_src sql
+setweight(to_tsvector($1::regconfig, coalesce(d.title, '')), 'A') ||
+setweight(to_tsvector($1::regconfig, s.path), 'B') ||
+setweight(to_tsvector($1::regconfig, s.text), 'D')
+#+end_src
+
+A generated column could not compute it, because it reads another table's
+row and a setting. =:computed: writer= leaves it out of the row type and the
+=COPY= column list.
+
+* Foreign keys
+
+** hash
+:PROPERTIES:
+:references:  corpus.document
+:on_delete:   cascade
+:END:
+
+The document this row belongs to. Deleting the document deletes the row.
+
+* SQL
+
+** Indexes
+
+| name | columns | unique | where | using | opclass |
+|------+---------+--------+-------+-------+---------|
+| tsv  | tsv     | false  |       | gin   |         |
+
+* C++
+
+The row is =compass::db::types::section_row= of
+=compass.db/types/corpus_document.hpp=: =std::optional<std::uint32_t>
+heading= and =std::string text=. =hash= and =ord= are left out by their key
+kinds and =tsv= because the writer computes it.
+
+* Notes
+
+- The member is =heading= and the column =heading_ord=. The model has no
+  property for a member name that differs from its column, so a row
+  generated from it names the member =heading_ord=, and #176's code that
+  reads =section_row::heading= would not compile against it.
+- The =COPY= staging of #176 carries a column the table lacks: the heading
+  path joined to text, which only the =tsv= expression reads
+  (=stage_section (hash, ord, heading_ord, path, text)=). The model cannot
+  state an input a computed column needs that is not itself a column.
+- The expression of =tsv= is prose here. No property carries it, and it
+  joins the staged document row, so it belongs to the writer, not the table.
+
+* See also
+
+- [[id:493B7D68-516E-4430-B4CE-688C6FBE1271][compass.db]]: the component overview, which lists every model.
+- [[id:7FD52505-1436-4925-A1DE-4A3EC88F0133][Investigation: How compass generates itself]]: the features, key kinds and profiles these models use.

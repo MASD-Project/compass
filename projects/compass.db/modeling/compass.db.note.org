@@ -1,0 +1,152 @@
+:PROPERTIES:
+:ID: 4F039710-4FC9-4EE7-B432-A2625CD9B88F
+:END:
+#+title: compass.db.note
+#+description: Codegen entity model for activity.note: a remark a tester leaves on a campaign, a scenario or a step, and how it was addressed.
+#+type: masd.codegen.entity
+#+component: db
+#+filetags: :model:entity:database:
+#+brief: A tester's remark on a campaign, and how it was addressed.
+#+entity_singular: note
+#+entity_plural: notes
+#+created: 2026-11-22
+#+updated: 2026-11-22
+
+One row per note. A note belongs to a campaign and may name a scenario and a
+step. It is open until someone addresses it with a reply.
+
+* Flags
+:PROPERTIES:
+:product:    compass
+:component:  db
+:schema:     activity
+:profile:    activity-record
+:END:
+
+The profile =activity-record= fixes =current_state= and =retained=: the table holds test activity that exists nowhere else, so a model change that drops or retypes one of its columns needs a migration in the same pull request.
+
+* Columns
+
+** id
+:PROPERTIES:
+:type:         bigint
+:primary_key:  true
+:key_kind:     identity
+:END:
+
+The note's identity. =GENERATED ALWAYS AS IDENTITY=: read back, never written.
+
+** campaign
+:PROPERTIES:
+:type:  bigint
+:END:
+
+The campaign the note belongs to.
+
+** scenario_id
+:PROPERTIES:
+:type:      text
+:nullable:  true
+:END:
+
+The =:ID:= of the scenario the note is about, if any.
+
+** step_ord
+:PROPERTIES:
+:type:      integer
+:nullable:  true
+:END:
+
+The =ord= of the step the note is about, if any.
+
+** kind
+:PROPERTIES:
+:type:  text
+:END:
+
+What kind of note it is. The table does not restrict the values.
+
+** text
+:PROPERTIES:
+:type:  text
+:END:
+
+The note.
+
+** author
+:PROPERTIES:
+:type:  text
+:END:
+
+Who wrote it.
+
+** created_at
+:PROPERTIES:
+:type:        timestamptz
+:default:     now()
+:written_by:  database
+:END:
+
+When the note was written. The database writes it.
+
+** state
+:PROPERTIES:
+:type:     text
+:default:  'open'
+:values:   open addressed
+:END:
+
+Whether the note is open or addressed. A new note is open by default.
+
+** reply
+:PROPERTIES:
+:type:      text
+:nullable:  true
+:END:
+
+The reply that addressed the note.
+
+** addressed_by
+:PROPERTIES:
+:type:      text
+:nullable:  true
+:END:
+
+Who addressed it.
+
+** addressed_at
+:PROPERTIES:
+:type:      timestamptz
+:nullable:  true
+:END:
+
+When it was addressed.
+
+* Foreign keys
+
+** campaign
+:PROPERTIES:
+:references:  activity.campaign
+:END:
+
+A campaign with notes cannot be deleted.
+
+* C++
+
+#176 has no C++ for this table; [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]]
+will need its row, reader and insert. The row the model generates is the
+specification of that code.
+
+* Notes
+
+- =state= has both a default and a value list. The default is written as SQL
+  text (='open'=); a generated enumeration would need the default as a value
+  of the list, =open=, to initialise its member.
+- Nothing ties =state= to =reply=, =addressed_by= and =addressed_at=: the
+  table lets an addressed note have no reply. The model states the table as
+  it is.
+
+* See also
+
+- [[id:493B7D68-516E-4430-B4CE-688C6FBE1271][compass.db]]: the component overview, which lists every model.
+- [[id:7FD52505-1436-4925-A1DE-4A3EC88F0133][Investigation: How compass generates itself]]: the features, key kinds and profiles these models use.

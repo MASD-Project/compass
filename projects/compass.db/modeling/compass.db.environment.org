@@ -1,0 +1,111 @@
+:PROPERTIES:
+:ID: 792AEE85-6D38-4FC6-A808-569549C54D12
+:END:
+#+title: compass.db.environment
+#+description: Codegen entity model for corpus.environment: a worktree, branch or release whose paths the corpus places, with the commit and time of its last sync.
+#+type: masd.codegen.entity
+#+component: db
+#+filetags: :model:entity:database:
+#+brief: A worktree, branch or release of the repository.
+#+entity_singular: environment
+#+entity_plural: environments
+#+created: 2026-11-22
+#+updated: 2026-11-22
+
+One row per environment of the repository. =write_environment= upserts it by
+name, which locks it against a concurrent sync of the same environment, and
+sets =head= and =synced_at= when the sync commits. =drop_environment= deletes
+it and its placements.
+
+* Flags
+:PROPERTIES:
+:product:    compass
+:component:  db
+:schema:     corpus
+:profile:    environment-state
+:END:
+
+The profile =environment-state= is not one the investigation names; this model proposes it. It fixes =current_state= and neither =read_only= nor =retained=: a sync rewrites the row, and =drop_environment= deletes it.
+
+None of the three profiles the investigation names fits: the row is updated
+in place, so it is not =content-addressed-row=, and the corpus can be synced
+again, so it is not =activity-record=.
+
+* Columns
+
+** id
+:PROPERTIES:
+:type:         bigint
+:primary_key:  true
+:key_kind:     identity
+:END:
+
+The environment's identity. =GENERATED ALWAYS AS IDENTITY=: read back, never written.
+
+** name
+:PROPERTIES:
+:type:    text
+:unique:  true
+:END:
+
+The environment's name: a worktree, branch or release name. The upsert's conflict target.
+
+** kind
+:PROPERTIES:
+:type:    text
+:values:  worktree branch release
+:END:
+
+What the environment is a copy of.
+
+** root
+:PROPERTIES:
+:type:      text
+:nullable:  true
+:END:
+
+The checkout of a worktree; NULL for a branch or release. The row type holds =std::string= and writes NULL for an empty one; see Notes.
+
+** head
+:PROPERTIES:
+:type:      text
+:nullable:  true
+:END:
+
+The commit the environment's files are at, when the sync knows it. A sync that does not know it keeps the old value (=coalesce($2, head)=).
+
+** synced_at
+:PROPERTIES:
+:type:      timestamptz
+:nullable:  true
+:END:
+
+When the last sync committed; NULL until the first. =write_environment= sets it to =now()= in an =UPDATE=, so it is in neither the row type nor the insert. It has no default, so =written_by: database= does not describe it; see Notes.
+
+* C++
+
+The row is =compass::db::types::environment= of
+=compass.db/types/environment.hpp=: =name=, =kind=, =root= and =head=. The
+enumeration =environment_kind= (=worktree=, =branch=, =release=, on
+=std::uint8_t=) and its =to_string= are what =:values:= on =kind= generates.
+=environment_summary=, the read of an environment with its placement count,
+is a query projection, not a row of this table.
+
+* Notes
+
+- #176's type is named =environment=, not =environment_row=. A generated row
+  takes the =_row= suffix unless the model can name it, which it cannot.
+- =root= is nullable in the table and =std::string= in the row, an empty
+  string standing for NULL. A generated row makes it
+  =std::optional<std::string>=.
+- =synced_at= is written by the writer's =UPDATE ... SET synced_at = now()=,
+  not by a default. The investigation's =written_by= has one value,
+  =database=, for a column with a default; this column needs another, such
+  as =written_by: writer=.
+- The upsert (=ON CONFLICT (name) DO UPDATE SET kind, root=) is the writer's,
+  not the table's.
+
+* See also
+
+- [[id:493B7D68-516E-4430-B4CE-688C6FBE1271][compass.db]]: the component overview, which lists every model.
+- [[id:7FD52505-1436-4925-A1DE-4A3EC88F0133][Investigation: How compass generates itself]]: the features, key kinds and profiles these models use.

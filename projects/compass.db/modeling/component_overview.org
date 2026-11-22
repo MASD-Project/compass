@@ -163,6 +163,34 @@ say why, on a machine without the PostgreSQL server programs.
 - For the tests: Catch2, =compass.ingest= to parse, and =compass.testing=
   for the cluster.
 
+* Models
+
+One codegen entity model per table, in =modeling/=, of =#+type:
+masd.codegen.entity=. They describe the tables of migration 1 and the
+bookkeeping schema as they are; nothing generates from them yet.
+[[id:7FD52505-1436-4925-A1DE-4A3EC88F0133][Investigation: How compass generates itself]]
+names the features and profiles they use, and each model's =* Notes= lists
+what the model cannot yet say about its table.
+
+| Model | Table | Profile | Brief |
+|-------+-------+---------+-------|
+| [[id:F0E18F50-AEBC-4511-829A-0DDAF06BD340][compass.db.document]] | =corpus.document= | =content-addressed-row= | One org document of the corpus. |
+| [[id:4052422E-F153-4531-A646-33552C5692A9][compass.db.heading]] | =corpus.heading= | =owned-child-row= | One heading of a corpus document. |
+| [[id:5849DE0D-34D0-45A2-8575-92DB0BC73B1C][compass.db.section]] | =corpus.section= | =owned-child-row= | The searchable text of one heading of a corpus document. |
+| [[id:B98265D5-4604-41A0-8DA4-614188437D47][compass.db.link]] | =corpus.link= | =owned-child-row= | One link of a corpus document. |
+| [[id:792AEE85-6D38-4FC6-A808-569549C54D12][compass.db.environment]] | =corpus.environment= | =environment-state= | A worktree, branch or release of the repository. |
+| [[id:7D21B661-16D5-4347-8F57-7335D954D2A0][compass.db.placement]] | =corpus.placement= | =environment-state= | A path of an environment and the document it holds. |
+| [[id:C5D4EA97-AF1F-4E6C-A121-F43FF42221CE][compass.db.scenario]] | =test.scenario= | =content-addressed-row= | The test definition of a test_scenario document. |
+| [[id:2D0A4E24-ECAD-48FF-9357-E44B99B4AD13][compass.db.step]] | =test.step= | =owned-child-row= | One step of a test scenario. |
+| [[id:D7327443-286D-41B1-9A8C-1FBB0CDE2BD6][compass.db.campaign]] | =activity.campaign= | =activity-record= | The testing of one story in one environment. |
+| [[id:FA9B1E51-7E27-4D1F-944A-8A05D35AA5C2][compass.db.run]] | =activity.run= | =activity-record= | One run of a test scenario in a campaign. |
+| [[id:2F4009D7-B19E-4AE1-92C0-85DC07D5ED58][compass.db.step_result]] | =activity.step_result= | =activity-record= | The outcome of one step of a run. |
+| [[id:4F039710-4FC9-4EE7-B432-A2625CD9B88F][compass.db.note]] | =activity.note= | =activity-record= | A tester's remark on a campaign, and how it was addressed. |
+| [[id:94510E3F-8CBD-4D7A-B11D-2FC11C423EED][compass.db.attachment]] | =activity.attachment= | =activity-record= | The bytes of an attached file, stored once. |
+| [[id:B931E413-26D0-49C0-A61C-084B15779E70][compass.db.attached]] | =activity.attached= | =activity-record= | An attachment attached to a run or a note. |
+| [[id:B8F4A8F1-C6A0-4B18-A3B9-42804288B7A4][compass.db.migration]] | =compass.migration= | =bookkeeping= | One migration applied to the database. |
+| [[id:6B9B593B-5ADF-44A6-8F90-A2FBB1A66F7F][compass.db.setting]] | =compass.setting= | =bookkeeping= | One setting of the database. |
+
 * See also
 
 - [[id:21C1D3CC-9EE3-48C3-8EDD-BA0C16032AB2][Design: the document service]].
