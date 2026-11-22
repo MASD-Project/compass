@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :compass:cli:
 #+created: 2026-11-16
-#+updated: 2026-11-16
+#+updated: 2026-11-22
 
 =compass check --ratchet= runs the check of
 [[id:45FA67C9-60BC-420D-BB66-8A272CB1106C][compass.cli]] twice: once over the
@@ -50,8 +50,15 @@ How a diagnostic is matched:
 - The current side is the files on disk, as a plain =compass check= sees
   them, uncommitted changes included. The old side is the merge base of
   HEAD and the base, not the tip of the base.
-- Both sides run with the =.compass.org= on disk. A gate the branch
-  enables excuses what the merge base already broke.
+- Both sides run with the rules on disk: the =.compass.org= and every
+  check document of =compass/checks/=, with the exceptions tables of
+  both. The merge base is judged by HEAD's rules, and its own copies of
+  those files are never read as rules. A gate the branch enables, a
+  check document it adds, a rule or a table row it adds, and an exception
+  it removes all excuse what the merge base already broke. A check
+  document present only at the merge base gives no rule.
+- Exception comments are part of the file that holds them, so each side
+  reads its own.
 - A diagnostic matches an old one by file, rule and message, not by line.
   Each old diagnostic excuses one new one: a violation that moved because
   lines were added above it is not new, but a second copy of it is.
@@ -80,7 +87,9 @@ the matching in =ops::split_new=).
 =compass.cli.tests= (=[ratchet]=): a new violation in a file that has
 some, a moved, duplicated and removed violation, a renamed file with and
 without edits, drift, the configuration, the merge base and bases that
-cannot be resolved, each on a temporary git repository.
+cannot be resolved, each on a temporary git repository. =[checks][ratchet]=:
+a check document added over old violations, a violation added with it, a
+rule added to it, the document renamed and an exception removed from it.
 
 * See also
 

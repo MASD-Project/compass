@@ -7,7 +7,7 @@
 #+level: s2
 #+filetags: :docs:search:sprint_01:v0:
 #+created: 2026-11-18
-#+updated: 2026-11-18
+#+updated: 2026-11-22
 #+environment:
 #+todo: BACKLOG STARTED | DONE ABANDONED
 
@@ -23,12 +23,12 @@ to rebuild by hand.
 
 | Field         | Value                                  |
 |---------------+----------------------------------------|
-| State         | BACKLOG                              |
+| State         | ABANDONED |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
-| Now           | Not yet started.                       |
+| Now           | Abandoned: agents search through the service's MCP tools. |
 | Waiting on    | Nothing.                               |
-| Next          | Break the story into tasks.            |
-| Last touched  | 2026-11-18                               |
+| Next          | Nothing. |
+| Last touched  | 2026-11-22 |
 
 * Acceptance
 
@@ -55,8 +55,10 @@ to rebuild by hand.
 
 * Decisions
 
+- Abandoned on 2026-11-22: agents search through the MCP tools of
+  [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]], so compass needs no search command.
+
 * Out of scope
 
-- A search server; Serve search with Typesense does that, fed from this
-  story's index.
+- The search service; Serve the documents does that.
 - Semantic or embedding search.
