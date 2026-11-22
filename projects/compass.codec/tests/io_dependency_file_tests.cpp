@@ -97,7 +97,7 @@ TEST_CASE("the dependency file is written when it changes and left alone "
     CHECK(loaded.bytes == std::filesystem::file_size(path));
     const auto second = ops::run(r, t.corpus(), t.types(), 2, loaded.record);
 
-    CHECK(second.ran == counts{0, 0, 0, 0});
+    CHECK(second.ran == counts{0, 0, 0, 0, 0});
     CHECK_FALSE(io::write_dependency_file(path, second.record));
     CHECK(inode_of(path) == inode);
 
@@ -107,7 +107,7 @@ TEST_CASE("the dependency file is written when it changes and left alone "
     edited.add("readme.org", "Plain text.\n");
     const auto third = ops::run(r, edited.corpus(), edited.types(), 2,
         io::read_dependency_file(path).record);
-    CHECK(third.ran == counts{1, 1, 0, 0});
+    CHECK(third.ran == counts{1, 1, 0, 0, 1});
     CHECK(io::write_dependency_file(path, third.record));
     CHECK(read(path) == ops::encode_dependency_record(third.record));
 }
@@ -130,7 +130,7 @@ TEST_CASE("a damaged dependency file, or one of another version, runs "
     CHECK_THAT(loaded.problem, ContainsSubstring("checksum"));
     CHECK(loaded.record.size() == 0);
     CHECK(ops::run(r, t.corpus(), t.types(), 2, loaded.record).ran ==
-        counts{1, 2, 0, 0});
+        counts{1, 2, 0, 0, 3});
 
     auto other_version = good.substr(0, good.size() - 20);
     other_version[8] = static_cast<char>(ops::dependency_record_version + 1);

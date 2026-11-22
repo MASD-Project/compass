@@ -31,8 +31,8 @@ namespace compass::codec::codecs {
 std::span<const types::descriptor> catalogue() noexcept {
     static const auto all = [] {
         std::array<types::descriptor, 5> out{
-            document_index, evidence_location, required_sections, tangle,
-            tangle_check};
+            document_index, required_sections, tangle, tangle_check,
+            evidence_location};
         for (auto& d : out)
             d.code = code_hash();
         return out;

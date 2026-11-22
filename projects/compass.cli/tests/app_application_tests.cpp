@@ -240,6 +240,7 @@ TEST_CASE("config prints every value with where it came from",
         "tangle.directory =  (default)\n"
         "tangle_check.enabled = false (default)\n"
         "tangle_check.directory =  (default)\n"
+        "evidence_location.enabled = true (default)\n"
         "codegen.enabled = false (default)\n"
         "codegen.library =  (default)\n"
         "codegen.convention_component =  (default)\n"
