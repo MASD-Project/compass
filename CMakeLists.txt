@@ -158,3 +158,4 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/code_hash.cmake)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/build)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/projects)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/share)
