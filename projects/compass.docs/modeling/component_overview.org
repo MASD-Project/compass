@@ -85,6 +85,16 @@ finished, is not ported:
   both, and missed =* TODO 1. Foo=. Rule
   =unreadable_document=: a page that is not UTF-8, which the script fails
   on.
+- *=knowledge_titles=.* No script before it. A corpus codec over every
+  page whose =#+type:= is =knowledge=, outside the paths of the check
+  document's =Skip= table. Rule =sentence_title=: a title holding a word
+  of the table =Finite verbs=, or a word of the table =Ambiguous= when the
+  title opens with a word of the table =Determiners=; a page carrying the
+  =skip_tag= setting, a structure note, is not held to it. Rule
+  =title_file_mismatch=, off when the setting says =no=: a file name that
+  is not the title in snake case, or a structure note's that does not end
+  in =hub_suffix=. The words are the project's data, so compass names no
+  verb and no page.
 - *=component_docs=.* =component-docs=
   (=projects/ores.codegen/validate_docs.py=). Every component
   =projects/ores.*= and every part with =include/= and =src/= has a
