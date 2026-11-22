@@ -21,6 +21,8 @@
 
 #include <algorithm>
 #include <array>
+#include <expected>
+#include <format>
 #include <map>
 #include <optional>
 #include <set>
@@ -28,12 +30,12 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include "compass.codec/ops/data_tables.hpp"
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.codec/types/fact.hpp"
 #include "compass.cpp/ops/paths.hpp"
 #include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
-#include "compass.crosscheck/ops/python_literals.hpp"
 #include "compass.crosscheck/ops/subjects.hpp"
 #include "compass.crosscheck/ops/words.hpp"
 #include "compass.model/ops/load.hpp"
@@ -46,6 +48,7 @@ namespace compass::crosscheck::codecs {
 namespace {
 
 namespace ct = compass::codec::types;
+namespace cops = compass::codec::ops;
 namespace co = compass::cpp::ops;
 namespace mo = compass::model::ops;
 namespace mt = compass::model::types;
@@ -72,8 +75,9 @@ constexpr std::array<ct::rule, 13> rules{{
         ct::blame_method::line},
     {"unpublished_area", "Every #+http_area: a model declares is a "
         "published area.", {}, ct::blame_method::line},
-    {"unreadable_areas", "The route classification module states AREAS "
-        "and NO_AREA as literals."},
+    {"unreadable_areas", "The check document gives the Settings, Rules and "
+        "Exemptions tables the published areas are read from, and its "
+        "Settings state the no area setting once."},
     {"contradicted", "A model does not redeclare a feature its profile "
         "fixes to another value.", {}, ct::blame_method::line},
     {"unset_required", "A model sets every feature its profile requires.",
@@ -92,7 +96,7 @@ constexpr std::array<ct::rule, 13> rules{{
     {"missing_unit", "Every unit an aggregate registers has its source in "
         "the component."}}};
 
-constexpr std::array<ct::option, 3> declared_options{{
+constexpr std::array<ct::option, 4> declared_options{{
     {"excluded_columns",
         "projects/ores.refdata/modeling/"
         "ores.refdata.bond_future_volatility_config.org::strike_factor,"
@@ -109,9 +113,21 @@ constexpr std::array<ct::option, 3> declared_options{{
         "ores.trading.fx_variance_swap_instrument.org::strike",
         "Model::column keys of continuous quantities whose name reads as "
         "money."},
-    {"classification", "build/scripts/route_classification.py",
-        "The Python module whose AREAS and NO_AREA name the published "
-        "areas."}}};
+    {cops::data_option, "", "The tables of the check document whose "
+        "Definition names this codec: the areas of its Rules and Exemptions "
+        "are the published areas, less the no area setting of its "
+        "Settings."}}};
+
+constexpr std::string_view codec_name = "model_rules";
+
+constexpr std::array<std::string_view, 2> setting_columns{"setting",
+    "value"};
+constexpr std::array<std::string_view, 1> area_columns{"area"};
+
+constexpr std::array<cops::table_need, 3> needed{{
+    {"Settings", setting_columns},
+    {"Rules", area_columns},
+    {"Exemptions", area_columns}}};
 
 /**
  * @brief The models of the checkout: every org file directly under a
@@ -643,36 +659,61 @@ void map(const ct::document& d, const ct::option_values& options,
 
 
 /**
- * @brief The published areas: AREAS less NO_AREA of the route
- * classification module, or nothing, reported, when they are not
- * literals.
+ * @brief The published areas and the check document they are read from.
  */
-std::optional<std::set<std::string>> published_areas(const ct::corpus_view& v,
-    ct::diagnostic_table& out) {
-    const auto module_path = v.option("classification");
-    const auto module = pt::universal_newlines(pt::decode_replacing(
-        v.read_file(module_path).value_or("")));
-    const auto areas = ops::python_assignment(module, "AREAS");
-    const auto none = ops::python_assignment(module, "NO_AREA");
-    const auto names = areas ? ops::strings_of(*areas) : std::nullopt;
-    if (!names || !none || none->what != ops::python_value::kind::string) {
-        co::report(out, module_path, 0, unreadable_areas,
-            ops::python_source_problem("model_rules", module_path,
-                "AREAS and NO_AREA", v.file_exists(module_path)),
-            "Restore the file, or keep AREAS a tuple of strings and NO_AREA "
-            "a string.");
-        return std::nullopt;
+struct published_areas {
+    std::set<std::string> areas;
+    std::string source;
+};
+
+/**
+ * @brief The areas the rules and exemptions of the check document publish,
+ * less its no area setting, or why they cannot be read, as a finding on
+ * the document.
+ */
+std::expected<published_areas, std::pair<std::string, std::string>>
+read_areas(const ct::corpus_view& v) {
+    const auto text = v.option(cops::data_option);
+    const auto data = cops::tables_for(codec_name, text, needed);
+    if (!data) {
+        const auto decoded = cops::decode_data_tables(text);
+        return std::unexpected(std::pair{text.empty() || !decoded
+            ? "compass/checks/" + std::string(codec_name) + ".org"
+            : decoded->source, data.error()});
     }
-    std::set<std::string> published(names->begin(), names->end());
-    published.erase(none->text);
-    return published;
+    const auto& settings = *data->find("Settings");
+    std::optional<std::string> none;
+    for (std::size_t r = 0; r < settings.rows.size(); ++r) {
+        const auto& row = settings.rows[r];
+        if (row[settings.column("setting")] != "no area")
+            continue;
+        if (none)
+            return std::unexpected(std::pair{data->source, std::format(
+                "{}:{}: the setting 'no area' is stated twice, in the table "
+                "\"Settings\" {} reads", data->source, settings.row_lines[r],
+                codec_name)});
+        none = row[settings.column("value")];
+    }
+    if (!none)
+        return std::unexpected(std::pair{data->source, std::format("{}:{}: no "
+            "row states the setting 'no area', in the table \"Settings\" {} "
+            "reads", data->source, settings.line, codec_name)});
+    published_areas out{.areas = {}, .source = data->source};
+    for (const auto name : {"Rules", "Exemptions"}) {
+        const auto& t = *data->find(name);
+        for (const auto& row : t.rows)
+            if (const auto& area = row[t.column("area")]; !area.empty())
+                out.areas.insert(area);
+    }
+    out.areas.erase(*none);
+    return out;
 }
 
 void reduce(std::span<const ct::scanned_file> files, const ct::corpus_view& v,
     ct::diagnostic_table& out) {
     profile_table profiles;
     bool areas_read = false;
-    std::optional<std::set<std::string>> published;
+    std::optional<published_areas> published;
     std::string listed;
     route_opt_ins opted;
     for (const auto& f : files) {
@@ -694,17 +735,23 @@ void reduce(std::span<const ct::scanned_file> files, const ct::corpus_view& v,
             const std::string area(fact.text());
             if (!areas_read) {
                 areas_read = true;
-                published = published_areas(v, out);
-                if (published)
-                    for (const auto& a : *published)
+                auto read = read_areas(v);
+                if (read) {
+                    published = std::move(*read);
+                    for (const auto& a : published->areas)
                         listed += (listed.empty() ? "" : ", ") + a;
+                } else {
+                    co::report(out, read.error().first, 0, unreadable_areas,
+                        read.error().second, "Give the tables the message "
+                        "names.");
+                }
             }
-            if (!published || published->contains(area))
+            if (!published || published->areas.contains(area))
                 continue;
             co::report(out, f.path, offset, unpublished_area, "declares "
                 "http_area '" + area + "', which is not a published area; "
-                "published areas: " + listed, "Add the area to "
-                "route_classification.AREAS, or use a published one.");
+                "published areas: " + listed, "Give a rule or exemption of " +
+                published->source + " the area, or use a published one.");
         }
         if (fact.number() == 1) {
             const auto singular = fact.text();
@@ -720,7 +767,7 @@ void reduce(std::span<const ct::scanned_file> files, const ct::corpus_view& v,
 
 const ct::descriptor model_rules{
     .name = "model_rules",
-    .version = 4,
+    .version = 5,
     .summary = "Reports each codegen model that breaks a rule ORE Studio's "
         "gates state about one model.",
     .reads = ct::inputs::of_types({}),

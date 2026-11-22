@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :codec:pipeline:gates:component:
 #+created: 2026-11-16
-#+updated: 2026-11-18
+#+updated: 2026-11-22
 
 This page is the component overview for =compass.codec=, a simple component in
 the domain layer of the
@@ -424,8 +424,17 @@ others is in its descriptor, so adding a codec adds a row to a list.
   same blob ID and whose file has the recorded stat data is unchanged without
   being read. Any other output whose file exists is hashed and unchanged when
   it already holds the bytes; a lost or damaged record therefore costs a read
-  of each file, not a write. Only then is the file written, through a
-  temporary file and a rename, and its stat data recorded.
+  of each file, not a write. Only then is the file written, through
+  =platform::filesystem::update_file=, and its stat data recorded.
+- *Untouched unless changed.* No output whose content is unchanged is
+  opened for writing: it keeps its modification time, inode and mode, on
+  every path the sink takes, whatever the plan says, because
+  =update_file= compares before it writes. A file that is written keeps its
+  mode. Each write goes to a temporary named for the file, =<name>.compass-new=,
+  that replaces it in one rename, so a run killed partway leaves every file
+  whole, old or new, and the files it had not reached untouched; a temporary
+  it leaves is cleared by the next write of the same file. The test
+  =app_untouched_tests.cpp= of =compass.cli= holds every generator to this.
 - *Plan.* =io::output_plan= is an action table, one row per file: its path,
   its codec, its =io::output_action= (write, restore, unchanged, remove or
   keep) and its new bytes, which are views into the output set. It carries

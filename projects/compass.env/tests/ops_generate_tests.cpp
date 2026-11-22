@@ -315,3 +315,19 @@ TEST_CASE("a new service in the registry makes a file stale", "[status]") {
     CHECK(s.missing == std::vector<std::string>{"ACME_NEW_USER",
         "ACME_NEW_POOL", "ACME_NEW_PORT"});
 }
+
+TEST_CASE("a file that differs only in the time it was made is the same "
+    "file; any other difference is not", "[generate]") {
+    const std::string now = "2026-11-22 10:00:05 UTC";
+    const std::string before = "# made 2026-11-21 09:59:59 UTC\nA=1\n"
+                               "B=x 2026-11-21 09:59:59 UTC y\n";
+    const std::string after = "# made " + now + "\nA=1\nB=x " + now + " y\n";
+    CHECK(ops::same_but_time(before, after, now));
+    CHECK(ops::same_but_time(after, after, now));
+    CHECK_FALSE(ops::same_but_time(before, after + "C=2\n", now));
+    CHECK_FALSE(ops::same_but_time("# made 2026-11-21 09:59:59 UTC\nA=2\n"
+        "B=x 2026-11-21 09:59:59 UTC y\n", after, now));
+    CHECK_FALSE(ops::same_but_time("# made yesterday at noon UTC.\nA=1\n"
+        "B=x 2026-11-21 09:59:59 UTC y\n", after, now));
+    CHECK_FALSE(ops::same_but_time("A=1\n", "A=2\n", ""));
+}

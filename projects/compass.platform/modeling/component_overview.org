@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :platform:filesystem:component:
 #+created: 2026-11-16
-#+updated: 2026-11-21
+#+updated: 2026-11-22
 
 This page is the component overview for =compass.platform=, a simple component
 in the foundation layer of the
@@ -29,7 +29,11 @@ regular file in the fields git's index keeps, reads a whole file with the
 status of what it read, and gives the time as the file system stamps a file.
 =new_file= creates a file that must not exist and writes it, readable by
 its owner alone when asked, as a file of secrets must be from the moment it
-exists, and
+exists. =update_file= makes a file hold given bytes: a file that already
+holds them is not opened for writing, so its modification time, inode and
+mode stay; any other is replaced through a temporary beside it and one
+rename, keeping its mode. Every file compass writes in a checkout goes
+through it. And
 =file_lock= is an exclusive lock on a file that the system releases when its
 holder dies; the store's packs are written and repacked through them.
 =process= has =run_program=,

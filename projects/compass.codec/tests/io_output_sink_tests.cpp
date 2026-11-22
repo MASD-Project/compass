@@ -37,6 +37,7 @@
 #include "compass.codec/ops/run.hpp"
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.platform/filesystem/file_status.hpp"
+#include "compass.platform/filesystem/new_file.hpp"
 #include "compass.store/io/git_files.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 #include "compass.testing/filesystem/scoped_directory.hpp"
@@ -449,6 +450,47 @@ TEST_CASE("a plan touches nothing, and applying it does what it says",
     for (std::size_t i = 0; i < r.record.size(); ++i)
         CHECK(r.record.stats[i] ==
             *compass::store::io::stat_of(s.root() / r.record.paths[i]));
+}
+
+TEST_CASE("applying a plan to write a file that already holds the content "
+    "leaves the file untouched", "[io][output_sink]") {
+    sink s;
+    s.run(outputs(two));
+    s.age();
+    const auto next = outputs({{"gen", "index.tsv", "path\ttitle\nA\n"},
+        two[1]});
+    const auto plan = io::plan_outputs(s.root(), next, s.record);
+    REQUIRE(plan.actions.front() == io::output_action::write);
+    write(s.root() / "index.tsv", "path\ttitle\nA\n");
+    const auto before = snapshot(s.dir());
+
+    const auto r = io::apply_outputs(plan);
+
+    CHECK(r.problems.empty());
+    CHECK(snapshot(s.dir()) == before);
+    CHECK(r.record.stats[1] ==
+        *compass::store::io::stat_of(s.root() / "index.tsv"));
+}
+
+TEST_CASE("a write leaves no temporary, and clears one a killed run left "
+    "beside its file", "[io][output_sink]") {
+    sink s;
+    s.run(outputs(two));
+    s.age();
+    write(s.root() / ("index.tsv" +
+        std::string(compass::platform::filesystem::update_suffix)), "hal");
+
+    s.run(outputs({{"gen", "index.tsv", "path\ttitle\nA\n"}, two[1]}));
+
+    std::vector<std::string> files;
+    for (const auto& e : std::filesystem::recursive_directory_iterator(
+             s.root()))
+        if (e.is_regular_file())
+            files.push_back(std::filesystem::relative(e.path(), s.root())
+                .generic_string());
+    std::ranges::sort(files);
+    CHECK(files == std::vector<std::string>{"deep/dir/model.hpp",
+        "index.tsv"});
 }
 
 TEST_CASE("a plan with nothing changed has no diff and keeps the record",

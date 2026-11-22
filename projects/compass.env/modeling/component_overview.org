@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :environment:versioning:checks:component:
 #+created: 2026-11-21
-#+updated: 2026-11-21
+#+updated: 2026-11-22
 
 This page is the component overview for =compass.env=, a simple component in
 the domain layer of the
@@ -29,7 +29,10 @@ template naming an input the Inputs table lacks or a variable of a later
 row, a section or comment the Comments table lacks. =ops::check_format=
 holds the versions to the variables. =ops::generate= writes the file from
 the format, the inputs, the existing file, the process environment and the
-service registry; =ops::status_of= says how an existing file stands;
+service registry; =ops::same_but_time= says whether the new text differs
+from the old file only where it holds the time it was made, in which case
+=compass env generate= leaves the file and its backup untouched;
+=ops::status_of= says how an existing file stands;
 =ops::append_version= records a version in the check document.
 
 A variable's kind says how its value is made:
@@ -131,7 +134,7 @@ variables without a new row), or when it holds a removed or undeclared one.
 | =include/compass.env/types/env_format.hpp=    | The format, a variable, a version, a service and a finding.  |
 | =include/compass.env/ops/format.hpp=          | =read_format=, =check_format= and the rule numbers.          |
 | =include/compass.env/ops/templates.hpp=       | =expand= and =names_in=.                                     |
-| =include/compass.env/ops/generate.hpp=        | =read_env=, =read_services=, =generate= and =status_of=.     |
+| =include/compass.env/ops/generate.hpp=        | =read_env=, =read_services=, =generate=, =same_but_time= and =status_of=. |
 | =include/compass.env/ops/versions.hpp=        | =append_version=.                                            |
 | =include/compass.env/codecs/env_format.hpp=   | The =env_format= codec.                                      |
 | =include/compass.env/codecs/catalogue.hpp=    | The codecs of the component and its code hash.               |

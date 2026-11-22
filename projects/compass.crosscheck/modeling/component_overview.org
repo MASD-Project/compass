@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :gates:checks:models:component:
 #+created: 2026-11-16
-#+updated: 2026-11-21
+#+updated: 2026-11-22
 
 This page is the component overview for =compass.crosscheck=, a simple
 component in the domain layer of the
@@ -105,9 +105,14 @@ ported:
     and its baseline of 7 money columns is 7 findings on the column's
     heading.
   - =unpublished_area=, =unreadable_areas=: a frontmatter =#+http_area:=
-    outside =AREAS=, less =NO_AREA=, of =route_classification.py= (the
-    option =classification=), read as the Python literals they are; the
-    module is read only when a model declares an area.
+    that is not a published area. The published areas are the =area=
+    cells of the =Rules= and =Exemptions= tables of the check document
+    whose =:CODEC:= names =model_rules=, less the =no area= row of its
+    =Settings=: the tables =route_inventory= decides each route with, so
+    ORE Studio names both codecs in one document and keeps one copy of
+    its areas. A missing table, column or =no area= row is
+    =unreadable_areas=; the tables are read only when a model declares an
+    area, and nothing is read from =route_classification.py=.
   - =contradicted=, =unset_required=, =self_contradicting=: the profiles
     of =projects/modeling/variability_*.org= fix features in their
     =Assignments= tables; a model binds them by its =profile= property and

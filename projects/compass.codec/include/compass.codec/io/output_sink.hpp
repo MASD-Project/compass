@@ -178,11 +178,15 @@ struct sink_result {
 [[nodiscard]] sink_result summarise(const output_plan& plan);
 
 /**
- * @brief Performs @p plan: writes and restores through a temporary file
- * in the file's directory and a rename, so a modification time changes
- * only when content does, and removes files with their emptied
- * directories, up to the root. A final path component that is a symbolic
- * link is replaced by the rename, never written through.
+ * @brief Performs @p plan: writes and restores through
+ * platform::filesystem::update_file, and removes files with their emptied
+ * directories, up to the root. A file whose content is unchanged is never
+ * opened for writing, even when the plan says to write it, so it keeps
+ * its modification time, inode and mode; a file that is written keeps its
+ * mode. A run killed partway leaves each file whole, old or new, and
+ * leaves untouched every file it had not reached. A final path component
+ * that is a symbolic link is replaced by the rename, never written
+ * through.
  * @throws std::filesystem::filesystem_error or std::system_error when a
  * file cannot be written or removed.
  */

@@ -404,8 +404,8 @@ std::string header(std::string_view front, std::string_view id_name,
     return ":PROPERTIES:\n" + inherited_drawer(front) + ":ID: " +
         ops::uuid5(pending_namespace, id_name) + "\n:END:\n#+title: ores." +
         c + "." + s + "_change\n#+description: GENERATED from ores." + c +
-        "." + s + " by derive_pending_models.py. One proposed write to the " +
-        s + ", held until its request is decided.\n"
+        "." + s + " by compass generate: pending_models. One proposed write "
+        "to the " + s + ", held until its request is decided.\n"
         "#+type: ores.codegen.entity\n#+component: " + c +
         "\n#+filetags: :model:entity:" + c + ":pending:\n"
         "#+brief: One proposed write to a " + s +
@@ -414,7 +414,7 @@ std::string header(std::string_view front, std::string_view id_name,
         std::string(title) + " Change\n#+created: " +
         std::string(derived_on) + "\n#+updated: " + std::string(derived_on) +
         "\n\nDo not edit. Change ores." + c + "." + s +
-        " and run\nderive_pending_models.py.\n\n";
+        " and run\ncompass generate.\n\n";
 }
 
 std::string sql_and_keys(std::string_view component, std::string_view singular) {
@@ -616,7 +616,7 @@ void derive_all(const ct::corpus_view& v, ct::file_output& out) {
 
 const ct::descriptor pending_models{
     .name = "pending_models",
-    .version = 1,
+    .version = 2,
     .summary = "Writes the pending-change model of every gated model.",
     .reads = ct::inputs::of_types({}),
     .options = {},
