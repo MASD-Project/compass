@@ -8,7 +8,7 @@
 #+filetags: :serve_the_documents:sprint_01:v0:
 #+owner: marco
 #+branch: feature/render-documents-as-html
-#+pr:
+#+pr: 174
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-22
@@ -141,7 +141,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/174][#174]] | [html] Render documents as HTML |
 
 * Review
 
