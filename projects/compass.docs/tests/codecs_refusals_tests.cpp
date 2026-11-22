@@ -35,7 +35,6 @@ using Catch::Matchers::ContainsSubstring;
 const std::array generators{
     std::cref(codecs::skill_catalogue),
     std::cref(codecs::skill_type_tables),
-    std::cref(codecs::skill_levels),
     std::cref(codecs::recipe_inventories),
     std::cref(codecs::trade_type_coverage)};
 

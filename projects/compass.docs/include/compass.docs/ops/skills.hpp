@@ -39,6 +39,13 @@ inline constexpr std::string_view skills_dir = "doc/llm/skills/";
 [[nodiscard]] std::vector<std::string> skill_names(
     const compass::codec::types::corpus_view& v);
 
+/**
+ * @brief The names of the skill directories directly under @p directory,
+ * which ends with a slash, that hold a SKILL.org, sorted by name.
+ */
+[[nodiscard]] std::vector<std::string> skill_names(
+    const compass::codec::types::corpus_view& v, std::string_view directory);
+
 }
 
 #endif

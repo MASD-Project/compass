@@ -29,11 +29,11 @@ compass's own code then holds no skill names.
 
 | Field         | Value                                  |
 |---------------+----------------------------------------|
-| State         | BACKLOG                              |
+| State         | STARTED                                |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
-| Now           | Planned; starts after v0.0.11. |
+| Now           | Built: the codec reads the levels from a check document, stamps =#+level:=, writes the slices, and ORE Studio's document is generated and proved on a copy of its main. |
 | Waiting on    | Nothing.                               |
-| Next          | Build the check document reading and stamping, then hand ORE Studio its document. |
+| Next          | Release, then ORE Studio adopts it, adds the document, regenerates and deletes the script. |
 | Last touched  | 2026-11-22                               |
 
 * Acceptance
@@ -47,9 +47,9 @@ compass's own code then holds no skill names.
 
 | Task | State | Start | End | Description |
 |------+-------+-------+-----+-------------|
-| Read the levels from a check document and stamp them | BACKLOG | | | The codec, the table's columns and settings, stamping =#+level:=, and the findings. |
-| Generate the slices | BACKLOG | | | A section of the levels page listing each level's slice, binding or advisory. |
-| Hand ORE Studio its levels document | BACKLOG | | | The generated document, the proof, and what the pruning script reads. |
+| Read the levels from a check document and stamp them | STARTED | 2026-11-22 | | The codec, the table's columns and settings, stamping =#+level:=, and the findings. |
+| Generate the slices | STARTED | 2026-11-22 | | A section of the levels page listing each level's slice, binding or advisory. |
+| Hand ORE Studio its levels document | STARTED | 2026-11-22 | | The generated document, the proof, and what the pruning script reads. |
 
 * Decisions
 

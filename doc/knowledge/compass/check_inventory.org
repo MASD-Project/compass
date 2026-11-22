@@ -78,7 +78,7 @@ This page lists every check and generator compass runs on this repository, and t
 | =shell_recipe_provenance= | no | check | error | Reports each shell recipe that names no existing document as its source. | built into compass |
 | =single_writer= | no | check | error | Reports each populate script that writes a table a DQ publish function also writes. | built into compass |
 | =skill_catalogue= | no | generator | error | Writes the generated catalogue of the skills. | built into compass |
-| =skill_levels= | no | generator | error | Writes the inventory of what each System sees. | built into compass |
+| =skill_levels= | no | generator | error | Stamps each skill's level from the project's check document, and writes what each System sees. | built into compass |
 | =skill_namespace= | no | check | error | Reports each skill outside the compass- namespace. | built into compass |
 | =skill_type_tables= | no | generator | error | Writes the document type and read-only command tables of the polymorphic skills. | built into compass |
 | =sql_hygiene= | no | check | error | Reports unterminated comments, duplicate indexes, comments that split string literals and DDL that cannot run twice. | built into compass |
@@ -976,7 +976,7 @@ Writes the generated catalogue of the skills.
 
 *** skill_levels
 
-Writes the inventory of what each System sees.
+Stamps each skill's level from the project's check document, and writes what each System sees.
 
 - Kind: generator.
 - Severity: error.
@@ -985,6 +985,9 @@ Writes the inventory of what each System sees.
 | Rule | Statement |
 |------+-----------|
 | =refused= | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |
+| =skill_without_level= | Every skill has a row in the table "Levels" of the check document: the level is a reviewed judgement, never a default. |
+| =level_without_skill= | Every row of the table "Levels" names a skill that exists. |
+| =unreadable= | The check document gives every table, column and setting the codec reads, and its rows agree with each other. |
 | =drift= | Every file a codec generates holds what the codec generates from its inputs; nobody edits it by hand. |
 | =names_missing_file= | The header of every file a codec generates names only scripts the checkout holds. |
 
