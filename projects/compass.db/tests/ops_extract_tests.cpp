@@ -21,6 +21,7 @@
 
 #include <string>
 #include <string_view>
+#include <vector>
 #include <catch2/catch_test_macros.hpp>
 #include "compass.ingest/org/parser.hpp"
 #include "compass.store/ops/blob_hash.hpp"
@@ -230,4 +231,12 @@ TEST_CASE("slug keeps letters and digits and joins the rest with hyphens",
     CHECK(ops::slug("Goal / Measure ranking!") == "goal-measure-ranking");
     CHECK(ops::slug("  C++23 (draft)  ") == "c-23-draft");
     CHECK(ops::slug("***") == "section");
+}
+
+TEST_CASE("an evidence document is loaded with its own type and the "
+    "evidence tag, so a view can leave it out", "[ops][extract][evidence]") {
+    const auto d = extracted("#+title: ores.geo.run\n#+type: ores.codegen.entity\n"
+        "#+filetags: :model:evidence:\n");
+    CHECK(d.document.type == "ores.codegen.entity");
+    CHECK(d.document.tags == std::vector<std::string>{"model", "evidence"});
 }
