@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :own_the_masd_meta_model:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/name-the-product-root
+#+pr: https://github.com/MASD-Project/compass/pull/185
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-22
@@ -30,11 +30,11 @@ a project whose product is =compass=. It is the first step of
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                                |
 | Parent story | [[id:E3C81059-FE00-4403-AA56-190FDBB9904A][Own the MASD meta model and generate compass with it]] |
-| Now          | Not yet started.                       |
-| Waiting on   | Nothing. |
-| Next         | Begin implementation.                  |
+| Now          | The product is the option =product=; ORE Studio's output is unchanged. In review. |
+| Waiting on   | Review of the pull request. |
+| Next         | Merge; ORE Studio adds the options when it moves its pin. |
 | Last touched | 2026-11-22                               |
 
 * Acceptance
@@ -44,9 +44,39 @@ a project whose product is =compass=. It is the first step of
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+The product is one value a project states, and every root compass derived
+from the literal =ores= is derived from it. It is a codec option, not a
+setting compass reads from the models, because a third of ORE Studio's models
+(operations, field groups, families, components) state no =:product:=, and
+the physical-space graph is one per library, not one per model. #183 reads a
+model's =:product:= for names a model owns, such as its tables; the option is
+the default those names fall back on, and the root of what no model owns.
+
+- =codegen= gains a required option =product=. The physical-space graph is
+  rooted at it: its nodes are =<product>.*.org=, a drawer switches an
+  address with =:<product>.<address>.enabled:=, and the facet lists the
+  gates drop are spelled relative to the root. The component directories
+  of the output paths (={component_dir}=, ={cache_component_dir}=) and a
+  component's default full name are =<product>.<component>=. The library
+  values gain =product=, so every template reads ={{product}}=.
+- =component_files= loses its default =library=: the option is required.
+- =physical_inventory= gains the required options =directory= and
+  =product=: where the node pages are and which technical space is the
+  root.
+- =component_docs= gains the required option =product= and loses the
+  default of =exceptions=.
+- =compass.model='s operation loader reads the TypeScript and shell
+  switches under any one-part root, because a model does not know the
+  product and refuses before code generation runs.
+- ORE Studio's templates render the root in four places, in three
+  templates; each may become ={{product}}=, which renders the same bytes.
+  ORE Studio makes that change, since the templates are its own until task
+  3 moves them.
+
+The invariant is ORE Studio's output: =compass diff= of a scratch copy of
+ORE Studio's main, with the old and the new binary, the new one given the
+options ORE Studio's =.compass.org= must add, reports the same files with
+the same bytes.
 
 * Measurements
 
@@ -60,9 +90,74 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Files =compass diff= reports on ORE Studio, old binary as ORE Studio configures it | 25, all stale at HEAD | [[file:evidence/product_root_diff.sh][product_root_diff.sh]] | ORE Studio =9ed8b54cd2=, compass =074d0be= |
+| The same, new binary with the four options set | 25; the diffs and the file list byte for byte those of the old binary; codegen ran all 2,580 units | [[file:evidence/product_root_diff.sh][product_root_diff.sh]] with =codegen.product=ores component_files.library=projects/ores.codegen/library physical_inventory.directory=projects/ores.codegen/library/templates physical_inventory.product=ores component_docs.product=ores component_docs.exceptions=projects/ores.codegen/docs_exceptions.txt= | ORE Studio =9ed8b54cd2=, compass =52c91d0= |
+| The same, with the four rendered roots of ORE Studio's templates written ={{product}}= | 25, byte for byte alike | as above, after editing the three templates and their pages | ORE Studio =9ed8b54cd2=, compass =52c91d0= |
+| The same, with the two roots in =cpp_field_group.hpp.mustache='s ={{! }}= comment also written ={{product}}= | 60: the tag closes the comment, and 35 field group headers change | as above | ORE Studio =9ed8b54cd2=, compass =52c91d0= |
+| Full test suite | 1,634 of 1,634 pass | =ctest -j2= | =f4d7e1e= |
 
 * Notes
+
+** What still names ores, and why
+
+The first acceptance line asks that nothing in =compass.codegen=,
+=compass.docs= or =compass.model= names =ores=. This task removes the root,
+the library path and the component directory prefix. What is left is ORE
+Studio's content, not a root, and moves or splits with the classification of
+task 3:
+
+- *C++ names the entity contexts build.* =ores::utility::domain::result=
+  and its siblings (=entity_messages.cpp=, =family.cpp=, =messages.cpp=),
+  =ores::<component>::domain::= namespaces and =ores.<component>= include
+  roots (=entity_codecs.cpp=, =template_context.cpp=, =family.cpp=,
+  =field_group.cpp=), ORE Studio's Qt widgets (=entity_presentation.cpp=),
+  its tenant context (=entity_repository.cpp=) and its time functions
+  (=entity_finders.cpp=). The investigation found the same in the
+  templates: they are the Split half of the C++ families, and task 3 gives
+  compass a MASD entity context instead.
+- *The fallback of a model that states no =:product:=.* =entity_sql_names.cpp=
+  and =junction_context.cpp= fall back on =ores=. Every ORE Studio entity
+  states its product; 26 of its 27 junctions do not, so the fallback stays
+  until those models state it or the context reads the option.
+- *The model type names* =ores.codegen.entity= and its siblings
+  (=manifest.cpp=, =load.cpp=, =component_docs.cpp=). They are the types of
+  ORE Studio's models; compass's own models use =masd.codegen.*=, and
+  renaming ORE Studio's is a change to its models.
+- *Codecs that are ORE Studio's own checks*: =pending_models=,
+  =tree_gates=, =skill_tables=, =recipe_libraries=, =trade_type_coverage=
+  and the ORE half of =recipe_inventories=, and in =compass.crosscheck= the
+  graph of =protocol_twins= and =generated_shape=, which now pass the root
+  =ores= by name.
+- *The meta model directory* =projects/modeling/= (=physical_space.cpp=,
+  =entity.cpp= and =messages.cpp= of =compass.model=). The profile and
+  custom type pages it names move into compass's library in task 3, which
+  is when they are found through the library rather than through a second
+  option.
+- *=compass add=.* Its MASD types (facet, facet group, feature, profile)
+  are scaffolded by the legacy Python tool in =compass.legacy=, which calls
+  ORE Studio's =ores.codegen= and writes into its paths. The investigation's
+  section on them assigns them to task 3.
+
+** What ORE Studio changes
+
+Its =.compass.org= adds four options, in the same commit that moves its pin
+to the compass release that has them, since an older compass refuses an
+option it does not know:
+
+| Codec              | Options added                                                               |
+|--------------------+-----------------------------------------------------------------------------|
+| codegen            | =product=ores=                                                              |
+| component_files    | =library=projects/ores.codegen/library=                                     |
+| physical_inventory | =directory=projects/ores.codegen/library/templates product=ores=            |
+| component_docs     | =product=ores exceptions=projects/ores.codegen/docs_exceptions.txt=         |
+
+The template change is optional. =doc_component.org.mustache= (the
+=:ores.cpp.scaffold.enabled:= drawer), =shell_service_vars.mustache= (the
+=--address ores.shell.service= comment) and =doc_feature.org.mustache= (two
+addresses in the bundle row) may write the root as ={{product}}=, and their
+archetype pages with them; the output does not change. The two
+=ores.cpp.field-group= of =cpp_field_group.hpp.mustache= sit inside a
+={{! }}= comment and must stay as they are: a tag there ends the comment.
 
 * Test Scenarios
 
@@ -79,7 +174,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/185][#185]] | [codegen] Name the product root |
 
 * Review
 

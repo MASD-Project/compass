@@ -96,7 +96,7 @@ void set_up(const scoped_git_repo& repo) {
         "| document_index | yes | |\n"
         "| required_sections | no | |\n"
         "| tangle | yes | |\n"
-        "| codegen | yes | library=lib convention_component=a year=2031 "
+        "| codegen | yes | library=lib product=ores convention_component=a year=2031 "
         "clang_format=bin/fake-format clang_format_style=style |\n"
         "| rule_table | yes | path=doc/rules.org |\n"
         "| check_inventory | yes | id=A1D08435-9DCB-4B63-A33F-2E1A87DA62A2 "

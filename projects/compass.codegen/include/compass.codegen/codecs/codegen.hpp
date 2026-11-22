@@ -54,9 +54,18 @@ namespace compass::codegen::codecs {
 extern const compass::codec::types::descriptor codegen;
 
 /**
- * @brief The settings the options @p o give.
- * @throws std::runtime_error naming the option when library or
- * convention_component is empty, or year is empty or not a year.
+ * @brief The settings the options @p o give, for the compass running at
+ * @p executable, against whose directory @c @compass resolves.
+ * @throws std::runtime_error naming the option when library, product or
+ * convention_component is empty, or year is empty or not a year, and
+ * naming the directory when a library outside the checkout is not one.
+ */
+[[nodiscard]] ops::generation_settings settings_of(
+    const compass::codec::types::option_values& o,
+    const std::filesystem::path& executable);
+
+/**
+ * @brief settings_of for the compass that is running.
  */
 [[nodiscard]] ops::generation_settings settings_of(
     const compass::codec::types::option_values& o);
@@ -75,8 +84,9 @@ extern const compass::codec::types::descriptor codegen;
     const std::filesystem::path& checkout);
 
 /**
- * @brief A reader whose every read goes through @p v, so the unit
- * records what it reads.
+ * @brief A reader whose every read of the checkout goes through @p v, so
+ * the unit records what it reads, and which reads a library outside the
+ * checkout from disk; the codec's environment keys those reads.
  */
 [[nodiscard]] ops::checkout_reader reader_of(
     const compass::codec::types::corpus_view& v);

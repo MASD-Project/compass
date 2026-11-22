@@ -24,6 +24,7 @@
 #include <optional>
 #include <array>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
@@ -79,10 +80,11 @@ constexpr std::array<ct::rule, 8> rules{{
         "inside a backtick span of a page under doc/.",
         {}, ct::blame_method::line}}};
 
-constexpr std::array<ct::option, 1> options{{
-    {"exceptions", "projects/ores.codegen/docs_exceptions.txt",
-        "The checkout file of CODE component lines that excuse one rule for "
-        "one component or page."}}};
+constexpr std::array<ct::option, 2> options{{
+    {"exceptions", "", "The checkout file of CODE component lines that "
+        "excuse one rule for one component or page; empty for none."},
+    {"product", "", "The project's product: a component is a directory "
+        "projects/<product>.*."}}};
 
 constexpr std::array<std::string_view, 6> sections{"Summary", "Inputs",
     "Outputs", "Entry points", "Dependencies", "See also"};
@@ -206,9 +208,12 @@ void check_components(const ct::corpus_view& v,
     std::vector<violation>& out) {
     const auto paths = v.list_files("projects/");
     const co::file_set files(paths);
+    const auto product = std::string(v.option("product"));
+    if (product.empty())
+        throw std::runtime_error("component_docs: set the option product");
     std::vector<std::string> components;
     for (const auto& c : subdirectories(paths, "projects")) {
-        if (c.starts_with("ores."))
+        if (c.starts_with(product + "."))
             components.push_back(c);
     }
     const auto has_overview = [&](const std::string& modeling) {
@@ -377,7 +382,7 @@ void reduce(std::span<const ct::scanned_file> scanned,
 
 const ct::descriptor component_docs{
     .name = "component_docs",
-    .version = 3,
+    .version = 4,
     .summary = "Reports each component without a complete overview and "
         "diagram, and each link inside backticks under doc/.",
     .reads = ct::inputs::every_document(),

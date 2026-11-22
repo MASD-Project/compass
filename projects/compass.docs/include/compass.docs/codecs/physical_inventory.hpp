@@ -27,11 +27,13 @@ namespace compass::docs::codecs {
 /**
  * @brief ORE Studio's physical-inventory generator
  * (regenerate_physical_space_inventories.py): the child tables of the
- * physical-space documents in projects/ores.codegen/library/templates.
+ * physical-space documents in the option directory, ORE Studio's
+ * projects/ores.codegen/library/templates.
  *
- * The root, the technical_space titled ores, lists the technical spaces
- * titled ores.*; each of those lists its facets, those whose
- * #+facet_group names it; each facet titled ores.* lists its archetypes,
+ * The root, the technical_space titled with the option product, lists the
+ * technical spaces titled <product>.*; each of those lists its facets,
+ * those whose #+facet_group names it; each facet titled <product>.* lists
+ * its archetypes,
  * those whose #+facet names it. A table replaces the first table of its
  * section, or is appended to it; a missing section is created before
  * See also, or at the end. Every document that gets a table is emitted.

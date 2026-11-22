@@ -64,8 +64,9 @@ until it is retired; both tools work side by side. ORE Studio runs its
 Python tool as `./compass.sh`, so wherever ORE Studio's docs say
 `compass <verb>` they mean `./compass.sh <verb>`; no bare `compass` is on the
 PATH. `~/.local/bin/compass-ng` is a link to the
-installed binary, `~/.local/opt/compass/compass`, which has its build manifest,
-`compass.manifest`, beside it.
+installed binary, `~/.local/opt/compass/bin/compass`, which has its build
+manifest, `compass.manifest`, beside it, and the MASD library in
+`~/.local/opt/compass/share/compass/masd/`.
 
 - **Which build is installed.** `compass-ng --version` prints one fact per line:
 

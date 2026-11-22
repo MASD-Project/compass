@@ -40,7 +40,7 @@ namespace mops = compass::model::ops;
 namespace pt = compass::platform::text;
 
 constexpr std::array<ct::option, 2> options{{
-    {"library", "projects/ores.codegen/library", "The codegen library: its "
+    {"library", "", "The codegen library: its "
         "data directory and its templates."},
     {"year", "", "The copyright year of the licence blocks. Required: the "
         "year is configuration, never the clock."}}};
@@ -78,6 +78,8 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
         return;
 
     const std::string library(v.option("library"));
+    if (library.empty())
+        throw std::runtime_error("component_files: set the option library");
     const auto year = ops::copyright_year("component_files",
         v.option("year"));
     const auto licence = read(v, library + "/data/licence-GPL-v3.txt");

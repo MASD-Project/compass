@@ -243,6 +243,7 @@ TEST_CASE("config prints every value with where it came from",
         "evidence_location.enabled = true (default)\n"
         "codegen.enabled = false (default)\n"
         "codegen.library =  (default)\n"
+        "codegen.product =  (default)\n"
         "codegen.convention_component =  (default)\n"
         "codegen.year =  (default)\n"
         "codegen.clang_format =  (default)\n"
@@ -250,7 +251,7 @@ TEST_CASE("config prints every value with where it came from",
         "codegen.prettier =  (default)\n"
         "codegen.prettier_style =  (default)\n"
         "component_files.enabled = false (default)\n"
-        "component_files.library = projects/ores.codegen/library (default)\n"
+        "component_files.library =  (default)\n"
         "component_files.year =  (default)\n"
         "pending_models.enabled = false (default)\n" + gate_defaults() +
         "commit_provenance.enabled = false (default)\n"

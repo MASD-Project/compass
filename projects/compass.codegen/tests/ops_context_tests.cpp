@@ -83,6 +83,7 @@ TEST_CASE("a component context derives the names generation uses",
     model::ops::builder b(t);
     const auto library = codegen::ops::library_values(b, "L", modeline_org,
         2026);
+    b.set(library, "product", "ores");
     const auto part = model::io::read_json(b, R"({"component": {
         "name": "refdata.api", "full_name": "ores.refdata.api",
         "implementations": {"2CD994C9-83FF-4C41-8909-5AD2BF3DECCC": ["x"]}}})");
@@ -105,4 +106,11 @@ TEST_CASE("a component context derives the names generation uses",
     CHECK(render(t, flat_context,
         "{{#component}}{{namespace}}|{{segment}}|{{api_full_name}}"
         "{{/component}}") == "ores::iam||ores.iam.api");
+
+    b.set(library, "product", "compass");
+    const auto other = codegen::ops::model_context(b, library, flat,
+        "component_overview", "component");
+    CHECK(render(t, other,
+        "{{product}} {{#component}}{{namespace}}|{{api_full_name}}"
+        "{{/component}}") == "compass compass::iam|compass.iam.api");
 }

@@ -29,6 +29,7 @@
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.codegen/codecs/codegen.hpp"
 #include "compass.codegen/ops/generate.hpp"
+#include "compass.codegen/ops/library.hpp"
 #include "compass.codegen/ops/output.hpp"
 #include "compass.model/io/json.hpp"
 #include "compass.model/ops/builder.hpp"
@@ -275,7 +276,7 @@ render_result run_render_stage(const std::filesystem::path& checkout,
     render_result r;
     const auto settings = compass::codegen::codecs::settings_of(options);
     disk_checkout files(checkout, table);
-    const auto reader = files.reader();
+    const auto reader = cops::with_files_outside(files.reader());
     const auto start = clock_type::now();
     const auto templates = cops::compile_templates(reader, settings);
     r.compile_ms = elapsed_ms(start);

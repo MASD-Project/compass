@@ -79,6 +79,7 @@ ct::configuration settings() {
     ct::configuration c;
     c.set("codegen", ct::enabled_key, "true");
     c.set("codegen", "library", "lib/");
+    c.set("codegen", "product", "ores");
     c.set("codegen", "convention_component", "a");
     c.set("codegen", "year", "2031");
     return c;
@@ -260,7 +261,7 @@ public:
     }
 };
 
-ct::option_values values_of(const std::array<std::string, 7>& values) {
+ct::option_values values_of(const std::array<std::string, 8>& values) {
     return {codegen::codecs::codegen.options, values};
 }
 
@@ -477,21 +478,26 @@ TEST_CASE("a service added to the registry reaches every output of the "
         "'ores_new_service')\n"));
 }
 
-TEST_CASE("the codegen codec needs its library, convention component and "
-    "year", "[codegen][codec]") {
-    CHECK_THROWS_AS(codegen::codecs::settings_of(values_of(
-        {"", "refdata", "", "", "", "", ""})), std::runtime_error);
-    CHECK_THROWS_AS(codegen::codecs::settings_of(values_of(
-        {"lib", "", "", "", "", "", ""})), std::runtime_error);
-    CHECK_THROWS_AS(codegen::codecs::settings_of(values_of(
-        {"lib", "refdata", "20x6", "", "", "", ""})), std::runtime_error);
+TEST_CASE("the codegen codec needs its library, product, convention "
+    "component and year", "[codegen][codec]") {
     CHECK_THROWS_WITH(codegen::codecs::settings_of(values_of(
-        {"lib", "refdata", "", "", "", "", ""})),
+        {"lib", "", "refdata", "2031", "", "", "", ""})),
+        "codegen: set the option product");
+    CHECK_THROWS_AS(codegen::codecs::settings_of(values_of(
+        {"", "ores", "refdata", "", "", "", "", ""})), std::runtime_error);
+    CHECK_THROWS_AS(codegen::codecs::settings_of(values_of(
+        {"lib", "ores", "", "", "", "", "", ""})), std::runtime_error);
+    CHECK_THROWS_AS(codegen::codecs::settings_of(values_of(
+        {"lib", "ores", "refdata", "20x6", "", "", "", ""})),
+        std::runtime_error);
+    CHECK_THROWS_WITH(codegen::codecs::settings_of(values_of(
+        {"lib", "ores", "refdata", "", "", "", "", ""})),
         "codegen: set the option year, the copyright year of the licence "
         "blocks");
     const auto s = codegen::codecs::settings_of(values_of(
-        {"lib//", "refdata", "2031", "", "", "", ""}));
-    CHECK(s.library == "lib");
+        {"lib//", "ores", "refdata", "2031", "", "", "", ""}));
+    CHECK(s.libraries == std::vector<std::string>{"lib"});
+    CHECK(s.product == "ores");
     CHECK(s.year == 2031);
 }
 
@@ -499,10 +505,10 @@ TEST_CASE("the formatters are ores.codegen's, with the programs and styles "
     "the options name", "[codegen][codec]") {
     const scoped_bin bin;
     CHECK(codegen::codecs::formatters_of(values_of(
-        {"lib", "a", "", "", "", "", ""}), bin.root()).empty());
+        {"lib", "ores", "a", "", "", "", "", ""}), bin.root()).empty());
 
     const auto both = codegen::codecs::formatters_of(values_of(
-        {"lib", "a", "", "missing/clang-format,bin/fake-format",
+        {"lib", "ores", "a", "", "missing/clang-format,bin/fake-format",
          ".clang-format", "bin/fake-format", ".prettierrc.yaml"}),
         bin.root());
     REQUIRE(both.size() == 2);
@@ -515,9 +521,10 @@ TEST_CASE("the formatters are ores.codegen's, with the programs and styles "
     CHECK(both[1].style == bin.root() / ".prettierrc.yaml");
 
     CHECK_THROWS_AS(codegen::codecs::formatters_of(values_of(
-        {"lib", "a", "", "missing/clang-format", ".clang-format", "", ""}),
+        {"lib", "ores", "a", "", "missing/clang-format", ".clang-format", "",
+         ""}),
         bin.root()), std::runtime_error);
     CHECK_THROWS_AS(codegen::codecs::formatters_of(values_of(
-        {"lib", "a", "", "bin/fake-format", "", "", ""}), bin.root()),
+        {"lib", "ores", "a", "", "bin/fake-format", "", "", ""}), bin.root()),
         std::runtime_error);
 }

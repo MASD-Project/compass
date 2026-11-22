@@ -54,6 +54,19 @@ The component has four parts.
   response types (=types/search.hpp=) are plain structs shaped as the
   service's generated messages will be, which replace them; nothing here
   reads or writes JSON.
+- *Testing* (=query/testing.hpp=). =what_needs_testing= answers a sprint's
+  stories in an environment, each story's test scenarios and each
+  scenario's state from its latest finished run there, with the open note
+  counts. =sprint_state= answers the same sprint's stories and their tasks
+  with their states. The sprint is the present one, the latest created of
+  those =STARTED=, unless the request names one. Their types are in
+  =types/testing.hpp=, shaped as search's are.
+- *Campaigns* (=query/campaign.hpp=). The service's writes: =start_run=,
+  =record_step_result=, =attach_screenshot=, =add_note=, =address_note= and
+  =finish_run=, each one transaction naming its tester. A refused write
+  throws =rejected_write= with its reason and writes nothing. The run
+  outcome rule is =ops::derive_run_outcome= (=ops/run_outcome.hpp=), a pure
+  function. Their types are in =types/campaign.hpp=.
 
 * Inputs
 
@@ -147,6 +160,23 @@ The component has four parts.
   every document when the query is empty, =facets= counts each type, tag,
   state, sprint (with the sprint's title), level and audience, and the
   values of the keywords and properties named, most frequent first.
+- *What needs testing.* A sprint's stories are its =sprint_members= of type
+  =story=, and a story's scenarios the =test.scenario= rows placed in the
+  environment whose =story_id= is the story. A scenario is untested with no
+  finished run in the environment, failed when the latest one failed or was
+  blocked, passed when it passed against the scenario's current
+  =definition= and changed when it passed against another. Runs and notes
+  are read through =activity.campaign.environment=, so environments never
+  see each other's.
+- *Campaigns.* The first run of a story's scenarios in an environment opens
+  the story's =activity.campaign= there, with the sprint its story names. A
+  run records the scenario's =:ID:=, =definition= and document hash, and
+  its steps are those of that document for its whole life. A write to a run
+  or a note locks it first (=FOR UPDATE=). A screenshot is stored once in
+  =activity.attachment= under its blob ID; attaching the same bytes to the
+  same run, step or note again finds the =activity.attached= row it made.
+  Note kinds are the caller's =note_kinds=, from the project's
+  =.compass.org=.
 - *Collection.* =collect= takes an advisory lock and gives up at once when
   another collection holds it. It deletes every document that no placement
   and no =activity.run= names, skipping a row a sync has locked
@@ -169,6 +199,11 @@ The component has four parts.
 | =include/compass.db/ops/extract.hpp= | =extract=. |
 | =include/compass.db/types/search.hpp= | =search_request=, =search_response=, =search_hit=, =document_filter=, =view_filter=, =ranking=, =facets_request=, =facets_response=. |
 | =include/compass.db/query/search.hpp= | =search=, =facets=, =unknown_environment=. |
+| =include/compass.db/types/testing.hpp= | =sprint_request=, =testing_response=, =scenario_state=, =sprint_state_response=. |
+| =include/compass.db/query/testing.hpp= | =what_needs_testing=, =sprint_state=, =unknown_sprint=. |
+| =include/compass.db/types/campaign.hpp= | The write requests and responses, =step_outcome=, =run_outcome=, =note_kinds=. |
+| =include/compass.db/ops/run_outcome.hpp= | =derive_run_outcome=. |
+| =include/compass.db/query/campaign.hpp= | =start_run=, =record_step_result=, =attach_screenshot=, =add_note=, =address_note=, =finish_run=, =rejected_write=. |
 | =include/compass.db/ops/copy_text.hpp= | =copy_writer=: COPY's text format. |
 | =include/compass.db/io/corpus.hpp= | =present=, =write_environment=, =collect=, =collect_when_grown=, =environments=, =drop_environment=. |
 | =tests/ops_extract_tests.cpp= | Metadata, headings, anchors, sections, links, test scenarios and their definition hash. |
@@ -176,6 +211,8 @@ The component has four parts.
 | =tests/io_schema_tests.cpp= | Init, idempotence, newer and older schemas, the text search configuration. |
 | =tests/io_corpus_tests.cpp= | Writing, sharing between environments, scoped writes, the retry, search weights, the test schema, collection. |
 | =tests/query_search_tests.cpp= | Ranking order and the type tie-break, hit fields and snippets, each filter, the view, environment isolation, facets, paging. |
+| =tests/query_testing_tests.cpp= | Each scenario state, the latest run, a changed definition, environment isolation, open note counts, the present and a named sprint, the view, sprint state. |
+| =tests/query_campaign_tests.cpp= | The outcome rule, each write and its refusals, the tester rule, states moved by recorded runs, a definition change, environment isolation, screenshots stored once. |
 
 | Target | Kind |
 |--------+------|

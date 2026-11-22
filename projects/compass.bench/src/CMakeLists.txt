@@ -22,6 +22,7 @@ set(exe_target_name ${name}.exe)
 add_library(${lib_target_name}
     io/compile_commands.cpp
     io/report.cpp
+    ops/campaign_stage.cpp
     ops/codecs_stage.cpp
     ops/gc_stage.cpp
     ops/html_stage.cpp
@@ -43,6 +44,7 @@ add_library(${lib_target_name}
     ops/search_paths.cpp
     ops/search_stage.cpp
     ops/store_stage.cpp
+    ops/testing_stage.cpp
     ops/types_stage.cpp
     ops/warm_stage.cpp)
 

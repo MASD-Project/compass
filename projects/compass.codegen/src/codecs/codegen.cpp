@@ -26,7 +26,10 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <system_error>
+#include <vector>
 #include "compass.codegen/ops/context.hpp"
+#include "compass.codegen/ops/library.hpp"
 #include "compass.codegen/ops/output.hpp"
 #include "compass.platform/process/executable.hpp"
 
@@ -36,9 +39,17 @@ namespace {
 
 namespace ct = compass::codec::types;
 
-constexpr std::array<ct::option, 7> options{{
-    {"library", "", "The directory of ores.codegen's library, relative to "
-        "the checkout: templates/, data/ and component_catalogue.org."},
+constexpr std::array<ct::option, 8> options{{
+    {"library", "", "The directories of the library, comma-separated, in "
+        "order: @compass, the MASD library installed with compass; a path "
+        "relative to the checkout; or an absolute path. Together they hold "
+        "templates/, data/ and component_catalogue.org. A template of a "
+        "later directory replaces one of the same name in an earlier one; "
+        "a data file is read from the last that has it; a node in two is "
+        "an error."},
+    {"product", "", "The project's product: the root of every "
+        "physical-space address, the prefix of its component directories "
+        "and the templates' product."},
     {"convention_component", "", "The component of the catalogue whose "
         "modeling directory declares the convention families."},
     {"year", "", "The copyright year of the licence blocks. Required: the "
@@ -123,25 +134,63 @@ void run(const void* state, std::span<const std::string_view> models,
 
 /**
  * @brief The template the marker of a generated file names, under the
- * library's templates/ directory.
+ * templates/ directory of the last library that may hold it: the last
+ * library outside the checkout that holds it, unless a library of the
+ * checkout comes after it, which origin cannot look into and names.
  */
 std::string origin(const ct::option_values& o, std::string_view content) {
     const auto name = ops::marked_template(content);
     if (name.empty())
         return {};
-    auto library = std::string(o["library"]);
-    while (library.ends_with('/'))
-        library.pop_back();
-    return library + "/templates/" + std::string(name);
+    std::vector<std::string> libraries;
+    try {
+        libraries = ops::library_directories(o["library"],
+            compass::platform::process::executable_path());
+    } catch (const std::runtime_error&) {
+        return {};
+    }
+    for (auto it = libraries.rbegin(); it != libraries.rend(); ++it) {
+        const auto path = *it + "/templates/" + std::string(name);
+        std::error_code ec;
+        if (!ops::outside_the_checkout(*it) ||
+            std::filesystem::is_regular_file(path, ec))
+            return path;
+    }
+    return {};
+}
+
+/**
+ * @brief Every file of the libraries outside the checkout, which no run
+ * records as an input.
+ */
+std::string environment(const ct::option_values& o) {
+    try {
+        return ops::outside_files_digest(ops::library_directories(
+            o["library"], compass::platform::process::executable_path()));
+    } catch (const std::runtime_error&) {
+        return {};
+    }
 }
 
 }
 
 ops::generation_settings settings_of(const ct::option_values& o) {
+    return settings_of(o, compass::platform::process::executable_path());
+}
+
+ops::generation_settings settings_of(const ct::option_values& o,
+    const std::filesystem::path& executable) {
     ops::generation_settings s;
-    s.library = required(o, "library");
-    while (s.library.ends_with('/'))
-        s.library.pop_back();
+    s.libraries = ops::library_directories(required(o, "library"),
+        executable);
+    for (const auto& library : s.libraries) {
+        std::error_code ec;
+        if (ops::outside_the_checkout(library) &&
+            !std::filesystem::is_directory(library, ec))
+            throw std::runtime_error("codegen: the library " + library +
+                " is not a directory");
+    }
+    s.product = required(o, "product");
     s.convention_component = required(o, "convention_component");
     s.year = ops::copyright_year("codegen", o["year"]);
     return s;
@@ -166,7 +215,7 @@ std::vector<ct::formatter> formatters_of(const ct::option_values& o,
 }
 
 ops::checkout_reader reader_of(const ct::corpus_view& v) {
-    return {
+    return ops::with_files_outside({
         .find = [&v](std::string_view path)
             -> std::optional<compass::model::ops::document> {
             const auto d = v.find_path(path);
@@ -181,7 +230,7 @@ ops::checkout_reader reader_of(const ct::corpus_view& v) {
         .read = [&v](std::string_view path) { return v.read_file(path); },
         .exists = [&v](std::string_view path) {
             return v.file_exists(path);
-        }};
+        }});
 }
 
 const ct::descriptor codegen{
@@ -195,6 +244,7 @@ const ct::descriptor codegen{
     .enabled_by_default = false,
     .run = ct::staged_function{prepare, run},
     .formatters = formatters_of,
-    .origin = origin};
+    .origin = origin,
+    .environment = environment};
 
 }

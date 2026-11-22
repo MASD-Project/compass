@@ -24,6 +24,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <string_view>
 #include <vector>
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.codegen/ops/manifest.hpp"
@@ -75,10 +76,12 @@ std::string read(const ct::corpus_view& v, std::string_view path) {
  */
 std::vector<std::string> twin_patterns(const ct::corpus_view& v,
     const std::string& library) {
+    constexpr std::string_view root = "ores";
     const auto templates = library + "/templates";
     std::vector<std::string> names;
     std::vector<std::string> texts;
-    for (const auto path : v.list_files(templates + "/ores.", ".org")) {
+    for (const auto path : v.list_files(templates + "/" + std::string(root) +
+             ".", ".org")) {
         if (path.find('/', templates.size() + 1) != std::string_view::npos)
             continue;
         names.emplace_back(co::components_of(path).back());
@@ -87,7 +90,7 @@ std::vector<std::string> twin_patterns(const ct::corpus_view& v,
     std::vector<cg::node_document> nodes;
     for (std::size_t i = 0; i < names.size(); ++i)
         nodes.push_back({names[i], texts[i]});
-    const auto graph = cg::load_physical_space(nodes);
+    const auto graph = cg::load_physical_space(root, nodes);
     const auto& a = graph.archetypes;
     std::vector<std::size_t> order(a.size());
     for (std::size_t i = 0; i < order.size(); ++i)

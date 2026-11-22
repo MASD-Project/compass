@@ -219,7 +219,7 @@ others is in its descriptor, so adding a codec adds a row to a list.
 - *Dependency record.* =types::dependency_record= has one row per unit: one
   call of a document codec, for one document, or the call of a corpus codec.
   A unit is keyed by codec name and document path, and carries the codec's
-  version, the SHA-1 of its code hash and option values
+  version, the SHA-1 of its code hash, option values and environment
   (=ops::configuration_hash=), its
   inputs (kind, key, found, value), its outputs (each file with its path,
   blob ID and bytes, or the count, SHA-1 and encoded bytes of its findings)
@@ -417,6 +417,14 @@ others is in its descriptor, so adding a codec adds a row to a list.
   inputs, so this names the one input behind one file. No run calls it;
   =compass generate= and =compass diff= do, to say what produced each file
   they change and to take the files of =--scope=.
+- *Environment of a codec.* A codec that reads files outside the checkout,
+  such as codegen reading the MASD library installed with compass, names a
+  =types::environment_function=: given its =types::option_values=, it
+  returns the bytes of what it reads there. A run cannot record such reads
+  as inputs, so =ops::configuration_hash= hashes them with the code and the
+  options: a change to one runs every unit of the codec again. The
+  function never throws; the codec reports what it cannot read when it
+  runs.
 - *Output set.* =types::output_set= is what a run asks to have on disk: per
   file its codec, its path relative to the output root, its bytes and its
   blob ID, and the names of the /complete/ codecs, whose every unit ran or
