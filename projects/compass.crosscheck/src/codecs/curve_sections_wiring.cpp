@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <array>
+#include <expected>
 #include <filesystem>
 #include <initializer_list>
 #include <iterator>
@@ -29,10 +30,12 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include "compass.codec/ops/data_tables.hpp"
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.cpp/ops/report.hpp"
 #include "compass.crosscheck/ops/curve_wiring.hpp"
 #include "compass.crosscheck/ops/projection_columns.hpp"
+#include "compass.crosscheck/ops/value_sets.hpp"
 #include "compass.platform/process/executable.hpp"
 
 namespace compass::crosscheck::codecs {
@@ -42,6 +45,7 @@ namespace {
 namespace ct = compass::codec::types;
 namespace co = compass::cpp::ops;
 namespace cw = compass::crosscheck::ops::curve;
+namespace vs = compass::crosscheck::ops::value_sets;
 
 constexpr std::string_view module_path =
     "projects/ores.web/packages/bff/src/curve-sections.generated.ts";
@@ -470,8 +474,8 @@ declare
 begin
     for v_column in
         select k.column_name, m.value_set_code
-          from ores_reporting_ore_element_map_columns_tbl k
-          join ores_reporting_ore_parameter_vocabularies_tbl m
+          from {{element_map_column_table}} k
+          join {{vocabulary_table}} m
             on m.code = k.element_map_code
            and m.tenant_id = ores_utility_system_tenant_id_fn()
            and m.valid_to = ores_utility_infinity_timestamp_fn()
@@ -483,11 +487,11 @@ begin
         if v_value is null or v_value = '' then
             continue;
         end if;
-        if not ores_reporting_value_in_set_fn(v_column.value_set_code, v_value) then
+        if not {{value_in_set_fn}}(v_column.value_set_code, v_value) then
             raise exception 'Invalid value % for %.%: the value is not in set %.',
                 v_value, TG_ARGV[0], v_column.column_name, v_column.value_set_code;
         end if;
-        v_canonical := ores_reporting_canonical_value_fn(v_column.value_set_code, v_value);
+        v_canonical := {{canonical_value_fn}}(v_column.value_set_code, v_value);
         if v_canonical is distinct from v_value then
             v_stored := v_stored || jsonb_build_object(v_column.column_name, v_canonical);
         end if;
@@ -553,7 +557,8 @@ where valid_to = ores_utility_infinity_timestamp_fn();
 )SQL";
 }
 
-std::string render_guard(const std::map<std::string, std::string>& tables) {
+std::string render_guard(const std::map<std::string, std::string>& tables,
+    const vs::storage& names) {
     std::string triggers;
     for (const auto& [table, entity] : tables) {
         if (!triggers.empty())
@@ -564,7 +569,7 @@ std::string render_guard(const std::map<std::string, std::string>& tables) {
             "        '" + std::string(trigger) + "', '" + table + "', '" +
             entity + "');\n";
     }
-    return std::string(guard_licence) + std::string(guard_function) + triggers +
+    return std::string(guard_licence) + names.fill(guard_function) + triggers +
         "end\n$$;\n";
 }
 
@@ -871,6 +876,22 @@ std::string render_cpp(const std::vector<cw::section>& sections) {
         "}};\n\n}\n\n" + std::string(cpp_footer);
 }
 
+/**
+ * @brief The entities the guard's value sets are stored in, from the
+ * Value set entities table of the check document that names this codec,
+ * or why not.
+ */
+std::expected<vs::storage, std::string> storage_of(const ct::corpus_view& v) {
+    constexpr std::string_view codec = "curve_sections_wiring";
+    const std::array needs{vs::entities_table};
+    const auto data = compass::codec::ops::tables_for(codec,
+        v.option(compass::codec::ops::data_option), needs);
+    if (!data)
+        return std::unexpected(data.error());
+    return vs::read_storage(v, *data, codec).transform_error(
+        [](const vs::unreadable& u) { return u.message; });
+}
+
 void run(const ct::corpus_view& v, ct::file_output& out) {
     const auto refuse = [&](const std::string& why) {
         co::refuse(out, module_path, why, "Correct the curve configuration "
@@ -923,11 +944,22 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
     for (const auto& c : *columns)
         tables.insert_or_assign(c.table, c.entity);
     out.files.add(map_path, render_map(*columns));
-    out.files.add(guard_path, render_guard(tables));
     out.files.add(drop_path, render_drop(tables));
+    const auto names = storage_of(v);
+    if (!names) {
+        co::refuse(out, guard_path, names.error(), "Name each role's entity "
+            "in the check document's Value set entities table, and give that "
+            "entity one model under a modeling/ directory.");
+        return;
+    }
+    out.files.add(guard_path, render_guard(tables, *names));
 }
 
-constexpr std::array<ct::option, 2> options{{
+constexpr std::array<ct::option, 3> options{{
+    {compass::codec::ops::data_option, "", "The tables of the check document "
+        "whose Definition names curve_sections_wiring: its Value set entities "
+        "table names the entities whose models name the tables and functions "
+        "the column guard calls."},
     {"clang_format", "clang-format",
         "The clang-format the generator runs over the gateway's wiring, a "
         "program on PATH or a path under the checkout; empty for none."},
@@ -957,7 +989,7 @@ std::vector<ct::formatter> formatters_of(const ct::option_values& o,
 
 const ct::descriptor curve_sections_wiring{
     .name = "curve_sections_wiring",
-    .version = 2,
+    .version = 3,
     .summary = "Writes the curve screen's column wiring and the curve part "
                "validators from the curve configuration projection.",
     .reads = ct::inputs::of_types({}),
