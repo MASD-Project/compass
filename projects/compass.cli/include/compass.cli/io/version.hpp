@@ -35,9 +35,9 @@ inline constexpr std::string_view manifest_name = "compass.manifest";
 
 /**
  * @brief The version of the build whose binary is @p executable, one fact
- * per line: the release; the release tag on the commit, or none; the full
- * and short commit; whether its tree was
- * dirty; the branch; the commit's committer time; the build time, which is
+ * per line: the release; the release tag on the commit, or none, naming
+ * the CI run of a pre-release build the install script installed; the full
+ * and short commit; whether its tree was dirty; the branch; the commit's committer time; the build time, which is
  * the binary's last write time; when it was installed; and the store
  * formats it reads and writes.
  *

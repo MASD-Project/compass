@@ -40,8 +40,9 @@ namespace {
 /**
  * @brief What the manifest says about the build: the commit, short and
  * full, its committer time, whether the tree was dirty, the branch, the
- * release tag on the commit, and when the install script installed it. Every field but the commits and
- * the dirty flag may be empty.
+ * release tag on the commit, the CI run of a pre-release build the install
+ * script installed, and when it installed it. Every field but the commits
+ * and the dirty flag may be empty.
  */
 struct build_facts {
     std::string commit;
@@ -50,6 +51,7 @@ struct build_facts {
     bool dirty = false;
     std::string branch;
     std::string tag;
+    std::string prerelease;
     std::string installed;
 };
 
@@ -78,6 +80,7 @@ std::optional<build_facts> read_manifest(const std::filesystem::path& path) {
         .dirty = field("dirty") == "true",
         .branch = field("branch"),
         .tag = field("tag"),
+        .prerelease = field("prerelease"),
         .installed = field("installed")};
     const auto dirty = field("dirty");
     const auto named = [](const std::string& c) {
@@ -117,8 +120,10 @@ std::string version_text(const std::filesystem::path& executable) {
 
     const auto& f = facts ? *facts : none;
     std::string r = "compass " COMPASS_VERSION "\n";
-    r += "tag: " + (facts ? (f.tag.empty() ? "none" : f.tag) : "unknown") +
-        "\n";
+    r += "tag: " + (facts ? (f.tag.empty() ? "none" : f.tag) : "unknown");
+    if (facts && f.tag.empty() && !f.prerelease.empty())
+        r += " (pre-release build from " + f.prerelease + ")";
+    r += "\n";
     r += "commit: " +
         (facts ? f.commit_full + " (" + f.commit + ")" : "unknown") + "\n";
     r += "dirty: " + std::string(facts ? (f.dirty ? "yes" : "no") : "unknown") +

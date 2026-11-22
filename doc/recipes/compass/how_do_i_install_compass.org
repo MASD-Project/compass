@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :compass:cli:
 #+created: 2026-11-17
-#+updated: 2026-11-17
+#+updated: 2026-11-22
 
 Every environment on a machine runs the same =compass=, from the PATH. Each
 build carries a =compass.manifest= that names its commit, and =compass
@@ -106,3 +106,5 @@ tests reading the manifest.
 * See also
 
 - [[id:B99A4028-CA7F-495E-855B-D3A8DDBBEED4][How do I build and run compass?]]
+- [[id:2C286B23-FE18-4664-B015-9D2841EFCD9D][How do I unblock environments before a release finishes?]] for
+  =--build=, which installs the package CI built of a commit of =main=.

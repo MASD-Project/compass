@@ -1,0 +1,88 @@
+:PROPERTIES:
+:ID: 2C286B23-FE18-4664-B015-9D2841EFCD9D
+:END:
+#+title: How do I unblock environments before a release finishes?
+#+description: Install the Linux package main's CI built of the commit being released, then replace it with the release once its packages are attached.
+#+type: recipe
+#+level: cross
+#+filetags: :compass:cli:release:
+#+created: 2026-11-22
+#+updated: 2026-11-22
+
+The official release does not change: its signed tag rebuilds compass and
+attaches the packages of that rebuild. This recipe covers the time between
+the merge and the attached packages. Every merge to =main= builds the Linux
+packages in Continuous Linux and keeps them as a workflow artifact for 30
+days. The install script installs that artifact with the layout of
+[[id:92AD0A4C-4A68-431E-8581-55E6C56DC2EB][How do I install or update the shared compass?]].
+
+* Question
+
+A release is building and an environment needs its code now. How do I install
+the build of the commit being released, and get back to the release once it
+is out?
+
+* Answer
+
+1. /Wait for the build of the commit./ Continuous Linux builds each merge to
+   =main= in about 12 minutes. A merge that changes only documents builds
+   nothing, so the newest package is that of the last merge that changed code.
+
+2. /Install it./ Name the commit being tagged, or =main= for the newest commit
+   of =main= that Continuous Linux built green. The script needs =gh=, logged
+   in, because GitHub serves workflow artifacts only to authenticated users.
+   It installs only on Linux x86_64:
+
+   #+begin_src sh :results verbatim
+build/scripts/install_compass.sh --build <commit>
+build/scripts/install_compass.sh --build main
+#+end_src
+
+   The script refuses a package whose manifest names a different commit from
+   the one asked for.
+
+3. /Check that it is a pre-release./ =--version= names the CI run where the
+   =tag= line would name the release:
+
+   #+begin_example
+compass 0.0.13
+tag: none (pre-release build from https://github.com/MASD-Project/compass/actions/runs/<run id>)
+commit: <commit> (<short commit>)
+#+end_example
+
+   The =compass= line gives the version of the commit's =CMakeLists.txt=. A
+   build made before the version bump still says the previous version.
+
+4. /Replace it with the release/ once its Linux packages are attached. Use
+   =--release= or the project's pin file, as usual:
+
+   #+begin_src sh :results verbatim
+build/scripts/install_compass.sh --release v0.0.14
+#+end_src
+
+   =--build <commit>= also installs the release when that commit's release
+   has its Linux archive attached. Running the same =--build <commit>= again
+   after the release is out therefore installs the release.
+
+* Script
+
+[[proj:build/scripts/install_compass.sh][=build/scripts/install_compass.sh=]] =--build= finds the newest green
+Continuous Linux run of the commit, or of =main=, that holds the
+=linux-clang-release-ninja= artifact. It installs the archive in that
+artifact and writes =prerelease=<run URL>= into the installed
+=compass.manifest=. [[proj:.github/workflows/continuous-linux.yml][=continuous-linux.yml=]] packages the release build of
+every push to =main= and uploads the artifact.
+
+* Tested by
+
+[[proj:projects/compass.cli/tests/install_compass.sh][=projects/compass.cli/tests/install_compass.sh=]] stubs =gh=. It installs
+the build of =main= and of a commit, and refuses a commit that has no package
+and a package of another commit. It also checks that a commit that has a
+release installs the release. The =io_version= tests check the =tag= line of
+a pre-release build.
+
+* See also
+
+- [[id:92AD0A4C-4A68-431E-8581-55E6C56DC2EB][How do I install or update the shared compass?]] for the layout and
+  =--version=.
+- [[id:9F274EE4-3CAB-47FD-BB6E-449D8B789D8C][How do I generate release notes?]] for the official release.

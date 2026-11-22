@@ -1,0 +1,143 @@
+:PROPERTIES:
+:ID: 0A501D88-A88F-4C45-8628-93BD6C147118
+:END:
+#+title: Task: Install a build of main before its release is out
+#+description: Build the Linux packages on every merge to main and let install_compass.sh --build install a green run's package, marked a pre-release in --version, so environments are unblocked while the release builds.
+#+type: task
+#+level: s1
+#+filetags: :publish_installable_binaries:sprint_01:v0:
+#+owner: marco
+#+branch: feature/install-a-main-build
+#+pr: https://github.com/MASD-Project/compass/pull/191
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-11-22
+#+updated: 2026-11-22
+#+environment:
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [[id:EB6AF798-D472-4CC2-B97C-FC2BD9FD1FDE][Publish installable binaries]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+An environment that needs the code of a release can run it before the
+release's packages are attached. Every merge to =main= builds the Linux
+packages, and =install_compass.sh --build <commit|main>= installs them with
+the usual layout. =--version= marks such a build as a pre-release. The
+official release is unchanged: the signed tag rebuilds compass and its runs
+attach the packages.
+
+* Status
+
+| Field        | Value                                  |
+|--------------+----------------------------------------|
+| State        | STARTED                              |
+| Parent story | [[id:EB6AF798-D472-4CC2-B97C-FC2BD9FD1FDE][Publish installable binaries]] |
+| Now          | Continuous Linux packages every push to =main=; =--build= installs a green run's package and marks it a pre-release. |
+| Waiting on   | Review of the pull request. The bearings pin check lives in ORE Studio and needs its own change. |
+| Next         | After the merge, install =--build main= from the first push run and record the time from merge to artifact. |
+| Last touched | 2026-11-22                               |
+
+* Acceptance
+
+- Continuous Linux runs on every push to =main= and uploads the
+  =linux-clang-release-ninja= artifact, holding the =.deb= and the
+  =.tar.gz=, for 30 days.
+- =install_compass.sh --build main= installs the newest green build of
+  =main= that holds the artifact. =--build <commit>= installs the build of
+  that commit and refuses a package of any other commit.
+- =--version= of such an install reads
+  =tag: none (pre-release build from <run URL>)=.
+- =--build <commit>= installs the release instead when that commit's release
+  carries its Linux archive.
+- The recipe How do I unblock environments before a release finishes? says
+  how to use it.
+
+* Plan
+
+- Add =push: branches: [main]= to =continuous-linux.yml=. A push builds
+  release only, as a pull request does, and the relevance guard compares it
+  with the commit before the push, so a merge that changes only documents
+  builds nothing.
+- Run cpack on the release build of =main= as well as of a tag, and upload
+  the packages of both.
+- In =install_compass.sh=, find the run through the GitHub API with =gh=,
+  download the artifact with =gh run download= and unpack it the way a
+  release is unpacked. Then write =prerelease=<run URL>= into the installed
+  manifest.
+- In =compass --version=, append the run to the =tag: none= line when the
+  manifest names one. The line keeps its first word, so a reader that parses
+  =tag:= still sees =none=.
+
+A first design promoted main's build as the release: it removed the tag
+rebuild and moved the version into a =VERSION= file. The product owner kept
+the official release as it is, so that design was dropped.
+
+* Measurements
+
+Every number this task claims about a tree, with the command that produced it
+and the commit it was measured at. A number without both is not a measurement,
+because a clean-up record describes a tree and trunk moves under a branch: a
+consumer count, a gate's component count and a suite's size all change with no
+code changing, and the reader of a bare number cannot tell which tree it came
+from. Where the raw output matters, put it in an =evidence/= file beside the
+task and name that file in the Command column.
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+| v0.0.12 release created to Linux packages attached | 13.0 min (04:19:23 to 04:32:22) | =gh release view v0.0.12 --json createdAt,assets= | f0b1dea |
+| v0.0.12 release created to macOS, Windows packages | 16.4 min, 25.3 min | the same | f0b1dea |
+| v0.0.12 version pull request opened to Linux packages | 90.1 min (03:02:14 to 04:32:22) | =gh pr view 167=, =gh release view v0.0.12= | f0b1dea |
+| v0.0.13 merge of the version pull request to the release | 5.1 min (22:11:01 to 22:16:06) | =gh pr view 190=, =gh release view v0.0.13= | 8259d8b |
+| v0.0.13 release created to Linux packages attached | 13.2 min (22:16:06 to 22:29:15) | =gh release view v0.0.13 --json assets= | 8259d8b |
+| v0.0.13 version pull request opened to Linux packages | 32.1 min (21:57:09 to 22:29:15) | =gh pr view 190=, =gh release view v0.0.13= | 8259d8b |
+| Release-only Linux pull request runs, which skip cpack | 11.0, 11.2, 11.2, 13.3 min | =gh run list --branch feature/version-0.0.1{0,1,2,3}= | main |
+| Tag run's linux-clang-release-ninja job, with cpack | 12.3 min (v0.0.12), 12.6 min (v0.0.13) | =gh run view 44984536834=, =gh run view 45076759510= | f0b1dea, 8259d8b |
+| Linux artifact of a tag run | 10.5 MB | =gh api .../runs/44984536834/artifacts= | f0b1dea |
+| =--build 8259d8b= against GitHub, in a temporary HOME | installs release v0.0.13 | =install_compass.sh --build 8259d8b= | this branch |
+| The same, with the tags lookup hidden | installs run 45076759510's artifact and writes =prerelease== | the same, with a =gh= wrapper | this branch |
+| =--build main= against GitHub | refuses: no main run holds a package yet | =install_compass.sh --build main= | this branch |
+
+* Notes
+
+- A main build of the commit being tagged is ready about as soon as the
+  tag's own Linux packages: both are one release build of about 12 minutes.
+  The time saved is the wait between merge and tag, and the wait for a
+  release when a commit merged earlier is needed now. The macOS and Windows
+  packages still come only from the tag.
+- GitHub serves workflow artifacts only to an authenticated client, so
+  =--build= needs =gh=. The release path still needs only =curl=.
+- ORE Studio's bearings check, =compass_ng_problem= in
+  =projects/ores.compass/src/compass.py=, compares only commit times. Run
+  against the =--version= of a pre-release build of the pinned commit, with a
+  pin that names =release: v0.0.13=, it reports no problem. The check
+  therefore stays satisfied after the release is out. ORE Studio needs to
+  read =release:= from the pin as well. When the pin names a release and
+  =--version= reports =tag: none (pre-release=, the check should report that
+  the build is a pre-release. With that change the same output is reported,
+  and an install of release v0.0.13 is not.
+
+* Test Scenarios
+
+Manual QA scenarios (scaffolded via =compass add test_scenario=)
+that verify this task. Link
+new ones here as they're created; the scenario doc itself links back
+via its "Verifies task" field.
+
+| Scenario | State | Notes |
+|----------+-------+-------|
+|          |       |       |
+
+* PRs
+
+| PR | Title |
+|----+-------|
+| [[https://github.com/MASD-Project/compass/pull/191][#191]] | [cli] Install a green build of main before its release is out |
+
+* Review
+
+| # | Comment summary | File | Decision | Notes |
+|---+-----------------+------+----------+-------|
+|   |                 |      |          |       |
+
+* Result

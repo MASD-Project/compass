@@ -19,8 +19,8 @@ set -euo pipefail
 
 usage() {
     cat <<'EOF'
-usage: install_compass.sh [--from <bin dir> | --release <tag> | --pin <file>]
-                          [--allow-dirty]
+usage: install_compass.sh [--from <bin dir> | --release <tag> | --pin <file> |
+                           --build <commit|main>] [--allow-dirty]
 
 Installs a compass build as the one compass-ng every environment shares,
 laid out as the package lays it out: the binary and its compass.manifest go
@@ -39,10 +39,18 @@ left alone.
                     install it, as in --release v0.0.1
   --pin <file>      install the release a pin file names on its
                     "release: <tag>" line
+  --build <commit|main>
+                    install the Linux package Continuous Linux built of that
+                    commit, or of the newest commit of main it built green,
+                    before the release of it is out. It needs gh, logged in.
+                    --version then says the build is a pre-release. When the
+                    commit already has a release with its archive, that
+                    release is installed instead.
   --allow-dirty     install a build of a tree with uncommitted changes
 
 COMPASS_RELEASE_URL replaces the address releases are downloaded from,
-https://github.com/MASD-Project/compass/releases/download.
+https://github.com/MASD-Project/compass/releases/download. COMPASS_REPOSITORY
+replaces the repository --build reads, MASD-Project/compass.
 EOF
 }
 
@@ -58,6 +66,8 @@ link="$HOME/.local/bin/compass-ng"
 old_link="$HOME/.local/bin/compass"
 allow_dirty=false
 release=""
+build=""
+prerelease=""
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -70,6 +80,8 @@ while [ $# -gt 0 ]; do
                release="$(sed -n 's/^release:[[:space:]]*//p' "$2" | head -n 1)"
                [ -n "$release" ] || fail "$2 has no release: line"
                shift ;;
+        --build) [ $# -ge 2 ] || fail "--build needs a commit or main"
+                 build="$2"; shift ;;
         --allow-dirty) allow_dirty=true ;;
         -h|--help) usage; exit 0 ;;
         *) usage >&2; exit 2 ;;
@@ -85,14 +97,72 @@ sha256_of() {
     fi
 }
 
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+
+# Unpacks the archive $1 and points from at the bin directory inside it.
+unpack() {
+    mkdir "$work/unpacked"
+    tar -xzf "$1" -C "$work/unpacked" || fail "cannot unpack $(basename "$1")"
+    binary="$(find "$work/unpacked" -path '*/bin/compass' -type f | head -n 1)"
+    [ -n "$binary" ] || fail "$(basename "$1") holds no bin/compass"
+    from="$(dirname "$binary")"
+}
+
+# Finds the Continuous Linux run that built $build green and holds its
+# package, and points from at the package's bin directory. A commit whose
+# release already carries its archive installs that release instead, so a
+# pre-release build never stands in for a release that is out.
+if [ -n "$build" ]; then
+    [ "$(uname -s)-$(uname -m)" = Linux-x86_64 ] ||
+        fail "--build installs the Linux x86_64 package only"
+    command -v gh >/dev/null || fail "--build needs gh"
+    repo="${COMPASS_REPOSITORY:-MASD-Project/compass}"
+    runs="repos/$repo/actions/workflows/continuous-linux.yml/runs?status=success&per_page=50"
+    if [ "$build" = main ]; then
+        runs="$runs&branch=main"
+    else
+        sha="$(gh api "repos/$repo/commits/$build" --jq .sha)" ||
+            fail "gh cannot name the commit $build of $repo"
+        runs="$runs&head_sha=$sha"
+    fi
+    run=""
+    while read -r id head; do
+        [ -n "$id" ] || continue
+        if [ -n "$(gh api "repos/$repo/actions/runs/$id/artifacts" --jq \
+                '.artifacts[] | select(.name == "linux-clang-release-ninja" and (.expired | not)) | .id')" ]; then
+            run="$id"; sha="$head"; break
+        fi
+    done < <(gh api "$runs" --jq '.workflow_runs[] | "\(.id) \(.head_sha)"')
+    [ -n "$run" ] || fail "no green Continuous Linux run of $build holds" \
+                         "its Linux package"
+    for tag in $(gh api "repos/$repo/tags?per_page=100" --jq \
+                     ".[] | select(.commit.sha == \"$sha\") | .name"); do
+        assets="$(gh release view "$tag" --repo "$repo" --json assets \
+                      --jq '.assets[].name' 2>/dev/null || true)"
+        if grep -qx "compass-${tag#v}-Linux-x86_64.tar.gz" <<<"$assets"; then
+            echo "${sha:0:7} is release $tag; installing the release"
+            release="$tag"
+            break
+        fi
+    done
+    if [ -z "$release" ]; then
+        gh run download "$run" --repo "$repo" \
+            --name linux-clang-release-ninja --dir "$work/build" >/dev/null ||
+            fail "cannot download the package of run $run"
+        archive="$(find "$work/build" -name 'compass-*-Linux-x86_64.tar.gz' | head -n 1)"
+        [ -n "$archive" ] || fail "run $run holds no Linux archive"
+        unpack "$archive"
+        prerelease="https://github.com/$repo/actions/runs/$run"
+    fi
+fi
+
 # Downloads the archive of release $release for this machine and its
 # checksum, refuses a mismatch, unpacks the archive and points from at the
 # bin directory inside it.
 if [ -n "$release" ]; then
     base="${COMPASS_RELEASE_URL:-https://github.com/MASD-Project/compass/releases/download}"
     archive="compass-${release#v}-$(uname -s)-$(uname -m).tar.gz"
-    work="$(mktemp -d)"
-    trap 'rm -rf "$work"' EXIT
     curl -fsSL -o "$work/$archive" "$base/$release/$archive" ||
         fail "cannot download $base/$release/$archive"
     curl -fsSL -o "$work/$archive.sha256" "$base/$release/$archive.sha256" ||
@@ -102,12 +172,7 @@ if [ -n "$release" ]; then
     [ -n "$expected" ] && [ "$expected" = "$actual" ] ||
         fail "$archive does not match its checksum: expected $expected," \
              "got $actual; nothing was installed"
-    mkdir "$work/unpacked"
-    tar -xzf "$work/$archive" -C "$work/unpacked" ||
-        fail "cannot unpack $archive"
-    binary="$(find "$work/unpacked" -path '*/bin/compass' -type f | head -n 1)"
-    [ -n "$binary" ] || fail "$archive holds no bin/compass"
-    from="$(dirname "$binary")"
+    unpack "$work/$archive"
 fi
 
 manifest="$from/compass.manifest"
@@ -126,6 +191,8 @@ case "$(value dirty)" in
                    "pass --allow-dirty" ;;
     *) fail "the dirty flag in $manifest is neither true nor false" ;;
 esac
+[ -z "$prerelease" ] || [ "$commit" = "$sha" ] ||
+    fail "run ${prerelease##*/} built $commit, not $sha; nothing was installed"
 
 # Each file is written under a temporary name and renamed over the old one,
 # so a running compass never sees a half-written file. cp -p keeps the
@@ -137,7 +204,8 @@ mkdir -p "$bin" "$share" "$(dirname "$link")"
 cp -p "$from/compass" "$bin/.compass.tmp.$$"
 mv -f "$bin/.compass.tmp.$$" "$bin/compass"
 {
-    grep -v '^installed=' "$manifest"
+    grep -v '^installed=\|^prerelease=' "$manifest"
+    [ -z "$prerelease" ] || echo "prerelease=$prerelease"
     echo "installed=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 } >"$bin/.compass.manifest.tmp.$$"
 mv -f "$bin/.compass.manifest.tmp.$$" "$bin/compass.manifest"
