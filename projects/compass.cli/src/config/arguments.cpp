@@ -60,6 +60,18 @@ constexpr std::string_view help =
     "                  record a new version of the format\n"
     "  env status      say whether the environment file is current; exit 1 "
     "when it is not\n"
+    "  sync            load this worktree's documents into compass's "
+    "database\n"
+    "  db init         create compass's database schema and record the "
+    "connection\n"
+    "  db migrate      bring the database's schema up to this compass's\n"
+    "  db status       print the schema version, environments and sizes; "
+    "exit 1 when the schema is not current\n"
+    "  db hooks install\n"
+    "                  install git hooks that sync after a checkout, merge "
+    "or rebase\n"
+    "  db prune        drop the environments whose worktree is gone, then "
+    "collect\n"
     "\n"
     "options:\n"
     "  -C <dir>                    the checkout (default: the current "
@@ -84,6 +96,15 @@ constexpr std::string_view help =
     "whatever .compass.org enables; repeatable\n"
     "  --commit <rev>              check: check this commit, read from git's "
     "objects, not the files on disk\n"
+    "                              sync: sync this commit, as a release "
+    "environment\n"
+    "  --environment <name>        sync: the environment to sync (default: "
+    "#+environment: of the local settings, else the worktree's directory)\n"
+    "                              db prune: drop this environment\n"
+    "  --database <conninfo>       db init: the libpq connection string to "
+    "record in the repository's local settings\n"
+    "  --text-search <config>      db init: the text search configuration "
+    "(default: english)\n"
     "  --ratchet [<base>]          check: fail only on diagnostics the merge "
     "base of HEAD and <base> lacks (default: the upstream, else "
     "origin/main)\n"
@@ -138,6 +159,10 @@ std::optional<types::command> command_named(std::string_view name) {
         return types::command::blame;
     if (name == "env")
         return types::command::env;
+    if (name == "sync")
+        return types::command::sync;
+    if (name == "db")
+        return types::command::db;
     return std::nullopt;
 }
 
@@ -172,7 +197,9 @@ bool takes_value(std::string_view flag) {
         flag == "--grace" || flag == "--commit" || flag == "--today" ||
         flag == "--codec" || flag == "--bisect-from" || flag == "--input" ||
         flag == "--var" || flag == "--file" || flag == "--adds" ||
-        flag == "--removes" || flag == "--scope";
+        flag == "--removes" || flag == "--scope" ||
+        flag == "--environment" || flag == "--database" ||
+        flag == "--text-search";
 }
 
 /**
@@ -237,6 +264,64 @@ std::optional<usage_error> env_word(std::string_view word,
 }
 
 /**
+ * @brief Takes @p word, a word after db, as the next part of @p r: the
+ * action, then install after hooks.
+ */
+std::optional<usage_error> db_word(std::string_view word, bool& has_action,
+    bool& has_install, types::db_request& r) {
+    using types::db_action;
+    if (!has_action) {
+        has_action = true;
+        if (word == "init")
+            r.action = db_action::init;
+        else if (word == "migrate")
+            r.action = db_action::migrate;
+        else if (word == "status")
+            r.action = db_action::status;
+        else if (word == "hooks")
+            r.action = db_action::hooks_install;
+        else if (word == "prune")
+            r.action = db_action::prune;
+        else
+            return usage_error{"unknown db action: " + std::string(word)};
+        return std::nullopt;
+    }
+    if (r.action == db_action::hooks_install && !has_install &&
+        word == "install") {
+        has_install = true;
+        return std::nullopt;
+    }
+    return usage_error{"unexpected argument: " + std::string(word)};
+}
+
+/**
+ * @brief Why the sync and db arguments of @p o do not fit together, if
+ * they do not.
+ */
+std::optional<usage_error> db_usage(types::command which, bool has_action,
+    bool has_install, const types::invocation& o) {
+    using types::db_action;
+    const bool is_db = which == types::command::db;
+    if (is_db && !has_action)
+        return usage_error{"db needs an action: init, migrate, status, hooks "
+            "install or prune"};
+    if (is_db && o.db.action == db_action::hooks_install && !has_install)
+        return usage_error{"db hooks needs install"};
+    const bool init = is_db && o.db.action == db_action::init;
+    if ((!o.db.database.empty() || !o.db.text_search.empty()) && !init)
+        return usage_error{"--database and --text-search apply to db init "
+            "only"};
+    const bool prune = is_db && o.db.action == db_action::prune;
+    if (!o.environment.empty() && which != types::command::sync && !prune)
+        return usage_error{"--environment applies to sync and db prune only"};
+    if (which == types::command::sync && !o.revision.empty() &&
+        o.environment.empty())
+        return usage_error{"sync --commit needs --environment, the name of "
+            "the release"};
+    return std::nullopt;
+}
+
+/**
  * @brief Why the env arguments of @p o do not fit together, if they do
  * not: env needs an action, version new a description, and each env
  * option its action.
@@ -292,6 +377,8 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
     std::string_view env_flag;
     std::string_view output_flag;
     bool has_env_action = false;
+    bool has_db_action = false;
+    bool has_db_install = false;
     for (std::size_t i = 0; i < args.size(); ++i) {
         const auto arg = args[i];
         if (arg == "--format-only") {
@@ -345,6 +432,12 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
             }
             if (which == types::command::env) {
                 if (auto e = env_word(arg, has_env_action, o.env))
+                    return *e;
+                continue;
+            }
+            if (which == types::command::db) {
+                if (auto e = db_word(arg, has_db_action, has_db_install,
+                        o.db))
                     return *e;
                 continue;
             }
@@ -410,6 +503,13 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
                                                   : o.env.removes))
                 return bad_value();
             env_flag = arg;
+        } else if (arg == "--environment" || arg == "--database" ||
+            arg == "--text-search") {
+            if (value.empty() || value.starts_with("-"))
+                return bad_value();
+            (arg == "--environment" ? o.environment
+                : arg == "--database" ? o.db.database
+                                      : o.db.text_search) = value;
         } else if (arg == "--today") {
             o.today = codec::ops::parse_date(value);
             if (!o.today)
@@ -435,8 +535,11 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
         *which != types::command::diff)
         return usage_error{std::string(output_flag) + " applies to generate "
             "and diff only"};
-    if (!o.revision.empty() && *which != types::command::check)
-        return usage_error{"--commit applies to check only"};
+    if (const auto e = db_usage(*which, has_db_action, has_db_install, o))
+        return *e;
+    if (!o.revision.empty() && *which != types::command::check &&
+        *which != types::command::sync)
+        return usage_error{"--commit applies to check and sync only"};
     if (!o.only.empty() && *which != types::command::check)
         return usage_error{"--codec applies to check only"};
     if (o.ratchet && *which != types::command::check)

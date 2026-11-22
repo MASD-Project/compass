@@ -24,11 +24,14 @@ add_library(${lib_target_name}
     app/blame.cpp
     app/check_inventory.cpp
     app/codecs.cpp
+    app/database.cpp
     app/env.cpp
     app/pipeline.cpp
     app/steps.cpp
+    app/sync.cpp
     config/arguments.cpp
     config/check_documents.cpp
+    config/local_settings.cpp
     config/org_reader.cpp
     config/precedence.cpp
     config/repository_file.cpp
@@ -54,6 +57,7 @@ target_link_libraries(${lib_target_name}
     PUBLIC
         compass.codec.lib
         compass.codegen.lib
+        compass.db.lib
         compass.cpp.lib
         compass.sql.lib
         compass.crosscheck.lib

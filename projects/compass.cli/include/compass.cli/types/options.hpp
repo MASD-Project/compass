@@ -42,7 +42,7 @@ namespace compass::cli::types {
  * @brief The commands of the compass executable.
  */
 enum class command : std::uint8_t {
-    generate, diff, check, gc, config, hook, env, blame
+    generate, diff, check, gc, config, hook, env, blame, sync, db
 };
 
 /**
@@ -71,6 +71,26 @@ struct env_request {
 };
 
 /**
+ * @brief What compass db does: create or migrate the schema, say where it
+ * stands, install the git hooks that sync, or drop environments and
+ * collect.
+ */
+enum class db_action : std::uint8_t {
+    init, migrate, status, hooks_install, prune
+};
+
+/**
+ * @brief The arguments of compass db: the action, the --database
+ * connection string init records, and the --text-search configuration it
+ * creates the database with, empty for the default.
+ */
+struct db_request {
+    db_action action = db_action::status;
+    std::string database;
+    std::string text_search;
+};
+
+/**
  * @brief What the command line asked for, before the configuration file
  * is read.
  *
@@ -86,7 +106,8 @@ struct env_request {
  * and blame, and target the finding blame traces, as written. scope holds
  * each --scope of generate and diff as written, skip_stale is their
  * --skip-stale and list_files their --files. env holds the arguments of
- * compass env.
+ * compass env. environment is the --environment of sync and db prune,
+ * and db the arguments of compass db.
  */
 struct invocation {
     command which = command::generate;
@@ -107,6 +128,8 @@ struct invocation {
     layer command_line;
     store::types::collection_options collection;
     env_request env;
+    std::string environment;
+    db_request db;
 };
 
 /**
