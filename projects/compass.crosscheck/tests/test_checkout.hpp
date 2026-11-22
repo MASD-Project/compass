@@ -62,9 +62,31 @@ struct outcome {
 using options = std::vector<std::pair<std::string, std::string>>;
 
 /**
+ * @brief Adds every .org file of @p all to @p corpus as a document with no
+ * type, its parsed tables kept in @p tables.
+ */
+inline void add_documents(const files& all,
+    std::deque<compass::org::types::tables>& tables,
+    compass::codec::types::corpus& corpus) {
+    namespace ot = compass::org::types;
+    for (const auto& [path, bytes] : all) {
+        if (!path.ends_with(".org"))
+            continue;
+        auto& t = tables.emplace_back();
+        ingest::org::parse(bytes, t);
+        corpus.paths.emplace_back(path);
+        corpus.contents.push_back(store::ops::blob_id_of(bytes));
+        corpus.sources.emplace_back(bytes);
+        corpus.tables.push_back(ot::view(t));
+        corpus.types.push_back(ot::type_id::none());
+    }
+}
+
+/**
  * @brief Runs @p codec, enabled with @p settings, over a checkout of
- * @p all and no documents, from @p previous and, when @p cache is not
- * empty, the result cache under it, where it then stores what ran.
+ * @p all, its .org files as documents, from @p previous and, when
+ * @p cache is not empty, the result cache under it, where it then stores
+ * what ran.
  */
 inline outcome run(const compass::codec::types::descriptor& codec,
     const files& all, const options& settings_of = {},
@@ -80,20 +102,9 @@ inline outcome run(const compass::codec::types::descriptor& codec,
     checkout.read = [&](std::string_view p) {
         return std::optional(all.find(p)->second);
     };
-    namespace ot = compass::org::types;
-    std::deque<ot::tables> tables;
+    std::deque<compass::org::types::tables> tables;
     ct::corpus corpus;
-    for (const auto& [path, bytes] : all) {
-        if (!path.ends_with(".org"))
-            continue;
-        auto& t = tables.emplace_back();
-        ingest::org::parse(bytes, t);
-        corpus.paths.emplace_back(path);
-        corpus.contents.push_back(store::ops::blob_id_of(bytes));
-        corpus.sources.emplace_back(bytes);
-        corpus.tables.push_back(ot::view(t));
-        corpus.types.push_back(ot::type_id::none());
-    }
+    add_documents(all, tables, corpus);
     corpus.files = &checkout;
     const compass::org::types::type_registry types;
     ct::configuration settings;
@@ -143,7 +154,8 @@ inline outcome run_after_edit(const compass::codec::types::descriptor& codec,
 
 /**
  * @brief The files the file codec @p codec, enabled with @p settings_of,
- * writes over a checkout of @p all, by path.
+ * writes over a checkout of @p all, its .org files as documents, by
+ * path.
  */
 inline files generate(const compass::codec::types::descriptor& codec,
     const files& all, const options& settings_of = {}) {
@@ -157,7 +169,9 @@ inline files generate(const compass::codec::types::descriptor& codec,
     checkout.read = [&](std::string_view p) {
         return std::optional(all.find(p)->second);
     };
+    std::deque<compass::org::types::tables> tables;
     ct::corpus corpus;
+    add_documents(all, tables, corpus);
     corpus.files = &checkout;
     const compass::org::types::type_registry types;
     ct::configuration settings;

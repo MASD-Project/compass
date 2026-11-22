@@ -36,6 +36,7 @@ add_library(${lib_target_name}
     ops/format_cache.cpp
     ops/hand_edits.cpp
     ops/outputs.cpp
+    ops/pages.cpp
     ops/registry.cpp
     ops/rule_table.cpp
     ops/run.cpp

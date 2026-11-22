@@ -20,6 +20,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <string>
+#include <vector>
 #include "compass.docs/codecs/trade_type_coverage.hpp"
 #include "test_tree.hpp"
 
@@ -28,8 +29,15 @@ namespace {
 using namespace compass::docs;
 
 const std::string document = "doc/knowledge/domain/ore_trade_type_coverage.org";
+const std::string catalogue = "projects/ores.trading/modeling/"
+    "ores.trading.trade_type_catalogue.org";
 const std::string story = "doc/agile/versions/v0/sprint_30/"
     "hold_every_product_type_the_engine_supports/";
+const std::string note_text = ":PROPERTIES:\n:ID: NOTE-1\n:END:\nHead.\n"
+    "# BEGIN GENERATED\nold\n# END GENERATED\nTail.\n";
+
+const tests::options settings{{"page", "NOTE-1"}, {"catalogue", "CAT-1"},
+    {"story", "STORY-1"}};
 
 std::string task(std::string_view id, std::string_view state,
     std::string_view title, std::string_view description) {
@@ -49,14 +57,13 @@ tests::files tree() {
             "OreOnly\tno\tyes\tnative\tX\tyes\t-\t-\n"},
         {"external/ore/catalogue/ore_version.txt",
             "ore v1.8 3d75a6908\nother line\n"},
-        {"projects/ores.trading/modeling/"
-            "ores.trading.trade_type_catalogue.org",
-            "* Trade types\n\n| code | construction | instrument |\n"
+        {catalogue, ":PROPERTIES:\n:ID: CAT-1\n:END:\n* Trade types\n\n| code | construction | instrument |\n"
             "|---+---+---|\n| Swap | container | swaps |\n"
             "| Fancy | native |  |\n\n* Unsupported trade types\n\n"
             "| code | why |\n| Fancy | no builder |\n"},
         {"projects/ores.synthetic/core/tests/data/generated_trades/Swap.xml",
             "<Trade/>"},
+        {story + "story.org", ":PROPERTIES:\n:ID: STORY-1\n:END:\n"},
         {story + "task_a.org", task("80315472-7360-4C53-B6F7-57F7BCE78A1C",
             "STARTED", "Tag", "Tags things.")},
         {story + "task_b.org", task("8F1B7D90-0D95-405B-845C-207AA1C92BE3",
@@ -65,16 +72,18 @@ tests::files tree() {
             "STARTED", "Both", "Both forms.")},
         {story + "task_d.org", task("D", "BACKLOG", "Swaps",
             "Closes Swap, not Swaption.")},
-        {document, "Head.\n# BEGIN GENERATED\nold\n# END GENERATED\nTail.\n"}};
+        {document, note_text}};
 }
 
 }
 
 TEST_CASE("the coverage block counts and tabulates the catalogue's types",
     "[codecs][trade_type_coverage]") {
-    const auto out = tests::generate(codecs::trade_type_coverage, tree());
+    const auto out = tests::generate(codecs::trade_type_coverage, tree(),
+        settings);
 
-    CHECK(out.at(document) == "Head.\n# BEGIN GENERATED\n\n"
+    CHECK(out.at(document) == ":PROPERTIES:\n:ID: NOTE-1\n:END:\n"
+        "Head.\n# BEGIN GENERATED\n\n"
         "Read at ORE commit =3d75a6908=. Regenerate with "
         "=./compass.sh generate=.\n\n"
         "** Counts\n\n"
@@ -100,10 +109,40 @@ TEST_CASE("the coverage block counts and tabulates the catalogue's types",
 TEST_CASE("an unsupported table that disagrees with ORE stops the codec",
     "[codecs][trade_type_coverage]") {
     auto all = tree();
-    auto& catalogue = all.at("projects/ores.trading/modeling/"
-        "ores.trading.trade_type_catalogue.org");
+    auto& text = all.at(catalogue);
     const std::string fancy = "| Fancy | no builder |";
-    catalogue.replace(catalogue.find(fancy), fancy.size(),
-        "| Swap | no builder |");
-    CHECK(tests::generate(codecs::trade_type_coverage, all).empty());
+    text.replace(text.find(fancy), fancy.size(), "| Swap | no builder |");
+    CHECK(tests::generate(codecs::trade_type_coverage, all, settings)
+        .empty());
+}
+
+TEST_CASE("a note renamed under its ID is still written, at its new path",
+    "[codecs][trade_type_coverage]") {
+    auto all = tree();
+    const std::string renamed = "doc/knowledge/domain/"
+        "coverage_of_ore_trade_types_in_ore_studio.org";
+    all.erase(document);
+    all[renamed] = note_text;
+    const auto before = tests::generate(codecs::trade_type_coverage, tree(),
+        settings);
+
+    const auto out = tests::generate(codecs::trade_type_coverage, all,
+        settings);
+
+    CHECK_FALSE(out.contains(document));
+    REQUIRE(out.contains(renamed));
+    CHECK(out.at(renamed) == before.at(document));
+}
+
+TEST_CASE("an option whose ID no document has is reported, and nothing is "
+    "written", "[codecs][trade_type_coverage]") {
+    auto missing = settings;
+    missing[2].second = "STORY-404";
+
+    CHECK(tests::generate(codecs::trade_type_coverage, tree(), missing)
+        .empty());
+    CHECK(tests::run(codecs::trade_type_coverage, tree(), missing) ==
+        std::vector<tests::finding>{{".compass.org", 0, "trade_type_coverage: "
+            "no document has the :ID: STORY-404 that the option 'story' "
+            "names"}});
 }
