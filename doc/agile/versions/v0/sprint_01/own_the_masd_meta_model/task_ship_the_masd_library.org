@@ -8,7 +8,7 @@
 #+filetags: :own_the_masd_meta_model:sprint_01:v0:
 #+owner: marco
 #+branch: feature/ship-the-masd-library
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/189
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-22
@@ -140,7 +140,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    | Ship the MASD library with compass |
+| [[https://github.com/MASD-Project/compass/pull/189][#189]] | [codegen] Ship the MASD library with compass |
 
 * Review
 
