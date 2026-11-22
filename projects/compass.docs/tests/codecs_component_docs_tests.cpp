@@ -20,6 +20,7 @@
 #include "compass.docs/codecs/component_docs.hpp"
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_string.hpp>
 #include "test_tree.hpp"
 
 namespace {
@@ -33,6 +34,9 @@ const std::string complete =
     "* Summary\n* Inputs\n* Outputs\n* Entry points\n* Dependencies\n"
     "* See also\n";
 
+const tests::options settings{{"product", "ores"},
+    {"exceptions", "projects/ores.codegen/docs_exceptions.txt"}};
+
 }
 
 TEST_CASE("a complete component, simple or composite, passes",
@@ -45,7 +49,7 @@ TEST_CASE("a complete component, simple or composite, passes",
         {"projects/ores.b/core/modeling/component_overview.org", complete},
         {"projects/ores.b/core/modeling/core.puml", ""},
         {"projects/ores.b/tests/x.cpp", ""}};
-    CHECK(tests::run(codecs::component_docs, t).empty());
+    CHECK(tests::run(codecs::component_docs, t, settings).empty());
 }
 
 TEST_CASE("each gap of a component's documentation is reported, as org "
@@ -68,7 +72,7 @@ TEST_CASE("each gap of a component's documentation is reported, as org "
          "Use `[[nodiscard]]` here, `=[[glued]]=` there, `a =[[ok]]= b`, "
          "`[[id:x]]` too.\n"
          "#+begin_src cpp\n`[[maybe_unused]]`\n#+end_src\n"}};
-    CHECK(tests::messages(tests::run(codecs::component_docs, t)) ==
+    CHECK(tests::messages(tests::run(codecs::component_docs, t, settings)) ==
         std::vector<std::string>{
             "ores.a: no :ID: UUID in :PROPERTIES: block",
             "ores.a: #+description: missing or empty",
@@ -96,7 +100,7 @@ TEST_CASE("the exceptions file excuses one rule for one component",
         {"projects/ores.b/modeling/component_overview.org", complete},
         {"projects/ores.codegen/docs_exceptions.txt",
          "# comment\n\nMISSING_PUML ores.a\nMISSING_ID ores.b\n"}};
-    CHECK(tests::messages(tests::run(codecs::component_docs, t)) ==
+    CHECK(tests::messages(tests::run(codecs::component_docs, t, settings)) ==
         std::vector<std::string>{"ores.b: no .puml file in modeling/"});
 }
 
@@ -109,8 +113,20 @@ TEST_CASE("the exceptions file excuses the backtick links of one page, and "
         {"doc/b.org", link},
         {"projects/ores.codegen/docs_exceptions.txt",
          "BACKTICK_LINK doc/b.org\n"}};
-    const auto found = tests::run(codecs::component_docs, t);
+    const auto found = tests::run(codecs::component_docs, t, settings);
     REQUIRE(found.size() == 2);
     CHECK(std::get<0>(found[0]) == "doc/a.org");
     CHECK(std::get<0>(found[1]) == "doc/b/page.org");
+}
+
+TEST_CASE("a component is a directory named for the product",
+    "[codecs][component_docs]") {
+    const files t{
+        {"projects/compass.a/modeling/notes.org", ""},
+        {"projects/ores.b/modeling/notes.org", ""}};
+    CHECK(tests::messages(tests::run(codecs::component_docs, t,
+        {{"product", "compass"}})) == std::vector<std::string>{
+            "compass.a: modeling/component_overview.org not found"});
+    CHECK_THROWS_WITH(tests::run(codecs::component_docs, t),
+        "component_docs: set the option product");
 }

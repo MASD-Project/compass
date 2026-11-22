@@ -18,6 +18,7 @@
  *
  */
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_string.hpp>
 
 #include <string>
 #include "compass.docs/codecs/physical_inventory.hpp"
@@ -28,6 +29,8 @@ namespace {
 using namespace compass::docs;
 
 const std::string dir = "projects/ores.codegen/library/templates/";
+
+const tests::options settings{{"directory", dir}, {"product", "ores"}};
 
 std::string node(std::string_view id, std::string_view title,
     std::string_view type, std::string_view extra, std::string_view body) {
@@ -51,7 +54,8 @@ TEST_CASE("each parent lists its children by title with their counts",
         {dir + "ores.cpp.a.org", node("FA", "ores.cpp.a", "facet",
             "#+facet_group: ores.cpp\n", "\n* Archetypes\n\nNone yet.\n")},
         {dir + "x.org", node("X", "ores.cpp.a.x", "archetype",
-            "#+facet: ores.cpp.a\n#+description: An x\n", "")}});
+            "#+facet: ores.cpp.a\n#+description: An x\n", "")}},
+        settings);
 
     CHECK(out.at(dir + "ores.org").ends_with("\n* Technical spaces\n\n"
         "Intro.\n\n| Technical space | Facets | Description |\n"
@@ -68,4 +72,31 @@ TEST_CASE("each parent lists its children by title with their counts",
         "None yet.\n\n| Archetype | Description |\n"
         "|-----------+-------------|\n| [[id:X][ores.cpp.a.x]] | An x |\n"));
     CHECK_FALSE(out.contains(dir + "x.org"));
+}
+
+TEST_CASE("the product names the root and the addresses under it",
+    "[codecs][physical_inventory]") {
+    const std::string lib = "library/templates";
+    const auto out = tests::generate(codecs::physical_inventory, {
+        {lib + "/compass.org", node("R", "compass", "technical_space", "",
+            "\n* Technical spaces\n")},
+        {lib + "/compass.sql.org", node("S", "compass.sql",
+            "technical_space", "#+description: SQL\n", "\n* Facets\n")},
+        {lib + "/ores.cpp.org", node("C", "ores.cpp", "technical_space",
+            "", "")}},
+        {{"directory", lib}, {"product", "compass"}});
+
+    CHECK(out.at(lib + "/compass.org").ends_with(
+        "| [[id:S][compass.sql]] | 0 | SQL |\n"));
+    CHECK_FALSE(out.contains(lib + "/ores.cpp.org"));
+}
+
+TEST_CASE("the directory and the product are configuration",
+    "[codecs][physical_inventory]") {
+    CHECK_THROWS_WITH(tests::generate(codecs::physical_inventory, {},
+        {{"product", "ores"}}),
+        "physical_inventory: set the option directory");
+    CHECK_THROWS_WITH(tests::generate(codecs::physical_inventory, {},
+        {{"directory", dir}}),
+        "physical_inventory: set the option product");
 }

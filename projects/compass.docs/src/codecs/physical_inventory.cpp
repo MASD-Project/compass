@@ -20,8 +20,10 @@
 #include "compass.docs/codecs/physical_inventory.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <map>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -38,8 +40,19 @@ namespace ct = compass::codec::types;
 namespace co = compass::cpp::ops;
 namespace pt = compass::platform::text;
 
-constexpr std::string_view templates_dir =
-    "projects/ores.codegen/library/templates/";
+constexpr std::array<ct::option, 2> options{{
+    {"directory", "", "The directory of the physical-space documents, "
+        "relative to the checkout."},
+    {"product", "", "The project's product: the title of the root "
+        "technical space, and the first part of every address under it."}}};
+
+std::string required(const ct::corpus_view& v, std::string_view key) {
+    const auto value = v.option(key);
+    if (value.empty())
+        throw std::runtime_error("physical_inventory: set the option " +
+            std::string(key));
+    return std::string(value);
+}
 
 /**
  * @brief One node of the physical-space graph, as parse_doc reads it.
@@ -152,6 +165,11 @@ std::size_t count_of(const group& g, std::string_view key) {
 }
 
 void inventories(const ct::corpus_view& v, ct::file_output& out) {
+    auto templates_dir = required(v, "directory");
+    if (!templates_dir.ends_with('/'))
+        templates_dir.push_back('/');
+    const auto product = required(v, "product");
+    const auto prefix = product + ".";
     std::vector<node> docs;
     for (const auto path : v.list_files(templates_dir, ".org")) {
         if (path.find('/', templates_dir.size()) == std::string_view::npos)
@@ -167,7 +185,7 @@ void inventories(const ct::corpus_view& v, ct::file_output& out) {
             tspaces.push_back(&d);
         } else if (type == "facet") {
             facets.push_back(&d);
-            if (d.title().starts_with("ores."))
+            if (d.title().starts_with(prefix))
                 facets_by_ts[std::string(d.keyword("facet_group"))]
                     .push_back(&d);
         } else if (type == "archetype") {
@@ -183,10 +201,10 @@ void inventories(const ct::corpus_view& v, ct::file_output& out) {
     std::vector<edit> edits;
     std::vector<const node*> real_ts;
     for (const auto* d : tspaces)
-        if (d->title().starts_with("ores."))
+        if (d->title().starts_with(prefix))
             real_ts.push_back(d);
     const auto root = std::ranges::find_if(tspaces,
-        [](const node* d) { return d->title() == "ores"; });
+        [&](const node* d) { return d->title() == product; });
     if (root != tspaces.end()) {
         auto spaces = real_ts;
         std::ranges::stable_sort(spaces, {}, &node::title);
@@ -208,7 +226,7 @@ void inventories(const ct::corpus_view& v, ct::file_output& out) {
             {"Facet", "Archetypes", "Description"}, rows)});
     }
     for (const auto* f : facets) {
-        if (!f->title().starts_with("ores."))
+        if (!f->title().starts_with(prefix))
             continue;
         std::vector<std::vector<std::string>> rows;
         for (const auto* a : sorted_by_title(arch_by_facet, f->title()))
@@ -233,10 +251,10 @@ void inventories(const ct::corpus_view& v, ct::file_output& out) {
 
 const ct::descriptor physical_inventory{
     .name = "physical_inventory",
-    .version = 1,
+    .version = 2,
     .summary = "Writes the child tables of the physical-space documents.",
     .reads = ct::inputs::of_types({}),
-    .options = {},
+    .options = options,
     .rules = {},
     .enabled_by_default = false,
     .run = ct::corpus_function<ct::file_output>{inventories}};
