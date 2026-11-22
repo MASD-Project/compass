@@ -222,8 +222,13 @@ CREATE TEMP TABLE stage_step (LIKE test.step) ON COMMIT DROP;
     c.copy_in("COPY stage_link FROM STDIN", s.links);
     c.copy_in("COPY stage_scenario FROM STDIN", s.scenarios);
     c.copy_in("COPY stage_step FROM STDIN", s.steps);
-    const auto inserted = c.exec("INSERT INTO corpus.document "
-        "SELECT * FROM stage_document ON CONFLICT DO NOTHING").affected();
+    const auto inserted = c.exec(R"sql(
+INSERT INTO corpus.document (hash, org_id, title, description, type, level,
+    audience, created, updated, tags, keywords, properties, source)
+SELECT hash, org_id, title, description, type, level, audience, created,
+       updated, tags, keywords, properties, source
+FROM stage_document ON CONFLICT DO NOTHING
+)sql").affected();
     c.exec("INSERT INTO corpus.heading SELECT * FROM stage_heading "
         "ON CONFLICT DO NOTHING");
     c.exec(R"sql(

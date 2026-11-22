@@ -21,7 +21,9 @@
 
 #include <string>
 #include <string_view>
+#include <vector>
 #include <catch2/catch_test_macros.hpp>
+#include "compass.html/ops/render.hpp"
 #include "compass.ingest/org/parser.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 
@@ -225,9 +227,46 @@ TEST_CASE("a scenario's definition ignores results and changes with its "
     CHECK(before.scenario->definition != edited.scenario->definition);
 }
 
-TEST_CASE("slug keeps letters and digits and joins the rest with hyphens",
+TEST_CASE("every heading's anchor is the id the rendered page gives it",
     "[ops][extract]") {
-    CHECK(ops::slug("Goal / Measure ranking!") == "goal-measure-ranking");
-    CHECK(ops::slug("  C++23 (draft)  ") == "c-23-draft");
-    CHECK(ops::slug("***") == "section");
+    constexpr std::string_view source = R"(#+title: Anchors
+
+* Goal
+:PROPERTIES:
+:ID: GOAL-ID
+:END:
+** TODO [#A] Measure ranking :search:
+* Goal
+* Goal
+:PROPERTIES:
+:ID: GOAL-ID
+:END:
+* Über [[https://example.org][the /linked/ =title=]]
+*** Skipped a level
+* ***
+)";
+    compass::org::types::tables t;
+    compass::ingest::org::parse(source, t);
+    const auto view = compass::org::types::view(t);
+    const auto d = ops::extract(compass::store::ops::blob_id_of(source),
+        source, view);
+    const auto rendered_page = compass::html::ops::render(source, view,
+        "a.org", {}, {});
+
+    std::vector<std::string> rendered;
+    const std::string_view body = rendered_page.body;
+    for (auto at = body.find("<h"); at != std::string_view::npos;
+         at = body.find("<h", at + 1)) {
+        const auto tag = body.substr(at, body.find('>', at) - at);
+        const auto id = tag.find(" id=\"");
+        if (id == std::string_view::npos)
+            continue;
+        const auto begin = id + 5;
+        rendered.emplace_back(tag.substr(begin, tag.find('"', begin) - begin));
+    }
+    std::vector<std::string> stored;
+    for (const auto& h : d.headings)
+        stored.push_back(h.anchor);
+    CHECK(stored.size() == 7);
+    CHECK(stored == rendered);
 }

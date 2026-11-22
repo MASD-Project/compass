@@ -26,6 +26,7 @@
 #include <iostream>
 #include <limits>
 #include <optional>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -48,6 +49,7 @@
 #include "compass.bench/ops/read_stage.hpp"
 #include "compass.bench/ops/render_stage.hpp"
 #include "compass.bench/ops/search_paths.hpp"
+#include "compass.bench/ops/search_stage.hpp"
 #include "compass.bench/ops/store_stage.hpp"
 #include "compass.bench/ops/types_stage.hpp"
 #include "compass.bench/ops/warm_stage.hpp"
@@ -56,6 +58,7 @@
 #include "compass.cli/config/repository_file.hpp"
 #include "compass.codec/ops/registry.hpp"
 #include "compass.codegen/codecs/codegen.hpp"
+#include "compass.db/types/search.hpp"
 #include "compass.platform/filesystem/mapped_file.hpp"
 #include "compass.platform/process/standard_streams.hpp"
 #include "compass.store/io/location.hpp"
@@ -86,12 +89,15 @@ constexpr std::string_view usage =
     "       compass-bench render <checkout> [--oracle <dir>] [--out <dir>]\n"
     "           [--format <git-dir>] [-j N] [--repeat R]\n"
     "       compass-bench html <root> [--out <dir>] [--repeat R]\n"
+    "       compass-bench search <conninfo> --environment <name>\n"
+    "           --questions <file> [--weights D,C,B,A] [--normalization N]\n"
+    "           [--type-order <type>,...] [--repeat R]\n"
     "       compass-bench org-dump <file>\n"
     "       compass-bench org-dump --list <list>\n";
 
 enum class stage {
     read, includes, parse, org, types, store, warm, codecs, gc, ids,
-    models, render, html, org_dump
+    models, render, html, search, org_dump
 };
 
 struct options {
@@ -115,6 +121,10 @@ struct options {
     std::filesystem::path oracle;
     std::filesystem::path render_out;
     std::filesystem::path format_store;
+    std::string conninfo;
+    std::string environment;
+    std::filesystem::path questions;
+    compass::db::types::ranking ranking;
 };
 
 std::filesystem::path absolute_path(const std::filesystem::path& p) {
@@ -167,6 +177,48 @@ std::optional<options> parse_dump_options(int argc, char** argv) {
     return o;
 }
 
+std::optional<options> parse_search_options(int argc, char** argv) {
+    options o;
+    o.which = stage::search;
+    o.conninfo = argv[2];
+    for (int i = 3; i + 1 < argc; i += 2) {
+        const std::string_view flag = argv[i];
+        const std::string_view value = argv[i + 1];
+        if (flag == "--environment") {
+            o.environment = value;
+        } else if (flag == "--questions") {
+            o.questions = value;
+        } else if (flag == "--repeat") {
+            const auto n = parse_positive(value);
+            if (!n)
+                return std::nullopt;
+            o.repetitions = *n;
+        } else if (flag == "--normalization") {
+            const auto n = parse_count(value);
+            if (!n)
+                return std::nullopt;
+            o.ranking.normalization = static_cast<std::uint32_t>(*n);
+        } else if (flag == "--weights") {
+            std::istringstream in{std::string(value)};
+            char comma = 0;
+            auto& w = o.ranking.weights;
+            if (!(in >> w[0] >> comma >> w[1] >> comma >> w[2] >> comma >>
+                    w[3]))
+                return std::nullopt;
+        } else if (flag == "--type-order") {
+            o.ranking.type_order.clear();
+            std::istringstream in{std::string(value)};
+            for (std::string t; std::getline(in, t, ',');)
+                o.ranking.type_order.push_back(t);
+        } else {
+            return std::nullopt;
+        }
+    }
+    if ((argc - 3) % 2 != 0 || o.environment.empty() || o.questions.empty())
+        return std::nullopt;
+    return o;
+}
+
 std::optional<options> parse_options(int argc, char** argv) {
     if (argc < 3)
         return std::nullopt;
@@ -200,6 +252,8 @@ std::optional<options> parse_options(int argc, char** argv) {
         o.which = stage::html;
     else if (name == "org-dump")
         return parse_dump_options(argc, argv);
+    else if (name == "search")
+        return parse_search_options(argc, argv);
     else
         return std::nullopt;
     o.checkout = argv[2];
@@ -486,6 +540,13 @@ int run_html(const options& o) {
     return 0;
 }
 
+int run_search(const options& o) {
+    const auto results = ops::run_search_stage(o.conninfo, o.environment,
+        ops::read_questions(o.questions), o.ranking, o.repetitions);
+    ops::write_search_report(std::cout, results);
+    return 0;
+}
+
 int run_org_dump(const options& o) {
     if (o.dump_list.empty())
         ops::dump_org_file(o.dump_file, std::cout);
@@ -510,6 +571,7 @@ int run(const options& o) {
     case stage::models: return run_models(o);
     case stage::render: return run_render(o);
     case stage::html: return run_html(o);
+    case stage::search: return run_search(o);
     case stage::org_dump: return run_org_dump(o);
     }
     return 2;

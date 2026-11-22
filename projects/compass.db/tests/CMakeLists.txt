@@ -23,11 +23,13 @@ add_executable(${tests_target_name}
     io_corpus_tests.cpp
     io_schema_tests.cpp
     ops_copy_text_tests.cpp
-    ops_extract_tests.cpp)
+    ops_extract_tests.cpp
+    query_search_tests.cpp)
 
 target_link_libraries(${tests_target_name}
     PRIVATE
         ${lib_target_name}
+        compass.html.lib
         compass.ingest.lib
         compass.testing.lib
         Catch2::Catch2WithMain)

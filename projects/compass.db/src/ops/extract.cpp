@@ -26,6 +26,7 @@
 #include <optional>
 #include <utility>
 #include <vector>
+#include "compass.html/ops/anchors.hpp"
 #include "compass.org/ops/document_fields.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 
@@ -305,36 +306,6 @@ std::vector<std::string> split_tags(std::string_view value) {
 }
 
 /**
- * @brief The anchor of each heading: its :ID:, else the slug of its path,
- * numbered from 2 when an earlier heading took it.
- */
-void assign_anchors(std::vector<types::heading_row>& headings) {
-    std::vector<std::string> taken;
-    for (auto& h : headings) {
-        if (h.org_id) {
-            h.anchor = *h.org_id;
-            taken.push_back(h.anchor);
-        }
-    }
-    for (auto& h : headings) {
-        if (h.org_id)
-            continue;
-        std::string joined;
-        for (const auto& part : h.path) {
-            if (!joined.empty())
-                joined += ' ';
-            joined += part;
-        }
-        const auto base = slug(joined);
-        auto anchor = base;
-        for (int n = 2; std::ranges::contains(taken, anchor); ++n)
-            anchor = std::format("{}-{}", base, n);
-        taken.push_back(anchor);
-        h.anchor = std::move(anchor);
-    }
-}
-
-/**
  * @brief The cells of a table row's line, trimmed, without their bars.
  */
 std::vector<std::string_view> cells_of(std::string_view line) {
@@ -455,28 +426,6 @@ types::scenario_row scenario_of(const reader& r,
 
 }
 
-std::string slug(std::string_view text) {
-    std::string out;
-    bool hyphen = false;
-    for (const char c : text) {
-        const auto u = static_cast<unsigned char>(c);
-        if ((u >= 'a' && u <= 'z') || (u >= '0' && u <= '9')) {
-            if (hyphen && !out.empty())
-                out += '-';
-            hyphen = false;
-            out += c;
-        } else if (u >= 'A' && u <= 'Z') {
-            if (hyphen && !out.empty())
-                out += '-';
-            hyphen = false;
-            out += static_cast<char>(u - 'A' + 'a');
-        } else {
-            hyphen = true;
-        }
-    }
-    return out.empty() ? std::string("section") : out;
-}
-
 types::corpus_document extract(const store::types::blob_id& hash,
     std::string_view source, const ot::tables_view& t) {
     const reader r(source, t);
@@ -548,7 +497,9 @@ types::corpus_document extract(const store::types::blob_id& hash,
             row.org_id = std::string(*heading_id);
         out.headings.push_back(std::move(row));
     }
-    assign_anchors(out.headings);
+    auto anchors = html::ops::heading_anchors(source, t);
+    for (std::size_t h = 0; h < anchors.size(); ++h)
+        out.headings[h].anchor = std::move(anchors[h]);
 
     if (const auto preamble = r.section_under(ot::element_id{0})) {
         auto text = r.section_text(*preamble);

@@ -24,7 +24,8 @@ add_library(${lib_target_name}
     io/schema.cpp
     ops/copy_text.cpp
     ops/extract.cpp
-    ops/migrations.cpp)
+    ops/migrations.cpp
+    query/search.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
 
@@ -36,5 +37,6 @@ target_link_libraries(${lib_target_name}
         compass.org.lib
         compass.store.lib
     PRIVATE
+        compass.html.lib
         compass.platform.lib
         PostgreSQL::PostgreSQL)

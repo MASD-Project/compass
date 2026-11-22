@@ -1,0 +1,25 @@
+developer	nats subject environment prefix	C1D2E3F4-A5B6-4C7D-8E9F-0A1B2C3D4E5F
+developer	find unused includes	B67FD4A0-4C84-45C7-A1AA-54FDE9967790
+developer	catch2 test naming conventions	FB797194-EB03-4837-B12D-E651DD5F16F2
+developer	tenant isolation row level security	3C334C3B-2760-4278-95B8-B71268E8FD18 B28747DF-A735-1C84-4E43-11ADFA8B05E3
+developer	version 0 skips concurrency check	CE4752C0-7A3C-46B4-AC97-922C5B940BB1
+developer	timestamps utc bitemporal	4AAD3581-CFA7-4B44-A2DD-0236784E939F
+developer	which codegen pattern to use	87E3F021-1C69-48DE-9139-32C44C99B3B9
+developer	json vs msgpack payload	8883F219-5D1F-4C29-B3F9-47D1622C9248
+developer	jetstream durable consumer setup	45D4751E-5089-4C82-9B37-63EFBD4A0B18 F4A5B6C7-D8E9-4F0A-9B2C-3D4E5F607182
+developer	service calls itself at startup	1D02DB5B-1E50-4AA0-9780-A3F1CF237349 D2893A4B-5C6D-41E8-930A-112233445566
+developer	cron expression format scheduler	EF7AE225-7DBE-4D19-B3DC-F6720A4B52DA
+developer	workflow step fails compensate	353DC9B3-65BC-4801-B6D8-08ADD2647F24
+developer	generate nats tls certificates	18D8CB4F-E926-49E8-83C3-7C8418861B33
+business	how to add a currency	352DD997-5ABB-4E4E-B83A-EF90455EAE52 9E46C8C2-05FF-4F31-BFC1-5B634963DBE3
+business	production vs evaluation tenant	0D1AA9E2-7556-4B73-8AE5-5E2A0E8FD043
+business	how to book a deal	F7987581-7AED-499C-9EEA-000AFB1FA95A
+business	what is tom next	5CC47697-2655-4ECD-B04D-C6C08FF620D5
+business	schedule a report daily	933649DD-1F86-4B40-99FD-1D4316D39A46
+business	approve a curve change	A85B6C4E-0F93-4410-BF2E-7167722849ED
+business	load trades from ore portfolio file	E140C8C6-4532-48D9-ABDF-7B81A21C9EE3
+business	colleague locked out of account	A441DA2E-4B74-49B3-97AD-1861647B7D94
+business	what is a cut	B5214F3A-A72E-421E-82BC-79338B2E95CB DD59B04C-DAD2-458C-B35E-3F6B0B3D6DC6
+business	dv01 by curve bucket	51B46B4E-1D7E-4ED6-8A49-8CD30F4D485B
+business	set up a new counterparty	B8602F8B-AE64-4A45-8462-A3B17282D410 6E9A1D3C-8F52-4A67-B1DE-3C7A9F0E2B4D
+business	how is an ndf settled	CD3E82C6-AE56-4D06-B949-0B3A5CE7A5FC B60031AD-CE57-5F9D-885C-1DAF504E6004

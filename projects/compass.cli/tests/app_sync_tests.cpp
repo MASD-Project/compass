@@ -27,6 +27,7 @@
 #include "compass.cli/app/application.hpp"
 #include "compass.cli/config/local_settings.hpp"
 #include "compass.db/io/connection.hpp"
+#include "compass.db/ops/migrations.hpp"
 #include "compass.testing/database/scoped_cluster.hpp"
 #include "scoped_git_repo.hpp"
 
@@ -128,7 +129,9 @@ TEST_CASE("db init records the connection in the repository's local "
     CHECK(settings->database == s.database);
     const auto status = s.command({"db", "status"});
     CHECK(status.status == 0);
-    CHECK_THAT(status.out, ContainsSubstring("schema: version 1 of 1"));
+    const auto version = std::to_string(compass::db::ops::known_version());
+    CHECK_THAT(status.out, ContainsSubstring(
+        "schema: version " + version + " of " + version));
     CHECK_THAT(status.out, ContainsSubstring("text search: english"));
 }
 
