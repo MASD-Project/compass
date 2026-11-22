@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :codegen:mustache:render:component:
 #+created: 2026-11-16
-#+updated: 2026-11-21
+#+updated: 2026-11-22
 
 This page is the component overview for =compass.codegen=, a simple component
 in the domain layer of the
@@ -179,15 +179,17 @@ the codec, set in the checkout's =.compass.org=.
   relative. It writes all 202 lists of ORE Studio =545cafca45= as the
   script does; the listing is the checkout's, so a file deleted from disk
   but still in the index is listed until =git rm=.
-- *=pending_models=.* ORE Studio's =pending-models= generator
-  (=derive_pending_models.py=, =codegen.pending_change=), off by default.
-  For each model under =projects/*/modeling/ores.*.org= whose first Flags
-  section sets =:gated:= or =:pending_change:= true, it writes
-  =ores.<component>.<singular>_change.org= beside it as the script derives
-  it, its =:ID:= the uuid5 =ops::uuid5= gives. A model the script refuses
-  is refused, as a =refused= finding on its pending model that names the
-  model and the reason; the other models are still written, and the codec
-  removes none of the files it wrote before.
+- *=pending_models=.* ORE Studio's =pending-models= generator, ported
+  from =derive_pending_models.py= and =codegen.pending_change=, off by
+  default. For each model under =projects/*/modeling/ores.*.org= whose
+  first Flags section sets =:gated:= or =:pending_change:= true, it writes
+  =ores.<component>.<singular>_change.org= beside it as the script derived
+  it, its =:ID:= the uuid5 =ops::uuid5= gives. Since version 2 the pending
+  model's =#+description:= and its "Do not edit" line name =compass
+  generate= instead of the script, so ORE Studio can delete the script. A
+  model the derivation refuses is refused, as a =refused= finding on its
+  pending model that names the model and the reason; the other models are
+  still written, and the codec removes none of the files it wrote before.
 
 | Outputs at ORE Studio =5ce3cd7e6c=    | Identical | Of    |
 |---------------------------------------+-----------+-------|
