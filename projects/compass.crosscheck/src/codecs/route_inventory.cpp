@@ -632,9 +632,10 @@ void coverage(const ct::corpus_view& v, const tables& t,
             " |");
     }
     lines.insert(lines.end(), {"* The coverage", "",
-        "How many BFF routes each area pairs with a C++ route, counted from",
-        "=build/scripts/route_pairing.py=. A pair records the mapping and does not",
-        "prove it; the port tasks prove each route against the answer the BFF gives.",
+        "How many BFF routes each area pairs with a C++ route, counted from the",
+        "Pairs and Families tables of the route inventory's check document. A pair",
+        "records the mapping and does not prove it; the port tasks prove each route",
+        "against the answer the BFF gives.",
         "", "| Area | BFF routes | Paired | Gaps |",
         "|------+------------+--------+------|"});
     std::vector<std::string> order;
@@ -725,7 +726,7 @@ constexpr std::array<ct::option, 1> options{{
 
 const ct::descriptor route_inventory{
     .name = "route_inventory",
-    .version = 2,
+    .version = 3,
     .summary = "Writes the HTTP route inventory from the routes the BFF and "
                "ores.http register and the decisions, views, pairs and "
                "families of its check document.",
