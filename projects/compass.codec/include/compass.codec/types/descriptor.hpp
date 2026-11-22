@@ -53,22 +53,42 @@ enum class input_scope : std::uint8_t { listed, typed, all };
  *
  * types holds #+type: values and is empty unless the scope is listed. They
  * are resolved against the type registry when the codec registry is built.
+ *
+ * evidence is true for a codec that also reads the evidence documents of
+ * its scope. For every other codec an evidence document does not exist:
+ * it is not visible, no lookup finds it and no listing holds its path.
  */
 struct inputs {
     input_scope scope = input_scope::listed;
     std::span<const std::string_view> types;
+    bool evidence = false;
 
     [[nodiscard]] static constexpr inputs of_types(
         std::span<const std::string_view> names) noexcept {
-        return {input_scope::listed, names};
+        inputs r;
+        r.types = names;
+        return r;
     }
 
     [[nodiscard]] static constexpr inputs every_typed_document() noexcept {
-        return {input_scope::typed, {}};
+        inputs r;
+        r.scope = input_scope::typed;
+        return r;
     }
 
     [[nodiscard]] static constexpr inputs every_document() noexcept {
-        return {input_scope::all, {}};
+        inputs r;
+        r.scope = input_scope::all;
+        return r;
+    }
+
+    /**
+     * @brief These inputs and the evidence documents of their scope.
+     */
+    [[nodiscard]] constexpr inputs with_evidence() const noexcept {
+        auto r = *this;
+        r.evidence = true;
+        return r;
     }
 };
 

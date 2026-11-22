@@ -5,7 +5,7 @@
 #+description: Probe: compass's corpus.document written as an ORE entity model.
 #+type: ores.codegen.entity
 #+component: geo
-#+filetags: :model:entity:geo:
+#+filetags: :model:entity:geo:evidence:
 #+brief: One org document of the corpus, keyed by the hash of its source.
 #+entity_singular: document
 #+entity_plural: documents

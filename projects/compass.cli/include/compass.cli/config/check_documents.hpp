@@ -146,14 +146,16 @@ parse_check_document(std::string_view text, std::string_view path,
 
 /**
  * @brief The checks of the documents in checks_directory of @p checkout,
- * or the first error of one of them.
+ * or the first error of one of them. An evidence document is a record
+ * kept for reference and is skipped: it defines nothing.
  */
 [[nodiscard]] std::expected<check_set, std::string> read_check_documents(
     const std::filesystem::path& checkout);
 
 /**
  * @brief The checks of the documents in checks_directory of the commit
- * @p commit, read from @p objects, or the first error of one of them.
+ * @p commit, read from @p objects, or the first error of one of them,
+ * skipping evidence as the other overload does.
  * @throws as store::io::list_commit does.
  */
 [[nodiscard]] std::expected<check_set, std::string> read_check_documents(

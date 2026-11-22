@@ -309,3 +309,20 @@ TEST_CASE("a listing prefix with a star is refused", "[ops][file_inputs]") {
         std::invalid_argument);
     CHECK(types::listing_key("data/", ".txt") == "data/*.txt");
 }
+
+TEST_CASE("a document tagged evidence drops out of the listings of a codec "
+    "that does not read evidence, which then runs again and then stays "
+    "skipped", "[ops][file_inputs][evidence]") {
+    auto docs = documents();
+    docs["data/record.txt"] = "#+title: A record\n";
+    const auto live = run(docs, files());
+    CHECK(live.output.contains("data/record.txt\n"));
+
+    docs["data/record.txt"] = "#+title: A record\n#+filetags: :evidence:\n";
+    const auto tagged = run(docs, files(), live.record);
+    CHECK(tagged.ran == counts{1, 1});
+    CHECK(tagged.output == "#+type: story\n* Goal\nhello\n"
+        "data/other.txt\ndata/template.txt\nno flag\n");
+
+    CHECK(run(docs, files(), tagged.record).ran == counts{0, 0});
+}

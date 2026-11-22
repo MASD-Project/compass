@@ -281,13 +281,14 @@ void check_malformed(const ct::document& d, ct::file_scan& out) {
 
 /**
  * @brief Maps one page: its fact is what the link graph knows of it, and
- * its findings, for a page the gate lints, its filetags, its unclosed
- * markers and its malformed links.
+ * its findings, for a live page the gate lints, its filetags, its
+ * unclosed markers and its malformed links.
  */
 void map_page(const ct::document& d, const ct::option_values&,
     ct::file_scan& out) {
     out.fact = dop::fact_of(d);
-    if (!is_linted(d.path))
+    if (!is_linted(d.path) ||
+        compass::org::ops::is_evidence(d.source, d.tables))
         return;
     check_filetags(d, out);
     check_markers(d, out);
@@ -335,7 +336,9 @@ void check_marker(const ct::corpus_view& v, std::string_view path,
  * @brief The lint rules: markers name their writers, id links resolve
  * against the IDs of every linted page, and, with strict_links, durable
  * pages link no agile page. Pages are read in pathlib's order, as the
- * gate reads them, and a later page's ID wins.
+ * gate reads them, and a later page's ID wins. An evidence page's IDs
+ * resolve links only when no live page has them, and its own markers
+ * and links are not checked.
  */
 void report_lint(const std::vector<dop::page>& all, const ct::corpus_view& v,
     ct::diagnostic_table& out) {
@@ -347,9 +350,18 @@ void report_lint(const std::vector<dop::page>& all, const ct::corpus_view& v,
     std::ranges::sort(linted, co::component_less, &dop::page::path);
     std::unordered_map<std::string_view, std::string_view> types;
     for (const auto* p : linted) {
-        for (const auto id : p->ids)
-            types.insert_or_assign(id, p->type);
+        for (const auto id : p->ids) {
+            if (!p->evidence)
+                types.insert_or_assign(id, p->type);
+        }
     }
+    for (const auto* p : linted) {
+        for (const auto id : p->ids) {
+            if (p->evidence)
+                types.emplace(id, p->type);
+        }
+    }
+    std::erase_if(linted, [](const dop::page* p) { return p->evidence; });
     const bool strict = v.option("strict_links") == "true";
     for (const auto* p : linted) {
         for (const auto& m : p->markers)
@@ -549,6 +561,7 @@ void reduce(std::span<const ct::scanned_file> scanned,
     for (const auto& f : scanned)
         all.push_back(dop::page_of(f.path, f.fact));
     report_lint(all, v, out);
+    std::erase_if(all, [](const dop::page& p) { return p.evidence; });
     report_patterns(all, out);
     report_backlinks(all, out);
 }
@@ -557,12 +570,12 @@ void reduce(std::span<const ct::scanned_file> scanned,
 
 const ct::descriptor lint{
     .name = "lint",
-    .version = 5,
+    .version = 6,
     .summary = "Reports each malformed filetag, generated marker and id link "
         "of the org pages, as compass lint does, each pattern and use that "
         "do not link each other, and each page a structure note orders "
         "that does not link it back.",
-    .reads = ct::inputs::of_types({}),
+    .reads = ct::inputs::of_types({}).with_evidence(),
     .options = options,
     .rules = rules,
     .enabled_by_default = false,

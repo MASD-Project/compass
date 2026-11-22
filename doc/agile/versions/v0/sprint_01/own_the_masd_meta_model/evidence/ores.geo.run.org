@@ -5,7 +5,7 @@
 #+description: Probe: compass's activity.run written as an ORE entity model.
 #+type: ores.codegen.entity
 #+component: geo
-#+filetags: :model:entity:geo:
+#+filetags: :model:entity:geo:evidence:
 #+brief: One run of a test scenario in a campaign.
 #+entity_singular: run
 #+entity_plural: runs

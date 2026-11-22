@@ -40,13 +40,6 @@ namespace compass::docs::ops {
 [[nodiscard]] std::string_view first_word(std::string_view s) noexcept;
 
 /**
- * @brief True when @p filetags, a #+filetags: value such as :a:b:, holds
- * the tag @p tag.
- */
-[[nodiscard]] bool has_tag(std::string_view filetags,
-    std::string_view tag) noexcept;
-
-/**
  * @brief The byte at which the line holding byte @p offset of @p source
  * starts.
  */

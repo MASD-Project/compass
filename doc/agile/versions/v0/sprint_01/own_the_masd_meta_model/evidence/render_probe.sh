@@ -14,9 +14,11 @@ git init -q
 git add -A
 git -c user.name=probe -c user.email=probe@example.invalid commit -qm base
 
+# The copy drops the evidence tag: in modeling/ it is a live model, and
+# compass hides evidence from codegen.
 for model in document run; do
-    cp "$evidence/ores.geo.$model.org.txt" \
-        "projects/ores.geo/modeling/ores.geo.$model.org"
+    sed '/^#+filetags:/s/:evidence:/:/' "$evidence/ores.geo.$model.org" \
+        > "projects/ores.geo/modeling/ores.geo.$model.org"
     compass-ng -C "$scratch/ore" diff --skip-stale --files \
         --scope "projects/ores.geo/modeling/ores.geo.$model.org" \
         > "$scratch/$model.diff" 2> "$scratch/$model.err" || true

@@ -72,10 +72,11 @@ struct marker {
  * utf8 is false for a page that is not UTF-8. type is the first word of
  * its first #+type: keyword, empty when it has none; title its first
  * #+title:. structure_note is true when its first #+filetags: holds the
- * tag structure_note. ids holds every :ID: property of its drawers, in
- * upper case and in order, so the first is the page's own when it has
- * one. sections holds the titles of its level-1 headings in order.
- * see_also is the byte of its level-1 See also heading, or 0.
+ * tag structure_note, and evidence when the page is evidence. ids holds
+ * every :ID: property of its drawers, in upper case and in order, so the
+ * first is the page's own when it has one. sections holds the titles of
+ * its level-1 headings in order. see_also is the byte of its level-1 See
+ * also heading, or 0.
  */
 struct page {
     std::string_view path;
@@ -83,6 +84,7 @@ struct page {
     std::string_view type;
     std::string_view title;
     bool structure_note = false;
+    bool evidence = false;
     std::uint32_t see_also = 0;
     std::vector<std::string_view> ids;
     std::vector<std::string_view> sections;

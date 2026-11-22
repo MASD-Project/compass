@@ -113,13 +113,15 @@ TEST_CASE("the outputs of a run carry each file's codec and blob ID, and "
     CHECK(out.hashes[f] ==
         compass::store::ops::blob_id_of(out.files.contents[f]));
     CHECK(out.complete ==
-        std::vector<std::string>{"document_index", "required_sections"});
+        std::vector<std::string>{"document_index", "required_sections",
+            "evidence_location"});
 
     compass::codec::types::configuration off;
     off.set("required_sections", "enabled", "false");
     const auto r2 = ops::make_registry(codecs::catalogue(), t.types(), off);
     CHECK(ops::outputs_of(r2, ops::run(r2, t.corpus(), t.types(), 2))
-        .complete == std::vector<std::string>{"document_index"});
+        .complete == std::vector<std::string>{"document_index",
+            "evidence_location"});
 }
 
 TEST_CASE("the written-outputs record survives encoding",

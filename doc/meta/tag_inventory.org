@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :meta:tags:knowledge:index:
 #+created: 2026-06-12
-#+updated: 2026-06-12
+#+updated: 2026-11-22
 
 Every =.org= file carries a =#+filetags:= line. This document is the canonical
 inventory of every tag in use, organised into named groups. It is the source of
@@ -119,6 +119,16 @@ Tags that make a document findable via a cross-cutting dimension.
 | =tags= | Related to the tag taxonomy. |
 | =frontmatter= | Related to document frontmatter conventions. |
 | =document_types= | Related to document type definitions. |
+
+* Handling tags
+
+Tags that change what compass does with a document, rather than how a
+reader finds it.
+
+| Tag | Description |
+|-----+-------------|
+| =evidence= | A record kept for reference, not a live document of its type: held to no contract, its IDs yield to live pages, and no codec reads it unless it asks for evidence. Lives under an =evidence/= directory. See [[id:8B29A8D8-E004-4E87-B81D-ABEAF68F2B98][Document Types]]. |
+| =structure_note= | A knowledge page that orders a cluster of pages: =lint= checks each page it orders links it back, and =knowledge_titles= lets its title be a sentence. |
 
 * Component tags
 

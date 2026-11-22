@@ -21,6 +21,7 @@ set(lib_target_name ${name}.lib)
 add_library(${lib_target_name}
     codecs/catalogue.cpp
     codecs/document_index.cpp
+    codecs/evidence_location.cpp
     codecs/required_sections.cpp
     codecs/tangle.cpp
     codecs/tangle_check.cpp

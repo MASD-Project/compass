@@ -270,3 +270,11 @@ TEST_CASE("every heading's anchor is the id the rendered page gives it",
     CHECK(stored.size() == 7);
     CHECK(stored == rendered);
 }
+
+TEST_CASE("an evidence document is loaded with its own type and the "
+    "evidence tag, so a view can leave it out", "[ops][extract][evidence]") {
+    const auto d = extracted("#+title: ores.geo.run\n#+type: ores.codegen.entity\n"
+        "#+filetags: :model:evidence:\n");
+    CHECK(d.document.type == "ores.codegen.entity");
+    CHECK(d.document.tags == std::vector<std::string>{"model", "evidence"});
+}

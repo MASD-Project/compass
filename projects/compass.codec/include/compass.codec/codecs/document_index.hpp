@@ -25,7 +25,8 @@
 namespace compass::codec::codecs {
 
 /**
- * @brief Emits one file that lists every document of the corpus.
+ * @brief Emits one file that lists every document of the corpus, evidence
+ * included.
  *
  * The file is tab-separated text: a header line "id", "title", "type",
  * "path", then one line per document, in byte order of the paths. id is

@@ -45,20 +45,6 @@ std::string_view first_word(std::string_view s) noexcept {
     return s.substr(0, static_cast<std::size_t>(end - s.begin()));
 }
 
-bool has_tag(std::string_view filetags, std::string_view tag) noexcept {
-    std::size_t start = 0;
-    while (start <= filetags.size()) {
-        auto end = filetags.find(':', start);
-        if (end == std::string_view::npos)
-            end = filetags.size();
-        if (compass::cpp::ops::strip(filetags.substr(start, end - start)) ==
-            tag)
-            return true;
-        start = end + 1;
-    }
-    return false;
-}
-
 std::uint32_t line_start(std::string_view source,
     std::uint32_t offset) noexcept {
     if (offset == 0)

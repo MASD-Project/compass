@@ -86,7 +86,7 @@ const types::descriptor document_index{
     .name = "document_index",
     .version = 1,
     .summary = "Lists the ID, title, type and path of every document.",
-    .reads = types::inputs::every_document(),
+    .reads = types::inputs::every_document().with_evidence(),
     .options = options,
     .rules = {},
     .enabled_by_default = true,
