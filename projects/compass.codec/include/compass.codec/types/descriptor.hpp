@@ -344,6 +344,16 @@ using origin_function = std::string (*)(const option_values& options,
     std::string_view content);
 
 /**
+ * @brief The bytes of what a codec reads from outside the checkout, such
+ * as a library installed with compass, from its option values. A run
+ * cannot record such reads as inputs, so they key the codec's
+ * configuration instead: a change to them runs every unit of the codec
+ * again. It must not throw; what it cannot read it leaves out, and the
+ * codec reports the problem when it runs.
+ */
+using environment_function = std::string (*)(const option_values& options);
+
+/**
  * @brief A codec: what it is, what it reads and the function that runs it.
  *
  * version is bumped by hand to discard every result the codec has stored.
@@ -354,8 +364,9 @@ using origin_function = std::string (*)(const option_values& options,
  * documents read, so a change to any of them runs the codec again.
  * rules holds, for a codec of files, the reasons it may refuse an output,
  * and is empty for one that never refuses. formatters is null for a codec
- * whose files are written as it emits them, and origin for one whose
- * files name no input they were rendered from.
+ * whose files are written as it emits them, origin for one whose
+ * files name no input they were rendered from, and environment for one
+ * that reads nothing outside the checkout.
  *
  * A formatting check is a codec of files with formatters whose files are
  * files of the checkout, emitted as they are. They are formatted and never
@@ -383,6 +394,7 @@ struct descriptor {
     bool formatting_check = false;
     severity level = severity::error;
     origin_function origin = nullptr;
+    environment_function environment = nullptr;
 };
 
 enum class unit : std::uint8_t { document, corpus, staged };

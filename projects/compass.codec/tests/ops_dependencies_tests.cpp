@@ -332,6 +332,33 @@ TEST_CASE("changing the configuration of a codec calls only that codec's "
     CHECK(second.files[0].paths[{0}] == "index.tsv");
 }
 
+namespace {
+
+std::string outside_the_checkout;
+
+std::array<types::descriptor, 4> codecs_with_environment() {
+    auto codecs = all_codecs();
+    codecs[3].environment = [](const types::option_values&) {
+        return outside_the_checkout;
+    };
+    return codecs;
+}
+
+}
+
+TEST_CASE("a change to what a codec reads outside the checkout calls only "
+    "that codec's units", "[ops][dependencies]") {
+    const auto codecs = codecs_with_environment();
+    outside_the_checkout = "a library";
+    const auto first = run(base(), {}, codecs);
+    const auto same = run(base(), first.record, codecs);
+    outside_the_checkout = "another library";
+    const auto changed = run(base(), same.record, codecs);
+
+    CHECK(same.ran == counts{0, 0, 0, 0});
+    CHECK(changed.ran == counts{0, 0, 0, 1});
+}
+
 TEST_CASE("a unit that read the type registry runs again when the "
     "registry changes", "[ops][dependencies]") {
     const auto first = run(base());
