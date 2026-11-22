@@ -53,10 +53,14 @@ service it depends on.
 - *Generated units are current.* Units the project generates are outputs
   compass checks for drift like any other, so a change to the registry or the
   template that is not regenerated fails the gate.
-- *Deployed units are current.* A command reports, per environment, each
-  deployed unit that differs from what the environment would deploy now, or
-  that no service names any more, with its age, as =compass env status= does
-  for =.env=. It is read-only; deploying stays the project's tool.
+- *Deployed units are current, by content.* A command generates, in memory,
+  the units the environment would deploy now, and compares each with the
+  deployed file's content: it reports a unit whose content differs, with its
+  diff, one that would be deployed but is missing, and one deployed that no
+  service names any more. A file's modification time decides nothing: an old
+  unit with the right content is current, and a new one with the wrong
+  content is not. The age is shown only as context. It is read-only, as
+  =compass env status= is for =.env=; deploying stays the project's tool.
 - The dependency data is the project's, in a check document or its
   registry; compass names no ORE Studio service.
 
