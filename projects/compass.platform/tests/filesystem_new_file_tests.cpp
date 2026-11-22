@@ -128,7 +128,7 @@ TEST_CASE("update_file leaves a file that already holds the bytes as it is",
     REQUIRE(after);
     CHECK(after->modified.count_ns() == before->modified.count_ns());
     CHECK(after->inode == before->inode);
-    CHECK(std::filesystem::last_write_time(path) == old);
+    CHECK((std::filesystem::last_write_time(path) == old));
 }
 
 TEST_CASE("update_file replaces a file whose bytes differ, keeping its mode "
