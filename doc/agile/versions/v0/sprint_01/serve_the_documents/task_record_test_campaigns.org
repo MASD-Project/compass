@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :serve_the_documents:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/record-test-campaigns
+#+pr: 187
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-22
@@ -20,44 +20,118 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Goal
 
-(Describe what user-visible-or-internal change this task produces.)
+A tester, who has no git, records a test campaign through the service: starts
+a run of a scenario, gives each step an outcome and notes, attaches
+screenshots, writes notes on the campaign, and finishes the run, whose
+outcome the service derives. A developer addresses the notes. Each record
+names its tester, and each run the scenario's =:ID:= and the definition it
+followed, so the scenario pages stay read-only. The writes are library
+functions in =compass.db=, beside what needs testing, which reads them.
 
 * Status
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                                 |
 | Parent story | [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]] |
-| Now          | Not yet started.                       |
-| Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
+| Now          | The six writes record campaigns on ORE Studio's present sprint and move its scenarios' states; see Measurements. |
+| Waiting on   | Review of the pull request, and of Show what needs testing beneath it. |
+| Next         | Serve the documents over HTTP reads the note kinds from =.compass.org= and passes them in. |
 | Last touched | 2026-11-22                               |
 
 * Acceptance
 
--
+- =compass.db/query/campaign.hpp= has six writes, each in one transaction:
+  - =start_run= creates the campaign of the scenario's parent story in the
+    environment on the first run, recording its sprint, and records the
+    tester, the scenario's =:ID:=, its definition and its document hash. It
+    returns the run, the campaign and that definition's steps.
+  - =record_step_result= records or replaces a step's outcome (pass, fail,
+    blocked or skipped) and notes on an unfinished run.
+  - =attach_screenshot= stores a PNG, JPEG, GIF or WebP once, under its blob
+    ID, and attaches it to a run, at a step or to the whole run, or to a
+    note. Attaching the same bytes to the same place again changes only the
+    caption.
+  - =add_note= adds an open note to a campaign, of one of the project's note
+    kinds, optionally naming a scenario of the campaign's story and one of
+    that scenario's steps.
+  - =address_note= marks an open note addressed, with the addresser and an
+    optional reply.
+  - =finish_run= sets the outcome: failed if any step failed, blocked if any
+    was blocked and none failed, passed if every step passed or was skipped.
+    A run with a step that has no result, and none failed or blocked, is
+    refused, naming the steps.
+- Every write names its tester; a blank or empty tester is refused and
+  nothing is written. A refusal is =rejected_write= with a reason, invalid,
+  not found or conflict, for the generated routes to map to a status.
+- The request and response types are plain structs, as search's are. No
+  JSON is read or written, and no route or MCP handler is built.
+- What needs testing reads what these write; a Catch2 test moves a scenario
+  through every state with them.
+- Each write's validation has a Catch2 test on a throwaway cluster, and two
+  of them fail on an injected fault.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+1. =types/campaign.hpp=: the requests, the responses, the step and run
+   outcomes and =note_kinds=.
+2. =ops/run_outcome.hpp=: the outcome rule as a pure function, tested
+   without a database.
+3. =query/campaign.hpp=: the six writes. Each locks the run or note it
+   writes to (=FOR UPDATE=), so a finish cannot race a step result, and an
+   attachment's place is looked up under that lock.
+4. =compass-bench campaign= plays a script of writes, one a line, and
+   reports each result or refusal. =evidence/campaign_ore_studio.sh= plays
+   one on ORE Studio's present sprint.
+
+No schema change. The tables of migration 1 hold every record; the design's
+key of =attached= (attachment, run or note, step) is kept by the write, under
+the lock of the run or note, rather than by a unique index, which would need
+=NULLS NOT DISTINCT= that the entity model's index table cannot state. The
+entity models of =projects/compass.db/modeling/= are unchanged, so their
+comparison with the SQL is unchanged.
 
 * Measurements
 
-Every number this task claims about a tree, with the command that produced it
-and the commit it was measured at. A number without both is not a measurement,
-because a clean-up record describes a tree and trunk moves under a branch: a
-consumer count, a gate's component count and a suite's size all change with no
-code changing, and the reader of a bare number cannot tell which tree it came
-from. Where the raw output matters, put it in an =evidence/= file beside the
-task and name that file in the Command column.
+Raw output is in [[file:evidence/campaign_ore_studio.txt][evidence/campaign_ore_studio.txt]], from
+=evidence/campaign_ore_studio.sh <compass bin dir> <scratch>=, which syncs
+an archive of ORE Studio into an =initdb= cluster on a Unix socket with no
+TCP port, plays =compass-bench campaign= and asks =compass-bench testing=.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Present sprint before any write | Sprint 30: 4 scenarios, 4 untested | =campaign_ore_studio.sh= | ORE =9ed8b54cd2=, this branch |
+| Runs recorded | 4 campaigns, 4 runs: passed, failed at step 1, blocked at step 0, passed | as above | as above |
+| States after the runs | 0 untested, 2 failed, 2 passed, 0 changed; 1 open note on the failed scenario, the addressed one not counted | as above | as above |
+| States after one scenario's first step is edited and the worktree synced again | 1 passed becomes changed: 2 failed, 1 passed, 1 changed | as above | as above |
+| One screenshot attached three times, twice at the same step | 1 attachment, 2 attached rows | as above | as above |
+| Writes refused | finish twice and a step after finish (conflict); a second address (conflict); an unknown kind, a scenario of another story, no tester, step 11 of 11, a finish with 10 steps unrecorded (invalid) | as above | as above |
+| Catch2 tests | 13 cases, 100 assertions, =[campaign]=; with =[testing]=, 23 cases, 195 assertions | =compass.db.tests '[campaign],[testing]'= | this branch |
+| Injected faults | a blank tester accepted: 1 case fails, 6 assertions; blocked ranked above failed: 1 case fails, 1 assertion; code restored, all pass | as above, with the fault | this branch |
 
 * Notes
+
+- *Note kinds come from the compass configuration.* The design puts them in
+  =.compass.org=, beside the views, and so does this task. A check document
+  under =compass/checks/= defines a rule that =compass check= runs over a
+  checkout's files; note kinds are no rule over files but the vocabulary of
+  the service's own records, read by the service, as the views are. The
+  service already needs =.compass.org= for its views, and
+  =read_repository_file= reads it from a commit, as a release deploy will,
+  with no checkout. So the writes take =note_kinds= as an argument, as
+  queries take the =view_filter=: the service parses the configuration once,
+  at its boundary, and the library trusts what it is given. The parse of a
+  =* Note kinds= table, one kind a row, comes with Serve the documents over
+  HTTP, which wires the views from the same file.
+- *Runs follow one definition.* =start_run= returns the steps of the
+  definition the environment holds at that moment, and every later write to
+  the run checks steps against the run's own document, not the current one,
+  so an edit to the page during a run never mixes step lists.
+- *A scenario with no parent story* cannot be run: a campaign is a story's.
+  Whether a regression suite outside any sprint may be run is still an open
+  question of the design.
+- *Unfinished runs* are left as they are. A retried =start_run= makes a
+  second run; neither counts until it finishes.
 
 * Test Scenarios
 
@@ -74,7 +148,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/187][#187]] | Record test campaigns |
 
 * Review
 
@@ -83,3 +157,7 @@ via its "Verifies task" field.
 |   |                 |      |          |       |
 
 * Result
+
+=compass.db= records runs, step results, screenshots and notes through
+=compass.db/query/campaign.hpp=; =compass-bench campaign= plays a script of
+them.

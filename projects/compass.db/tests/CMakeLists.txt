@@ -24,6 +24,7 @@ add_executable(${tests_target_name}
     io_schema_tests.cpp
     ops_copy_text_tests.cpp
     ops_extract_tests.cpp
+    query_campaign_tests.cpp
     query_search_tests.cpp
     query_testing_tests.cpp)
 

@@ -129,6 +129,11 @@ present one unless =--sprint= names one, through the team view, prints the
 count of scenarios in each state, each story with scenarios and the count of
 tasks in each state, and times each question once and then =--repeat= times.
 
+=campaign= is not a stage either. It plays a script of =compass.db='s
+campaign writes, one a line (=start=, =step=, =attach=, =note=, =address=,
+=finish=), against an environment, and prints each write's result, or the
+reason it was refused, and its latency.
+
 =org-dump= is not a stage. It parses one org file and prints its tables in
 the line format of =compass::org::io::dump=, which
 =build/scripts/org_element_dump.el= prints for org-element.
@@ -184,6 +189,9 @@ the line format of =compass::org::io::dump=, which
   separated by tabs. The ranking options override =compass.db='s defaults.
 - =compass-bench testing <conninfo> --environment <name> [--sprint <id, title
   or directory>] [--repeat R]=.
+- =compass-bench campaign <conninfo> --environment <name> --script <file>
+  [--note-kinds <kind>,...]=. A screenshot an =attach= line names is read
+  relative to the script's directory.
 - =compass-bench org-dump <file>= prints to standard output.
   =compass-bench org-dump --list <list>= reads one input path, a tab and an
   output path per line and writes each dump to its output.
