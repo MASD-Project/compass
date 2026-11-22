@@ -8,7 +8,7 @@
 #+filetags: :own_the_masd_meta_model:sprint_01:v0:
 #+owner: marco
 #+branch: feature/name-the-product-root
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/185
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-22
@@ -174,7 +174,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    | Name the product root |
+| [[https://github.com/MASD-Project/compass/pull/185][#185]] | [codegen] Name the product root |
 
 * Review
 
