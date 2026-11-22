@@ -79,6 +79,10 @@ struct walker {
         runs.emplace_back(0, next_run++);
         const auto dir = std::string_view(path).substr(0, path.rfind('/'));
         for (const auto& in : includes_of(path)) {
+            // \i :name includes the file a psql variable names, which only
+            // the run that sets the variable knows, so it is not followed.
+            if (in.path.starts_with(':'))
+                continue;
             const auto target = join(in.relative ? dir : sql_root, in.path);
             if (!target || !exists(*target)) {
                 out.missing_includes.push_back({path, in.offset, in.path});
