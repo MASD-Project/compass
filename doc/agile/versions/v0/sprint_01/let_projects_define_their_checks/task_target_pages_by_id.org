@@ -8,7 +8,7 @@
 #+filetags: :let_projects_define_their_checks:sprint_01:v0:
 #+owner: marco
 #+branch: feature/target-pages-by-id
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/172
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-22
@@ -110,7 +110,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/172][#172]] | Let a project rename the pages codecs target, by naming them by :ID: |
 
 * Review
 
