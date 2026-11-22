@@ -20,9 +20,6 @@
 #ifndef COMPASS_DOCS_CODECS_SKILL_TABLES_HPP
 #define COMPASS_DOCS_CODECS_SKILL_TABLES_HPP
 
-#include <span>
-#include <string_view>
-#include <utility>
 #include "compass.codec/types/descriptor.hpp"
 
 namespace compass::docs::codecs {
@@ -54,23 +51,25 @@ extern const compass::codec::types::descriptor skill_catalogue;
 extern const compass::codec::types::descriptor skill_type_tables;
 
 /**
- * @brief The skill-levels inventory: the generated region of
- * doc/llm/skills/skill_systems_levels.org, the count of skills each
- * System sees by skill_level_table. Every region between the inventory's
- * markers, its BEGIN marker naming this codec or a script that wrote the
- * inventory before it, is replaced under a marker naming this codec. A
- * skill missing from the table, or a table entry with no skill, writes
- * nothing, and the refusal names each; an inventory without its markers
- * is not written.
+ * @brief The skill levels, from the check document whose Definition names
+ * this codec with :CODEC:. Its table "Levels" gives each skill's level and
+ * the reason for it; "Systems" the levels in order, each with its System,
+ * horizon and attenuation: advisory, seeing its own skills and the cross
+ * level's; binding, seeing the skills whose verb "Read-only verbs" lists
+ * and nothing else; or cross, whose skills every advisory level sees.
+ * "Settings" places the skills and the levels page.
+ *
+ * Every SKILL.org gets its #+level: line: the first one is replaced, or
+ * the line goes after #+export_exclude_tags: noexport. A SKILL.org
+ * holding a generated region is that generator's output, so it is not
+ * written, and a level it lacks is refused. The levels page
+ * gets its generated inventory, the count each System sees, and beside it
+ * the generated slices, the skills each level sees; slices a page lacks
+ * are put after the inventory. A skill with no row, or a row naming no
+ * skill, is a finding and nothing is written; a missing table, column or
+ * setting is unreadable.
  */
 extern const compass::codec::types::descriptor skill_levels;
-
-/**
- * @brief The table skill_levels applies: each skill and the System it
- * serves, sorted by skill.
- */
-[[nodiscard]] std::span<const std::pair<std::string_view, std::string_view>>
-skill_level_table() noexcept;
 
 }
 

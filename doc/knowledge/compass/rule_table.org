@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-206 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 58 are cited by no rule.
+209 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 58 are cited by no rule.
 
 ** Rules
 
@@ -185,6 +185,9 @@ memories no rule cites are the candidates for the next checks.
 | =single_writer= | second_writer | No table a DQ publish function writes is also written by a populate script, unless the two write different tenants or different rows. | =A611C520-54AA-4562-9BA6-768278E5DDEE= |
 | =skill_catalogue= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =skill_levels= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
+| =skill_levels= | skill_without_level | Every skill has a row in the table "Levels" of the check document: the level is a reviewed judgement, never a default. |  |
+| =skill_levels= | level_without_skill | Every row of the table "Levels" names a skill that exists. |  |
+| =skill_levels= | unreadable | The check document gives every table, column and setting the codec reads, and its rows agree with each other. |  |
 | =skill_namespace= | outside_namespace | Every skill under doc/llm/skills is named compass-... |  |
 | =skill_type_tables= | refused | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |  |
 | =sql_hygiene= | unterminated_block_comment | Every block comment closes; PostgreSQL nests them. |  |
