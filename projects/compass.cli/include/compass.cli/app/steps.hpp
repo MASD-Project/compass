@@ -23,6 +23,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -286,7 +287,8 @@ bool write_dependency_record(const std::filesystem::path& checkout,
 
 /**
  * @brief What writing the outputs did: sink, what it did to each file,
- * by path relative to the output root, the files whose rewrite deleted
+ * by path relative to the output root, and the codec of each, row for
+ * row, the files whose rewrite deleted
  * what may be code written by hand, why the written-outputs record read
  * was not used when it was not, and whether the record was rewritten.
  * actions is empty when the sink had a problem.
@@ -294,6 +296,7 @@ bool write_dependency_record(const std::filesystem::path& checkout,
 struct sink_outcome {
     codec::io::sink_result sink;
     std::vector<std::pair<std::string, codec::io::output_action>> actions;
+    std::vector<std::string> codecs;
     std::vector<codec::io::hand_edit> hand_edits;
     std::map<std::string, std::string> before;
     std::string record_problem;
@@ -301,14 +304,20 @@ struct sink_outcome {
 };
 
 /**
+ * @brief Narrows the outputs of a run to those a command writes, as
+ * ops::narrow does; empty for all of them.
+ */
+using output_filter = std::function<void(codec::types::output_set&)>;
+
+/**
  * @brief Makes the files under @p root hold what @p codecs emitted in
- * @p run, touching only the files that differ, starting from the
- * written-outputs record of @p checkout. The record is rewritten only when
- * the sink had no problem.
+ * @p run, as @p only narrows it, touching only the files that differ,
+ * starting from the written-outputs record of @p checkout. The record is
+ * rewritten only when the sink had no problem.
  */
 sink_outcome write_outputs(const std::filesystem::path& checkout,
     const std::filesystem::path& root, const codec::types::registry& codecs,
-    const codec::types::run_result& run);
+    const codec::types::run_result& run, const output_filter& only = {});
 
 /**
  * @brief What writing the outputs would do, with the outputs and the
@@ -328,12 +337,12 @@ struct planned_outputs {
 
 /**
  * @brief Plans into @p p writing what @p codecs emitted in @p run under
- * @p root, from the written-outputs record of @p checkout, as
- * write_outputs would. Writes nothing.
+ * @p root, as @p only narrows it, from the written-outputs record of
+ * @p checkout, as write_outputs would. Writes nothing.
  */
 void plan_outputs(planned_outputs& p, const std::filesystem::path& checkout,
     const std::filesystem::path& root, const codec::types::registry& codecs,
-    const codec::types::run_result& run);
+    const codec::types::run_result& run, const output_filter& only = {});
 
 /**
  * @brief Collects the store of the repository @p checkout

@@ -50,21 +50,21 @@ namespace compass::cli::app {
 
 namespace {
 
-int run_generate(const types::options& o, bool timings, std::ostream& out,
-    std::ostream& err) {
+int run_generate(const types::options& o, const types::invocation& i,
+    std::ostream& out, std::ostream& err) {
     const auto r = generate(o);
-    io::write_generate(out, err, r);
-    if (timings)
+    io::write_generate(out, err, r, i.list_files);
+    if (i.timings)
         io::write_timings(err, r.run);
     return r.run.failed() || !r.sink.problems.empty() ? exit_failure
                                                      : exit_success;
 }
 
-int run_diff(const types::options& o, bool timings, std::ostream& out,
-    std::ostream& err) {
+int run_diff(const types::options& o, const types::invocation& i,
+    std::ostream& out, std::ostream& err) {
     const auto r = diff(o);
-    io::write_diff(out, err, r);
-    if (timings)
+    io::write_diff(out, err, r, i.list_files);
+    if (i.timings)
         io::write_timings(err, r.run);
     if (r.run.failed() || !r.planned.problems.empty())
         return exit_failure;
@@ -238,7 +238,9 @@ std::expected<types::options, std::vector<std::string>> options_of(
         .collection = i.collection,
         .all_findings = i.all_findings,
         .blame = i.blame,
-        .bisect_from = i.bisect_from};
+        .bisect_from = i.bisect_from,
+        .scope = i.scope,
+        .skip_stale = i.skip_stale};
 }
 
 /**
@@ -294,8 +296,8 @@ int run_command(const types::invocation& i, std::ostream& out,
     const auto& o = *resolved;
     switch (o.which) {
     case types::command::generate:
-        return run_generate(o, i.timings, out, err);
-    case types::command::diff: return run_diff(o, i.timings, out, err);
+        return run_generate(o, i, out, err);
+    case types::command::diff: return run_diff(o, i, out, err);
     case types::command::check:
         if (i.ratchet)
             return run_ratchet(o, *i.ratchet, i.timings, out, err);

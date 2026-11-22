@@ -81,38 +81,6 @@ struct run_summary {
 };
 
 /**
- * @brief What compass generate did: sink counts what writing the outputs
- * under root did, each file once over every pass, and its problems why
- * nothing could be written or the outputs did not settle. passes counts
- * the runs of the codecs: generate runs them again while a pass changes
- * a file one of them read. run sums what every pass ran. hand_edits are
- * the files whose rewrite deleted what may be code written by hand, which
- * generate warns of. ms is the wall time of the whole command.
- */
-struct generate_result {
-    run_summary run;
-    std::filesystem::path root;
-    codec::io::sink_result sink;
-    std::vector<codec::io::hand_edit> hand_edits;
-    std::uint32_t passes = 1;
-    double ms = 0;
-};
-
-/**
- * @brief What compass diff found: planned counts what generate would do,
- * and diff is the unified diff of every file it would change, over as
- * many passes as generate would make, which passes counts.
- */
-struct diff_result {
-    run_summary run;
-    std::filesystem::path root;
-    codec::io::sink_result planned;
-    std::string diff;
-    std::uint32_t passes = 1;
-    double ms = 0;
-};
-
-/**
  * @brief The two sides of a drift finding, as blob IDs: file is what the
  * path holds, none when it is missing, and generated what the codec
  * generates for it, none when it no longer generates the file.
@@ -219,6 +187,93 @@ struct blame_report {
     std::string not_run;
     std::string notify;
     std::size_t probes = 0;
+    double ms = 0;
+};
+
+/**
+ * @brief Why a file generate changes, or diff would change, changes.
+ *
+ * yours: what generates it differs between HEAD and the checkout, so an
+ * input the checkout changed since HEAD changed it, or the file itself
+ * was edited since HEAD. stale: HEAD's inputs already generate what the
+ * checkout's do, and HEAD holds another file, so it was out of date
+ * before the checkout changed anything. unknown: there is no HEAD to
+ * compare with.
+ */
+enum class change_cause : std::uint8_t { yours, stale, unknown };
+
+/**
+ * @brief A file generate changes, or diff would change, and what produced
+ * it.
+ *
+ * path is relative to the output root and action is what writing does to
+ * it. codec is the codec that generates it, unit the document or part key
+ * of the unit that did, empty for a unit over the whole corpus, and
+ * origin the input the codec says the file was rendered from, such as a
+ * template, relative to the checkout, empty when it says none. A removed
+ * file has the codec that wrote it last and no unit or origin. written is
+ * false for a file generate left as it was, being stale under
+ * --skip-stale. culprits are what blame's drift method found for a stale
+ * file, most likely first.
+ */
+struct attributed_file {
+    std::string path;
+    codec::io::output_action action = codec::io::output_action::write;
+    std::string codec;
+    std::string unit;
+    std::string origin;
+    change_cause cause = change_cause::unknown;
+    bool written = true;
+    std::vector<culprit> culprits;
+};
+
+/**
+ * @brief The files a generate or diff changes, in path order, each once,
+ * with the last change any pass made to it. note says why they could not
+ * be split into yours and stale, when they could not. scope holds each
+ * --scope, relative to the checkout, and skip_stale is --skip-stale.
+ */
+struct attribution {
+    std::vector<attributed_file> files;
+    std::string note;
+    std::vector<std::string> scope;
+    bool skip_stale = false;
+};
+
+/**
+ * @brief What compass generate did: sink counts what writing the outputs
+ * under root did, each file once over every pass, and its problems why
+ * nothing could be written or the outputs did not settle. passes counts
+ * the runs of the codecs: generate runs them again while a pass changes
+ * a file one of them read. run sums what every pass ran. hand_edits are
+ * the files whose rewrite deleted what may be code written by hand, which
+ * generate warns of. changes says what produced each file it changed and
+ * whether the change is the checkout's own or was already due at HEAD.
+ * ms is the wall time of the whole command.
+ */
+struct generate_result {
+    run_summary run;
+    std::filesystem::path root;
+    codec::io::sink_result sink;
+    std::vector<codec::io::hand_edit> hand_edits;
+    attribution changes;
+    std::uint32_t passes = 1;
+    double ms = 0;
+};
+
+/**
+ * @brief What compass diff found: planned counts what generate would do,
+ * and diff is the unified diff of every file it would change, over as
+ * many passes as generate would make, which passes counts. changes says
+ * what produced each file it would change, as generate's does.
+ */
+struct diff_result {
+    run_summary run;
+    std::filesystem::path root;
+    codec::io::sink_result planned;
+    std::string diff;
+    attribution changes;
+    std::uint32_t passes = 1;
     double ms = 0;
 };
 

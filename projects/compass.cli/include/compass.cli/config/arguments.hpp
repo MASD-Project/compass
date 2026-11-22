@@ -68,7 +68,8 @@ using parsed_arguments =
  * --timings asks for the time of each step. --ratchet belongs to
  * check and takes the next argument as its base unless it starts with -
  * or names a command; --ratchet=<base> always does. --dry-run, --cap
- * and --grace belong to gc alone. --help or -h anywhere asks for help and
+ * and --grace belong to gc alone, and --scope, --skip-stale and --files
+ * to generate and diff. --help or -h anywhere asks for help and
  * --version for the version, whatever else is there.
  */
 [[nodiscard]] parsed_arguments parse_arguments(

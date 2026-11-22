@@ -37,6 +37,7 @@ add_library(${lib_target_name}
     io/listing.cpp
     io/report.cpp
     io/version.cpp
+    ops/attribution.cpp
     ops/blame.cpp
     ops/provenance.cpp
     ops/ratchet.cpp)

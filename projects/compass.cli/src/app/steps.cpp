@@ -425,13 +425,15 @@ bool write_dependency_record(const std::filesystem::path& checkout,
 
 sink_outcome write_outputs(const std::filesystem::path& checkout,
     const std::filesystem::path& root, const codec::types::registry& codecs,
-    const codec::types::run_result& run) {
+    const codec::types::run_result& run, const output_filter& only) {
     sink_outcome r;
     const auto record_path =
         codec::io::written_outputs_path(store::io::git_dir(checkout));
     const auto previous = codec::io::read_written_outputs(record_path);
     r.record_problem = previous.problem;
-    const auto outputs = codec::ops::outputs_of(codecs, run);
+    auto outputs = codec::ops::outputs_of(codecs, run);
+    if (only)
+        only(outputs);
     const auto plan = codec::io::plan_outputs(root, outputs,
         previous.record);
     if (plan.problems.empty())
@@ -444,8 +446,10 @@ sink_outcome write_outputs(const std::filesystem::path& checkout,
     r.sink = codec::io::apply_outputs(plan);
     if (!r.sink.problems.empty())
         return r;
-    for (std::size_t i = 0; i < plan.size(); ++i)
+    for (std::size_t i = 0; i < plan.size(); ++i) {
         r.actions.emplace_back(plan.paths[i], plan.actions[i]);
+        r.codecs.emplace_back(plan.codecs[i]);
+    }
     r.record_written =
         codec::io::write_written_outputs(record_path, r.sink.record);
     return r;
@@ -453,10 +457,12 @@ sink_outcome write_outputs(const std::filesystem::path& checkout,
 
 void plan_outputs(planned_outputs& p, const std::filesystem::path& checkout,
     const std::filesystem::path& root, const codec::types::registry& codecs,
-    const codec::types::run_result& run) {
+    const codec::types::run_result& run, const output_filter& only) {
     p.previous = codec::io::read_written_outputs(
         codec::io::written_outputs_path(store::io::git_dir(checkout)));
     p.outputs = codec::ops::outputs_of(codecs, run);
+    if (only)
+        only(p.outputs);
     p.plan = codec::io::plan_outputs(root, p.outputs, p.previous.record);
 }
 

@@ -21,6 +21,7 @@ set(tests_target_name ${name}.tests)
 
 add_executable(${tests_target_name}
     app_application_tests.cpp
+    app_attribution_tests.cpp
     app_blame_tests.cpp
     app_checks_tests.cpp
     app_codecs_tests.cpp
@@ -38,6 +39,7 @@ add_executable(${tests_target_name}
     config_check_documents_tests.cpp
     config_repository_file_tests.cpp
     io_version_tests.cpp
+    ops_attribution_tests.cpp
     ops_blame_tests.cpp
     ops_provenance_tests.cpp
     ops_ratchet_tests.cpp)

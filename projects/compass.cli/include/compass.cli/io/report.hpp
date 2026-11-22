@@ -35,17 +35,29 @@ void write_problems(std::ostream& err, const types::run_summary& s);
 
 /**
  * @brief Writes the sink problems to @p err and the counts of what
- * generate did to @p out, in one line.
+ * generate did to @p out, in one line, then what produced each file it
+ * changed, as write_diff does.
  */
 void write_generate(std::ostream& out, std::ostream& err,
-    const types::generate_result& r);
+    const types::generate_result& r, bool all = false);
 
 /**
  * @brief Writes the unified diffs to @p out, so they can be piped, and
  * the problems and counts of what generate would do to @p err.
+ *
+ * Then, to @p err, what produced each file that would change: a line for
+ * the scope, when there is one, then the files from the checkout's own
+ * change under "from your change", those already stale at HEAD under
+ * their own heading with what to do with them, and, when they could not
+ * be told apart, all of them under "changed", after a note saying why.
+ * Each file is a line of its action, its path and its producer: the
+ * codec, the unit and the input it was rendered from, as
+ * ops::producer_label writes them, and below it, for a stale file, the
+ * commits blame found. A section of more than twenty files counts them
+ * by producer instead, as ops::groups_of groups them, unless @p all.
  */
 void write_diff(std::ostream& out, std::ostream& err,
-    const types::diff_result& r);
+    const types::diff_result& r, bool all = false);
 
 /**
  * @brief Writes each finding to @p out as

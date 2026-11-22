@@ -46,6 +46,7 @@
 #include "compass.cli/config/repository_file.hpp"
 #include "compass.cli/io/history.hpp"
 #include "compass.cli/io/listing.hpp"
+#include "compass.cli/ops/attribution.hpp"
 #include "compass.cli/ops/provenance.hpp"
 #include "compass.cli/app/blame.hpp"
 #include "compass.cli/app/codecs.hpp"
@@ -69,6 +70,7 @@
 #include "compass.store/io/git_objects.hpp"
 #include "compass.store/io/location.hpp"
 #include "compass.store/ops/blob_hash.hpp"
+#include "compass.store/ops/git_index.hpp"
 
 namespace compass::cli::app {
 
@@ -626,12 +628,7 @@ bool feeds(const run_reads& r, const file_change& c) {
     if (!c.listing)
         return false;
     return std::ranges::any_of(r.listings, [&](std::string_view pattern) {
-        const auto star = pattern.find('*');
-        const auto prefix = pattern.substr(0, star);
-        const auto suffix = star == std::string_view::npos
-            ? std::string_view{} : pattern.substr(star + 1);
-        return c.path.size() >= prefix.size() + suffix.size() &&
-            c.path.starts_with(prefix) && c.path.ends_with(suffix);
+        return ops::matches_listing(pattern, c.path);
     });
 }
 
@@ -807,13 +804,14 @@ void overlay(pipeline& p, std::vector<planned_change> changes) {
 
 /**
  * @brief Runs the codecs of @p p again over its corpus as overlay left
- * it, from the dependency record and the result cache as evaluate ran
- * them, adding what they ran to its summary.
+ * it, from @p previous and the result cache as evaluate ran them, adding
+ * what they ran to its summary.
  */
-void run_again(pipeline& p, const types::options& o) {
+void run_again(pipeline& p, const types::options& o,
+    const ct::dependency_record& previous) {
     p.timed("codecs", [&] {
         p.run = run_codecs(p.codecs, p.corpus, p.types, o.threads,
-            p.previous.record, o.checkout);
+            previous, o.checkout);
     });
     auto& s = p.summary;
     for (std::size_t c = 0; c < p.codecs.size(); ++c) {
@@ -822,6 +820,10 @@ void run_again(pipeline& p, const types::options& o) {
         s.cached[c] += p.run.cached[c];
         s.codec_ms[c] += p.run.ms[c];
     }
+}
+
+void run_again(pipeline& p, const types::options& o) {
+    run_again(p, o, p.previous.record);
 }
 
 /**
@@ -936,6 +938,443 @@ std::string unsettled(const std::vector<std::string>& paths) {
         "input; still changing: {}", max_passes, names);
 }
 
+/**
+ * @brief The files of the checkout of @p o that git says changed since
+ * HEAD, staged or not, and those it neither tracks nor ignores, relative
+ * to the checkout.
+ */
+std::vector<std::string> changed_since_head(const types::options& o) {
+    auto out = io::git_lines(o.checkout, {"-c", "core.quotePath=false",
+        "diff", "--name-only", "--relative", "HEAD"});
+    std::ranges::move(io::git_lines(o.checkout, {"-c",
+        "core.quotePath=false", "ls-files", "--others", "--exclude-standard"}),
+        std::back_inserter(out));
+    return out;
+}
+
+/**
+ * @brief The files of the checkout of @p p that its outputs change, with
+ * the bytes they leave there, as planned_changes finds them, but against
+ * the files the codecs saw rather than a plan: nothing on disk is read
+ * and nothing is removed.
+ */
+std::vector<planned_change> generated_changes(const pipeline& p,
+    const types::options& o) {
+    std::vector<planned_change> out;
+    const auto outputs = codec::ops::outputs_of(p.codecs, p.run);
+    for (std::uint32_t row = 0; row < outputs.size(); ++row) {
+        const ct::file_id f{row};
+        auto path = checkout_path(o, outputs.files.paths[f]);
+        if (!path)
+            continue;
+        const bool listed = ct::holds_file(&p.checkout, *path);
+        const auto now = listed ? p.checkout.content_of(*path) : std::nullopt;
+        if (!now || *now != outputs.hashes[f])
+            out.push_back({{std::move(*path), !listed},
+                std::string(outputs.files.contents[f])});
+    }
+    return out;
+}
+
+/**
+ * @brief What HEAD generates, to tell a change the checkout made from
+ * drift HEAD already had, found once, when a file first needs it.
+ *
+ * When git lists no change since HEAD, tracked or not, the checkout
+ * generates what HEAD does, so every change is stale and HEAD is not
+ * evaluated. When the configuration file or a check document changed,
+ * the codecs themselves differ, and every change counts as the
+ * checkout's. Otherwise HEAD is evaluated from git's objects, with the
+ * settings of the checkout, through the dependency record and the result
+ * cache, in as many passes as diff makes, and each output it generates is
+ * kept with what HEAD's commit holds at its path.
+ */
+class head_comparison {
+public:
+    explicit head_comparison(const types::options& o) : o_(o) {}
+
+    /**
+     * @brief Asks git what changed since HEAD, once. generate calls it
+     * before it writes, so its own writes do not count.
+     */
+    void observe() {
+        if (observed_)
+            return;
+        observed_ = true;
+        try {
+            head_ = io::resolve_commit(o_.checkout, "HEAD");
+        } catch (const std::runtime_error&) {
+            state_ = state::none;
+            note_ = "the checkout has no commit, so its changes cannot be "
+                "told from drift";
+            return;
+        }
+        const auto changed = changed_since_head(o_);
+        const auto checks = std::string(config::checks_directory) + "/";
+        if (changed.empty()) {
+            state_ = state::clean;
+        } else if (std::ranges::any_of(changed, [&](const std::string& p) {
+                return p == config::repository_file_name ||
+                    p.starts_with(checks);
+            })) {
+            state_ = state::reconfigured;
+            note_ = "the configuration changed since HEAD, so every change "
+                "counts as yours";
+        }
+    }
+
+    /**
+     * @brief Why the output at @p path, relative to the output root,
+     * changes when the checkout generates @p generated there, none for a
+     * file it no longer generates. HEAD runs from @p record.
+     */
+    types::change_cause cause(std::string_view path,
+        const std::optional<store::types::blob_id>& generated,
+        const ct::dependency_record& record) {
+        observe();
+        if (state_ == state::changed)
+            evaluate(record);
+        switch (state_) {
+        case state::clean: return types::change_cause::stale;
+        case state::reconfigured: return types::change_cause::yours;
+        case state::none: return types::change_cause::unknown;
+        case state::changed:
+        case state::compared: break;
+        }
+        const auto it = files_.find(path);
+        if (it == files_.end())
+            return ops::cause_of(generated, std::nullopt, std::nullopt);
+        return ops::cause_of(generated, it->second.first, it->second.second);
+    }
+
+    [[nodiscard]] const std::string& note() const noexcept { return note_; }
+
+    /**
+     * @brief The wall time evaluating HEAD took, none when it did not run.
+     */
+    [[nodiscard]] std::optional<double> ms() const noexcept { return ms_; }
+
+private:
+    enum class state : std::uint8_t {
+        changed, clean, reconfigured, none, compared
+    };
+
+    void evaluate(const ct::dependency_record& record) {
+        const auto start = std::chrono::steady_clock::now();
+        auto at = o_;
+        at.commit = head_;
+        pipeline p;
+        list_files(p, at);
+        load_files(p, at);
+        run_units(p, at, record);
+        format(p, at);
+        for (std::uint32_t pass = 1;
+             !p.summary.failed() && pass < max_passes; ++pass) {
+            auto changes = generated_changes(p, at);
+            std::vector<file_change> files;
+            for (const auto& c : changes)
+                files.push_back(c.file);
+            if (fed_back(p.run, files).empty())
+                break;
+            overlay(p, std::move(changes));
+            run_again(p, at, record);
+            format(p, at);
+        }
+        ms_ = since(start);
+        const auto& s = p.summary;
+        if (s.failed()) {
+            state_ = state::none;
+            note_ = "HEAD does not load, so the changes cannot be told from "
+                "drift: " + (s.errors.empty() ? s.problems : s.errors).front();
+            return;
+        }
+        const auto outputs = codec::ops::outputs_of(p.codecs, p.run);
+        const auto& files = p.commit->files;
+        for (std::uint32_t row = 0; row < outputs.size(); ++row) {
+            const ct::file_id f{row};
+            const auto path = outputs.files.paths[f];
+            std::optional<store::types::blob_id> committed;
+            if (const auto in = checkout_path(at, path)) {
+                const auto r = files.find(*in);
+                if (r && store::ops::is_regular_file(files.modes[*r]))
+                    committed = files.ids[*r];
+            }
+            files_.insert_or_assign(std::string(path),
+                std::pair{outputs.hashes[f], committed});
+        }
+        state_ = state::compared;
+    }
+
+    const types::options& o_;
+    bool observed_ = false;
+    state state_ = state::changed;
+    store::types::object_id head_;
+    std::string note_;
+    std::optional<double> ms_;
+    std::map<std::string, std::pair<store::types::blob_id,
+        std::optional<store::types::blob_id>>, std::less<>> files_;
+};
+
+/**
+ * @brief The input the codec @p codec of @p p says it rendered the file
+ * @p content from, relative to the checkout, or empty.
+ */
+std::string origin_of(const pipeline& p, std::string_view codec,
+    std::string_view content) {
+    const auto& r = p.codecs;
+    for (std::uint32_t c = 0; c < r.size(); ++c) {
+        const auto& d = r.codecs[c];
+        if (d.name != codec)
+            continue;
+        if (d.origin == nullptr)
+            return {};
+        return d.origin({d.options, codec::ops::option_values(r,
+            ct::codec_id{c})}, content);
+    }
+    return {};
+}
+
+/**
+ * @brief The file at @p path, relative to the output root, that
+ * @p action changes, as the codec @p codec of @p p produced it from
+ * @p content, with the unit @p producers says produced it.
+ */
+types::attributed_file describe(const pipeline& p,
+    const std::unordered_map<std::string_view, ops::producer>& producers,
+    std::string_view codec, std::string_view path, std::string_view content,
+    codec::io::output_action action) {
+    types::attributed_file f;
+    f.path = path;
+    f.action = action;
+    f.codec = codec;
+    if (action == codec::io::output_action::remove)
+        return f;
+    if (const auto it = producers.find(path); it != producers.end())
+        f.unit = p.run.record.documents[ct::record_unit_id{it->second.unit}];
+    f.origin = origin_of(p, codec, content);
+    return f;
+}
+
+/**
+ * @brief What generate and diff take of each pass's outputs.
+ *
+ * scope holds the paths of --scope, relative to the checkout, and grows
+ * by each file a pass changes, so the next pass also takes what it feeds;
+ * given holds them as given. When scope is not empty, only the outputs of
+ * the units that read one of its paths, or that their codec says were
+ * rendered from one, are taken. Under --skip-stale, an output that would
+ * change and was already stale at HEAD is not taken either, and left
+ * holds each such file.
+ */
+struct output_choice {
+    head_comparison& head;
+    std::vector<std::string> given;
+    std::vector<std::string> scope;
+    bool skip_stale = false;
+    std::map<std::string, types::attributed_file, std::less<>> left;
+
+    [[nodiscard]] bool narrows() const noexcept {
+        return !scope.empty() || skip_stale;
+    }
+
+    /**
+     * @brief Adds @p changes, what a pass changed, to the scope, when
+     * there is one.
+     */
+    void widen(std::span<const file_change> changes) {
+        if (scope.empty())
+            return;
+        for (const auto& c : changes) {
+            if (!std::ranges::contains(scope, c.path))
+                scope.push_back(c.path);
+        }
+    }
+};
+
+/**
+ * @brief The paths of --scope of @p o, relative to its checkout.
+ */
+std::vector<std::string> scope_of(const types::options& o) {
+    std::vector<std::string> out;
+    for (const auto& given : o.scope) {
+        std::filesystem::path path(given);
+        if (path.is_absolute())
+            path = path.lexically_normal().lexically_relative(
+                o.checkout.lexically_normal());
+        out.push_back(path.lexically_normal().generic_string());
+    }
+    return out;
+}
+
+/**
+ * @brief Narrows @p outputs, those of the run of @p p, to what @p c
+ * takes.
+ */
+void choose(ct::output_set& outputs, const pipeline& p,
+    const types::options& o, output_choice& c) {
+    const auto producers = ops::producers_of(p.run.record);
+    const auto reading = ops::units_reading(p.run.record, c.scope);
+    ops::narrow(outputs, [&](std::size_t row) {
+        const ct::file_id f{static_cast<std::uint32_t>(row)};
+        const auto path = outputs.files.paths[f];
+        const auto codec = outputs.codecs[f];
+        const auto content = outputs.files.contents[f];
+        if (!c.scope.empty()) {
+            const auto it = producers.find(path);
+            const bool read = it != producers.end() &&
+                reading[it->second.unit] != 0;
+            if (!read && !std::ranges::contains(c.scope,
+                    origin_of(p, codec, content)))
+                return false;
+        }
+        if (!c.skip_stale)
+            return true;
+        const auto in = checkout_path(o, path);
+        const auto now = in
+            ? (ct::holds_file(&p.checkout, *in)
+                  ? p.checkout.content_of(*in) : std::nullopt)
+            : [&]() -> std::optional<store::types::blob_id> {
+                  const auto bytes = read_bytes(o.output_root / path);
+                  return bytes ? std::optional(store::ops::blob_id_of(*bytes))
+                               : std::nullopt;
+              }();
+        if (now == outputs.hashes[f] || c.head.cause(path, outputs.hashes[f],
+                p.previous.record) != types::change_cause::stale)
+            return true;
+        auto left = describe(p, producers, codec, path, content,
+            now ? codec::io::output_action::write
+                : codec::io::output_action::restore);
+        left.cause = types::change_cause::stale;
+        left.written = false;
+        c.left.insert_or_assign(std::string(path), std::move(left));
+        return false;
+    });
+}
+
+/**
+ * @brief The filter that narrows the outputs of @p p to what @p c takes,
+ * or none when it takes them all.
+ */
+output_filter filter_of(const pipeline& p, const types::options& o,
+    output_choice& c) {
+    if (!c.narrows())
+        return {};
+    return [&p, &o, &c](ct::output_set& outputs) {
+        choose(outputs, p, o, c);
+    };
+}
+
+/**
+ * @brief Sorts @p files, the files a command changed and those it left,
+ * into @p into, with the note and scope of @p c.
+ */
+void finish_attribution(types::attribution& into,
+    std::map<std::string, types::attributed_file, std::less<>> files,
+    output_choice& c) {
+    files.merge(c.left);
+    for (auto& [path, f] : files)
+        into.files.push_back(std::move(f));
+    into.note = c.head.note();
+    into.scope = c.given;
+    into.skip_stale = c.skip_stale;
+}
+
+/**
+ * @brief Adds to @p files each file @p written, what writing the outputs
+ * of @p p did, changed, with what produced it and why it changed.
+ */
+void attribute_written(const pipeline& p, const types::options& o,
+    const sink_outcome& written, output_choice& c,
+    std::map<std::string, types::attributed_file, std::less<>>& files) {
+    const auto producers = ops::producers_of(p.run.record);
+    for (std::size_t k = 0; k < written.actions.size(); ++k) {
+        const auto& [path, action] = written.actions[k];
+        if (!codec::io::changes_file(action))
+            continue;
+        std::optional<store::types::blob_id> generated;
+        std::string_view content;
+        if (action != codec::io::output_action::remove) {
+            const auto it = producers.find(path);
+            if (it != producers.end())
+                content = p.run.record.files.contents[it->second.file];
+            if (const auto bytes = read_bytes(o.output_root / path))
+                generated = store::ops::blob_id_of(*bytes);
+        }
+        auto f = describe(p, producers, written.codecs[k], path, content,
+            action);
+        f.cause = c.head.cause(path, generated, p.previous.record);
+        c.left.erase(path);
+        files.insert_or_assign(path, std::move(f));
+    }
+}
+
+types::document_ids document_ids_of(const pipeline& p);
+
+/**
+ * @brief The most stale files diff blames; more are left to check, which
+ * blames every drift finding.
+ */
+constexpr std::size_t stale_blamed = 20;
+
+/**
+ * @brief Names, by blame's drift method, the commits that likely made
+ * each stale file of @p a, files @p plan, the last plan of diff over
+ * @p p, changes, unless @p o blames nothing or there are more than
+ * stale_blamed of them.
+ */
+void blame_stale(const pipeline& p, const types::options& o,
+    const codec::io::output_plan& plan, types::attribution& a) {
+    if (o.blame == types::blame_mode::off)
+        return;
+    std::map<std::string, std::size_t, std::less<>> stale;
+    for (std::size_t i = 0; i < a.files.size(); ++i) {
+        const auto& f = a.files[i];
+        if (f.cause != types::change_cause::stale || !f.written)
+            continue;
+        if (auto in = checkout_path(o, f.path))
+            stale.emplace(std::move(*in), i);
+    }
+    if (stale.empty() || stale.size() > stale_blamed)
+        return;
+    std::vector<types::finding> findings;
+    for (auto& f : drift_of(plan, o.output_root, o.checkout)) {
+        if (stale.contains(f.path))
+            findings.push_back(std::move(f));
+    }
+    const auto blamed = blame(o, findings, document_ids_of(p), p.run.record);
+    for (const auto& b : blamed.findings) {
+        if (const auto it = stale.find(b.found.path); it != stale.end())
+            a.files[it->second].culprits = b.culprits;
+    }
+}
+
+/**
+ * @brief Each file @p plan, the last plan of diff over @p p, changes,
+ * with what produced it and why it changes, and those @p c left.
+ */
+types::attribution attribution_of(const pipeline& p,
+    const codec::io::output_plan& plan, output_choice& c) {
+    const auto producers = ops::producers_of(p.run.record);
+    std::map<std::string, types::attributed_file, std::less<>> files;
+    for (std::size_t i = 0; i < plan.size(); ++i) {
+        const auto action = plan.actions[i];
+        if (!codec::io::changes_file(action))
+            continue;
+        auto f = describe(p, producers, plan.codecs[i], plan.paths[i],
+            plan.contents[i], action);
+        const auto generated = action == codec::io::output_action::remove
+            ? std::nullopt
+            : std::optional(store::ops::blob_id_of(plan.contents[i]));
+        f.cause = c.head.cause(plan.paths[i], generated, p.previous.record);
+        c.left.erase(plan.paths[i]);
+        files.emplace(f.path, std::move(f));
+    }
+    types::attribution out;
+    finish_attribution(out, std::move(files), c);
+    return out;
+}
+
+
 }
 
 types::generate_result generate(const types::options& o) {
@@ -944,6 +1383,10 @@ types::generate_result generate(const types::options& o) {
     r.root = o.output_root;
     std::map<std::string, codec::io::output_action> earlier;
     std::map<std::string, std::string> originals;
+    head_comparison head(o);
+    head.observe();
+    output_choice choice{head, o.scope, scope_of(o), o.skip_stale, {}};
+    std::map<std::string, types::attributed_file, std::less<>> changed;
     for (r.passes = 1;; ++r.passes) {
         pipeline p;
         evaluate(p, o);
@@ -956,14 +1399,17 @@ types::generate_result generate(const types::options& o) {
         sink_outcome written;
         p.timed("write", [&] {
             written = write_outputs(o.checkout, o.output_root, p.codecs,
-                p.run);
+                p.run, filter_of(p, o, choice));
         });
+        if (written.sink.problems.empty())
+            attribute_written(p, o, written, choice, changed);
         add_pass(r.run, std::move(p.summary), r.passes);
         originals.merge(written.before);
         r.sink = std::move(written.sink);
         if (!r.sink.problems.empty())
             break;
         const auto changes = written_changes(p, o, written.actions);
+        choice.widen(changes);
         const auto fed = fed_back(p.run, changes);
         if (fed.empty() || r.passes == max_passes) {
             count_earlier(r.sink, earlier, written.actions);
@@ -977,6 +1423,9 @@ types::generate_result generate(const types::options& o) {
         }
     }
     r.hand_edits = hand_edits_left(o.output_root, originals);
+    finish_attribution(r.changes, std::move(changed), choice);
+    if (const auto ms = head.ms())
+        r.run.steps.emplace_back("head", *ms);
     r.ms = since(start);
     return r;
 }
@@ -988,15 +1437,19 @@ types::diff_result diff(const types::options& o) {
     pipeline p;
     evaluate(p, o);
     format(p, o);
+    head_comparison head(o);
+    output_choice choice{head, o.scope, scope_of(o), o.skip_stale, {}};
     for (r.passes = 1; !p.summary.failed(); ++r.passes) {
         planned_outputs planned;
         p.timed("plan", [&] {
-            plan_outputs(planned, o.checkout, o.output_root, p.codecs, p.run);
+            plan_outputs(planned, o.checkout, o.output_root, p.codecs, p.run,
+                filter_of(p, o, choice));
         });
         auto changes = planned_changes(p, o, planned.plan);
         std::vector<file_change> files;
         for (const auto& c : changes)
             files.push_back(c.file);
+        choice.widen(files);
         const auto fed = fed_back(p.run, files);
         if (!planned.plan.problems.empty() || fed.empty() ||
             r.passes == max_passes) {
@@ -1004,6 +1457,12 @@ types::diff_result diff(const types::options& o) {
             r.diff = codec::io::diff_outputs(planned.plan);
             if (!fed.empty() && planned.plan.problems.empty())
                 r.planned.problems.push_back(unsettled(fed));
+            if (planned.plan.problems.empty()) {
+                r.changes = attribution_of(p, planned.plan, choice);
+                p.timed("blame", [&] {
+                    blame_stale(p, o, planned.plan, r.changes);
+                });
+            }
             break;
         }
         overlay(p, std::move(changes));
@@ -1011,6 +1470,8 @@ types::diff_result diff(const types::options& o) {
         format(p, o);
     }
     r.run = p.summary;
+    if (const auto ms = head.ms())
+        r.run.steps.emplace_back("head", *ms);
     r.ms = since(start);
     return r;
 }
