@@ -106,7 +106,7 @@ memories no rule cites are the candidates for the next checks.
 | =model_rules= | money_not_exact | A money column is numeric in SQL and a decimal in C++, never a binary float or text. | =E47BAF35-066F-4EF2-BA3D-522AED44FF33=, =B9DAC38A-BEB1-4658-87BC-DFF901033E84= |
 | =model_rules= | continuous_exact | A continuous quantity is not typed numeric or decimal, an exactness it does not have. | =B9DAC38A-BEB1-4658-87BC-DFF901033E84= |
 | =model_rules= | unpublished_area | Every #+http_area: a model declares is a published area. |  |
-| =model_rules= | unreadable_areas | The route classification module states AREAS and NO_AREA as literals. |  |
+| =model_rules= | unreadable_areas | The check document gives the Settings, Rules and Exemptions tables the published areas are read from, and its Settings state the no area setting once. |  |
 | =model_rules= | contradicted | A model does not redeclare a feature its profile fixes to another value. |  |
 | =model_rules= | unset_required | A model sets every feature its profile requires. |  |
 | =model_rules= | self_contradicting | A model states a feature once, or always with one value. |  |
