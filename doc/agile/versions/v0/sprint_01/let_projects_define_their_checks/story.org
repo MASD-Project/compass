@@ -58,6 +58,7 @@ the same speed, caching and exception handling as its built-in codecs.
 | [[id:2A35EE3D-5EB8-4739-A802-8D2FD0A47CD9][Target pages by ID]] | STARTED | 2026-11-22 | | Codecs find the pages they write or read by the :ID: a project's configuration names, not by an ORE Studio path built into compass, so a project can rename a page. |
 | [[id:30ACBA0B-589E-4BBA-90F0-2BBBEDAFFB41][Pin the ratchet to the rules of HEAD]] | STARTED | 2026-11-22 | | Prove and pin with tests that check --ratchet judges the merge base by HEAD's configuration, check documents and exceptions, so adopting a check fails nothing already there. |
 | [[id:1CC3C917-9434-48F3-B90B-D1BA225E1BBB][Ratchet the scripts a generated header names]] | STARTED | 2026-11-22 | | Report names_missing_file at the merge base too, so a ratchet excuses a missing script the base already named and fails only on one the change names or deletes. |
+| [[id:B2EBA1E7-F3AE-4A2A-B287-01526918A51E][Take the value set names from the models]] | STARTED | 2026-11-22 | | ore_value_sets, parameter_value_sets and curve_sections_wiring take ORE Studio's value set tables, functions, seed paths and writer stamp from the entity models a check document names, not from strings built into compass. |
 
 * Documents
 

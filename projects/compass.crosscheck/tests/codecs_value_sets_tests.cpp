@@ -25,6 +25,7 @@
 #include "compass.crosscheck/ops/json_value.hpp"
 #include "compass.crosscheck/ops/ore_schema.hpp"
 #include "compass.crosscheck/ops/value_sets.hpp"
+#include "compass.testing/filesystem/scoped_directory.hpp"
 #include "curve_fixture.hpp"
 #include "test_checkout.hpp"
 #include "value_sets_data.hpp"
@@ -45,6 +46,8 @@ bool has(const std::vector<std::string>& messages, std::string_view text) {
 const std::string curation =
     "projects/ores.seeder/datasets/ore_pricing_engines/curation/";
 const std::string utility = "projects/ores.sql/utility/";
+const std::string seed_path = "projects/ores.sql/populate/reporting/"
+    "reporting_ore_parameter_value_sets_populate.sql";
 
 const std::string provenance = R"("reason": "r", "source": "authored",
     "source_ref": "x", "curator": "c", "date": "2026-11-17")";
@@ -119,13 +122,27 @@ files tree() {
     t[curation + "value-sets-guide-enums.json"] = "{" + provenance + "}";
     t[curation + "engine-settings-groups.json"] =
         R"({"value_sets": {}, "groups": []})";
+    t.merge(tests::value_set_models());
+    return t;
+}
+
+/**
+ * @brief @p t with the value set models moved to @p component, under
+ * entity names after @p prefix.
+ */
+files moved(files t, std::string_view component, std::string_view prefix) {
+    std::erase_if(t, [](const auto& f) {
+        return f.first.find("/modeling/ores.reporting.ore_") !=
+            std::string::npos;
+    });
+    t.merge(tests::value_set_models(component, prefix));
     return t;
 }
 
 TEST_CASE("the seed states each value as the generator's q() does",
     "[value_sets]") {
     const auto out = generate(tree());
-    const auto seed = out.find(ops::value_sets::seed_path);
+    const auto seed = out.find(seed_path);
     REQUIRE(seed != out.end());
     // A float bound keeps its point, a quote is doubled, an empty
     // description is null and a default is stated.
@@ -141,6 +158,97 @@ TEST_CASE("the seed states each value as the generator's q() does",
         "'mode',") != std::string::npos);
     // The set no link names is dropped, as load() drops it.
     CHECK(seed->second.find("('text',") == std::string::npos);
+}
+
+TEST_CASE("the seeds' paths, tables and writer are the models'",
+    "[value_sets]") {
+    auto t = tree();
+    std::erase_if(t, [](const auto& f) {
+        return f.first.find("/modeling/ores.reporting.ore_") !=
+            std::string::npos;
+    });
+    t.merge(tests::value_set_models("vault", "ore_", "acme"));
+    const auto out = generate(t);
+    const auto seed = out.find("projects/acme.sql/populate/vault/"
+        "vault_ore_parameter_value_sets_populate.sql");
+    REQUIRE(seed != out.end());
+    CHECK(seed->second.find("insert into "
+        "acme_vault_ore_parameter_value_sets_tbl (") != std::string::npos);
+    CHECK(seed->second.find("insert into "
+        "acme_vault_ore_parameter_setting_value_sets_tbl (") !=
+        std::string::npos);
+    CHECK(seed->second.find("'acme_vault_service', 'system.initial_load'") !=
+        std::string::npos);
+    CHECK(seed->second.find("ores_reporting") == std::string::npos);
+    CHECK_FALSE(out.contains(seed_path));
+}
+
+TEST_CASE("a model moved to another component, under a name without the "
+    "prefix, moves the seed and renames its tables", "[value_sets]") {
+    auto d = data();
+    d["Value set entities"] = tests::value_set_entities("");
+    const auto out = generate(moved(tree(), "ore", ""), d);
+    const auto seed = out.find("projects/ores.sql/populate/ore/"
+        "ore_parameter_value_sets_populate.sql");
+    REQUIRE(seed != out.end());
+    CHECK(seed->second.find("insert into ores_ore_parameter_value_sets_tbl (")
+        != std::string::npos);
+    CHECK(seed->second.find("'ores_ore_service', 'system.initial_load'") !=
+        std::string::npos);
+    CHECK_FALSE(out.contains(seed_path));
+    // The entities' old names find no model once they are moved.
+    const auto old = tests::messages_of(run(moved(tree(), "ore", "")));
+    CHECK(has(old, "no modeling/ directory holds a model of the entity "
+        "ore_parameter_vocabulary"));
+}
+
+TEST_CASE("a role with no row, or an entity with no model, is unreadable "
+    "and writes no seed", "[value_sets]") {
+    auto no_row = data();
+    no_row["Value set entities"].pop_back();
+    const auto lacking = tests::messages_of(run(tree(), no_row));
+    CHECK(has(lacking, "no row names the entity of the role "
+        "setting_value_set, in the table \"Value set entities\" "
+        "parameter_value_sets reads"));
+    CHECK(generate(tree(), no_row).empty());
+
+    auto no_model = tree();
+    no_model.erase("projects/ores.reporting/modeling/"
+        "ores.reporting.ore_parameter_value_set.org");
+    const auto r = run(no_model);
+    REQUIRE_FALSE(r.findings.empty());
+    CHECK(r.findings.front() == tests::finding{"compass/checks/value_sets.org",
+        0, "compass/checks/value_sets.org:49: no modeling/ directory holds a "
+        "model of the entity ore_parameter_value_set, in the table \"Value "
+        "set entities\" parameter_value_sets reads"});
+    CHECK(generate(no_model).empty());
+    const auto refused = tests::messages_of(
+        tests::run(codecs::ore_value_sets, no_model, data().settings()));
+    CHECK(has(refused, "the value set seed, with the element map, is not "
+        "generated: compass/checks/value_sets.org:49: no modeling/ directory "
+        "holds a model of the entity ore_parameter_value_set"));
+}
+
+TEST_CASE("a model added after a run is found by the next, from the cache",
+    "[value_sets]") {
+    const compass::testing::filesystem::scoped_directory cache(
+        "compass.crosscheck.tests.value_set_models");
+    const auto model = "projects/ores.ore/modeling/"
+        "ores.ore.ore_parameter_value_set.org";
+    auto before = tree();
+    auto models = tests::value_set_models("ore");
+    before.erase("projects/ores.reporting/modeling/"
+        "ores.reporting.ore_parameter_value_set.org");
+    const auto first = tests::run(codecs::parameter_value_sets, before,
+        data().settings(), {}, cache.path());
+    CHECK(has(tests::messages_of(first), "no modeling/ directory holds a "
+        "model of the entity ore_parameter_value_set"));
+    auto after = before;
+    after[model] = models.at(model);
+    const auto second = tests::run(codecs::parameter_value_sets, after,
+        data().settings(), first.record, cache.path());
+    CHECK_FALSE(has(tests::messages_of(second), "ore_parameter_value_set"));
+    CHECK(second.findings == run(after).findings);
 }
 
 TEST_CASE("a parameter with no set is reported and stops the seed",
@@ -192,8 +300,8 @@ TEST_CASE("an engine run setting draws its set, and one that states a "
   "groups": [{"code": "g", "name": "G", "description": "d",
     "settings": [{"column": "c", "ore": "flagIt", "value_set": "setup.flag"}]}]})";
     const auto out = generate(t);
-    REQUIRE(out.contains(std::string(ops::value_sets::seed_path)));
-    CHECK(out.at(std::string(ops::value_sets::seed_path)).find(
+    REQUIRE(out.contains(seed_path));
+    CHECK(out.at(seed_path).find(
         "'Setup:flagIt', ores_utility_system_tenant_id_fn(), 0, 'Setup', "
         "'flagIt', 'setup.flag'") != std::string::npos);
     auto bad = t;

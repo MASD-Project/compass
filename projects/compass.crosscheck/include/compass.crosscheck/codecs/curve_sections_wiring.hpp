@@ -37,7 +37,10 @@ namespace compass::crosscheck::codecs {
  *
  * generate_curve_column_guards.py: the curve configuration column map,
  * its value guard and the guard's drop, from the same wiring and each
- * family entity's :tablename:.
+ * family entity's :tablename:. The guard's element map tables and value
+ * set functions come from the models of the entities the Value set
+ * entities table of its check document names (ops::value_sets::storage);
+ * without that table it refuses the guard alone.
  *
  * Where a script reports a problem and writes nothing, the codec refuses
  * the outputs it cannot write and says why.

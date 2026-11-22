@@ -41,30 +41,41 @@ namespace pt = compass::platform::text;
 namespace vs = compass::crosscheck::ops::value_sets;
 
 constexpr std::string_view data_fix = "Give the tables the message names.";
+constexpr std::string_view storage_fix = "Name each role's entity in the "
+    "table, and give that entity one model under a modeling/ directory.";
 
 void write(const ct::corpus_view& v, ct::file_output& out) {
     const auto data = vs::read_tables(v, "ore_value_sets");
-    if (!data) {
-        co::refuse(out, vs::terms_path, data.error().message, data_fix);
-        co::refuse(out, vs::seed_path, data.error().message, data_fix);
+    const auto names = data.and_then([&](const auto& d) {
+        return vs::read_storage(v, d, "ore_value_sets");
+    });
+    if (!names) {
+        const auto& why = names.error();
+        const auto fix = data ? storage_fix : data_fix;
+        co::refuse(out, vs::terms_path, why.message, fix);
+        co::report(out.refusals, why.path, 0, 0, "the value set seed, with "
+            "the element map, is not generated: " + why.message, fix);
         return;
     }
     const auto r = vs::evaluate(v, *data);
     vs::write_convention_kind_terms(v, r.terms ? r.terms
-        : ops::convention_terms(v, *data), out);
+        : ops::convention_terms(v, *data), *names, out);
+    const auto seed = names->seed_path(vs::role::value_set);
     if (r.stopped || !r.problems.empty()) {
-        co::refuse(out, vs::seed_path, "the value set curation does not "
-            "resolve", "Correct what parameter_value_sets reports.");
-        return;
-    }
-    out.files.add(vs::seed_path, vs::render_seed(r.data));
-    if (!r.rows || !r.columns) {
-        co::refuse(out, vs::map_path, "the element map cannot be built",
+        co::refuse(out, seed, "the value set curation does not resolve",
             "Correct what parameter_value_sets reports.");
         return;
     }
-    out.files.add(vs::columns_path, vs::render_columns(*r.columns));
-    out.files.add(vs::map_path, vs::render_map(*r.rows));
+    out.files.add(seed, vs::render_seed(r.data, *names));
+    const auto map = names->seed_path(vs::role::vocabulary);
+    if (!r.rows || !r.columns) {
+        co::refuse(out, map, "the element map cannot be built",
+            "Correct what parameter_value_sets reports.");
+        return;
+    }
+    out.files.add(names->seed_path(vs::role::element_map_column),
+        vs::render_columns(*r.columns, *names));
+    out.files.add(map, vs::render_map(*r.rows, *names));
 }
 
 constexpr std::array<ct::rule, 11> rules{{
@@ -86,7 +97,7 @@ constexpr std::array<ct::rule, 11> rules{{
         "check."},
     {"missing_file", "Every file the override rules guard exists."},
     {"unreadable", "Every table the value sets are resolved with is there "
-        "and reads."}}};
+        "and reads, and every entity it names has one model."}}};
 
 std::uint32_t rule_of(std::string_view name) {
     for (std::uint32_t k = 0; k < rules.size(); ++k)
@@ -204,6 +215,10 @@ void check(const ct::corpus_view& v, ct::diagnostic_table& out) {
         override_rules(v, out);
         return;
     }
+    if (const auto names = vs::read_storage(v, *data, "parameter_value_sets");
+        !names)
+        co::report(out, names.error().path, 0, rule_of("unreadable"),
+            names.error().message, storage_fix);
     const auto r = vs::evaluate(v, *data);
     if (r.stopped) {
         co::report(out, vs::generator_path, 0, rule_of("unresolved"),
@@ -238,11 +253,12 @@ constexpr std::array<ct::option, 1> options{{
     {compass::codec::ops::data_option, "", "The tables of the check document "
         "whose Definition names ore_value_sets and parameter_value_sets: the "
         "curation the value sets, the element map and the convention kind "
-        "terms are resolved with."}}};
+        "terms are resolved with, and the entities, by role, whose models "
+        "name the tables, functions, seeds and writer they are stored with."}}};
 
 const ct::descriptor ore_value_sets{
     .name = "ore_value_sets",
-    .version = 3,
+    .version = 4,
     .summary = "Writes the parameter value set seed, the ORE element map and "
                "its columns from one resolution of the value set curation.",
     .reads = ct::inputs::of_types({}),
@@ -253,7 +269,7 @@ const ct::descriptor ore_value_sets{
 
 const ct::descriptor parameter_value_sets{
     .name = "parameter_value_sets",
-    .version = 3,
+    .version = 4,
     .summary = "Reports every rule the parameter value sets break, from the "
                "same resolution the seed is written from.",
     .reads = ct::inputs::of_types({}),

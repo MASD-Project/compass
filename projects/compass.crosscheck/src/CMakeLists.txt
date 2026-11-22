@@ -53,6 +53,7 @@ add_library(${lib_target_name}
     ops/python_numbers.cpp
     ops/python_literals.cpp
     ops/subjects.cpp
+    ops/value_set_storage.cpp
     ops/value_sets.cpp
     ops/words.cpp
     ops/xml_bindings.cpp)
