@@ -643,6 +643,8 @@ private:
             break;
         }
         case element_kind::export_block:
+            if (name(t_.blocks.names[id]) != "html")
+                return;
             out_ += "<pre class=\"org-export\"><code>";
             break;
         default:
@@ -751,11 +753,18 @@ private:
         case object_kind::superscript:
             text(r);
             return;
+        case object_kind::export_snippet: {
+            const auto snippet = r.of(source_);
+            constexpr std::string_view html = "@@html:";
+            if (snippet.starts_with(html) && snippet.size() >= html.size() + 2)
+                text(snippet.substr(html.size(),
+                    snippet.size() - html.size() - 2));
+            return;
+        }
         case object_kind::footnote_reference:
         case object_kind::inline_src_block:
         case object_kind::inline_babel_call:
         case object_kind::macro:
-        case object_kind::export_snippet:
         case object_kind::latex_fragment:
         case object_kind::entity:
         case object_kind::radio_target:

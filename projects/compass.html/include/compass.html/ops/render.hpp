@@ -35,10 +35,12 @@ namespace compass::html::ops {
  * text.
  *
  * Every byte taken from the source is escaped and no markup the source
- * writes passes through: export blocks and export snippets render as
- * escaped text, and #+attr_html: is ignored. The output needs no sanitiser.
- * Comments, commented headings and headings tagged noexport are left out,
- * as org's export leaves them out, and so are drawers and property drawers.
+ * writes passes through: an html export block or export snippet renders
+ * its content as escaped text, and #+attr_html: is ignored. The output
+ * needs no sanitiser. Export blocks and snippets for other backends,
+ * comments, commented headings and headings tagged noexport are left out,
+ * as org's HTML export leaves them out, and so are drawers and property
+ * drawers.
  * Any other element or object the renderer does not support renders as its
  * escaped source in an org-unsupported div or span.
  */

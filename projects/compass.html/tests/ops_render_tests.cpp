@@ -322,11 +322,20 @@ TEST_CASE("export blocks and snippets are escaped, never passed through",
         "<pre class=\"org-export\"><code>&lt;script&gt;x()&lt;/script&gt;\n"
         "</code></pre>\n"));
     CHECK_THAT(r.body, ContainsSubstring(
-        "<span class=\"org-unsupported\" data-org-kind=\"export-snippet\">"
-        "@@html:&lt;b&gt;bold&lt;/b&gt;@@</span>"));
+        "<p>A &lt;b&gt;bold&lt;/b&gt; snippet.\n</p>"));
     CHECK_THAT(r.body, !ContainsSubstring("<script>"));
     CHECK_THAT(r.body, !ContainsSubstring("<b>"));
     CHECK_THAT(r.body, !ContainsSubstring("onclick"));
+    CHECK(r.unsupported.empty());
+}
+
+TEST_CASE("export blocks and snippets for other backends are left out",
+    "[html][render]") {
+    CHECK(body(
+        "#+begin_export latex\n\\newpage\n#+end_export\n"
+        "\n"
+        "@@latex:\\textsc{T}@@@@html:T@@his.\n") ==
+        "<p>This.\n</p>\n");
 }
 
 TEST_CASE("an unsupported element is kept as escaped text",

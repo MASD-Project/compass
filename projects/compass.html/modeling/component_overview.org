@@ -47,7 +47,7 @@ text, the body as HTML, and the kind of each construct that fell to the
 | Paragraph                         | =<p>=                                                                    |
 | Plain, ordered, description list  | =<ul>=, =<ol>=, =<dl>=; a checkbox as a classed span                     |
 | Table                             | =<table>=; the rows before the first rule in =<thead>= as =<th>=         |
-| Source, example and export block  | =<pre><code>=, escaped; a source block's language as =language-<name>=    |
+| Source, example, =html= export    | =<pre><code>=, escaped; a source block's language as =language-<name>=    |
 | Quote, center, special, dynamic   | =<blockquote>= or a classed =<div>= around the children                  |
 | Verse block, fixed width, rule    | =<p class="org-verse">=, =<pre class="org-fixed-width">=, =<hr>=         |
 | Keywords before the first heading | =<dl class="org-keywords">=, except title and description               |
@@ -71,13 +71,14 @@ text, the body as HTML, and the kind of each construct that fell to the
   caller cannot see, renders as its description: the two read the same, so
   the page does not show that a hidden document exists.
 - *Safety.* Every byte from the source is escaped and every URL is
-  percent-encoded where it is put in a template. Export blocks and export
-  snippets render as escaped text, never as markup; =#+attr_html:= is
-  ignored; a class built from a block's name is used only when the name is
-  letters, digits, =-=, =_= and =+=. The output needs no sanitiser.
-- *Left out.* Drawers, property drawers, comments and comment blocks, and
-  headings marked =COMMENT= or tagged =noexport=, as org's export leaves
-  them out.
+  percent-encoded where it is put in a template. An =html= export block or
+  export snippet renders its content as escaped text, never as markup;
+  =#+attr_html:= is ignored; a class built from a block's name is used only
+  when the name is letters, digits, =-=, =_= and =+=. The output needs no
+  sanitiser.
+- *Left out.* Drawers, property drawers, comments and comment blocks,
+  export blocks and snippets for other backends, and headings marked
+  =COMMENT= or tagged =noexport=, as org's HTML export leaves them out.
 - *Unsupported.* Any other construct renders as its escaped source in a
   =<div>= or =<span>= of class =org-unsupported=, with its org-element name
   in =data-org-kind=, and is counted in =unsupported=.
