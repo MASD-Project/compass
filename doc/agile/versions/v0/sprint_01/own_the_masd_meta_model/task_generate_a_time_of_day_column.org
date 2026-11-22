@@ -8,7 +8,7 @@
 #+filetags: :codegen:own_the_masd_meta_model:sprint_01:v0:
 #+owner: marco
 #+branch: feature/time-of-day-column
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/188
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-22
@@ -104,7 +104,7 @@ SQL types still without a mapping, by table:
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/188][#188]] | [codegen] Generate a time-of-day column |
 
 * Review
 
