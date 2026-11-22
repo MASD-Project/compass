@@ -8,7 +8,7 @@
 #+filetags: :serve_the_documents:sprint_01:v0:
 #+owner: marco
 #+branch: feature/record-test-campaigns
-#+pr:
+#+pr: 187
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-22
@@ -148,7 +148,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/187][#187]] | Record test campaigns |
 
 * Review
 
