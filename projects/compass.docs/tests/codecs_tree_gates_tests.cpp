@@ -17,6 +17,7 @@
  * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  */
+#include <algorithm>
 #include <catch2/catch_test_macros.hpp>
 #include "compass.docs/codecs/prototypes.hpp"
 #include "compass.docs/codecs/rule_identifiers.hpp"
@@ -132,22 +133,36 @@ TEST_CASE("the prototype inventory must match the tree",
             "file by copy, so the copies must be identical"});
 }
 
-TEST_CASE("each UX rule carries one identifier and the checklist cites "
-    "them", "[codecs][rule_identifiers]") {
-    const files t{
+namespace {
+
+const tests::options ux_pages{{"RS", "RS-PAGE"}, {"ES", "ES-PAGE"},
+    {"checklist", "CHECKLIST"}};
+
+files ux_tree() {
+    return {
         {"doc/knowledge/ui/record_screen_standard.org",
-         "* Summary\n- not a rule\n"
+         ":PROPERTIES:\n:ID: RS-PAGE\n:END:\n* Summary\n- not a rule\n"
          "** The list\n- *RS-LIST-01* rows\n- a rule without one\n"
          "- [ ] a task, not a rule\n#+begin_example\n- inside\n"
          "#+end_example\n- *ES-LIST-01* wrong page\n"
          "** A section nobody keys\n- *RS-X-01* keyed anyway\n- plain\n"},
         {"doc/knowledge/ui/entity_screen_specification.org",
+         ":PROPERTIES:\n:ID: ES-PAGE\n:END:\n"
          "** The list\n- *ES-LIST-01* again\n"},
         {"doc/knowledge/ui/screen_review_checklist.org",
+         ":PROPERTIES:\n:ID: CHECKLIST\n:END:\n"
          "- [ ] Rows (RS-LIST-01)\n- [ ] Odd (RS-LIST-1)\n"
          "- [ ] Nothing cited\n- [ ] Unkeyed (UXL 3)\n"
          "- [ ] Lost (RS-GONE-09)\n- [x] done\n"}};
-    CHECK(tests::messages(tests::run(codecs::rule_identifiers, t)) ==
+}
+
+}
+
+TEST_CASE("each UX rule carries one identifier and the checklist cites "
+    "them", "[codecs][rule_identifiers]") {
+    const auto t = ux_tree();
+    CHECK(tests::messages(tests::run(codecs::rule_identifiers, t,
+        ux_pages)) ==
         std::vector<std::string>{
             "a rule without an identifier at its start under 'The list'",
             "ES-LIST-01 carries another page's code",
@@ -159,4 +174,30 @@ TEST_CASE("each UX rule carries one identifier and the checklist cites "
             "cites RS-LIST-1, which no page carries",
             "a checklist line that cites no identifier",
             "cites RS-GONE-09, which no page carries"});
+}
+
+TEST_CASE("a UX page renamed under its ID is still checked, at its new "
+    "path", "[codecs][rule_identifiers]") {
+    auto t = ux_tree();
+    const std::string old_path = "doc/knowledge/ui/record_screen_standard.org";
+    const std::string new_path = "doc/knowledge/ui/the_record_screen.org";
+    t[new_path] = t.at(old_path);
+    t.erase(old_path);
+
+    const auto found = tests::run(codecs::rule_identifiers, t, ux_pages);
+
+    CHECK(found.size() == 8);
+    CHECK(std::ranges::count(tests::places(found),
+        new_path, &place::first) == 3);
+    CHECK(std::ranges::count(tests::messages(found),
+        "ES-LIST-01 is also on a rule of " + new_path) == 1);
+}
+
+TEST_CASE("a UX page option with no document of its ID is reported, and "
+    "nothing else is", "[codecs][rule_identifiers]") {
+    auto missing = ux_pages;
+    missing[1].second = "ES-404";
+    CHECK(tests::messages(tests::run(codecs::rule_identifiers, ux_tree(),
+        missing)) == std::vector<std::string>{"rule_identifiers: no "
+            "document has the :ID: ES-404 that the option 'ES' names"});
 }

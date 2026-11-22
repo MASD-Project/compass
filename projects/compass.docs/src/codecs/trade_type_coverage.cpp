@@ -20,12 +20,15 @@
 #include "compass.docs/codecs/trade_type_coverage.hpp"
 
 #include <algorithm>
+#include <array>
+#include <cstdint>
 #include <map>
 #include <set>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
+#include "compass.codec/ops/pages.hpp"
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.cpp/ops/paths.hpp"
 #include "compass.cpp/ops/report.hpp"
@@ -38,20 +41,15 @@ namespace {
 
 namespace ct = compass::codec::types;
 namespace co = compass::cpp::ops;
+namespace cops = compass::codec::ops;
 namespace pt = compass::platform::text;
 
 constexpr std::string_view mined_path =
     "external/ore/catalogue/trade_types.tsv";
 constexpr std::string_view version_path =
     "external/ore/catalogue/ore_version.txt";
-constexpr std::string_view catalogue_path =
-    "projects/ores.trading/modeling/ores.trading.trade_type_catalogue.org";
 constexpr std::string_view recorded_dir =
     "projects/ores.synthetic/core/tests/data/generated_trades/";
-constexpr std::string_view story_dir = "doc/agile/versions/v0/sprint_30/"
-    "hold_every_product_type_the_engine_supports/";
-constexpr std::string_view document_path =
-    "doc/knowledge/domain/ore_trade_type_coverage.org";
 constexpr std::string_view tag_task = "80315472-7360-4C53-B6F7-57F7BCE78A1C";
 constexpr std::string_view form_task = "8F1B7D90-0D95-405B-845C-207AA1C92BE3";
 constexpr std::string_view both_forms_task =
@@ -213,9 +211,14 @@ std::string field(std::string_view text, std::string_view pattern) {
     return std::string(m->group(1));
 }
 
-std::vector<task> story_tasks(const ct::corpus_view& v) {
+/**
+ * @brief The tasks beside the story at @p story_path, in its folder.
+ */
+std::vector<task> story_tasks(const ct::corpus_view& v,
+    std::string_view story_path) {
+    const auto story_dir = story_path.substr(0, story_path.rfind('/') + 1);
     auto paths = v.list_files(std::string(story_dir) + "task_", ".org");
-    std::erase_if(paths, [](std::string_view p) {
+    std::erase_if(paths, [&](std::string_view p) {
         return p.find('/', story_dir.size()) != std::string_view::npos;
     });
     std::vector<task> tasks;
@@ -369,12 +372,43 @@ std::vector<std::string> counts(const std::vector<row>& rows,
             "same product."};
 }
 
+constexpr std::uint32_t unreadable = 1;
+
+constexpr std::array<ct::rule, 2> rules{{
+    co::refusal_rules[0],
+    {"unreadable", "The options name, by :ID:, the coverage note, the trade "
+        "type catalogue and the story whose tasks close the gaps, and a "
+        "document has each ID."}}};
+
+constexpr std::array<ct::option, 3> options{{
+    {"page", "", "The :ID: of the note whose generated block the codec "
+        "writes."},
+    {"catalogue", "", "The :ID: of the trade type catalogue model, whose "
+        "Trade types and Unsupported trade types tables the codec reads."},
+    {"story", "", "The :ID: of the story whose tasks, in its folder, close "
+        "the gaps the table names."}}};
+
 void coverage(const ct::corpus_view& v, ct::file_output& out) {
+    const auto note = cops::page_of(v, "page");
+    const auto catalogue_page = cops::page_of(v, "catalogue");
+    const auto story = cops::page_of(v, "story");
+    bool configured = true;
+    for (const auto* p : {&note, &catalogue_page, &story}) {
+        if (p->has_value())
+            continue;
+        configured = false;
+        co::report(out.refusals, ".compass.org", 0, unreadable,
+            "trade_type_coverage: " + p->error(), "Set the option in the "
+            "codec's row of .compass.org to the :ID: of the page.");
+    }
+    if (!configured)
+        return;
+    const auto document_path = note->path;
     try {
         const auto rows = mined_rows(v.read_file(mined_path).value_or(""));
-        const auto catalogue_text = v.read_file(catalogue_path).value_or("");
+        const std::string catalogue_text(catalogue_page->source);
         const auto cat = catalogue(catalogue_text);
-        const auto tasks = story_tasks(v);
+        const auto tasks = story_tasks(v, story->path);
         const auto version_text = v.read_file(version_path).value_or("");
         const auto version = words(version_text);
         if (version.size() < 3)
@@ -391,11 +425,9 @@ void coverage(const ct::corpus_view& v, ct::file_output& out) {
             block.push_back(std::move(line));
         block.insert(block.end(), {"", std::string(end_marker)});
 
-        const auto text = v.read_file(document_path);
-        if (!text)
-            throw stopped("the note does not exist");
-        if (co::count(*text, begin_marker) != 1 ||
-            co::count(*text, end_marker) != 1)
+        const std::string text(note->source);
+        if (co::count(text, begin_marker) != 1 ||
+            co::count(text, end_marker) != 1)
             throw stopped("the note does not hold its generated region once");
         for (const auto& r : rows)
             if (at(r, "in_catalogue") == "yes" &&
@@ -414,8 +446,8 @@ void coverage(const ct::corpus_view& v, ct::file_output& out) {
                 [&](const std::string& c) { return trades.recorded(c); }))
             throw stopped("a trade type tagged unsupported has a recorded "
                 "trade");
-        const auto head = text->substr(0, text->find(begin_marker));
-        const auto tail = text->substr(text->find(end_marker) +
+        const auto head = text.substr(0, text.find(begin_marker));
+        const auto tail = text.substr(text.find(end_marker) +
             end_marker.size());
         out.files.add(document_path, head + joined(block, "\n") + tail);
     } catch (const stopped& e) {
@@ -428,12 +460,12 @@ void coverage(const ct::corpus_view& v, ct::file_output& out) {
 
 const ct::descriptor trade_type_coverage{
     .name = "trade_type_coverage",
-    .version = 2,
+    .version = 3,
     .summary = "Writes the generated block of the ORE trade type coverage "
         "note.",
-    .reads = ct::inputs::of_types({}),
-    .options = {},
-    .rules = co::refusal_rules,
+    .reads = ct::inputs::every_document(),
+    .options = options,
+    .rules = rules,
     .enabled_by_default = false,
     .run = ct::corpus_function<ct::file_output>{coverage}};
 

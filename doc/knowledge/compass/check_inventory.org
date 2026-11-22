@@ -618,7 +618,7 @@ Writes the ORE output catalogue data and the output formats page from the output
 | Rule | Statement |
 |------+-----------|
 | =refused= | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |
-| =unreadable= | Every file and table the generator reads is there and reads. |
+| =unreadable= | Every file and table the generator reads is there and reads, and a document has the :ID: the option page names. |
 | =drift= | Every file a codec generates holds what the codec generates from its inputs; nobody edits it by hand. |
 | =names_missing_file= | The header of every file a codec generates names only scripts the checkout holds. |
 
@@ -782,7 +782,7 @@ Reports each accepted exception of the component registry that is not justified.
 | Rule | Statement |
 |------+-----------|
 | =bad_exception= | Each accepted exception of the component registry names a listed component, a checklist item the standard defines once, a reason, who accepted it and an ISO date. |
-| =unreadable_registry= | The registry and the standard state their tables in a form this check reads. |
+| =unreadable_registry= | The registry and the standard state their tables in a form this check reads, and a document has the :ID: the option standard names. |
 
 *** rls_coverage
 
@@ -833,7 +833,7 @@ Writes the HTTP route inventory from the routes the BFF and ores.http register a
 | Rule | Statement |
 |------+-----------|
 | =refused= | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |
-| =unreadable= | The check document gives every table and column the inventory is written from, and each row reads: a setting the codec has, a match it knows, a regex that compiles, a need it knows, and one row per key. |
+| =unreadable= | The check document gives every table and column the inventory is written from, and each row reads: a setting the codec has, a match it knows, a regex that compiles, a need it knows, and one row per key; and the configuration names the inventory's page. |
 | =drift= | Every file a codec generates holds what the codec generates from its inputs; nobody edits it by hand. |
 | =names_missing_file= | The header of every file a codec generates names only scripts the checkout holds. |
 
@@ -852,6 +852,7 @@ Reports each UX rule without its one identifier, and each checklist line whose c
 | =foreign_code= | A rule's identifier carries its own page's code. |
 | =duplicate= | No identifier is on two rules. |
 | =bad_citation= | Every checklist line cites two-digit identifiers a page carries, or a page that carries none yet. |
+| =unreadable= | The options name each keyed page and the checklist by its :ID:, and a document has each ID. |
 
 *** script_library_seed
 
@@ -1128,6 +1129,7 @@ Writes the generated block of the ORE trade type coverage note.
 | Rule | Statement |
 |------+-----------|
 | =refused= | A generator writes its output only from inputs it can read and resolve; otherwise it says why and leaves the file it wrote before. |
+| =unreadable= | The options name, by :ID:, the coverage note, the trade type catalogue and the story whose tasks close the gaps, and a document has each ID. |
 | =drift= | Every file a codec generates holds what the codec generates from its inputs; nobody edits it by hand. |
 | =names_missing_file= | The header of every file a codec generates names only scripts the checkout holds. |
 

@@ -46,11 +46,17 @@ TEST_CASE("a generator whose inputs are missing says why it writes nothing",
         const auto& d = codec.get();
         CAPTURE(d.name);
         const auto findings = tests::run(d, {});
-        REQUIRE(findings.size() == 1);
-        CHECK_THAT(std::get<2>(findings[0]),
-            ContainsSubstring(" is not generated: "));
-        REQUIRE(d.rules.size() == 1);
+        REQUIRE_FALSE(findings.empty());
+        REQUIRE_FALSE(d.rules.empty());
         CHECK(d.rules[0].name == "refused");
+        if (d.rules.size() == 1) {
+            REQUIRE(findings.size() == 1);
+            CHECK_THAT(std::get<2>(findings[0]),
+                ContainsSubstring(" is not generated: "));
+        } else {
+            REQUIRE(d.rules.size() == 2);
+            CHECK(d.rules[1].name == "unreadable");
+        }
     }
 }
 
