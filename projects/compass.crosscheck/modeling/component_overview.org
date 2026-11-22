@@ -272,7 +272,10 @@ because each reads one kind of artefact and writes another:
   =ores.http/refdata=, and the curve column map, its value guard and the
   guard's drop. The two C++ files go through clang-format, the formatter
   the options =clang_format= and =clang_format_style= name, as the script
-  pipes them through it.
+  pipes them through it. The value guard reads the element map's tables
+  and calls the value set functions the models of the value set entities
+  name, from the Value set entities table of the check document that also
+  names this codec; without it the codec refuses the guard alone.
 - *=route_inventory=.* =route-inventory= (=route_inventory.py --write=):
   =http_route_inventory.org=, every route the BFF and =ores.http=
   register, decided and paired by the seven tables of the project's check
@@ -414,6 +417,24 @@ calls the schema reader, and the mapper patterns of
   table of the check document that is missing or a cell that does not
   read. At 545cafca45 it reports one =unresolved= finding: the convention
   kind terms stop on =r.id=.
+
+The names the seeds and validators carry come from ORE Studio's models,
+not from compass. The check document's =Value set entities= table maps
+each role (=vocabulary=, =element_map_column=, =value_set=,
+=value_set_value=, =value_set_catalogue=, =setting_value_set=) to an
+entity, and =ops::value_sets::read_storage= finds that entity's one model,
+=<anything>.<entity>.org= under a =modeling/= directory, through a listing
+the cache records, so a model moved, added or removed runs the codecs
+again. The model gives the product (=:product:=), the component
+(=#+component:=), the table (the first =:tablename:=) and the plural
+(=#+entity_plural:=, else the singular with an s, as code generation
+derives it). A seed goes to
+=projects/<product>.sql/populate/<component>/<component>_<plural>_populate.sql=,
+where code generation puts the entity's other scripts, and stamps
+=<product>_<component>_service=; the validators call
+=<product>_<component>_value_in_set_fn= and =_canonical_value_fn= of the
+value set entity's component. A role with no row, or an entity with no
+model or several, is =unreadable=.
 
 The schema walk collects the elements of a group nested in another at any
 depth; =ore_schema_types.py= looks one level too deep there, which changes

@@ -43,6 +43,10 @@ namespace compass::crosscheck::codecs {
  * them), read from the data option; where a table is missing or a cell
  * does not read, it refuses the value set seed and the convention kind
  * terms and says which.
+ *
+ * The seeds' paths, the tables they write, their writer and the functions
+ * the term validators call come from the models of the entities the
+ * document's Value set entities table names (ops::value_sets::storage).
  */
 extern const compass::codec::types::descriptor ore_value_sets;
 
