@@ -164,7 +164,11 @@ the codec, set in the checkout's =.compass.org=.
   =-i --style=file:{style}=, and prettier once over =.ts= and =.tsx= with
   =--write --log-level warn --config {style}=, as generate.py's
   =clang_format_files= and =prettier_format_files= run them. The runtime
-  formats the codec's files through the result cache in every run.
+  formats the codec's files through the result cache in every run. The
+  codec's origin function reads the template a file was rendered from
+  out of its generated-file marker, through =ops::marked_template=, as
+  the library's =templates/<name>=; an output in a language with no
+  licence block has no marker, and no origin.
 - *=component_files=.* ORE Studio's =cmake-sources= generator
   (=regenerate_cmake_component_files.py --all=), off by default. Its
   options are =library= and =year=, which, as for =codegen=, is required

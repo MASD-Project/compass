@@ -83,8 +83,10 @@ struct env_request {
  * hook. only holds each --codec of check: when it is not empty, the
  * codecs and checks it names run and no other does. blame is the
  * --blame or --no-blame of check, bisect_from the --bisect-from of check
- * and blame, and target the finding blame traces, as written. env holds
- * the arguments of compass env.
+ * and blame, and target the finding blame traces, as written. scope holds
+ * each --scope of generate and diff as written, skip_stale is their
+ * --skip-stale and list_files their --files. env holds the arguments of
+ * compass env.
  */
 struct invocation {
     command which = command::generate;
@@ -99,6 +101,9 @@ struct invocation {
     blame_mode blame = blame_mode::cheap;
     std::string bisect_from;
     std::string target;
+    std::vector<std::string> scope;
+    bool skip_stale = false;
+    bool list_files = false;
     layer command_line;
     store::types::collection_options collection;
     env_request env;
@@ -125,7 +130,11 @@ struct invocation {
  * today's checks can judge an old commit; their exceptions are among
  * exceptions. blame says which blame methods check runs on the findings
  * already on main, and bisect_from is the commit bisect starts from,
- * empty for the oldest of the last merges it walks.
+ * empty for the oldest of the last merges it walks. scope narrows generate
+ * and diff to the outputs of the units that read one of its paths, each
+ * relative to the checkout, and to what those outputs feed, pass by pass;
+ * empty is every output. skip_stale makes them leave alone the files that
+ * were already stale at HEAD.
  */
 struct options {
     command which = command::generate;
@@ -142,6 +151,8 @@ struct options {
     bool all_findings = false;
     blame_mode blame = blame_mode::cheap;
     std::string bisect_from;
+    std::vector<std::string> scope;
+    bool skip_stale = false;
 };
 
 }

@@ -73,6 +73,13 @@ constexpr std::string_view help =
     "repeatable\n"
     "  --timings                   generate, diff, check, hook: print each step's "
     "time and what each codec ran or reused\n"
+    "  --scope <path>              generate, diff: only the outputs of the "
+    "units that read this file, a template, model or any input, and what "
+    "they feed; repeatable\n"
+    "  --skip-stale                generate, diff: leave alone the files "
+    "already stale at HEAD, which no change since HEAD caused\n"
+    "  --files                     generate, diff: list every changed file, "
+    "not counts by what produced them, when many change\n"
     "  --codec <name>              check: run only this codec or check, "
     "whatever .compass.org enables; repeatable\n"
     "  --commit <rev>              check: check this commit, read from git's "
@@ -81,7 +88,8 @@ constexpr std::string_view help =
     "base of HEAD and <base> lacks (default: the upstream, else "
     "origin/main)\n"
     "  --blame[=bisect]            check: blame the findings already on "
-    "main by line, added and drift (default), or also bisect main's merges\n"
+    "main by line, added and drift (default), or also bisect main's merges\n"    "                              diff --blame: name the commits that made "
+    "each stale file, when at most twenty are\n"
     "  --no-blame                  check: blame nothing\n"
     "  --bisect-from <rev>         check, blame: the commit bisect starts "
     "from (default: the oldest of the last 128 merges)\n"
@@ -164,7 +172,7 @@ bool takes_value(std::string_view flag) {
         flag == "--grace" || flag == "--commit" || flag == "--today" ||
         flag == "--codec" || flag == "--bisect-from" || flag == "--input" ||
         flag == "--var" || flag == "--file" || flag == "--adds" ||
-        flag == "--removes";
+        flag == "--removes" || flag == "--scope";
 }
 
 /**
@@ -282,6 +290,7 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
     std::string_view gc_flag;
     std::string_view blame_flag;
     std::string_view env_flag;
+    std::string_view output_flag;
     bool has_env_action = false;
     for (std::size_t i = 0; i < args.size(); ++i) {
         const auto arg = args[i];
@@ -297,6 +306,11 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
         }
         if (arg == "--timings") {
             o.timings = true;
+            continue;
+        }
+        if (arg == "--skip-stale" || arg == "--files") {
+            (arg == "--files" ? o.list_files : o.skip_stale) = true;
+            output_flag = arg;
             continue;
         }
         if (arg == "--blame" || arg == "--blame=bisect" ||
@@ -368,6 +382,11 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
             if (value.empty() || value.starts_with("-"))
                 return bad_value();
             o.only.emplace_back(value);
+        } else if (arg == "--scope") {
+            if (value.empty())
+                return bad_value();
+            o.scope.emplace_back(value);
+            output_flag = arg;
         } else if (arg == "--commit") {
             if (value.empty() || value.starts_with("-"))
                 return bad_value();
@@ -412,6 +431,10 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
         return *e;
     if (!gc_flag.empty() && *which != types::command::gc)
         return usage_error{std::string(gc_flag) + " applies to gc only"};
+    if (!output_flag.empty() && *which != types::command::generate &&
+        *which != types::command::diff)
+        return usage_error{std::string(output_flag) + " applies to generate "
+            "and diff only"};
     if (!o.revision.empty() && *which != types::command::check)
         return usage_error{"--commit applies to check only"};
     if (!o.only.empty() && *which != types::command::check)
@@ -426,8 +449,12 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
             "version new only"};
     if (o.all_findings && *which != types::command::hook)
         return usage_error{"--all-findings applies to hook only"};
-    if (!blame_flag.empty() && *which != types::command::check)
-        return usage_error{std::string(blame_flag) + " applies to check only"};
+    if (!blame_flag.empty() && *which != types::command::check &&
+        !(*which == types::command::diff && blame_flag == "--blame"))
+        return usage_error{std::string(blame_flag) + " applies to check, "
+            "and --blame to diff, only"};
+    if (*which == types::command::diff && blame_flag.empty())
+        o.blame = types::blame_mode::off;
     if (!o.bisect_from.empty() && *which != types::command::check &&
         *which != types::command::blame)
         return usage_error{"--bisect-from applies to check and blame only"};

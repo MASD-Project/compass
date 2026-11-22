@@ -20,6 +20,7 @@
 #ifndef COMPASS_CODEGEN_OPS_OUTPUT_HPP
 #define COMPASS_CODEGEN_OPS_OUTPUT_HPP
 
+#include <cstddef>
 #include <string>
 #include <string_view>
 #include "compass.codegen/types/compiled_template.hpp"
@@ -50,6 +51,20 @@ void render_output(std::string& out, std::string_view template_name,
     const types::compiled_template& t,
     const compass::model::types::model_tables& values,
     compass::model::types::value_id context);
+
+/**
+ * @brief The template that the generated-file marker of @p content names,
+ * as the file name render_output gave it, or empty when the first
+ * marker_window bytes hold no marker: an output in a language with no
+ * licence block carries none.
+ */
+[[nodiscard]] std::string_view marked_template(std::string_view content);
+
+/**
+ * @brief How far into a file marked_template looks: the marker follows
+ * the licence at the top of the file.
+ */
+inline constexpr std::size_t marker_window = 8192;
 
 }
 

@@ -27,6 +27,7 @@
 #include <string>
 #include <string_view>
 #include "compass.codegen/ops/context.hpp"
+#include "compass.codegen/ops/output.hpp"
 #include "compass.platform/process/executable.hpp"
 
 namespace compass::codegen::codecs {
@@ -120,6 +121,20 @@ void run(const void* state, std::span<const std::string_view> models,
     }
 }
 
+/**
+ * @brief The template the marker of a generated file names, under the
+ * library's templates/ directory.
+ */
+std::string origin(const ct::option_values& o, std::string_view content) {
+    const auto name = ops::marked_template(content);
+    if (name.empty())
+        return {};
+    auto library = std::string(o["library"]);
+    while (library.ends_with('/'))
+        library.pop_back();
+    return library + "/templates/" + std::string(name);
+}
+
 }
 
 ops::generation_settings settings_of(const ct::option_values& o) {
@@ -179,6 +194,7 @@ const ct::descriptor codegen{
     .rules = {},
     .enabled_by_default = false,
     .run = ct::staged_function{prepare, run},
-    .formatters = formatters_of};
+    .formatters = formatters_of,
+    .origin = origin};
 
 }

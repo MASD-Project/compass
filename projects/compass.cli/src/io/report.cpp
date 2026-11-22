@@ -25,6 +25,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include "compass.cli/ops/attribution.hpp"
 #include "compass.cli/ops/blame.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 
@@ -230,6 +231,98 @@ void write_hook(std::ostream& out, std::ostream& err,
             json_string("compass hook: " + reason));
 }
 
+namespace {
+
+/**
+ * @brief How many files a section of the attribution lists one by one
+ * before it counts them by what produced them instead.
+ */
+constexpr std::size_t listed_files = 20;
+
+std::string_view action_word(codec::io::output_action a) {
+    using codec::io::output_action;
+    switch (a) {
+    case output_action::write: return "write";
+    case output_action::restore: return "restore";
+    case output_action::remove: return "remove";
+    case output_action::unchanged:
+    case output_action::keep: break;
+    }
+    return "keep";
+}
+
+/**
+ * @brief Writes the files of @p a whose cause is @p cause under
+ * @p heading, one line each, or one line per group of what produced them
+ * when there are more than listed_files and not @p all.
+ */
+void write_section(std::ostream& out, const types::attribution& a,
+    types::change_cause cause, std::string_view heading, bool all) {
+    const auto n = std::ranges::count(a.files, cause,
+        &types::attributed_file::cause);
+    if (n == 0)
+        return;
+    out << std::format("{}: {} file{}\n", heading, n, n == 1 ? "" : "s");
+    if (all || static_cast<std::size_t>(n) <= listed_files) {
+        for (const auto& f : a.files) {
+            if (f.cause != cause)
+                continue;
+            out << std::format("  {} {} ({})\n", action_word(f.action),
+                f.path, ops::producer_label(f));
+            for (const auto& c : f.culprits)
+                out << std::format("      {}{}\n",
+                    c.label.empty() ? "" : c.label + ": ", commit_line(c));
+        }
+        return;
+    }
+    for (const auto& [label, files] : ops::groups_of(a.files, cause,
+             listed_files))
+        out << std::format("  {} file{}: {}\n", files.size(),
+            files.size() == 1 ? "" : "s", label);
+    out << "  (--files lists each file)\n";
+}
+
+/**
+ * @brief Writes what produced each file of @p a and why it changes, after
+ * the summary of generate, or of diff when not @p generated.
+ */
+void write_attribution(std::ostream& out, const types::attribution& a,
+    bool generated, bool all) {
+    if (a.files.empty())
+        return;
+    if (!a.scope.empty()) {
+        std::string paths;
+        for (const auto& s : a.scope)
+            paths += (paths.empty() ? "" : ", ") + s;
+        out << std::format("scope: the outputs of {} and what they feed\n",
+            paths);
+    }
+    if (!a.note.empty())
+        out << std::format("note: {}\n", a.note);
+    write_section(out, a, types::change_cause::yours, "from your change", all);
+    std::string_view advice;
+    if (a.skip_stale)
+        advice = generated
+            ? "left unwritten (--skip-stale); leave them for their owners, "
+              "or commit them on their own"
+            : "generate --skip-stale leaves them unwritten; leave them for "
+              "their owners, or commit them on their own";
+    else
+        advice = generated
+            ? "generate wrote them; commit them on their own, apart from "
+              "your change, or restore them with git checkout to leave them "
+              "for their owners"
+            : "generate writes them too; commit them on their own, apart "
+              "from your change, or pass --skip-stale to leave them for "
+              "their owners; --blame names the commits that made them";
+    write_section(out, a, types::change_cause::stale, std::format(
+        "already stale at HEAD, as nothing changed since HEAD caused them; "
+        "{}", advice), all);
+    write_section(out, a, types::change_cause::unknown, "changed", all);
+}
+
+}
+
 void write_problems(std::ostream& err, const types::run_summary& s) {
     write_lines(err, "", s.errors);
     write_lines(err, "codec registry: ", s.problems);
@@ -249,7 +342,7 @@ void write_problems(std::ostream& err, const types::run_summary& s) {
 }
 
 void write_generate(std::ostream& out, std::ostream& err,
-    const types::generate_result& r) {
+    const types::generate_result& r, bool all) {
     write_problems(err, r.run);
     write_lines(err, "output: ", r.sink.problems);
     for (const auto& h : r.hand_edits)
@@ -264,10 +357,11 @@ void write_generate(std::ostream& out, std::ostream& err,
                        "{} kept under {}{} ({})\n", s.written, s.unchanged,
         s.restored, s.removed, s.kept, r.root.generic_string(),
         passes_note(r.passes), corpus_note(r.run, r.ms));
+    write_attribution(out, r.changes, true, all);
 }
 
 void write_diff(std::ostream& out, std::ostream& err,
-    const types::diff_result& r) {
+    const types::diff_result& r, bool all) {
     out << r.diff;
     write_problems(err, r.run);
     write_lines(err, "output: ", r.planned.problems);
@@ -276,6 +370,7 @@ void write_diff(std::ostream& out, std::ostream& err,
                        "remove, {} to keep under {}{} ({})\n", p.written,
         p.unchanged, p.restored, p.removed, p.kept, r.root.generic_string(),
         passes_note(r.passes), corpus_note(r.run, r.ms));
+    write_attribution(err, r.changes, false, all);
 }
 
 void write_check(std::ostream& out, std::ostream& err,

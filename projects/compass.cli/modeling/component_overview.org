@@ -356,6 +356,64 @@ codec reads, such as the template an archetype names, are known only
 from the documents. =check= makes one pass, as it reports the checkout as
 it is.
 
+=generate= and =diff= say what produced each file they change, and
+whether the change is the checkout's own or drift HEAD already had, so
+an agent commits its change apart from someone else's. Each file is
+attributed to its codec, the unit that produced it, by the dependency
+record (the document, or the model of a =codegen= part; nothing for a
+unit over the whole corpus), and the input the codec's origin function
+reads from the file (for =codegen=, the template its generated-file
+marker names). A file is /from your change/ when what the checkout
+generates at its path differs from what HEAD generates there, or HEAD's
+file was current and the checkout edited it; it is /already stale at
+HEAD/ when HEAD's inputs already generate what the checkout's do and
+HEAD holds another file, or neither generates it, so nothing changed
+since HEAD caused it (=ops::cause_of=). The comparison is per file, so a
+model whose template changed does not take the drift of its other
+outputs with it, and it sees through the facts a staged codec's parts
+read, which no file input names. To find what HEAD generates, the
+command asks git for the files changed since HEAD (=git diff
+--name-only --relative HEAD= and =git ls-files --others
+--exclude-standard=, run directly): when there are none, every change
+is stale and HEAD is not evaluated; when =.compass.org= or a check
+document changed, every change counts as yours, as the codecs
+themselves differ; otherwise HEAD is evaluated from git's objects, as
+=check --commit= reads a commit, with the checkout's settings, starting
+from the checkout's dependency record and the result cache, in as many
+passes as =diff= makes, and nothing of it is stored. Only a file that
+changes needs this, so a run that changes nothing never evaluates HEAD.
+With no commit, the files are listed under =changed= with a note. On
+the ORE Studio copy, with the org sources of one template pair edited,
+evaluating HEAD took about 5 s of a warm =diff='s 22 s, which named 36
+files from the change (the two templates =tangle= writes and the 34
+files =codegen= renders from them, counted by template) and the 13
+files of drift main already had. =diff --blame= also names, by blame's
+drift method, the commits that made each stale file, when there are at
+most twenty; it is off by default, as git's history walks took 70 s
+for those 13.
+
+By default =generate= writes every file, the stale ones too, so the
+checkout converges and nothing is hidden, and lists the two groups
+apart. =--skip-stale= leaves each file that would change and is already
+stale at HEAD as it is, lists it as left unwritten, and writes the rest;
+its codec then removes no file, as it is no longer complete. =diff=
+takes the same options and shows what =generate= would do with them.
+
+=--scope <path>=, repeatable, narrows =generate= and =diff= to the
+outputs of the units that read a path, relative to the checkout (a
+template, a model or any file a unit reads, by the record: a unit of
+that document, or one that looked up a document, a file or the
+existence of a file at it, or listed a pattern it matches), and of the
+files whose codec says they were rendered from it (=ops::units_reading=,
+the origin function). A read of every document of a type does not
+count, as it reads every document rather than one. Each pass adds the
+files it changes to the scope, so the next pass takes what they feed:
+the scope of a template's org source takes the template =tangle= writes,
+then the files =codegen= renders from it. Files outside the scope are
+left as they are, and the codecs of those dropped remove nothing
+(=ops::narrow=). The result cache keeps the run fast; the scope keeps
+the change small.
+
 =hook= is =app::hook=, the edit hook; the
 [[id:388AD0F9-D5B5-4FC2-8722-9F88655BA5EC][How do I check edits as Claude
 Code makes them?]] recipe has the settings that install it. =app::run=
@@ -505,6 +563,10 @@ record again, and 0.8 s reading it.
 | =-j <n>=                        | one per core                             | Threads.                                        |
 | =--set <codec>.<key>=<value>=   | the file, else the codecs' own           | A codec setting; repeatable, the last one wins. |
 | =--timings=                     | no                                       | =generate=, =diff=, =check=, =hook=: print each step's time and what each codec ran or reused, and how long its units ran. |
+| =--scope <path>=                | every output                             | =generate= and =diff= only: only the outputs of the units that read this file, a template, a model or any input, relative to the checkout, and what they feed, pass by pass; repeatable. |
+| =--blame= (diff)                | no                                       | =diff=: name the commits that made each stale file, by blame's drift method, when at most twenty are stale. |
+| =--skip-stale=                  | no                                       | =generate= and =diff= only: leave as they are the files already stale at HEAD, which no change since HEAD caused, and list them. |
+| =--files=                       | no                                       | =generate= and =diff= only: list every changed file, rather than counts by what produced them, when more than twenty change. |
 | =--commit <rev>=                | the files on disk                        | =check= only: check the commit =<rev>= names, as =git rev-parse <rev>^{commit}= resolves it, with that commit's =.compass.org=, or, when the commit has none, the working tree's, with a warning on standard error. The output root and meta directory must be under the checkout. |
 | =--ratchet [<base>]=            | the upstream, else =origin/main=         | =check= only: fail only on findings the merge base of HEAD and =<base>= lacks. The next argument is the base unless it starts with =-= or names a command; =--ratchet=<base>= always takes one. Not with =--commit=. |
 | =--today <YYYY-MM-DD>=          | today in UTC                             | =check= and =hook=: the date the expiry of exceptions, comments and table rows alike, is judged against, for the checkout, a commit and both sides of a ratchet. =blame=: the date judged against. =env version new=: the date of the new version. |
@@ -594,7 +656,8 @@ the name keeps it apart from ORE Studio's Python =compass=.
 - Standard output: =generate= prints one line of counts (written,
   unchanged, restored, removed, kept), the output root, the passes when
   more than one, the corpus, the units each codec ran rather than reused
-  over every pass, and the wall time. =diff= prints the unified diffs. =check= prints one line per
+  over every pass, and the wall time, then the attribution of the files
+  it changed, as =diff= prints it. =diff= prints the unified diffs. =check= prints one line per
   diagnostic, sorted by path, line and column, then the count and, when
   any, how many findings exceptions excused. Its
   diagnostics include one per file =generate= would write, restore or
@@ -621,9 +684,22 @@ the name keeps it apart from ORE Studio's Python =compass=.
   deleted what may be code written by hand
   (=compass: warning: <path>:<line>: generate deleted <n> lines its output
   lacks, from "<first line>"; ...=), as =codec::io::find_hand_edits= finds
-  them before the write; the summary of =diff=; with =--timings=, one line per
+  them before the write; the summary of =diff=, then the attribution of
+  the files it would change: =scope: the outputs of <paths> and what
+  they feed= when there is a scope, a =note:= when the files could not be
+  told apart, then =from your change: <n> files=, the stale files under
+  =already stale at HEAD, ...= with what to do with them (commit them on
+  their own, or leave them for their owners with =--skip-stale=), and,
+  with no commit to compare with, =changed=. Each file is a line of its
+  action, its path and, in parentheses, its codec, unit and origin, as
+  =write projects/ores.a/x.cpp (codegen, projects/ores.a/modeling/component_overview.org, lib/templates/source.cpp.mustache)=.
+  A section of more than twenty files prints one line per producer
+  instead, its codec and origin, else its codec and unit, or its codec
+  alone when that leaves more than twenty, largest first, unless
+  =--files=; with =--timings=, one line per
   step (=tree= for a commit, =types=, =list=, =resolve=, =load=, =record=,
-  =codecs=, =format=, =persist=, =collect=, =write= or =plan=, =exceptions=) with its wall time,
+  =codecs=, =format=, =persist=, =collect=, =write= or =plan=,
+  =exceptions=, =head= when HEAD was evaluated) with its wall time,
   a step of a later =generate= pass named with its pass, as
   =codecs (pass 2)=,
   and one line per codec
@@ -656,6 +732,7 @@ range, 1-based, the column counted in bytes. The rule is written as
 | =include/compass.cli/config/arguments.hpp=       | The command-line parser and the help.                                              |
 | =include/compass.cli/io/version.hpp=             | =version_text=: the release, the build manifest's facts and the store formats.     |
 | =include/compass.cli/io/listing.hpp=             | The org files of a checkout, from =git ls-files=; =resolve_commit= and =resolve_base=, from =git rev-parse=; =merge_base=; =similar_renames=, from =git diff -M=. |
+| =include/compass.cli/ops/attribution.hpp=        | The pure parts of attribution: the unit behind each output, the units that read a path, why a file changes, narrowing the outputs and grouping them for the report. |
 | =include/compass.cli/ops/ratchet.hpp=            | =split_new= and =exact_renames=: the pure matching of ratchet mode.                |
 | =include/compass.cli/app/blame.hpp=              | =blame= and =blame_method_of=: tracing findings to commits by each rule's method.  |
 | =include/compass.cli/ops/blame.hpp=              | The pure parts of blame: =git blame --porcelain=, pull request subjects, the lines drift differs on, and the messages by environment. |
