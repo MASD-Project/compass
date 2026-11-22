@@ -8,7 +8,7 @@
 #+filetags: :serve_the_documents:sprint_01:v0:
 #+owner: marco
 #+branch: feature/search-the-corpus
-#+pr:
+#+pr: 180
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-22
@@ -168,7 +168,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/180][#180]] | Search the corpus: query layer, filters, facets and a measured ranking |
 
 * Review
 
