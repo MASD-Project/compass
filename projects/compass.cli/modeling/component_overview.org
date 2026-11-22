@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :cli:application:pipeline:component:
 #+created: 2026-11-16
-#+updated: 2026-11-21
+#+updated: 2026-11-22
 
 This page is the component overview for =compass.cli=, a simple component
 in the application layer of the
@@ -63,7 +63,7 @@ thing with what the codecs produced:
 | =gc=              | Drops old unreferenced objects and action objects from the store, rewriting its packs into one, and removes the first layout of the store. | Rewrites the packs, unless =--dry-run=. |
 | =hook=            | Checks the one file a Claude Code PostToolUse payload on standard input names, running only the units that read or report on it. | Nothing.                                          |
 | =config=          | Prints every path and codec setting in effect, and where it came from.   | Nothing.                                          |
-| =env generate=    | Writes the project's environment file from the check document of =env_format=, the inputs and the file it replaces. | The file, owner-only, and =<file>.old=. |
+| =env generate=    | Writes the project's environment file from the check document of =env_format=, the inputs and the file it replaces. | The file, owner-only, and =<file>.old=, only when the file changes in more than the time it was made. |
 | =env version=     | Prints the highest version of the environment file's format.             | Nothing.                                          |
 | =env version new= | Appends the next version to the check document and sets the added and removed versions of the rows it names. | The check document.                    |
 | =env status=      | Says whether the environment file is current, and exits 1 when it is not. | Nothing.                                         |
@@ -73,9 +73,21 @@ thing with what the codecs produced:
 =env_format=, and hands its tables to =compass.env=. =generate= gives the
 format the built-in inputs =checkout=, =home= and =now=, each =--input=,
 each =--var= as an override, the process environment, the old file and a
-secret maker over =platform::random=, and writes the file through a new
-file created readable by its owner alone that replaces the old one in one
-step.
+secret maker over =platform::random=. When the new text differs from the
+old file only in the time it was made (=env::ops::same_but_time=), it writes
+nothing: neither the file nor =<file>.old= is touched, modification time
+included. Otherwise it keeps the old text in =<file>.old= and writes the
+file, both through =platform::filesystem::update_file=, owner-only, so each
+is replaced in one step and one already holding its text is left alone.
+=env version new= writes the check document through =update_file= too.
+
+No command touches a file of the checkout whose content does not change:
+=generate= writes through the output sink, which compares first (see
+=compass.codec=); =env= as above; =check=, =diff=, =hook=, =blame=,
+=config= and =gc= write only under the git directory, and the formatters
+of the format checks and of codegen run on copies in the system's
+temporary directory. =app_untouched_tests.cpp= proves it for every kind
+of generator.
 
 The library holds the pipeline and prints nothing. =app/steps.hpp=
 exposes it as one function per step, so a caller can time each:
