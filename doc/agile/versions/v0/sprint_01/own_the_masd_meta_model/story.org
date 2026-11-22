@@ -71,6 +71,7 @@ code.
 | [[id:E754BE53-3A6B-4491-BB26-450D1A34F159][Generate JSON codecs]] | BACKLOG | | | Generate the JSON reading and writing of every type compass models, row types, enums and the service's messages, and the JSON Schema of each message, so no JSON is written by hand. |
 | [[id:8CF40A62-82EB-4FE0-8CEC-2621BD0E66FE][Generate the HTTP and MCP service]] | BACKLOG | | | Write the cpp-httplib route, MCP tool description and tool table templates and the wire codec compass needs, and generate Serve the documents' HTTP and MCP service from its operation models. |
 | [[id:8BA1802D-350E-42FB-8DAC-F51B6F1A4604][Tag evidence documents]] | STARTED | | | Mark recorded artefacts kept for reference with the evidence filetag so they keep the .org extension, are held to no contract, lend their IDs only when no live page has them, and are read by no codec that does not ask for evidence. |
+| [[id:88A57B71-75AA-440C-8290-6FB0DCC2EB9D][Generate a time-of-day column]] | STARTED | 2026-11-22 | | Give a model column of SQL type time the template flags is_time and is_optional_time and a mapping in each of compass's type tables, so ORE Studio can generate a time of day without an empty type. |
 
 * Decisions
 

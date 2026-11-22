@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <stdexcept>
 #include <vector>
 #include "compass.codegen/ops/render.hpp"
 #include "compass.model/ops/builder.hpp"
@@ -38,6 +39,12 @@ constexpr std::string_view value_init_templates[] = {
     "cpp_protocol.hpp.mustache", "cpp_field_group.hpp.mustache",
     "cpp_domain_type_class.hpp.mustache",
     "cpp_domain_type_entity.hpp.mustache"};
+
+/*
+ * A member written with no TypeScript type is a syntax error that only
+ * the formatter reports, far from the C++ type that has no mapping.
+ */
+constexpr std::string_view required_names[] = {"ts_type"};
 
 value_id member(const model_tables& t, value_id object, std::string_view key) {
     if (object.is_none() || t.values.kinds[object] != value_kind::object)
@@ -292,9 +299,15 @@ void render_output(std::string& out, std::string_view template_name,
     render_options options;
     options.value_init = std::ranges::find(value_init_templates,
         template_name) != std::end(value_init_templates);
+    options.required = required_names;
 
     std::string rendered;
-    render(rendered, t, stack, options);
+    try {
+        render(rendered, t, stack, options);
+    } catch (const std::runtime_error& e) {
+        throw std::runtime_error("codegen: " + std::string(template_name) +
+            ": " + e.what());
+    }
     if (template_name.ends_with(".org.mustache"))
         rendered = insert_org_marker(rendered, template_name);
     out += substitute_paste_markers(rendered, values, context);

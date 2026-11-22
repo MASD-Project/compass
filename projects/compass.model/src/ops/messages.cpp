@@ -47,6 +47,7 @@ constexpr std::pair<std::string_view, std::string_view> ts_scalars[] = {
     {"boost::uuids::uuid", "string"},
     {"utility::uuid::tenant_id", "string"},
     {"std::chrono::year_month_day", "string"},
+    {"ores::platform::time::time_of_day", "string"},
     {"boost::asio::ip::address", "string"},
     {"std::chrono::system_clock::time_point", "string"},
 };

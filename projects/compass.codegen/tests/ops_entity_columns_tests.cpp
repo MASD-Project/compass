@@ -137,5 +137,40 @@ TEST_CASE("the column aggregates read the derived flags",
         {"has_no_wire_columns", "true"}, {"wire_left_out", "1"},
         {"has_inet_columns", "false"}, {"has_base64_columns", "false"},
         {"has_plain_date_columns", "false"},
-        {"has_decimal_columns", "true"}});
+        {"has_decimal_columns", "true"}, {"has_time_columns", "false"}});
+}
+
+/*
+ * A time of day is SQL time without time zone; its zone lives in another
+ * column. The repository row holds it as "HH:MM:SS" text, so no generic
+ * member branch takes it. A model property never sets the flags.
+ */
+TEST_CASE("a time column takes the time flags from its SQL type",
+    "[codegen][entity][columns]") {
+    codegen::tests::entity_fixture f(R"j({
+     "columns": [
+      {"name": "cut_time", "type": "time",
+       "cpp_type": "ores::platform::time::time_of_day", "nullable": false},
+      {"name": "latest_cut_time", "type": "time",
+       "cpp_type": "std::optional<ores::platform::time::time_of_day>",
+       "nullable": true},
+      {"name": "label", "type": "text", "cpp_type": "std::string",
+       "nullable": false, "is_time": true, "is_optional_time": true}]})j");
+    codegen::ops::derive_column_flags(f.b, f.entity);
+    codegen::ops::derive_column_aggregates(f.b, f.entity);
+    const auto columns = items(f.tables, f.entity, "columns");
+
+    check(f, columns[0], {{"is_time", "true"}, {"is_optional_time", "false"},
+        {"is_text_stored", "true"}, {"is_simple", "false"},
+        {"is_plain_string", "false"}, {"is_already_optional", "false"},
+        {"is_date", "false"}});
+    check(f, columns[1], {{"is_time", "false"}, {"is_optional_time", "true"},
+        {"is_text_stored", "true"}, {"is_simple", "false"},
+        {"is_already_optional", "false"}, {"is_nullable_string", "false"},
+        {"is_nullable_numeric", "false"}});
+    check(f, columns[2], {{"is_time", "false"},
+        {"is_optional_time", "false"}, {"is_simple", "true"},
+        {"is_text_stored", "false"}});
+    check(f, f.entity, {{"has_time_columns", "true"},
+        {"has_plain_date_columns", "false"}});
 }

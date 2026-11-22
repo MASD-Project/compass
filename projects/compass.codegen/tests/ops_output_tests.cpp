@@ -21,6 +21,7 @@
 
 #include <string>
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_string.hpp>
 #include "compass.codegen/ops/compile.hpp"
 #include "compass.model/io/json.hpp"
 #include "compass.model/ops/builder.hpp"
@@ -94,4 +95,27 @@ TEST_CASE("paste markers take the model's implementations of their kind",
         R"({"domain_entity": {"implementations":
             {"ab-12": ["one  \n", "two"], "CD": []}}})") ==
         "a\none\n\ntwo\nbc\n<<paste:zz>>\n");
+}
+
+/*
+ * A member whose C++ type has no TypeScript type once rendered as
+ * "name: ;", which only prettier noticed.
+ */
+TEST_CASE("an output that writes a missing TypeScript type fails",
+    "[codegen][output]") {
+    using Catch::Matchers::ContainsSubstring;
+    constexpr std::string_view fields = R"({"fields": [
+        {"name": "code", "cpp_type": "std::string", "ts_type": "string"},
+        {"name": "socket", "cpp_type": "boost::asio::ip::tcp"}]})";
+    CHECK_THROWS_WITH(render("x.ts.mustache",
+        "{{#fields}}{{name}}: {{{ts_type}}};{{/fields}}", fields),
+        ContainsSubstring("x.ts.mustache") && ContainsSubstring("socket") &&
+        ContainsSubstring("boost::asio::ip::tcp"));
+    CHECK_THROWS(render("x.ts.mustache",
+        "{{#fields}}{{name}}: {{ts_type}};{{/fields}}", fields));
+    CHECK(render("x.ts.mustache",
+        "{{#fields}}{{name}}{{#ts_type}}: {{ts_type}}{{/ts_type}};{{/fields}}",
+        fields) == "code: string;socket;");
+    CHECK(render("x.ts.mustache", "{{#fields}}{{name}};{{/fields}}",
+        fields) == "code;socket;");
 }

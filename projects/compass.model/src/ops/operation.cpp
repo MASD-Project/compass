@@ -57,6 +57,7 @@ constexpr std::pair<std::string_view, std::string_view> sentinels[] = {
     {"double", "0"}, {"ores::utility::decimal::decimal", "1"},
     {"std::chrono::system_clock::time_point", "1970-01-01T00:00:00Z"},
     {"std::chrono::year_month_day", "1970-01-01"},
+    {"ores::platform::time::time_of_day", "00:00:00"},
     {"boost::asio::ip::address", "0.0.0.0"},
     {"std::vector<std::string>", "__none__"}};
 

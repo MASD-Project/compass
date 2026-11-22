@@ -60,6 +60,7 @@ const std::map<std::string_view, wire, std::less<>>& cpp_wires() {
         {"std::chrono::system_clock::time_point", {"timestamptz", 0}},
         {"db_timestamp", {"timestamptz", 0}},
         {"std::chrono::year_month_day", {"date", 0}},
+        {"ores::platform::time::time_of_day", {"time", 0}},
         {"ores::utility::decimal::decimal", {"numeric", 0}},
         {"decimal", {"numeric", 0}},
         {"double", {"double precision", 0}}, {"float", {"real", 0}},
@@ -78,6 +79,7 @@ const std::map<std::string_view, wire, std::less<>>& sql_wires() {
         {"varchar", {"text", 0}}, {"uuid", {"uuid", 0}},
         {"boolean", {"boolean", 0}}, {"bool", {"boolean", 0}},
         {"date", {"date", 0}},
+        {"time", {"time", 0}}, {"time without time zone", {"time", 0}},
         {"timestamp with time zone", {"timestamptz", 0}},
         {"timestamp without time zone", {"timestamp", 0}},
         {"timestamp", {"timestamp", 0}},
@@ -192,7 +194,7 @@ void run(const ct::document& d, const ct::corpus_view& v,
 
 const ct::descriptor entity_binary_types{
     .name = "entity_binary_types",
-    .version = 2,
+    .version = 3,
     .summary = "Reports each column a model's generated row binds in a "
         "binary format its create script's type does not define.",
     .reads = ct::inputs::every_document(),

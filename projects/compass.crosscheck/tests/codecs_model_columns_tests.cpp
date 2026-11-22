@@ -64,6 +64,28 @@ TEST_CASE("a row binds each column in its table's binary format",
         std::pair<std::string, std::uint32_t>{path, 20});
 }
 
+/*
+ * A time column is bound as its "HH:MM:SS" text, so only a time of day
+ * bound in binary to another type is wrong.
+ */
+TEST_CASE("a time of day is on the wire as time",
+    "[codecs][entity_binary_types]") {
+    const auto columns = model_column("id", ":type: uuid\n"
+        ":cpp_type: boost::uuids::uuid\n:primary_key: true\n") +
+        model_column("opens", ":type: time\n"
+            ":cpp_type: ores::platform::time::time_of_day\n") +
+        model_column("closes", ":type: time\n:nullable: true\n"
+            ":cpp_type: std::optional<ores::platform::time::time_of_day>\n") +
+        model_column("label", ":type: text\n"
+            ":cpp_type: ores::platform::time::time_of_day\n");
+    const files t{{path, tests::entity_model("iam", "role",
+        "ores_iam_roles_tbl", columns)}};
+    CHECK(tests::messages_of(tests::run(codecs::entity_binary_types, t)) ==
+        std::vector<std::string>{"'label' holds "
+        "ores::platform::time::time_of_day (time) but ores_iam_roles_tbl "
+        "creates it text (text)"});
+}
+
 TEST_CASE("a row on a table its model does not create is not compared",
     "[codecs][entity_binary_types]") {
     const auto columns = model_column("id", ":type: uuid\n"

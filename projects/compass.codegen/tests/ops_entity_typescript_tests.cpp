@@ -20,6 +20,7 @@
 #include "compass.codegen/ops/entity_steps.hpp"
 
 #include <catch2/catch_test_macros.hpp>
+#include "compass.model/ops/typescript.hpp"
 #include "entity_fixture.hpp"
 
 namespace {
@@ -60,6 +61,26 @@ TEST_CASE("members take the TypeScript type of their domain type",
     CHECK(f.json(keys[0], "ts_type") == R"("string")");
     const auto pk = member(f.tables, f.entity, "primary_key");
     CHECK(f.json(pk, "ts_type") == R"("number")");
+}
+
+TEST_CASE("a time of day crosses to TypeScript as its HH:MM:SS text",
+    "[codegen][entity][typescript]") {
+    codegen::tests::entity_fixture f(R"j({
+        "columns": [
+            {"name": "cut_time",
+             "cpp_type": "ores::platform::time::time_of_day"},
+            {"name": "latest_cut_time",
+             "cpp_type": "std::optional<ores::platform::time::time_of_day>"}]
+        })j");
+    codegen::ops::derive_ts_types(f.b, f.entity, {});
+    const auto columns = items(f.tables, member(f.tables, f.entity, "columns"));
+    CHECK(f.json(columns[0], "ts_type") == R"("string")");
+    CHECK(f.json(columns[1], "ts_type") == R"("string | null")");
+    CHECK(model::ops::ts_type("ores::platform::time::time_of_day", {}) ==
+        "string");
+    CHECK(model::ops::ts_type(
+        "std::optional<ores::platform::time::time_of_day>", {}) ==
+        "string | null");
 }
 
 /*

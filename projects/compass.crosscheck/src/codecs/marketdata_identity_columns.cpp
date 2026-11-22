@@ -417,7 +417,7 @@ void run(const ct::corpus_view& v, ct::diagnostic_table& out) {
 
 const ct::descriptor marketdata_identity_columns{
     .name = "marketdata_identity_columns",
-    .version = 3,
+    .version = 4,
     .summary = "Reports each way the series identity projection disagrees "
         "with the codec schema and the index grammar.",
     .reads = ct::inputs::every_document(),

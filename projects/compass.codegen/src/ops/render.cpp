@@ -20,6 +20,7 @@
 #include "compass.codegen/ops/render.hpp"
 
 #include <algorithm>
+#include <stdexcept>
 #include <vector>
 #include "compass.codegen/ops/compile.hpp"
 #include "compass.model/ops/builder.hpp"
@@ -231,10 +232,39 @@ private:
         out += object ? '}' : ']';
     }
 
+    /**
+     * @brief Why @p name, which the options require, has no value: the
+     * object it was looked up from, by its name and C++ type when it has
+     * them.
+     */
+    std::string missing(std::string_view name) const {
+        std::string out = "nothing holds " + std::string(name);
+        const auto top = stack_.back();
+        if (top.value.is_none() || kind(top) != value_kind::object)
+            return out;
+        const auto text_of = [&](std::string_view key) {
+            const auto v = member(top, key);
+            return v.value.is_none() || kind(v) != value_kind::string ?
+                std::string_view{} : text(v);
+        };
+        auto field = text_of("name");
+        if (field.empty())
+            field = text_of("column");
+        if (!field.empty())
+            out += " for " + std::string(field);
+        if (const auto type = text_of("cpp_type"); !type.empty())
+            out += " of C++ type " + std::string(type);
+        return out;
+    }
+
     void interpolate(std::string& out, std::string_view name, bool escape) {
         const auto v = lookup(name);
-        if (v.value.is_none())
+        if (v.value.is_none()) {
+            if (std::ranges::find(options_.required, name) !=
+                options_.required.end())
+                throw std::runtime_error(missing(name));
             return;
+        }
         if (!escape || options_.escape == escaping::none) {
             str(out, v, false);
             return;
