@@ -30,6 +30,7 @@
 #include <string_view>
 #include <vector>
 #include "compass.codec/ops/data_tables.hpp"
+#include "compass.codec/ops/pages.hpp"
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
@@ -55,20 +56,17 @@ constexpr std::string_view examples = "external/ore/examples/";
 constexpr std::string_view samples = "projects/ores.ore/data/samples/";
 constexpr std::string_view seed_path =
     "projects/ores.sql/populate/reporting/reporting_file_types_populate.sql";
-constexpr std::string_view page_path =
-    "doc/knowledge/external/ore_output_formats.org";
 constexpr std::string_view data_path =
     "projects/ores.ore/core/src/results/output_catalogue_data.cpp";
 constexpr std::string_view data_hpp_path =
     "projects/ores.ore/core/include/ores.ore.core/results/output_catalogue_data.hpp";
-constexpr std::string_view page_id = "34C68112-7A34-4557-835C-BDCAA7BB9C2A";
 
 constexpr std::uint32_t unreadable = 1;
 
 constexpr std::array<ct::rule, 2> rules{{
     co::refusal_rules[0],
     {"unreadable", "Every file and table the generator reads is there and "
-        "reads."}}};
+        "reads, and a document has the :ID: the option page names."}}};
 
 /**
  * @brief Where the generator stops without writing, and why.
@@ -741,7 +739,7 @@ std::string cell(std::string_view text) {
 }
 
 std::string page(const std::vector<row>& catalogue, const tables& t,
-    std::string_view source) {
+    std::string_view source, std::string_view page_id) {
     const auto& docs = t.docs;
     std::set<std::string> families;
     for (const auto& r : catalogue)
@@ -887,9 +885,15 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
     if (!data)
         co::report(out.refusals, check_document, 0, unreadable, data.error(),
             "Give the tables the message names.");
+    const auto target = cops::page_of(v, "page");
+    if (!target)
+        co::report(out.refusals, ".compass.org", 0, unreadable,
+            "ore_output_catalogue: " + target.error(), "Set the option in "
+            "the codec's row of .compass.org to the :ID: of the output "
+            "formats page.");
     try {
         const auto files = ore_files_of(v);
-        if (!data)
+        if (!data || !target)
             return;
         const auto t = read_tables(*data);
         const auto families = collect(v, t);
@@ -909,10 +913,11 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
                 throw stop{"the ORE output " + name + " matches no pattern "
                     "of the catalogue"};
         }
-        const auto formats_page = page(catalogue, t, data->source);
+        const auto formats_page = page(catalogue, t, data->source,
+            v.option("page"));
         out.files.add(data_path, render(catalogue));
         out.files.add(data_hpp_path, data_hpp);
-        out.files.add(page_path, formats_page);
+        out.files.add(target->path, formats_page);
     } catch (const missing& m) {
         co::report(out.refusals, m.path, 0, unreadable, m.why,
             "Restore it, or correct it as the message says.");
@@ -925,7 +930,10 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
     }
 }
 
-constexpr std::array<ct::option, 3> options{{
+constexpr std::array<ct::option, 4> options{{
+    {"page", "", "The :ID: of the output formats page. The codec writes the "
+        "page whole, with this ID in its drawer, at the path the document "
+        "with the ID has."},
     {"clang_format", "clang-format",
         "The clang-format the generator runs over the data files, a program "
         "on PATH or a path under the checkout; empty for none."},
@@ -958,10 +966,10 @@ std::vector<ct::formatter> formatters_of(const ct::option_values& o,
 
 const ct::descriptor ore_output_catalogue{
     .name = "ore_output_catalogue",
-    .version = 3,
+    .version = 4,
     .summary = "Writes the ORE output catalogue data and the output formats "
                "page from the output samples ORE ships.",
-    .reads = ct::inputs::of_types({}),
+    .reads = ct::inputs::every_document(),
     .options = options,
     .rules = rules,
     .enabled_by_default = false,

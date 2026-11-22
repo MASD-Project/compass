@@ -24,6 +24,7 @@
 #include <set>
 #include <string>
 #include <vector>
+#include "compass.codec/ops/pages.hpp"
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.cpp/ops/report.hpp"
 #include "compass.cpp/ops/text.hpp"
@@ -54,14 +55,15 @@ constexpr std::array<ct::rule, 2> exception_rules{{
         "once, a reason, who accepted it and an ISO date.",
         bad_exception_sources},
     {"unreadable_registry", "The registry and the standard state their "
-        "tables in a form this check reads."}}};
+        "tables in a form this check reads, and a document has the :ID: "
+        "the option standard names."}}};
 
 constexpr std::array<ct::option, 2> exception_options{{
     {"registry", "projects/ores.codegen/scripts/component_registry.py",
         "The Python module whose COMPONENTS_UNDER_TEST and "
         "ACCEPTED_EXCEPTIONS the check reads."},
-    {"standard", "doc/knowledge/architecture/component_clean_standard.org",
-        "The page whose checklist tables define the items."}}};
+    {"standard", "", "The :ID: of the page whose checklist tables define "
+        "the items."}}};
 
 std::string field(const ops::python_value& call, std::string_view key) {
     for (const auto& [k, v, tuple] : call.entries) {
@@ -77,9 +79,17 @@ void registry_exception_run(const ct::corpus_view& v,
         {.multiline = true});
     static const pt::regex date(R"(^\d{4}-\d{2}-\d{2}$)");
     const auto registry_path = v.option("registry");
-    const auto standard_path = v.option("standard");
+    const auto page = compass::codec::ops::page_of(v, "standard");
+    if (!page) {
+        co::report(out, ".compass.org", 0, 1, "registry_exceptions: " +
+            page.error(), "Set the option in the codec's row of "
+            ".compass.org to the :ID: of the standard.");
+        return;
+    }
+    const auto standard_path = page->path;
     std::set<std::string> items;
-    const auto standard = read(v, standard_path);
+    const auto standard = pt::universal_newlines(pt::decode_replacing(
+        page->source));
     for (const auto& m : item_row.find_all(standard))
         items.emplace(m.group(1));
     if (items.empty()) {
@@ -140,10 +150,10 @@ void registry_exception_run(const ct::corpus_view& v,
 
 const ct::descriptor registry_exceptions{
     .name = "registry_exceptions",
-    .version = 1,
+    .version = 2,
     .summary = "Reports each accepted exception of the component registry "
         "that is not justified.",
-    .reads = ct::inputs::of_types({}),
+    .reads = ct::inputs::every_document(),
     .options = exception_options,
     .rules = exception_rules,
     .enabled_by_default = false,

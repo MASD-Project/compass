@@ -24,6 +24,7 @@ add_library(${lib_target_name}
     io/report.cpp
     ops/codecs_stage.cpp
     ops/gc_stage.cpp
+    ops/html_stage.cpp
     ops/ids_stage.cpp
     ops/include_graph.cpp
     ops/include_resolve.cpp
@@ -53,6 +54,7 @@ target_link_libraries(${lib_target_name}
     PUBLIC
         compass.codec.lib
         compass.codegen.lib
+        compass.html.lib
         compass.ingest.lib
         compass.model.lib
         compass.platform.lib
