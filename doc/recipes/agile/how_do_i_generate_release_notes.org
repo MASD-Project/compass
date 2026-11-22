@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :agile:release:notes:github:recipe:
 #+created: 2026-05-21
-#+updated: 2026-11-19
+#+updated: 2026-11-22
 
 This recipe is what the [[id:7D72A9DA-984F-4130-BFF6-97B66B233907][Sprint closure]] phase calls into. The
 companion sprint-opening flow is [[id:1E666848-A785-437E-A463-3D5A0DA0765F][How do I open a new sprint?]].
@@ -116,6 +116,10 @@ on =main=).
    losing the tag/PR/notes work already done. The release stays in
    draft so a human can add screenshots/binaries and publish.
 
+   The tag's CI runs build and attach the packages. Environments that
+   cannot wait for them install the build of the tagged commit from
+   =main=; see [[id:2C286B23-FE18-4664-B015-9D2841EFCD9D][How do I unblock environments before a release finishes?]]
+
 * Template skeleton
 
 #+begin_src markdown
@@ -178,3 +182,5 @@ sprint duration and the section grouping. =create=, =charts= and
   side of closure.
 - [[id:DD7857D9-068E-D724-5C63-A67BD5F1C009][Release Notes Generator]] — the skill that drives this recipe.
 - [[id:CC928252-E0C5-4C3C-A7A8-D613593E4E37][How do I create a PR?]] — for the notes PR.
+- [[id:2C286B23-FE18-4664-B015-9D2841EFCD9D][How do I unblock environments before a release finishes?]] — install
+  the build of the commit being released while its packages build.
