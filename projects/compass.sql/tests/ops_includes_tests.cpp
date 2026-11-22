@@ -80,3 +80,16 @@ TEST_CASE("the walk reports each include and entry point that names no "
     CHECK(w.missing_entry_points.size() == 3);
     CHECK(w.reached("projects/ores.sql/drop/drop.sql"));
 }
+
+TEST_CASE("an include of a psql variable is not followed or reported "
+    "missing", "[ops][includes]") {
+    const std::string setup = "\\if :{?pages}\n\\i :pages\n\\endif\n"
+        "\\ir :'more'\n\\ir missing.sql\n";
+    REQUIRE(ops::model_of(setup).includes.size() == 3);
+    const std::array<std::string_view, 1> roots{"projects/ores.sql/setup.sql"};
+    const auto w = ops::walk_includes(roots,
+        [&](std::string_view) { return ops::model_of(setup).includes; },
+        [](std::string_view p) { return p == "projects/ores.sql/setup.sql"; });
+    REQUIRE(w.missing_includes.size() == 1);
+    CHECK(w.missing_includes[0].names == "missing.sql");
+}
