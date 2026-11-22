@@ -438,4 +438,42 @@ status_report status_of(const types::env_format& f,
     return out;
 }
 
+bool same_but_time(std::string_view before, std::string_view after,
+    std::string_view now) {
+    if (before == after)
+        return true;
+    if (now.empty())
+        return false;
+    const auto old_lines = lines_of(before);
+    const auto new_lines = lines_of(after);
+    if (old_lines.size() != new_lines.size() ||
+        before.ends_with('\n') != after.ends_with('\n'))
+        return false;
+    const auto same_shape = [&](std::string_view a, std::string_view b) {
+        if (a.size() != b.size())
+            return false;
+        for (std::size_t i = 0; i < a.size(); ++i) {
+            const bool da = a[i] >= '0' && a[i] <= '9';
+            const bool db = b[i] >= '0' && b[i] <= '9';
+            if (da != db || (!da && a[i] != b[i]))
+                return false;
+        }
+        return true;
+    };
+    for (std::size_t i = 0; i < new_lines.size(); ++i) {
+        auto o = old_lines[i];
+        auto n = new_lines[i];
+        while (o != n) {
+            const auto at = n.find(now);
+            if (at == std::string_view::npos || o.size() < at + now.size() ||
+                o.substr(0, at) != n.substr(0, at) ||
+                !same_shape(o.substr(at, now.size()), now))
+                return false;
+            o.remove_prefix(at + now.size());
+            n.remove_prefix(at + now.size());
+        }
+    }
+    return true;
+}
+
 }

@@ -25,6 +25,7 @@
 #include <filesystem>
 #include <optional>
 #include <span>
+#include <string_view>
 
 namespace compass::platform::filesystem {
 
@@ -86,6 +87,37 @@ private:
  */
 void replace_file(const std::filesystem::path& from,
     const std::filesystem::path& to);
+
+/**
+ * @brief The suffix of the temporary update_file writes beside its target:
+ * the target's name followed by this.
+ */
+inline constexpr std::string_view update_suffix = ".compass-new";
+
+/**
+ * @brief Makes the file at @p path hold exactly @p bytes, and returns
+ * whether it wrote. A regular file that already holds them is not opened
+ * for writing: its content, modification time, inode and mode all stay.
+ *
+ * Otherwise the bytes go to a temporary beside the target, named for it
+ * with update_suffix, which then replaces it in one step, as replace_file
+ * does. A run killed partway leaves the old file or the new one, never
+ * part of either; the temporary it may leave is removed by the next
+ * update of the same path. The new file keeps the mode of the one it
+ * replaces, unless @p owner_only, which makes it readable and writable by
+ * its owner alone, as a file of secrets must be. Missing parent
+ * directories are created.
+ *
+ * @throws std::system_error naming the path when it cannot be written.
+ */
+bool update_file(const std::filesystem::path& path,
+    std::span<const std::byte> bytes, bool owner_only = false);
+
+/**
+ * @brief update_file for @p text.
+ */
+bool update_file(const std::filesystem::path& path, std::string_view text,
+    bool owner_only = false);
 
 }
 

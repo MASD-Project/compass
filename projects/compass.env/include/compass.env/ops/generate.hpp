@@ -105,6 +105,15 @@ struct generated {
     const sources& s);
 
 /**
+ * @brief Whether @p after, generated at @p now, says what @p before says:
+ * they are equal, or differ only where @p after holds @p now and
+ * @p before, in the same place, a time of the same shape. A file that
+ * would change only in the time it was generated is not written again.
+ */
+[[nodiscard]] bool same_but_time(std::string_view before,
+    std::string_view after, std::string_view now);
+
+/**
  * @brief How an environment file stands against its format.
  */
 struct status_report {

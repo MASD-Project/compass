@@ -19,6 +19,7 @@
  */
 #include "compass.platform/filesystem/new_file.hpp"
 
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -28,6 +29,7 @@
 #include <utility>
 #include <catch2/catch_test_macros.hpp>
 #include "compass.platform/filesystem/file_lock.hpp"
+#include "compass.platform/filesystem/file_status.hpp"
 #include "compass.testing/filesystem/scoped_directory.hpp"
 
 namespace {
@@ -107,4 +109,59 @@ TEST_CASE("an owner-only new_file is readable and writable by its owner "
     namespace sfs = std::filesystem;
     CHECK(sfs::status(path).permissions() ==
         (sfs::perms::owner_read | sfs::perms::owner_write));
+}
+
+TEST_CASE("update_file leaves a file that already holds the bytes as it is",
+    "[filesystem][update_file]") {
+    const scoped_directory dir("compass.platform.new_file");
+    const auto path = dir.path() / "a";
+    std::ofstream(path, std::ios::binary) << "same\n";
+    const auto old = std::filesystem::file_time_type::clock::now() -
+        std::chrono::hours(24 * 365);
+    std::filesystem::last_write_time(path, old);
+    const auto before = fs::regular_file_status(path);
+    REQUIRE(before);
+
+    CHECK_FALSE(fs::update_file(path, std::string_view("same\n")));
+
+    const auto after = fs::regular_file_status(path);
+    REQUIRE(after);
+    CHECK(after->modified.count_ns() == before->modified.count_ns());
+    CHECK(after->inode == before->inode);
+    CHECK(std::filesystem::last_write_time(path) == old);
+}
+
+TEST_CASE("update_file replaces a file whose bytes differ, keeping its mode "
+    "and leaving no temporary", "[filesystem][update_file][posix]") {
+    const scoped_directory dir("compass.platform.new_file");
+    const auto path = dir.path() / "a";
+    std::ofstream(path, std::ios::binary) << "old\n";
+    const auto mode = std::filesystem::perms::owner_all |
+        std::filesystem::perms::group_read;
+    std::filesystem::permissions(path, mode);
+
+    CHECK(fs::update_file(path, std::string_view("new\n")));
+
+    CHECK(read(path) == "new\n");
+    CHECK(std::filesystem::status(path).permissions() == mode);
+    auto temporary = path;
+    temporary += fs::update_suffix;
+    CHECK_FALSE(std::filesystem::exists(temporary));
+}
+
+TEST_CASE("update_file creates the parent directories of a new file and "
+    "clears a temporary a killed run left", "[filesystem][update_file]") {
+    const scoped_directory dir("compass.platform.new_file");
+    const auto path = dir.path() / "x" / "y" / "a";
+    std::filesystem::create_directories(path.parent_path());
+    auto temporary = path;
+    temporary += fs::update_suffix;
+    std::ofstream(temporary, std::ios::binary) << "half";
+
+    CHECK(fs::update_file(path, std::string_view("whole\n")));
+
+    CHECK(read(path) == "whole\n");
+    CHECK_FALSE(std::filesystem::exists(temporary));
+    CHECK(fs::update_file(dir.path() / "new" / "b", std::string_view("b")));
+    CHECK(read(dir.path() / "new" / "b") == "b");
 }

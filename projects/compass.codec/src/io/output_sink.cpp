@@ -32,6 +32,7 @@
 #include <unordered_set>
 #include "compass.codec/ops/outputs.hpp"
 #include "compass.codec/ops/unified_diff.hpp"
+#include "compass.platform/filesystem/new_file.hpp"
 #include "compass.store/io/git_files.hpp"
 #include "compass.store/io/object_file.hpp"
 #include "compass.store/ops/blob_hash.hpp"
@@ -296,8 +297,7 @@ sink_result apply_outputs(const output_plan& plan) {
         if (action != output_action::write &&
             action != output_action::restore)
             continue;
-        store::io::write_object(target,
-            std::as_bytes(std::span(plan.contents[i])));
+        platform::filesystem::update_file(target, plan.contents[i]);
         const auto file = store::io::stat_of(target);
         if (!file)
             throw std::filesystem::filesystem_error(
