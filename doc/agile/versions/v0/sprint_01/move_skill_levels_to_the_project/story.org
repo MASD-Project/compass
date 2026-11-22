@@ -1,0 +1,61 @@
+:PROPERTIES:
+:ID: 67224021-6300-4FEE-BA62-518F2FEB22AB
+:END:
+#+title: Story: Move the skill levels to the project
+#+description: The level of each skill becomes the project's data in a check document, compass stamps it and reports the slices, and ORE Studio's apply_skill_levels.py goes.
+#+type: story
+#+level: s2
+#+filetags: :sprint_01:v0:
+#+created: 2026-11-22
+#+updated: 2026-11-22
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+Each skill of ORE Studio has a cybernetic level, S1 to S5, S3* or cross. The level picks the slice of the catalogue a session sees by default, and binds the S3* audit channel to read-only skills. The level of every skill is written down twice. ORE's =build/scripts/apply_skill_levels.py= holds it in its =LEVELS= table and stamps =#+level:= on each =SKILL.org=. compass's =skill_levels= codec holds a copy, 76 entries, in its own code, and writes the inventory in =doc/llm/skills/skill_systems_levels.org=. So compass carries ORE data, against the line this project keeps: compass holds the engine, the project holds the data. And the script can't be deleted.
+
+This story moves the table to the project and the rest of the script's work to compass:
+
+- *The levels table* becomes a =:CODEC: skill_levels= check document in the project. It has one row per skill with its level and the reason, the order of the levels, which level binds and to what, and the verbs that count as read-only. A skill missing from the table, or a row naming no skill, is a finding, as the script's error is today.
+- *Stamping* =#+level:= on each =SKILL.org= becomes compass's: =compass generate= writes it after the scaffold's =#+export_exclude_tags:= line, as the script does, and =compass check= reports a level that differs. That replaces the script's default mode and =--check=.
+- *The slices*, what a session at each level sees, become a generated section of the levels page. That replaces =--slice=, which printed them.
+- *Pruning the deployed tree* for a binding level (=--prune-deployed=) is an action on an agent's runtime, not a check. It's ORE's tooling, so it stays in ORE as a short script that reads the levels from the check document or the generated page.
+
+compass's own code then holds no skill names.
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | BACKLOG                              |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | Planned; starts after v0.0.11. |
+| Waiting on    | Nothing.                               |
+| Next          | Build the check document reading and stamping, then hand ORE Studio its document. |
+| Last touched  | 2026-11-22                               |
+
+* Acceptance
+
+- compass's =skill_levels= code names no skill. ORE Studio's levels are rows of its check document, generated from =LEVELS= with Python's =ast= so none is retyped.
+- On a copy of ORE Studio's main, with the document added and =apply_skill_levels.py= deleted, one =compass generate= leaves every =SKILL.org='s =#+level:= and the levels page as the script left them; a second writes nothing.
+- A changed row restamps the skill, a skill with no row and a row with no skill are findings, and the slices on the page match the script's =--slice= output for every level.
+- ORE Studio keeps only the pruning, reading the levels from the project's data.
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+| Read the levels from a check document and stamp them | BACKLOG | | | The codec, the table's columns and settings, stamping =#+level:=, and the findings. |
+| Generate the slices | BACKLOG | | | A section of the levels page listing each level's slice, binding or advisory. |
+| Hand ORE Studio its levels document | BACKLOG | | | The generated document, the proof, and what the pruning script reads. |
+
+* Decisions
+
+- 2026-11-22: plan it now, build it after v0.0.11. (Product owner.)
+- 2026-11-22: pruning the deployed tree stays ORE Studio's, as an action on an agent's runtime rather than a check; compass gives it the levels to read.
+
+* Out of scope
+
+- Enforcing the S3* slice at run time beyond pruning: compass reports and stamps, the runtime is the project's.
