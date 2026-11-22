@@ -184,3 +184,18 @@ TEST_CASE("a tag that only contains structure_note does not make a note",
         {"doc/a.org", drawer(a_id)}};
     CHECK(tests::run(codecs::lint, t).empty());
 }
+
+TEST_CASE("an evidence page lends its IDs to links that no live page "
+    "answers, and is itself neither linted nor counted as sharing an ID",
+    "[codecs][lint][evidence]") {
+    const std::string tags = "#+filetags: :evidence:Bad:\n";
+    const files t{
+        {"doc/knowledge/pattern.org", pattern(link(use_id))},
+        {"projects/ores.a/modeling/component_overview.org",
+         use(use_id, link(pattern_id))},
+        {"doc/evidence/copy.org", drawer(use_id) + tags +
+         "* Patterns used\n" + link(pattern_id) + link(missing_id) + "\n"},
+        {"doc/evidence/only.org", drawer(other_id) + tags},
+        {"doc/live.org", drawer(bare_id) + link(other_id) + "\n"}};
+    CHECK(tests::run(codecs::lint, t).empty());
+}

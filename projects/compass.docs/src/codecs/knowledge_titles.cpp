@@ -279,8 +279,8 @@ void check(const project_data& d, const ct::document& doc,
     const auto title = ops::keyword_value(doc, "title");
     const auto at = doc.tables.elements.ranges[
         doc.tables.keywords.elements[k]].begin;
-    const bool structure = ops::has_tag(ops::keyword_value(doc, "filetags"),
-        d.skip_tag);
+    const bool structure = oo::has_tag(
+        ops::keyword_value(doc, "filetags"), d.skip_tag);
 
     if (!structure) {
         const auto verbs = finite_verbs(d, title);

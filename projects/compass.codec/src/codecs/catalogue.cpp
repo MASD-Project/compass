@@ -21,6 +21,7 @@
 
 #include <array>
 #include "compass.codec/codecs/document_index.hpp"
+#include "compass.codec/codecs/evidence_location.hpp"
 #include "compass.codec/codecs/required_sections.hpp"
 #include "compass.codec/codecs/tangle.hpp"
 #include "compass.codec/codecs/tangle_check.hpp"
@@ -29,8 +30,9 @@ namespace compass::codec::codecs {
 
 std::span<const types::descriptor> catalogue() noexcept {
     static const auto all = [] {
-        std::array<types::descriptor, 4> out{
-            document_index, required_sections, tangle, tangle_check};
+        std::array<types::descriptor, 5> out{
+            document_index, evidence_location, required_sections, tangle,
+            tangle_check};
         for (auto& d : out)
             d.code = code_hash();
         return out;

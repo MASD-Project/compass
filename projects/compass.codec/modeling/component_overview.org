@@ -181,6 +181,16 @@ others is in its descriptor, so adding a codec adds a row to a list.
   state alone. Code generation is the one staged codec: a part per model.
 - *Inputs of a codec.* =types::inputs= is a list of =#+type:= values, every
   registered type, or every document including those with no registered type.
+  =with_evidence()= adds the evidence documents of that scope, which no
+  other codec reads.
+- *Evidence.* A document whose first =#+filetags:= holds =evidence= is a
+  record, not a live document (=org::ops::is_evidence=).
+  =ops::index_corpus= flags each such row in =corpus_index::evidence= and
+  gives an ID to a live document before an evidence one, whatever their
+  order. For a codec that did not ask for evidence, an evidence document is
+  not visible, no lookup finds it and =list_files= leaves its path out; the
+  runner answers a recorded listing the same way, so tagging a listed
+  document runs the codec again once.
 - *View.* =types::corpus_view= is all a codec can read. It numbers the
   documents of the declared types from zero, so a codec cannot name a document
   of another type. =operator[]= returns a =types::document=: corpus row, path,
@@ -526,9 +536,13 @@ others is in its descriptor, so adding a codec adds a row to a list.
 - *Document type.* =ops::document_type= gives the registered type the first
   =#+type:= keyword of a document names.
 - *=document_index=.* A corpus codec that emits one tab-separated file: a
-  header, then the ID, title, type and path of every document, in byte order
-  of the paths. The option =path= names the file and defaults to
-  =doc/document_index.tsv=.
+  header, then the ID, title, type and path of every document, evidence
+  included, in byte order of the paths. The option =path= names the file and
+  defaults to =doc/document_index.tsv=.
+- *=evidence_location=.* A document codec over every document, evidence
+  included. It reports an evidence document whose path has no =evidence/=
+  directory, under the rule =outside_evidence_directory=, on its
+  =#+filetags:= value.
 - *=required_sections=.* A document codec over every typed document. It
   reports each section the type requires and no heading of level 1 of the
   document carries, under the rule =missing_section=; a heading nested in

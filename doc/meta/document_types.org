@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :meta:document_types:frontmatter:tags:
 #+created: 2026-05-18
-#+updated: 2026-09-28
+#+updated: 2026-11-22
 
 Every =.org= file in compass-ng carries a =#+type:= field that places it
 in a shared taxonomy. The taxonomy exists for three reasons. First,
@@ -266,6 +266,46 @@ The generator behind =compass add= derives
 the ancestor slugs from the =--parent-dir= path (following the
 =versions/<version>/<sprint>/<story>/= layout) and adds them all to
 =#+filetags= automatically, on top of any =--tags= the user supplies.
+
+** Evidence
+
+A document tagged =evidence= is a record kept for reference, not a live
+document of its type: a probe input, a captured output, a copy of another
+project's page. It keeps the =.org= extension and its own =#+type:=, so it
+still reads as what it is, and it sits under an =evidence/= directory,
+usually in the folder of the story or task it supports. compass treats it
+as follows:
+
+- It is held to no contract. =required_sections= and every other check of
+  a document's shape never see it.
+- Its =:ID:= is not canonical. When a live page carries the same ID, the
+  live page holds it, and a duplicate is not a finding. A link into
+  evidence resolves when no live page has the ID.
+- No codec takes it as input. A codec sees it only when it declares that
+  it reads evidence (=inputs::with_evidence()=); for every other codec it
+  is not in the corpus, no lookup finds it and no listing of the
+  checkout's files holds it. That covers codegen models, check documents
+  under =compass/checks/= with their =:CODEC:= tables, and the skill and
+  recipe catalogues.
+- It is still parsed and indexed. =document_index= lists it with its
+  type, and =lint= reads its IDs to resolve links but checks nothing in
+  it.
+
+The tag is the only switch. =compass.org='s =is_evidence= reads it, the
+codec registry hides evidence from every codec that does not ask for it,
+and the corpus index lets live pages win an ID. A codec never tests the
+tag itself unless it reads evidence on purpose.
+
+The rule has one check: =evidence_location/outside_evidence_directory=
+reports an evidence document that is not under an =evidence/= directory,
+because a reader who meets the page anywhere else takes it for a live
+one. The converse is not a rule. An =evidence/= directory also holds live
+documents, such as the investigations a task commissions, which are held
+to their contract like any other.
+
+A file that is not an org document, such as a captured header or SQL
+script, keeps its own extension with =.txt= appended
+(=probe_document.hpp.txt=), so no build or formatter picks it up.
 
 ** Story categories
 

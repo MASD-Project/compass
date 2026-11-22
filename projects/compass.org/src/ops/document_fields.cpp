@@ -19,6 +19,7 @@
  */
 #include "compass.org/ops/document_fields.hpp"
 
+#include <cstddef>
 #include <cstdint>
 
 namespace compass::org::ops {
@@ -61,6 +62,31 @@ types::property_id find_document_property(const types::tables_view& t,
             return id;
     }
     return types::property_id::none();
+}
+
+bool has_tag(std::string_view filetags, std::string_view tag) noexcept {
+    std::size_t start = 0;
+    while (start <= filetags.size()) {
+        auto end = filetags.find(':', start);
+        if (end == std::string_view::npos)
+            end = filetags.size();
+        auto t = filetags.substr(start, end - start);
+        while (!t.empty() && is_blank(t.front()))
+            t.remove_prefix(1);
+        while (!t.empty() && is_blank(t.back()))
+            t.remove_suffix(1);
+        if (t == tag)
+            return true;
+        start = end + 1;
+    }
+    return false;
+}
+
+bool is_evidence(std::string_view source,
+    const types::tables_view& t) noexcept {
+    const auto k = find_keyword(t, "filetags");
+    return !k.is_none() &&
+        has_tag(t.keywords.values[k].of(source), evidence_tag);
 }
 
 types::source_range trimmed(std::string_view source,

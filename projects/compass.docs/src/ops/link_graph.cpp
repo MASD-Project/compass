@@ -83,8 +83,9 @@ std::string fact_of(const ct::document& d) {
     fact.number(compass::platform::text::is_utf8(source) ? 1 : 0);
     fact.text(first_word(keyword_value(d, "type")));
     fact.text(keyword_value(d, "title"));
-    fact.number(has_tag(keyword_value(d, "filetags"), "structure_note")
-        ? 1 : 0);
+    fact.number(compass::org::ops::has_tag(keyword_value(d, "filetags"),
+        "structure_note") ? 1 : 0);
+    fact.number(compass::org::ops::is_evidence(source, t) ? 1 : 0);
 
     const auto& h = t.headings;
     std::vector<std::uint32_t> starts;
@@ -172,6 +173,7 @@ page page_of(std::string_view path, std::string_view fact) {
     out.type = r.text();
     out.title = r.text();
     out.structure_note = r.number() != 0;
+    out.evidence = r.number() != 0;
     out.see_also = r.number();
     const auto ids = r.number();
     out.ids.reserve(ids);

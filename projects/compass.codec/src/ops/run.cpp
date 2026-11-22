@@ -208,7 +208,7 @@ struct staging {
 struct answers {
     const types::corpus& c;
     const types::corpus_index& index;
-    std::span<const std::uint8_t> reads;
+    types::read_scope reads;
     const codec_key& key;
     const blob_id& registry;
     const std::unordered_map<std::string_view, blob_id>* facts = nullptr;
@@ -229,7 +229,7 @@ struct answers {
         case types::input_kind::file:
         case types::input_kind::file_exists:
         case types::input_kind::listing:
-            return types::file_answer(c, kind, input);
+            return types::file_answer(c, index, reads, kind, input);
         case types::input_kind::fact: {
             if (facts == nullptr)
                 return std::nullopt;
@@ -697,20 +697,25 @@ struct call {
     }
 };
 
+types::read_scope scope_of(const types::registry& r,
+    types::codec_id codec) noexcept {
+    types::read_scope s;
+    s.types = std::span<const std::uint8_t>(r.reads).subspan(
+        codec.value * r.type_slots, r.type_slots);
+    s.evidence = r.codecs[codec.value].reads.evidence;
+    return s;
+}
+
 std::vector<ot::document_id> visible_rows(const types::registry& r,
-    types::codec_id codec, const types::corpus& c) {
+    types::codec_id codec, const types::corpus& c,
+    const types::corpus_index& index) {
+    const auto scope = scope_of(r, codec);
     std::vector<ot::document_id> rows;
     for (std::uint32_t row = 0; row < c.size(); ++row) {
-        if (reads(r, codec, c.types[row]))
+        if (types::may_read(c, index, scope, {row}))
             rows.push_back({row});
     }
     return rows;
-}
-
-std::span<const std::uint8_t> flags_of(const types::registry& r,
-    types::codec_id codec) noexcept {
-    return std::span<const std::uint8_t>(r.reads).subspan(
-        codec.value * r.type_slots, r.type_slots);
 }
 
 std::string unit_name(std::string_view codec, std::string_view document) {
@@ -1027,7 +1032,7 @@ types::run_result run(const types::registry& r, const types::corpus& c,
     std::vector<std::unique_ptr<staging>> staged(r.size());
     const auto answers_of = [&](types::codec_id codec) {
         const auto& s = staged[codec.value];
-        return answers{c, index, flags_of(r, codec), keys[codec.value],
+        return answers{c, index, scope_of(r, codec), keys[codec.value],
             registry, s ? &s->facts : nullptr, edited};
     };
     const auto prepare = [&](std::uint32_t i, staging& s, types::read_log& log,
@@ -1060,8 +1065,8 @@ types::run_result run(const types::registry& r, const types::corpus& c,
         const auto& d = r.codecs[i];
         const auto kind = unit_of(d);
         if (r.enabled[i] != 0)
-            rows[i] = visible_rows(r, codec, c);
-        views.emplace_back(c, types, index, rows[i], flags_of(r, codec),
+            rows[i] = visible_rows(r, codec, c, index);
+        views.emplace_back(c, types, index, rows[i], scope_of(r, codec),
             d.options, option_values(r, codec));
         if (r.enabled[i] == 0)
             continue;

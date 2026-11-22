@@ -273,6 +273,16 @@ std::string file_id(std::string_view text) {
     return std::string(trim(head.substr(at + 4, end - at - 4)));
 }
 
+/**
+ * @brief True when the document @p text is evidence, a record that
+ * defines no check and gives no codec data.
+ */
+bool is_evidence(std::string_view text) {
+    ot::tables tables;
+    ingest::org::parse(text, tables);
+    return compass::org::ops::is_evidence(text, ot::view(tables));
+}
+
 }
 
 namespace {
@@ -575,6 +585,8 @@ std::expected<check_set, std::string> read_check_documents(
             return failure(std::format("{}: cannot be read; fix: make it "
                 "readable", path));
         const std::string text{std::istreambuf_iterator<char>(is), {}};
+        if (is_evidence(text))
+            continue;
         auto data = parse_codec_document(text, path, out.exceptions);
         if (!data)
             return failure(data.error());
@@ -605,7 +617,7 @@ std::expected<check_set, std::string> read_check_documents(
     std::ranges::sort(paths);
     for (const auto& path : paths) {
         const auto text = store::io::read_commit_file(objects, commit, path);
-        if (!text)
+        if (!text || is_evidence(*text))
             continue;
         auto data = parse_codec_document(*text, path, out.exceptions);
         if (!data)

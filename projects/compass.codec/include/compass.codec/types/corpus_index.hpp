@@ -20,23 +20,29 @@
 #ifndef COMPASS_CODEC_TYPES_CORPUS_INDEX_HPP
 #define COMPASS_CODEC_TYPES_CORPUS_INDEX_HPP
 
+#include <cstdint>
 #include <string_view>
 #include <unordered_map>
+#include <vector>
 #include "compass.org/types/handle.hpp"
 
 namespace compass::codec::types {
 
 /**
  * @brief The row of each document of a corpus by its path and by the ID
- * property of its file-level drawer.
- * When two documents carry one ID, the first in corpus order holds it. The
- * keys point into the corpus.
+ * property of its file-level drawer, and which rows are evidence.
+ * An ID is held by the first live document in corpus order that carries
+ * it, and by the first evidence document only when no live one does, so
+ * a copy kept for the record never takes a live page's ID. evidence holds
+ * one flag per row, set for an evidence document. The keys point into the
+ * corpus.
  */
 struct corpus_index {
     std::unordered_map<std::string_view, compass::org::types::document_id>
         paths;
     std::unordered_map<std::string_view, compass::org::types::document_id>
         ids;
+    std::vector<std::uint8_t> evidence;
 };
 
 }

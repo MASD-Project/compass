@@ -643,3 +643,17 @@ TEST_CASE("ratchet judges the merge base by the check documents of the "
         CHECK_THAT(r.out, ContainsSubstring("0 new diagnostics, 1 excused"));
     }
 }
+
+TEST_CASE("a check document tagged evidence defines no check, and outside "
+    "an evidence/ directory is reported", "[app][checks][evidence]") {
+    scoped_git_repo repo;
+    write_checkout(repo);
+    repo.write("compass/checks/portable_cpp.org",
+        "#+filetags: :evidence:\n" + check_document());
+
+    const auto r = check(repo);
+    CHECK(r.status == 1);
+    CHECK(r.findings() == std::vector<std::string>{
+        "compass/checks/portable_cpp.org:1:"
+        "evidence_location/outside_evidence_directory"});
+}

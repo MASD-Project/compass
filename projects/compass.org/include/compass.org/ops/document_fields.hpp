@@ -52,6 +52,31 @@ namespace compass::org::ops {
     const types::tables_view& t, std::string_view key) noexcept;
 
 /**
+ * @brief True when @p filetags, a #+filetags: value such as :a:b:, holds
+ * the tag @p tag.
+ */
+[[nodiscard]] bool has_tag(std::string_view filetags,
+    std::string_view tag) noexcept;
+
+/**
+ * @brief The filetag that marks a document as evidence.
+ */
+inline constexpr std::string_view evidence_tag = "evidence";
+
+/**
+ * @brief True when the document is evidence: its first #+filetags: holds
+ * evidence_tag.
+ *
+ * Evidence is a document kept for the record, such as a probe input, a
+ * captured output or a copy of another project's page. It is parsed and
+ * indexed, but it is not a live document of its type: it is held to no
+ * contract, its IDs yield to those of live documents, and no codec reads
+ * it unless the codec declares that it reads evidence.
+ */
+[[nodiscard]] bool is_evidence(std::string_view source,
+    const types::tables_view& t) noexcept;
+
+/**
  * @brief @p range without the spaces, tabs and line ends at either end.
  */
 [[nodiscard]] types::source_range trimmed(std::string_view source,

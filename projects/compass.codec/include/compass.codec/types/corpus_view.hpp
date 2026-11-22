@@ -157,18 +157,62 @@ private:
 }
 
 /**
+ * @brief Which documents one codec may read: a flag per type of the
+ * registry and a last one for documents with no registered type, and
+ * whether it reads evidence documents.
+ */
+struct read_scope {
+    std::span<const std::uint8_t> types;
+    bool evidence = false;
+};
+
+/**
+ * @brief True when a codec of scope @p reads may read document @p row of
+ * @p c: the flag of its type, or the last flag for none, and, for an
+ * evidence document, the scope's evidence flag.
+ */
+[[nodiscard]] inline bool may_read(const corpus& c, const corpus_index& index,
+    const read_scope& reads, compass::org::types::document_id row) noexcept {
+    const auto type = c.types[row.value];
+    const auto& flags = reads.types;
+    if (flags[type.is_none() ? flags.size() - 1 : type.value] == 0)
+        return false;
+    return reads.evidence || index.evidence[row.value] == 0;
+}
+
+/**
+ * @brief The paths of the files of @p c that start with @p prefix and end
+ * with @p suffix, in byte order, but those of the evidence documents a
+ * codec of scope @p reads does not read.
+ */
+[[nodiscard]] inline std::vector<std::string_view> listed_files(
+    const corpus& c, const corpus_index& index, const read_scope& reads,
+    std::string_view prefix, std::string_view suffix) {
+    auto out = matching_files(c.files, prefix, suffix);
+    if (reads.evidence)
+        return out;
+    std::erase_if(out, [&](std::string_view path) {
+        const auto it = index.paths.find(path);
+        return it != index.paths.end() &&
+            index.evidence[it->second.value] != 0;
+    });
+    return out;
+}
+
+/**
  * @brief What a file, file_exists or listing input with key @p key is
- * answered now by the files of @p c.
+ * answered now by the files of @p c, for a codec of scope @p reads.
  * @pre @p kind is input_kind::file, file_exists or listing.
  */
 [[nodiscard]] inline std::optional<compass::store::types::blob_id>
-file_answer(const corpus& c, input_kind kind, std::string_view key) {
+file_answer(const corpus& c, const corpus_index& index,
+    const read_scope& reads, input_kind kind, std::string_view key) {
     if (kind == input_kind::listing) {
         const auto star = key.find('*');
         const auto prefix = key.substr(0, star);
         const auto suffix = star == std::string_view::npos
             ? std::string_view{} : key.substr(star + 1);
-        return listing_hash(matching_files(c.files, prefix, suffix));
+        return listing_hash(listed_files(c, index, reads, prefix, suffix));
     }
     if (!holds_file(c.files, key))
         return std::nullopt;
@@ -178,26 +222,16 @@ file_answer(const corpus& c, input_kind kind, std::string_view key) {
 }
 
 /**
- * @brief True when a codec whose type flags are @p reads may read a
- * document of type @p type: the flag of its row, or the last flag for none.
- */
-[[nodiscard]] inline bool may_read(std::span<const std::uint8_t> reads,
-    compass::org::types::type_id type) noexcept {
-    return reads[type.is_none() ? reads.size() - 1 : type.value] != 0;
-}
-
-/**
- * @brief The document a path or ID lookup finds among those a codec whose
- * type flags are @p reads may read, or none.
+ * @brief The document a path or ID lookup finds among those a codec of
+ * scope @p reads may read, or none.
  * @pre @p kind is input_kind::path or input_kind::id.
  */
 [[nodiscard]] inline compass::org::types::document_id locate(
-    const corpus& c, const corpus_index& index,
-    std::span<const std::uint8_t> reads, input_kind kind,
-    std::string_view key) {
+    const corpus& c, const corpus_index& index, const read_scope& reads,
+    input_kind kind, std::string_view key) {
     const auto& map = kind == input_kind::path ? index.paths : index.ids;
     const auto it = map.find(key);
-    if (it == map.end() || !may_read(reads, c.types[it->second.value]))
+    if (it == map.end() || !may_read(c, index, reads, it->second))
         return compass::org::types::document_id::none();
     return it->second;
 }
@@ -218,7 +252,9 @@ file_answer(const corpus& c, input_kind kind, std::string_view key) {
  * A codec has no other way to a document. The visible documents are
  * numbered from zero, in corpus order, and a document of an undeclared type
  * has no number and is not found by a lookup, so a codec cannot name one.
- * When a run gives the view a read_log, every document handed out, every
+ * Nor can it name an evidence document unless it declared evidence: no
+ * listing of the checkout's files holds one, though read_file and
+ * file_exists still answer for its path. When a run gives the view a read_log, every document handed out, every
  * lookup and its answer, found or not, and every read of the type registry
  * is written to it. Options are not recorded: their values are part of the
  * key of every unit.
@@ -229,15 +265,15 @@ class corpus_view final {
 public:
     /**
      * @pre @p rows names rows of @p c in ascending order, @p index was
-     * built from @p c, @p reads holds one flag per row of @p registry and a
-     * last one for documents with no registered type, and @p values has
-     * one entry per entry of @p options, in the same order.
+     * built from @p c, @p reads holds one type flag per row of @p registry
+     * and a last one for documents with no registered type, and @p values
+     * has one entry per entry of @p options, in the same order.
      */
     corpus_view(const corpus& c,
         const compass::org::types::type_registry& registry,
         const corpus_index& index,
         std::span<const compass::org::types::document_id> rows,
-        std::span<const std::uint8_t> reads,
+        read_scope reads,
         std::span<const types::option> options,
         std::span<const std::string> values) noexcept
         : corpus_(&c), types_(&registry), index_(&index), rows_(rows),
@@ -317,13 +353,14 @@ public:
 
     /**
      * @brief The paths of the files of the checkout, documents or not,
-     * that start with @p prefix and end with @p suffix, in byte order.
+     * that start with @p prefix and end with @p suffix, in byte order,
+     * but the evidence documents the codec does not read.
      * @throws std::invalid_argument when @p prefix holds a '*'.
      */
     [[nodiscard]] std::vector<std::string_view> list_files(
         std::string_view prefix, std::string_view suffix = {}) const {
         const auto key = listing_key(prefix, suffix);
-        auto out = matching_files(corpus_->files, prefix, suffix);
+        auto out = listed_files(*corpus_, *index_, reads_, prefix, suffix);
         if (log_ != nullptr)
             log_->add(input_kind::listing, key, listing_hash(out));
         return out;
@@ -391,7 +428,7 @@ private:
     const compass::org::types::type_registry* types_;
     const corpus_index* index_;
     std::span<const compass::org::types::document_id> rows_;
-    std::span<const std::uint8_t> reads_;
+    read_scope reads_;
     std::span<const types::option> options_;
     std::span<const std::string> values_;
     read_log* log_ = nullptr;

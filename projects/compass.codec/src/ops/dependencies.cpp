@@ -122,17 +122,26 @@ private:
 types::corpus_index index_corpus(const types::corpus& c) {
     types::corpus_index index;
     index.paths.reserve(c.size());
+    index.evidence.resize(c.size());
     for (std::uint32_t row = 0; row < c.size(); ++row) {
         index.paths.emplace(c.paths[row], ot::document_id{row});
-        const auto& tables = c.tables[row];
-        const auto p = org::ops::find_document_property(tables, "ID");
-        if (p.is_none())
-            continue;
-        const auto& source = c.sources[row];
-        const auto id = org::ops::trimmed(source,
-            tables.properties.values[p]).of(source);
-        if (!id.empty())
-            index.ids.emplace(id, ot::document_id{row});
+        index.evidence[row] =
+            org::ops::is_evidence(c.sources[row], c.tables[row]) ? 1 : 0;
+    }
+    for (const int pass : {0, 1}) {
+        for (std::uint32_t row = 0; row < c.size(); ++row) {
+            if (index.evidence[row] != pass)
+                continue;
+            const auto& tables = c.tables[row];
+            const auto p = org::ops::find_document_property(tables, "ID");
+            if (p.is_none())
+                continue;
+            const auto& source = c.sources[row];
+            const auto id = org::ops::trimmed(source,
+                tables.properties.values[p]).of(source);
+            if (!id.empty())
+                index.ids.emplace(id, ot::document_id{row});
+        }
     }
     return index;
 }

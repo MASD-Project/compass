@@ -125,6 +125,11 @@ The common metadata are columns so the frequent filters use plain indexes;
 everything else is in =keywords= and =properties=, with GIN indexes, so a
 project adds a keyword and filters on it with no migration.
 
+An evidence document, one whose =tags= hold =evidence= (see
+[[id:8B29A8D8-E004-4E87-B81D-ABEAF68F2B98][Document Types]]), is loaded like any other, with its own =type=, so
+search can find a probe input or a captured page. A view that wants only
+live documents adds =not 'evidence' = any(tags)= to its condition.
+
 ** The test definitions
 
 For each document of =#+type: test_scenario=, the sync also writes:
