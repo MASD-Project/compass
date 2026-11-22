@@ -42,6 +42,8 @@ namespace compass::codegen::ops {
  * - In the four templates that declare C++ members, a field's
  *   cpp_value_init is "{}" for a scalar cpp_type and "" otherwise.
  * - The template renders without HTML escaping.
+ * - Writing a ts_type that nothing holds throws std::runtime_error naming
+ *   the template, the field and its C++ type.
  * - An org output gets the #+generated: keyword after its first :END: line,
  *   or at its top when it has none.
  * - Each <<paste:UUID>> line becomes the blocks of the model's

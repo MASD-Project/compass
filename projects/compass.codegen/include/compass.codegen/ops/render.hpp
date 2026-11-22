@@ -53,6 +53,12 @@ struct render_options {
      * template that declares members.
      */
     bool value_init = false;
+    /**
+     * @brief Names that must hold a value wherever the template writes
+     * them: writing one that nothing holds throws, naming the object it
+     * was looked up from. A section over the name still only tests it.
+     */
+    std::span<const std::string_view> required;
 };
 
 /**
@@ -71,7 +77,8 @@ struct value_ref {
  *
  * The semantics are pystache's. A name is looked up in the objects on the
  * context stack from the top down; a dotted name looks up its first part so
- * and the rest in what that finds. A name nothing holds renders as nothing.
+ * and the rest in what that finds. A name nothing holds renders as nothing,
+ * unless the options require it.
  * A value renders as Python's str() does: True, False and None for a
  * boolean and null, and repr() for the items of a list or an object.
  * A section repeats for each item of a list and renders once, with the value

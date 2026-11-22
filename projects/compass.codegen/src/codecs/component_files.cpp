@@ -122,7 +122,7 @@ void run(const ct::corpus_view& v, ct::file_output& out) {
 
 const ct::descriptor component_files{
     .name = "component_files",
-    .version = 1,
+    .version = 2,
     .summary = "Writes the component_files.cmake source and header lists of "
         "each modelled component.",
     .reads = ct::inputs::of_types({}),
