@@ -1,0 +1,79 @@
+:PROPERTIES:
+:ID: 0E48C104-E554-4E34-8395-C611D1DC70B3
+:END:
+#+title: Story: Check the systemd units
+#+description: Check that the systemd units a project deploys are the ones its registry generates today, and that each unit's ordering and requirements cover every service it depends on, so an environment cannot start its fleet from stale or wrongly wired units.
+#+type: story
+#+level: s2
+#+filetags: :service:systemd:sprint_01:v0:
+#+created: 2026-11-22
+#+updated: 2026-11-22
+#+environment:
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+An environment never starts its fleet from units that are stale or wired
+wrongly. On 2026-11-22 an ORE Studio environment started its services from
+systemd units deployed on 13 November: nothing deployed them again after
+13 days of changes, the pooler dependency and the =After==/=Requires==
+wiring among them, and nothing reported it. Regenerating would not have been
+enough, because the generated units themselves encode only part of each
+service's dependencies:
+
+#+begin_example
+ores.iam.service:  After=nats-server,            Requires=nats-server
+ores.dq.service:   After=nats-server ores.iam,   Requires=nats-server ores.iam
+#+end_example
+
+compass checks both: that the units in the tree match what the registry
+generates, and that each unit orders itself after, and requires, every
+service it depends on.
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | BACKLOG                              |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | Not yet started.                       |
+| Waiting on    | Nothing.                               |
+| Next          | Break the story into tasks.            |
+| Last touched  | 2026-11-22                               |
+
+* Acceptance
+
+- *Wiring.* A check reads each generated unit and the project's data on what
+  a service depends on (its registry: messaging, database or pooler, other
+  services it calls) and reports a unit whose =After== or =Requires== lacks
+  one of them, naming the missing unit. On ORE Studio it reports the gap in
+  the units above.
+- *Generated units are current.* Units the project generates are outputs
+  compass checks for drift like any other, so a change to the registry or the
+  template that is not regenerated fails the gate.
+- *Deployed units are current.* A command reports, per environment, each
+  deployed unit that differs from what the environment would deploy now, or
+  that no service names any more, with its age, as =compass env status= does
+  for =.env=. It is read-only; deploying stays the project's tool.
+- The dependency data is the project's, in a check document or its
+  registry; compass names no ORE Studio service.
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+|      |       |       |     |             |
+
+* Decisions
+
+- Captured from an ORE Studio environment's report of 2026-11-22. Related:
+  the service removal checklist bright faraday proposed the same day, whose
+  remove side covers deployed units left behind.
+
+* Out of scope
+
+- Deploying or restarting units; the project's tooling does that.
+- Generating the units, which ORE Studio's =systemd_generate.py= does today
+  and the MASD meta model story may move to compass.
