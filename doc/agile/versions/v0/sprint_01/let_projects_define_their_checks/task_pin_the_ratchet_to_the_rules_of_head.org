@@ -8,7 +8,7 @@
 #+filetags: :let_projects_define_their_checks:sprint_01:v0:
 #+owner: marco
 #+branch: feature/ratchet-under-head-rules
-#+pr:
+#+pr: https://github.com/MASD-Project/compass/pull/173
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-22
@@ -127,7 +127,7 @@ The binary for the ORE Studio rows is compass 15ea0c2 with
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/173][#173]] | [cli] Pin the ratchet to judging the merge base by HEAD's rules |
 
 * Review
 
