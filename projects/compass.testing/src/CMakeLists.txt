@@ -19,6 +19,7 @@ set(name "compass.testing")
 set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
+    database/scoped_cluster.cpp
     filesystem/scoped_directory.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})

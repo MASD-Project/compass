@@ -2,12 +2,12 @@
 :ID: 0F1D33BA-2BD8-456C-BD71-324C3B46E5FB
 :END:
 #+title: compass.testing
-#+description: Test infrastructure for compass-ng's test suites: a temporary directory that removes itself, and what earlier runs left behind.
+#+description: Test infrastructure for compass-ng's test suites: a temporary directory that removes itself, and what earlier runs left behind, and a throwaway PostgreSQL cluster.
 #+type: component
 #+level: cross
-#+filetags: :testing:filesystem:component:
+#+filetags: :testing:filesystem:database:component:
 #+created: 2026-11-18
-#+updated: 2026-11-18
+#+updated: 2026-11-22
 
 This page is the component overview for =compass.testing=, a simple component
 in the tooling layer of the
@@ -17,11 +17,15 @@ in the tooling layer of the
 
 =compass.testing= is the shared infrastructure compass-ng's test suites build
 on, as =ores.testing= is for ORE Studio. Its consumers are the test binaries of
-the other components, never production code. It holds one facet.
+the other components, never production code. It holds two facets.
 =filesystem= has =scoped_directory=: a new directory under the system
 temporary directory, named =<prefix>.<process ID>.<number>=, removed with
 everything in it when it is destroyed. The caller gives the prefix, such as
 =compass.store.tests=, so a directory left behind names its suite.
+=database= has =scoped_cluster=: a PostgreSQL cluster that =initdb= makes in
+a =scoped_directory= and =pg_ctl= starts, listening on a Unix socket in that
+directory and on no TCP port, so it never meets a server the machine already
+runs. It is stopped and removed when it is destroyed.
 
 A test run must leave nothing in the temporary directory whether its tests
 pass, fail, throw or are killed. A fixture holds its =scoped_directory= as its
@@ -34,6 +38,10 @@ running: the next run of the suite cleans up after the last.
 * Inputs
 
 - A prefix naming the suite.
+- For a cluster, the PostgreSQL server programs: the directory that
+  =COMPASS_TEST_POSTGRES_BIN= names, else the directory of =initdb= on
+  =PATH=, else the newest =/usr/lib/postgresql/<version>/bin=, where Debian
+  and Ubuntu install them.
 - The system temporary directory, as =std::filesystem::temp_directory_path=
   gives it.
 
@@ -49,12 +57,24 @@ running: the next run of the suite cleans up after the last.
 - On destruction the directory is removed. A failure to remove it, such as
   a file still open on Windows, is not reported; the next run removes it.
 
+- =scoped_cluster=: =create_database()= makes a new, empty database and
+  returns its libpq connection string. The superuser is =compass=, every
+  local connection is trusted, and =fsync= is off. Run as root, as in the
+  CI container, the server programs run as the =postgres= user through
+  =runuser=, since =initdb= refuses root, and the directory is given to that
+  user. =shared_cluster= starts one cluster per test process on first use.
+  When no server programs are found it returns none and says why, and the
+  test skips with that message, so a macOS or Windows machine without
+  PostgreSQL passes.
+
 * Entry points
 
 | Path                                                       | Role              |
 |------------------------------------------------------------+-------------------|
 | =include/compass.testing/filesystem/scoped_directory.hpp= | Public type.      |
 | =src/filesystem/scoped_directory.cpp=                     | Implementation.   |
+| =include/compass.testing/database/scoped_cluster.hpp=     | Public type.      |
+| =src/database/scoped_cluster.cpp=                         | Implementation.   |
 | =tests/filesystem_scoped_directory_tests.cpp=             | Catch2 tests.     |
 
 | Target                  | Kind                                      |
@@ -65,7 +85,10 @@ running: the next run of the suite cleans up after the last.
 * Dependencies
 
 - [[id:73F4046A-896C-4F38-864C-572B10F47389][compass.platform]] --- the
-  process ID, and whether a process is running.
+  process ID, whether a process is running, the environment, finding a
+  program on =PATH= and running it.
+- The PostgreSQL server programs, for a cluster; =runuser= when run as
+  root.
 - Catch2, for the tests only.
 
 * See also
