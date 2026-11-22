@@ -1,0 +1,1262 @@
+:PROPERTIES:
+:ID: 7FD52505-1436-4925-A1DE-4A3EC88F0133
+:END:
+#+title: Investigation: How compass generates itself
+#+description: How compass would generate its own database tables, migrations, row types and HTTP and MCP service from models, which of ORE Studio's meta model and templates are MASD and which are ORE Studio's own, how ORE Studio reads the meta model from compass once it moves, and the order of the work.
+#+type: investigation
+#+level: s1
+#+filetags: :own_the_masd_meta_model:sprint_01:v0:
+#+created: 2026-11-22
+#+updated: 2026-11-22
+
+A point-in-time record, written while the story that commissioned it was open, of an [[id:A7F8D9E2-3C4B-4A5D-B67C-8E9F0A1B2C3D][investigation]] into how compass would generate its own database tables, migrations, row types and HTTP and MCP service from models, which of ORE Studio's meta model and templates are MASD and which are ORE Studio's own, how ORE Studio reads the meta model from compass once it moves, and the order of the work.
+
+It is a snapshot, not a description of the system. Whatever it concludes that the code must keep doing belongs on the page that owns the subject; cite that page from code, recipes and models, not this one.
+
+* Context
+
+The story [[id:E3C81059-FE00-4403-AA56-190FDBB9904A][Own the MASD meta model and generate compass with it]] asks
+compass to generate its own code with the generator it already runs on ORE
+Studio. The first pull request of [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]],
+[[https://github.com/MASD-Project/compass/pull/176][#176]], wrote compass's
+database by hand: one migration that creates the schemas =corpus=, =test= and
+=activity= (=projects/compass.db/src/ops/migrations.cpp=), the bookkeeping
+schema =compass=, the row types of =projects/compass.db/include/compass.db/types/=
+and the COPY staging in =src/io/corpus.cpp=. The product owner wants those
+tables, and the HTTP and MCP service that will sit on them, generated from
+models in compass's repository, and is most interested in how the tables
+would be generated.
+
+The questions were:
+
+1. How would compass generate its own tables and row types, shown on two real
+   tables, =corpus.document= and =activity.run=?
+2. How does a generated schema evolve when the database holds activity that
+   must survive an upgrade?
+3. How would compass generate its HTTP and MCP service?
+4. Which of ORE Studio's =projects/modeling= pages and template families are
+   MASD, and which are ORE Studio's own?
+5. How does ORE Studio read the meta model from compass once it moves?
+6. In what order should the work go?
+
+This record was written on 2026-11-22 against ORE Studio =main= at
+=9ed8b54cd2= and compass at the head of
+=feature/stories-meta-model-and-website=, with #176 open at =a58d013=.
+
+* Methodology
+
+- ORE Studio was read only through =git --git-dir=~/Development/OreStudio/ores.git=
+  (=show=, =ls-tree=, =grep=) and through a scratch copy made with
+  =git archive main=, so nothing in ORE Studio changed.
+- The codegen codec was run for real. Two probe models, =corpus.document= and
+  =activity.run= written in ORE Studio's entity model format, were put into
+  the scratch copy's =projects/ores.geo/modeling/= and rendered with the
+  installed =compass-ng= (0.0.12, =f0b1dea=) through =compass-ng diff --scope=.
+  The script, the two models and what they rendered are in
+  [[file:evidence/][evidence/]]:
+  [[file:evidence/render_probe.sh][render_probe.sh]] reproduces the run,
+  [[file:evidence/probe_document_outputs.txt][probe_document_outputs.txt]]
+  and [[file:evidence/probe_run_outputs.txt][probe_run_outputs.txt]] list the
+  28 files each model writes, and the =probe_*.sql.txt= and =probe_*.hpp.txt=
+  files are the rendered SQL and C++. A diff over the 1.7 GB copy takes about
+  2.5 minutes, most of it the other codecs of ORE Studio's =.compass.org=.
+- The context builders compass ported were read in
+  =projects/compass.codegen/src/ops/= (12,801 lines over 46 files), since
+  what a template can say is bounded by what its context holds.
+- The classification of question 4 and the survey of question 3 read every
+  page of ORE Studio's =projects/modeling/= and every facet node of
+  =projects/ores.codegen/library/templates/=, with grep counts of the ORE
+  Studio names each template hard-codes.
+
+* Paths taken
+
+** Generating compass's tables with ORE Studio's entity templates
+
+The first path was the obvious one: write compass's tables as ORE Studio
+entity models and let the templates that generate ORE Studio's 766 models
+generate them too.
+
+*** How ORE Studio generates a table today
+
+A table in ORE Studio is a model page of =#+type: ores.codegen.entity= under
+a component's =modeling/= directory. Its drawers and headings carry the
+structure: =* Columns= (one heading per column, with =:type:= in SQL,
+=:cpp_type:=, =:nullable:=, =:default:=, =:primary_key:=), =* Foreign keys=,
+=* SQL ** Flags= (=:tablename:=), =* SQL ** Checks= and =* SQL ** Indexes=
+(=name=, =columns=, =unique=, =current_only=, =where_extra=, =using=). Its
+=* Flags= drawer binds a profile, such as =read-only-current-state=, which
+fixes a set of features (=read_only=, =current_state=). Features change what
+the context holds; the physical-space graph (the =ores.<space>.<facet>.org=
+and =ores.<space>.<facet>.<archetype>.org= node pages of
+=projects/ores.codegen/library/templates/=) decides which archetypes render,
+and each archetype names one =.mustache= template and an output path. An
+entity's model drawer and its profile can switch any address of the graph on
+or off (=:ores.cpp.http-route.enabled: true=).
+
+compass's codec runs the same pipeline in C++: =ops::generate_model= loads a
+model, =entity_context= and its 25 =entity_*.cpp= steps build what
+ores.codegen's Python built, =ops::model_units= lists the archetypes, and
+=ops::render_output= renders each one. It writes all 26,212 outputs of ORE
+Studio byte for byte.
+
+*** The probe
+
+=corpus.document= was written as an ORE Studio entity in
+[[file:evidence/ores.geo.document.org.txt][evidence/ores.geo.document.org.txt]],
+bound to =read-only-current-state=, without a tenant, with the hash as a
+=bytea= key, =text[]= tags, =jsonb= keywords, a =now()= default and a gin
+index:
+
+#+begin_src org
+,* Flags
+:PROPERTIES:
+:schema:    corpus
+:product:   ores
+:component: geo
+:profile:   read-only-current-state
+:END:
+
+,* Columns
+
+,** hash
+:PROPERTIES:
+:type:             bytea
+:cpp_type:         std::string
+:primary_key:      true
+:skip_empty_check: true
+:END:
+
+,** tags
+:PROPERTIES:
+:type:     text[]
+:cpp_type: std::vector<std::string>
+:nullable: false
+:default:  '{}'
+:END:
+
+,** keywords
+:PROPERTIES:
+:type:     jsonb
+:cpp_type: std::string
+:nullable: false
+:default:  '{}'
+:END:
+
+,* SQL
+
+,** Flags
+:PROPERTIES:
+:tablename: corpus.document
+:END:
+#+end_src
+
+It wrote 28 files: the create and drop scripts, a NOTIFY trigger and its
+drop, a domain class, JSON and table I/O, a generator, a NATS event, handler,
+registrars and protocol, a repository entity, mapper and repository, a
+service, two TypeScript files and the component's file list. The create
+script, as rendered:
+
+#+begin_src sql
+create table if not exists "corpus.document_tbl" (
+    "hash" bytea not null,
+    "org_id" text null,
+    "title" text null,
+    "tags" text[] not null default '{}',
+    "keywords" jsonb not null default '{}',
+    "source" text not null,
+    "loaded_at" timestamp with time zone not null default now(),
+    primary key (hash)
+);
+
+create index if not exists documents_org_id_idx
+on "corpus.document_tbl" (org_id);
+
+create index if not exists documents_tags_idx
+on "corpus.document_tbl" using gin (tags);
+
+create or replace function corpus.document_insert_fn()
+returns trigger as $$
+declare
+begin
+
+
+    return NEW;
+end;
+$$ language plpgsql security definer set search_path = public, pg_temp;
+
+create or replace trigger corpus.document_insert_trg
+before insert on "corpus.document_tbl"
+for each row execute function corpus.document_insert_fn();
+#+end_src
+
+And the repository row, which ORE Studio's query builder binds:
+
+#+begin_src cpp
+struct document_entity {
+    constexpr static const char* schema = "public";
+    constexpr static const char* tablename = "corpus.document";
+
+    std::optional<std::string> org_id;
+    std::optional<std::string> title;
+    std::vector<std::string> tags;
+    std::string keywords;
+    std::string source;
+    db_timestamp loaded_at;
+
+    static constexpr auto columns() {
+        using e = document_entity;
+        namespace query_builder = ores::database::query_builder;
+        return query_builder::columns<e>() | query_builder::key("hash", &e::hash) |
+               query_builder::bind("org_id", &e::org_id) | /* ... */;
+    }
+};
+#+end_src
+
+=activity.run=
+([[file:evidence/ores.geo.run.org.txt][evidence/ores.geo.run.org.txt]]) has
+a =bigint= identity key, a foreign key to its campaign and a check on its
+outcome:
+
+#+begin_src sql
+create table if not exists "ores_geo_runs_tbl" (
+    "id" bigint not null default generated always as identity,
+    "campaign" bigint not null,
+    "scenario_id" text not null,
+    "scenario_hash" bytea not null,
+    "started_at" timestamp with time zone not null default now(),
+    "finished_at" timestamp with time zone null,
+    "outcome" text null,
+    primary key (id),
+    check ("outcome" in ('passed', 'failed', 'blocked')),
+    constraint ores_geo_runs_campaign_fk foreign key ("tenant_id", "campaign") references "ores_geo_campaigns_tbl" ("tenant_id", "id")
+);
+#+end_src
+
+*** What the probe shows
+
+Measured on the two renders:
+
+- *Schemas do not exist.* ORE Studio puts every table in =public= and spells
+  the component into the name (=ores_<component>_<plural>_tbl=). The model's
+  =:schema:= flag is read by nothing that renders: the create template quotes
+  =sql_name_base= whole, so =corpus.document= became a table called
+  ="corpus.document_tbl"= in =public=, while the unquoted trigger function
+  landed in =corpus=, and =create trigger corpus.document_insert_trg= is not
+  valid SQL, as a trigger takes no schema. The repository row hard-codes
+  =schema = "public"= (=cpp_domain_type_entity.hpp.mustache=, line 39).
+- *Only four key types reach C++.* The repository entity template declares a
+  primary-key member for =uuid=, =timestamp=, =integer= and =text= only. A
+  =bytea= key (the content hash) and a =bigint= key (the identity) render no
+  member at all, while =columns()= still binds =&e::hash= and =&e::id=, so
+  neither row compiles.
+- *Identity is not a default.* The model has no way to say =generated always
+  as identity=; stating it as =:default:= renders =default generated always as
+  identity=, which PostgreSQL rejects.
+- *Foreign keys assume a tenant.* With =:has_tenant_id: false= the enforced
+  key still renders =("tenant_id", "campaign")=, because the target table is
+  not an ORE Studio entity the registry knows.
+- *Nullability does not reach the domain class.* =org_id= is =std::string=
+  in the domain class and =std::optional<std::string>= in the repository row,
+  because the domain class reads =:cpp_type:= as written.
+- *The surface is ORE Studio's.* A table that nothing outside the database
+  writes still gets an empty insert trigger, a NOTIFY trigger, NATS messaging
+  and TypeScript. Profiles can withdraw them (=sql-only-store= withdraws
+  =ores.cpp=, =ores.ts= and =ores.doc=), but what is left targets
+  =ores.database='s query builder, =ores.logging= and =ores.utility=, none of
+  which compass has. compass's database code is a thin RAII wrapper over
+  libpq with COPY (=compass.db/io/connection.hpp=,
+  =compass.db/ops/copy_text.hpp=).
+- *What does work.* =text[]=, =jsonb=, =bytea= and =timestamptz= pass
+  through to the DDL as written, the =now()= and ='{}'= defaults render, the
+  =gin= index renders from the indexes table, and the outcome check renders
+  from =* SQL ** Checks=.
+
+Across the library, 44 of the 176 templates name =tenant_id=, 43 name NATS,
+42 include =ores.utility=, 23 =ores.database=, 24 call =ores_utility_*= or
+=ores_iam_*= SQL functions and 11 name =party_id=. The create template alone
+is 1,263 lines, most of them bi-temporal history, tenancy, row-level security
+and insert-time validation.
+
+This path was set aside. ORE Studio's entity templates generate ORE Studio's
+house shape, and bending 1,263 lines of it to produce a plain table would
+make the template carry two products. The mechanism under them (model pages,
+profiles, features, the physical-space graph, the codec) is what compass
+should reuse.
+
+** Generating them with a MASD table space
+
+The second path keeps the mechanism and the entity model's structure, and
+adds a small technical space for plain PostgreSQL and libpq that compass
+owns: =masd.sql= and =masd.cpp=. compass's tables bind it; ORE Studio's keep
+=ores.sql= and =ores.cpp=. The worked examples below are what a compass
+developer would write and what the new templates must produce. The outputs
+are the SQL of migration 1 and the C++ of #176, which is the specification
+the templates are written to, not something any template renders yet.
+
+*** corpus.document
+
+The model, =projects/compass.db/modeling/compass.db.document.org=:
+
+#+begin_src org
+:PROPERTIES:
+:ID: <uuid>
+:END:
+,#+title: compass.db.document
+,#+description: The row of one org document in the corpus: its common metadata as columns, its keywords and properties as JSON, and its source, keyed by the blob ID of the source.
+,#+type: masd.codegen.entity
+,#+component: db
+,#+entity_singular: document
+,#+entity_plural: documents
+,#+brief: One org document of the corpus.
+,#+created: 2026-11-22
+,#+updated: 2026-11-22
+
+,* Flags
+:PROPERTIES:
+:product:   compass
+:component: db
+:schema:    corpus
+:profile:   content-addressed-row
+:END:
+
+,* Columns
+
+,** hash
+:PROPERTIES:
+:type:        bytea
+:cpp_type:    store::types::blob_id
+:primary_key: true
+:key_kind:    content_hash
+:END:
+
+The blob ID of the source.
+
+,** org_id
+:PROPERTIES:
+:type:     text
+:nullable: true
+:END:
+
+,** title
+:PROPERTIES:
+:type:     text
+:nullable: true
+:END:
+
+(description, type, level, audience, created and updated likewise)
+
+,** tags
+:PROPERTIES:
+:type:    text[]
+:default: '{}'
+:END:
+
+,** keywords
+:PROPERTIES:
+:type:    jsonb
+:default: '{}'
+:END:
+
+,** properties
+:PROPERTIES:
+:type:    jsonb
+:default: '{}'
+:END:
+
+,** source
+:PROPERTIES:
+:type:     text
+:cpp_type: std::string_view
+:END:
+
+,** loaded_at
+:PROPERTIES:
+:type:       timestamptz
+:default:    now()
+:written_by: database
+:END:
+
+,* SQL
+
+,** Indexes
+
+| name       | columns    | unique | where | using | opclass        |
+|------------+------------+--------+-------+-------+----------------|
+| org_id     | org_id     | false  |       |       |                |
+| type       | type       | false  |       |       |                |
+| level      | level      | false  |       |       |                |
+| audience   | audience   | false  |       |       |                |
+| tags       | tags       | false  |       | gin   |                |
+| keywords   | keywords   | false  |       | gin   | jsonb_path_ops |
+| properties | properties | false  |       | gin   | jsonb_path_ops |
+#+end_src
+
+The profile =content-addressed-row= fixes =read_only= (no update is ever
+generated), =current_state= (no history columns) and =insert_conflict:
+do_nothing=. The features it relies on, beyond those ORE Studio has:
+
+| Feature      | Where       | Values                                      | Effect                                                                                                    |
+|--------------+-------------+---------------------------------------------+-----------------------------------------------------------------------------------------------------------|
+| =schema=     | entity      | an identifier                               | Qualifies every name: =corpus.document=, =document_org_id=. Exists in ORE Studio's models, read by no template. |
+| =key_kind=   | key column  | =natural=, =content_hash=, =identity=, =ord= | =content_hash=: the key is the aggregate's identity, so the row omits it and the writer takes it as an argument. =identity=: =GENERATED ALWAYS AS IDENTITY=, read back, never written. =ord=: the row's place in its parent's vector. |
+| =written_by= | column      | =database=                                  | The column has a default and is in neither the row type nor the COPY column list.                         |
+| =opclass=    | index row   | an operator class                           | =USING gin (keywords jsonb_path_ops)=.                                                                    |
+| =where=      | index row   | an expression                               | A partial index. ORE Studio's =where_extra= is the same thing appended to its validity predicate.         |
+
+The generated DDL, in the migration that creates the schema (question 2
+covers where it goes):
+
+#+begin_src sql
+CREATE TABLE corpus.document (
+    hash bytea PRIMARY KEY,
+    org_id text,
+    title text,
+    description text,
+    type text,
+    level text,
+    audience text,
+    created text,
+    updated text,
+    tags text[] NOT NULL DEFAULT '{}',
+    keywords jsonb NOT NULL DEFAULT '{}',
+    properties jsonb NOT NULL DEFAULT '{}',
+    source text NOT NULL,
+    loaded_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX document_org_id ON corpus.document (org_id);
+CREATE INDEX document_type ON corpus.document (type);
+CREATE INDEX document_level ON corpus.document (level);
+CREATE INDEX document_audience ON corpus.document (audience);
+CREATE INDEX document_tags ON corpus.document USING gin (tags);
+CREATE INDEX document_keywords ON corpus.document
+    USING gin (keywords jsonb_path_ops);
+CREATE INDEX document_properties ON corpus.document
+    USING gin (properties jsonb_path_ops);
+#+end_src
+
+The generated row, =compass.db/types/document_row.hpp=. It is the
+hand-written =document_row= of #176 field for field: the key is left out
+because its =key_kind= is =content_hash=, =loaded_at= because the database
+writes it, a nullable =text= is =std::optional<std::string>= (#176 names it
+=nullable=), =text[]= is =std::vector<std::string>= and =jsonb= is the JSON
+text:
+
+#+begin_src cpp
+namespace compass::db::types {
+
+struct document_row {
+    std::optional<std::string> org_id;
+    std::optional<std::string> title;
+    std::optional<std::string> description;
+    std::optional<std::string> type;
+    std::optional<std::string> level;
+    std::optional<std::string> audience;
+    std::optional<std::string> created;
+    std::optional<std::string> updated;
+    std::vector<std::string> tags;
+    std::string keywords;
+    std::string properties;
+    std::string_view source;
+};
+
+}
+#+end_src
+
+And its writer, =compass.db/io/document_copy.hpp= and =.cpp=, which is the
+first block of =stage()= in #176's =corpus.cpp= and the column list of its
+=COPY stage_document=:
+
+#+begin_src cpp
+namespace compass::db::io {
+
+inline constexpr std::string_view document_copy_columns =
+    "hash, org_id, title, description, type, level, audience, created, "
+    "updated, tags, keywords, properties, source";
+
+void write_copy(ops::copy_writer& w, const store::types::blob_id& hash,
+    const types::document_row& r) {
+    w.bytes(hash.bytes);
+    w.text(r.org_id);
+    w.text(r.title);
+    w.text(r.description);
+    w.text(r.type);
+    w.text(r.level);
+    w.text(r.audience);
+    w.text(r.created);
+    w.text(r.updated);
+    w.array(r.tags);
+    w.text(r.keywords);
+    w.text(r.properties);
+    w.text(r.source);
+    w.end();
+}
+
+}
+#+end_src
+
+The hand-written code keeps what is not a projection of the table:
+=corpus_document=, the aggregate of a document's rows; =extract=, which
+fills it from a parse; the staging transaction, its =ON CONFLICT DO
+NOTHING= and the lock against collection. Because the row and the aggregate
+keep their shapes, the tests of #176 compile and pass unchanged.
+
+*** activity.run
+
+The model, =projects/compass.db/modeling/compass.db.run.org=, showing only
+what differs from the document:
+
+#+begin_src org
+,* Flags
+:PROPERTIES:
+:product:   compass
+:component: db
+:schema:    activity
+:profile:   activity-record
+:END:
+
+,* Columns
+
+,** id
+:PROPERTIES:
+:type:        bigint
+:primary_key: true
+:key_kind:    identity
+:END:
+
+,** campaign
+:PROPERTIES:
+:type: bigint
+:END:
+
+,** scenario_id
+:PROPERTIES:
+:type: text
+:END:
+
+,** definition
+:PROPERTIES:
+:type:     bytea
+:cpp_type: store::types::blob_id
+:END:
+
+,** scenario_hash
+:PROPERTIES:
+:type:     bytea
+:cpp_type: store::types::blob_id
+:END:
+
+,** tester
+:PROPERTIES:
+:type: text
+:END:
+
+,** started_at
+:PROPERTIES:
+:type:    timestamptz
+:default: now()
+:END:
+
+,** finished_at
+:PROPERTIES:
+:type:     timestamptz
+:nullable: true
+:END:
+
+,** outcome
+:PROPERTIES:
+:type:     text
+:nullable: true
+:values:   passed failed blocked
+:END:
+
+,* Foreign keys
+
+,** campaign
+:PROPERTIES:
+:references: activity.campaign
+:END:
+
+,* SQL
+
+,** Indexes
+
+| name          | columns       | unique | where | using | opclass |
+|---------------+---------------+--------+-------+-------+---------|
+| scenario_hash | scenario_hash | false  |       |       |         |
+| scenario_id   | scenario_id   | false  |       |       |         |
+#+end_src
+
+The profile =activity-record= fixes =current_state=, an =identity= key and
+=retained= (question 2: the migration check refuses a migration that drops
+or rewrites a retained table's column). =:values:= is the new feature here:
+it renders the =CHECK (... IN (...))= and a C++ enumeration with its text
+conversions, so a run's outcome is a type rather than a string. The
+generated DDL is migration 1's:
+
+#+begin_src sql
+CREATE TABLE activity.run (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    campaign bigint NOT NULL REFERENCES activity.campaign,
+    scenario_id text NOT NULL,
+    definition bytea NOT NULL,
+    scenario_hash bytea NOT NULL,
+    tester text NOT NULL,
+    started_at timestamptz NOT NULL DEFAULT now(),
+    finished_at timestamptz,
+    outcome text CHECK (outcome IN ('passed', 'failed', 'blocked'))
+);
+CREATE INDEX run_scenario_hash ON activity.run (scenario_hash);
+CREATE INDEX run_scenario_id ON activity.run (scenario_id);
+#+end_src
+
+#176 has no C++ for =activity.run=; Record test campaigns will need it. The
+generated row and its reader and insert:
+
+#+begin_src cpp
+namespace compass::db::types {
+
+enum class run_outcome { passed, failed, blocked };
+
+[[nodiscard]] std::string_view to_string(run_outcome v) noexcept;
+[[nodiscard]] std::optional<run_outcome> run_outcome_of(
+    std::string_view text) noexcept;
+
+struct run_row {
+    std::int64_t id = 0;
+    std::int64_t campaign = 0;
+    std::string scenario_id;
+    store::types::blob_id definition;
+    store::types::blob_id scenario_hash;
+    std::string tester;
+    std::chrono::sys_time<std::chrono::microseconds> started_at;
+    std::optional<std::chrono::sys_time<std::chrono::microseconds>>
+        finished_at;
+    std::optional<run_outcome> outcome;
+};
+
+}
+
+namespace compass::db::io {
+
+inline constexpr std::string_view run_select =
+    "SELECT id, campaign, scenario_id, definition, scenario_hash, tester, "
+    "started_at, finished_at, outcome FROM activity.run";
+
+[[nodiscard]] types::run_row read_run(const result& r, std::size_t row);
+
+/**
+ * @brief Inserts @p v, ignoring its id and started_at, which the database
+ * writes, and returns the row as stored.
+ */
+types::run_row insert_run(connection& c, const types::run_row& v);
+
+}
+#+end_src
+
+=insert_run= sends =INSERT INTO activity.run (campaign, scenario_id,
+definition, scenario_hash, tester, finished_at, outcome) VALUES ($1, ...,
+$7) RETURNING ...=: the columns =key_kind: identity= and a =now()= default
+leave out of the write are the ones it reads back.
+
+*** Which pieces exist and which must be written
+
+| Piece                                                                 | State                                                                                                   |
+|-----------------------------------------------------------------------+---------------------------------------------------------------------------------------------------------|
+| Model page format: =* Columns=, =* Foreign keys=, =* SQL ** Indexes=, =** Checks= | Exists (ORE Studio's entity model, which compass's codec loads).                                    |
+| Profiles and features, bound in =* Flags=, overriding graph addresses | Exists.                                                                                                 |
+| Physical-space graph, archetype output paths, enablement               | Exists (=ops::load_physical_space=, =ops::model_units=).                                               |
+| Codec: facts, incremental regeneration, =compass generate=, =diff=, =check= drift | Exists.                                                                                      |
+| =text[]=, =jsonb=, =bytea=, =timestamptz=, defaults, gin indexes, table checks in DDL | Exist as pass-through text in ORE Studio's DDL; the new template keeps that.                |
+| Schema-qualified names (=:schema:=)                                   | Must be written: read by no template today.                                                            |
+| =key_kind=: content hash, identity, ord; composite keys =(hash, ord)= | Must be written. ORE Studio's junction has a composite key; its entity does not, and its C++ maps four key types. |
+| =written_by: database=, =values=, =opclass=, =on_delete=              | Must be written.                                                                                        |
+| =tsvector=                                                            | Type passes through; the column is =computed=: =corpus.section.tsv= is filled from the document's title and a configured =regconfig= in #176's insert, which a generated column cannot do, as it may read neither another table nor a setting. A =:computed: writer= flag leaves it out of the row and the COPY list. |
+| Generated (=STORED=) columns                                          | Must be written (=:generated: <expression>=); compass's tables have none today.                       |
+| A context builder for =masd.codegen.entity=                           | Must be written. =entity_context= is ORE Studio's: 25 steps that derive tenancy, bi-temporal history, wire codecs, NATS subjects and presentation. The MASD one derives names, key shape, column C++ types and the index and check lists, a few hundred lines. |
+| Templates =masd.sql.table.create=, =masd.cpp.row.header=, =masd.cpp.row.copy=, =masd.cpp.row.read=, =masd.cpp.enum= | Must be written. Nothing in ORE Studio's library targets libpq or COPY. |
+| compass's licence block and modeline in the library =data/=           | Must be written; today the codec reads =data/licence-GPL-v3.txt= by a fixed name.                       |
+
+* Findings
+
+The answers to questions 2 to 5; question 1 is answered under Paths taken, where the two ways of generating the tables were tried.
+
+** Migrating a generated schema
+
+ORE Studio never migrates. Its =projects/ores.sql/modeling/component_overview.org=
+states the policy: a schema change edits the =create/= scripts and the database
+is destroyed and recreated with =compass db recreate=, and
+=schema_fingerprint.cmake= stamps a hash of the SQL into the database so a
+binary refuses a database built from other scripts. That suits a database whose
+contents are reloaded from reference data. compass's is not one: the corpus can
+be synced again, but =activity= holds test runs, notes and attachments that
+exist nowhere else until they are exported. #176 therefore already has
+versioned migrations: =ops::migrations()= lists them from 1 with no gap,
+=compass.migration= records the ones applied, =compass db migrate= applies the
+missing ones under an advisory lock, and a released migration is never edited.
+
+Four ways a generated schema could evolve:
+
+| Way                                                   | Keeps activity | Renames and data moves                         | Cost                                                                                     |
+|-------------------------------------------------------+----------------+------------------------------------------------+------------------------------------------------------------------------------------------|
+| Recreate, as ORE Studio does                          | No             | Not needed                                     | None, and it loses every run.                                                            |
+| Migrations generated by diffing two model versions    | Yes            | Cannot tell a rename from a drop and an add; cannot move data | A model differ and a DDL differ, both of them guessing.                         |
+| Declarative apply by an external tool (diff the live database against the target) | Yes | Same ambiguity, decided at run time on the user's database | A new dependency on every machine that runs =compass db migrate=. |
+| Versioned generated DDL with hand-written deltas      | Yes            | Written by the person who knows what changed  | One delta per release that changes the schema, and one test.                             |
+
+The recommendation is the last one, in this shape:
+
+- The models generate =projects/compass.db/sql/schema.sql=, the whole schema
+  at the current version, as one output of the codec. It is never run against
+  an existing database. Its =git diff= in a pull request is the specification
+  of the delta that pull request must add.
+- Migrations stay as #176 has them, one SQL text per version, hand-written in
+  =projects/compass.db/sql/migrations/NNNN_<name>.sql= and frozen once
+  released. Migration 1 is a copy of the generated =schema.sql= at the first
+  release that creates a database; since #176 has not been released, its
+  hand-written migration 1 is replaced, not followed by a delta.
+- A database test applies every migration to one empty database, runs
+  =schema.sql= on another, and compares the two catalogs (tables, columns and
+  their types, defaults and nullability, constraints, indexes). A model change
+  without its delta fails it, and so does a delta that does more than the
+  model says. =compass.testing='s =scoped_cluster= already gives the test its
+  databases.
+- The profile =activity-record= marks its tables =retained=. The codec
+  reports a model change that removes or retypes a column of a retained table
+  unless the same pull request adds a migration, so the person who drops a
+  column has written down what happens to its data.
+
+This keeps generated code generated and puts the one judgement a generator
+cannot make, what an old row becomes, in a file a reviewer reads.
+
+** Generating the HTTP and MCP service
+
+*** What ORE Studio generates
+
+ORE Studio generates HTTP routes from models, and has a model type for
+operations that are not CRUD on an entity:
+
+- The facet =ores.cpp.http-route= (=#+model_types: domain_entity junction
+  operation=, disabled by default) is switched on per model with
+  =:ores.cpp.http-route.enabled: true=. An entity gets its CRUD verbs
+  (=GET /api/v1/<component>/<plural>=, =GET .../<key>=, =POST
+  .../get-many=, =POST= and =PUT=, =DELETE=, =.../versions=). An
+  =ores.codegen.operation= model gets a route for each message that states
+  =:http_route: true=.
+- =projects/ores.iam/modeling/ores.iam.session_statistics_operations.org= is
+  such a model: a parameterised query whose request message has typed fields
+  with defaults. Its generated route,
+  =projects/ores.http/iam/src/routes/iam/session_statistics_operations_routes.cpp=,
+  is a forwarder:
+
+  #+begin_src cpp
+  auto get_session_statistics_route =
+      router->post("/api/v1/iam/ops/get_session_statistics")
+          .summary("Get session statistics")
+          .auth_required()
+          .body<messaging::get_session_statistics_request>()
+          .response<messaging::get_session_statistics_response>()
+          .handler([&session](const http_request& req) {
+              return handle_get_session_statistics(req, session); });
+  #+end_src
+
+  The handler parses the JSON body and calls
+  =ores::http::forwarding::respond=, which sends the request on the message's
+  NATS subject with the caller's token. The verb is always =POST= and the
+  path is the subject transliterated; compass already ports that projection
+  (=write_operation_http_route=,
+  =projects/compass.codegen/src/ops/template_context.cpp=).
+- Beside the route the same model generates the protocol structs
+  (=ores.cpp.protocol=), their JSON and MessagePack codec
+  (=ores.cpp.wire-codec=), a Hurl recipe (=ores.doc.http-recipe=) and a shell
+  command.
+- Hand-written: the service-side handler of an operation (permission checks
+  such as =has_permission(req_ctx, "iam::sessions:read")= and the SQL), and
+  the whole server, =ores.http.api=, about 6,200 lines on Boost.Beast with
+  coroutines, JWT sessions and an OpenAPI 3.0 document built at run time from
+  the registered routes.
+- =service_registry.org= models deployment and database access (roles,
+  grants, replicas), not endpoints. =service_facet.org= is the scaffold of a
+  NATS service's host, configuration and =main=. =http_facet.org= still says
+  no codegen profile exists for the HTTP layer, which the facet page and its
+  outputs contradict.
+- MCP is not generated. ORE Studio's MCP server is hand-written TypeScript
+  (=projects/ores.agent/src/mcp.ts=, =src/tools.ts=).
+
+None of the route templates fits compass. The design of Serve the documents
+([[id:21C1D3CC-9EE3-48C3-8EDD-BA0C16032AB2][Design: the document service]])
+calls the query layer in process, reads the caller's view and name from
+gateway headers, uses =GET= with path and query parameters, and has no NATS
+and no JWT. compass has no HTTP, MCP or JSON code today: =vcpkg.json= lists
+catch2, expat, pcre2, tree-sitter and zlib, and #176 adds libpq.
+
+*** A compass service model
+
+The operation model type already exists and compass already loads it
+(=operation_context=). What it lacks are properties that say how a message is
+reached: a verb, a path with placeholders, where each field comes from, an MCP
+tool name, whether the call reads only, and what the caller must present. The
+endpoints, from the design's HTTP and MCP sections:
+
+| Message                     | HTTP                                                     | MCP tool             |
+|-----------------------------+----------------------------------------------------------+----------------------|
+| =search_request=            | =GET /v1/{environment}/search?q=&type=&tag=&limit=&offset== | =search=          |
+| =list_documents_request=    | =GET /v1/{environment}/documents?...=                    | =list_documents=     |
+| =get_document_request=      | =GET /v1/{environment}/documents/{id}?format== (html or org) | =get_document=   |
+| =backlinks_request=         | =GET /v1/{environment}/documents/{id}/backlinks=         | =backlinks=          |
+| =facets_request=            | =GET /v1/{environment}/facets=                           |                      |
+| =sprint_state_request=      | =GET /v1/{environment}/sprint=                           | =sprint_state=       |
+| =what_needs_testing_request= | =GET /v1/{environment}/testing?sprint==                 | =what_needs_testing= |
+| =start_run_request=, =record_step_request= | =POST /v1/{environment}/runs=, =PUT .../runs/{run}/steps/{ord}= |  |
+| =add_note_request=, =address_note_request= | =POST .../campaigns/{id}/notes=, =PATCH .../notes/{id}= |       |
+| =upload_attachment_request= | =POST /v1/attachments=                                   |                      |
+| =list_environments_request=, =version_request= | =GET /v1/environments=, =GET /v1/version=  |                      |
+| =sync_request=              |                                                          | =sync=               |
+
+The search message as a compass developer would write it, in
+=projects/compass.serve/modeling/compass.serve.document_queries.org=:
+
+#+begin_src org
+,#+type: masd.codegen.operation
+,#+component: serve
+
+,* Messages
+
+,** search_request
+:PROPERTIES:
+:response:    search_response
+:http_method: get
+:http_path:   /v1/{environment}/search
+:mcp_tool:    search
+:mcp_title:   Search the documents
+:read_only:   true
+:caller:      view
+:END:
+
+Sections of an environment's documents matching a web-style query, best
+first, inside the caller's view.
+
+,*** environment
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  path
+:END:
+
+The environment to search: a worktree, branch or release name.
+
+,*** q
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  query
+:END:
+
+The query, in websearch_to_tsquery syntax: words, "phrases", or, -exclusions.
+
+,*** type
+:PROPERTIES:
+:cpp_type: std::optional<std::string>
+:http_in:  query
+:END:
+
+Only documents of this type.
+
+,*** tag
+:PROPERTIES:
+:cpp_type: std::vector<std::string>
+:http_in:  query
+:END:
+
+Only documents carrying every one of these tags.
+
+,*** limit
+:PROPERTIES:
+:cpp_type: std::uint32_t
+:default:  20
+:http_in:  query
+:END:
+
+The most hits to answer.
+
+,** search_response
+
+,*** hits
+:PROPERTIES:
+:cpp_type: std::vector<search_hit>
+:END:
+
+,*** total
+:PROPERTIES:
+:cpp_type: std::uint64_t
+:END:
+
+,*** synced_at
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+#+end_src
+
+The route it would generate, one binding line per field, chosen by
+=:http_in:=:
+
+#+begin_src cpp
+void document_queries_routes::handle_search(const httplib::Request& req,
+    httplib::Response& res, const query::document_queries& queries) {
+    const auto caller = http::read_caller(req, http::caller_need::view);
+    if (!caller)
+        return http::refuse(res, caller.error());
+    messaging::search_request r;
+    if (const auto e = http::bind_path(req, "environment", r.environment))
+        return http::refuse(res, *e);
+    if (const auto e = http::bind_query(req, "q", r.q,
+            http::presence::required))
+        return http::refuse(res, *e);
+    if (const auto e = http::bind_query(req, "type", r.type))
+        return http::refuse(res, *e);
+    if (const auto e = http::bind_query(req, "tag", r.tag))
+        return http::refuse(res, *e);
+    if (const auto e = http::bind_query(req, "limit", r.limit))
+        return http::refuse(res, *e);
+    http::answer(res, queries.search(*caller, r));
+}
+
+void document_queries_routes::register_routes(httplib::Server& server,
+    const query::document_queries& queries) {
+    server.Get("/v1/:environment/search",
+        [&queries](const httplib::Request& req, httplib::Response& res) {
+            handle_search(req, res, queries);
+        });
+}
+#+end_src
+
+And the MCP tool description, rendered at generation time from the same
+message, its prose and its field prose, so the HTTP route and the tool cannot
+drift:
+
+#+begin_src json
+{
+  "name": "search",
+  "title": "Search the documents",
+  "description": "Sections of an environment's documents matching a web-style query, best first, inside the caller's view.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "environment": {"type": "string", "description": "The environment to search: a worktree, branch or release name."},
+      "q": {"type": "string", "description": "The query, in websearch_to_tsquery syntax: words, \"phrases\", or, -exclusions."},
+      "type": {"type": "string", "description": "Only documents of this type."},
+      "tag": {"type": "array", "items": {"type": "string"}, "description": "Only documents carrying every one of these tags."},
+      "limit": {"type": "integer", "minimum": 0, "default": 20, "description": "The most hits to answer."}
+    },
+    "required": ["environment", "q"],
+    "additionalProperties": false
+  },
+  "annotations": {"readOnlyHint": true, "idempotentHint": true, "openWorldHint": false}
+}
+#+end_src
+
+A generated tool table holds one entry per message with an =:mcp_tool:=: its name, the
+description above as a string, and a call that decodes the arguments into the
+request and calls the same query function the route calls. The =/mcp=
+endpoint (=initialize=, =tools/list=, =tools/call=) is written once by hand.
+
+Hand-written, by design: =query::document_queries=, the functions that answer
+(search's SQL among them); =http/binding.hpp= and =http/caller.hpp=, a few
+overloads; the =/mcp= dispatcher; and the server's =main=.
+
+| Template family                    | Verdict                                                                                             |
+|------------------------------------+-----------------------------------------------------------------------------------------------------|
+| =ores.cpp.protocol=                | Reuse: its ={{#subject}}= guard already drops the NATS members; needs the product prefix parameterised. |
+| =ores.cpp.wire-codec=              | Reuse with a parameter: it targets =ores.utility='s codec; compass needs a JSON library (the design names nlohmann-json) or a port of that codec. |
+| =ores.cpp.http-route= (operation)  | Write new for cpp-httplib: the ORE templates' whole body is the Beast router, coroutines and NATS forwarding. |
+| =ores.cpp.http-route.operation_tests=, =ores.doc.http-recipe= | Reuse with parameters: method and path from the model, not the subject; gateway headers instead of a bearer token. |
+| =masd.cpp.mcp-tool=                | Write new: the description fragment and the tool table. Nothing like it exists in ORE Studio.      |
+| An OpenAPI fragment                | Optional, from the same model; compass has no run-time route registry to build one from.            |
+| =write_operation_http_route= in compass | Change: take =:http_method:= and =:http_path:= when stated, fall back to the subject otherwise. |
+
+** Classifying the meta model
+
+Every page of ORE Studio's =projects/modeling/= and every template family of
+=projects/ores.codegen/library/=, classified as MASD (generic, moves to
+compass), ORE (stays in ORE Studio) or Split. The counts are lines matching each
+ORE Studio name in a family's templates, from
+[[file:evidence/template_family_counts.sh][evidence/template_family_counts.sh]]
+over [[file:evidence/template_tangle.tsv][evidence/template_tangle.tsv]]
+(which archetype page tangles which =.mustache=); the result is
+[[file:evidence/template_family_counts.tsv][evidence/template_family_counts.tsv]].
+
+Two facts make almost every MASD family Split for now. First, every
+physical-space address is rooted at the literal product name =ores=
+(=templates/ores.org= is the root, and compass hard-codes the same root in
+=compass.codegen/src/ops/physical_space.cpp=, =compass.docs/src/codecs/physical_inventory.cpp=
+and =compass.model/src/ops/physical_space.cpp=). Second, the C++ and SQL
+templates name ORE Studio's libraries and SQL functions outside any feature
+gate (=ores_utility_infinity_timestamp_fn= 118 times, =ores.utility= 101,
+=ores.database= 54), so they cannot render for another project even with
+tenancy off. Licences are already variables (={{cpp_license}}= and its
+siblings in 137 templates); three templates hard-code GPL text.
+
+*** projects/modeling
+
+| Page                                          | Class | Reason                                                                                                               |
+|-----------------------------------------------+-------+----------------------------------------------------------------------------------------------------------------------|
+| =applied_masd.org=                            | Split | The concept-to-instance mapping (logical and physical space, part, facet, archetype, projection) is MASD; ORE Studio's components and the currency reference implementation are not. Move the mapping, keep the ORE Studio instance. |
+| =architectural_philosophy.org=                | ORE   | Why ORE Studio has four layers and NATS services.                                                                    |
+| =architecture_layers.puml=, =.png=            | ORE   | "ORE Studio, Four-Layer Architecture".                                                                               |
+| =assets_facet.org=                            | MASD  | The assets facet (ER diagrams, shell variables): vocabulary, though retired.                                         |
+| =build_facet.org=                             | Split | The CMake facet is generic; the text names ORE Studio targets. Move it with the target prefix as a parameter.         |
+| =claude_code_skills.org=                      | ORE   | ORE Studio's skill catalogue pointer.                                                                                |
+| =CMakeLists.txt=                              | ORE   | Builds =ores.puml=.                                                                                                  |
+| =component_architecture.org=                  | Split | Simple and composite meta models, the sub-component catalogue and facet placement are MASD; ores.shell roles, NATS and ORE Studio's dependency chain are not. |
+| =country.org=, =currency.org=                 | ORE   | Views of ORE Studio entities.                                                                                        |
+| =cpp_custom_types.org=                        | Split | The mechanism (a column's type pulls its header) is MASD; the registry rows are ORE Studio headers.                   |
+| =documentation_facet.org=                     | MASD  | The documentation facet; names ores.codegen only as the generator.                                                   |
+| =entity_catalogue.org=                        | ORE   | Retired stub kept for ORE Studio's citations.                                                                        |
+| =entity_lifecycle.org=                        | Split | Type mappings and the entity file checklist are generic; layer order and service naming are ORE Studio's.            |
+| =http_facet.org=                              | ORE   | ores.http routes forwarding over NATS. Stale: says no codegen exists.                                                |
+| =messaging.org=                               | ORE   | NATS subjects per ORE Studio service.                                                                                |
+| =ores.puml=, =ores.png=                       | ORE   | ORE Studio's system architecture.                                                                                    |
+| =service_facet.org=                           | Split | The service host facet (application, host, configuration, =main=) is generic; its shape is a NATS service.           |
+| =service_registry.org=                        | ORE   | ORE Studio's services, roles, grants and replicas.                                                                   |
+| =shell_facet.org=                             | ORE   | ores.shell REPL commands.                                                                                            |
+| =sql_facet.org=                               | Split | Titled the SQL facet of the MASD entity model, but only its idempotency rules are generic; prefixes and tenant and party RLS are ORE Studio's. |
+| =system_model.org= and its five layer pages (=_application=, =_domain=, =_foundation=, =_infrastructure=, =_tooling=) | ORE | ORE Studio's component inventory by layer. |
+| =technical_spaces.org=                        | Split | The physical meta model (space, part, facet, archetype) is MASD; which spaces ORE Studio enables is not.             |
+| =technical_space_cpp.org=, =technical_space_sql.org= | Split | The C++ and SQL parts (and the bi-temporal schema pattern) are MASD; the component mapping is ORE Studio's.   |
+| =technical_spaces_other.org=                  | Split | CMake, doc and TypeScript spaces are MASD; the list of hand-written languages is ORE Studio's.                       |
+| =type_definition_facet.org=                   | MASD  | A passive data structure: pure concept.                                                                              |
+| =variability_model.org=                       | Split | Feature versus structure, activation, projection configuration and profiles are MASD; the bundle contents and tenant examples are ORE Studio's. |
+| =variability_features.org=, =variability_profiles.org= | Split | Indexes: one per owner after the move.                                                                      |
+| =variability_feature_append_insert.org=       | MASD  | Append-only insert verb.                                                                                             |
+| =variability_feature_cmake_license.org=, =_cpp_license=, =_sql_license= | MASD | The licence bundle; the text is the project's.                                                   |
+| =variability_feature_current_state.org=       | MASD  | Non-temporal table shape.                                                                                            |
+| =variability_feature_extra_checks.org=        | MASD  | Extra CHECK constraints.                                                                                             |
+| =variability_feature_extra_delete_sets.org=   | MASD  | Soft-delete SET clauses.                                                                                             |
+| =variability_feature_fk_copy_validations.org= | MASD  | Validate a foreign key and copy from its row.                                                                        |
+| =variability_feature_text_code_validations.org= | MASD | Validate a code against a text lookup.                                                                             |
+| =variability_feature_has_pagination.org=      | MASD  | Paginated list; retired as a toggle, kept as history.                                                                |
+| =variability_feature_has_parent_id.org=       | MASD  | Self-referencing hierarchy.                                                                                          |
+| =variability_feature_has_parent_scoped_list.org=, =_parent_key_field=, =_parent_key_param= | MASD | Lists filtered by a parent key, and the field and parameter that carry it. |
+| =variability_feature_has_uuid_primary_key.org= | MASD | Key shape; its effect text is about the Qt client and needs rewriting.                                               |
+| =variability_feature_read_only.org=           | MASD  | Read-only repository.                                                                                                |
+| =variability_feature_eventing_integration_test.org= | ORE | pg_notify to NATS test.                                                                                         |
+| =variability_feature_has_change_reason_cache.org=, =_has_csv_xml_io=, =_has_explorer_api=, =_has_export_macro=, =_has_readonly_paginated_list=, =_has_version_navigation=, =_parent_entity_singular= | ORE | ORE Studio's Qt client presentation bundle, several retired. |
+| =variability_feature_has_tenant_id.org=, =_nullable_tenant_id=, =_system_scope= | ORE | ORE Studio's tenancy.                                                                         |
+| =variability_feature_party_id_from_book_id.org=, =_from_parent=, =_from_session= | ORE | Party isolation.                                                                              |
+| =variability_feature_rls_tenant_isolation.org=, =_rls_party_isolation=, =_rls_system_tenant_visible=, =_rls_own_or_system_tenant_rows= | ORE | Row-level security policies over ORE Studio's tenant and party functions. |
+| =variability_read_model.org=                  | MASD  | Read-only, current state, over a view.                                                                               |
+| =variability_read_only_current_state.org=     | MASD  | Read-only and current state.                                                                                         |
+| =variability_table_less_record.org=           | MASD  | Wire-only record; its addresses need the product root parameterised.                                                 |
+| =variability_sql_only_store.org=              | MASD  | Withdraws the client surface; same address caveat.                                                                   |
+| =variability_artefact_staging_only.org=       | ORE   | Tied to ORE Studio's data-quality artefact tables.                                                                   |
+| =variability_simple_lookup.org=, =_uuid_surrogate_lookup=, =_uuid_identified_lookup= | Split | The key shapes are MASD; tenancy and the change-reason cache are ORE Studio's. A MASD base profile, an ORE Studio overlay. The last two are near duplicates. |
+| =variability_self_referencing_hierarchy.org=  | Split | =has_parent_id= is MASD; its tenant and presentation assignments are not.                                            |
+| =variability_readonly_timeseries.org=         | Split | The time-series shape is MASD; TimescaleDB and tenancy are ORE Studio's choices.                                     |
+| =variability_tenant_scoped_junction.org=      | Split | The junction is MASD; tenancy is not.                                                                                |
+| =variability_fk_scoped_child.org=, =variability_fully_featured_lookup.org= | ORE | Built on the Qt presentation bundle.                                                  |
+| =variability_trading_instrument.org=          | ORE   | Trade instruments.                                                                                                   |
+
+Outside =projects/modeling=, ORE Studio's =doc/knowledge/masd/= (=masd.org=,
+=masd_hub.org=, =facet.org=, =logical_space.org=, =physical_space.org=,
+=technical_space.org=, =variability.org=) is the purest MASD theory, and the
+modeling pages link to it. It should move first.
+
+*** The template library
+
+| Family (templates)                                                     | Class | Reason (tenant_id, nats, ores.utility, ores.database counts where they matter)                       |
+|------------------------------------------------------------------------+-------+-------------------------------------------------------------------------------------------------------|
+| =ores.org= (root)                                                      | Split | The address root, literally =ores=. compass owns the root; the product name becomes a parameter.     |
+| =ores.cpp.org=, =ores.sql.org=, =ores.ts.org=                          | Split | Space nodes: generic apart from the prefix and ORE Studio's facet list (SQL's service registry, TypeScript's NATS subjects). |
+| =ores.doc.org=, =ores.cmake.org=, =ores.plantuml.org=                  | MASD  | Space nodes; prefix only.                                                                             |
+| =ores.shell.org=                                                       | ORE   | Service provisioning scripts.                                                                         |
+| =ores.cmake.component= (9 =cmake_component_*=, =cmake_composite_root=) | Split | Generic component build files that link =ores.utility= and =ores.logging= by default. Parameterise prefix and default dependencies. |
+| =ores.cmake.service= (=cmake_component_service_src=)                   | ORE   | Links ores.database and NATS.                                                                         |
+| =ores.cpp.component= (=cpp_component_header=, =_test_main=, =_test_suite=, =cpp_export=) | MASD | No ORE Studio names but the prefix.                                        |
+| =ores.cpp.scaffold= (=cpp_component_stub_*=, =cpp_service_stub_test=)  | MASD  | Prefix only. compass's tests already run it.                                                          |
+| =ores.cpp.enum= (=cpp_enum.hpp=)                                       | MASD  | Prefix only.                                                                                          |
+| =ores.cpp.domain= (class, json I/O, table, table I/O)                  | Split | tenant_id 14 (gated), ores.utility 7. Parameterise includes and namespace.                            |
+| =ores.cpp.field-group= (=cpp_field_group=, =cpp_options_header=)       | Split | ores.utility 9.                                                                                       |
+| =ores.cpp.generator= (=cpp_domain_type_generator= pair)                | Split | Test-data generator is MASD; tenant_id 28, ores.utility 9.                                            |
+| =ores.cpp.repository= (entity, mapper, repository pairs)               | Split | MASD in concept; tenant_id 166, party 77, ores.database 37, ores.utility 56. Needs a pluggable database layer; compass's own row templates are new (=masd.cpp.row=). |
+| =ores.cpp.wire-codec= (codec, protocol codec, round-trip tests)        | Split | Generic codec over =ores.utility='s; ores.utility 49.                                                 |
+| =ores.cpp.protocol= (=cpp_protocol.hpp=)                               | Split | Generic messages; NATS subjects gated by ={{#subject}}=.                                              |
+| =ores.cpp.outcome= (=cpp_outcome_code.hpp=)                            | Split | Outcome catalogue is generic; ores.utility 7.                                                         |
+| =ores.cpp.presentation= (=cpp_history_field_mapper= pair)              | Split | History field mapping is generic; its target is ores.history.                                         |
+| =ores.cpp.service= (=cpp_service= pair)                                | Split | Domain service concept; the text is ORE Studio's service layer (ores.utility 82, ores.database 36).   |
+| =ores.cpp.service-app= (11 files)                                      | Split | Host shape is generic; the wiring is NATS and ores.database.                                          |
+| =ores.cpp.history-provider-registrar=                                  | ORE   | Registers into ores.history.                                                                          |
+| =ores.cpp.http-route= (12 files)                                       | ORE   | Forwards to NATS (nats 77).                                                                           |
+| =ores.cpp.nats-eventing=, =nats-event-registrar=, =nats-event-cache=, =nats-handler=, =nats-sub-registrar=, =eventing-integration-test= | ORE | NATS eventing. |
+| =ores.cpp.shell-command= (8 files)                                     | ORE   | ores.shell REPL.                                                                                      |
+| =ores.cpp.asset_class=, =trade_type=, =convention-family=, =convention-registry= | ORE | Finance domain.                                                                              |
+| =ores.sql.schema= (10 files)                                           | Split | Bi-temporal table, triggers and soft delete are MASD; tenant_id 242, RLS 66, party 68 and =ores_utility_*= 112 are not. ORE Studio keeps these as its table space; compass writes =masd.sql.table=. |
+| =ores.sql.outcome=                                                     | Split | Outcome functions are generic; prefix only.                                                           |
+| =ores.sql.populate= (10), =ores.sql.service= (5), =ores.sql.asset_class= (3), =ores.sql.trade_type= (3) | ORE | Reference data, service registry and finance.                                          |
+| =sql_populate_refdata.org=, =sql_dataset_refdata.org=, =sql_non_iso_currency_populate.org= | ORE | FpML coding schemes and currencies.                                                   |
+| =ores.ts.domain= (=domain_types.ts=)                                   | Split | Per-entity TypeScript interfaces; tenant_id 11.                                                       |
+| =ores.ts.protocol=, =ores.ts.convention-registry=, =ores.ts.trade_type= | ORE  | NATS subjects and finance.                                                                            |
+| =ores.plantuml.er= (=plantuml_er=, =plantuml_er_index=)                | Split | ER diagrams from SQL are generic; both hard-code GPL text instead of the licence variable.            |
+| =ores.shell.service= (=shell_service_vars=)                            | ORE   | Service registry variables.                                                                           |
+| =ores.doc.agile= (sprint, story, task, test scenario, version)         | MASD  | compass's document contract; already copied to =projects/compass.legacy/library/templates=.           |
+| =ores.doc.knowledge= (11 types)                                        | MASD  | The document contract; =doc_skill= hard-codes GPL.                                                    |
+| =ores.doc.modeling= (dataset, entity, field group, junction, lookup entity, service registry) | Split | The entity model scaffold is MASD; dataset and service registry are ORE Studio's. |
+| =ores.doc.template= (=doc_{archetype,facet,facet_group,technical_space,feature,profile}=) | MASD | The meta model's own scaffolds; examples name ORE Studio bundles. |
+| =ores.doc.http-recipe=, =ores.doc.shell-recipe=                        | ORE   | Hurl recipes for ORE Studio's gateway; shell scripts.                                                 |
+| =doc_nats_pattern=, =doc_service_architecture_pattern=                 | ORE   | No literate source; NATS patterns.                                                                    |
+| =doc_report=, =doc_user_journey=, =doc_workflow=                       | MASD  | No literate source; document contract types.                                                          |
+| =overview.org=                                                         | Split | Library organisation is MASD; its count of 116 templates is stale (176).                              |
+| =template_variables.org=                                               | Split | Split by family owner.                                                                                |
+| =data/licence-GPL-v3.txt=                                              | ORE   | A project's licence is the project's; compass ships the mechanism.                                    |
+| =data/modeline.org=                                                    | MASD  | Emacs modelines per language; root parameterised.                                                     |
+| =component_catalogue.org=                                              | ORE   | ORE Studio's components; the format is MASD.                                                          |
+
+*** compass's own modeling pages
+
+| Page                                     | Overlap                                                                                                   | Owner after the move                                                                     |
+|------------------------------------------+-----------------------------------------------------------------------------------------------------------+------------------------------------------------------------------------------------------|
+| =projects/modeling/component_architecture.org= | Copies MASD vocabulary from ORE Studio and says ORE Studio's page applies where it is silent.       | compass owns simple and composite components, the sub-component catalogue and the address; ORE Studio's page keeps its roles and scaffold kinds. |
+| =projects/modeling/system_model.org=     | Only the layering rule, and it cites ORE Studio's =applied_masd.org= for meta layer and meta component. | compass owns the meta layer concept from =applied_masd.org='s generic half. Its rows for compass.model and compass.codegen, which describe "the codegen models of ORE Studio", need rewording. |
+| =projects/modeling/document_store_model.org= | None.                                                                                                 | compass, unchanged.                                                                      |
+
+*** compass add types that scaffold MASD documents
+
+=compass add= renders =projects/compass.legacy/library/templates/doc_*.org.mustache=
+through =projects/compass.legacy/src/doc_generate.py=.
+
+| Type              | Scaffolds today                                                         | Change once the meta model is compass's                                      |
+|-------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------|
+| =facet=           | =projects/ores.codegen/library/templates/<slug>.org=                    | Default to compass's library, drop the =ores= root from the address.         |
+| =facet_group=     | =projects/ores.codegen/library/templates/<slug>_group.org=              | Same; its text names ORE Studio's inventory script, which a codec replaced.   |
+| =technical_space= | =<parent>/<slug>.org=, no default; text says "the =ores= physical-space root" | Default to the library; parameterise the root.                         |
+| =archetype=       | =<parent>/<slug>.org=, no default                                       | Default to the library.                                                       |
+| =profile=         | =projects/modeling/variability_<slug>.org=, linking "ORE Studio Variability Model" | MASD profiles in compass, product profiles in the project; link compass's page. |
+| =feature=         | =projects/modeling/variability_feature_<slug>.org=; bundle examples are ORE Studio's | Same split; take bundles from the model.                          |
+
+The same paths are hard-coded in C++: =compass.docs/src/codecs/skill_tables.cpp=,
+=compass.docs/src/codecs/physical_inventory.cpp=,
+=compass.model/src/ops/physical_space.cpp=,
+=compass.codegen/src/codecs/component_files.cpp= and the protocol facet lists of
+=compass.codegen/src/ops/physical_space.cpp=.
+
+** Reading the meta model from compass
+
+The codec's =library= option is a directory relative to the checkout, read
+through =ops::checkout_reader=, and the codec turns every template, the graph
+and the licence into facts, so a changed template regenerates what it renders.
+Once the MASD half lives in compass, ORE Studio needs it without a copy.
+
+| Way                                                         | ORE Studio CI                                                             | Worktrees                                          | Windows and macOS                                     | Version skew                                                         |
+|-------------------------------------------------------------+---------------------------------------------------------------------------+----------------------------------------------------+-------------------------------------------------------+----------------------------------------------------------------------|
+| Installed share directory in the compass package            | Already installs the release =build/scripts/compass_ng.pin= names; the library comes in the same tarball. | Nothing to do: every worktree uses the installed compass. | CPack already builds ZIP, WIX, DragNDrop and TGZ; =share/= travels as =bin/= does. | None: the templates and the C++ that builds their contexts are one release. |
+| Git submodule of compass in ORE Studio                       | Every workflow must check out submodules.                                 | Each of ORE Studio's many worktrees needs =git submodule update=. | Works, with the usual submodule friction.          | The submodule commit and the installed binary can disagree, and a template can need context a binary lacks. |
+| A vcpkg or system package of the library alone               | A second pin.                                                             | Nothing to do.                                     | A port per platform.                                  | Two versions to keep in step.                                        |
+| Copy, as today                                               | Works.                                                                    | Works.                                             | Works.                                                | The story forbids it.                                                |
+
+The recommendation is the installed share directory:
+
+- compass installs its MASD library to =<prefix>/share/compass/masd/=:
+  templates, graph nodes, the meta model pages, the modelines. The release
+  tarball, zip and installers carry it.
+- The codec's =library= option takes a list, searched in order, and a
+  library named =@compass= resolves against the running executable
+  (=../share/compass/masd= from its =bin/=). ORE Studio's =.compass.org=
+  becomes =library=@compass,projects/ores.codegen/library=: compass's nodes
+  first, ORE Studio's facets, templates, profiles and licence added on top.
+  A node named twice is an error, not an override, so a move cannot leave a
+  page in both.
+- The licence and the product root come from the project, not from the
+  shared library: a project states its =product= (=ores=, =compass=) and its
+  licence file in its own library.
+- Reading outside the checkout needs a reader for the share directory; the
+  facts already hash every template, so a compass upgrade that changes one
+  regenerates what it renders and =compass check= reports it as drift.
+- To work on the meta model against ORE Studio before a release,
+  =--set codegen.library=<compass checkout>/share/masd,projects/ores.codegen/library=
+  points at a checkout instead.
+- ORE Studio's pages link to MASD pages by =id:=. compass's link checks must
+  index the share directory's pages, or those links break when the pages
+  leave ORE Studio.
+- ORE Studio's output must not change by a byte. That is measurable before
+  the move: render ORE Studio with the layered library and compare with the
+  26,212 outputs, as the codec's port was measured.
+
+* Conclusions
+
+- *Tables.* compass can generate its tables with the machinery it already
+  runs on ORE Studio: model pages, profiles, features, the physical-space
+  graph and the codegen codec. It cannot use ORE Studio's table templates.
+  Rendered on =corpus.document= and =activity.run=, they put the table in
+  =public= under a quoted name with a dot in it, drop the =bytea= and =bigint=
+  keys from the C++ row so it does not compile, render identity as a default,
+  add a tenant to a foreign key of a table without one, and surround the
+  table with NATS, TypeScript and ORE Studio's database library. compass needs
+  a MASD entity context and four or five small templates for plain
+  PostgreSQL and libpq, plus the features =schema=, =key_kind=, =written_by=,
+  =values=, =opclass=, =on_delete=, =computed= and =generated=. Their target
+  output is migration 1 and the row types of #176, which already exist, so
+  the templates have a specification to meet byte for byte.
+- *Migrations.* Recreating, as ORE Studio does, would lose test activity.
+  Generated diffs between model versions cannot tell a rename from a drop or
+  move data. Versioned generated DDL with hand-written, frozen deltas, held
+  to the generated schema by a catalog comparison, keeps the activity and
+  puts the one judgement a generator cannot make in a reviewed file.
+- *Service.* ORE Studio generates HTTP routes from entity and operation
+  models, but every route is a =POST= that forwards over NATS on ORE
+  Studio's own Beast server, and it generates no MCP. The operation model
+  type is the right input; it needs HTTP and MCP properties, and compass
+  needs new route and MCP tool templates. The MCP tool descriptions come
+  from the same message prose as the routes.
+- *Classification.* Of ORE Studio's modeling pages, the variability
+  features that describe structure (current state, read only, checks, keys,
+  hierarchy, licences) and the theory pages are MASD; tenancy, parties, RLS,
+  NATS, the Qt presentation bundle, the system model and finance are ORE
+  Studio's. Most technical-space and facet pages, and most C++ and SQL
+  template families, are Split: generic in concept, ORE Studio's in text.
+  Every family is at least Split until the address root =ores= is a
+  parameter, in ORE Studio's library and in compass's code alike.
+- *Distribution.* The MASD library belongs in compass's package, versioned
+  with the binary whose context builders it needs, layered under each
+  project's own library.
+
+* Recommendations
+
+The order of work, as the story's tasks:
+
+| Order | Task | Delivers | Depends on |
+|-------+------+----------+------------|
+| 1 | [[id:65C91AED-EE91-4730-94B0-598248F5921D][Name the product root]] | The address root, library path and meta model directories become configuration; ORE Studio's output unchanged. | Nothing. |
+| 2 | [[id:10FBAF8A-D1B9-4800-A867-CF1BC77C95D3][Ship the MASD library with compass]] | =share/compass/masd= in every package; =library= layers =@compass= under a project's library. | 1 |
+| 3 | [[id:BECA92D2-95DA-46B4-9D3E-AC30FDDB7294][Move the MASD pages and templates to compass]] | The classification carried out; ORE Studio's copy deleted in the same release, its output unchanged by a byte. | 2 |
+| 4 | [[id:02089780-F445-4220-89E1-3CBCA0347B37][Model compass's tables]] | The MASD entity context, the new features and profiles, a model per table. | 3 |
+| 5 | [[id:B8F7849D-1477-4C30-80A1-49706AB2AA57][Generate compass's schema and row types]] | Generated schema, rows, COPY writers and readers; hand-written migration 1 and staging replaced; tests unchanged. | 4, #176 merged |
+| 6 | [[id:6F19FA08-5DBE-4DE9-B853-03F541F5A4FC][Migrate a generated schema]] | Frozen hand-written deltas, the catalog comparison, the retained-table report; before the first release that creates a database. | 5 |
+| 7 | [[id:55F578C5-6F25-4385-B0F2-CDFBDF9A753C][Model compass's service]] | HTTP and MCP properties on the operation model; models of every endpoint and tool. | 3 |
+| 8 | [[id:8CF40A62-82EB-4FE0-8CEC-2621BD0E66FE][Generate the HTTP and MCP service]] | Generated routes, MCP tool descriptions and table, message codec. Serve the documents' HTTP and MCP tasks consume it. | 5, 7 |
+
+Tasks 4 and 7 can run side by side once 3 lands. If the move is slow, 4 can
+start after 1, writing its pages in compass from the start; the move then
+has fewer pages to carry.
+
+Search, meanwhile, should be the hand-written half that generation never
+replaces. Write its queries as SQL in =compass.db= (a =query= namespace
+beside =io/corpus=), behind a function per question:
+=search(const caller&, const search_request&)= returning a =search_response=
+of =search_hit= rows, named and shaped as the operation model above names
+them, and measure it against the recorded questions in a test, with no HTTP.
+It reads the tables only by their column names, which the generated schema
+keeps, so task 5 does not touch it. When task 8 lands, the generated route
+and MCP tool call that function and the hand-written structs are deleted in
+favour of the generated messages. Search should not build a route, a JSON
+encoder or an MCP handler of its own: that is exactly the code task 8
+generates, and a hand-written copy would be thrown away.
+
+Durable conclusions belong on the pages that own them once the tasks run:
+the migration policy on =compass.db='s component overview, the features and
+profiles on their own pages in compass's library, and the classification on
+the meta model's index page.
+
+* See also
+
+- [[id:E3C81059-FE00-4403-AA56-190FDBB9904A][Own the MASD meta model and generate compass with it]]: the story.
+- [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]] and its [[id:21C1D3CC-9EE3-48C3-8EDD-BA0C16032AB2][design]]: the database and service generated here.
+- [[id:8EA07ED7-30B4-4EEA-AE29-1968A0856330][Create compass's database]]: the task #176 delivers.
+- [[id:318B663E-885D-4821-BE16-8CBD8E26A060][Search the corpus]], [[id:186C4AF8-CAB4-4754-B8AC-76D571B1B3E9][Serve the documents over HTTP]], [[id:07BE8080-B97F-42FC-9A42-5D8CC0923EA0][Serve MCP]].
+- [[id:ADDF10CB-A992-4E35-A727-A38463915085][compass.codegen]]: the codec, its options and its facts.
+- [[https://github.com/MASD-Project/compass/pull/176][#176]]: the hand-written database.

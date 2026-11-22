@@ -1,0 +1,90 @@
+:PROPERTIES:
+:ID: 55F578C5-6F25-4385-B0F2-CDFBDF9A753C
+:END:
+#+title: Task: Model compass's service
+#+description: Add HTTP verb, path, field binding, MCP tool and caller properties to the operation model, and write the operation models of Serve the documents' endpoints and tools.
+#+type: task
+#+level: s1
+#+filetags: :own_the_masd_meta_model:sprint_01:v0:
+#+owner: marco
+#+branch:
+#+pr:
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-11-22
+#+updated: 2026-11-22
+#+environment:
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [[id:E3C81059-FE00-4403-AA56-190FDBB9904A][Own the MASD meta model and generate compass with it]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+The operation model type exists, but it says how to reach a
+message over NATS, not over HTTP or MCP. Add =:http_method:=, =:http_path:=,
+=:http_in:=, =:mcp_tool:=, =:mcp_title:=, =:read_only:= and =:caller:=, and
+write the operation models of Serve the documents' endpoints and tools, as
+[[id:7FD52505-1436-4925-A1DE-4A3EC88F0133][Investigation: How compass generates itself]] sketches for search.
+
+* Status
+
+| Field        | Value                                  |
+|--------------+----------------------------------------|
+| State        | BACKLOG                              |
+| Parent story | [[id:E3C81059-FE00-4403-AA56-190FDBB9904A][Own the MASD meta model and generate compass with it]] |
+| Now          | Not yet started.                       |
+| Waiting on   | [[id:BECA92D2-95DA-46B4-9D3E-AC30FDDB7294][Move the MASD pages and templates to compass]]. |
+| Next         | Begin implementation.                  |
+| Last touched | 2026-11-22                               |
+
+* Acceptance
+
+- Every endpoint and tool of the design has a message in a model.
+- Each property has its feature page.
+
+* Plan
+
+(Implementation strategy. Written when work starts; key decisions
+are distilled into the parent story's =* Decisions= at close, but the
+plan itself stays — it is the historical record of what we did.)
+
+* Measurements
+
+Every number this task claims about a tree, with the command that produced it
+and the commit it was measured at. A number without both is not a measurement,
+because a clean-up record describes a tree and trunk moves under a branch: a
+consumer count, a gate's component count and a suite's size all change with no
+code changing, and the reader of a bare number cannot tell which tree it came
+from. Where the raw output matters, put it in an =evidence/= file beside the
+task and name that file in the Command column.
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+|      |       |         |        |
+
+* Notes
+
+* Test Scenarios
+
+Manual QA scenarios (scaffolded via =compass add test_scenario=)
+that verify this task. Link
+new ones here as they're created; the scenario doc itself links back
+via its "Verifies task" field.
+
+| Scenario | State | Notes |
+|----------+-------+-------|
+|          |       |       |
+
+* PRs
+
+| PR | Title |
+|----+-------|
+|    |       |
+
+* Review
+
+| # | Comment summary | File | Decision | Notes |
+|---+-----------------+------+----------+-------|
+|   |                 |      |          |       |
+
+* Result

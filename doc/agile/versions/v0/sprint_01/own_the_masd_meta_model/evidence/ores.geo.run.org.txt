@@ -1,0 +1,131 @@
+:PROPERTIES:
+:ID: 11111111-2222-4333-8444-555555555502
+:END:
+#+title: ores.geo.run
+#+description: Probe: compass's activity.run written as an ORE entity model.
+#+type: ores.codegen.entity
+#+component: geo
+#+filetags: :model:entity:geo:
+#+brief: One run of a test scenario in a campaign.
+#+entity_singular: run
+#+entity_plural: runs
+#+entity_title: Run
+#+has_tenant_id: false
+#+coding_scheme: none
+#+image_id: false
+#+created: 2026-11-22
+#+updated: 2026-11-22
+
+Probe.
+
+* Flags
+:PROPERTIES:
+:schema:    activity
+:product:   ores
+:component: geo
+:profile:   read-only-current-state
+:END:
+
+* Columns
+
+** id
+:PROPERTIES:
+:type:        bigint
+:cpp_type:    std::int64_t
+:primary_key: true
+:default:     generated always as identity
+:END:
+
+The run's number.
+
+** campaign
+:PROPERTIES:
+:type:     bigint
+:cpp_type: std::int64_t
+:nullable: false
+:END:
+
+The campaign the run belongs to.
+
+** scenario_id
+:PROPERTIES:
+:type:     text
+:cpp_type: std::string
+:nullable: false
+:END:
+
+The scenario's ID.
+
+** scenario_hash
+:PROPERTIES:
+:type:     bytea
+:cpp_type: std::string
+:nullable: false
+:END:
+
+The hash of the scenario page.
+
+** started_at
+:PROPERTIES:
+:type:     timestamp with time zone
+:cpp_type: std::chrono::system_clock::time_point
+:nullable: false
+:default:  now()
+:END:
+
+When the run started.
+
+** finished_at
+:PROPERTIES:
+:type:     timestamp with time zone
+:cpp_type: std::optional<std::chrono::system_clock::time_point>
+:nullable: true
+:END:
+
+When the run finished.
+
+** outcome
+:PROPERTIES:
+:type:     text
+:cpp_type: std::string
+:nullable: true
+:END:
+
+passed, failed or blocked.
+
+* Foreign keys
+
+** campaign
+:PROPERTIES:
+:table:         ores_geo_campaigns_tbl
+:target_column: id
+:enforce:       true
+:nullable:      false
+:END:
+
+* SQL
+
+** Flags
+:PROPERTIES:
+:tablename: ores_geo_runs_tbl
+:END:
+
+** Checks
+
+| expression                                          |
+|-----------------------------------------------------|
+| "outcome" in ('passed', 'failed', 'blocked')        |
+
+** Indexes
+
+| name          | columns       | unique | current_only | where_extra | using |
+|---------------+---------------+--------+--------------+-------------+-------|
+| scenario_hash | scenario_hash | false  | false        |             |       |
+| scenario_id   | scenario_id   | false  | false        |             |       |
+
+* C++
+
+** Flags
+:PROPERTIES:
+:no_subcomponent: true
+:END:
