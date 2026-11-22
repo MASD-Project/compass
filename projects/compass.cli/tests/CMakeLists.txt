@@ -32,6 +32,7 @@ add_executable(${tests_target_name}
     app_pipeline_tests.cpp
     app_provenance_tests.cpp
     app_ratchet_tests.cpp
+    app_skill_levels_tests.cpp
     config_arguments_tests.cpp
     config_precedence_tests.cpp
     config_check_documents_tests.cpp

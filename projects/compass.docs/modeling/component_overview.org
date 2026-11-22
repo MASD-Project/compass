@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :docs:gates:checks:component:
 #+created: 2026-11-16
-#+updated: 2026-11-18
+#+updated: 2026-11-22
 
 This page is the component overview for =compass.docs=, a simple component
 in the domain layer of the
@@ -51,11 +51,6 @@ finished, is not ported:
   skill-to-recipe links once; the links are in the skill pages now, and
   =lint/dangling_link= reports one that no longer resolves. A link someone
   removes is a change reviewed in the skill page's diff.
-- The page half of =skill-levels= (=apply_skill_levels.py --check=). It
-  compared each skill page's =#+level:= with a copy of the script's table
-  compiled into compass, two sources of one fact. A level change is
-  reviewed in the skill page's diff. A skill the table lacks, or an entry
-  with no skill, still stops =skill_levels=, whose refusal names each.
 - The =react_tree= and =no_discovery= rules of =prototypes=. They guarded
   the move of the prototypes out of the React tree, finished on
   2026-10-06. =no_discovery= looked for the string
@@ -224,12 +219,24 @@ They are off by default.
   read from the =doc_*.org.mustache= templates and from
   =_STATIC_PARENT= and =_DEFAULTABLE_PARENT= in =compass.py=, and the
   read-only commands with the help =compass.py= gives each.
-- *=skill_levels=.* The inventory half of =skill-levels=
-  (=apply_skill_levels.py=): the region between its markers in
-  =doc/llm/skills/skill_systems_levels.org=, the count of skills each
-  System sees by the script's =LEVELS= table, copied into the codec. A
-  skill the table lacks, or an entry with no skill, writes nothing and is
-  refused, the refusal naming each.
+- *=skill_levels=.* =skill-levels= (=apply_skill_levels.py=), but for
+  =--prune-deployed=, which acts on an agent's runtime and stays the
+  project's. The levels are the project's data: the tables =Levels= (each
+  skill's level and the reason), =Systems= (the levels in order, with the
+  System, horizon and attenuation of each), =Read-only verbs= and
+  =Settings= of the check document whose Definition names the codec. It
+  stamps each =SKILL.org='s =#+level:= line, replacing the first one or
+  putting one after =#+export_exclude_tags: noexport=; a =SKILL.org=
+  holding a generated region, as =skill_type_tables= writes in
+  =compass-doc-add= and =compass-doc-show=, is that codec's output, since
+  one file has one writer, so a level it lacks is refused instead. It writes two
+  regions of the levels page: the inventory, the count each System sees,
+  and the slices, the skills each level sees, binding or advisory, put
+  after the inventory when the page has none. A binding level sees the
+  skills whose verb, the name's third segment, is read-only; an advisory
+  one its own skills and the cross level's. A skill with no row
+  (=skill_without_level=) or a row with no skill (=level_without_skill=)
+  writes nothing; a missing table, column or setting is =unreadable=.
 - *=recipe_inventories=.* =recipe-inventories=
   (=regenerate_shell_recipe_inventory.py= and
   =regenerate_http_recipe_inventory.py=): =doc/recipes/shell/shell.org=,

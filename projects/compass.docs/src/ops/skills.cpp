@@ -25,11 +25,16 @@ namespace compass::docs::ops {
 
 std::vector<std::string> skill_names(
     const compass::codec::types::corpus_view& v) {
+    return skill_names(v, skills_dir);
+}
+
+std::vector<std::string> skill_names(
+    const compass::codec::types::corpus_view& v, std::string_view directory) {
     constexpr std::string_view file = "/SKILL.org";
     std::vector<std::string> out;
-    for (const auto path : v.list_files(skills_dir, file)) {
-        const auto name = path.substr(skills_dir.size(),
-            path.size() - skills_dir.size() - file.size());
+    for (const auto path : v.list_files(directory, file)) {
+        const auto name = path.substr(directory.size(),
+            path.size() - directory.size() - file.size());
         if (name.find('/') == std::string_view::npos)
             out.emplace_back(name);
     }
