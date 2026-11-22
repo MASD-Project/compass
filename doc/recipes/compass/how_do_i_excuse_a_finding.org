@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :compass:cli:
 #+created: 2026-11-16
-#+updated: 2026-11-18
+#+updated: 2026-11-22
 
 An exception is a comment beside the code it excuses. The check of
 [[id:45FA67C9-60BC-420D-BB66-8A272CB1106C][compass.cli]] reads it and the
@@ -97,8 +97,11 @@ How exceptions meet the rest of the check:
 - =check --commit= reads the exceptions of that commit, and judges them
   against today, not the date of the commit.
 - =check --ratchet= checks the merge base with its own exception
-  comments, the checkout's exceptions table and the same today. An exception that expires is then expired on both sides and
-  is not new; the plain check still fails on it.
+  comments, the checkout's exceptions tables, of =.compass.org= and of
+  each check document, and the same today. An exception that expires is
+  then expired on both sides and is not new; the plain check still fails
+  on it. An exception the branch removes from a table leaves its finding
+  old, for the same reason.
 - Exceptions are read after the codecs run, never from the record or the
   result cache, so a reused result never hides an exception that has
   since expired.

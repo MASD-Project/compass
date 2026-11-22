@@ -1,0 +1,400 @@
+:PROPERTIES:
+:ID: 21C1D3CC-9EE3-48C3-8EDD-BA0C16032AB2
+:END:
+#+title: Design: the document service
+#+description: How compass serves a project's org documents from its own PostgreSQL database to people, agents and testers across many environments: the data model, keeping it in sync with the files, search, the HTTP and MCP interfaces, views, test campaigns and their export to git.
+#+type: design
+#+level: s2
+#+filetags: :docs:search:service:design:serve_the_documents:sprint_01:v0:
+#+created: 2026-11-22
+#+updated: 2026-11-22
+#+todo: DRAFT STARTED | LANDED SUPERSEDED ABANDONED
+#+outcome:
+
+* Status
+
+| Field        | Value |
+|--------------+-------|
+| State        | DRAFT |
+| Parent story | [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]] |
+| Last touched | 2026-11-22 |
+
+* Summary
+
+A project's org documents are needed at run time, not only by compass's
+checks: users read the manual as HTML, assistants retrieve from the manual and
+the knowledge base, developers ask where an environment stands in its sprint,
+and testers, who have no git, run the sprint's test scenarios. Every project
+that uses compass needs this, compass included, so compass provides it: a
+service over compass's own PostgreSQL database.
+
+Four decisions shape the design.
+
+1. *Two kinds of data.* The /corpus/ is derived from the files: the service
+   never edits it and can rebuild it at any time. The /activity/ is what
+   testers record: runs, step results, screenshots and notes. It is the
+   service's own, durable, and leaves the database only through an export a
+   developer runs.
+2. *Many environments, one copy of each document.* As compass's store does for
+   a repository's worktrees, the database holds every environment at once,
+   each a set of paths pointing at documents stored once by content hash.
+3. *Freshness by sync, not by watching.* Whatever changes the files, an
+   agent's edit, a compass run, a pull, a deploy, runs a sync that loads only
+   new content.
+4. *One query layer, two doors.* An HTTP API for front ends and an MCP
+   endpoint for agents call the same functions, so a person and an agent asking
+   the same question get the same answer. compass has no search command of its
+   own.
+
+* Background
+
+ORE Studio built the first version of this inside ORE Studio, in its PRs #4998
+and #5010: a C++ org parser, a load of pages marked =#+audience: user= into a
+PostgreSQL table, and an index service with a weighted =tsvector= per section.
+On 2026-11-22 it held 273 pages, 3,113 sections and 2,285 links, and rebuilt in
+0.7 to 1.7 s. ORE Studio then proposed moving it to compass (bright faraday's
+proposal of 2026-11-22), because every project needs the same, because compass
+already parses every document, 11,313 of ORE Studio's on 2026-11-22, and
+because the ORE index dropped most metadata and loaded only user pages.
+
+The proposal kept the index in compass's store and served it read-only. This
+design differs in two ways, both from the product owner's requirements:
+PostgreSQL holds the data, and testers write to it.
+
+ORE Studio also keeps test results today inside the scenario page: each step's
+=*** Result= table and the =State= in =Scenario Info=, written by hand or by
+the Qt client's QA Validation Runner. That conflates the definition with its
+runs, loses every run but the last, and needs git to record a result.
+
+* Components
+
+| Component | Holds |
+|-----------+-------|
+| =compass.db= | The schema and its migrations; the connection (=libpq=, behind a small RAII wrapper in the style of =compass.platform=); the corpus loader and the sync; collection |
+| =compass.serve= | The query layer; the HTTP server; the MCP endpoint; HTML rendering; the test campaign writes and the export |
+| =compass.cli= | =compass serve=, =compass sync=, =compass db=, =compass test export=; the sync at the end of each run and in the hook |
+
+The names are to be checked against =component_architecture.org= when the
+first task starts. The CLI gains a dependency on =libpq= for the sync; the HTTP
+server and its libraries stay in =compass.serve=.
+
+Dependencies to add through vcpkg: =libpq=; an HTTP server, =cpp-httplib=
+(one header, a thread pool, enough for a service that only a gateway and local
+agents reach); a JSON library, =nlohmann-json= unless a faster one is measured
+to matter. Each is confirmed in its task against the build on Linux, macOS and
+Windows.
+
+* The database
+
+** Where it lives
+
+One database per repository, as there is one store per repository. Its
+connection is a libpq connection string in the repository's local compass
+settings, so each machine names its own; a project may run a compass cluster
+of its own or give compass a database on its existing server. =compass db
+init= creates the schemas and =compass db migrate= applies migrations; every
+compass command that touches the database refuses to run against a schema
+newer than it knows, and migrates an older one only when asked.
+
+Three schemas:
+
+| Schema | Holds | Written by |
+|--------+-------+------------|
+| =corpus= | Documents, headings, sections, links, environments | The sync |
+| =test= | Scenario definitions and steps, derived from the corpus | The sync |
+| =activity= | Campaigns, runs, step results, notes, attachments | The service |
+
+** The corpus
+
+| Table | Key | Columns |
+|-------+-----+---------|
+| =document= | =hash= | =org_id=, =title=, =description=, =type=, =level=, =audience=, =created=, =updated=, =tags text[]=, =keywords jsonb= (every keyword as a list, so repeats survive), =properties jsonb=, =source text= |
+| =heading= | =hash=, =ord= | =level=, =title=, =path text[]=, =anchor=, =org_id=, =todo=, =priority=, =tags text[]=, =properties jsonb= |
+| =section= | =hash=, =ord= | =heading_ord=, =text=, =tsv tsvector= |
+| =link= | =hash=, =ord= | =heading_ord=, =target_id=, =text= |
+| =environment= | =id= | =name=, =kind= (=worktree=, =branch=, =release=), =root=, =head=, =synced_at= |
+| =placement= | =environment=, =path= | =hash= |
+
+A document row is keyed by the hash of its content, computed as git computes a
+blob's id, so the hash of a committed file is its blob id and an uncommitted
+edit has a hash too. A document's rows never change once written. What an
+environment holds is its =placement= rows: path to hash. Two environments on
+the same file share every row of it.
+
+The common metadata are columns so the frequent filters use plain indexes;
+everything else is in =keywords= and =properties=, with GIN indexes, so a
+project adds a keyword and filters on it with no migration.
+
+** The test definitions
+
+For each document of =#+type: test_scenario=, the sync also writes:
+
+| Table | Key | Columns |
+|-------+-----+---------|
+| =test.scenario= | =hash= | =org_id=, =title=, =task_id=, =story_id=, =target=, =environment= (the page's =#+environment:=), =definition= |
+| =test.step= | =hash=, =ord= | =title=, =body= |
+
+=task_id= and =story_id= come from the page's =Scenario Info= table (=Verifies
+task=, =Parent story=). A step is a heading under =* Steps=. =definition= is a
+hash of the page with any =Result= subsections and the =State= row left out,
+so a definition changes when its steps change and not when results are
+written into it by older tooling.
+
+** Activity
+
+| Table | Key | Columns |
+|-------+-----+---------|
+| =campaign= | =id= | =environment=, =story_id=, =sprint_id=, =opened_at=, =exported_at= |
+| =run= | =id= | =campaign=, =scenario_id= (=:ID:=), =definition=, =scenario_hash=, =tester=, =started_at=, =finished_at=, =outcome= |
+| =step_result= | =run=, =step_ord= | =outcome= (pass, fail, blocked, skipped), =notes= |
+| =note= | =id= | =campaign=, =scenario_id=, =step_ord=, =kind=, =text=, =author=, =created_at=, =state= (open, addressed), =reply=, =addressed_by=, =addressed_at= |
+| =attachment= | =hash= | =media_type=, =bytes bytea= |
+| =attached= | =attachment=, =run= or =note=, =step_ord= | =caption= |
+
+A campaign is one story's scenarios on one environment; it is created by the
+first run recorded for that pair, not opened by anyone. Activity names
+documents by =:ID:= and the definition it used, never by path, so a rename does
+not orphan it, and it outlives the worktree it was recorded on. Note kinds are
+the project's data, a table in its compass configuration.
+
+* Keeping the database in sync
+
+** A sync
+
+A sync of an environment:
+
+1. lists the environment's org files and their content hashes, from the store,
+   which already caches both by file stamp;
+2. reads the environment's =placement= rows;
+3. for each hash the database does not have, takes compass's parse of that
+   content from the store, parsing it if the store has none, and inserts the
+   document's rows; =INSERT ... ON CONFLICT DO NOTHING=, because another
+   environment may insert the same hash at the same moment;
+4. in one transaction, replaces the environment's changed =placement= rows and
+   sets =head= and =synced_at=.
+
+Readers see either the old placement or the new one, never a mix. An unchanged
+environment costs a listing and a comparison: no parse, no insert. Sections'
+=tsvector= values are computed in the insert, so search is ready when the
+transaction commits.
+
+** When a sync runs
+
+| Trigger | Scope | Why |
+|---------+-------+-----|
+| The edit hook, after an agent edits a file | That file | An agent sees its own edit at once |
+| The end of any compass run in a worktree | The environment | Generated documents and anything the hook missed |
+| git's =post-checkout=, =post-merge= and =post-rewrite= hooks, installed by compass | The environment | A pull, a branch switch or a rebase happens outside compass |
+| =compass sync= and the MCP tool =sync= | The environment | On demand |
+| A deploy | The release environment | Production has no checkout; the release pipeline runs =compass sync --environment <release> --commit <rev>=, reading git's objects as =check --commit= does |
+
+A worktree's environment is named by its =#+environment:= setting where the
+project has one, else by its directory. Every answer carries =synced_at=, so a
+client can tell how fresh it is.
+
+** Collection
+
+A document row is removed when no =placement= row and no =run= names its hash.
+Collection runs as the store's does: as part of syncs, when the corpus has
+grown past a threshold since the last collection, never waiting for a lock. An
+environment whose worktree is gone is dropped by =compass db prune= or after a
+configured idle period.
+
+* Search
+
+Search is over sections. Each section's =tsv= weights the document title A,
+the heading path B and the text D, as ORE Studio's index did. A query is parsed
+by =websearch_to_tsquery=, ranked by =ts_rank_cd= with the document's type as a
+tie-break, and returns, per hit, the document's metadata, the section's heading
+path and anchor, and a =ts_headline= snippet. The text search configuration is
+a setting, =english= by default.
+
+Every search and list takes the same filters: =type=, =tag=, =state=,
+=sprint=, =level=, =audience=, =kw.<keyword>= and =prop.<property>=, applied
+inside the caller's view. Facets count the values of each filter over the
+current result.
+
+Ranking is measured, not assumed: a recorded set of questions over ORE Studio's
+corpus, each with the pages that answer it, scored on each change to ranking.
+
+Sections are also the retrieval unit for assistants. Embeddings, with pgvector
+on =section=, are out of scope for this story; the table leaves room for them.
+
+* Interfaces
+
+** The query layer
+
+One set of functions in =compass.serve= answers every question: search, list,
+get, backlinks, facets, environments, sprint state, what needs testing, and the
+campaign reads and writes. HTTP and MCP are thin adapters over it, so the two
+cannot drift.
+
+** HTTP
+
+=compass serve= listens on a local or internal address only; a project's
+gateway is the only client that reaches it from outside the machine. Paths are
+versioned:
+
+| Method and path | Answers |
+|-----------------+---------|
+| =GET /v1/{env}/search?q=...= | Hits, best first |
+| =GET /v1/{env}/documents?...= | A filtered, paged list |
+| =GET /v1/{env}/documents/{id}= | Metadata, and the body as HTML or org |
+| =GET /v1/{env}/documents/{id}/backlinks= | Documents linking to it |
+| =GET /v1/{env}/facets?...= | Filter values and counts |
+| =GET /v1/{env}/sprint= | The present sprint, its stories and tasks and their states |
+| =GET /v1/{env}/testing?sprint=...= | What needs testing |
+| =POST /v1/{env}/runs=, =PUT .../runs/{id}/steps/{ord}= | Record a run and its steps |
+| =POST /v1/{env}/campaigns/{id}/notes=, =PATCH .../notes/{id}= | Add and address notes |
+| =POST /v1/attachments= | Upload a screenshot; answers its hash |
+| =GET /v1/environments=, =GET /v1/version= | Environments with =synced_at=; API version and compass version |
+
+The environment is a path segment: a request names it as it names a view, and
+a missing or unknown environment is an error, never a default.
+
+** Views and identity
+
+A view is a named filter over document metadata, declared in the project's
+compass configuration:
+
+| View | Contains |
+|------+----------|
+| =public= | =audience = user= |
+| =knowledge= | =type in (knowledge, manual)= |
+| =team= | every document |
+
+Each view compiles to a SQL condition applied to every query before any other
+filter. The gateway authenticates the caller and sends two headers: the view
+and the caller's name. The service rejects a request without a view, and every
+write without a name. It trusts both because only the gateway can reach it;
+where the network does not ensure that, the two share a secret. compass never
+learns the project's users, roles or tokens.
+
+Locally, agents reach the service directly; their requests take the =team=
+view and the developer's git user name.
+
+** MCP
+
+=compass serve= also answers MCP over streamable HTTP at =/mcp=. Its tools are
+=search=, =get_document=, =list_documents=, =backlinks=, =sprint_state=,
+=what_needs_testing= and =sync=, each taking an environment. A coding agent
+registers it once per machine; a project's assistant reaches it through the
+gateway with the =knowledge= view. Tool results are compact: the metadata and
+the matching sections, with the full body on request.
+
+** HTML
+
+compass renders a document from its element tree: headings with stable
+anchors (a heading's =:ID:= where it has one, else a slug of its heading path
+made unique in the document), tables, lists, source and example blocks,
+emphasis and links. An =id:= link becomes a URL from the project's link
+template, for example =/docs/{id}#{anchor}=; a link to a document outside the
+caller's view becomes plain text. Images are served from the environment's
+files, under the same view. The output is sanitised. Fidelity is tested
+against ORE Studio's manual and knowledge pages.
+
+* Testing
+
+** What needs testing
+
+For an environment and a sprint, by default its present sprint, the one whose
+state is =STARTED=:
+
+1. the sprint's stories, from the links of its stories table;
+2. each story's scenarios: =test.scenario= rows whose =story_id= is the story;
+3. each scenario's state, from its latest run in that environment:
+
+| State | Latest run |
+|-------+------------|
+| untested | none |
+| failed | failed or blocked |
+| passed | passed, against the scenario's current definition |
+| changed | passed, against an earlier definition |
+
+Untested, failed and changed are what needs testing; passed is done. A tester
+may still run a passed scenario again. An earlier sprint is asked for by name.
+Each answer carries the open note count per scenario and per campaign.
+
+** Recording
+
+A tester picks a scenario and starts a run, which creates the campaign if it
+is the first for that story and environment. The run records the definition
+it shows, so a step list is never mixed between versions. Each step takes an
+outcome and notes, screenshots attach to a step or to the run, and the run's
+outcome is derived: failed if any step failed, blocked if any was blocked and
+none failed, passed if every step passed or was skipped. Notes attach to the
+campaign, optionally to a scenario or a step.
+
+** Export to git
+
+=compass test export --environment <env> [--story <id>]= writes, for each
+campaign of those stories in that environment, a =test_campaign= document in
+the story's folder:
+
+- a file name and =:ID:= derived from the campaign's id, so a second export
+  rewrites the same file;
+- per scenario, a heading linking the scenario page; per run, a heading with
+  the tester, the times, the definition and the outcome, a table of step
+  results and the notes;
+- the campaign's notes, grouped by kind, each a heading with =TODO= when open
+  and =DONE= when addressed, naming its scenario or step and its author, with
+  =:ID:= from the note's id;
+- screenshots as PNG files in a folder beside the page, named by hash and
+  linked from the run or note that holds them.
+
+The export writes through compass's write-on-change path, so an unchanged
+campaign touches nothing. It sets =exported_at=. The scenario pages are not
+modified: results no longer live there, so ORE Studio's scenario contract
+drops its =Result= tables and =State= row once it adopts this, and the Qt QA
+Validation Runner is replaced by the service.
+
+The =test_campaign= type needs its page in the document contract, which is
+ORE Studio's; compass drafts it.
+
+* Production
+
+A release is an environment of kind =release=, synced once at deploy from the
+release commit. The service reads the same database in development and in
+production; production needs no checkout and no compass besides the service
+binary.
+
+* Tasks
+
+| Task | Delivers |
+|------+----------|
+| Create compass's database | =compass.db=, =libpq=, the three schemas, =db init= and =db migrate=, connection settings |
+| Load and sync the corpus | The corpus tables, the sync, its triggers (hook, run end, git hooks, =compass sync=, =--commit=), collection |
+| Search the corpus | The weighted =tsvector=, the query, filters and facets, the recorded question set |
+| Serve the documents over HTTP | =compass serve=, the query layer, the read endpoints, views and identity |
+| Render documents as HTML | The renderer, anchors, the link template, images |
+| Serve MCP | The =/mcp= endpoint and its tools |
+| Show what needs testing | The test definitions, sprint state, the testing endpoint |
+| Record test campaigns | Runs, step results, notes, attachments, the write endpoints |
+| Export test campaigns to git | =compass test export=, the =test_campaign= contract draft |
+
+ORE Studio's adoption is its own story: the fleet unit, the gateway route and
+its role-to-view rule, the ores.web pages, the assistant, retiring
+=ores.orgmode='s pipeline and the Qt runner, and the scenario contract change.
+
+* Least certain
+
+- The HTTP library. =cpp-httplib= is the smallest that serves; if streaming
+  MCP or load needs more, =Boost.Beast= is the fallback, at a larger build.
+- Sync cost on a large tree. A listing of ORE Studio's 11,313 documents from
+  the store should be tens of milliseconds warm, but the hook runs on every
+  edit, so its sync is per file, and the run-end sync must be measured.
+- Sprint state. The links that make a sprint's stories and a scenario's story
+  are the document contract's; a project with another contract needs them
+  configured, which this design does not yet do.
+
+* Open questions for the product owner
+
+- Whether a tester may run a scenario that is not in a sprint, for example a
+  regression suite.
+- How long a dropped environment's activity is kept once exported.
+
+* See also
+
+- [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]]: the story.
+- [[id:A98E704E-B2E4-49BA-8839-B0A1DE9C3679][Keep the result cache small]]: the store's sharing and collection,
+  which the corpus follows.
