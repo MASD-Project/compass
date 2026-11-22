@@ -1,0 +1,61 @@
+:PROPERTIES:
+:ID: 38D18E2E-83D6-4329-94B5-0C3C283379D5
+:END:
+#+title: Story: Publish the compass website
+#+description: Publish compass's documentation as a website built from its org documents with Emacs org-publish, as ORE Studio's site is, and move the site machinery into compass so ORE Studio builds its site with compass's rather than its own.
+#+type: story
+#+level: s2
+#+filetags: :docs:site:sprint_01:v0:
+#+created: 2026-11-22
+#+updated: 2026-11-22
+#+environment:
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+compass has a public website built from its own org documents (manual,
+knowledge, agile pages and component overviews), published by CI on every
+change to =main=, built with Emacs org-publish the way ORE Studio's site is.
+The machinery that builds a site lives in compass, once, and ORE Studio
+builds its own site with it.
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | BACKLOG                              |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | Not yet started.                       |
+| Waiting on    | Nothing.                               |
+| Next          | Read ORE Studio's site build and list what is ORE Studio's in it. |
+| Last touched  | 2026-11-22                               |
+
+* Acceptance
+
+- =compass= ships the site build: the Emacs Lisp ORE Studio keeps in
+  =projects/ores.lisp= (=ores-build-site.el=, =ores-site-packages.el=), made
+  project-neutral, with the project's name, theme and sections as
+  configuration.
+- compass's site builds locally with one command and in CI, and is published
+  to GitHub Pages from =main=.
+- Links between pages resolve on the site as they do in Emacs; a page that
+  does not export is reported, not skipped.
+- ORE Studio's site builds with compass's machinery, its own copy is deleted,
+  and its site does not change in content.
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+|      |       |       |     |             |
+
+* Decisions
+
+- Emacs org-publish builds the site, as ORE Studio's does, not compass's own
+  HTML renderer; the renderer serves documents at run time.
+
+* Out of scope
+
+- Search on the static site; the document service serves search.
