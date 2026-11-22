@@ -25,6 +25,8 @@ add_library(${lib_target_name}
     ops/copy_text.cpp
     ops/extract.cpp
     ops/migrations.cpp
+    ops/run_outcome.cpp
+    query/campaign.cpp
     query/search.cpp
     query/testing.cpp)
 

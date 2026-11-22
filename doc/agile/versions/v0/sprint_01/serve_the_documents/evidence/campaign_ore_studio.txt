@@ -1,0 +1,124 @@
+# Output of campaign_ore_studio.sh, beside this file, over an archive of ORE
+# Studio main at 9ed8b54cd2, with compass at feature/record-test-campaigns,
+# a release build. <scratch> is the scratch directory; times and sync
+# durations are masked, as they vary from run to run.
+== sync
+compass: the database is at schema version 2 with text search configuration english; its connection is in <scratch>/ore/.git/compass/local.org
+compass: synced ore: 11182 documents placed, 11180 new to the corpus (0 parsed), placements 11182 added, 0 changed, 0 removed, in <n> ms
+compass: collected the corpus: 0 documents removed, 11180 left
+== what needs testing, before
+sprint Sprint 30 (9F7C5484-E2D1-40E0-B24D-AD1B69A057F5) STARTED, synced 2026-11-22T20:50:24Z
+stories 144, with scenarios 4, scenarios 4, open notes 0
+  untested  4
+  failed    0
+  passed    0
+  changed   0
+
+scenarios by story
+  Story: Author the report configurations on guided screens [BACKLOG] campaign - open notes 0
+    untested  notes 0 Test Scenario: Verify the pricing engine screens
+  Story: Follow the child run a workflow hands off [DONE] campaign - open notes 0
+    untested  notes 0 Test Scenario: Provision a tenant as a non-system administrator
+  Story: See the market as the vendors quote it [STARTED] campaign - open notes 0
+    untested  notes 0 Test Scenario: Watch the vendors' quotes as a party and as the system tenant
+  Story: Support volatility surfaces — the remaining work [STARTED] campaign - open notes 0
+    untested  notes 0 Test Scenario: Verify the FX forward ladder screen
+
+scenarios and their steps: 2BCB9FC2-7D48-4046-85C2-86D49A9E0921 11, 5BA0964E-4FF2-46BC-BE6D-83AFCFA4F424 5, 109B7D07-EA58-42D4-A304-666B37EEAC6C 11, 535F4797-2CB5-459B-A0D5-7286537F3EB1 11
+== playing the script
+start 2BCB9FC2-7D48-4046-85C2-86D49A9E0921 ana               -> run 1 campaign 1 steps 11 definition b343e35950 [<t> ms]
+step 0 pass                                                  -> recorded [<t> ms]
+step 1 pass                                                  -> recorded [<t> ms]
+step 2 pass                                                  -> recorded [<t> ms]
+step 3 pass                                                  -> recorded [<t> ms]
+step 4 pass                                                  -> recorded [<t> ms]
+step 5 pass                                                  -> recorded [<t> ms]
+step 6 pass                                                  -> recorded [<t> ms]
+step 7 pass                                                  -> recorded [<t> ms]
+step 8 pass                                                  -> recorded [<t> ms]
+step 9 pass                                                  -> recorded [<t> ms]
+step 10 pass                                                 -> recorded [<t> ms]
+attach shot.png 0 The login page                             -> attached 1 as 0dd1608e45 [<t> ms]
+attach shot.png 0 The login page, captioned again            -> attached 1 as 0dd1608e45 [<t> ms]
+finish                                                       -> outcome passed [<t> ms]
+finish                                                       -> REJECTED (conflict): run 1 has finished [<t> ms]
+step 0 fail                                                  -> REJECTED (conflict): run 1 has finished [<t> ms]
+start 5BA0964E-4FF2-46BC-BE6D-83AFCFA4F424 ben               -> run 2 campaign 2 steps 5 definition 726b171c8d [<t> ms]
+step 0 pass                                                  -> recorded [<t> ms]
+step 1 fail The tenant list is empty.                        -> recorded [<t> ms]
+note defect 5BA0964E-4FF2-46BC-BE6D-83AFCFA4F424 1 The tenan -> note 1 [<t> ms]
+attach shot.png note                                         -> attached 2 as 0dd1608e45 [<t> ms]
+note question - - Which tenant should a tester provision?    -> note 2 [<t> ms]
+address dev Provision acme.                                  -> addressed [<t> ms]
+address dev Again.                                           -> REJECTED (conflict): note 2 is already addressed [<t> ms]
+note rant - - Not a kind.                                    -> REJECTED (invalid): no note kind 'rant'; the project's kinds are: defect, question [<t> ms]
+note defect 109B7D07-EA58-42D4-A304-666B37EEAC6C - Not a sce -> REJECTED (invalid): scenario 109B7D07-EA58-42D4-A304-666B37EEAC6C is not a scenario of the campaign's story F601BA2C-C879-4880-95C2-02110E5D168E in ore [<t> ms]
+finish                                                       -> outcome failed [<t> ms]
+start 109B7D07-EA58-42D4-A304-666B37EEAC6C ana               -> run 3 campaign 3 steps 11 definition b0901bfb4c [<t> ms]
+step 0 blocked The service does not start.                   -> recorded [<t> ms]
+finish                                                       -> outcome blocked [<t> ms]
+start 535F4797-2CB5-459B-A0D5-7286537F3EB1 -                 -> REJECTED (invalid): a write names its tester; fix: send the tester's name with the request [<t> ms]
+start 535F4797-2CB5-459B-A0D5-7286537F3EB1 ana               -> run 4 campaign 4 steps 11 definition e59ce70341 [<t> ms]
+step 11 pass                                                 -> REJECTED (invalid): the scenario has no step 11; steps count from 0 [<t> ms]
+step 0 pass                                                  -> recorded [<t> ms]
+finish                                                       -> REJECTED (invalid): run 4 has steps with no result and none failed or blocked: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 [<t> ms]
+step 0 pass                                                  -> recorded [<t> ms]
+step 1 pass                                                  -> recorded [<t> ms]
+step 2 pass                                                  -> recorded [<t> ms]
+step 3 pass                                                  -> recorded [<t> ms]
+step 4 pass                                                  -> recorded [<t> ms]
+step 5 pass                                                  -> recorded [<t> ms]
+step 6 pass                                                  -> recorded [<t> ms]
+step 7 pass                                                  -> recorded [<t> ms]
+step 8 pass                                                  -> recorded [<t> ms]
+step 9 pass                                                  -> recorded [<t> ms]
+step 10 pass                                                 -> recorded [<t> ms]
+finish                                                       -> outcome passed [<t> ms]
+== stored
+attachments|1
+attached|2
+notes open|1
+notes addressed|1
+1|ana|passed|t
+2|ben|failed|t
+3|ana|blocked|t
+4|ana|passed|t
+== what needs testing, after the runs
+sprint Sprint 30 (9F7C5484-E2D1-40E0-B24D-AD1B69A057F5) STARTED, synced 2026-11-22T20:50:24Z
+stories 144, with scenarios 4, scenarios 4, open notes 1
+  untested  0
+  failed    2
+  passed    2
+  changed   0
+
+scenarios by story
+  Story: Author the report configurations on guided screens [BACKLOG] campaign 1 open notes 0
+    passed    notes 0 Test Scenario: Verify the pricing engine screens (run 1 by ana: passed)
+  Story: Follow the child run a workflow hands off [DONE] campaign 2 open notes 1
+    failed    notes 1 Test Scenario: Provision a tenant as a non-system administrator (run 2 by ben: failed)
+  Story: See the market as the vendors quote it [STARTED] campaign 3 open notes 0
+    failed    notes 0 Test Scenario: Watch the vendors' quotes as a party and as the system tenant (run 3 by ana: blocked)
+  Story: Support volatility surfaces — the remaining work [STARTED] campaign 4 open notes 0
+    passed    notes 0 Test Scenario: Verify the FX forward ladder screen (run 4 by ana: passed)
+
+== the last scenario's steps change, and the worktree is synced again
+page: doc/agile/versions/v0/sprint_30/support_volatility_surfaces-remaining/scenario_verify_the_fx_forward_ladder_screen.org
+compass: synced ore: 11182 documents placed, 1 new to the corpus (0 parsed), placements 0 added, 1 changed, 0 removed, in <n> ms
+== what needs testing, after the edit
+sprint Sprint 30 (9F7C5484-E2D1-40E0-B24D-AD1B69A057F5) STARTED, synced 2026-11-22T20:51:01Z
+stories 144, with scenarios 4, scenarios 4, open notes 1
+  untested  0
+  failed    2
+  passed    1
+  changed   1
+
+scenarios by story
+  Story: Author the report configurations on guided screens [BACKLOG] campaign 1 open notes 0
+    passed    notes 0 Test Scenario: Verify the pricing engine screens (run 1 by ana: passed)
+  Story: Follow the child run a workflow hands off [DONE] campaign 2 open notes 1
+    failed    notes 1 Test Scenario: Provision a tenant as a non-system administrator (run 2 by ben: failed)
+  Story: See the market as the vendors quote it [STARTED] campaign 3 open notes 0
+    failed    notes 0 Test Scenario: Watch the vendors' quotes as a party and as the system tenant (run 3 by ana: blocked)
+  Story: Support volatility surfaces — the remaining work [STARTED] campaign 4 open notes 0
+    changed   notes 0 Test Scenario: Verify the FX forward ladder screen (run 4 by ana: passed)
+
