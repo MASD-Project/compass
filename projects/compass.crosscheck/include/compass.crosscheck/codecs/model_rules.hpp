@@ -49,10 +49,15 @@ namespace compass::crosscheck::codecs {
  * script lists by hand.
  *
  * Rule unpublished_area (http-areas): a #+http_area: of a model's
- * frontmatter, the keyword its loader reads, that names an area outside
- * AREAS, less NO_AREA, of the module the option classification names,
- * read as the Python literals they are. Rule unreadable_areas: they are
- * not literals. The module is read only when a model declares an area.
+ * frontmatter, the keyword its loader reads, that names an area that is
+ * not published. The published areas are those the route rules and
+ * exemptions of the check document whose Definition names this codec
+ * give a route, in the area column of its Rules and Exemptions tables,
+ * less the value its Settings table gives the setting no area: the
+ * tables route_inventory decides each route with, so a project keeps one
+ * copy. Rule unreadable_areas: no check document gives the tables, or one
+ * lacks a table, a column or the no area setting. The tables are read
+ * only when a model declares an area.
  *
  * Rules contradicted, unset_required and self_contradicting
  * (model-drift): the profiles are the documents of type profile named

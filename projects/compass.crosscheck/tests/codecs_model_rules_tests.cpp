@@ -20,6 +20,8 @@
 #include <string>
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_string.hpp>
+#include "compass.codec/ops/data_tables.hpp"
 #include "compass.crosscheck/codecs/model_rules.hpp"
 #include "test_checkout.hpp"
 
@@ -27,6 +29,9 @@ namespace {
 
 using namespace compass::crosscheck;
 using tests::files;
+using Catch::Matchers::ContainsSubstring;
+using Catch::Matchers::StartsWith;
+namespace cops = compass::codec::ops;
 
 std::vector<std::string> messages(const tests::outcome& r) {
     std::vector<std::string> out;
@@ -41,6 +46,36 @@ std::string column(std::string_view name, std::string_view drawer) {
 }
 
 const std::string swap = "projects/ores.trading/modeling/ores.trading.swap.org";
+
+/**
+ * @brief The tables of a route inventory's check document that also gives
+ * model_rules its data: market-data is published by a rule, trading by an
+ * exemption, and a rule's no area is not published.
+ */
+cops::data_tables areas_document() {
+    return {"compass/checks/route_inventory.org", {
+        {"Settings", 10, {"setting", "value"},
+         {{"composed kind", "composed view"}, {"no area", "(none)"}},
+         {12, 13}},
+        {"Rules", 20, {"name", "area", "note"},
+         {{"the accounts", "access", ""}, {"the quotes", "market-data", ""},
+          {"the health check", "(none)", ""}, {"undecided", "", ""}},
+         {22, 23, 24, 25}},
+        {"Exemptions", 30, {"server", "method", "path", "area"},
+         {{"bff", "GET", "/api/blotter", "trading"}}, {32}}}};
+}
+
+tests::options data(const cops::data_tables& t) {
+    return {{std::string(cops::data_option), cops::encode_data_tables(t)}};
+}
+
+cops::data_table& in(cops::data_tables& t, std::string_view name) {
+    for (auto& table : t.tables)
+        if (table.name == name)
+            return table;
+    FAIL("no table " << name);
+    return t.tables.front();
+}
 
 }
 
@@ -116,43 +151,79 @@ TEST_CASE("an edit to one model reports what a run from scratch reports",
     CHECK(r.findings.size() == 2);
 }
 
-TEST_CASE("an HTTP area outside the published ones is reported",
+TEST_CASE("the published areas are the areas the route rules and "
+    "exemptions of the check document give, less no area",
     "[codecs][model_rules]") {
-    const std::string module = "build/scripts/route_classification.py";
     const files t{
-        {module,
-         "NO_AREA = \"(none)\"\n\nAREAS = (\n    \"access\",  # people\n"
-         "    \"trading\",\n    'market-data',\n    NO_AREA_SPELLED := 1,\n)\n"},
-        {"projects/ores.a/modeling/a.org",
-         "#+type: ores.codegen.entity\n#+http_area: trading\n"}};
-    CHECK(tests::messages_of(tests::run(codecs::model_rules, t)) ==
-        std::vector<std::string>{"model_rules reads AREAS and NO_AREA from "
-            "build/scripts/route_classification.py, and they are not "
-            "literals it can read: compass-ng reads this file until that "
-            "data moves to a check document"});
-    auto gone = t;
-    gone.erase(module);
-    CHECK(tests::messages_of(tests::run(codecs::model_rules, gone)) ==
-        std::vector<std::string>{"model_rules reads AREAS and NO_AREA from "
-            "build/scripts/route_classification.py, and the file is missing: "
-            "compass-ng reads this file until that data moves to a check "
-            "document"});
-    const files u{
-        {module,
-         "NO_AREA = \"(none)\"\n\nAREAS = (\n    \"access\",  # people\n"
-         "    \"(none)\",\n    'market-data',\n)\n"},
         {"projects/ores.a/modeling/a.org",
          "#+type: ores.codegen.entity\n#+http_area: access\n"
-         "#+http_area: (none)\n#+http_area: gone \n"
+         "#+http_area: (none)\n#+http_area: gone \n#+http_area: trading\n"
          "#+begin_src org\n#+http_area: in_a_block\n#+end_src\n"},
         {"projects/ores.a/modeling/b.org",
          "#+type: knowledge\n#+http_area: gone\n"},
         {"projects/ores.a/modeling/deep/c.org",
          "#+type: ores.codegen.entity\n#+http_area: gone\n"}};
-    CHECK(tests::places(tests::run(codecs::model_rules, u).findings) ==
-        std::vector<std::pair<std::string, std::uint32_t>>{
-            {"projects/ores.a/modeling/a.org", 3},
-            {"projects/ores.a/modeling/a.org", 4}});
+    const auto r = tests::run(codecs::model_rules, t, data(areas_document()));
+    CHECK(messages(r) == std::vector<std::string>{
+        "projects/ores.a/modeling/a.org:3: declares http_area '(none)', "
+        "which is not a published area; published areas: access, "
+        "market-data, trading",
+        "projects/ores.a/modeling/a.org:4: declares http_area 'gone', which "
+        "is not a published area; published areas: access, market-data, "
+        "trading"});
+}
+
+TEST_CASE("the published areas are unreadable without the check document's "
+    "tables, and never read from Python", "[codecs][model_rules]") {
+    const files t{
+        {"build/scripts/route_classification.py",
+         "NO_AREA = \"(none)\"\n\nAREAS = (\n    \"access\",\n    \"gone\",\n"
+         ")\n"},
+        {"projects/ores.a/modeling/a.org",
+         "#+type: ores.codegen.entity\n#+http_area: gone\n"}};
+    const auto unreadable = [&](const tests::options& o) {
+        const auto r = tests::run(codecs::model_rules, t, o);
+        REQUIRE(r.findings.size() == 1);
+        return std::get<0>(r.findings.front()) + ": " +
+            std::get<2>(r.findings.front());
+    };
+    CHECK_THAT(unreadable({}), StartsWith("compass/checks/model_rules.org: "
+        "model_rules reads its data from a check document, and none gives "
+        "it") && ContainsSubstring("Settings, Rules, Exemptions"));
+
+    auto no_table = areas_document();
+    std::erase_if(no_table.tables, [](const auto& x) {
+        return x.name == "Exemptions";
+    });
+    CHECK(unreadable(data(no_table)) == "compass/checks/route_inventory.org: "
+        "compass/checks/route_inventory.org has no table under the level-1 "
+        "heading \"* Exemptions\", which model_rules reads");
+
+    auto no_column = areas_document();
+    in(no_column, "Rules").columns[1] = "zone";
+    CHECK(unreadable(data(no_column)) == "compass/checks/route_inventory.org: "
+        "compass/checks/route_inventory.org:20: the table \"Rules\" has no "
+        "column area, which model_rules reads");
+
+    auto no_setting = areas_document();
+    in(no_setting, "Settings").rows[1][0] = "composed";
+    CHECK(unreadable(data(no_setting)) == "compass/checks/route_inventory.org: "
+        "compass/checks/route_inventory.org:10: no row states the setting "
+        "'no area', in the table \"Settings\" model_rules reads");
+
+    auto twice = areas_document();
+    auto& settings = in(twice, "Settings");
+    settings.rows.push_back(settings.rows[1]);
+    settings.row_lines.push_back(15);
+    CHECK(unreadable(data(twice)) == "compass/checks/route_inventory.org: "
+        "compass/checks/route_inventory.org:15: the setting 'no area' is "
+        "stated twice, in the table \"Settings\" model_rules reads");
+
+    CHECK(messages(tests::run(codecs::model_rules, t,
+        data(areas_document()))) == std::vector<std::string>{
+        "projects/ores.a/modeling/a.org:2: declares http_area 'gone', which "
+        "is not a published area; published areas: access, market-data, "
+        "trading"});
 }
 
 TEST_CASE("a model may not contradict the profile it binds to",
