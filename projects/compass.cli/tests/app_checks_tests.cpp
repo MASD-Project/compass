@@ -544,3 +544,102 @@ TEST_CASE("the check inventory lists every codec and check of the run, "
     CHECK(changed.findings() == std::vector<std::string>{
         "doc/knowledge/compass/check_inventory.org:12:check_inventory/drift"});
 }
+
+namespace {
+
+constexpr std::string_view auto_ptr_rule =
+    "** auto_ptr\n"
+    ":PROPERTIES:\n"
+    ":CPP_TEXT: \\bauto_ptr\\b\n"
+    ":MESSAGE: std::auto_ptr was removed in C++17\n"
+    ":END:\n\n";
+
+/**
+ * @brief check_document with the rule auto_ptr added to its Definition.
+ */
+std::string with_auto_ptr(std::string document) {
+    document.insert(document.find("* Exceptions"), auto_ptr_rule);
+    return document;
+}
+
+}
+
+TEST_CASE("ratchet judges the merge base by the check documents of the "
+    "checkout", "[app][checks][ratchet]") {
+    scoped_git_repo repo;
+    repo.write(".compass.org", configuration);
+    repo.write("src/core/old.cpp", std::string("int a;\n") +
+        std::string(violation) + "std::auto_ptr<int> p;\n");
+
+    SECTION("a check document added over old violations finds none new") {
+        commit_all(repo);
+        repo.git("branch base");
+        repo.write("compass/checks/portable_cpp.org", check_document());
+        commit_all(repo);
+
+        const auto r = check(repo, {"--ratchet", "base"});
+        INFO(r.out + r.err);
+        CHECK(r.status == 0);
+        CHECK(r.findings().empty());
+        CHECK_THAT(r.out, ContainsSubstring("0 new diagnostics, 1 excused"));
+    }
+    SECTION("a violation the same commit adds is new") {
+        commit_all(repo);
+        repo.git("branch base");
+        repo.write("compass/checks/portable_cpp.org", check_document());
+        repo.write("src/core/new.cpp", violation);
+        commit_all(repo);
+
+        const auto r = check(repo, {"--ratchet", "base"});
+        INFO(r.out + r.err);
+        CHECK(r.status == 1);
+        CHECK(r.findings() == std::vector<std::string>{
+            "src/core/new.cpp:1:portable_cpp/atomic_shared_ptr"});
+    }
+    SECTION("a rule added to a check document finds none new") {
+        repo.write("compass/checks/portable_cpp.org", check_document());
+        commit_all(repo);
+        repo.git("branch base");
+        repo.write("compass/checks/portable_cpp.org",
+            with_auto_ptr(check_document()));
+        commit_all(repo);
+
+        const auto r = check(repo, {"--ratchet", "base"});
+        INFO(r.out + r.err);
+        CHECK(r.status == 0);
+        CHECK(r.findings().empty());
+        CHECK_THAT(r.out, ContainsSubstring("0 new diagnostics, 2 excused"));
+    }
+    SECTION("a renamed check document finds none new under its new name") {
+        repo.write("compass/checks/portable_cpp.org", check_document());
+        commit_all(repo);
+        repo.git("branch base");
+        repo.git("mv compass/checks/portable_cpp.org "
+                 "compass/checks/portable.org");
+        commit_all(repo);
+
+        const auto r = check(repo, {"--ratchet", "base"});
+        INFO(r.out + r.err);
+        CHECK(r.status == 0);
+        CHECK(r.findings().empty());
+        CHECK_THAT(r.out, ContainsSubstring("0 new diagnostics, 1 excused"));
+    }
+    SECTION("an exception removed from a check document leaves its finding "
+        "old") {
+        repo.write("compass/checks/portable_cpp.org", check_document(
+            "| src/core/old.cpp | 2 | atomic_shared_ptr | 2027-01-31 | marco "
+            "| until the platform wrapper lands |\n"));
+        commit_all(repo);
+        repo.git("branch base");
+        repo.write("compass/checks/portable_cpp.org", check_document());
+        commit_all(repo);
+
+        CHECK(check(repo).findings() == std::vector<std::string>{
+            "src/core/old.cpp:2:portable_cpp/atomic_shared_ptr"});
+        const auto r = check(repo, {"--ratchet", "base"});
+        INFO(r.out + r.err);
+        CHECK(r.status == 0);
+        CHECK(r.findings().empty());
+        CHECK_THAT(r.out, ContainsSubstring("0 new diagnostics, 1 excused"));
+    }
+}
