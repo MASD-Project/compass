@@ -460,8 +460,10 @@ Only after step 2 shows agreement:
   (`doc/agile/versions/v0/sprint_01/run_the_gates_as_codecs/evidence/gate_classification.org`)
   lists every gate and its class.
 - **Ratchet.** Both sides of the ratchet are checked with the working
-  tree's `.compass.org`, so the base is judged by the rules HEAD is judged
-  by, whether or not the base has a `.compass.org` of its own. For pull
+  tree's `.compass.org` and check documents (`compass/checks/`), so the
+  base is judged by the rules HEAD is judged by, whether or not the base
+  has those files. A pull request that adopts a check document passes,
+  and a later file that breaks it fails. For pull
   requests,
   `compass-ng check --ratchet origin/main` is the
   gate: it fails only on new findings. Because both sides use the same
