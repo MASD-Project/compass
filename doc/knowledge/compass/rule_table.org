@@ -18,7 +18,7 @@ memories no rule cites are the candidates for the next checks.
 
 * Detail
 
-209 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 58 are cited by no rule.
+212 rules, 43 of which cite a memory or a document that states them. Of the 61 memories of this repository, 58 are cited by no rule.
 
 ** Rules
 
@@ -86,6 +86,9 @@ memories no rule cites are the candidates for the next checks.
 | =heading_numbers= | unreadable_document | Every document under doc/ and projects/ is UTF-8, which the script's strict read needs. |  |
 | =history_registrars= | uncomposed_registrar | Every generated registrar of a checked component is called from its composition file. | =B5492D6C-7C18-4723-BA47-232AEAA13314= |
 | =history_registrars= | missing_composition | A checked component that generates registrars has its composition file. | =B5492D6C-7C18-4723-BA47-232AEAA13314= |
+| =knowledge_titles= | sentence_title | A knowledge page's title is a noun phrase, like the title of a paper: it holds no word of the table "Finite verbs", and no word of the table "Ambiguous" when it opens with a word of the table "Determiners". |  |
+| =knowledge_titles= | title_file_mismatch | A knowledge page's file name is its title in snake case; a structure note's ends in the hub suffix. |  |
+| =knowledge_titles= | unreadable | The check document gives every table, column and setting the codec reads, and its rows agree with each other. |  |
 | =lint= | bad_filetag | Every tag of a page's first #+filetags: is lowercase: a letter, then letters, digits, _, . or -. |  |
 | =lint= | unclosed_marker | Every '# BEGIN generated X' comment has a matching '# END generated X' comment. |  |
 | =lint= | marker_without_writer | A '# BEGIN generated X (writer)' marker names a script that exists and writes the page, or 'compass generate: codec' for a codec compass.docs ships. |  |

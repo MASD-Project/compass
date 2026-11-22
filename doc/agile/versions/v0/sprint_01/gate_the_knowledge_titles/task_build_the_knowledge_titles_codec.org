@@ -1,0 +1,110 @@
+:PROPERTIES:
+:ID: 9319FA44-5C0E-466A-A40E-3CC1DE2954D8
+:END:
+#+title: Task: Build the knowledge titles codec
+#+description: The knowledge_titles check codec, its tests, and the check document ORE Studio adopts, proved on a copy of ORE Studio's tree.
+#+type: task
+#+level: s1
+#+filetags: :gate_the_knowledge_titles:sprint_01:v0:
+#+owner: marco
+#+branch: feature/knowledge-titles
+#+pr: 171
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-11-22
+#+updated: 2026-11-22
+#+environment:
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [[id:F9ED1184-6A62-4B08-A2F7-D109E2C28605][Gate the knowledge titles]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+compass has a check codec, =knowledge_titles=, that reports a knowledge page
+whose title is a sentence and one whose file name is not its title in snake
+case, from the words, paths and settings of a project's check document. ORE
+Studio has a draft of that document, proved on a copy of its tree.
+
+* Status
+
+| Field        | Value                                  |
+|--------------+----------------------------------------|
+| State        | STARTED                                |
+| Parent story | [[id:F9ED1184-6A62-4B08-A2F7-D109E2C28605][Gate the knowledge titles]] |
+| Now          | Built and proved on a copy of ORE Studio's tree; the pull request is open. |
+| Waiting on   | Review of the pull request.            |
+| Next         | Merge, release, and hand ORE Studio the check document. |
+| Last touched | 2026-11-22                             |
+
+* Acceptance
+
+- The codec reads five tables of the check document: =Finite verbs=,
+  =Ambiguous=, =Determiners=, =Skip= and =Settings=. A missing document,
+  table or column, or a wrong row, is one =knowledge_titles/unreadable=
+  finding.
+- =sentence_title=: a title holding a word of =Finite verbs=, or a word of
+  =Ambiguous= when its first word is in =Determiners=. Words are the title
+  lowercased and split on every character that is not a letter or an
+  apostrophe.
+- =title_file_mismatch=: a file name that is not the title in snake case,
+  or a structure note's that does not end in the hub suffix. The setting
+  =title_file_mismatch= set to =no= turns it off.
+- Catch2 tests fail on each of these defects: a sentence title passing, a
+  noun phrase flagged, an ambiguous word counted without a determiner, a
+  structure note held to the verbs, a skipped path read, and a wrong snake
+  case.
+
+* Plan
+
+- A corpus codec in =compass.docs=, modelled on =skill_levels=: the check
+  document's tables are its =data= option, read through =tables_for=.
+- It reads every document and keeps those whose =#+type:= keyword is
+  =knowledge=, so it works on a corpus whose types are not registered.
+- A finding sits on the page's =#+title:= line and its message holds the
+  title and the verbs, never a count or a line, so =check --ratchet= tells
+  an old page from a new one.
+
+* Measurements
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+| =sentence_title= findings on ORE Studio | 102 | =compass check --codec knowledge_titles --no-blame= on a copy with the draft check document | ORE =e3dfde1f8a= |
+| =title_file_mismatch= findings on ORE Studio | 438, of which 15 structure notes without =_hub= | the same | ORE =e3dfde1f8a= |
+| Findings under =doc/prototypes/= | 0 | the same | ORE =e3dfde1f8a= |
+| Knowledge-page findings on compass itself | 0 =sentence_title=, 30 =title_file_mismatch= | the same, with the draft check document copied in | compass =15ea0c2= |
+
+* Notes
+
+- The codec's 102 =sentence_title= findings are the titles a Python model
+  of the same rule, with the same word lists, flags: the two sets are
+  identical.
+- One false positive remains among the 102: /The workflow instance and step
+  states/, where /states/ is a plural noun after /The/. Titles with a verb
+  in a relative clause (/The identity an adapter runs as/) and question
+  titles are flagged by decision.
+- Known misses: a sentence whose subject is a plural noun and whose verb is
+  in its base form and also a noun (/Short-date swap points run between
+  their own two value dates/, /Public publishers publish daily fixings/).
+- compass's own =.compass.org= leaves the codec off: compass has no check
+  document for it, and 30 of its knowledge pages have file names that are
+  not their titles in snake case.
+
+* Test Scenarios
+
+| Scenario | State | Notes |
+|----------+-------+-------|
+|          |       |       |
+
+* PRs
+
+| PR | Title |
+|----+-------|
+| [[https://github.com/MASD-Project/compass/pull/171][#171]] | [docs] Gate the knowledge titles |
+
+* Review
+
+| # | Comment summary | File | Decision | Notes |
+|---+-----------------+------+----------+-------|
+|   |                 |      |          |       |
+
+* Result
