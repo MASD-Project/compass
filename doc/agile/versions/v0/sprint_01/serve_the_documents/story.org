@@ -1,0 +1,134 @@
+:PROPERTIES:
+:ID: C1DC377F-4A1B-4131-B734-FE28DB63CF03
+:END:
+#+title: Story: Serve the documents
+#+description: Give every project that uses compass one service, backed by compass's own PostgreSQL database, that serves its org documents to people, agents and testers across many environments: full-text search, the manual as HTML, the agile state of each environment, and test campaigns whose runs and notes export back to git.
+#+type: story
+#+level: s2
+#+filetags: :docs:search:service:sprint_01:v0:
+#+created: 2026-11-22
+#+updated: 2026-11-22
+#+environment:
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+A project that uses compass, compass included, runs one compass service and
+gets everything its people, agents and testers need from its org documents,
+with no document infrastructure of its own:
+
+- users read the manual and the knowledge base as HTML;
+- assistants answer questions by retrieving from the same documents, through
+  the same search;
+- developers see where an environment stands: its sprint, stories and tasks;
+- testers, who have no access to git, see what needs testing in the present
+  sprint, run the scenarios, and record results, screenshots and notes, which
+  a developer later exports to git as org files.
+
+The documents are read-only. The only writes are the testers' runs and notes.
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | BACKLOG                              |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | Not yet started.                       |
+| Waiting on    | Nothing.                               |
+| Next          | Write the design, then break the story into tasks. |
+| Last touched  | 2026-11-22                               |
+
+* Acceptance
+
+- *One service per repository, many environments.* As compass's store does
+  for a repository's worktrees, the service serves every environment at once:
+  each worktree, =main= and each release is a named environment pointing at
+  its current corpus. A document is stored once by its git blob id and shared
+  by every environment that holds it; a compass run in a worktree updates that
+  environment's corpus with the documents that changed; each environment keeps
+  its last few corpora, and collection removes the rows no environment names.
+  Every request names an environment.
+- *compass's own database.* compass creates and migrates its own PostgreSQL
+  database (a compass cluster or a database on the project's server); no
+  project writes or migrates a schema for documents.
+- *Every document and every piece of metadata.* Every org document of the
+  project is loaded, with every file keyword (repeats kept), the file's
+  properties, each heading's TODO state, priority, tags and properties, and
+  its links. Common keys are columns; the rest are JSONB, so a client filters
+  on any keyword or property with no migration.
+- *Search.* Full-text search in PostgreSQL over sections, weighted by title,
+  heading path and text, with snippets and filters by type, tags, state,
+  sprint, level, audience and any keyword or property. Search the documents'
+  command line and the service rank the same way, because they run the same
+  query. The same sections are the retrieval unit for assistants.
+- *Read API and HTML.* An HTTP API returns search results, filtered lists,
+  one document with its metadata and its body as HTML, backlinks and facets.
+  compass renders the HTML itself, with =id:= links resolved through a link
+  template the project configures and stable heading anchors.
+- *Views and identity.* A project declares named views (which documents a view
+  may see) in its compass configuration. Its gateway authenticates the caller,
+  names the view and passes the caller's name; the service enforces the view,
+  records the name on every write and listens only where the gateway can reach
+  it.
+- *What needs testing.* For an environment, the service derives the present
+  sprint, its stories and the test scenarios they own, and gives each
+  scenario a state from its runs: /untested/ (no run), /failed/ (its latest
+  run failed, to be retested), /passed/ (its latest run is green against the
+  scenario's current definition, which is done) or /changed/ (it passed
+  against an earlier definition). Earlier sprints can be consulted the same
+  way.
+- *Test campaigns.* A scenario's definition is its org page, loaded read-only
+  into a test schema with its steps and its story. A campaign is one story's
+  scenarios tested on one environment. Testers record runs (one scenario,
+  possibly many times), each step's result and notes, and screenshots, each
+  run naming its tester and the definition version it followed. Testers add
+  notes to a campaign, about a scenario, a step or nothing in particular
+  (unclear scenario, could not find the page, environment problem,
+  suggestion), whose kinds are the project's data.
+- *Export to git.* =compass test export= with an environment and a story writes
+  a =test_campaign= document per campaign into the story's folder: each
+  scenario's runs with their testers, step results and notes, open campaign
+  notes as TODO headings and addressed ones as DONE, and the screenshots as
+  small PNG files beside it. IDs come from the database's, so a second export
+  updates the same files and duplicates nothing.
+- *Agents.* Assistants use the HTTP API through a thin tool; MCP comes once the
+  endpoints settle.
+- *ORE Studio is the first client*: its ores.web search, manual, sprint and
+  testing pages, and its assistant, read the service through its gateway, and
+  its own document pipeline (ores.orgmode's load, index and service) can be
+  deleted.
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+|      |       |       |     |             |
+
+* Decisions
+
+- compass owns document serving; every project needs it, compass included.
+  Proposed by ORE Studio after it built a pipeline of its own (its PRs #4998
+  and #5010) and found it the wrong place.
+- PostgreSQL holds the documents and the activity, with its text search. The
+  service accepts writes, so it needs a durable transactional database, and a
+  database loaded at release time serves production with no checkout.
+- The corpus and the activity are kept apart. The corpus is derived from git
+  and never edited by the service; runs and notes are the service's own
+  records, which name a document by its =:ID:= and the commit or definition
+  version they used. The service never writes org files; export does, run by
+  a developer, and the result goes through a pull request.
+- Serve search with Typesense is abandoned; PostgreSQL's text search serves
+  every client.
+- Screenshots go into git as small PNG files beside the campaign page.
+- A test campaign is a new document type, =test_campaign=; ORE Studio's
+  document contract needs its page.
+
+* Out of scope
+
+- The front end. Each project builds its own pages; ORE Studio's are in
+  ores.web.
+- Users, roles and authentication; the project's gateway owns them.
+- Editing documents through the service.
+- Embedding or semantic search; a column for embeddings can come later.

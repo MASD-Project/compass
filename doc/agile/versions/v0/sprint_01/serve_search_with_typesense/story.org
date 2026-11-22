@@ -7,7 +7,7 @@
 #+level: s2
 #+filetags: :docs:search:sprint_01:v0:
 #+created: 2026-11-18
-#+updated: 2026-11-18
+#+updated: 2026-11-22
 #+environment:
 #+todo: BACKLOG STARTED | DONE ABANDONED
 
@@ -23,12 +23,12 @@ fed from the same index compass search uses.
 
 | Field         | Value                                  |
 |---------------+----------------------------------------|
-| State         | BACKLOG                              |
+| State         | ABANDONED |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
-| Now           | Not yet started.                       |
+| Now           | Abandoned: PostgreSQL's text search serves every client. |
 | Waiting on    | Nothing.                               |
-| Next          | Break the story into tasks.            |
-| Last touched  | 2026-11-18                               |
+| Next          | Nothing. |
+| Last touched  | 2026-11-22 |
 
 * Acceptance
 
@@ -49,6 +49,10 @@ fed from the same index compass search uses.
 |      |       |       |     |             |
 
 * Decisions
+
+- Abandoned on 2026-11-22: [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]] serves search to
+  every client from compass's PostgreSQL database, so no Typesense server is
+  needed.
 
 * Out of scope
 

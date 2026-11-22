@@ -7,7 +7,7 @@
 #+level: s2
 #+filetags: :docs:search:sprint_01:v0:
 #+created: 2026-11-18
-#+updated: 2026-11-18
+#+updated: 2026-11-22
 #+environment:
 #+todo: BACKLOG STARTED | DONE ABANDONED
 
@@ -55,8 +55,12 @@ to rebuild by hand.
 
 * Decisions
 
+- 2026-11-22: the index lives in compass's PostgreSQL database, built by
+  [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]], and =compass search= runs the same query as the
+  service, so both rank alike. The acceptance on a codec output in the store
+  and on needing no server is to be rewritten when this story starts.
+
 * Out of scope
 
-- A search server; Serve search with Typesense does that, fed from this
-  story's index.
+- The search service; Serve the documents does that.
 - Semantic or embedding search.
