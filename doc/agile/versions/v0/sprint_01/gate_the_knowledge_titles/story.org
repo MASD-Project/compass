@@ -1,0 +1,84 @@
+:PROPERTIES:
+:ID: F9ED1184-6A62-4B08-A2F7-D109E2C28605
+:END:
+#+title: Story: Gate the knowledge titles
+#+description: A check codec holds every knowledge page's title to a noun phrase and its file name to the title in snake case, from words a project's check document lists.
+#+type: story
+#+level: s2
+#+filetags: :sprint_01:v0:
+#+created: 2026-11-22
+#+updated: 2026-11-22
+#+environment:
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+ORE Studio's house style says a knowledge page's title is a noun phrase,
+like the title of an academic paper: never a sentence, with no finite verb.
+The claim the page argues goes in the first sentence of its summary. About
+76 old pages still carry sentence titles, and agents copy them into new
+pages. No gate stops them.
+
+This story gives compass a check codec, =knowledge_titles=, that reports a
+knowledge page whose title is a sentence, and one whose file name is not
+its title in snake case. compass holds the engine and the project holds the
+data, as for the other checks. The verbs, the words that are verbs only
+after a determiner, the determiners, the paths to skip and the settings are
+tables of a check document whose =:CODEC:= names the codec. The old pages
+pass through =compass check --ratchet= until they are retitled, so the
+check carries no exception rows.
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | STARTED                                |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | Built: the codec, its tests, and ORE Studio's draft check document, proved on a copy of ORE Studio's tree. |
+| Waiting on    | Review of the pull request.            |
+| Next          | Release, then ORE Studio adds the check document and enables the codec. |
+| Last touched  | 2026-11-22                             |
+
+* Acceptance
+
+- compass's code names no verb, no ORE page and no ORE path. The words,
+  the skipped paths, the structure-note tag and the pointer to the house
+  style are rows of the project's check document.
+- A title holding a listed finite verb is a =sentence_title= finding. A
+  listed ambiguous word, a verb that is also a plural noun, counts only
+  when the title opens with a listed determiner.
+- A structure note is not held to the verbs, and its file name ends in the
+  hub suffix. A file name that is not the title in snake case is a
+  =title_file_mismatch= finding, and a setting turns that rule off.
+- On a copy of ORE Studio's tree with the draft check document, the
+  findings are counted and sampled, and their false positives listed.
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+| [[id:9319FA44-5C0E-466A-A40E-3CC1DE2954D8][Build the knowledge titles codec]] | STARTED | 2026-11-22 | | The knowledge_titles check codec, its tests, and the check document ORE Studio adopts, proved on a copy of ORE Studio's tree. |
+
+* Decisions
+
+- 2026-11-22: questions and /how/, /why/ and /which/ titles are not
+  exempt. They are flagged when they hold a finite verb. (Product owner.)
+- 2026-11-22: the prototypes are out of scope. ORE Studio lists
+  =doc/prototypes/= in the check document's =Skip= table. (Product owner.)
+- 2026-11-22: old pages pass through the ratchet only. The codec has no
+  exception mechanism of its own, and the check document no exception
+  rows. (Product owner.)
+- 2026-11-22: the file-name rule is a separate rule that a setting turns
+  off, in case it proves noisy. (Product owner.)
+- 2026-11-22: compass's own =.compass.org= leaves the codec off. compass
+  has no check document for it, and most of compass's knowledge pages have
+  file names that are not their titles in snake case.
+
+* Out of scope
+
+- Retitling ORE Studio's old pages. That is ORE Studio's work, and the
+  ratchet lets them stand until it is done.
+- Parsing English. The check is a word list. A sentence whose verb is in
+  its base form after a plural noun passes, and the check document says so.

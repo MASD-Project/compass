@@ -1,0 +1,138 @@
+:PROPERTIES:
+:ID: 30ACBA0B-589E-4BBA-90F0-2BBBEDAFFB41
+:END:
+#+title: Task: Pin the ratchet to the rules of HEAD
+#+description: Prove and pin with tests that check --ratchet judges the merge base by HEAD's configuration, check documents and exceptions, so adopting a check fails nothing already there.
+#+type: task
+#+level: s1
+#+filetags: :let_projects_define_their_checks:sprint_01:v0:
+#+owner: marco
+#+branch: feature/ratchet-under-head-rules
+#+pr: https://github.com/MASD-Project/compass/pull/173
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-11-22
+#+updated: 2026-11-22
+#+environment:
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [[id:DAB2F48A-E47A-4895-9026-056AF21E6CCC][Let projects define their own checks]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+=compass check --ratchet= asks one question: what did this change make
+worse, under the rules as they now stand. The product owner decided on
+2026-11-22 that the merge base is judged by HEAD's rules. A pull request
+that adopts a check, such as ORE Studio's =knowledge_titles= document,
+then passes, and a page added later with a sentence title fails.
+
+The rules are HEAD's =.compass.org= and every check document of
+=compass/checks/=: a forbid or limit check, and a document whose
+=:CODEC:= gives a built-in codec its tables.
+
+* Status
+
+| Field        | Value                                  |
+|--------------+----------------------------------------|
+| State        | STARTED                                |
+| Parent story | [[id:DAB2F48A-E47A-4895-9026-056AF21E6CCC][Let projects define their own checks]] |
+| Now          | The ratchet already judges the merge base by HEAD's rules. Tests pin it, and the recipes say so. |
+| Waiting on   | Review of the pull request.            |
+| Next         | ORE Studio adopts =knowledge_titles= once compass PR 171 is released. |
+| Last touched | 2026-11-22                             |
+
+* Acceptance
+
+- Over files that already break it, a commit that adds a check document
+  reports no new diagnostic.
+- A violation added in the same commit is new.
+- A rule added to a check document reports no new diagnostic on old files.
+- A renamed check document reports no new diagnostic under its new name.
+- An exception removed from a check document leaves its finding old, not
+  new.
+- Each of these tests fails when the merge base is checked under its own
+  check documents and exceptions.
+
+* Plan
+
+The plan was an overlay in the commit reader: replace the rule files of
+the merge base with HEAD's before the base is checked. Reading the code
+first showed it is not needed.
+
+=options_of= (=app/application.cpp=) reads the configuration, the check
+documents and both exception tables once, from the working tree, when
+=--commit= is not given. =--ratchet= cannot be combined with =--commit=.
+=ratchet= (=app/pipeline.cpp=) copies those options for the merge base
+and sets only =commit=. So the merge base already runs with HEAD's:
+
+- enabled codecs and their options, from =.compass.org=;
+- check codecs, whose definition is built from HEAD's document;
+- data tables, which reach a codec as the value of its =data= option and
+  which =tables_for= reads from that value, never from the corpus;
+- exceptions table of =.compass.org= and the exceptions tables of the
+  check documents.
+
+What the merge base reads from its own commit is its files: the documents,
+the sources, and the exception comments in them, which are part of the
+file and move with it.
+
+The task adds the tests and states the rule in the recipes. No code
+changes.
+
+* Measurements
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+| =knowledge_titles= diagnostics on the adoption commit | 538, 101 of them =sentence_title= | =compass check --codec knowledge_titles --no-blame= | ORE Studio main 9ed8b54cd2, with the check document added and the codec enabled |
+| New diagnostics of the ratchet on that commit, the codec alone | 0, 538 excused as present at the merge base | =compass check --ratchet base --codec knowledge_titles --no-blame= | same |
+| New diagnostics of the ratchet after adding a knowledge page titled "The ratchet reads the base under the rules of HEAD" | 1, the page's =sentence_title= | same | same, one commit on |
+| New diagnostics of the full ratchet on the adoption commit | 4, all =tangle/names_missing_file= on templates the commit did not touch | =compass check --ratchet base --no-blame= | same as the first row |
+| The new tests under a ratchet that reads the merge base's own check documents and exceptions | each of the five sections fails | =compass.cli.tests "ratchet judges the merge base by the check documents of the checkout"= | compass 15ea0c2 with the mutant |
+
+The binary for the ORE Studio rows is compass 15ea0c2 with
+=origin/feature/knowledge-titles= merged, built locally and not pushed.
+
+* Notes
+
+- The four =tangle/names_missing_file= diagnostics are new on every
+  ratchet, whatever the change. =check_in= computes them only for a
+  checkout (=names_missing_of=), never for a commit, so the merge base
+  never has them to excuse. That is a separate defect.
+- A codec whose outputs are check documents writes them from HEAD's rules
+  on both sides; the merge base's copy of a check document is a file like
+  any other and never a rule.
+- A check document present only at the merge base gives no rule; one
+  present only at HEAD gives its rule to both sides.
+- Removing an exception at HEAD leaves the finding old. The ratchet asks
+  what the change made worse. The code did not change, so nothing is
+  worse; the plain check reports the finding again, as it reports the
+  findings of a newly enabled gate.
+- An option of =.compass.org= that names a path absent at the merge base
+  makes its codec report =unreadable= there. That diagnostic excuses only
+  the same diagnostic at HEAD, matched by file, rule and message, so it
+  hides nothing HEAD reports otherwise.
+- The result cache keys a unit by its codec's option values and its input
+  files, so the merge base's results under HEAD's rules are never confused
+  with results under other rules.
+- =commit_provenance= and blame read the commits of the branch and HEAD's
+  findings, and this task does not touch them.
+
+* Test Scenarios
+
+| Scenario | State | Notes |
+|----------+-------+-------|
+|          |       |       |
+
+* PRs
+
+| PR | Title |
+|----+-------|
+| [[https://github.com/MASD-Project/compass/pull/173][#173]] | [cli] Pin the ratchet to judging the merge base by HEAD's rules |
+
+* Review
+
+| # | Comment summary | File | Decision | Notes |
+|---+-----------------+------+----------+-------|
+|   |                 |      |          |       |
+
+* Result
