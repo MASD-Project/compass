@@ -1,0 +1,89 @@
+:PROPERTIES:
+:ID: BECA92D2-95DA-46B4-9D3E-AC30FDDB7294
+:END:
+#+title: Task: Move the MASD pages and templates to compass
+#+description: Move every page and template family the investigation classifies as MASD to compass, split the mixed ones, and delete them from ORE Studio in the same release, with ORE Studio's generated output unchanged by a byte.
+#+type: task
+#+level: s1
+#+filetags: :own_the_masd_meta_model:sprint_01:v0:
+#+owner: marco
+#+branch:
+#+pr:
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-11-22
+#+updated: 2026-11-22
+#+environment:
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [[id:E3C81059-FE00-4403-AA56-190FDBB9904A][Own the MASD meta model and generate compass with it]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+Move the pages and template families [[id:7FD52505-1436-4925-A1DE-4A3EC88F0133][Investigation: How compass generates itself]] classifies as MASD into
+compass, split the mixed ones as it says, and delete them from ORE Studio in
+the same release, so a page of the meta model lives in one repository.
+
+* Status
+
+| Field        | Value                                  |
+|--------------+----------------------------------------|
+| State        | BACKLOG                              |
+| Parent story | [[id:E3C81059-FE00-4403-AA56-190FDBB9904A][Own the MASD meta model and generate compass with it]] |
+| Now          | Not yet started.                       |
+| Waiting on   | [[id:10FBAF8A-D1B9-4800-A867-CF1BC77C95D3][Ship the MASD library with compass]]. |
+| Next         | Begin implementation.                  |
+| Last touched | 2026-11-22                               |
+
+* Acceptance
+
+- Every MASD page and family is in compass's library and absent from ORE Studio.
+- ORE Studio's generated output does not change by a byte.
+- ORE Studio's =id:= links to moved pages resolve.
+
+* Plan
+
+(Implementation strategy. Written when work starts; key decisions
+are distilled into the parent story's =* Decisions= at close, but the
+plan itself stays — it is the historical record of what we did.)
+
+* Measurements
+
+Every number this task claims about a tree, with the command that produced it
+and the commit it was measured at. A number without both is not a measurement,
+because a clean-up record describes a tree and trunk moves under a branch: a
+consumer count, a gate's component count and a suite's size all change with no
+code changing, and the reader of a bare number cannot tell which tree it came
+from. Where the raw output matters, put it in an =evidence/= file beside the
+task and name that file in the Command column.
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+|      |       |         |        |
+
+* Notes
+
+* Test Scenarios
+
+Manual QA scenarios (scaffolded via =compass add test_scenario=)
+that verify this task. Link
+new ones here as they're created; the scenario doc itself links back
+via its "Verifies task" field.
+
+| Scenario | State | Notes |
+|----------+-------+-------|
+|          |       |       |
+
+* PRs
+
+| PR | Title |
+|----+-------|
+|    |       |
+
+* Review
+
+| # | Comment summary | File | Decision | Notes |
+|---+-----------------+------+----------+-------|
+|   |                 |      |          |       |
+
+* Result

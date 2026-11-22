@@ -1,0 +1,117 @@
+:PROPERTIES:
+:ID: 11111111-2222-4333-8444-555555555501
+:END:
+#+title: ores.geo.document
+#+description: Probe: compass's corpus.document written as an ORE entity model.
+#+type: ores.codegen.entity
+#+component: geo
+#+filetags: :model:entity:geo:
+#+brief: One org document of the corpus, keyed by the hash of its source.
+#+entity_singular: document
+#+entity_plural: documents
+#+entity_title: Document
+#+has_tenant_id: false
+#+coding_scheme: none
+#+image_id: false
+#+created: 2026-11-22
+#+updated: 2026-11-22
+
+Probe.
+
+* Flags
+:PROPERTIES:
+:schema:    corpus
+:product:   ores
+:component: geo
+:profile:   read-only-current-state
+:END:
+
+* Columns
+
+** hash
+:PROPERTIES:
+:type:             bytea
+:cpp_type:         std::string
+:primary_key:      true
+:skip_empty_check: true
+:END:
+
+The SHA-1 of the source.
+
+** org_id
+:PROPERTIES:
+:type:     text
+:cpp_type: std::string
+:nullable: true
+:END:
+
+The document's ID.
+
+** title
+:PROPERTIES:
+:type:     text
+:cpp_type: std::string
+:nullable: true
+:END:
+
+The title.
+
+** tags
+:PROPERTIES:
+:type:     text[]
+:cpp_type: std::vector<std::string>
+:nullable: false
+:default:  '{}'
+:END:
+
+The file tags.
+
+** keywords
+:PROPERTIES:
+:type:     jsonb
+:cpp_type: std::string
+:nullable: false
+:default:  '{}'
+:END:
+
+Every keyword.
+
+** source
+:PROPERTIES:
+:type:     text
+:cpp_type: std::string
+:nullable: false
+:END:
+
+The source.
+
+** loaded_at
+:PROPERTIES:
+:type:     timestamp with time zone
+:cpp_type: std::chrono::system_clock::time_point
+:nullable: false
+:default:  now()
+:END:
+
+When the row was written.
+
+* SQL
+
+** Flags
+:PROPERTIES:
+:tablename: corpus.document
+:END:
+
+** Indexes
+
+| name   | columns | unique | current_only | where_extra | using |
+|--------+---------+--------+--------------+-------------+-------|
+| org_id | org_id  | false  | false        |             |       |
+| tags   | tags    | false  | false        |             | gin   |
+
+* C++
+
+** Flags
+:PROPERTIES:
+:no_subcomponent: true
+:END:

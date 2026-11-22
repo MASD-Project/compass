@@ -1,0 +1,85 @@
+:PROPERTIES:
+:ID: E3C81059-FE00-4403-AA56-190FDBB9904A
+:END:
+#+title: Story: Own the MASD meta model and generate compass with it
+#+description: Move the MASD meta model, its technical spaces, facets, archetypes, variability and the generic templates, out of ORE Studio into compass, and have compass generate its own database schema, row types and HTTP and MCP service from models in its own repository.
+#+type: story
+#+level: s2
+#+filetags: :codegen:masd:dogfood:sprint_01:v0:
+#+created: 2026-11-22
+#+updated: 2026-11-22
+#+environment:
+#+todo: BACKLOG STARTED | DONE ABANDONED
+
+This page documents a [[id:699A8D45-B67E-4D3E-9206-24FA17C51ADA][story]] in [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]]. It captures the goal, current status, acceptance criteria, and the tasks that compose it.
+
+* Goal
+
+compass generates its own code with its own tools. The MASD meta model, which
+compass's code generator interprets, lives in compass, once: ORE Studio reads
+it from compass and keeps only what is ORE Studio's. compass's database
+schema, the row types that read it and its HTTP and MCP service are generated
+from models in compass's own repository, so the generator is exercised on a
+second project and any project using compass can generate the same kinds of
+code.
+
+* Status
+
+| Field         | Value                                  |
+|---------------+----------------------------------------|
+| State         | STARTED                                |
+| Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
+| Now           | [[id:7FD52505-1436-4925-A1DE-4A3EC88F0133][Investigation: How compass generates itself]] written; eight tasks planned from it. |
+| Waiting on    | Nothing.                               |
+| Next          | Name the product root.                 |
+| Last touched  | 2026-11-22                               |
+
+* Acceptance
+
+- An investigation states how compass generates its own tables and service:
+  which models describe them, which technical spaces, facets and archetypes
+  apply, which templates exist and which must be written, and how a
+  generated schema migrates a database that already holds data. It covers
+  the tables Serve the documents created by hand.
+- Every page of ORE Studio's =projects/modeling= and its template library is
+  classified as MASD (generic) or ORE Studio's own, with the reason.
+- The MASD pages and generic templates live in compass and are deleted from
+  ORE Studio in the same release; ORE Studio's code generation reads them
+  from compass and its output does not change by a byte.
+- compass's database schema and the row types over it are generated from
+  compass's models, replacing the hand-written migrations, and the database
+  tests pass unchanged.
+- compass's HTTP and MCP service is generated from compass's models: its
+  endpoints, request and response types and MCP tool descriptions.
+- Every JSON compass reads or writes is generated: the codec of each row
+  type, enum and message, and each message's JSON Schema, which the MCP
+  tool descriptions use. No JSON is encoded or decoded by hand.
+- =compass generate= on compass reports nothing to write, and =compass check=
+  keeps the generated code in step, as it does for ORE Studio.
+
+* Tasks
+
+| Task | State | Start | End | Description |
+|------+-------+-------+-----+-------------|
+| [[id:65C91AED-EE91-4730-94B0-598248F5921D][Name the product root]] | BACKLOG | | | Make the physical-space root, the library path and the meta model directories configuration instead of the literal ores, so compass's codec, docs codecs and add command serve any project; ORE Studio's output does not change. |
+| [[id:10FBAF8A-D1B9-4800-A867-CF1BC77C95D3][Ship the MASD library with compass]] | BACKLOG | | | Install the MASD library under share/compass/masd in every compass package, and let the codegen library option layer @compass under a project's own library, with the licence and product taken from the project. |
+| [[id:BECA92D2-95DA-46B4-9D3E-AC30FDDB7294][Move the MASD pages and templates to compass]] | BACKLOG | | | Move every page and template family the investigation classifies as MASD to compass, split the mixed ones, and delete them from ORE Studio in the same release, with ORE Studio's generated output unchanged by a byte. |
+| [[id:02089780-F445-4220-89E1-3CBCA0347B37][Model compass's tables]] | BACKLOG | | | Write the MASD entity context and the features compass's tables need (schema, key kinds, written_by, values, opclass, on_delete, computed and generated columns), the profiles content-addressed-row, owned-child-row and activity-record, and a model for each table of the corpus, test and activity schemas. |
+| [[id:B8F7849D-1477-4C30-80A1-49706AB2AA57][Generate compass's schema and row types]] | BACKLOG | | | Write the masd.sql.table and masd.cpp.row templates, generate compass's schema and its row types, COPY writers and readers from the models, and replace the hand-written migration 1 and staging code, with the database tests passing unchanged. |
+| [[id:6F19FA08-5DBE-4DE9-B853-03F541F5A4FC][Migrate a generated schema]] | BACKLOG | | | Keep hand-written, frozen migrations beside the generated schema, test that the migrations and the generated schema build the same catalog, and report a change to a retained table that has no migration. |
+| [[id:55F578C5-6F25-4385-B0F2-CDFBDF9A753C][Model compass's service]] | BACKLOG | | | Add HTTP verb, path, field binding, MCP tool and caller properties to the operation model, and write the operation models of Serve the documents' endpoints and tools. |
+| [[id:E754BE53-3A6B-4491-BB26-450D1A34F159][Generate JSON codecs]] | BACKLOG | | | Generate the JSON reading and writing of every type compass models, row types, enums and the service's messages, and the JSON Schema of each message, so no JSON is written by hand. |
+| [[id:8CF40A62-82EB-4FE0-8CEC-2621BD0E66FE][Generate the HTTP and MCP service]] | BACKLOG | | | Write the cpp-httplib route, MCP tool description and tool table templates and the wire codec compass needs, and generate Serve the documents' HTTP and MCP service from its operation models. |
+
+* Decisions
+
+- Move, not copy: a page of the meta model exists in one repository only.
+- JSON is generated, like the tables and the service (2026-11-22).
+- The HTTP and MCP service of Serve the documents is generated, not
+  hand-written; search's queries may be written before then.
+
+* Out of scope
+
+- ORE Studio's own models (its entities, services and profiles that only it
+  uses), which stay in ORE Studio.
+- Replacing Mustache or the codegen engine.

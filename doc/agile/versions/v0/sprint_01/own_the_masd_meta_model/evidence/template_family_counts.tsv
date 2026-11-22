@@ -1,0 +1,55 @@
+family	n	tenant_id	rls	party	ores_utility	ores::database	ores::utility	logging	nats	ores_any	gpl	files
+doc_archetype_org	1	0	0	0	0	0	0	0	0	1	0	 doc_archetype.org.mustache
+doc_facet_group_org	1	0	0	0	0	0	0	0	0	2	1	 doc_facet_group.org.mustache
+doc_facet_org	1	0	0	0	0	0	0	0	0	2	0	 doc_facet.org.mustache
+doc_feature_org	1	1	0	0	0	0	0	0	0	2	1	 doc_feature.org.mustache
+doc_profile_org	1	0	0	0	0	0	0	0	0	1	0	 doc_profile.org.mustache
+doc_technical_space_org	1	0	0	0	0	0	0	0	0	2	0	 doc_technical_space.org.mustache
+ores.cmake.component	9	0	0	0	0	0	3	2	1	30	9	 cmake_component_api_src.mustache cmake_component_core_src.mustache cmake_component_files_src.mustache cmake_component_files_tests.mustache cmake_component_modeling.mustache cmake_component_root.mustache cmake_component_src.mustache cmake_component_tests.mustache cmake_composite_root.mustache
+ores.cmake.service	1	0	0	0	0	1	1	0	1	8	1	 cmake_component_service_src.mustache
+ores.cpp.asset_class	1	0	0	0	0	0	0	0	0	6	1	 cpp_asset_class_authorities.hpp.mustache
+ores.cpp.component	4	0	0	0	0	0	0	0	0	11	4	 cpp_component_header.hpp.mustache cpp_component_test_main.cpp.mustache cpp_component_test_suite.hpp.mustache cpp_export.hpp.mustache
+ores.cpp.convention-family	1	0	0	1	0	2	3	0	0	13	1	 cpp_convention_family_unit.cpp.mustache
+ores.cpp.convention-registry	3	0	0	6	0	8	0	0	0	22	3	 cpp_convention_family_dispatch.cpp.mustache cpp_convention_family_registry.hpp.mustache cpp_convention_family_units.hpp.mustache
+ores.cpp.domain	7	14	0	0	0	0	7	0	0	74	7	 cpp_domain_type_class.hpp.mustache cpp_domain_type_json_io.cpp.mustache cpp_domain_type_json_io.hpp.mustache cpp_domain_type_table.cpp.mustache cpp_domain_type_table.hpp.mustache cpp_domain_type_table_io.cpp.mustache cpp_domain_type_table_io.hpp.mustache
+ores.cpp.enum	1	0	0	0	0	0	0	0	0	3	1	 cpp_enum.hpp.mustache
+ores.cpp.eventing-integration-test	1	15	3	139	0	2	7	2	22	85	1	 cpp_nats_integration_test.cpp.mustache
+ores.cpp.field-group	2	0	0	0	0	0	9	0	0	15	2	 cpp_field_group.hpp.mustache cpp_options_header.hpp.mustache
+ores.cpp.generator	2	28	0	0	0	0	9	0	0	29	2	 cpp_domain_type_generator.cpp.mustache cpp_domain_type_generator.hpp.mustache
+ores.cpp.history-provider-registrar	2	2	0	0	0	4	2	0	0	38	2	 cpp_history_provider_registrar.cpp.mustache cpp_history_provider_registrar.hpp.mustache
+ores.cpp.http-route	12	1	0	0	0	0	28	14	77	305	12	 cpp_http_route_header.hpp.mustache cpp_http_route_impl.cpp.mustache cpp_http_route_operation_header.hpp.mustache cpp_http_route_operation_implementation.cpp.mustache cpp_http_route_operation_tests.cpp.mustache cpp_http_route_tests.cpp.mustache cpp_http_route_web_classification.cpp.mustache cpp_http_route_web_classification.hpp.mustache cpp_http_route_web_classification_tests.cpp.mustache cpp_http_route_web_records.cpp.mustache cpp_http_route_web_records.hpp.mustache cpp_http_route_web_records_tests.cpp.mustache
+ores.cpp.nats-event-cache	2	14	0	0	0	0	1	6	28	60	2	 cpp_nats_event_cache.hpp.mustache cpp_nats_event_cache_registrar.hpp.mustache
+ores.cpp.nats-eventing	1	0	0	0	0	0	6	0	1	27	1	 cpp_nats_changed_event.hpp.mustache
+ores.cpp.nats-event-registrar	2	0	0	1	0	0	0	0	14	44	2	 cpp_nats_event_registrar.cpp.mustache cpp_nats_event_registrar.hpp.mustache
+ores.cpp.nats-handler	2	12	0	1	0	15	12	9	55	143	2	 cpp_nats_handler.hpp.mustache cpp_nats_handler_system_owned_tests.cpp.mustache
+ores.cpp.nats-sub-registrar	2	0	0	0	0	14	0	0	48	94	2	 cpp_nats_registrar.cpp.mustache cpp_nats_registrar.hpp.mustache
+ores.cpp.outcome	1	0	0	0	0	1	7	0	0	13	1	 cpp_outcome_code.hpp.mustache
+ores.cpp.presentation	2	0	0	0	0	0	2	0	0	43	2	 cpp_history_field_mapper.cpp.mustache cpp_history_field_mapper.hpp.mustache
+ores.cpp.protocol	1	0	0	0	0	0	22	0	4	61	1	 cpp_protocol.hpp.mustache
+ores.cpp.repository	6	166	0	77	4	37	56	12	0	243	6	 cpp_domain_type_entity.cpp.mustache cpp_domain_type_entity.hpp.mustache cpp_domain_type_mapper.cpp.mustache cpp_domain_type_mapper.hpp.mustache cpp_domain_type_repository.cpp.mustache cpp_domain_type_repository.hpp.mustache
+ores.cpp.scaffold	4	0	0	0	0	0	0	0	0	6	4	 cpp_component_stub_header.hpp.mustache cpp_component_stub_impl.cpp.mustache cpp_component_stub_test.cpp.mustache cpp_service_stub_test.cpp.mustache
+ores.cpp.service-app	11	0	0	0	0	10	14	7	6	50	12	 cpp_service_app_application.cpp.mustache cpp_service_app_application_exception.hpp.mustache cpp_service_app_application.hpp.mustache cpp_service_app_host.cpp.mustache cpp_service_app_host.hpp.mustache cpp_service_config_options.cpp.mustache cpp_service_config_options.hpp.mustache cpp_service_config_parser.cpp.mustache cpp_service_config_parser_exception.hpp.mustache cpp_service_config_parser.hpp.mustache cpp_service_main.cpp.mustache
+ores.cpp.service	2	1	0	18	0	36	82	9	0	252	2	 cpp_service.cpp.mustache cpp_service.hpp.mustache
+ores.cpp.shell-command	8	0	0	9	0	0	16	10	34	116	8	 cpp_shell_command_aggregator_header.hpp.mustache cpp_shell_command_aggregator_impl.cpp.mustache cpp_shell_command_header.hpp.mustache cpp_shell_command_impl.cpp.mustache cpp_shell_command_tests.cpp.mustache cpp_shell_operation_header.hpp.mustache cpp_shell_operation_implementation.cpp.mustache cpp_shell_operation_tests.cpp.mustache
+ores.cpp.trade_type	4	0	0	0	0	6	3	0	0	37	4	 cpp_trade_type_batch.hpp.mustache cpp_trade_type_digest.hpp.mustache cpp_trade_type_routing.hpp.mustache cpp_trade_type_writer.hpp.mustache
+ores.cpp.wire-codec	5	4	0	0	0	0	49	0	0	149	5	 cpp_domain_type_codec.cpp.mustache cpp_domain_type_codec.hpp.mustache cpp_domain_type_codec_roundtrip_tests.cpp.mustache cpp_protocol_codec.cpp.mustache cpp_protocol_codec_roundtrip_tests.cpp.mustache
+ores.doc.agile	5	0	0	1	0	0	0	0	1	5	0	 doc_sprint.org.mustache doc_story.org.mustache doc_task.org.mustache doc_test_scenario.org.mustache doc_version.org.mustache
+ores.doc.http-recipe	1	0	0	0	0	0	0	0	0	1	0	 http_recipe.org.mustache
+ores.doc.knowledge	11	0	0	0	0	0	0	0	0	14	7	 doc_capture.org.mustache doc_component.org.mustache doc_investigation.org.mustache doc_knowledge.org.mustache doc_manual.org.mustache doc_memory.org.mustache doc_product_identity.org.mustache doc_recipe.org.mustache doc_release_notes.org.mustache doc_runbook.org.mustache doc_skill.org.mustache
+ores.doc.modeling	6	8	0	0	0	0	0	0	0	25	0	 doc_dataset.org.mustache doc_entity_org.org.mustache doc_field_group.org.mustache doc_junction.org.mustache doc_lookup_entity.org.mustache doc_service_registry.org.mustache
+ores.doc.shell-recipe	1	0	0	0	0	0	0	0	0	2	0	 shell_recipe.org.mustache
+ores.plantuml.er	2	0	0	0	0	0	0	0	0	6	8	 plantuml_er_index.mustache plantuml_er.mustache
+ores.shell.service	1	0	0	0	0	0	0	0	1	5	0	 shell_service_vars.mustache
+ores.sql.asset_class	3	12	0	0	11	0	0	0	0	29	3	 sql_asset_class_codes_populate.mustache sql_asset_class_dq_artefact_populate.mustache sql_asset_class_dq_system_populate.mustache
+ores.sql.outcome	1	0	0	0	0	1	0	0	0	8	1	 sql_outcome_functions_create.mustache
+ores.sql.populate	10	13	0	0	22	0	0	0	0	67	16	 sql_batch_execute.mustache sql_catalog_populate.mustache sql_country_populate.mustache sql_currency_populate.mustache sql_dataset_dependency_populate.mustache sql_dataset_populate.mustache sql_image_artefact_populate.mustache sql_ip2country_artefact_populate.mustache sql_methodology_populate.mustache sql_tag_populate.mustache
+ores.sql.schema	10	242	66	68	112	0	0	0	0	179	14	 sql_schema_domain_entity_artefact_create.mustache sql_schema_domain_entity_create.mustache sql_schema_domain_entity_drop.mustache sql_schema_domain_entity_view_create.mustache sql_schema_domain_entity_view_drop.mustache sql_schema_junction_artefact_create.mustache sql_schema_junction_create.mustache sql_schema_notify_trigger_drop.mustache sql_schema_notify_trigger.mustache sql_schema_table_create.mustache
+ores.sql.service	5	1	0	0	3	0	0	0	2	47	5	 sql_service_account_roles_populate.mustache sql_service_accounts_populate.mustache sql_service_db_grants.mustache sql_service_expected_services_populate.mustache sql_service_users_create.mustache
+ores.sql.trade_type	3	8	0	0	8	0	0	0	0	19	3	 sql_trade_type_catalogue_populate.mustache sql_trade_type_common_dates_create.mustache sql_trade_type_common_dates_drop.mustache
+ores.ts.convention-registry	1	0	0	4	0	0	0	0	0	1	1	 ts_convention_family_registry.ts.mustache
+ores.ts.domain	1	11	0	0	0	0	0	0	0	1	1	 domain_types.ts.mustache
+ores.ts.protocol	1	0	0	0	0	0	0	0	0	1	1	 ts_protocol.ts.mustache
+ores.ts.trade_type	1	0	0	0	0	0	0	0	0	1	1	 ts_trade_type_batch.ts.mustache
+sql_dataset_refdata	1	1	0	0	1	0	0	0	0	2	2	 sql_dataset_refdata.mustache
+sql_non_iso_currency_populate	1	2	0	0	6	0	0	0	0	19	1	 sql_non_iso_currency_populate.mustache
+sql_populate_refdata	1	2	0	0	4	0	0	0	0	18	1	 sql_populate_refdata.mustache

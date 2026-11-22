@@ -1,0 +1,454 @@
+/* -*- sql-product: postgres; tab-width: 4; indent-tabs-mode: nil -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+/**
+ * AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
+ * Template: sql_schema_domain_entity_create.mustache
+ * To modify, update the template and regenerate.
+ *
+ * Run Table
+ *
+ * Probe.
+ */
+
+create table if not exists "ores_geo_runs_tbl" (
+    "id" bigint not null default generated always as identity,
+    "campaign" bigint not null,
+    "scenario_id" text not null,
+    "scenario_hash" bytea not null,
+    "started_at" timestamp with time zone not null default now(),
+    "finished_at" timestamp with time zone null,
+    "outcome" text null,
+    primary key (id),
+    check ("outcome" in ('passed', 'failed', 'blocked')),
+    constraint ores_geo_runs_campaign_fk foreign key ("tenant_id", "campaign") references "ores_geo_campaigns_tbl" ("tenant_id", "id")
+);
+
+
+
+create index if not exists runs_scenario_hash_idx
+on "ores_geo_runs_tbl" (scenario_hash);
+
+create index if not exists runs_scenario_id_idx
+on "ores_geo_runs_tbl" (scenario_id);
+
+create or replace function ores_geo_runs_insert_fn()
+returns trigger as $$
+declare
+begin
+
+
+    return NEW;
+end;
+$$ language plpgsql security definer set search_path = public, pg_temp;
+
+create or replace trigger ores_geo_runs_insert_trg
+before insert on "ores_geo_runs_tbl"
+for each row execute function ores_geo_runs_insert_fn();
+
+--- /dev/null
+++ b/projects/ores.sql/drop/geo/geo_runs_drop.sql
+@@ -0,0 +1,29 @@
+/* -*- sql-product: postgres; tab-width: 4; indent-tabs-mode: nil -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+/*
+ * AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
+ * Template: sql_schema_domain_entity_drop.mustache
+ * To modify, update the template and regenerate.
+ */
+
+drop rule if exists ores_geo_runs_delete_rule on "ores_geo_runs_tbl";
+drop trigger if exists ores_geo_runs_insert_trg on "ores_geo_runs_tbl";
+drop function if exists ores_geo_runs_insert_fn;
+drop table if exists "ores_geo_runs_tbl";
+--- /dev/null
+++ b/projects/ores.sql/create/geo/geo_runs_notify_trigger_create.sql
+@@ -0,0 +1,70 @@
+/* -*- sql-product: postgres; tab-width: 4; indent-tabs-mode: nil -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+/*
+ * AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
+ * Template: sql_schema_notify_trigger.mustache
+ * To modify, update the template and regenerate.
+ */
+
+create or replace function ores_geo_runs_notify_fn()
+returns trigger as $$
+declare
+    notification_payload jsonb;
+    change_action text;
+    changed_version integer := 0;
+    changed_id bigint;
+    changed_key jsonb;
+    changed_tenant_id text;
+begin
+    if TG_OP = 'DELETE' then
+        change_action := 'deleted';
+        changed_id := OLD.id;
+    elsif TG_OP = 'UPDATE' then
+        change_action := 'updated';
+        changed_id := NEW.id;
+        changed_version := 0;
+    else
+        change_action := 'created';
+        changed_version := 0;
+        changed_id := NEW.id;
+    end if;
+
+    changed_key := jsonb_build_object('id', changed_id);
+
+    notification_payload := jsonb_build_object(
+        'event_id', gen_random_uuid()::text,
+        'entity', 'ores.geo.run',
+        'key', changed_key::text,
+        'action', change_action,
+        'version', changed_version,
+        'occurred_at', ores_utility_iso8601_timestamp_fn(clock_timestamp()),
+        'correlation_id', nullif(current_setting('ores.request.correlation_id', true), ''),
+        'tenant_id', changed_tenant_id
+    );
+
+    perform pg_notify('ores_geo_runs', notification_payload::text);
+
+    return null;
+end;
+$$ language plpgsql;
+
+create or replace trigger ores_geo_runs_notify_trg
+after insert or update or delete on ores_geo_runs_tbl
+for each row execute function ores_geo_runs_notify_fn();
+--- /dev/null
+++ b/projects/ores.sql/drop/geo/geo_runs_notify_trigger_drop.sql
+@@ -0,0 +1,27 @@
+/* -*- sql-product: postgres; tab-width: 4; indent-tabs-mode: nil -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+/*
+ * AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
+ * Template: sql_schema_notify_trigger_drop.mustache
+ * To modify, update the template and regenerate.
+ */
+
+drop trigger if exists ores_geo_runs_notify_trg on "ores_geo_runs_tbl";
+drop function if exists ores_geo_runs_notify_fn;
+--- /dev/null
+++ b/projects/ores.web/packages/wire-protocol/src/generated/geo/domain/run.ts
+@@ -0,0 +1,41 @@
+/** -*- mode: typescript-ts-mode; tab-width: 4; indent-tabs-mode: nil -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+/**
+ * AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
+ * Template: domain_types.ts.mustache
+ * To modify, update the template and regenerate.
+ */
+/**
+ * The run wire shape.
+ *
+ * Field names are the C++ member names, because they are the keys the codec
+ * writes. Renaming them breaks the wire silently, so they are not renamed.
+ *
+ * See the sibling protocol module for the messages that carry this type.
+ */
+export interface Run {
+    id: number;
+    campaign: number;
+    scenario_id: string;
+    scenario_hash: string;
+    started_at: string;
+    finished_at: string | null;
+    outcome: string;
+}
+--- /dev/null
+++ b/projects/ores.web/packages/wire-protocol/src/generated/geo/protocol/run_protocol.ts
+@@ -0,0 +1,107 @@
+/** -*- mode: typescript-ts-mode; tab-width: 4; indent-tabs-mode: nil -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+/**
+ * AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
+ * Template: ts_protocol.ts.mustache
+ * To modify, update the template and regenerate.
+ */
+import type { Run } from '../domain/run.js';
+import type { Order } from '../../../utility/protocol.js';
+import type { Result } from '../../../utility/protocol.js';
+
+export interface RunKey {
+    id: number;
+}
+
+export interface RunLookup {
+    key: RunKey;
+    run: Run | null;
+}
+
+export interface RunsFilter {
+    id_one_of: number[] | null;
+}
+
+export interface RunEvent {
+    event_id: string;
+    key: RunKey;
+    action: string;
+    version: number;
+    occurred_at: string;
+    correlation_id: string | null;
+}
+
+export interface ListRunsRequest {
+    offset: number;
+    limit: number;
+    order: Order;
+    filter: RunsFilter | null;
+}
+
+export interface ListRunsResponse {
+    result: Result;
+    runs: Run[];
+    total: number;
+}
+
+export interface GetRunRequest {
+    key: RunKey;
+}
+
+export interface GetRunResponse {
+    result: Result;
+    run: Run | null;
+}
+
+export interface GetManyRunsRequest {
+    keys: RunKey[];
+}
+
+export interface GetManyRunsResponse {
+    result: Result;
+    entries: RunLookup[];
+}
+
+export const subjects = {
+    list_runs_request: 'geo.v1.runs.list',
+    get_run_request: 'geo.v1.runs.get',
+    get_many_runs_request: 'geo.v1.runs.get_many',
+} as const;
+/**
+ * Whether a message needs an established session first. An operation that
+ * produces the session cannot present one, so a client reads this rather than
+ * assuming every call carries a token.
+ */
+export const requiresSession = {
+    list_runs_request: true,
+    get_run_request: true,
+    get_many_runs_request: true,
+} as const;
+
+/**
+ * The subjects this resource's changes are announced on. One payload is
+ * addressed by three subjects, because the last segment is the action the
+ * payload reports.
+ */
+export const eventSubjects = {
+    created: 'geo.v1.events.runs.created',
+    updated: 'geo.v1.events.runs.updated',
+    deleted: 'geo.v1.events.runs.deleted',
+} as const;
+--- a/projects/ores.geo/src/component_files.cmake
+++ b/projects/ores.geo/src/component_files.cmake
+@@ -20,13 +20,37 @@
+ # Template: cmake_component_files_src.mustache
+ # To modify, update the template and regenerate.
+ set(files
+    "domain/run_json_io.cpp"
+    "domain/run_table.cpp"
+    "domain/run_table_io.cpp"
+    "generators/run_generator.cpp"
+    "messaging/run_event_registrar.cpp"
+    "messaging/run_registrar.cpp"
+    "repository/run_entity.cpp"
+    "repository/run_mapper.cpp"
+    "repository/run_repository.cpp"
+     "service/geolocation_service.cpp"
+    "service/run_service.cpp"
+ )
+ 
+ # The headers are listed for the install and IDE targets.
+ set(HEADERS
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/domain/run.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/domain/run_json_io.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/domain/run_table.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/domain/run_table_io.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/eventing/run_event.hpp"
+     "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/export.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/generators/run_generator.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/messaging/run_event_registrar.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/messaging/run_handler.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/messaging/run_protocol.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/messaging/run_registrar.hpp"
+     "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/ores.geo.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/repository/run_entity.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/repository/run_mapper.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/repository/run_repository.hpp"
+     "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/service/geolocation_service.hpp"
+     "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/service/ores.geo.service.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/service/run_service.hpp"
+ )
+--- a/projects/ores.sql/modeling/ores_schema.geo.puml
+++ b/projects/ores.sql/modeling/ores_schema.geo.puml
+@@ -32,7 +32,7 @@
+ 
+ note as GroupNote
+ Group: geo
+-Tables: 1
+Tables: 2
+ Index and the other groups: ores_schema.puml
+ Table naming: <component>_<entity>_tbl
+ end note
+@@ -60,6 +60,25 @@
+     The store holds no history. A publish truncates it and loads the ranges the
+     dataset carries, because ip2country reissues its whole table rather than
+     amending rows.
+    end note
+
+    entity ores_geo_runs_tbl  #F7E5FF {
+        * id : bigint <<PK>>
+        --
+        * campaign : bigint
+        * scenario_id : text <<FK>>
+        * scenario_hash : bytea
+        * started_at : timestamptz
+          finished_at : timestamptz
+          outcome : text
+    }
+
+    note right of ores_geo_runs_tbl
+    AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
+    Template: sql_schema_domain_entity_create.mustache
+    To modify, update the template and regenerate.
+    Run Table
+    Probe.
+     end note
+ 
+ }
+--- a/projects/ores.sql/modeling/ores_schema.puml
+++ b/projects/ores.sql/modeling/ores_schema.puml
+@@ -25,7 +25,7 @@
+ skinparam linetype ortho
+ 
+ note as IndexNote
+-807 tables in 21 groups.
+808 tables in 21 groups.
+ Each group is drawn in its own file, named under its heading.
+ Table naming: <component>_<entity>_tbl
+ end note
+@@ -551,10 +551,11 @@
+ 
+ entity "geo" as geo {
+   ores_geo_ip2country_tbl
+  ores_geo_runs_tbl
+ }
+ note bottom of geo
+ Geolocation
+-1 tables — ores_schema.geo.puml
+2 tables — ores_schema.geo.puml
+ end note
+ 
+ entity "trading" as trading {

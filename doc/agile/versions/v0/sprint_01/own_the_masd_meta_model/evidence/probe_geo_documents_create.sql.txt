@@ -1,0 +1,597 @@
+/* -*- sql-product: postgres; tab-width: 4; indent-tabs-mode: nil -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+/**
+ * AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
+ * Template: sql_schema_domain_entity_create.mustache
+ * To modify, update the template and regenerate.
+ *
+ * Document Table
+ *
+ * Probe.
+ */
+
+create table if not exists "corpus.document_tbl" (
+    "hash" bytea not null,
+    "org_id" text null,
+    "title" text null,
+    "tags" text[] not null default '{}',
+    "keywords" jsonb not null default '{}',
+    "source" text not null,
+    "loaded_at" timestamp with time zone not null default now(),
+    primary key (hash)
+);
+
+
+
+create index if not exists documents_org_id_idx
+on "corpus.document_tbl" (org_id);
+
+create index if not exists documents_tags_idx
+on "corpus.document_tbl" using gin (tags);
+
+create or replace function corpus.document_insert_fn()
+returns trigger as $$
+declare
+begin
+
+
+    return NEW;
+end;
+$$ language plpgsql security definer set search_path = public, pg_temp;
+
+create or replace trigger corpus.document_insert_trg
+before insert on "corpus.document_tbl"
+for each row execute function corpus.document_insert_fn();
+
+--- /dev/null
+++ b/projects/ores.sql/drop/geo/geo_documents_drop.sql
+@@ -0,0 +1,29 @@
+/* -*- sql-product: postgres; tab-width: 4; indent-tabs-mode: nil -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+/*
+ * AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
+ * Template: sql_schema_domain_entity_drop.mustache
+ * To modify, update the template and regenerate.
+ */
+
+drop rule if exists corpus.document_delete_rule on "corpus.document_tbl";
+drop trigger if exists corpus.document_insert_trg on "corpus.document_tbl";
+drop function if exists corpus.document_insert_fn;
+drop table if exists "corpus.document_tbl";
+--- /dev/null
+++ b/projects/ores.sql/create/geo/geo_documents_notify_trigger_create.sql
+@@ -0,0 +1,70 @@
+/* -*- sql-product: postgres; tab-width: 4; indent-tabs-mode: nil -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+/*
+ * AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
+ * Template: sql_schema_notify_trigger.mustache
+ * To modify, update the template and regenerate.
+ */
+
+create or replace function corpus.document_notify_fn()
+returns trigger as $$
+declare
+    notification_payload jsonb;
+    change_action text;
+    changed_version integer := 0;
+    changed_hash bytea;
+    changed_key jsonb;
+    changed_tenant_id text;
+begin
+    if TG_OP = 'DELETE' then
+        change_action := 'deleted';
+        changed_hash := OLD.hash;
+    elsif TG_OP = 'UPDATE' then
+        change_action := 'updated';
+        changed_hash := NEW.hash;
+        changed_version := 0;
+    else
+        change_action := 'created';
+        changed_version := 0;
+        changed_hash := NEW.hash;
+    end if;
+
+    changed_key := jsonb_build_object('hash', changed_hash);
+
+    notification_payload := jsonb_build_object(
+        'event_id', gen_random_uuid()::text,
+        'entity', 'ores.geo.document',
+        'key', changed_key::text,
+        'action', change_action,
+        'version', changed_version,
+        'occurred_at', ores_utility_iso8601_timestamp_fn(clock_timestamp()),
+        'correlation_id', nullif(current_setting('ores.request.correlation_id', true), ''),
+        'tenant_id', changed_tenant_id
+    );
+
+    perform pg_notify('corpus.document', notification_payload::text);
+
+    return null;
+end;
+$$ language plpgsql;
+
+create or replace trigger corpus.document_notify_trg
+after insert or update or delete on corpus.document_tbl
+for each row execute function corpus.document_notify_fn();
+--- /dev/null
+++ b/projects/ores.sql/drop/geo/geo_documents_notify_trigger_drop.sql
+@@ -0,0 +1,27 @@
+/* -*- sql-product: postgres; tab-width: 4; indent-tabs-mode: nil -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+/*
+ * AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
+ * Template: sql_schema_notify_trigger_drop.mustache
+ * To modify, update the template and regenerate.
+ */
+
+drop trigger if exists corpus.document_notify_trg on "corpus.document_tbl";
+drop function if exists corpus.document_notify_fn;
+--- /dev/null
+++ b/projects/ores.web/packages/wire-protocol/src/generated/geo/domain/document.ts
+@@ -0,0 +1,41 @@
+/** -*- mode: typescript-ts-mode; tab-width: 4; indent-tabs-mode: nil -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+/**
+ * AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
+ * Template: domain_types.ts.mustache
+ * To modify, update the template and regenerate.
+ */
+/**
+ * The document wire shape.
+ *
+ * Field names are the C++ member names, because they are the keys the codec
+ * writes. Renaming them breaks the wire silently, so they are not renamed.
+ *
+ * See the sibling protocol module for the messages that carry this type.
+ */
+export interface Document {
+    hash: string;
+    org_id: string;
+    title: string;
+    tags: string[];
+    keywords: string;
+    source: string;
+    loaded_at: string;
+}
+--- /dev/null
+++ b/projects/ores.web/packages/wire-protocol/src/generated/geo/protocol/document_protocol.ts
+@@ -0,0 +1,107 @@
+/** -*- mode: typescript-ts-mode; tab-width: 4; indent-tabs-mode: nil -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+/**
+ * AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
+ * Template: ts_protocol.ts.mustache
+ * To modify, update the template and regenerate.
+ */
+import type { Document } from '../domain/document.js';
+import type { Order } from '../../../utility/protocol.js';
+import type { Result } from '../../../utility/protocol.js';
+
+export interface DocumentKey {
+    hash: string;
+}
+
+export interface DocumentLookup {
+    key: DocumentKey;
+    document: Document | null;
+}
+
+export interface DocumentsFilter {
+    hash_one_of: string[] | null;
+}
+
+export interface DocumentEvent {
+    event_id: string;
+    key: DocumentKey;
+    action: string;
+    version: number;
+    occurred_at: string;
+    correlation_id: string | null;
+}
+
+export interface ListDocumentsRequest {
+    offset: number;
+    limit: number;
+    order: Order;
+    filter: DocumentsFilter | null;
+}
+
+export interface ListDocumentsResponse {
+    result: Result;
+    documents: Document[];
+    total: number;
+}
+
+export interface GetDocumentRequest {
+    key: DocumentKey;
+}
+
+export interface GetDocumentResponse {
+    result: Result;
+    document: Document | null;
+}
+
+export interface GetManyDocumentsRequest {
+    keys: DocumentKey[];
+}
+
+export interface GetManyDocumentsResponse {
+    result: Result;
+    entries: DocumentLookup[];
+}
+
+export const subjects = {
+    list_documents_request: 'geo.v1.documents.list',
+    get_document_request: 'geo.v1.documents.get',
+    get_many_documents_request: 'geo.v1.documents.get_many',
+} as const;
+/**
+ * Whether a message needs an established session first. An operation that
+ * produces the session cannot present one, so a client reads this rather than
+ * assuming every call carries a token.
+ */
+export const requiresSession = {
+    list_documents_request: true,
+    get_document_request: true,
+    get_many_documents_request: true,
+} as const;
+
+/**
+ * The subjects this resource's changes are announced on. One payload is
+ * addressed by three subjects, because the last segment is the action the
+ * payload reports.
+ */
+export const eventSubjects = {
+    created: 'geo.v1.events.documents.created',
+    updated: 'geo.v1.events.documents.updated',
+    deleted: 'geo.v1.events.documents.deleted',
+} as const;
+--- a/projects/ores.refdata/api/include/ores.refdata.api/domain/book_change.hpp
+++ b/projects/ores.refdata/api/include/ores.refdata.api/domain/book_change.hpp
+@@ -38,7 +38,7 @@
+  * @brief One proposed write to a book, held for its request.
+  *
+  * Do not edit. Change ores.refdata.book and run
+- * derive_pending_models.py.
+ * compass generate.
+  */
+ struct book_change final {
+     /**
+--- a/projects/ores.sql/create/refdata/refdata_book_changes_create.sql
+++ b/projects/ores.sql/create/refdata/refdata_book_changes_create.sql
+@@ -25,7 +25,7 @@
+  * Book Change Table
+  *
+  * Do not edit. Change ores.refdata.book and run
+- * derive_pending_models.py.
+ * compass generate.
+  */
+ 
+ create table if not exists "ores_refdata_book_changes_tbl" (
+--- a/projects/ores.refdata/api/include/ores.refdata.api/domain/counterparty_change.hpp
+++ b/projects/ores.refdata/api/include/ores.refdata.api/domain/counterparty_change.hpp
+@@ -38,7 +38,7 @@
+  * @brief One proposed write to a counterparty, held for its request.
+  *
+  * Do not edit. Change ores.refdata.counterparty and run
+- * derive_pending_models.py.
+ * compass generate.
+  */
+ struct counterparty_change final {
+     /**
+--- a/projects/ores.sql/create/refdata/refdata_counterparty_changes_create.sql
+++ b/projects/ores.sql/create/refdata/refdata_counterparty_changes_create.sql
+@@ -25,7 +25,7 @@
+  * Counterparty Change Table
+  *
+  * Do not edit. Change ores.refdata.counterparty and run
+- * derive_pending_models.py.
+ * compass generate.
+  */
+ 
+ create table if not exists "ores_refdata_counterparty_changes_tbl" (
+--- a/projects/ores.refdata/api/include/ores.refdata.api/domain/counterparty_identifier_change.hpp
+++ b/projects/ores.refdata/api/include/ores.refdata.api/domain/counterparty_identifier_change.hpp
+@@ -37,7 +37,7 @@
+  * @brief One proposed write to a counterparty_identifier, held for its request.
+  *
+  * Do not edit. Change ores.refdata.counterparty_identifier and run
+- * derive_pending_models.py.
+ * compass generate.
+  */
+ struct counterparty_identifier_change final {
+     /**
+--- a/projects/ores.sql/create/refdata/refdata_counterparty_identifier_changes_create.sql
+++ b/projects/ores.sql/create/refdata/refdata_counterparty_identifier_changes_create.sql
+@@ -25,7 +25,7 @@
+  * Counterparty Identifier Change Table
+  *
+  * Do not edit. Change ores.refdata.counterparty_identifier and run
+- * derive_pending_models.py.
+ * compass generate.
+  */
+ 
+ create table if not exists "ores_refdata_counterparty_identifier_changes_tbl" (
+--- a/projects/ores.refdata/api/include/ores.refdata.api/domain/party_counterparty_change.hpp
+++ b/projects/ores.refdata/api/include/ores.refdata.api/domain/party_counterparty_change.hpp
+@@ -37,7 +37,7 @@
+  * @brief One proposed write to a party_counterparty, held for its request.
+  *
+  * Do not edit. Change ores.refdata.party_counterparty and run
+- * derive_pending_models.py.
+ * compass generate.
+  */
+ struct party_counterparty_change final {
+     /**
+--- a/projects/ores.sql/create/refdata/refdata_party_counterparty_changes_create.sql
+++ b/projects/ores.sql/create/refdata/refdata_party_counterparty_changes_create.sql
+@@ -25,7 +25,7 @@
+  * Party Counterparty Change Table
+  *
+  * Do not edit. Change ores.refdata.party_counterparty and run
+- * derive_pending_models.py.
+ * compass generate.
+  */
+ 
+ create table if not exists "ores_refdata_party_counterparty_changes_tbl" (
+--- a/projects/ores.geo/src/component_files.cmake
+++ b/projects/ores.geo/src/component_files.cmake
+@@ -20,13 +20,37 @@
+ # Template: cmake_component_files_src.mustache
+ # To modify, update the template and regenerate.
+ set(files
+    "domain/document_json_io.cpp"
+    "domain/document_table.cpp"
+    "domain/document_table_io.cpp"
+    "generators/document_generator.cpp"
+    "messaging/document_event_registrar.cpp"
+    "messaging/document_registrar.cpp"
+    "repository/document_entity.cpp"
+    "repository/document_mapper.cpp"
+    "repository/document_repository.cpp"
+    "service/document_service.cpp"
+     "service/geolocation_service.cpp"
+ )
+ 
+ # The headers are listed for the install and IDE targets.
+ set(HEADERS
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/domain/document.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/domain/document_json_io.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/domain/document_table.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/domain/document_table_io.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/eventing/document_event.hpp"
+     "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/export.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/generators/document_generator.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/messaging/document_event_registrar.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/messaging/document_handler.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/messaging/document_protocol.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/messaging/document_registrar.hpp"
+     "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/ores.geo.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/repository/document_entity.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/repository/document_mapper.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/repository/document_repository.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/service/document_service.hpp"
+     "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/service/geolocation_service.hpp"
+     "${CMAKE_CURRENT_SOURCE_DIR}/../include/ores.geo/service/ores.geo.service.hpp"
+ )
+--- a/projects/ores.refdata/modeling/ores.refdata.book_change.org
+++ b/projects/ores.refdata/modeling/ores.refdata.book_change.org
+@@ -3,7 +3,7 @@
+ :ID: AB2DD577-76F7-5CBE-9E13-CAB826E53771
+ :END:
+ #+title: ores.refdata.book_change
+-#+description: GENERATED from ores.refdata.book by derive_pending_models.py. One proposed write to the book, held until its request is decided.
+#+description: GENERATED from ores.refdata.book by compass generate: pending_models. One proposed write to the book, held until its request is decided.
+ #+type: ores.codegen.entity
+ #+component: refdata
+ #+filetags: :model:entity:refdata:pending:
+@@ -15,7 +15,7 @@
+ #+updated: 2026-10-10
+ 
+ Do not edit. Change ores.refdata.book and run
+-derive_pending_models.py.
+compass generate.
+ 
+ * Flags
+ :PROPERTIES:
+--- a/projects/ores.refdata/modeling/ores.refdata.counterparty_change.org
+++ b/projects/ores.refdata/modeling/ores.refdata.counterparty_change.org
+@@ -3,7 +3,7 @@
+ :ID: 719E0E4D-4034-5D1D-A31A-6D97209DDC1B
+ :END:
+ #+title: ores.refdata.counterparty_change
+-#+description: GENERATED from ores.refdata.counterparty by derive_pending_models.py. One proposed write to the counterparty, held until its request is decided.
+#+description: GENERATED from ores.refdata.counterparty by compass generate: pending_models. One proposed write to the counterparty, held until its request is decided.
+ #+type: ores.codegen.entity
+ #+component: refdata
+ #+filetags: :model:entity:refdata:pending:
+@@ -15,7 +15,7 @@
+ #+updated: 2026-10-10
+ 
+ Do not edit. Change ores.refdata.counterparty and run
+-derive_pending_models.py.
+compass generate.
+ 
+ * Flags
+ :PROPERTIES:
+--- a/projects/ores.refdata/modeling/ores.refdata.counterparty_identifier_change.org
+++ b/projects/ores.refdata/modeling/ores.refdata.counterparty_identifier_change.org
+@@ -3,7 +3,7 @@
+ :ID: EAC1C2C9-66EB-5233-BF67-84A770A5B53F
+ :END:
+ #+title: ores.refdata.counterparty_identifier_change
+-#+description: GENERATED from ores.refdata.counterparty_identifier by derive_pending_models.py. One proposed write to the counterparty_identifier, held until its request is decided.
+#+description: GENERATED from ores.refdata.counterparty_identifier by compass generate: pending_models. One proposed write to the counterparty_identifier, held until its request is decided.
+ #+type: ores.codegen.entity
+ #+component: refdata
+ #+filetags: :model:entity:refdata:pending:
+@@ -15,7 +15,7 @@
+ #+updated: 2026-10-10
+ 
+ Do not edit. Change ores.refdata.counterparty_identifier and run
+-derive_pending_models.py.
+compass generate.
+ 
+ * Flags
+ :PROPERTIES:
+--- a/projects/ores.refdata/modeling/ores.refdata.party_counterparty_change.org
+++ b/projects/ores.refdata/modeling/ores.refdata.party_counterparty_change.org
+@@ -3,7 +3,7 @@
+ :ID: A38ABDD0-7946-5E9C-82F3-E7DB467AF8D5
+ :END:
+ #+title: ores.refdata.party_counterparty_change
+-#+description: GENERATED from ores.refdata.party_counterparty by derive_pending_models.py. One proposed write to the party_counterparty, held until its request is decided.
+#+description: GENERATED from ores.refdata.party_counterparty by compass generate: pending_models. One proposed write to the party_counterparty, held until its request is decided.
+ #+type: ores.codegen.entity
+ #+component: refdata
+ #+filetags: :model:entity:refdata:pending:
+@@ -15,7 +15,7 @@
+ #+updated: 2026-10-10
+ 
+ Do not edit. Change ores.refdata.party_counterparty and run
+-derive_pending_models.py.
+compass generate.
+ 
+ * Flags
+ :PROPERTIES:
+--- a/projects/ores.sql/modeling/ores_schema.refdata.puml
+++ b/projects/ores.sql/modeling/ores_schema.refdata.puml
+@@ -408,7 +408,7 @@
+     To modify, update the template and regenerate.
+     Book Change Table
+     Do not edit. Change ores.refdata.book and run
+-    derive_pending_models.py.
+    compass generate.
+     end note
+ 
+     entity ores_refdata_book_product_types_tbl <<temporal>> #C6F0D8 {
+@@ -2053,7 +2053,7 @@
+     To modify, update the template and regenerate.
+     Counterparty Change Table
+     Do not edit. Change ores.refdata.counterparty and run
+-    derive_pending_models.py.
+    compass generate.
+     end note
+ 
+     entity ores_refdata_counterparty_contact_informations_tbl <<temporal>> #C6F0D8 {
+@@ -2119,7 +2119,7 @@
+     To modify, update the template and regenerate.
+     Counterparty Identifier Change Table
+     Do not edit. Change ores.refdata.counterparty_identifier and run
+-    derive_pending_models.py.
+    compass generate.
+     end note
+ 
+     entity ores_refdata_counterparty_identifiers_tbl <<temporal>> #C6F0D8 {
+@@ -6033,7 +6033,7 @@
+     To modify, update the template and regenerate.
+     Party Counterparty Change Table
+     Do not edit. Change ores.refdata.party_counterparty and run
+-    derive_pending_models.py.
+    compass generate.
+     end note
+ 
+     entity ores_refdata_party_countries_tbl <<temporal>> #C6F0D8 {
