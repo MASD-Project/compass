@@ -8,7 +8,7 @@
 #+filetags: :gate_the_knowledge_titles:sprint_01:v0:
 #+owner: marco
 #+branch: feature/knowledge-titles
-#+pr:
+#+pr: 171
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-22
@@ -99,7 +99,7 @@ Studio has a draft of that document, proved on a copy of its tree.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/171][#171]] | [docs] Gate the knowledge titles |
 
 * Review
 
