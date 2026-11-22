@@ -1,8 +1,8 @@
 :PROPERTIES:
 :ID: 0E48C104-E554-4E34-8395-C611D1DC70B3
 :END:
-#+title: Story: Check the systemd units
-#+description: Check that the systemd units a project deploys are the ones its registry generates today, and that each unit's ordering and requirements cover every service it depends on, so an environment cannot start its fleet from stale or wrongly wired units.
+#+title: Story: Generate and check the systemd units
+#+description: Generate the systemd units of a project's services, compass's own document service among them, from the project's service data, and check that each unit orders and requires every service it depends on and that the deployed units match what would be generated now, so no environment starts its fleet from stale or wrongly wired units.
 #+type: story
 #+level: s2
 #+filetags: :service:systemd:sprint_01:v0:
@@ -28,9 +28,11 @@ ores.iam.service:  After=nats-server,            Requires=nats-server
 ores.dq.service:   After=nats-server ores.iam,   Requires=nats-server ores.iam
 #+end_example
 
-compass checks both: that the units in the tree match what the registry
-generates, and that each unit orders itself after, and requires, every
-service it depends on.
+compass generates the units itself, from the project's data, and checks
+them: each unit orders itself after, and requires, every service it depends
+on, and the deployed units match what would be generated now. compass needs
+the same for its own document service, which runs as a unit in every
+environment.
 
 * Status
 
@@ -45,6 +47,15 @@ service it depends on.
 
 * Acceptance
 
+- *Generation.* compass generates each service's unit, and its drop-ins,
+  from the project's data: the service registry, a codegen model, with each
+  service's command, environment file, user, restart policy and
+  dependencies. The unit templates are MASD templates in compass, rendered by
+  compass's codegen; nothing about a service is in compass's code. ORE
+  Studio's =systemd_generate.py= is retired, and its units do not change but
+  for the wiring this story fixes.
+- *compass's own units.* =compass serve= gets its units from the same
+  templates and data, in compass's own repository, per environment.
 - *Wiring.* A check reads each generated unit and the project's data on what
   a service depends on (its registry: messaging, database or pooler, other
   services it calls) and reports a unit whose =After== or =Requires== lacks
@@ -72,6 +83,9 @@ service it depends on.
 
 * Decisions
 
+- compass generates the units as well as checking them, from data, because
+  every project with services needs them and compass's own document service
+  needs them too (2026-11-22).
 - Captured from an ORE Studio environment's report of 2026-11-22. Related:
   the service removal checklist bright faraday proposed the same day, whose
   remove side covers deployed units left behind.
@@ -79,5 +93,3 @@ service it depends on.
 * Out of scope
 
 - Deploying or restarting units; the project's tooling does that.
-- Generating the units, which ORE Studio's =systemd_generate.py= does today
-  and the MASD meta model story may move to compass.
