@@ -7,7 +7,7 @@
 #+level: s2
 #+filetags: :sprint_01:v0:
 #+created: 2026-11-20
-#+updated: 2026-11-21
+#+updated: 2026-11-22
 #+environment:
 #+todo: BACKLOG STARTED | DONE ABANDONED
 
@@ -26,12 +26,12 @@ two or three runs, not every result ever written.
 
 | Field         | Value                                  |
 |---------------+----------------------------------------|
-| State         | STARTED                                |
+| State         | DONE |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 01]] |
-| Now           | Every task done and released in v0.0.4; ORE Studio's store went from 20.3 GB to 2.88 GB. |
-| Waiting on    | A day of normal use of v0.0.4 across ORE Studio's worktrees. |
-| Next          | Measure ORE Studio's cache as the investigation did, then close. |
-| Last touched  | 2026-11-21                               |
+| Now           | Done. After a day of use ORE Studio's store is 3.71 GB, against 19.8 GB after three days before. |
+| Waiting on    | Nothing. |
+| Next          | Nothing. |
+| Last touched  | 2026-11-22 |
 
 * Acceptance
 
@@ -64,6 +64,35 @@ two or three runs, not every result ever written.
 - A run collects when the store has doubled since the last collection and
   holds 256 MB, never waiting for the lock, so collecting copies no more
   over time than runs write and never fails a run (#125).
+
+* Measurements
+
+Every number this story claims about ORE Studio's store, read-only, with the
+command that produced it. The store is shared, so the commit is that of the
+worktree the commands ran from. Raw output is in
+=evidence/store_after_a_day.txt=.
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+| Baseline, first run of v0.0.4, 2026-11-21 00:20 UTC | 2.88 GB in 2 packs | =compass/collected= | ORE =9ed8b54cd2= |
+| Collections since | One, at 2026-11-22 08:41 UTC, which kept 3.27 GB. A run collects at twice the last collection, so the store had reached 5.76 GB. | =compass/collected= and its time | the same |
+| Store, 2026-11-22 08:53 UTC | 3.71 GB in 6 packs; 1,481,091 entries | =du -sb ores.git/compass/packs=; =compass-ng gc --dry-run= | the same |
+| By kind | results 1,077,377 and 3.31 GB; manifests 391,780 and 0.25 GB; objects 11,934 and 0.08 GB; 897 keys held twice, under 0.01 GB | =build/probes/result_cache/packstat.py= | the same |
+| Unreferenced | 212 MB, 6%, past the grace period; 632 MB, 17%, with none | =compass-ng gc --dry-run=, =--dry-run --grace 0=, in =ores_dev_festive_dijkstra= | the same |
+| Per worktree, beside the store | =compass/deps= 310 to 318 MB, 3.17 GB for ten; =compass/retired= 4 KB to 8.5 MB | =du -sb= of each worktree's git directory | each worktree's HEAD |
+
+* Result
+
+The result cache stays bounded. Over the day after v0.0.4, ORE Studio's ten
+worktrees moved from compass v0.0.4 to v0.0.12, and each new build
+reruns every unit, about 90,000. The store grew from 2.88 GB to twice that,
+one run collected it to 3.27 GB, and it stood at 3.71 GB with 17% of it
+unreferenced. Before this story it was 19.8 GB after three days, 88% of it
+unreferenced. Manifests fell from 1.88 GB to 0.25 GB.
+
+Open beyond this story: each worktree's dependency record is still about
+317 MB, 3.17 GB for ten worktrees, as large as the store. The investigation
+left finding why for later.
 
 * Out of scope
 

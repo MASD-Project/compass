@@ -1,0 +1,106 @@
+# ORE Studio's store, 2026-11-22 08:53 UTC, read-only. ORE 9ed8b54cd2 (ores_dev_festive_dijkstra), compass-ng 0.0.12
+# compass/collected (written 2026-11-22 08:41): 3267861000
+# du -sb ores.git/compass/packs: 3708890904, 6 packs
+
+# build/probes/result_cache/packstat.py ores.git/compass/packs
+pack-18ea515e1287c605b84a7de545228719.cpk: 1451566 entries, 3.20 GB
+pack-18ea51e4f9d2682ccb06fa7fc1052409.cpk: 29255 entries, 0.42 GB
+pack-18ea51e79c58b578f5c152606221e5de.cpk: 111 entries, 0.00 GB
+pack-18ea51fd398f1e18b35385021b4f2bc3.cpk: 16 entries, 0.00 GB
+pack-18ea51fd5720ab3298d1721b2a319b79.cpk: 137 entries, 0.02 GB
+pack-18ea5206c868a528cb36c1df39e23679.cpk: 6 entries, 0.00 GB
+
+by kind: entries, GB, distinct keys, mean KB, max MB
+  manifest     391780    0.25    390841      0.6    22.81
+  object        11934    0.08     11934      6.5     0.41
+  result      1077377    3.31   1077369      3.1    16.90
+
+keys held more than once: 897; bytes of the older copies: 0.00 GB
+
+written per hour (UTC): kind entries GB
+  11-17 22:00  object 10790 0.06
+  11-17 23:00  object 5 0.00
+  11-18 00:00  object 10 0.00
+  11-18 01:00  object 1 0.00
+  11-18 02:00  object 36 0.00
+  11-18 03:00  object 5 0.00
+  11-18 04:00  object 2 0.00
+  11-18 11:00  object 4 0.00
+  11-18 15:00  object 14 0.00
+  11-18 17:00  object 10 0.00
+  11-18 18:00  object 8 0.00
+  11-18 20:00  object 13 0.00
+  11-18 21:00  object 48 0.00
+  11-18 22:00  object 77 0.00
+  11-18 23:00  object 11 0.00
+  11-19 00:00  object 1 0.00
+  11-19 01:00  object 9 0.00
+  11-19 02:00  object 16 0.00
+  11-19 03:00  object 3 0.00
+  11-19 04:00  object 2 0.00
+  11-19 10:00  object 8 0.00
+  11-19 11:00  object 6 0.00
+  11-19 12:00  object 6 0.00
+  11-19 13:00  object 9 0.00
+  11-19 14:00  object 4 0.00
+  11-19 15:00  object 4 0.00
+  11-19 16:00  object 7 0.00
+  11-19 17:00  object 6 0.00
+  11-19 18:00  object 6 0.00
+  11-19 19:00  object 3 0.00
+  11-19 20:00  object 5 0.00
+  11-19 21:00  object 1 0.00
+  11-19 22:00  object 4 0.00
+  11-19 23:00  object 17 0.00
+  11-20 00:00  object 24 0.00
+  11-20 02:00  object 7 0.00
+  11-20 09:00  manifest 90276 0.02  object 4 0.00  result 90293 0.24
+  11-20 10:00  manifest 75 0.01  object 8 0.00  result 78 0.05
+  11-20 11:00  manifest 7 0.02  object 1 0.00  result 2 0.00
+  11-20 12:00  manifest 18 0.18  object 2 0.00  result 3 0.00
+  11-20 13:00  object 2 0.00
+  11-20 22:00  object 1 0.00
+  11-20 23:00  object 1 0.00
+  11-21 00:00  object 14 0.00  result 12864 0.01
+  11-21 01:00  object 14 0.00  result 26 0.00
+  11-21 02:00  object 10 0.00  result 941 0.00
+  11-21 03:00  object 5 0.00  result 38 0.00
+  11-21 04:00  object 6 0.00  result 33 0.00
+  11-21 09:00  object 36 0.00  result 100 0.00
+  11-21 10:00  object 31 0.00  result 115 0.00
+  11-21 11:00  manifest 537 0.00  object 21 0.00  result 1309 0.01
+  11-21 12:00  manifest 26 0.00  object 10 0.00  result 185 0.01
+  11-21 13:00  object 6 0.00  result 40 0.00
+  11-21 14:00  manifest 41 0.00  object 16 0.00  result 2602 0.21
+  11-21 15:00  manifest 16 0.00  object 17 0.00  result 43 0.00
+  11-21 16:00  manifest 1 0.00  object 9 0.00  result 384 0.00
+  11-21 17:00  object 3 0.00  result 976 0.21
+  11-21 18:00  manifest 844 0.00  object 6 0.00  result 878 0.00
+  11-21 19:00  manifest 90596 0.01  object 15 0.00  result 348595 0.26
+  11-21 20:00  manifest 337 0.00  object 2 0.00  result 3901 0.44
+  11-21 21:00  manifest 752 0.00  object 300 0.00  result 1848 0.02
+  11-21 22:00  manifest 498 0.00  object 49 0.00  result 5607 0.46
+  11-21 23:00  manifest 228 0.00  object 32 0.00  result 1196 0.04
+  11-22 00:00  manifest 45319 0.00  object 17 0.00  result 66964 0.05
+  11-22 01:00  manifest 69213 0.01  object 41 0.00  result 145973 0.33
+  11-22 02:00  manifest 45 0.00  result 123 0.02
+  11-22 03:00  manifest 105 0.00  object 1 0.00  result 204 0.00
+  11-22 04:00  manifest 90589 0.01  object 18 0.00  result 362096 0.29
+  11-22 08:00  manifest 2257 0.00  object 54 0.00  result 29960 0.65
+
+# compass-ng gc --dry-run
+would remove 3628 entries and files, 212103646 bytes; store 3634853105 bytes in 1481091 entries, 6 packs (33897.6 ms)
+# compass-ng gc --dry-run --grace 0
+would remove 31155 entries and files, 632268987 bytes; store 3634853105 bytes in 1481091 entries, 6 packs (31868.3 ms)
+
+# du -sb <git-dir>/compass/deps and compass/retired per worktree
+ores_dev_brave_hopper	deps 316664261	retired 4750036
+ores_dev_bright_faraday	deps 316654783	retired 4456
+ores_dev_clever_dijkstra	deps 316857204	retired 2945716
+ores_dev_eager_maxwell	deps 317376810	retired 524976
+ores_dev_festive_dijkstra	deps 310458447	retired 8455252
+ores_dev_jolly_knuth	deps 317347843	retired 4831596
+ores_dev_merry_newton	deps 316826541	retired 792396
+ores_dev_prime_origin	deps 316274186	retired 186456
+ores_dev_solid_dirac	deps 317763514	retired 4216
+ores_dev_swift_curie	deps 316621829	retired 4677416
