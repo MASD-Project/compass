@@ -67,6 +67,7 @@ beside it, it reads one of git's formats and keeps nothing.
 | =compass.ingest=  | Readers that fill the =compass.org= tables: the org-mode parser and the type registry builder first, then the C++ and SQL fact extractors.                                                                                               |
 | =compass.model=   | The codegen models of ORE Studio as tables: one value row per object, list or scalar, linked by handles, loaded from the =compass.org= tables of a model document with the values ores.codegen's loader builds.                          |
 | =compass.codec=   | The codec runtime: descriptors, the recorded view of the corpus, file and diagnostic tables, the registry and runner, dependency records indexed so one unit loads alone, the output sink, diff mode and the result cache; and the codecs that need only the org tables. |
+| =compass.db=      | compass's PostgreSQL database: the libpq connection, the migrations of the corpus, test and activity schemas, the corpus rows a parsed document becomes, the transaction that writes an environment, and collection. |
 | =compass.codegen= | Code generation from the models: a Mustache engine with pystache's semantics, templates compiled once, the render contexts and output units ores.codegen builds, the physical-space graph of the template library, and the =codegen= codec. |
 | =compass.cpp=     | Checks over C++ sources as text: byte scanners that read includes, export macros, enum declarations and test cases as ORE Studio's gate scripts do, and the codecs that run those gates.                                                 |
 | =compass.sql=     | Checks over SQL sources as text: a byte scanner that follows PostgreSQL's lexer as ORE Studio's sql-hygiene script does, the entity-relationship model of the create scripts, and the codecs that run the SQL gates.                    |
@@ -192,7 +193,7 @@ of work is a document with a lifecycle state, read through the same tables.
 | Component         | Role                                                                                   |
 |-------------------+----------------------------------------------------------------------------------------|
 | =compass.bench=   | The frozen measurement harness: wall time, bytes and counts per stage of the pipeline. |
-| =compass.testing= | Test infrastructure: a temporary directory that removes itself and what dead test runs left behind. |
+| =compass.testing= | Test infrastructure: a temporary directory that removes itself and what dead test runs left behind; a throwaway PostgreSQL cluster. |
 
 =compass.testing= is linked only by test binaries. It depends on
 =compass.platform= for the process ID and whether a process is running.
