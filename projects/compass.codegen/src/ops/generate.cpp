@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <iterator>
+#include <map>
 #include <set>
 #include <stdexcept>
 #include <thread>
@@ -121,30 +122,59 @@ bool is_model_candidate(std::string_view path) {
 }
 
 /**
- * @brief The physical-space graph of the library's <root>.*.org nodes,
- * read in file-name order as load_graph reads them, with the name and the
- * bytes of each node appended to @p read.
+ * @brief The physical-space graph of the <root>.*.org nodes of the
+ * templates/ directories of @p libraries, read in file-name order as
+ * load_graph reads them, with the name and the bytes of each node
+ * appended to @p read.
+ * @throws std::runtime_error when two libraries hold a node of the same
+ * name: a node lives in one library, so a page moved between them cannot
+ * be left in both.
  */
 types::physical_space load_graph(const checkout_reader& reader,
-    const std::string& templates, std::string_view root, std::string& read) {
-    std::vector<std::string> names;
-    std::vector<std::string> texts;
-    for (const auto path : reader.list(templates + "/" + std::string(root) +
-             ".", ".org")) {
-        if (path.find('/', templates.size() + 1) != std::string_view::npos)
-            continue;
-        names.emplace_back(file_name(path));
-        texts.push_back(read_or_throw(reader, path));
+    const std::vector<std::string>& libraries, std::string_view root,
+    std::string& read) {
+    std::map<std::string, std::pair<std::string, std::string>> found;
+    for (const auto& library : libraries) {
+        const auto templates = library + "/templates";
+        for (const auto path : reader.list(templates + "/" +
+                 std::string(root) + ".", ".org")) {
+            if (path.find('/', templates.size() + 1) != std::string_view::npos)
+                continue;
+            const std::string name(file_name(path));
+            const auto [it, fresh] = found.try_emplace(name, library,
+                std::string());
+            if (!fresh)
+                throw std::runtime_error("codegen: the libraries " +
+                    it->second.first + " and " + library +
+                    " both hold the node " + name +
+                    "; a node lives in one library");
+            it->second.second = read_or_throw(reader, path);
+        }
     }
     std::vector<node_document> nodes;
-    for (std::size_t i = 0; i < names.size(); ++i) {
-        nodes.push_back({names[i], texts[i]});
-        read += names[i];
+    for (const auto& [name, node] : found) {
+        nodes.push_back({name, node.second});
+        read += name;
         read.push_back('\0');
-        read += texts[i];
+        read += node.second;
         read.push_back('\0');
     }
     return load_physical_space(root, nodes);
+}
+
+/**
+ * @brief The bytes of @p file in the last of @p libraries that holds it,
+ * the project's own library coming last.
+ */
+std::string read_last(const checkout_reader& reader,
+    const std::vector<std::string>& libraries, std::string_view file) {
+    for (auto it = libraries.rbegin(); it != libraries.rend(); ++it) {
+        const auto path = *it + "/" + std::string(file);
+        if (reader.exists(path))
+            return read_or_throw(reader, path);
+    }
+    throw std::runtime_error("codegen: no library holds " +
+        std::string(file));
 }
 
 /**
@@ -588,20 +618,27 @@ model_plan plan_model(mops::builder& b, value_id library,
 }
 
 /**
- * @brief Compiles the templates of the library @p s names, adding the
- * fact of each to @p facts when given.
+ * @brief Compiles the templates of the libraries @p s names, adding the
+ * fact of each to @p facts when given. A template of a later library
+ * replaces the one of the same name in an earlier library.
  */
 template_map read_templates(const checkout_reader& reader,
     const generation_settings& s, std::vector<fact>* facts) {
-    const auto dir = s.library + "/templates/";
+    std::map<std::string, std::string> bytes;
+    for (const auto& library : s.libraries) {
+        const auto dir = library + "/templates/";
+        for (const auto path : reader.list(dir, ".mustache")) {
+            if (path.find('/', dir.size()) != std::string_view::npos)
+                continue;
+            bytes.insert_or_assign(std::string(file_name(path)),
+                read_or_throw(reader, path));
+        }
+    }
     template_map templates;
-    for (const auto path : reader.list(dir, ".mustache")) {
-        if (path.find('/', dir.size()) != std::string_view::npos)
-            continue;
-        const auto bytes = read_or_throw(reader, path);
+    for (const auto& [name, text] : bytes) {
         if (facts != nullptr)
-            facts->push_back(fact_of(template_fact(file_name(path)), bytes));
-        templates.emplace(std::string(file_name(path)), compile(bytes));
+            facts->push_back(fact_of(template_fact(name), text));
+        templates.emplace(name, compile(text));
     }
     return templates;
 }
@@ -663,19 +700,19 @@ generation prepare_generation(const checkout_reader& reader,
     const generation_settings& s) {
     generation g;
     g.settings = s;
-    g.licence = read_or_throw(reader, s.library + "/data/licence-GPL-v3.txt");
-    g.modeline = read_or_throw(reader, s.library + "/data/modeline.org");
+    g.licence = read_last(reader, s.libraries, "data/licence-GPL-v3.txt");
+    g.modeline = read_last(reader, s.libraries, "data/modeline.org");
     g.facts.push_back(fact_of(std::string(library_fact), g.licence +
         std::string(1, '\0') + g.modeline + std::string(1, '\0') +
         std::to_string(s.year)));
     std::string nodes;
-    g.graph = load_graph(reader, s.library + "/templates", s.product, nodes);
+    g.graph = load_graph(reader, s.libraries, s.product, nodes);
     g.facts.push_back(fact_of(std::string(graph_fact), nodes));
     documents docs(reader);
     g.registry = load_registry(docs, s.product);
 
     const auto catalogue = read_component_catalogue(
-        read_or_throw(reader, s.library + "/component_catalogue.org"));
+        read_last(reader, s.libraries, "component_catalogue.org"));
     const auto regenerated = regenerated_models(catalogue, docs.org(),
         [&](std::string_view path) {
             const auto d = is_model_candidate(path) ? docs.get(path)

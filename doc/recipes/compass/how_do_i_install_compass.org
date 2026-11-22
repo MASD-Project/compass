@@ -27,9 +27,14 @@ do I tell exactly which build is installed?
    component source changes only the manifest, so the build after it
    recompiles and relinks nothing.
 
-2. /Install/ it. The script copies =compass= and =compass.manifest= into
-   =~/.local/opt/compass/=, each under a temporary name and then renamed over
-   the old one, adds the install time to the manifest, and links
+2. /Install/ it. The script lays compass out as its package does. It copies
+   =compass= and =compass.manifest= into =~/.local/opt/compass/bin/=, each
+   under a temporary name and then renamed over the old one, and the MASD
+   library the build staged at =publish/share/compass/masd/= into
+   =~/.local/opt/compass/share/compass/masd/=, where the codegen library
+   =@compass= finds it. It adds the install time to the manifest, removes
+   the binary and manifest an older install left in =~/.local/opt/compass/=,
+   and links
    =~/.local/bin/compass-ng= to the binary. The link is not named =compass=,
    because ORE Studio's Python tool answers to that name; an older link of
    ours at =~/.local/bin/compass= is removed, and anything else there is left

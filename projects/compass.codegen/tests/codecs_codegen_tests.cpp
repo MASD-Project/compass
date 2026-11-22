@@ -496,7 +496,7 @@ TEST_CASE("the codegen codec needs its library, product, convention "
         "blocks");
     const auto s = codegen::codecs::settings_of(values_of(
         {"lib//", "ores", "refdata", "2031", "", "", "", ""}));
-    CHECK(s.library == "lib");
+    CHECK(s.libraries == std::vector<std::string>{"lib"});
     CHECK(s.product == "ores");
     CHECK(s.year == 2031);
 }

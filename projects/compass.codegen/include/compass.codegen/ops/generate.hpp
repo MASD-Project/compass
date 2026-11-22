@@ -56,8 +56,12 @@ struct checkout_reader {
 
 /**
  * @brief Where ores.codegen's library is and what it is told.
- * library is the directory, relative to the checkout, that holds
- * templates/, data/ and component_catalogue.org.
+ * libraries are the directories of the library, in order, each relative
+ * to the checkout or, outside it, absolute: together they hold
+ * templates/, data/ and component_catalogue.org. A template of a later
+ * directory replaces one of the same name in an earlier one, a data file
+ * or the catalogue is read from the last directory that has it, and a
+ * node of the physical-space graph may be in one directory only.
  * product is the project's product: the root of every physical-space
  * address, the prefix of the component directories and the templates'
  * product.
@@ -66,7 +70,7 @@ struct checkout_reader {
  * copyright year the licence block states.
  */
 struct generation_settings {
-    std::string library;
+    std::vector<std::string> libraries;
     std::string product;
     std::string convention_component;
     int year = 0;

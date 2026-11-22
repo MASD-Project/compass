@@ -52,7 +52,8 @@ inline constexpr std::uint32_t dependency_record_version = 7;
 
 /**
  * @brief The SHA-1 of the code hash of @p codec and its option keys and
- * values, in declared order. A unit recorded under another value runs
+ * values, in declared order, and of what its environment function reads
+ * outside the checkout. A unit recorded under another value runs
  * again, and its manifest key differs, so a build whose code differs or a
  * configuration that differs replays no stored result.
  */

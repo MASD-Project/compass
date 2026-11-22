@@ -156,6 +156,8 @@ blob_id configuration_hash(const types::registry& r, types::codec_id codec) {
         put_text(bytes, options[i].key);
         put_text(bytes, values[i]);
     }
+    if (d.environment != nullptr)
+        put_text(bytes, d.environment({options, values}));
     return sha1(bytes);
 }
 

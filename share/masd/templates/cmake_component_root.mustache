@@ -1,0 +1,7 @@
+{{! The root CMakeLists.txt of a component: it adds the src, tests and modeling directories. }}
+{{{cmake_license}}}
+{{#component}}
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/tests)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/modeling)
+{{/component}}

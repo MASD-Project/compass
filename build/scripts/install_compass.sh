@@ -22,14 +22,17 @@ usage() {
 usage: install_compass.sh [--from <bin dir> | --release <tag> | --pin <file>]
                           [--allow-dirty]
 
-Installs a compass build as the one compass-ng every environment shares: the
-binary and its compass.manifest go into ~/.local/opt/compass/, and
-~/.local/bin/compass-ng links to that binary. The link is not named compass,
+Installs a compass build as the one compass-ng every environment shares,
+laid out as the package lays it out: the binary and its compass.manifest go
+into ~/.local/opt/compass/bin/, the MASD library beside the bin directory
+into ~/.local/opt/compass/share/compass/masd/, and ~/.local/bin/compass-ng
+links to the binary. The link is not named compass,
 because ORE Studio's Python tool answers to that name until it is retired; an
 older link of ours at ~/.local/bin/compass is removed, anything else there is
 left alone.
 
-  --from <bin dir>  where the built compass and its compass.manifest are
+  --from <bin dir>  where the built compass and its compass.manifest are,
+                    with the MASD library at ../share/compass/masd
                     (default: build/output/linux-clang-release-ninja/publish/bin)
   --release <tag>   download the archive of that release for this machine
                     from GitHub, check it against its SHA-256 checksum and
@@ -108,8 +111,10 @@ if [ -n "$release" ]; then
 fi
 
 manifest="$from/compass.manifest"
+masd="$from/../share/compass/masd"
 [ -x "$from/compass" ] || fail "no compass binary in $from; build first"
 [ -f "$manifest" ] || fail "no compass.manifest in $from"
+[ -d "$masd" ] || fail "no MASD library at $masd"
 value() { sed -n "s/^$1=//p" "$manifest" | head -n 1; }
 [ "$(value format)" = 1 ] || fail "unknown manifest format in $manifest"
 commit="$(value commit_full)"
@@ -124,22 +129,33 @@ esac
 
 # Each file is written under a temporary name and renamed over the old one,
 # so a running compass never sees a half-written file. cp -p keeps the
-# binary's mtime, which compass --version reports as the build time.
-mkdir -p "$opt" "$(dirname "$link")"
-cp -p "$from/compass" "$opt/.compass.tmp.$$"
-mv -f "$opt/.compass.tmp.$$" "$opt/compass"
+# binary's mtime, which compass --version reports as the build time. The
+# library is copied whole beside the old one and then swapped in.
+bin="$opt/bin"
+share="$opt/share/compass"
+mkdir -p "$bin" "$share" "$(dirname "$link")"
+cp -p "$from/compass" "$bin/.compass.tmp.$$"
+mv -f "$bin/.compass.tmp.$$" "$bin/compass"
 {
     grep -v '^installed=' "$manifest"
     echo "installed=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-} >"$opt/.compass.manifest.tmp.$$"
-mv -f "$opt/.compass.manifest.tmp.$$" "$opt/compass.manifest"
-ln -s "$opt/compass" "$link.tmp.$$"
+} >"$bin/.compass.manifest.tmp.$$"
+mv -f "$bin/.compass.manifest.tmp.$$" "$bin/compass.manifest"
+rm -rf "${share:?}/.masd.tmp.$$"
+cp -Rp "$masd" "$share/.masd.tmp.$$"
+rm -rf "${share:?}/masd"
+mv "$share/.masd.tmp.$$" "$share/masd"
+ln -s "$bin/compass" "$link.tmp.$$"
 mv -f "$link.tmp.$$" "$link"
-if [ -L "$old_link" ] && [ "$(readlink "$old_link")" = "$opt/compass" ]; then
-    rm -f "$old_link"
-    echo "removed the old link $old_link"
+rm -f "$opt/compass" "$opt/compass.manifest"
+if [ -L "$old_link" ]; then
+    case "$(readlink "$old_link")" in
+        "$opt/compass"|"$bin/compass")
+            rm -f "$old_link"
+            echo "removed the old link $old_link" ;;
+    esac
 fi
 
-echo "installed $opt/compass"
-echo "$link -> $opt/compass"
+echo "installed $bin/compass"
+echo "$link -> $bin/compass"
 "$link" --version

@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :own_the_masd_meta_model:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/ship-the-masd-library
+#+pr: https://github.com/MASD-Project/compass/pull/189
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-22
@@ -31,11 +31,11 @@ a package of its own.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                                |
 | Parent story | [[id:E3C81059-FE00-4403-AA56-190FDBB9904A][Own the MASD meta model and generate compass with it]] |
-| Now          | Not yet started.                       |
-| Waiting on   | [[id:65C91AED-EE91-4730-94B0-598248F5921D][Name the product root]]. |
-| Next         | Begin implementation.                  |
+| Now          | The package, the build tree and the shared install carry share/compass/masd; =library= layers =@compass= under ORE Studio's library with its output unchanged. In review. |
+| Waiting on   | [[id:65C91AED-EE91-4730-94B0-598248F5921D][Name the product root]], the pull request this one is stacked on. |
+| Next         | Merge after it; then Move the MASD pages and templates to compass. |
 | Last touched | 2026-11-22                               |
 
 * Acceptance
@@ -46,9 +46,39 @@ a package of its own.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+The library lives in compass once, in =share/masd/=, and travels with the
+binary that builds its contexts.
+
+- *Where it is.* CMake installs =share/masd/= as =share/compass/masd/=
+  beside =bin/=, so CPack carries it in the Linux tarball, the Windows zip
+  and installer and the macOS image alike. Every build stages it at
+  =publish/share/compass/masd/= beside =publish/bin/=.
+  =build/scripts/install_compass.sh= lays the shared install out the same
+  way, =~/.local/opt/compass/bin/= and =~/.local/opt/compass/share/compass/masd/=,
+  and removes the binary and manifest of the older flat layout.
+- *How it is found.* =@compass= in the codec's =library= option is
+  =../share/compass/masd= from the directory of the running binary, which
+  =platform::process::executable_path= resolves through links on Linux,
+  macOS and Windows; the same rule serves the package, the build tree and
+  the shared install.
+- *How it layers.* =library= is a comma-separated list, searched in
+  order. A template of a later directory replaces the one of the same name
+  in an earlier one, so a project can override a MASD template. A data
+  file and the catalogue come from the last directory that has them, so the
+  licence is the project's. A node of the physical-space graph in two
+  directories is an error, as the investigation recommends: a moved page
+  cannot be left in both. ORE Studio writes
+  =library=@compass,projects/ores.codegen/library=.
+- *How a change is seen.* compass records no read outside the checkout,
+  so a codec may now name an =environment= function whose bytes
+  =configuration_hash= hashes with its code and options. codegen's is the
+  path and content ID of every file of its libraries outside the checkout:
+  an upgrade that changes a template, or an edit to a checkout's
+  =share/masd= named by its absolute path, runs codegen again.
+- *What it holds now.* One template, =cmake_component_root.mustache=, the
+  root =CMakeLists.txt= of a component, which names nothing of ORE Studio.
+  ORE Studio's copy of it still wins until task 3 deletes it, and renders
+  the same bytes.
 
 * Measurements
 
@@ -62,9 +92,38 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Files of the Linux tarball | =bin/compass=, =bin/compass.manifest=, =share/compass/masd/templates/cmake_component_root.mustache= | =cpack -G TGZ=, then =tar -tzf= | =53fb9a1= |
+| Files =compass diff= reports on ORE Studio, old binary | 25, all stale at HEAD | [[file:evidence/masd_library_diff.sh][masd_library_diff.sh]] | ORE Studio =9ed8b54cd2=, compass =074d0be= |
+| The same, the packaged binary unpacked from that tarball, =library=@compass,projects/ores.codegen/library= | 25; diffs and file list byte for byte those of the old binary; codegen ran all 2,580 units | [[file:evidence/masd_library_diff.sh][masd_library_diff.sh]] | ORE Studio =9ed8b54cd2=, compass =53fb9a1= |
+| The same, ORE Studio's =cmake_component_root.mustache= deleted and tangle off, so compass's copy renders | 25, byte for byte alike | [[file:evidence/masd_library_diff.sh][masd_library_diff.sh]] | ORE Studio =9ed8b54cd2=, compass =53fb9a1= |
+| Full test suite, with =compass.cli.install= over the new layout | 1,642 of 1,642 pass | =ctest -j2= | =53fb9a1= |
 
 * Notes
+
+** The layering rule
+
+The brief asked that a template of a later directory override an earlier
+one; the investigation and this page's acceptance ask that a node named
+twice be an error. Both hold, for different files. A template is text a
+project may want to restyle, and an override changes no output path. A node
+decides which outputs exist; one left in two libraries after a move would
+silently win or lose, so it stops the run instead. Data files and the
+catalogue follow the templates: the last directory that has one wins, which
+makes the licence the project's.
+
+** Limits
+
+- =component_files= still reads one =library= directory. Its two templates
+  are ORE Studio's until task 3 moves them; it takes the list then.
+- =origin=, which names the template behind a file for =diff= and
+  =--scope=, cannot look into the checkout. With a checkout library listed
+  after =@compass=, it names the checkout library's template even when only
+  =@compass= holds it. ORE Studio's labels are unchanged; task 3, which
+  makes templates live in =@compass= alone, is when it matters.
+- The Windows zip and installer and the macOS image are built by the
+  nightly workflows through CPack; the =install(DIRECTORY)= rule is the same
+  for every generator, but only the Linux tarball was built and opened
+  here.
 
 * Test Scenarios
 
@@ -81,7 +140,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/189][#189]] | [codegen] Ship the MASD library with compass |
 
 * Review
 
