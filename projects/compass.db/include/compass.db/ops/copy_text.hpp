@@ -53,14 +53,21 @@ public:
 
     /**
      * @brief One field of a generated row, in the form its type takes in
-     * COPY text: text as text, an integer in decimal, a blob ID in hex, a
-     * vector of text as a text[], an enumeration as its to_string, and an
-     * empty optional as NULL.
+     * COPY text: text as text, a boolean as t or f, an integer in decimal,
+     * a blob ID in hex, a vector of text as a text[], an enumeration as its
+     * to_string, and an empty optional as NULL.
      */
     void field(std::string_view value) { text(value); }
     void field(const std::string& value) { text(value); }
     void field(const store::types::blob_id& value) { bytes(value.bytes); }
     void field(const std::vector<std::string>& values) { array(values); }
+
+    // A template, so a pointer, which converts to bool, is not written as
+    // t.
+    template <std::same_as<bool> T>
+    void field(T value) {
+        text(value ? "t" : "f");
+    }
 
     template <std::integral T>
         requires(!std::same_as<T, bool>)

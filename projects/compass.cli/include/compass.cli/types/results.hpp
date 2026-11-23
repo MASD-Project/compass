@@ -353,6 +353,14 @@ struct provenance_result {
 };
 
 /**
+ * @brief A codec a check could not run, and what it threw.
+ */
+struct codec_not_run {
+    std::string codec;
+    std::string why;
+};
+
+/**
  * @brief What compass check --ratchet found.
  *
  * base is the base as named, or the default it fell back to, and
@@ -363,13 +371,16 @@ struct provenance_result {
  * that previous did not have. provenance is what checking the commits of
  * the branch and its pull request found, when commit_provenance is on;
  * its findings are among those of split. blame is what blaming the
- * inherited findings of split found.
+ * inherited findings of split found. not_run_at_base are the codecs that
+ * failed at the merge base, which previous ran without: none of their
+ * findings at HEAD is excused.
  */
 struct ratchet_result {
     std::string base;
     store::types::object_id merge_base;
     check_result current;
     check_result previous;
+    std::vector<codec_not_run> not_run_at_base;
     std::vector<rename> renames;
     ratchet_split split;
     provenance_result provenance;

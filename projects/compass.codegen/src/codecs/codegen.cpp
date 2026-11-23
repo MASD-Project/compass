@@ -136,11 +136,11 @@ void run(const void* state, std::span<const std::string_view> models,
 
 /**
  * @brief The template the marker of a generated file names, under the
- * templates/ directory of the last library that may hold it: the last
- * library outside the checkout that holds it, unless a library of the
- * checkout comes after it, which origin cannot look into and names.
+ * templates/ directory of the last library that holds it. A library of
+ * the checkout is looked into under @p checkout.
  */
-std::string origin(const ct::option_values& o, std::string_view content) {
+std::string origin(const ct::option_values& o, std::string_view content,
+    const std::filesystem::path& checkout) {
     const auto name = ops::marked_template(content);
     if (name.empty())
         return {};
@@ -153,9 +153,10 @@ std::string origin(const ct::option_values& o, std::string_view content) {
     }
     for (auto it = libraries.rbegin(); it != libraries.rend(); ++it) {
         const auto path = *it + "/templates/" + std::string(name);
+        const auto on_disk = ops::outside_the_checkout(*it)
+            ? std::filesystem::path(path) : checkout / path;
         std::error_code ec;
-        if (!ops::outside_the_checkout(*it) ||
-            std::filesystem::is_regular_file(path, ec))
+        if (std::filesystem::is_regular_file(on_disk, ec))
             return path;
     }
     return {};

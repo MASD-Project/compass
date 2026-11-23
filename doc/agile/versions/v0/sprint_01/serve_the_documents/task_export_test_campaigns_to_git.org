@@ -30,14 +30,14 @@ compass for ORE Studio's contract, which compass's mirrors.
 
 * Status
 
-| Field        | Value                                  |
-|--------------+----------------------------------------|
-| State        | STARTED                              |
-| Parent story | [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]] |
-| Now          | The export, its contract page and the ORE Studio evidence are done; the pull request is open for review. |
-| Waiting on   | Review of the pull request.            |
+| Field        | Value                                                                                |
+|--------------+--------------------------------------------------------------------------------------|
+| State        | STARTED                                                                              |
+| Parent story | [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]]                     |
+| Now          | The export is merged; the fixes from its review are in a follow-up pull request.     |
+| Waiting on   | Review of the follow-up pull request.                                                |
 | Next         | ORE Studio adopts the contract page from the handoff; Serve the documents over HTTP. |
-| Last touched | 2026-11-23                               |
+| Last touched | 2026-11-23                                                                           |
 
 * Acceptance
 
@@ -61,8 +61,10 @@ compass for ORE Studio's contract, which compass's mirrors.
   nothing. =exported_at= is set.
 - Scenario pages are not modified.
 - Text a tester typed cannot become org structure: a line org would read as
-  a heading or keyword is escaped in an example block, and a =|= in a table
-  cell is written =\vert{}=.
+  a heading or keyword is escaped in an example block, a =|= in a table
+  cell is written =\vert{}=, and a =[[=, a =]]= or the colon of a plain
+  link such as =id:X= in a cell, a caption or a link's description is
+  broken by a zero-width space, so it forms no link.
 - The export's input is the campaign's rows and its output (path, bytes)
   files; the rendering is a pure function of the rows, tested without a
   database. No JSON.

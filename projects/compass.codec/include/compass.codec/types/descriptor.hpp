@@ -335,13 +335,14 @@ using formatters_function = std::vector<formatter> (*)(
 /**
  * @brief The input that a file of a codec was rendered from, such as its
  * template, as a path relative to the checkout, from the codec's option
- * values and the bytes of the file; empty when the bytes do not say. A
+ * values, the bytes of the file and the checkout's root; empty when the
+ * bytes do not say. A
  * unit may render many files from many inputs, and the record keeps only
  * what the unit read, so this names the one input behind one file. Hosts
  * call it to report what produced a file; a run never does.
  */
 using origin_function = std::string (*)(const option_values& options,
-    std::string_view content);
+    std::string_view content, const std::filesystem::path& checkout);
 
 /**
  * @brief The bytes of what a codec reads from outside the checkout, such

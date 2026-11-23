@@ -24,7 +24,7 @@ keywords, planning lines, clocks or comments. Search reads =tsv=.
 :profile:    owned-child-row
 :END:
 
-The profile =owned-child-row= fixes =read_only=, =current_state= and =insert_conflict: do_nothing=, as =content-addressed-row= does, for a row its owner's key and its =ord= identify, deleted with its owner.
+The profile =owned-child-row= assigns no feature. It says a row is identified by its owner's key and its =ord= and deleted with its owner, and it switches on the row's =COPY= writer.
 
 * Columns
 
@@ -72,12 +72,13 @@ The section's text as plain text. A link becomes its description, or the link as
 :END:
 
 The search vector. The writer computes it in the insert: the document's title
-weighs A, the heading path B and the text D, under the database's text search
+weighs A, the path of its heading =h= B and the text D, under the database's text search
 configuration (=compass.setting= =text_search=):
 
 #+begin_src sql
 setweight(to_tsvector($1::regconfig, coalesce(d.title, '')), 'A') ||
-setweight(to_tsvector($1::regconfig, s.path), 'B') ||
+setweight(to_tsvector($1::regconfig,
+    coalesce(array_to_string(h.path, ' / '), '')), 'B') ||
 setweight(to_tsvector($1::regconfig, s.text), 'D')
 #+end_src
 

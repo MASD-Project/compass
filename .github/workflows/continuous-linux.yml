@@ -88,10 +88,14 @@ jobs:
             echo "should_build=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          # compass generates committed files from its configuration, the
+          # models under a modeling/ directory of projects/ and the MASD
+          # library under share/, all org pages. A change to them alone must
+          # still build, so the self-check below sees the outputs it leaves
+          # stale.
           non_doc=$(git diff --name-only "$last_sha" "$GITHUB_SHA" \
             | { grep -vE '^(doc/|assets/|\.claude/|\.gemini/|projects/compass\.legacy/)' || true; } \
-            | { awk '!/\.(md|org)$/ || /^projects\/[^\/]+\/tests\//' || true; } \
-            | { grep -vE '^projects/([^/]*/)*modeling/' || true; })
+            | { awk '!/\.(md|org)$/ || /^projects\/[^\/]+\/tests\// || /^projects\/([^\/]*\/)*modeling\// || /^share\// || $0 == ".compass.org"' || true; })
           if [[ -n "$non_doc" ]]; then
             echo "Code changes found — building"
           else
@@ -166,6 +170,9 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: true
+          # A pull request's merge commit and its parents, so the self-check
+          # below can ratchet against main as the pull request merges into it.
+          fetch-depth: 2
 
       - name: Trust the workspace
         # The container runs as root and the runner owns the workspace, so git
@@ -263,6 +270,22 @@ jobs:
           df -h .
           du -sh .git llvm .sccache vcpkg-cache build/output "$RUNNER_TEMP" 2>/dev/null || true
           ctest -VV --preset ${preset} --script "CTest.cmake,${cmake_args}"
+
+      - name: Check compass with the compass it built
+        # compass generates its schema, row types and COPY writers from its
+        # models and the MASD library, and commits the outputs. No test reads
+        # the models, so only compass sees a model or template edited without
+        # compass generate. A pull request fails on drift and diagnostics it
+        # adds over main, the first parent of its merge commit. Main itself
+        # holds findings that are excused only against a base, and changes
+        # only through pull requests, so other runs skip the check.
+        # document_index writes under build/output, which git ignores, so a
+        # fresh checkout always lacks its output; nothing commits it.
+        if: ${{ github.event_name == 'pull_request' && matrix.buildtype == 'release' }}
+        run: |
+          build/output/${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja/publish/bin/compass \
+            check --no-blame -j "$(nproc)" --set document_index.enabled=false \
+            --ratchet HEAD^1
 
       - name: Upload the package
         # install_compass.sh --build finds main's package by this name.

@@ -26,11 +26,13 @@
 #include <map>
 #include <cstddef>
 #include <cstdint>
+#include <exception>
 #include <memory>
 #include <optional>
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
@@ -42,6 +44,7 @@
 #include "compass.codec/ops/dependencies.hpp"
 #include "compass.codec/ops/parallel_for.hpp"
 #include "compass.codec/ops/registry.hpp"
+#include "compass.codec/types/codec_failure.hpp"
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.org/ops/document_fields.hpp"
 #include "compass.org/ops/type_lookup.hpp"
@@ -53,6 +56,21 @@ namespace {
 
 namespace ot = compass::org::types;
 using compass::store::types::blob_id;
+
+/**
+ * @brief Calls @p body, which calls the codec @p codec, rethrowing what it
+ * throws as a codec_failure that names the codec.
+ */
+template <typename Body>
+void calling(std::string_view codec, Body&& body) {
+    try {
+        body();
+    } catch (const types::codec_failure&) {
+        throw;
+    } catch (const std::exception& e) {
+        throw types::codec_failure(std::string(codec), e.what());
+    }
+}
 
 /**
  * @brief How many pieces a document codec is split into per thread, so a
@@ -1041,8 +1059,10 @@ types::run_result run(const types::registry& r, const types::corpus& c,
         auto view = views[i];
         log.corpus = true;
         view.record_to(&log);
-        s.state = std::get<types::staged_function>(r.codecs[i].run).prepare(
-            view, out);
+        calling(r.codecs[i].name, [&] {
+            s.state = std::get<types::staged_function>(r.codecs[i].run)
+                .prepare(view, out);
+        });
         s.ms += since(began);
     };
 
@@ -1265,13 +1285,15 @@ types::run_result run(const types::registry& r, const types::corpus& c,
     parallel_for(pieces.size(), threads, [&](std::size_t i) {
         auto& p = pieces[i];
         const auto began = std::chrono::steady_clock::now();
-        std::visit(call{p, static_cast<std::uint32_t>(i),
-            views[p.codec.value], called, units, logs, call_outputs,
-            scanning, {r.codecs[p.codec.value].name,
-                r.codecs[p.codec.value].version,
-                keys[p.codec.value].configuration},
-            scans, previous, staged[p.codec.value].get(),
-            answers_of(p.codec)}, r.codecs[p.codec.value].run);
+        const auto& codec = r.codecs[p.codec.value];
+        calling(codec.name, [&] {
+            std::visit(call{p, static_cast<std::uint32_t>(i),
+                views[p.codec.value], called, units, logs, call_outputs,
+                scanning, {codec.name, codec.version,
+                    keys[p.codec.value].configuration},
+                scans, previous, staged[p.codec.value].get(),
+                answers_of(p.codec)}, codec.run);
+        });
         p.ms = since(began);
     });
 

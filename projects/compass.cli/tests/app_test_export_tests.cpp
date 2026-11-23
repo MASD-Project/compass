@@ -17,7 +17,9 @@
  * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  */
+#include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -27,6 +29,7 @@
 #include "compass.cli/app/application.hpp"
 #include "compass.db/io/connection.hpp"
 #include "compass.db/query/campaign.hpp"
+#include "compass.db/query/campaign_export.hpp"
 #include "compass.testing/database/scoped_cluster.hpp"
 #include "scoped_git_repo.hpp"
 
@@ -152,7 +155,14 @@ TEST_CASE("test export writes the campaign page and its screenshot into the "
     const auto page = scoped_git_repo::read_file(s.at(page_path));
     CHECK_THAT(page, ContainsSubstring("#+type: test_campaign\n"));
     CHECK_THAT(page, ContainsSubstring("*** Run 1: failed\n"));
-    CHECK(fs::is_directory(s.at(story_folder + "/test_campaign_1")));
+    std::vector<fs::path> shots;
+    for (const auto& e : fs::directory_iterator(
+             s.at(story_folder + "/test_campaign_1")))
+        shots.push_back(e.path());
+    REQUIRE(shots.size() == 1);
+    CHECK(shots[0].extension() == ".png");
+    CHECK(scoped_git_repo::read_file(shots[0]) ==
+        std::string("\x89PNG\r\n\x1a\n", 8));
     CHECK(scoped_git_repo::read_file(s.at(scenario_path)) == scenario);
     compass::db::io::connection c(s.database);
     CHECK(c.exec("SELECT exported_at IS NOT NULL FROM activity.campaign")
@@ -202,16 +212,98 @@ TEST_CASE("test export keeps the page's path and :ID: when the campaign "
         std::to_string(note) + " on [[id:SC-1][Test Scenario: A]], step 2\n"));
 }
 
-TEST_CASE("test export of an environment with no campaign writes nothing, "
-    "and of one that does not exist fails", "[app][test_export]") {
+TEST_CASE("test export of a story that has no campaign fails and writes "
+    "nothing, and of an environment that does not exist fails",
+    "[app][test_export]") {
     campaign_repo s;
     const auto none = s.command({"test", "export", "--environment", "main",
         "--story", "STORY-2"});
-    CHECK(none.status == app::exit_success);
-    CHECK_THAT(none.out, ContainsSubstring("exported 0 test campaigns"));
+    CHECK(none.status == app::exit_failure);
+    CHECK_THAT(none.err, ContainsSubstring("no test campaign of story "
+        "STORY-2 on main"));
     CHECK_FALSE(fs::exists(s.at(page_path)));
     const auto missing = s.command({"test", "export", "--environment",
         "nowhere"});
     CHECK(missing.status == app::exit_failure);
     CHECK_THAT(missing.err, ContainsSubstring("no environment named nowhere"));
+}
+
+TEST_CASE("test export --story writes only that story's campaign",
+    "[app][test_export]") {
+    campaign_repo s;
+    const std::string other = "doc/agile/versions/v0/sprint_01/s2";
+    s.repo.write(other + "/story.org", ":PROPERTIES:\n:ID: STORY-2\n:END:\n"
+        "#+title: Story: Two\n#+type: story\n");
+    s.repo.write(other + "/scenario_b.org", ":PROPERTIES:\n:ID: SC-2\n"
+        ":END:\n#+title: Test Scenario: B\n#+type: test_scenario\n\n"
+        "* Scenario Info\n\n| Field | Value |\n|-------+-------|\n"
+        "| Parent story | [[id:STORY-2][Story: Two]] |\n\n"
+        "* Steps\n\n** Look\n\n- Look at it.\n");
+    REQUIRE(s.command({"sync", "--environment", "main"}).status == 0);
+    compass::db::types::start_run_request start;
+    start.environment = "main";
+    start.scenario_id = "SC-2";
+    start.tester = "ben";
+    REQUIRE(compass::db::query::start_run(s.c, start).campaign == 2);
+
+    const auto r = s.command({"test", "export", "--environment", "main",
+        "--story", "STORY-2"});
+    CHECK(r.status == app::exit_success);
+    CHECK_THAT(r.out, ContainsSubstring("exported 1 test campaigns of main: "
+        "1 files written"));
+    CHECK(fs::exists(s.at(other + "/test_campaign_2.org")));
+    CHECK_FALSE(fs::exists(s.at(page_path)));
+    CHECK(s.c.exec("SELECT id FROM activity.campaign "
+        "WHERE exported_at IS NOT NULL").value(0, 0) == "2");
+}
+
+TEST_CASE("test export of a campaign whose story page is gone warns, "
+    "writes nothing and leaves it unexported", "[app][test_export]") {
+    campaign_repo s;
+    fs::remove(s.at(story_folder + "/story.org"));
+    REQUIRE(s.command({"sync", "--environment", "main"}).status == 0);
+    const auto r = s.export_main();
+    CHECK(r.status == app::exit_findings);
+    CHECK_THAT(r.err, ContainsSubstring("compass: warning: the campaign of "
+        "story STORY-1 was not exported: main no longer holds the story's "
+        "page"));
+    CHECK_THAT(r.out, ContainsSubstring("exported 0 test campaigns"));
+    CHECK_FALSE(fs::exists(s.at(page_path)));
+    CHECK_FALSE(fs::exists(s.at(story_folder + "/test_campaign_1")));
+    CHECK(s.c.exec("SELECT exported_at IS NULL FROM activity.campaign")
+              .value(0, 0) == "t");
+}
+
+TEST_CASE("test export refuses a story page outside the checkout",
+    "[app][test_export]") {
+    campaign_repo s;
+    s.c.exec("UPDATE corpus.placement SET path = '../outside/story.org' "
+        "WHERE path = $1", {story_folder + "/story.org"});
+    const auto r = s.export_main();
+    CHECK(r.status == app::exit_failure);
+    CHECK_THAT(r.err, ContainsSubstring("outside the checkout"));
+    CHECK_FALSE(fs::exists(s.repo.checkout().parent_path() / "outside"));
+    CHECK(s.c.exec("SELECT exported_at IS NULL FROM activity.campaign")
+              .value(0, 0) == "t");
+}
+
+TEST_CASE("an export marks its campaigns exported at the time of its "
+    "snapshot, before a note recorded after it", "[app][test_export]") {
+    campaign_repo s;
+    const auto snapshot = compass::db::query::read_campaigns(s.c, "main",
+        std::nullopt);
+    REQUIRE(snapshot.campaigns.size() == 1);
+    compass::db::types::add_note_request n;
+    n.campaign = s.campaign;
+    n.kind = "defect";
+    n.text = "Recorded after the snapshot.";
+    n.tester = "ben";
+    compass::db::query::add_note(s.c, {{"defect"}}, n);
+    const std::vector<std::int64_t> ids{s.campaign};
+    compass::db::query::mark_exported(s.c, ids, snapshot.taken_at);
+    CHECK(s.c.exec("SELECT exported_at = $1::timestamptz "
+        "FROM activity.campaign", {snapshot.taken_at}).value(0, 0) == "t");
+    CHECK(s.c.exec("SELECT c.exported_at < n.created_at "
+        "FROM activity.campaign c JOIN activity.note n ON n.campaign = c.id")
+              .value(0, 0) == "t");
 }

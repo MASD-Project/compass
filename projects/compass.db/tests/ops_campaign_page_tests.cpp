@@ -19,6 +19,10 @@
  */
 #include "compass.db/ops/campaign_page.hpp"
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <optional>
 #include <regex>
 #include <string>
 #include <string_view>
@@ -157,6 +161,83 @@ std::vector<std::string> headings(const std::string& page) {
     return out;
 }
 
+compass::org::types::tables parsed(const std::string& page) {
+    compass::org::types::tables t;
+    compass::ingest::org::parse(page, t);
+    return t;
+}
+
+std::size_t table_cells(const compass::org::types::tables& t) {
+    return static_cast<std::size_t>(std::ranges::count(t.objects.kinds.values,
+        compass::org::types::object_kind::table_cell));
+}
+
+/**
+ * @brief @p page with each zero-width space removed: the text a reader of
+ * the page sees.
+ */
+std::string shown(std::string page) {
+    const std::string zwsp = "\xE2\x80\x8B";
+    for (auto at = page.find(zwsp); at != std::string::npos;
+         at = page.find(zwsp, at))
+        page.erase(at, zwsp.size());
+    return page;
+}
+
+/**
+ * @brief The description of each link of @p page as a reader sees it, in
+ * order.
+ */
+std::vector<std::string> link_descriptions(const std::string& page) {
+    const auto t = parsed(page);
+    std::vector<std::string> out;
+    for (const auto o : t.links.objects.values) {
+        const auto r = t.objects.contents.values[o.value];
+        out.push_back(shown(page.substr(r.begin, r.size())));
+    }
+    return out;
+}
+
+/**
+ * @brief The target of each link of @p page, in order.
+ */
+std::vector<std::string> link_paths(const std::string& page) {
+    const auto t = parsed(page);
+    std::vector<std::string> out;
+    for (const auto& r : t.links.paths.values)
+        out.emplace_back(page.substr(r.begin, r.size()));
+    return out;
+}
+
+
+/**
+ * @brief org-unescape-code-in-string: drops one comma from each line that
+ * is blanks, one or more commas, then * or #+.
+ */
+std::string unescape(std::string_view body) {
+    std::string out;
+    std::size_t at = 0;
+    while (at < body.size()) {
+        const auto end = std::min(body.find('\n', at), body.size());
+        const auto line = body.substr(at, end - at);
+        const auto blanks = std::min(line.find_first_not_of(" \t"),
+            line.size());
+        const auto commas = std::min(line.find_first_not_of(',', blanks),
+            line.size());
+        const auto rest = line.substr(commas);
+        if (commas > blanks &&
+            (rest.starts_with('*') || rest.starts_with("#+"))) {
+            out += line.substr(0, blanks);
+            out += line.substr(blanks + 1);
+        } else {
+            out += line;
+        }
+        out += '\n';
+        at = end + 1;
+    }
+    return out;
+}
+
 }
 
 TEST_CASE("render_campaign writes the page beside its story and each "
@@ -250,12 +331,47 @@ TEST_CASE("render_campaign escapes what org would read in a note as "
     c.notes[0].author = "a | b";
     const auto page = page_of(c);
     CHECK_THAT(page, ContainsSubstring("#+begin_example\n,* Not a heading\n"
-        ",  ** Nor this\n,#+end_example\n,,* Already escaped once\n"
+        "  ,** Nor this\n,#+end_example\n,,* Already escaped once\n"
         ":PROPERTIES:\nplain\n#+end_example\n"));
+    const auto t = parsed(page);
+    REQUIRE(t.blocks.size() == 1);
+    const auto body = t.blocks.bodies.values[0];
+    CHECK(unescape(std::string_view(page).substr(body.begin, body.size())) ==
+        c.notes[0].text + "\n");
     CHECK_THAT(page, ContainsSubstring("| Author  | a \\vert{} b "));
     const auto h = headings(page);
     CHECK(h.back() == "*** TODO Note 4 on the campaign");
     CHECK(h.size() == 9);
+}
+
+TEST_CASE("render_campaign keeps brackets and bars in tester text and "
+    "titles from becoming links or cells", "[ops][campaign_page]") {
+    const auto plain_page = page_of(campaign());
+    const auto plain = parsed(plain_page);
+    auto c = campaign();
+    c.story_title = "Story: A | B ]] C";
+    c.sprint->title = "Sprint ] 1]";
+    auto& run = c.scenarios[0].runs[0];
+    run.tester = "[[id:NOPE-3][ana]]";
+    run.steps[0].title = "[[id:NOPE-4]] | x";
+    run.steps[1].notes = "see [[id:NOPE-1][the spec]]";
+    run.steps[2].notes = "plain id:NOPE-5 and file:x.org";
+    run.screenshots[0].caption = "[[id:NOPE-2]] cap";
+    c.scenarios[1].title = "Test Scenario: [[x]] | y]";
+    c.notes[0].author = "[[file:/etc/passwd]]";
+    const auto page = page_of(c);
+    const auto hostile = parsed(page);
+    CHECK(link_paths(page) == link_paths(plain_page));
+    CHECK(table_cells(hostile) == table_cells(plain));
+    CHECK(hostile.headings.size() == plain.headings.size());
+    for (const auto* text : {"see [[id:NOPE-1][the spec]]",
+             "[[id:NOPE-2]] cap", "[[id:NOPE-3][ana]]",
+             "plain id:NOPE-5 and file:x.org"})
+        CHECK_THAT(shown(page), ContainsSubstring(text));
+    const auto descriptions = link_descriptions(page);
+    for (const auto* title : {"Story: A \\vert{} B ]] C", "Sprint ] 1]",
+             "Test Scenario: [[x]] \\vert{} y]"})
+        CHECK(std::ranges::count(descriptions, std::string(title)) > 0);
 }
 
 TEST_CASE("render_campaign is a function of the rows: the same rows give "

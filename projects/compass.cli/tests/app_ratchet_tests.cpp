@@ -346,3 +346,73 @@ TEST_CASE("ratchet fails when the base cannot be resolved",
     CHECK(unrelated.status == 2);
     CHECK_THAT(unrelated.err, ContainsSubstring("share no history"));
 }
+
+namespace {
+
+/**
+ * @brief Adds a codegen library the merge base lacks, with one component
+ * model whose header the library generates, and turns codegen on.
+ */
+void add_library(const scoped_git_repo& repo) {
+    repo.write(".compass.org", "#+output: .\n\n* Codecs\n\n"
+        "| name | enabled | options |\n"
+        "| document_index | no | |\n"
+        "| required_sections | no | |\n"
+        "| sql_hygiene | yes | roots=sql |\n"
+        "| codegen | yes | library=lib product=ores "
+        "convention_component=a year=2031 |\n");
+    repo.write("lib/data/licence-GPL-v3.txt", "Licence.\n");
+    repo.write("lib/data/modeline.org", "#+title: Modelines\n");
+    repo.write("lib/component_catalogue.org",
+        "* Components\n\n| name | modeling_dir | exclude_org_types |\n"
+        "|------+--------------+-------------------|\n"
+        "| a | projects/ores.a/modeling | |\n");
+    repo.write("lib/templates/ores.cpp.component.org",
+        "#+title: ores.cpp.component\n#+type: facet\n"
+        "#+facet_group: ores.cpp\n#+model_types: component\n");
+    repo.write("lib/templates/ores.cpp.component.header.org",
+        "#+title: ores.cpp.component.header\n#+type: archetype\n"
+        "#+facet: ores.cpp.component\n#+component_kind: flat\n"
+        "#+output: projects/{component_dir}/a.hpp\n"
+        "#+begin_src mustache :tangle header.mustache\n#+end_src\n");
+    repo.write("lib/templates/header.mustache", "int {{component.name}};\n");
+    repo.write("projects/ores.a/modeling/component_overview.org",
+        "#+title: ores.a\n#+type: ores.codegen.component\n#+name: a\n"
+        "#+full_name: ores.a\n#+brief: A\n#+component_kind: flat\n");
+}
+
+}
+
+TEST_CASE("ratchet reports a codec the merge base cannot run and counts "
+    "its findings at HEAD as new", "[app][ratchet]") {
+    scoped_git_repo repo;
+    make_base(repo);
+    add_library(repo);
+
+    SECTION("an output HEAD has not generated is new") {
+        commit_all(repo);
+        const auto r = ratchet(repo);
+        CHECK(r.status == 1);
+        CHECK(r.fresh() == std::vector<std::string>{
+            "projects/ores.a/a.hpp:1"});
+        CHECK_THAT(r.out, ContainsSubstring("codegen did not run at the "
+            "merge base (codegen: no library holds "
+            "data/licence-GPL-v3.txt), so its findings at HEAD are new"));
+        CHECK_THAT(r.out, ContainsSubstring("1 new diagnostic, 2 excused"));
+    }
+    SECTION("HEAD with its outputs generated passes") {
+        const std::string dir = repo.checkout().generic_string();
+        const std::vector<std::string_view> args{"generate", "-C", dir,
+            "-j", "2"};
+        std::istringstream in;
+        std::ostringstream out;
+        std::ostringstream err;
+        REQUIRE(app::run(args, "/", in, out, err) == 0);
+        commit_all(repo);
+        const auto r = ratchet(repo);
+        CHECK(r.status == 0);
+        CHECK_THAT(r.out, ContainsSubstring("codegen did not run at the "
+            "merge base"));
+        CHECK_THAT(r.out, ContainsSubstring("0 new diagnostics, 2 excused"));
+    }
+}

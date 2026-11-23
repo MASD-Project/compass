@@ -41,8 +41,8 @@ something larger:
 A member's type is the column's =:cpp_type:= when stated, else its
 enumeration when it has =:values:=, else the C++ type of its SQL type, and
 =std::optional= of that when the column is =:nullable:=. Each column with
-=:values:= gets an =enum class= named =<entity>_<column>= or its =:enum:=,
-with =to_string= and a parser, =<enum>_of=, that answers none for text the
+=:values:= gets an =enum class= over =std::uint8_t= named =<entity>_<column>=
+or its =:enum:=, with =to_string= and a parser, =<enum>_of=, that answers none for text the
 list does not hold.
 
 * See also

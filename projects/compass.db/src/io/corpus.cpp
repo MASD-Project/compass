@@ -21,6 +21,8 @@
 
 #include <algorithm>
 #include <charconv>
+#include <concepts>
+#include <cstdint>
 #include <format>
 #include <string_view>
 #include "compass.db/io/document_copy.hpp"
@@ -83,14 +85,9 @@ std::string text_array(std::span<const std::string> values) {
     return out + "}";
 }
 
-std::int64_t to_id(std::string_view text) {
-    std::int64_t v = 0;
-    std::from_chars(text.data(), text.data() + text.size(), v);
-    return v;
-}
-
-std::uint64_t to_number(std::string_view text) {
-    std::uint64_t v = 0;
+template <std::integral T>
+T parsed(std::string_view text) {
+    T v = 0;
     std::from_chars(text.data(), text.data() + text.size(), v);
     return v;
 }
@@ -233,7 +230,7 @@ RETURNING id
     std::string rows;
     {
         ops::copy_writer w(rows);
-        const auto environment = to_id(id);
+        const auto environment = parsed<std::int64_t>(id);
         for (const auto& p : placements)
             write_copy(w, environment, p);
     }
@@ -314,7 +311,7 @@ WITH doomed AS (
 )
 DELETE FROM corpus.document WHERE hash IN (SELECT hash FROM doomed)
 )sql").affected();
-    out.left = to_number(
+    out.left = parsed<std::uint64_t>(
         c.exec("SELECT count(*) FROM corpus.document").value(0, 0));
     c.exec("INSERT INTO compass.setting (key, value) VALUES "
         "('collection_left', $1) ON CONFLICT (key) DO UPDATE SET value = "
@@ -326,10 +323,10 @@ DELETE FROM corpus.document WHERE hash IN (SELECT hash FROM doomed)
 collection_result collect_when_grown(connection& c) {
     const auto r = c.exec("SELECT (SELECT count(*) FROM corpus.document), "
         "(SELECT value FROM compass.setting WHERE key = 'collection_left')");
-    const auto count = to_number(r.value(0, 0));
+    const auto count = parsed<std::uint64_t>(r.value(0, 0));
     if (count < collection_floor)
         return {};
-    if (!r.is_null(0, 1) && count < 2 * to_number(r.value(0, 1)))
+    if (!r.is_null(0, 1) && count < 2 * parsed<std::uint64_t>(r.value(0, 1)))
         return {};
     return collect(c);
 }
@@ -347,7 +344,7 @@ FROM corpus.environment e ORDER BY e.name
         out.push_back({std::string(r.value(row, 0)),
             std::string(r.value(row, 1)), std::string(r.value(row, 2)),
             std::string(r.value(row, 3)), std::string(r.value(row, 4)),
-            to_number(r.value(row, 5))});
+            parsed<std::uint64_t>(r.value(row, 5))});
     return out;
 }
 

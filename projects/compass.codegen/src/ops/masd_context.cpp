@@ -431,7 +431,7 @@ value_id masd_entity_context(builder& b, value_id library,
             row_types.push_back(member_type(c));
         if (!c.values.empty())
             row_types.insert(row_types.end(),
-                {"std::optional", "std::string_view"});
+                {"std::optional", "std::string_view", "std::uint8_t"});
     }
     add_includes(b, m, row_types, custom, {});
     add_enums(b, m, e, ns + "::types");

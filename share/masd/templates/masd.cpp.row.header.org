@@ -59,7 +59,7 @@ namespace {{types_namespace}} {
 /**
  * @brief The values of {{table}}.{{column}}.
  */
-enum class {{name}} { {{#values}}{{value}}{{^last}}, {{/last}}{{/values}} };
+enum class {{name}} : std::uint8_t { {{#values}}{{value}}{{^last}}, {{/last}}{{/values}} };
 
 /**
  * @brief Each value of {{name}} as {{table}} stores it.

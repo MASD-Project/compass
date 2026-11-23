@@ -142,6 +142,27 @@ TEST_CASE("diff names the codec, model and template of each file and keeps "
     CHECK_THAT(r.err, !ContainsSubstring("hand edit: commit"));
 }
 
+TEST_CASE("diff names the template in the library that holds it, not in a "
+    "later library of the checkout that lacks it",
+    "[app][attribution][posix]") {
+    scoped_git_repo repo;
+    set_up(repo);
+    repo.write(".compass.org", "* Codecs\n"
+        "| codegen | yes | library=lib,extra product=ores "
+        "convention_component=a year=2031 |\n");
+    repo.write("extra/data/modeline.org", "#+title: Modelines\n");
+    commit(repo, "a second library");
+    edit_source(repo);
+
+    const auto r = run(repo, "diff");
+
+    CHECK(r.status == 1);
+    CHECK_THAT(r.err, ContainsSubstring(std::format(
+        "  write projects/ores.a/x.cpp (codegen, {}, {})\n", model_a,
+        source)));
+    CHECK_THAT(r.err, !ContainsSubstring("extra/templates"));
+}
+
 TEST_CASE("with no change since HEAD every change is drift HEAD already had",
     "[app][attribution][posix]") {
     scoped_git_repo repo;

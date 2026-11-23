@@ -25,6 +25,7 @@
 #ifndef COMPASS_DB_TYPES_ENVIRONMENT_ROW_HPP
 #define COMPASS_DB_TYPES_ENVIRONMENT_ROW_HPP
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -34,7 +35,7 @@ namespace compass::db::types {
 /**
  * @brief The values of corpus.environment.kind.
  */
-enum class environment_kind { worktree, branch, release };
+enum class environment_kind : std::uint8_t { worktree, branch, release };
 
 /**
  * @brief Each value of environment_kind as corpus.environment stores it.
