@@ -166,10 +166,10 @@ and [[id:8CF40A62-82EB-4FE0-8CEC-2621BD0E66FE][Generate the HTTP and MCP service
 - Tool names. The design's =search=, =facets=, =backlinks=, =version=,
   =sync=, =sprint_state= and =what_needs_testing= are =search_documents=,
   =list_facets=, =list_backlinks=, =get_version=, =sync_environment=,
-  =get_sprint_state= and =list_scenarios_to_test=. The alignment design's
-  table names the facet tool =count_facets=; the model takes =list_facets=,
-  because ORE Studio's catalogue knows a read by its prefix and =count_= is
-  not one.
+  =get_sprint_state= and =list_scenarios_to_test=. The alignment design
+  first named the facet tool =count_facets=; it is =list_facets=, there and
+  here, because ORE Studio's catalogue knows a read by its prefix and
+  =count_= is not one.
 - Search filters. The design's Search section names the metadata filters
   =kw.<keyword>= and =prop.<property>=. The model has one repeated parameter
   each, =keyword=name:value= and =property=NAME:value=, because ORE Studio's
@@ -224,12 +224,12 @@ is addressed in the follow-up pull request listed under PRs.
 | 5 | No message or rule covers a refusal | =compass.serve.errors.org=, =component_overview.org= | Fixed | =error_response= with ten codes, each mapped to an HTTP status and to MCP's =isError=. |
 | 6 | Which tools =/mcp= lists has no source | =component_overview.org= | Fixed | One tool per route; =:destructive: true= and =:idempotent: true= are flags on the writes they hold for, and the tool always states both hints. |
 | 7 | No route lists notes or reads a run | =compass.serve.testing_queries.org= | Fixed | =list_notes= and =get_run=. Reading an attachment back is deferred to Serve the documents over HTTP. |
-| 8 | Six read tools lack ORE Studio's read prefixes | all three request models | Fixed | Renamed; =list_facets= where the alignment design says =count_facets=. |
+| 8 | Six read tools lack ORE Studio's read prefixes | all three request models | Fixed | Renamed; =list_facets= where the alignment design said =count_facets=, and its table now agrees and lists the two new reads. |
 | 9 | =documents= is not a published area | =component_overview.org=, all request models | Fixed | compass publishes =documents=, =agile= and =qa= itself. |
 | 10 | =takes_no_body= has no counterpart | =component_overview.org= | Fixed | Derived: not a =GET= and no =body= field. |
 | 11 | =:entity:= matches neither of ORE Studio's forms | =component_overview.org= | Fixed | Overrides =#+entity_singular:=, singular per route. |
 | 12 | The catalogue properties are not all of =route_catalogue= | =component_overview.org= | Fixed | States which are derived and that =tags= is unused. |
-| 13 | The overview plans cpp-httplib and a JSON library | =component_overview.org= | Fixed | Boost.Beast and yyjson. The story row and the two generation tasks are rewritten by #192. |
+| 13 | The overview plans cpp-httplib and a JSON library | =component_overview.org= | Fixed | Boost.Beast and yyjson. #192 rewrote the story row, the two generation tasks and the design; only the investigation, a record of its day, still names cpp-httplib. |
 | 14 | The Notes contradict the model on =finish_run= | =compass.serve.campaign_writes.org= | Fixed | |
 | 15 | The System Model does not list =compass.serve= | =system_model.org= | Fixed | Application layer, planned. |
 | 16 | =run_summary.outcome= has no =:values:= | =compass.serve.testing_queries.org= | Fixed | |
