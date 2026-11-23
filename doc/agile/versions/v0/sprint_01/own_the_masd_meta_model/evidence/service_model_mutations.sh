@@ -91,8 +91,12 @@ mut "model: a path placeholder with no path field" \
     "sed -i 's|^:http_path:   /v1/{environment}/notes/{note}\$|:http_path:   /v1/{environment}/notes/{id}|' $cw"
 mut "model: a write asks only for a view" \
     "sed -i '0,/^:caller:      subject\$/s//:caller:      view/' $cw"
-mut "model: a write leaves out :destructive:" \
-    "sed -i '0,/^:destructive: false\$/{//d}' $cw"
+mut "model: a write states :destructive: false, which the loader refuses" \
+    "sed -i '0,/^:writes:      true\$/s//&\n:destructive: false/' $cw"
+mut "model: a PUT loses :idempotent:" \
+    "sed -i '0,/^:idempotent:  true\$/{//d}' $cw"
+mut "model: a read states :idempotent:" \
+    "sed -i '0,/^:writes:      false\$/s//&\n:idempotent:  true/' $dq"
 mut "model: the screenshot bytes lose :encoding:" \
     "sed -i '/^:encoding: base64\$/d' $cw"
 mut "model: a route takes a path outside {environment}" \

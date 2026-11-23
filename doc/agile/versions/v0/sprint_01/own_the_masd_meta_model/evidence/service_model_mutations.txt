@@ -8,7 +8,7 @@ caught   model: search_hit renamed search_hitt: struct=1 binding=0
            FAIL  search_response differs from search_response
 caught   model: run_step deleted: struct=1 binding=1
            FAIL  struct run_step has no message and is not pinned
-           FAIL  compass.serve.campaign_writes.org:68 start_run_response.steps: unknown type std::vector<run_step>
+           FAIL  compass.serve.campaign_writes.org:66 start_run_response.steps: unknown type std::vector<run_step>
 caught   c++: a new struct export_request with no message: struct=1 binding=0
            FAIL  struct export_request has no message and is not pinned
 caught   model: :values: of step_outcome loses two enumerators: struct=1 binding=0
@@ -34,13 +34,17 @@ caught   model: an area compass does not publish: struct=0 binding=1
 caught   model: a GET reads a body field: struct=0 binding=1
            FAIL  compass.serve.document_queries.org:119 search_request: GET with body fields
 caught   model: a path placeholder with no path field: struct=0 binding=1
-           FAIL  compass.serve.campaign_writes.org:392 address_note_request: placeholders ['environment', 'id'] vs path fields ['environment', 'note']
+           FAIL  compass.serve.campaign_writes.org:386 address_note_request: placeholders ['environment', 'id'] vs path fields ['environment', 'note']
 caught   model: a write asks only for a view: struct=0 binding=1
            FAIL  compass.serve.campaign_writes.org:34 start_run_request: :caller: view, want subject
-caught   model: a write leaves out :destructive:: struct=0 binding=1
-           FAIL  compass.serve.campaign_writes.org:34 start_run_request: a write states :destructive: true or false
+caught   model: a write states :destructive: false, which the loader refuses: struct=0 binding=1
+           FAIL  compass.serve.campaign_writes.org:34 start_run_request: :destructive: is a flag, true or absent; the loader refuses any other value
+caught   model: a PUT loses :idempotent:: struct=0 binding=1
+           FAIL  compass.serve.campaign_writes.org:130 step_result_request: a PUT is idempotent
+caught   model: a read states :idempotent:: struct=0 binding=1
+           FAIL  compass.serve.document_queries.org:119 search_request: :idempotent: on a read
 caught   model: the screenshot bytes lose :encoding:: struct=0 binding=1
-           FAIL  compass.serve.campaign_writes.org:234 attach_request.bytes: a field named bytes holds a file and states :encoding: base64
+           FAIL  compass.serve.campaign_writes.org:230 attach_request.bytes: a field named bytes holds a file and states :encoding: base64
 caught   model: a route takes a path outside {environment}: struct=0 binding=1
            FAIL  compass.serve.campaign_writes.org:34 start_run_request: placeholders [] vs path fields ['environment']
            FAIL  compass.serve.campaign_writes.org:34 start_run_request: first segment runs is neither {environment} nor a reserved name

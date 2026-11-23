@@ -37,8 +37,6 @@ row that is not in its environment or conflicts with the row's state.
 :area:        qa
 :entity:      run
 :writes:      true
-:destructive: false
-:idempotent:  false
 :summary:     Start a test run
 :response:    start_run_response
 :http_method: post
@@ -189,8 +187,6 @@ What the tester saw.
 :area:        qa
 :entity:      run
 :writes:      true
-:destructive: false
-:idempotent:  false
 :summary:     Finish a test run
 :response:    finish_run_response
 :http_method: post
@@ -327,8 +323,6 @@ The blob ID of the bytes.
 :area:        qa
 :entity:      note
 :writes:      true
-:destructive: false
-:idempotent:  false
 :summary:     Add a note to a campaign
 :response:    add_note_response
 :http_method: post
@@ -395,8 +389,6 @@ The new note's id.
 :area:        qa
 :entity:      note
 :writes:      true
-:destructive: false
-:idempotent:  false
 :summary:     Address a note
 :http_method: patch
 :http_path:   /v1/{environment}/notes/{note}

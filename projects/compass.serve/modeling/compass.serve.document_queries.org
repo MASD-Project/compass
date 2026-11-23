@@ -784,7 +784,6 @@ compass's version, as =compass --version= prints it.
 :area:        documents
 :entity:      environment
 :writes:      true
-:destructive: false
 :idempotent:  true
 :summary:     Sync an environment
 :response:    sync_response

@@ -168,11 +168,12 @@ def check(msgs, fail):
                  f"{expected_caller}")
         hints = {}
         for k in ("destructive", "idempotent"):
-            if writes == "true" and p.get(k) not in ("true", "false"):
-                fail(f"{where}: a write states :{k}: true or false")
+            if k in p and p[k] != "true":
+                fail(f"{where}: :{k}: is a flag, true or absent; the loader "
+                     "refuses any other value")
             if writes == "false" and k in p:
                 fail(f"{where}: :{k}: on a read")
-            hints[k] = p.get(k, "-")
+            hints[k] = "true" if p.get(k) == "true" else "false"
         if method == "put" and p.get("idempotent") != "true":
             fail(f"{where}: a PUT is idempotent")
         if "max_body_size" in p and (not fields["body"]

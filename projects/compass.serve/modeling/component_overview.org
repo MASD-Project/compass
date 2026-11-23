@@ -112,8 +112,8 @@ On a request message:
 | =:area:= | =documents=, =agile=, =qa= | The first step an agent takes into the catalogue. |
 | =:entity:= | a singular noun | The thing the route reads or writes. It overrides the header's =#+entity_singular:=, which names the model, because one model holds routes over several things. |
 | =:writes:= | =true=, =false= | Whether the call changes anything. A route that does not write sets MCP's =readOnlyHint=. |
-| =:destructive:= | =true=, =false= | On a write only: MCP's =destructiveHint=, whether the call may replace or remove what an earlier call wrote. Stated because MCP takes a write as destructive when it is left out. |
-| =:idempotent:= | =true=, =false= | On a write only: MCP's =idempotentHint=, whether repeating the call with the same arguments changes nothing more. Every =PUT= is idempotent. |
+| =:destructive:= | =true= | On a write only: the call may replace or remove what an earlier call wrote. A flag, as ORE Studio's loader reads it, which refuses any other value; absent means not destructive. The tool always states MCP's =destructiveHint=, because MCP takes a write as destructive when the hint is left out. |
+| =:idempotent:= | =true= | On a write only: MCP's =idempotentHint=, repeating the call with the same arguments changes nothing more. A flag like =:destructive:=. Every =PUT= states it. |
 | =:summary:= | text | The tool's title. Its description is the message's prose, and each argument's is the field's prose. |
 | =:caller:= | =view=, =subject= | What the gateway must present: a read needs a view, a write a view and a subject. A request missing one is refused before any binding. |
 | =:max_body_size:= | bytes | On a route that takes a body only: the most it reads, raising the server's default as ORE Studio's =route::max_body_size= does. Absent, the default applies. |
