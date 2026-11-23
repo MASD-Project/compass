@@ -104,7 +104,8 @@ Only documents for this audience.
 :http_name: keyword
 :END:
 
-Only documents whose keyword holds the value, each written =name:value=.
+Only documents whose keyword holds the value, each written =name:value= and
+split at the first colon.
 
 *** properties
 :PROPERTIES:
@@ -113,11 +114,11 @@ Only documents whose keyword holds the value, each written =name:value=.
 :END:
 
 Only documents whose top-level property holds the value, each written
-=NAME:value=.
+=NAME:value= and split at the first colon.
 
 ** search_request
 :PROPERTIES:
-:tool:        search
+:tool:        search_documents
 :area:        documents
 :entity:      document
 :writes:      false
@@ -270,7 +271,7 @@ When the environment was last synced.
 
 ** facets_request
 :PROPERTIES:
-:tool:        facets
+:tool:        list_facets
 :area:        documents
 :entity:      document
 :writes:      false
@@ -295,10 +296,12 @@ The environment to count in.
 *** q
 :PROPERTIES:
 :cpp_type: std::string
+:required: false
 :http_in:  query
 :END:
 
-The query whose documents are counted, as search takes it.
+The query whose documents are counted, as search takes it; every document of
+the environment inside the view when absent or empty.
 
 *** filter
 :PROPERTIES:
@@ -430,7 +433,9 @@ shows it.
 :cpp_type: std::string
 :END:
 
-The document's =:ID:=, empty when it has none.
+The document's =:ID:=, empty when it has none. Such a document is listed
+and found by search, but =get_document= cannot read it, because it takes an
+=:ID:=.
 
 *** title
 :PROPERTIES:
@@ -608,7 +613,7 @@ The HTML body without its title, or the org source.
 
 ** backlinks_request
 :PROPERTIES:
-:tool:        backlinks
+:tool:        list_backlinks
 :area:        documents
 :entity:      document
 :writes:      false
@@ -744,7 +749,7 @@ How many paths it places.
 
 ** version_request
 :PROPERTIES:
-:tool:        version
+:tool:        get_version
 :area:        documents
 :entity:      service
 :writes:      false
@@ -775,15 +780,17 @@ compass's version, as =compass --version= prints it.
 
 ** sync_request
 :PROPERTIES:
-:tool:        sync
+:tool:        sync_environment
 :area:        documents
 :entity:      environment
 :writes:      true
+:destructive: false
+:idempotent:  true
 :summary:     Sync an environment
 :response:    sync_response
 :http_method: post
 :http_path:   /v1/{environment}/sync
-:caller:      view name
+:caller:      subject
 :END:
 
 Brings an environment's documents in the database up to date with its files,
@@ -852,19 +859,21 @@ The files that could not be read.
   =get_document_*=, =backlink=, =backlinks_*=, =list_environments_*=,
   =version_*= and =sync_*=. No query function answers them yet.
 - =view_filter= and =ranking= of =types/search.hpp= are not messages: the
-  view comes from the gateway's header through =:caller:=, and the ranking
-  is the server's configuration.
+  view comes from the gateway's =Compass-View= header, and the ranking is
+  the server's configuration.
 - =sync_request= is not =compass::cli::app::sync_request=, which carries a
   checkout path, a commit and a thread count and never crosses the wire. The
   tool takes an environment; the service finds its checkout. The design
   makes sync an MCP tool only; it has a route, =POST /v1/{environment}/sync=,
   because in ORE Studio a tool is a route's catalogue name.
-- Every request has a tool, as every route has in ORE Studio. The design's
-  MCP list is narrower: =facets=, =list_environments= and =version= are not
-  in it. Whether =/mcp= lists every tool is the server's choice.
-- A =document_filter= bound from the query string spreads into one
-  parameter per member, named by =:http_name:= when stated. =keyword= and
-  =property= carry =name:value=.
+- =facets_request.q= is a plain =std::string= with no default, so the struct
+  stays as it is, and =:required: false= lets a call leave it out.
+- =document_filter= binds from the query string by the overview's rules: one
+  parameter per member, a vector as a repeated parameter, and =keyword= and
+  =property= split at the first colon.
+- =GET /v1/catalogue= (=get_catalogue=) is not modelled here. Its answer is
+  the copied =route_catalogue= of every route, which the copied route family
+  writes with its own codec.
 
 * See also
 
