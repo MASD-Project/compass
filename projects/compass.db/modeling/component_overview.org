@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :database:postgresql:corpus:component:
 #+created: 2026-11-22
-#+updated: 2026-11-22
+#+updated: 2026-11-23
 
 This page is the component overview for =compass.db=, a simple component in
 the domain layer of the
@@ -67,6 +67,15 @@ The component has four parts.
   throws =rejected_write= with its reason and writes nothing. The run
   outcome rule is =ops::derive_run_outcome= (=ops/run_outcome.hpp=), a pure
   function. Their types are in =types/campaign.hpp=.
+- *Export* (=query/campaign_export.hpp=, =ops/campaign_page.hpp=).
+  =read_campaigns= reads every campaign of an environment, or one story's,
+  as =campaign_rows= (=types/campaign_export.hpp=) in one read-only
+  snapshot: its story and sprint, each scenario it ran or a note names with
+  its runs, steps and screenshots, its notes and the screenshots' bytes.
+  =render_campaign= turns those rows into the files of a =test_campaign=
+  page and its screenshots, as (path, bytes) pairs, a pure function tested
+  with no database. =derived_id= gives the page, each run and each note an
+  =:ID:= from their ids, and =mark_exported= sets =exported_at=.
 
 * Inputs
 
@@ -204,6 +213,9 @@ The component has four parts.
 | =include/compass.db/types/campaign.hpp= | The write requests and responses, =step_outcome=, =run_outcome=, =note_kinds=. |
 | =include/compass.db/ops/run_outcome.hpp= | =derive_run_outcome=. |
 | =include/compass.db/query/campaign.hpp= | =start_run=, =record_step_result=, =attach_screenshot=, =add_note=, =address_note=, =finish_run=, =rejected_write=. |
+| =include/compass.db/types/campaign_export.hpp= | =campaign_rows= and what it holds, =exported_file=. |
+| =include/compass.db/query/campaign_export.hpp= | =read_campaigns=, =mark_exported=. |
+| =include/compass.db/ops/campaign_page.hpp= | =render_campaign=, =derived_id=, =test_campaign_contract_id=. |
 | =include/compass.db/ops/copy_text.hpp= | =copy_writer=: COPY's text format. |
 | =include/compass.db/io/corpus.hpp= | =present=, =write_environment=, =collect=, =collect_when_grown=, =environments=, =drop_environment=. |
 | =tests/ops_extract_tests.cpp= | Metadata, headings, anchors, sections, links, test scenarios and their definition hash. |
@@ -213,6 +225,7 @@ The component has four parts.
 | =tests/query_search_tests.cpp= | Ranking order and the type tie-break, hit fields and snippets, each filter, the view, environment isolation, facets, paging. |
 | =tests/query_testing_tests.cpp= | Each scenario state, the latest run, a changed definition, environment isolation, open note counts, the present and a named sprint, the view, sprint state. |
 | =tests/query_campaign_tests.cpp= | The outcome rule, each write and its refusals, the tester rule, states moved by recorded runs, a definition change, environment isolation, screenshots stored once. |
+| =tests/ops_campaign_page_tests.cpp= | The page's paths, frontmatter, runs, steps, screenshots, notes open and addressed by kind, escaping of what a tester types, purity, and =derived_id=. |
 
 | Target | Kind |
 |--------+------|

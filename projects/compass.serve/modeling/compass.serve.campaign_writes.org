@@ -1,0 +1,436 @@
+:PROPERTIES:
+:ID: DDEE277B-8F90-49E1-8D17-6A43B990C79E
+:END:
+#+title: compass.serve.campaign_writes
+#+description: Codegen operation model for the document service's test campaign writes: start a run, record a step, finish the run, attach a screenshot, add a note and address it.
+#+type: masd.codegen.operation
+#+component: serve
+#+namespace: compass::db::types
+#+entity_singular: campaign_writes
+#+brief: The document service's test campaign writes.
+#+filetags: :model:operation:serve:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+How a tester records a test campaign over HTTP. Every write names its tester,
+which the gateway sends as the caller's name and which no client sets in the
+body; a write without one is refused. Each runs in one transaction and is
+refused, with nothing written, when it is invalid, names a row that does not
+exist or conflicts with the row's state.
+
+* Includes
+
+#+begin_src cpp :name includes
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <vector>
+#+end_src
+
+* Messages
+
+** start_run_request
+:PROPERTIES:
+:tool:        start_run
+:area:        documents
+:entity:      campaign
+:writes:      true
+:summary:     Start a test run
+:response:    start_run_response
+:http_method: post
+:http_path:   /v1/{environment}/runs
+:caller:      view name
+:END:
+
+Starts a run of a test scenario as an environment holds it, opening the
+campaign of its story there on the story's first run.
+
+*** environment
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  path
+:END:
+
+The environment under test.
+
+*** scenario_id
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  body
+:END:
+
+The scenario's =:ID:=.
+
+*** tester
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  caller
+:END:
+
+Who runs it.
+
+** run_step
+
+One step of the definition the run shows.
+
+*** ord
+:PROPERTIES:
+:cpp_type: std::int32_t
+:default:  0
+:END:
+
+*** title
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+*** body
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+** start_run_response
+
+*** run
+:PROPERTIES:
+:cpp_type: std::int64_t
+:default:  0
+:END:
+
+The new run's id.
+
+*** campaign
+:PROPERTIES:
+:cpp_type: std::int64_t
+:default:  0
+:END:
+
+The campaign the run belongs to.
+
+*** definition
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The blob ID of the scenario definition the run tests.
+
+*** scenario_hash
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The blob ID of the scenario's page.
+
+*** started_at
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+*** steps
+:PROPERTIES:
+:cpp_type: std::vector<run_step>
+:END:
+
+The steps to follow, in order.
+
+** step_result_request
+:PROPERTIES:
+:tool:        record_step_result
+:area:        documents
+:entity:      campaign
+:writes:      true
+:summary:     Record a step's outcome
+:http_method: put
+:http_path:   /v1/runs/{run}/steps/{step_ord}
+:caller:      view name
+:END:
+
+Records, or replaces, the outcome of a step of an unfinished run.
+
+*** run
+:PROPERTIES:
+:cpp_type: std::int64_t
+:default:  0
+:http_in:  path
+:END:
+
+*** step_ord
+:PROPERTIES:
+:cpp_type: std::int32_t
+:default:  0
+:http_in:  path
+:END:
+
+*** outcome
+:PROPERTIES:
+:cpp_type: step_outcome
+:default:  step_outcome::pass
+:values:   pass fail blocked skipped
+:http_in:  body
+:END:
+
+*** notes
+:PROPERTIES:
+:cpp_type: std::optional<std::string>
+:http_in:  body
+:END:
+
+What the tester saw.
+
+*** tester
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  caller
+:END:
+
+** finish_run_request
+:PROPERTIES:
+:tool:        finish_run
+:area:        documents
+:entity:      campaign
+:writes:      true
+:summary:     Finish a test run
+:response:    finish_run_response
+:http_method: post
+:http_path:   /v1/runs/{run}/finish
+:caller:      view name
+:END:
+
+Finishes an unfinished run with the outcome its step results give: failed
+when a step failed, blocked when one was blocked and none failed, passed
+otherwise.
+
+*** run
+:PROPERTIES:
+:cpp_type: std::int64_t
+:default:  0
+:http_in:  path
+:END:
+
+*** tester
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  caller
+:END:
+
+** finish_run_response
+
+*** outcome
+:PROPERTIES:
+:cpp_type: run_outcome
+:default:  run_outcome::passed
+:values:   passed failed blocked
+:END:
+
+*** finished_at
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+** attach_request
+:PROPERTIES:
+:tool:        attach_screenshot
+:area:        documents
+:entity:      campaign
+:writes:      true
+:summary:     Attach a screenshot
+:response:    attach_response
+:http_method: post
+:http_path:   /v1/attachments
+:caller:      view name
+:END:
+
+Attaches a screenshot to a run, at one of its steps or to the run as a whole,
+or to a note, storing its bytes once. Attaching the same bytes to the same
+place again changes only the caption.
+
+*** run
+:PROPERTIES:
+:cpp_type: std::optional<std::int64_t>
+:http_in:  body
+:END:
+
+The run to attach to; absent when attaching to a note.
+
+*** note
+:PROPERTIES:
+:cpp_type: std::optional<std::int64_t>
+:http_in:  body
+:END:
+
+The note to attach to; absent when attaching to a run.
+
+*** step_ord
+:PROPERTIES:
+:cpp_type: std::optional<std::int32_t>
+:http_in:  body
+:END:
+
+The step of the run; absent for the run as a whole.
+
+*** media_type
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  body
+:END:
+
+*** bytes
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  body
+:END:
+
+The file's bytes.
+
+*** caption
+:PROPERTIES:
+:cpp_type: std::optional<std::string>
+:http_in:  body
+:END:
+
+*** tester
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  caller
+:END:
+
+** attach_response
+
+*** attached
+:PROPERTIES:
+:cpp_type: std::int64_t
+:default:  0
+:END:
+
+The id of the attachment's place.
+
+*** attachment
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The blob ID of the bytes.
+
+** add_note_request
+:PROPERTIES:
+:tool:        add_note
+:area:        documents
+:entity:      campaign
+:writes:      true
+:summary:     Add a note to a campaign
+:response:    add_note_response
+:http_method: post
+:http_path:   /v1/campaigns/{campaign}/notes
+:caller:      view name
+:END:
+
+Adds an open note to a campaign, optionally naming a scenario and a step.
+
+*** campaign
+:PROPERTIES:
+:cpp_type: std::int64_t
+:default:  0
+:http_in:  path
+:END:
+
+*** scenario_id
+:PROPERTIES:
+:cpp_type: std::optional<std::string>
+:http_in:  body
+:END:
+
+*** step_ord
+:PROPERTIES:
+:cpp_type: std::optional<std::int32_t>
+:http_in:  body
+:END:
+
+*** kind
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  body
+:END:
+
+One of the note kinds the project's configuration names.
+
+*** text
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  body
+:END:
+
+*** tester
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  caller
+:END:
+
+** add_note_response
+
+*** note
+:PROPERTIES:
+:cpp_type: std::int64_t
+:default:  0
+:END:
+
+The new note's id.
+
+** address_note_request
+:PROPERTIES:
+:tool:        address_note
+:area:        documents
+:entity:      campaign
+:writes:      true
+:summary:     Address a note
+:http_method: patch
+:http_path:   /v1/notes/{note}
+:caller:      view name
+:END:
+
+Marks an open note addressed, with an optional reply.
+
+*** note
+:PROPERTIES:
+:cpp_type: std::int64_t
+:default:  0
+:http_in:  path
+:END:
+
+*** reply
+:PROPERTIES:
+:cpp_type: std::optional<std::string>
+:http_in:  body
+:END:
+
+*** tester
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  caller
+:END:
+
+* Notes
+
+- Every message but =add_note_response= matches its struct in
+  =compass.db/types/campaign.hpp= in name, member names, types, optionality
+  and default. =step_outcome= and =run_outcome= are the enumerations
+  =:values:= names. =query::add_note= answers a bare =std::int64_t=;
+  =add_note_response= wraps it so the answer is a JSON object.
+- =step_result_request=, =finish_run_request= and =address_note_request=
+  answer nothing: 204 over HTTP.
+- The design's paths for the step, the note and the address put the
+  environment first, =/v1/{env}/runs/{id}/steps/{ord}=. These requests carry
+  no environment, because a run, a campaign and a note each belong to one
+  environment already, so their paths start at the row they write. Finishing
+  a run is a write the design's table does not list.
+- =note_kinds= of =types/campaign.hpp= is not a message: it is the project's
+  configuration, which =query::add_note= takes beside the request.
+- Each write has a tool, as every route has in ORE Studio's catalogue. The
+  design's MCP list names none of them; whether =/mcp= lists them is the
+  server's choice, not the model's.
+- =bytes= is binary. JSON has no binary type, so the codec must carry it as
+  base64 or the route must take the file as the body.
+
+* See also
+
+- [[id:277ECB9A-5B6A-4235-9207-D5EC3AB816C0][compass.serve]], which lists the properties these models use.
+- [[id:21C1D3CC-9EE3-48C3-8EDD-BA0C16032AB2][Design: the document service]], "Recording".

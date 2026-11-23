@@ -337,25 +337,34 @@ campaign, optionally to a scenario or a step.
 campaign of those stories in that environment, a =test_campaign= document in
 the story's folder:
 
-- a file name and =:ID:= derived from the campaign's id, so a second export
-  rewrites the same file;
+- a file name, =test_campaign_<id>.org=, and an =:ID:= derived from the
+  campaign's id, so a second export rewrites the same file;
 - per scenario, a heading linking the scenario page; per run, a heading with
   the tester, the times, the definition and the outcome, a table of step
   results and the notes;
 - the campaign's notes, grouped by kind, each a heading with =TODO= when open
   and =DONE= when addressed, naming its scenario or step and its author, with
   =:ID:= from the note's id;
-- screenshots as PNG files in a folder beside the page, named by hash and
-  linked from the run or note that holds them.
+- screenshots in the folder =test_campaign_<id>/= beside the page, named by
+  their blob ID and linked from the run or note that holds them. A PNG is
+  written as a =.png=; a JPEG, GIF or WebP is written as it was attached,
+  with its own extension, not converted.
 
-The export writes through compass's write-on-change path, so an unchanged
-campaign touches nothing. It sets =exported_at=. The scenario pages are not
+The export's input is the campaign's rows (=types::campaign_rows=, read in
+one snapshot by =query::read_campaigns=) and its output a set of (path,
+bytes) files (=types::exported_file=). Rendering is a pure function of the
+rows, =ops::render_campaign=, tested with no database. The command gathers
+the rows, renders them and writes each file through
+=platform::filesystem::update_file=, so an unchanged campaign touches
+nothing; =#+updated:= is the day of the campaign's latest run or note, never
+the day of the export. It then sets =exported_at=. The scenario pages are not
 modified: results no longer live there, so ORE Studio's scenario contract
 drops its =Result= tables and =State= row once it adopts this, and the Qt QA
 Validation Runner is replaced by the service.
 
-The =test_campaign= type needs its page in the document contract, which is
-ORE Studio's; compass drafts it.
+The =test_campaign= type has its contract page,
+[[id:42967863-F931-4D04-AF82-2CF47C9758FE][Document type: test_campaign]], drafted
+in compass for ORE Studio's document contract, which compass's mirrors.
 
 * Production
 

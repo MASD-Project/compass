@@ -61,6 +61,21 @@ step_outcome outcome_of(const std::string& word) {
     throw std::runtime_error("no step outcome " + word);
 }
 
+/**
+ * @brief The image type of @p file, by its extension: JPEG, GIF or WebP,
+ * else PNG.
+ */
+std::string media_type_of(const std::string& file) {
+    const auto ext = std::filesystem::path(file).extension().string();
+    if (ext == ".jpg" || ext == ".jpeg")
+        return "image/jpeg";
+    if (ext == ".gif")
+        return "image/gif";
+    if (ext == ".webp")
+        return "image/webp";
+    return "image/png";
+}
+
 std::string read_file(const std::filesystem::path& p) {
     std::ifstream in(p, std::ios::binary);
     if (!in)
@@ -93,6 +108,12 @@ struct session {
                 out.run, out.campaign, out.steps.size(),
                 out.definition.substr(0, 10));
         }
+        if (verb == "campaign") {
+            std::string who;
+            in >> campaign >> who;
+            tester = tester_of(who);
+            return std::format("campaign {}", campaign);
+        }
         if (verb == "step") {
             db::types::step_result_request r;
             std::string outcome;
@@ -116,7 +137,7 @@ struct session {
                 if (where != "run")
                     r.step_ord = std::stoi(where);
             }
-            r.media_type = "image/png";
+            r.media_type = media_type_of(file);
             r.bytes = read_file(base / file);
             r.caption = optional_rest(in);
             r.tester = tester;

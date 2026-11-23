@@ -22,6 +22,7 @@ set(tests_target_name ${name}.tests)
 add_executable(${tests_target_name}
     io_corpus_tests.cpp
     io_schema_tests.cpp
+    ops_campaign_page_tests.cpp
     ops_copy_text_tests.cpp
     ops_extract_tests.cpp
     ops_migrations_tests.cpp

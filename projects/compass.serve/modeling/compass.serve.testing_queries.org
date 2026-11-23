@@ -1,0 +1,333 @@
+:PROPERTIES:
+:ID: F117FAAE-CA74-45EB-8FEB-6F5D82FB7550
+:END:
+#+title: compass.serve.testing_queries
+#+description: Codegen operation model for the document service's reads of a sprint: its stories and tasks with their states, and what needs testing in an environment.
+#+type: masd.codegen.operation
+#+component: serve
+#+namespace: compass::db::types
+#+entity_singular: testing_queries
+#+brief: The document service's reads of a sprint and its testing.
+#+filetags: :model:operation:serve:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+What a sprint holds and what of it needs testing, for an environment, over
+HTTP and MCP. Both reads take the sprint by name, or the present one, the one
+whose state is =STARTED=, and answer inside the caller's view.
+
+* Includes
+
+#+begin_src cpp :name includes
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <vector>
+#+end_src
+
+* Messages
+
+** sprint_state_request
+:PROPERTIES:
+:tool:        sprint_state
+:area:        documents
+:entity:      sprint
+:writes:      false
+:summary:     Show a sprint's state
+:response:    sprint_state_response
+:http_method: get
+:http_path:   /v1/{environment}/sprint
+:caller:      view
+:END:
+
+A sprint's stories and the tasks of each, with their states, as an
+environment holds them.
+
+*** environment
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  path
+:END:
+
+The environment to read: a worktree, branch or release name.
+
+*** sprint
+:PROPERTIES:
+:cpp_type: std::optional<std::string>
+:http_in:  query
+:END:
+
+The sprint's =:ID:= or title; the present sprint when absent.
+
+** what_needs_testing_request
+:PROPERTIES:
+:tool:        what_needs_testing
+:area:        documents
+:entity:      sprint
+:writes:      false
+:summary:     Show what needs testing
+:response:    testing_response
+:http_method: get
+:http_path:   /v1/{environment}/testing
+:caller:      view
+:END:
+
+A sprint's stories, each story's test scenarios and each scenario's state
+from its latest finished run in an environment: untested, failed, passed or
+changed, with the open note counts. Untested, failed and changed need
+testing.
+
+*** environment
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  path
+:END:
+
+The environment whose runs count.
+
+*** sprint
+:PROPERTIES:
+:cpp_type: std::optional<std::string>
+:http_in:  query
+:END:
+
+The sprint's =:ID:= or title; the present sprint when absent.
+
+** sprint_summary
+
+*** org_id
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The sprint's =:ID:=.
+
+*** title
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+*** state
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+** work_item
+
+A story or a task, as its page states it.
+
+*** org_id
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+*** title
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+*** state
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The state of its =* Status= table.
+
+*** path
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The page's path in the environment.
+
+** story_state
+
+*** story
+:PROPERTIES:
+:cpp_type: work_item
+:END:
+
+*** tasks
+:PROPERTIES:
+:cpp_type: std::vector<work_item>
+:END:
+
+The story's tasks, in the order of its tasks table.
+
+** sprint_state_response
+
+*** sprint
+:PROPERTIES:
+:cpp_type: sprint_summary
+:END:
+
+*** stories
+:PROPERTIES:
+:cpp_type: std::vector<story_state>
+:END:
+
+*** synced_at
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+** run_summary
+
+The latest finished run of a scenario in the environment.
+
+*** id
+:PROPERTIES:
+:cpp_type: std::int64_t
+:default:  0
+:END:
+
+*** tester
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+*** finished_at
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+*** outcome
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+=passed=, =failed= or =blocked=.
+
+*** current_definition
+:PROPERTIES:
+:cpp_type: bool
+:default:  false
+:END:
+
+Whether the run tested the scenario's current definition.
+
+** scenario_status
+
+*** org_id
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The scenario's =:ID:=.
+
+*** title
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+*** path
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+*** task_id
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The =:ID:= of the task the scenario verifies.
+
+*** state
+:PROPERTIES:
+:cpp_type: scenario_state
+:default:  scenario_state::untested
+:values:   untested failed passed changed
+:END:
+
+=untested= with no run, =failed= when the latest failed or was blocked,
+=passed= when it passed the current definition, =changed= when it passed an
+earlier one.
+
+*** latest_run
+:PROPERTIES:
+:cpp_type: std::optional<run_summary>
+:END:
+
+Absent when the scenario has no finished run.
+
+*** open_notes
+:PROPERTIES:
+:cpp_type: std::uint64_t
+:default:  0
+:END:
+
+** story_testing
+
+*** org_id
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+*** title
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+*** state
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+*** path
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+*** campaign
+:PROPERTIES:
+:cpp_type: std::optional<std::int64_t>
+:END:
+
+The story's campaign in the environment; absent before its first run.
+
+*** open_notes
+:PROPERTIES:
+:cpp_type: std::uint64_t
+:default:  0
+:END:
+
+The campaign's open notes.
+
+*** scenarios
+:PROPERTIES:
+:cpp_type: std::vector<scenario_status>
+:END:
+
+** testing_response
+
+*** sprint
+:PROPERTIES:
+:cpp_type: sprint_summary
+:END:
+
+*** stories
+:PROPERTIES:
+:cpp_type: std::vector<story_testing>
+:END:
+
+*** synced_at
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+* Notes
+
+- The messages other than the two requests match the structs of
+  =compass.db/types/testing.hpp= in name, member names, types, optionality
+  and default. =scenario_state= is the enumeration =:values:= on
+  =scenario_status::state= names.
+- The two requests are one struct in C++, =sprint_request=, which
+  =query::sprint_state= and =query::what_needs_testing= both take. A message
+  states one route and one tool, so the model splits it into
+  =sprint_state_request= and =what_needs_testing_request=, with the same
+  members. Generating them changes the two functions' parameter types.
+
+* See also
+
+- [[id:277ECB9A-5B6A-4235-9207-D5EC3AB816C0][compass.serve]], which lists the properties these models use.
+- [[id:21C1D3CC-9EE3-48C3-8EDD-BA0C16032AB2][Design: the document service]], "What needs testing".

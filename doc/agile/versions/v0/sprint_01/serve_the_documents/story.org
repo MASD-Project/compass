@@ -7,7 +7,7 @@
 #+level: s2
 #+filetags: :docs:search:service:sprint_01:v0:
 #+created: 2026-11-22
-#+updated: 2026-11-22
+#+updated: 2026-11-23
 #+environment:
 #+todo: BACKLOG STARTED | DONE ABANDONED
 
@@ -35,10 +35,10 @@ The documents are read-only. The only writes are the testers' runs and notes.
 |---------------+----------------------------------------|
 | State         | STARTED                              |
 | Parent sprint | [[id:850C1BC8-FE02-4EE0-A5D6-6085DC34CE27][Sprint 1]] |
-| Now           | Create compass's database and Load and sync the corpus are in review. |
+| Now           | Create compass's database and Load and sync the corpus are in review; Export test campaigns to git is in review. |
 | Waiting on    | Nothing.                               |
 | Next          | Serve the documents over HTTP. |
-| Last touched  | 2026-11-22                               |
+| Last touched  | 2026-11-23                               |
 
 * Acceptance
 
@@ -127,7 +127,7 @@ The documents are read-only. The only writes are the testers' runs and notes.
 | [[id:07BE8080-B97F-42FC-9A42-5D8CC0923EA0][Serve MCP]] | BACKLOG | | | Answer MCP at /mcp with search, document, list, backlinks, sprint state, what needs testing and sync tools over the same query layer as HTTP. |
 | [[id:636044CB-9458-4F96-8642-3F28D2F14DF8][Show what needs testing]] | DONE | 2026-11-22 | 2026-11-22 | Derive each environment's present sprint, its stories and their test scenarios, and give each scenario a state from its latest run: untested, failed, passed or changed. |
 | [[id:47FAA4EC-138F-476B-891D-8D1DC5D86ACF][Record test campaigns]] | DONE | 2026-11-22 | 2026-11-22 | Let testers record runs, step results, screenshots and campaign notes through the service, each naming its tester and the scenario definition it followed. |
-| [[id:F250A584-EEBD-4AA7-8E68-B8F538A73A63][Export test campaigns to git]] | BACKLOG | | | Write an environment's test campaigns into their stories' folders as test_campaign documents with their runs, notes and PNG screenshots, idempotently, and draft the test_campaign contract. |
+| [[id:F250A584-EEBD-4AA7-8E68-B8F538A73A63][Export test campaigns to git]] | STARTED | 2026-11-23 | | Write an environment's test campaigns into their stories' folders as test_campaign documents with their runs, notes and PNG screenshots, idempotently, and draft the test_campaign contract. |
 
 * Decisions
 
