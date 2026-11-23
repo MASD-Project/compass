@@ -906,7 +906,8 @@ std::vector<unit> model_units(const types::physical_space& g,
         : type == "field_group"
         ? field_group_placeholders(models, owned, g.root)
         : type == "family" ? family_placeholders(models, owned, g.root)
-        : type == "masd_entity" || type == "masd_schema"
+        : type == "masd_entity" || type == "masd_schema" ||
+            type == "masd_component"
         ? masd_placeholders(models, owned)
         : std::vector<placeholder>{};
 

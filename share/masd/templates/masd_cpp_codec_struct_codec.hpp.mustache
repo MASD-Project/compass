@@ -1,0 +1,79 @@
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.codec.struct_codec.org. Edit the org source. }}
+{{=<% %>=}}
+<%& cpp_license%>
+<%#masd_component%>
+#ifndef <%codec_guard_prefix%>STRUCT_CODEC_HPP
+#define <%codec_guard_prefix%>STRUCT_CODEC_HPP
+
+#include "<%codec_root%>/json_codec.hpp"
+#include "<%codec_root%>/wire_fields.hpp"
+#include <cstdlib>
+#include <optional>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <tuple>
+#include <type_traits>
+
+namespace <%codec_namespace%> {
+
+/**
+ * @brief A struct as a JSON document, as a whole value: the two conveniences a
+ * caller and a test reach for.
+ *
+ * A type that states its own shape through =wire_fields= needs nothing here --
+ * the carriers find it. These overloads take a list explicitly, for a caller
+ * holding one and for a type whose shape is stated somewhere other than its own
+ * header.
+ */
+namespace object {
+
+template <typename T, typename... Members>
+std::string write_json(const T& v, const field_list<field<T, Members>...>& fields) {
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(nullptr);
+    if (doc == nullptr)
+        throw std::runtime_error("Could not make a JSON document");
+    yyjson_mut_doc_set_root(doc, detail::write_object(doc, v, fields));
+    char* text = yyjson_mut_write(doc, 0, nullptr);
+    if (text == nullptr) {
+        yyjson_mut_doc_free(doc);
+        throw std::runtime_error("Could not render a JSON document");
+    }
+    std::string out(text);
+    free(text);
+    yyjson_mut_doc_free(doc);
+    return out;
+}
+
+template <typename T>
+std::string write_json(const T& v) {
+    return write_json(v, wire_fields(std::type_identity<T>{}));
+}
+
+template <typename T, typename... Members>
+T read_json(std::string_view text, const field_list<field<T, Members>...>& fields) {
+    yyjson_doc* doc = yyjson_read(text.data(), text.size(), 0);
+    if (doc == nullptr)
+        throw std::invalid_argument("Not JSON: " + std::string(text));
+    try {
+        T out{};
+        detail::read_object(yyjson_doc_get_root(doc), out, fields);
+        yyjson_doc_free(doc);
+        return out;
+    } catch (...) {
+        yyjson_doc_free(doc);
+        throw;
+    }
+}
+
+template <typename T>
+T read_json(std::string_view text) {
+    return json::read<T>(text);
+}
+
+}
+
+}
+
+#endif
+<%/masd_component%>

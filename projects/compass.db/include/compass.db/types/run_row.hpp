@@ -78,6 +78,8 @@ struct run_row {
     std::string tester;
     std::optional<std::chrono::sys_time<std::chrono::microseconds>> finished_at;
     std::optional<run_outcome> outcome;
+
+    bool operator==(const run_row&) const = default;
 };
 
 }

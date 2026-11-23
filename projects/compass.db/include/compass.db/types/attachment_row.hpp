@@ -37,6 +37,8 @@ namespace compass::db::types {
 struct attachment_row {
     std::string media_type;
     std::string bytes;
+
+    bool operator==(const attachment_row&) const = default;
 };
 
 }

@@ -132,6 +132,16 @@ struct masd_schema {
     std::vector<std::string> functions;
 };
 
+/**
+ * @brief A masd.codegen.component model: a component of a product, which
+ * renders the component-wide files of the facets its physical space table
+ * switches on, such as the JSON codec runtime.
+ */
+struct masd_component {
+    std::string product;
+    std::string component;
+};
+
 }
 
 #endif

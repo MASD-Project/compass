@@ -48,6 +48,14 @@ using custom_types = std::vector<std::pair<std::string, std::string>>;
     const document_finder& find, load_cache& cache);
 
 /**
+ * @brief The (type, header) rows of the same registry's Text form column:
+ * the header that states each type's text_form for the JSON codec, for the
+ * types that have one; none when the registry lacks the column.
+ */
+[[nodiscard]] const custom_types& custom_type_text_forms(
+    const document_finder& find, load_cache& cache);
+
+/**
  * @brief _ts_type: the TypeScript type of @p cpp_type, or empty when it has
  * no projection.
  */

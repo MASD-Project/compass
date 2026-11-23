@@ -33,7 +33,7 @@ constexpr std::string_view codegen_types[] = {
     "ores.codegen.service_registry", "ores.codegen.component",
     "ores.codegen.asset_class_catalogue", "ores.codegen.trade_type_catalogue",
     "ores.codegen.outcome_catalogue", "masd.codegen.entity",
-    "masd.codegen.schema"};
+    "masd.codegen.schema", "masd.codegen.component"};
 
 std::string_view strip(std::string_view s) {
     while (!s.empty() && std::isspace(static_cast<unsigned char>(s.front())))

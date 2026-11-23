@@ -21,6 +21,7 @@
 #define COMPASS_CODEGEN_OPS_MASD_CONTEXT_HPP
 
 #include <span>
+#include <string_view>
 #include "compass.model/ops/builder.hpp"
 #include "compass.model/ops/typescript.hpp"
 #include "compass.model/types/masd_entity.hpp"
@@ -29,16 +30,30 @@ namespace compass::codegen::ops {
 
 /**
  * @brief The context the masd.cpp templates render a table's row type and
- * COPY writer from: the library values and, under masd_entity, the names,
- * includes, enumerations, members and COPY fields @p e implies. @p custom
- * gives the header of each C++ type the standard library does not have.
+ * COPY writer and JSON codec from: the library values and, under
+ * masd_entity, the names, includes, enumerations, members, COPY fields and
+ * wire fields @p e implies. @p custom gives the header of each C++ type the
+ * standard library does not have, and @p text_forms the header that states
+ * the text form of each such type the codec writes.
  * @throws std::runtime_error when a column of the row has a SQL type with
  * no C++ type and the model states none.
  */
 [[nodiscard]] compass::model::types::value_id masd_entity_context(
     compass::model::ops::builder& b, compass::model::types::value_id library,
     const compass::model::types::masd_entity& e,
-    const compass::model::ops::custom_types& custom);
+    const compass::model::ops::custom_types& custom,
+    const compass::model::ops::custom_types& text_forms);
+
+/**
+ * @brief The context the masd.cpp.codec templates render a component's
+ * JSON codec runtime from: the library values and, under masd_component,
+ * the runtime's namespace, include directory and include guard prefix,
+ * each from @p component_dir, the component's directory under projects/,
+ * such as compass.db.
+ */
+[[nodiscard]] compass::model::types::value_id masd_component_context(
+    compass::model::ops::builder& b, compass::model::types::value_id library,
+    std::string_view component_dir);
 
 /**
  * @brief The context the masd.sql template renders a component's whole

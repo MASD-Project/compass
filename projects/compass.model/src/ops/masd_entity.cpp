@@ -340,6 +340,28 @@ types::masd_schema read_masd_schema(const document& d) {
     return s;
 }
 
+types::masd_component read_masd_component(const document& d) {
+    outline o;
+    build_outline(d.source, *d.tables, o);
+    types::masd_component m;
+    for (const auto& [key, value] : properties(o, section(o, node_id{0},
+             "Flags"))) {
+        require_known(key, schema_flag_keys, "* Flags");
+        (key == "product" ? m.product : m.component) = trim(value);
+    }
+    if (m.product.empty() || m.component.empty())
+        throw model_error("a component model states its product and "
+            "component under * Flags");
+    return m;
+}
+
+void load_masd_component(load_context& c, types::value_id root) {
+    const auto m = read_masd_component(c.d);
+    const auto out = c.b.object(root, "masd_component");
+    c.b.set(out, "product", m.product);
+    c.b.set(out, "component", m.component);
+}
+
 void load_masd_entity(load_context& c, types::value_id root) {
     const auto e = read_masd_entity(c.d, c.find);
     const auto m = c.b.object(root, "masd_entity");

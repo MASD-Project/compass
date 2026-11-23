@@ -19,6 +19,7 @@ set(name "compass.db")
 set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
+    codec/text_form.cpp
     io/connection.cpp
     io/corpus.cpp
     io/document_copy.cpp
@@ -37,7 +38,20 @@ add_library(${lib_target_name}
     query/campaign.cpp
     query/campaign_export.cpp
     query/search.cpp
-    query/testing.cpp)
+    query/testing.cpp
+    types/attached_row_codec.cpp
+    types/attachment_row_codec.cpp
+    types/campaign_row_codec.cpp
+    types/environment_row_codec.cpp
+    types/heading_row_codec.cpp
+    types/link_row_codec.cpp
+    types/note_row_codec.cpp
+    types/placement_row_codec.cpp
+    types/run_row_codec.cpp
+    types/scenario_row_codec.cpp
+    types/section_row_codec.cpp
+    types/step_row_codec.cpp
+    types/step_result_row_codec.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
 
@@ -48,6 +62,7 @@ target_link_libraries(${lib_target_name}
     PUBLIC
         compass.org.lib
         compass.store.lib
+        yyjson::yyjson
     PRIVATE
         compass.html.lib
         compass.platform.lib

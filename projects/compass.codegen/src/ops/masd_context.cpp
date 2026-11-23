@@ -206,15 +206,24 @@ value_id with_library(builder& b, value_id library) {
     return context;
 }
 
-void add_enums(builder& b, value_id m, const masd_entity& e) {
+void add_enums(builder& b, value_id m, const masd_entity& e,
+    std::string_view types_namespace) {
     const auto list = b.list(m, "enums");
+    bool any = false;
     for (const auto& c : e.columns) {
         if (c.values.empty() || !c.cpp_type.empty())
             continue;
+        any = true;
         const auto en = b.append_object(list);
         b.set(en, "name", c.enum_name);
+        b.set(en, "qualified", std::string(types_namespace) + "::" +
+            c.enum_name);
         b.set(en, "column", c.name);
         b.set(en, "first", c.values.front());
+        std::string listed;
+        for (const auto& v : c.values)
+            listed += (listed.empty() ? "" : ", ") + v;
+        b.set(en, "listed", listed);
         const auto values = b.list(en, "values");
         for (std::size_t i = 0; i < c.values.size(); ++i) {
             const auto v = b.append_object(values);
@@ -222,6 +231,28 @@ void add_enums(builder& b, value_id m, const masd_entity& e) {
             add_last(b, v, i + 1 == c.values.size());
         }
     }
+    b.set(m, "has_enums", any);
+}
+
+/**
+ * @brief The members of the row's wire shape, in row order, and the
+ * headers that state the text form of each custom type they hold, sorted.
+ */
+void add_codec(builder& b, value_id m, const masd_entity& e,
+    const compass::model::ops::custom_types& text_forms) {
+    std::set<std::string> headers;
+    const auto fields = b.list(m, "wire_fields");
+    for (const auto& c : e.columns) {
+        if (!in_row(c))
+            continue;
+        b.set(b.append_object(fields), "member", c.member);
+        for (const auto& [name, header] : text_forms)
+            if (mentions(member_type(c), name))
+                headers.insert(header);
+    }
+    const auto list = b.list(m, "codec_includes");
+    for (const auto& h : headers)
+        b.set(b.append_object(list), "include", h);
 }
 
 std::string parameter_of(const masd_column& c) {
@@ -368,7 +399,8 @@ std::vector<const masd_entity*> ordered(std::string_view schema,
 }
 
 value_id masd_entity_context(builder& b, value_id library,
-    const masd_entity& e, const compass::model::ops::custom_types& custom) {
+    const masd_entity& e, const compass::model::ops::custom_types& custom,
+    const compass::model::ops::custom_types& text_forms) {
     const auto context = with_library(b, library);
     const auto m = b.object(context, "masd_entity");
     const auto component = e.product + "." + e.component;
@@ -383,6 +415,13 @@ value_id masd_entity_context(builder& b, value_id library,
     b.set(m, "copy_guard", upper(component + "/io/" + e.entity +
         "_copy.hpp"));
     b.set(m, "row_include", component + "/types/" + e.entity + "_row.hpp");
+    b.set(m, "row_qualified", ns + "::types::" + e.row_type);
+    b.set(m, "codec_namespace", ns + "::codec");
+    b.set(m, "codec_root", component + "/codec");
+    b.set(m, "codec_guard", upper(component + "/types/" + e.entity +
+        "_row_codec.hpp"));
+    b.set(m, "codec_include", component + "/types/" + e.entity +
+        "_row_codec.hpp");
     b.set(m, "copy_include", component + "/io/" + e.entity + "_copy.hpp");
     b.set(m, "brief", e.brief);
     std::vector<std::string> row_types;
@@ -394,7 +433,8 @@ value_id masd_entity_context(builder& b, value_id library,
                 {"std::optional", "std::string_view"});
     }
     add_includes(b, m, row_types, custom, {});
-    add_enums(b, m, e);
+    add_enums(b, m, e, ns + "::types");
+    add_codec(b, m, e, text_forms);
     const auto members = b.list(m, "members");
     for (const auto& c : e.columns) {
         if (!in_row(c))
@@ -414,6 +454,20 @@ value_id masd_entity_context(builder& b, value_id library,
         {"\"" + component + "/ops/copy_text.hpp\"",
             "\"" + component + "/types/" + e.entity + "_row.hpp\""});
     add_copy(b, m, e);
+    return context;
+}
+
+value_id masd_component_context(builder& b, value_id library,
+    std::string_view component_dir) {
+    const auto context = with_library(b, library);
+    const auto m = b.object(context, "masd_component");
+    std::string ns;
+    for (const char c : component_dir)
+        ns += c == '.' ? std::string("::") : std::string(1, c);
+    b.set(m, "codec_namespace", ns + "::codec");
+    b.set(m, "codec_root", std::string(component_dir) + "/codec");
+    b.set(m, "codec_guard_prefix", upper(std::string(component_dir) +
+        "/codec/"));
     return context;
 }
 

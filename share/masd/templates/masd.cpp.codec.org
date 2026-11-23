@@ -1,0 +1,68 @@
+:PROPERTIES:
+:ID: 7D0FA277-D3F7-48E9-BCDF-7A88592119E3
+:END:
+#+title: masd.cpp.codec
+#+description: The JSON codec runtime, ORE Studio's yyjson codec copied into the MASD library and rendered into the component that switches it on. Off unless a component's model switches it on.
+#+type: facet
+#+model_types: masd_component
+#+default: off
+#+level: cross
+#+facet_group: masd.cpp
+#+filetags: :codegen:physical-space:cpp:json:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is the node for the =masd.cpp.codec= facet of the MASD library.
+Each of its archetypes is one file of the runtime the generated JSON codecs
+of [[id:48CA6C74-8EF8-45B2-B6D6-CC6B508EE0D8][masd.cpp.json]] are written
+against.
+
+* Summary
+
+ORE Studio's JSON is =ores.utility/codec=: =json_document= over yyjson for a
+tree, =wire_fields= and =wire_traits= for each type, the =json_codec=
+carriers, =json_schema<T>()= which derives a type's JSON Schema from its
+shape, and =sample= for the values a round-trip test writes. compass copies
+it from ORE Studio's =main= at commit
+=bc0702ad46b8a6097ce5242ece7ba01067699f60= (2026-11-23) as decided in
+[[id:AF30B206-2FAB-435F-819F-9EC652D4E40D][Design: aligning the document service with ORE Studio's HTTP and MCP]].
+The files are verbatim code with three parameters, not generated from a
+model; the facet renders them into a component, in its namespace, so the
+component's builds own their yyjson and compiler.
+
+* The masd.cpp.codec facet
+
+Off by default. A component switches it on in the =* Physical space= table
+of its =masd.codegen.component= model, and links =yyjson::yyjson=. In
+compass that component is =compass.db=, whose model is
+[[id:F6A12086-9700-4773-9E08-5FE9BDA18272][compass.db.component]] and which holds the
+row types and the messages its queries take. The runtime's files land in
+=include/<component>/codec/= and =src/codec/=:
+
+| Parameter | ORE Studio's value | compass.db's value |
+|-----------+--------------------+--------------------|
+| Namespace | =ores::utility::codec= | =compass::db::codec= |
+| Include directory | =ores.utility/codec= | =compass.db/codec= |
+| Include guard prefix | =ORES_UTILITY_CODEC_= | =COMPASS_DB_CODEC_= |
+| The namespace a schema name drops | =ores= | =compass= |
+
+Each archetype page records the ORE Studio file it was copied from and how
+the copy differs. In brief:
+
+| Divergence | ORE Studio | compass | Kind |
+|------------+------------+---------+------|
+| MessagePack | =msgpack_codec.hpp=, =json_document_wire.hpp= and the MessagePack half of =struct_codec= | Left out | Facet not enabled |
+| Unknown members | A reader ignores a member the shape does not state | A reader refuses it by name, and the schema states =additionalProperties: false= | Fix to offer ORE Studio |
+| Refusal messages | A wrong value's refusal names its type | It also names the member | Fix to offer ORE Studio |
+| Enumerations | =magic_enum= | A generated =text_form= per enumeration with =names= | Replacement: no reflection library |
+| Types | Tenant ID, uuid, decimal, address, date, time of day, error code, duration | String, path and microsecond instant only | Data: compass has no others |
+| The instant | =system_clock::time_point=, through =ores.platform= | =sys_time<microseconds>=, formatted with =std::format=, parsed by hand | Parameter: compass's =timestamptz= type, and libc++ has no =chrono::parse= |
+| A schema's type name | =__PRETTY_FUNCTION__= only | Also MSVC's =__FUNCSIG__= | Fix to offer ORE Studio |
+| Schema check | None | =schema_check.hpp= | compass's own |
+| Shaped wire traits | =shaped_wire_traits.hpp= for a hand-written type | Left out: every codec is generated | Unused |
+| Export macros | =ORES_UTILITY_EXPORT= | None: static libraries | Parameter |
+
+* See also
+
+- [[id:48CA6C74-8EF8-45B2-B6D6-CC6B508EE0D8][masd.cpp.json]]: the codecs written against it.
+- [[id:AF30B206-2FAB-435F-819F-9EC652D4E40D][Design: aligning the document service with ORE Studio's HTTP and MCP]]: the decision to copy it.

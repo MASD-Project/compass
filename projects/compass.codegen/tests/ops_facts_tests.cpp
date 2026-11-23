@@ -138,10 +138,11 @@ TEST_CASE("every collection has a fact, and a map or a set one per "
     const auto facts = facts_of(registry());
 
     for (const auto name : {"table", "trade_type_routes", "custom_types",
+             "custom_text_forms",
              "economic_field_group", "directory", "convention_families",
              "shell_units", "shell_local_units"})
         CHECK(facts.contains(name));
     CHECK(facts.contains(fact_name("table", "books")));
     CHECK(facts.contains(fact_name("economic_field_group", "ores.a.leg")));
-    CHECK(facts.size() == 11);
+    CHECK(facts.size() == 12);
 }

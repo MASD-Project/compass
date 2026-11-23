@@ -1,0 +1,122 @@
+:PROPERTIES:
+:ID: A8D7ED15-9115-4FBE-8BBA-22E54387627A
+:END:
+#+title: masd.cpp.codec.struct_codec
+#+description: object::write_json and object::read_json, a whole document from a type's shape, which a generated codec's definitions call. Output projects/{component_dir}/include/{component_dir}/codec/struct_codec.hpp.
+#+type: archetype
+#+output: projects/{component_dir}/include/{component_dir}/codec/struct_codec.hpp
+#+facet: masd.cpp.codec
+#+level: cross
+#+filetags: :codegen:templates:literate:archetype:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is an archetype of the [[id:7D0FA277-D3F7-48E9-BCDF-7A88592119E3][masd.cpp.codec]] facet: one
+file of the JSON codec runtime, rendered into the component that switches
+the facet on.
+
+* Origin
+
+ORE Studio's
+=projects/ores.utility/include/ores.utility/codec/struct_codec.hpp= at
+commit =bc0702ad46b8a6097ce5242ece7ba01067699f60=.
+
+The MessagePack functions are left out.
+
+* Context
+
+The context is the library's values and =masd_component=: =codec_namespace=,
+=codec_root=, the directory the runtime's headers are included from, and
+=codec_guard_prefix=. The template switches the delimiters to =<% %>=,
+because the C++ it holds has braces of its own.
+
+* Template
+
+The template source. compass's =tangle= codec writes it to
+=masd_cpp_codec_struct_codec.hpp.mustache= beside this page.
+
+#+begin_src mustache :tangle masd_cpp_codec_struct_codec.hpp.mustache
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.codec.struct_codec.org. Edit the org source. }}
+{{=<% %>=}}
+<%& cpp_license%>
+<%#masd_component%>
+#ifndef <%codec_guard_prefix%>STRUCT_CODEC_HPP
+#define <%codec_guard_prefix%>STRUCT_CODEC_HPP
+
+#include "<%codec_root%>/json_codec.hpp"
+#include "<%codec_root%>/wire_fields.hpp"
+#include <cstdlib>
+#include <optional>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <tuple>
+#include <type_traits>
+
+namespace <%codec_namespace%> {
+
+/**
+ * @brief A struct as a JSON document, as a whole value: the two conveniences a
+ * caller and a test reach for.
+ *
+ * A type that states its own shape through =wire_fields= needs nothing here --
+ * the carriers find it. These overloads take a list explicitly, for a caller
+ * holding one and for a type whose shape is stated somewhere other than its own
+ * header.
+ */
+namespace object {
+
+template <typename T, typename... Members>
+std::string write_json(const T& v, const field_list<field<T, Members>...>& fields) {
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(nullptr);
+    if (doc == nullptr)
+        throw std::runtime_error("Could not make a JSON document");
+    yyjson_mut_doc_set_root(doc, detail::write_object(doc, v, fields));
+    char* text = yyjson_mut_write(doc, 0, nullptr);
+    if (text == nullptr) {
+        yyjson_mut_doc_free(doc);
+        throw std::runtime_error("Could not render a JSON document");
+    }
+    std::string out(text);
+    free(text);
+    yyjson_mut_doc_free(doc);
+    return out;
+}
+
+template <typename T>
+std::string write_json(const T& v) {
+    return write_json(v, wire_fields(std::type_identity<T>{}));
+}
+
+template <typename T, typename... Members>
+T read_json(std::string_view text, const field_list<field<T, Members>...>& fields) {
+    yyjson_doc* doc = yyjson_read(text.data(), text.size(), 0);
+    if (doc == nullptr)
+        throw std::invalid_argument("Not JSON: " + std::string(text));
+    try {
+        T out{};
+        detail::read_object(yyjson_doc_get_root(doc), out, fields);
+        yyjson_doc_free(doc);
+        return out;
+    } catch (...) {
+        yyjson_doc_free(doc);
+        throw;
+    }
+}
+
+template <typename T>
+T read_json(std::string_view text) {
+    return json::read<T>(text);
+}
+
+}
+
+}
+
+#endif
+<%/masd_component%>
+#+end_src
+
+* See also
+
+- Parent facet: [[id:7D0FA277-D3F7-48E9-BCDF-7A88592119E3][masd.cpp.codec]]

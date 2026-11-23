@@ -216,7 +216,7 @@ TEST_CASE("a row holds what the row writes, and its key columns are the "
     const compass::model::ops::custom_types custom{
         {"store::types::blob_id", "\"compass.store/types/blob_id.hpp\""}};
     const auto make = [&](auto& b, auto library) {
-        return ops::masd_entity_context(b, library, heading(), custom);
+        return ops::masd_entity_context(b, library, heading(), custom, {});
     };
     const auto row = rendered("masd_cpp_row.hpp.mustache", make);
     CHECK_THAT(row, ContainsSubstring(
@@ -224,6 +224,8 @@ TEST_CASE("a row holds what the row writes, and its key columns are the "
         "    std::optional<std::int32_t> parent;\n"
         "    heading_state state = heading_state::closed;\n"
         "    std::vector<std::string> tags;\n"
+        "\n"
+        "    bool operator==(const heading_row&) const = default;\n"
         "};"));
     CHECK_THAT(row, ContainsSubstring(
         "constexpr std::optional<heading_state> heading_state_of("));
@@ -255,8 +257,44 @@ TEST_CASE("a SQL type with no C++ type is refused unless the model states "
     e.columns = {column("tsv", "tsvector")};
     mtypes::model_tables t;
     compass::model::ops::builder b(t);
-    CHECK_THROWS_AS(ops::masd_entity_context(b, b.detached_object(), e, {}),
+    CHECK_THROWS_AS(ops::masd_entity_context(b, b.detached_object(), e, {}, {}),
         std::runtime_error);
     e.columns[0].writer = mtypes::written_by::writer;
-    CHECK_NOTHROW(ops::masd_entity_context(b, b.detached_object(), e, {}));
+    CHECK_NOTHROW(ops::masd_entity_context(b, b.detached_object(), e, {}, {}));
+}
+
+TEST_CASE("a row's JSON codec states the row's members and the text form "
+    "of each enumeration", "[codegen][masd]") {
+    auto e = heading();
+    auto source = column("source", "bytea");
+    source.cpp_type = "store::types::blob_id";
+    e.columns.push_back(source);
+    const compass::model::ops::custom_types custom{
+        {"store::types::blob_id", "\"compass.store/types/blob_id.hpp\""}};
+    const compass::model::ops::custom_types text_forms{
+        {"store::types::blob_id", "\"compass.db/codec/blob_id_form.hpp\""}};
+    const auto make = [&](auto& b, auto library) {
+        return ops::masd_entity_context(b, library, e, custom, text_forms);
+    };
+    const auto header = rendered("masd_cpp_json.hpp.mustache", make);
+    CHECK_THAT(header, ContainsSubstring(
+        "    return ::compass::db::codec::field_list{\n"
+        "        ::compass::db::codec::field{\"parent\", &heading_row::parent},\n"
+        "        ::compass::db::codec::field{\"state\", &heading_row::state},\n"
+        "        ::compass::db::codec::field{\"tags\", &heading_row::tags},\n"
+        "        ::compass::db::codec::field{\"source\", &heading_row::source},\n"
+        "    };"));
+    CHECK_THAT(header, ContainsSubstring(
+        "struct text_form<compass::db::types::heading_state> {"));
+    CHECK_THAT(header, ContainsSubstring(
+        "names[] = { \"open\", \"closed\" };"));
+    CHECK_THAT(header, ContainsSubstring("is not one of open, closed\");"));
+    CHECK_THAT(header, ContainsSubstring(
+        "#include \"compass.db/codec/blob_id_form.hpp\"\n"));
+    CHECK_THAT(header, ContainsSubstring(
+        "struct wire_traits<compass::db::types::heading_row> {"));
+
+    const auto impl = rendered("masd_cpp_json.cpp.mustache", make);
+    CHECK_THAT(impl, ContainsSubstring(
+        "return object::read_json<compass::db::types::heading_row>(text);"));
 }

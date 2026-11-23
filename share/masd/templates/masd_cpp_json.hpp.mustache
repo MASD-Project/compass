@@ -1,0 +1,96 @@
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.json.header.org. Edit the org source. }}
+{{{cpp_license}}}
+{{#masd_entity}}
+#ifndef {{codec_guard}}
+#define {{codec_guard}}
+
+#include "{{codec_root}}/text_form.hpp"
+#include "{{codec_root}}/wire_fields.hpp"
+#include "{{codec_root}}/wire_traits_fwd.hpp"
+#include "{{row_include}}"
+{{#codec_includes}}
+#include {{{include}}}
+{{/codec_includes}}
+{{#has_enums}}
+#include <stdexcept>
+{{/has_enums}}
+#include <string>
+#include <string_view>
+#include <type_traits>
+
+namespace {{types_namespace}} {
+
+/**
+ * @brief The members of {{row_type}}, named as the wire names them and in the
+ * order the type declares them.
+ *
+ * This is the one statement of the row's shape. The carriers find it by
+ * argument-dependent lookup, so no caller passes a list, and a message whose
+ * member is this type encodes it as its own object without knowing the type.
+ */
+[[nodiscard]] constexpr auto wire_fields(std::type_identity<{{row_type}}>) {
+    return ::{{codec_namespace}}::field_list{
+{{#wire_fields}}
+        ::{{codec_namespace}}::field{"{{member}}", &{{row_type}}::{{member}}},
+{{/wire_fields}}
+    };
+}
+
+}
+
+namespace {{codec_namespace}} {
+{{#enums}}
+
+/**
+ * @brief {{name}} travels as the name of its value.
+ */
+template <>
+struct text_form<{{qualified}}> {
+    static constexpr std::string_view wire_name = "a {{name}}";
+
+    static constexpr std::string_view names[] = { {{#values}}"{{value}}"{{^last}}, {{/last}}{{/values}} };
+
+    static constexpr {{qualified}} values[] = { {{#values}}{{qualified}}::{{value}}{{^last}}, {{/last}}{{/values}} };
+
+    static std::string to_text({{qualified}} v) {
+        return std::string(to_string(v));
+    }
+
+    static {{qualified}} from_text(std::string_view text) {
+        if (const auto v = {{qualified}}_of(text))
+            return *v;
+        throw std::invalid_argument("Not " + std::string(wire_name) + ": '" +
+                                    std::string(text) + "' is not one of {{listed}}");
+    }
+};
+{{/enums}}
+
+/**
+ * @brief The generated codec: what the wire codec resolves to for this type.
+ *
+ * The functions are declared here and defined in this type's own translation
+ * unit, so a translation unit that only sends the type compiles a declaration
+ * rather than a second copy of the encoder.
+ */
+template <>
+struct wire_traits<{{row_qualified}}> {
+    /**
+     * @brief States that this is a generated codec.
+     *
+     * A test asserts this rather than the encoding, because the encoding is
+     * what the type's own case already round-trips: what it cannot see is
+     * whether the seam resolved to this specialisation or fell through to the
+     * primary template, and a marker that only this specialisation declares
+     * is that answer at compile time.
+     */
+    static constexpr bool is_generated = true;
+
+    static std::string write_json(const {{row_qualified}}& v);
+
+    static {{row_qualified}} read_json(std::string_view text);
+};
+
+}
+
+#endif
+{{/masd_entity}}

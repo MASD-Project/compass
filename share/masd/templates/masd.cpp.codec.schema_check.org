@@ -1,0 +1,176 @@
+:PROPERTIES:
+:ID: 1E0E3D06-8DF5-4647-A16E-E61B486A74AF
+:END:
+#+title: masd.cpp.codec.schema_check
+#+description: schema_violation, which checks a document against a schema json_schema wrote, for the test that a writer's output is a document its schema allows. Output projects/{component_dir}/include/{component_dir}/codec/schema_check.hpp.
+#+type: archetype
+#+output: projects/{component_dir}/include/{component_dir}/codec/schema_check.hpp
+#+facet: masd.cpp.codec
+#+level: cross
+#+filetags: :codegen:templates:literate:archetype:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is an archetype of the [[id:7D0FA277-D3F7-48E9-BCDF-7A88592119E3][masd.cpp.codec]] facet: one
+file of the JSON codec runtime, rendered into the component that switches
+the facet on.
+
+* Origin
+
+No ORE Studio file: compass's own.
+
+compass's own: ORE Studio checks no schema.
+
+* Context
+
+The context is the library's values and =masd_component=: =codec_namespace=,
+=codec_root=, the directory the runtime's headers are included from, and
+=codec_guard_prefix=. The template switches the delimiters to =<% %>=,
+because the C++ it holds has braces of its own.
+
+* Template
+
+The template source. compass's =tangle= codec writes it to
+=masd_cpp_codec_schema_check.hpp.mustache= beside this page.
+
+#+begin_src mustache :tangle masd_cpp_codec_schema_check.hpp.mustache
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.codec.schema_check.org. Edit the org source. }}
+{{=<% %>=}}
+<%& cpp_license%>
+<%#masd_component%>
+#ifndef <%codec_guard_prefix%>SCHEMA_CHECK_HPP
+#define <%codec_guard_prefix%>SCHEMA_CHECK_HPP
+
+#include "<%codec_root%>/json_document.hpp"
+#include <optional>
+#include <string>
+#include <string_view>
+
+namespace <%codec_namespace%> {
+
+/**
+ * @file schema_check.hpp
+ * @brief Whether a document is one a schema json_schema() wrote allows.
+ *
+ * It checks the keywords json_schema() writes and no others: =$ref= into
+ * =$defs=, =type=, =nullable=, =properties=, =required=,
+ * =additionalProperties=, =items= and =enum=. A test checks a writer's output
+ * against its type's schema with it, so the two statements of a shape, the
+ * codec and the schema, are held to each other.
+ */
+
+namespace schema_check_detail {
+
+inline std::optional<std::string> violation(const json_value& schema, const json_value& value,
+                                            const json_value& defs, const std::string& path);
+
+inline bool has_type(const json_value& value, std::string_view type) {
+    if (type == "object")
+        return value.is_object();
+    if (type == "array")
+        return value.is_array();
+    if (type == "string")
+        return value.is_string();
+    if (type == "integer")
+        return value.is_integer();
+    if (type == "number")
+        return value.is_number();
+    if (type == "boolean")
+        return value.is_bool();
+    return false;
+}
+
+inline std::optional<std::string> object_violation(const json_value& schema,
+                                                   const json_value& value,
+                                                   const json_value& defs,
+                                                   const std::string& path) {
+    const auto properties = schema.member("properties");
+    for (const auto& name : schema.member("required").elements())
+        if (!value.has(name.text_or()))
+            return path + ": the required member " + name.text_or() + " is missing";
+    const auto additional = schema.member("additionalProperties");
+    for (const auto& [name, member] : value.members()) {
+        const auto stated = properties.member(name);
+        const auto where = path + "." + name;
+        if (stated) {
+            if (auto v = violation(stated, member, defs, where))
+                return v;
+        } else if (additional.is_bool()) {
+            if (!*additional.flag())
+                return where + ": the schema states no such member";
+        } else if (additional.is_object()) {
+            if (auto v = violation(additional, member, defs, where))
+                return v;
+        }
+    }
+    return std::nullopt;
+}
+
+inline std::optional<std::string> violation(const json_value& schema, const json_value& value,
+                                            const json_value& defs, const std::string& path) {
+    // json_value has no null test: a value of none of the other kinds is null.
+    if (value.exists() && !value.is_object() && !value.is_array() && !value.is_string() &&
+        !value.is_number() && !value.is_bool()) {
+        if (schema.member("nullable").flag().value_or(false))
+            return std::nullopt;
+        return path + ": null where the schema does not allow it";
+    }
+    if (const auto ref = schema.member("$ref").text()) {
+        constexpr std::string_view prefix = "#/$defs/";
+        if (!ref->starts_with(prefix))
+            return path + ": the reference " + std::string(*ref) + " is not into $defs";
+        const auto target = defs.member(ref->substr(prefix.size()));
+        if (!target)
+            return path + ": the reference " + std::string(*ref) + " names no definition";
+        return violation(target, value, defs, path);
+    }
+    if (const auto type = schema.member("type").text(); type && !has_type(value, *type))
+        return path + ": not of type " + std::string(*type);
+    if (const auto names = schema.member("enum"); names.is_array()) {
+        const auto text = value.text_or();
+        bool listed = false;
+        for (const auto& name : names.elements())
+            listed = listed || name.text_or() == text;
+        if (!listed)
+            return path + ": " + text + " is not one of the values the schema lists";
+    }
+    if (value.is_object())
+        return object_violation(schema, value, defs, path);
+    if (value.is_array()) {
+        const auto items = schema.member("items");
+        const auto elements = value.elements();
+        for (std::size_t i = 0; i < elements.size() && items; ++i)
+            if (auto v = violation(items, elements[i], defs,
+                                   path + "[" + std::to_string(i) + "]"))
+                return v;
+    }
+    return std::nullopt;
+}
+
+}
+
+/**
+ * @brief What in @p document the schema @p schema does not allow, the first
+ * thing found with its path from the root, $, or nothing when it allows it all.
+ */
+[[nodiscard]] inline std::optional<std::string> schema_violation(std::string_view schema,
+                                                                 std::string_view document) {
+    auto s = json_document::parse(schema);
+    if (!s)
+        return "the schema is not JSON: " + s.error();
+    auto d = json_document::parse(document);
+    if (!d)
+        return "the document is not JSON: " + d.error();
+    const auto root = s->root();
+    return schema_check_detail::violation(root, d->root(), root.member("$defs"), "$");
+}
+
+}
+
+#endif
+<%/masd_component%>
+#+end_src
+
+* See also
+
+- Parent facet: [[id:7D0FA277-D3F7-48E9-BCDF-7A88592119E3][masd.cpp.codec]]

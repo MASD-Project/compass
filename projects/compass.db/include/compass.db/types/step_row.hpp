@@ -37,6 +37,8 @@ namespace compass::db::types {
 struct step_row {
     std::string title;
     std::string body;
+
+    bool operator==(const step_row&) const = default;
 };
 
 }

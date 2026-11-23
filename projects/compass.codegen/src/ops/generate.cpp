@@ -233,6 +233,7 @@ types::entity_registry load_entity_registry(documents& docs,
     const auto& find = docs.finder();
     types::entity_registry registry;
     registry.custom_types = mops::custom_type_headers(find, cache);
+    registry.custom_text_forms = mops::custom_type_text_forms(find, cache);
     model_tables scratch;
     mops::builder b(scratch);
     mops::outline outline;
@@ -397,7 +398,8 @@ constexpr context_type context_types[] = {
     {model_type::trade_type_catalogue, "trade_type_catalogue"},
     {model_type::service_registry, "service_registry"},
     {model_type::masd_entity, "masd_entity"},
-    {model_type::masd_schema, "masd_schema"}};
+    {model_type::masd_schema, "masd_schema"},
+    {model_type::masd_component, "masd_component"}};
 
 /**
  * @brief A model's shared context and what its template variants are
@@ -571,8 +573,8 @@ void add_rows(model_plan& out, const std::vector<unit>& units,
 }
 
 /**
- * @brief The context of a model of the MASD library: a table's, or a
- * component's schema with every table modelled beside it.
+ * @brief The context of a model of the MASD library: a table's, a
+ * component's, or a component's schema with every table modelled beside it.
  * @throws compass::model::ops::model_error when a table beside the schema
  * does not load.
  */
@@ -582,7 +584,13 @@ value_id masd_context(mops::builder& b, value_id library,
     const auto& find = docs.finder();
     if (type == model_type::masd_entity)
         return masd_entity_context(b, library,
-            mops::read_masd_entity(doc, find), entities.custom_types);
+            mops::read_masd_entity(doc, find), entities.custom_types,
+            entities.custom_text_forms);
+    if (type == model_type::masd_component) {
+        const auto c = mops::read_masd_component(doc);
+        return masd_component_context(b, library,
+            c.product + "." + c.component);
+    }
     const auto dir = doc.path.substr(0, doc.path.rfind('/') + 1);
     std::vector<compass::model::types::masd_entity> tables;
     for (const auto p : docs.org()) {
@@ -651,7 +659,8 @@ model_plan plan_model(mops::builder& b, value_id library,
         protocol_owned(registry, b.tables(),
             values::member(b.tables(), root, type_name), path)};
     if (*type == model_type::masd_entity ||
-        *type == model_type::masd_schema) {
+        *type == model_type::masd_schema ||
+        *type == model_type::masd_component) {
         try {
             const auto context = masd_context(b, library, *doc, *type, docs,
                 entities);

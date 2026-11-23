@@ -27,6 +27,16 @@ NOTHING=, so nothing updates a document: a changed file is a new row.
 
 The profile =content-addressed-row= fixes =read_only=, =current_state= and =insert_conflict: do_nothing=: a row is keyed by the blob ID of what it describes, is written once with =ON CONFLICT DO NOTHING= and never updated.
 
+* Physical space
+
+| Address         | Enabled |
+|-----------------+---------|
+| =masd.cpp.json= | false   |
+
+The row has no JSON codec: its =source= is a =std::string_view= of text the
+caller owns, which a reader has nowhere to keep. The service sends a
+document's text in its own messages, not as this row.
+
 * Columns
 
 ** hash

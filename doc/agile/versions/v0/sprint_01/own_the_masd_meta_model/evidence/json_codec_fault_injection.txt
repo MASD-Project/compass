@@ -1,0 +1,35 @@
+Faults injected into the generated code, then compass.db.tests '[codec]' run.
+Each was undone with compass generate, which restored the generated file.
+
+Fault 1: in compass.db/codec/json_codec.hpp, read_object's
+  throw std::invalid_argument("Unknown member: " + ...) replaced by (void)name;
+
+../../../projects/compass.db/tests/codec_json_tests.cpp:82: FAILED:
+  CHECK_THROWS_MATCHES( note_traits::read_json(text), std::invalid_argument, MessageMatches(ContainsSubstring("Unknown member: colour")) )
+assertions: 101 | 100 passed | 1 failed
+
+Fault 2: in compass.db/types/note_row_codec.hpp, text_form<note_state>::to_text
+  returns names[0], so every note_state is written as "open".
+
+../../../projects/compass.db/tests/types_note_row_codec_tests.cpp:48: FAILED:
+  CHECK( roundtrip_traits::read_json(roundtrip_traits::write_json(v)) == v )
+../../../projects/compass.db/tests/codec_json_tests.cpp:62: FAILED:
+  REQUIRE( at != std::string::npos )
+../../../projects/compass.db/tests/codec_json_tests.cpp:157: FAILED:
+  CHECK( schema_violation(schema, replaced(note_json(), "\"addressed\"", "\"closed\"")) == "$.state: closed is not one of the values the schema lists" )
+../../../projects/compass.db/tests/codec_json_tests.cpp:72: FAILED:
+  CHECK_THAT( text, ContainsSubstring("\"state\":\"addressed\"") )
+../../../projects/compass.db/tests/codec_json_tests.cpp:62: FAILED:
+  REQUIRE( at != std::string::npos )
+assertions: 98 | 93 passed | 5 failed
+
+Fault 3: in compass.db/types/note_row_codec.hpp, text_form<note_state>::from_text
+  answers note_state::open for every listed name.
+
+The first version of the sampler built an enumeration's sample through
+from_text, so the sample was "open" too and the round trip passed under this
+fault. The sampler now takes the text form's values, and the fault fails:
+
+../../../projects/compass.db/tests/types_note_row_codec_tests.cpp:48: FAILED:
+  CHECK( roundtrip_traits::read_json(roundtrip_traits::write_json(v)) == v )
+assertions: 101 | 100 passed | 1 failed

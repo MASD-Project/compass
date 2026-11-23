@@ -33,6 +33,10 @@ The enumerations are in the row's header rather than in headers of their
 own because a model renders one file per archetype, and an enumeration
 belongs to one column of one table.
 
+A row compares equal member by member, with a defaulted =operator===, so
+the round-trip test of its JSON codec can require the value it read back
+to be the value it wrote.
+
 * Template
 
 The template source. compass's =tangle= codec writes it to
@@ -96,6 +100,8 @@ struct {{row_type}} {
 {{#members}}
     {{{cpp_type}}} {{member}}{{{initializer}}};
 {{/members}}
+
+    bool operator==(const {{row_type}}&) const = default;
 };
 
 }

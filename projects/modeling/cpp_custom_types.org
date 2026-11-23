@@ -23,8 +23,13 @@ A row binds one type, as the model spells it, to its header, quoted as the
 =store::types::blob_id=. A standard type needs no row; the templates derive
 its header from its name.
 
+The Text form column names the header that states the type's =text_form=,
+the text the type takes in JSON. The generated JSON codec of a row that
+holds the type includes it. A type with no text form cannot be a member of
+a row with a codec.
+
 * The registry
 
-| Type                    | Header                              |
-|-------------------------+-------------------------------------|
-| =store::types::blob_id= | ="compass.store/types/blob_id.hpp"= |
+| Type                    | Header                              | Text form                               |
+|-------------------------+-------------------------------------+-----------------------------------------|
+| =store::types::blob_id= | ="compass.store/types/blob_id.hpp"= | ="compass.db/codec/blob_id_form.hpp"=   |

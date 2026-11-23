@@ -43,6 +43,8 @@ struct attached_row {
     std::optional<std::int64_t> note;
     std::optional<std::int32_t> step_ord;
     std::optional<std::string> caption;
+
+    bool operator==(const attached_row&) const = default;
 };
 
 }

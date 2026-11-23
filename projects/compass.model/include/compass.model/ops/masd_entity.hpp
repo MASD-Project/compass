@@ -42,6 +42,13 @@ namespace compass::model::ops {
  */
 [[nodiscard]] types::masd_schema read_masd_schema(const document& d);
 
+/**
+ * @brief Reads @p d, a model of #+type: masd.codegen.component.
+ * @throws model_error when its * Flags drawer states a property other than
+ * product and component, or leaves one of them out.
+ */
+[[nodiscard]] types::masd_component read_masd_component(const document& d);
+
 }
 
 #endif

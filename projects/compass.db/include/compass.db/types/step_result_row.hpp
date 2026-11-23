@@ -76,6 +76,8 @@ struct step_result_row {
     std::int32_t step_ord = 0;
     step_outcome outcome = step_outcome::pass;
     std::optional<std::string> notes;
+
+    bool operator==(const step_result_row&) const = default;
 };
 
 }

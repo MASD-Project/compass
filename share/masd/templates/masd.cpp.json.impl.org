@@ -1,0 +1,53 @@
+:PROPERTIES:
+:ID: 521EA711-874F-4603-90FF-A038BFCDF61A
+:END:
+#+title: masd.cpp.json.impl
+#+description: The definitions of a row type's JSON wire traits over its wire shape. Output projects/{component_dir}/src/types/{entity}_row_codec.cpp.
+#+type: archetype
+#+output: projects/{component_dir}/src/types/{entity}_row_codec.cpp
+#+facet: masd.cpp.json
+#+level: cross
+#+filetags: :codegen:templates:literate:archetype:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is the archetype that writes the translation unit of a row type's
+JSON codec for the [[id:48CA6C74-8EF8-45B2-B6D6-CC6B508EE0D8][masd.cpp.json]]
+facet. It is ORE Studio's =ores.cpp.wire-codec.codec_impl= with the two
+MessagePack functions left off.
+
+* Context
+
+The context is the library's values and =masd_entity=: =row_qualified=,
+=codec_include=, =codec_namespace= and =codec_root=.
+
+* Template
+
+The template source. compass's =tangle= codec writes it to
+=masd_cpp_json.cpp.mustache= beside this page.
+
+#+begin_src mustache :tangle masd_cpp_json.cpp.mustache
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.json.impl.org. Edit the org source. }}
+{{{cpp_license}}}
+{{#masd_entity}}
+#include "{{codec_include}}"
+
+#include "{{codec_root}}/struct_codec.hpp"
+
+namespace {{codec_namespace}} {
+
+std::string wire_traits<{{row_qualified}}>::write_json(const {{row_qualified}}& v) {
+    return object::write_json(v);
+}
+
+{{row_qualified}} wire_traits<{{row_qualified}}>::read_json(std::string_view text) {
+    return object::read_json<{{row_qualified}}>(text);
+}
+
+}
+{{/masd_entity}}
+#+end_src
+
+* See also
+
+- Parent facet: [[id:48CA6C74-8EF8-45B2-B6D6-CC6B508EE0D8][masd.cpp.json]]

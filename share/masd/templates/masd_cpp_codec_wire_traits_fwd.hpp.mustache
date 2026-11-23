@@ -1,0 +1,24 @@
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.codec.wire_traits_fwd.org. Edit the org source. }}
+{{=<% %>=}}
+<%& cpp_license%>
+<%#masd_component%>
+#ifndef <%codec_guard_prefix%>WIRE_TRAITS_FWD_HPP
+#define <%codec_guard_prefix%>WIRE_TRAITS_FWD_HPP
+
+namespace <%codec_namespace%> {
+
+/**
+ * @brief How a type reaches the wire, in each format the wire states.
+ *
+ * The primary template has no definition, so a type with no codec does not
+ * compile. A type with a codec states a specialisation in its own header, and
+ * its translation unit defines the four functions. This declaration exists so
+ * a header can state that specialisation without pulling a codec behind it.
+ */
+template <typename T>
+struct wire_traits;
+
+}
+
+#endif
+<%/masd_component%>

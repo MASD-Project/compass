@@ -39,6 +39,8 @@ namespace compass::db::types {
 struct section_row {
     std::optional<std::uint32_t> heading;
     std::string text;
+
+    bool operator==(const section_row&) const = default;
 };
 
 }

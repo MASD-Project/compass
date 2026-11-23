@@ -320,14 +320,21 @@ std::vector<ts_import> ts_utility_imports(
     return out;
 }
 
-const custom_types& custom_type_headers(const document_finder& find,
-    load_cache& cache) {
+namespace {
+
+/**
+ * @brief The (type, cell) rows of the custom-type registry whose @p column
+ * is not empty, sorted by type, cached under @p key while the registry is
+ * unchanged.
+ */
+const custom_types& custom_type_column(const document_finder& find,
+    load_cache& cache, std::string_view column, std::string_view key) {
     static const custom_types none;
     constexpr std::string_view path = "projects/modeling/cpp_custom_types.org";
     const auto d = find(path);
     if (!d)
         return none;
-    auto& cached = cache.get().registries[std::string(path)];
+    auto& cached = cache.get().registries[std::string(key)];
     if (cached.source == d->source.data() && cached.size == d->source.size())
         return cached.value;
     outline o;
@@ -344,18 +351,32 @@ const custom_types& custom_type_headers(const document_finder& find,
     };
     for (const auto& row : first_table_rows(o, registry)) {
         const auto name = bare(row.value_or("Type"));
-        const auto header = bare(row.value_or("Header"));
-        if (name.empty() || header.empty())
+        const auto cell = bare(row.value_or(column));
+        if (name.empty() || cell.empty())
             continue;
         const auto it = rows.find(name);
-        if (it != rows.end() && it->second != header)
+        if (it != rows.end() && it->second != cell)
             throw model_error("cpp_custom_types.org binds '" + name +
-                "' to two headers");
-        rows[name] = header;
+                "' to two values of " + std::string(column));
+        rows[name] = cell;
     }
     cached = {d->source.data(), d->source.size(),
         custom_types(rows.begin(), rows.end())};
     return cached.value;
+}
+
+}
+
+const custom_types& custom_type_headers(const document_finder& find,
+    load_cache& cache) {
+    return custom_type_column(find, cache, "Header",
+        "projects/modeling/cpp_custom_types.org");
+}
+
+const custom_types& custom_type_text_forms(const document_finder& find,
+    load_cache& cache) {
+    return custom_type_column(find, cache, "Text form",
+        "projects/modeling/cpp_custom_types.org#text_form");
 }
 
 std::string ts_type(std::string_view cpp_type, const custom_types& custom) {

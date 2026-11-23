@@ -38,6 +38,8 @@ namespace compass::db::types {
 struct placement {
     std::string path;
     store::types::blob_id hash;
+
+    bool operator==(const placement&) const = default;
 };
 
 }

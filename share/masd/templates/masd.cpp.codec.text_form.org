@@ -1,0 +1,118 @@
+:PROPERTIES:
+:ID: 0B8D6889-28F9-4C84-B166-114854F63BCA
+:END:
+#+title: masd.cpp.codec.text_form
+#+description: text_form, the text a type takes on the wire, and its forms for a string, a path and an instant. Output projects/{component_dir}/include/{component_dir}/codec/text_form.hpp.
+#+type: archetype
+#+output: projects/{component_dir}/include/{component_dir}/codec/text_form.hpp
+#+facet: masd.cpp.codec
+#+level: cross
+#+filetags: :codegen:templates:literate:archetype:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is an archetype of the [[id:7D0FA277-D3F7-48E9-BCDF-7A88592119E3][masd.cpp.codec]] facet: one
+file of the JSON codec runtime, rendered into the component that switches
+the facet on.
+
+* Origin
+
+ORE Studio's
+=projects/ores.utility/include/ores.utility/codec/text_form.hpp= at commit
+=bc0702ad46b8a6097ce5242ece7ba01067699f60=.
+
+No =magic_enum= form for every enumeration: each enumeration's form is
+generated beside its type and states =names=. The tenant ID, date, time of
+day, decimal, address and uuid forms are left out: compass has none of those
+types. The instant is a =std::chrono::sys_time<std::chrono::microseconds>=,
+the C++ type of a =timestamptz= column, where ORE Studio's is a
+=system_clock::time_point=. No export macro.
+
+* Context
+
+The context is the library's values and =masd_component=: =codec_namespace=,
+=codec_root=, the directory the runtime's headers are included from, and
+=codec_guard_prefix=. The template switches the delimiters to =<% %>=,
+because the C++ it holds has braces of its own.
+
+* Template
+
+The template source. compass's =tangle= codec writes it to
+=masd_cpp_codec_text_form.hpp.mustache= beside this page.
+
+#+begin_src mustache :tangle masd_cpp_codec_text_form.hpp.mustache
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.codec.text_form.org. Edit the org source. }}
+{{=<% %>=}}
+<%& cpp_license%>
+<%#masd_component%>
+#ifndef <%codec_guard_prefix%>TEXT_FORM_HPP
+#define <%codec_guard_prefix%>TEXT_FORM_HPP
+
+#include <chrono>
+#include <filesystem>
+#include <string>
+#include <string_view>
+
+namespace <%codec_namespace%> {
+
+/**
+ * @brief The text a type takes on the wire.
+ *
+ * The types with a custom encoding whose wire form is a string state the
+ * spelling of that string once here, so the JSON carrier writes the text it
+ * reads, and a value that goes out comes back.
+ *
+ * A type that has a text form specialises this with three members: =wire_name=,
+ * which names it in a refusal, =to_text=, and =from_text=. An enumeration's form
+ * is generated beside the row that declares it, and also states =names=, the
+ * text of each enumerator in declaration order, which its schema reads, and
+ * =values=, the enumerators in the same order, which its samples read.
+ *
+ * The concrete forms are declared here and defined in text_form.cpp.
+ */
+template <typename T>
+struct text_form;
+
+/**
+ * @brief A string is its own text form.
+ */
+template <>
+struct text_form<std::string> {
+    static constexpr std::string_view wire_name = "a string";
+
+    static std::string to_text(const std::string& v);
+    static std::string from_text(std::string_view text);
+};
+
+/**
+ * @brief A filesystem path is its native string.
+ */
+template <>
+struct text_form<std::filesystem::path> {
+    static constexpr std::string_view wire_name = "a path";
+
+    static std::string to_text(const std::filesystem::path& v);
+    static std::filesystem::path from_text(std::string_view text);
+};
+
+/**
+ * @brief An instant's text form is the wire shape the time architecture
+ * states, six digits of microseconds and a UTC designator.
+ */
+template <>
+struct text_form<std::chrono::sys_time<std::chrono::microseconds>> {
+    static constexpr std::string_view wire_name = "an instant";
+
+    static std::string to_text(const std::chrono::sys_time<std::chrono::microseconds>& v);
+    static std::chrono::sys_time<std::chrono::microseconds> from_text(std::string_view text);
+};
+
+}
+
+#endif
+<%/masd_component%>
+#+end_src
+
+* See also
+
+- Parent facet: [[id:7D0FA277-D3F7-48E9-BCDF-7A88592119E3][masd.cpp.codec]]

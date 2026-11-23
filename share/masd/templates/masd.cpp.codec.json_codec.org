@@ -1,0 +1,458 @@
+:PROPERTIES:
+:ID: 63F58DC4-12F0-4C11-A75E-116DEEC34C24
+:END:
+#+title: masd.cpp.codec.json_codec
+#+description: json_codec, the JSON carrier: an object over its fields, a number, a truth value, an optional, an array and a map, and json::read and json::write. Output projects/{component_dir}/include/{component_dir}/codec/json_codec.hpp.
+#+type: archetype
+#+output: projects/{component_dir}/include/{component_dir}/codec/json_codec.hpp
+#+facet: masd.cpp.codec
+#+level: cross
+#+filetags: :codegen:templates:literate:archetype:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is an archetype of the [[id:7D0FA277-D3F7-48E9-BCDF-7A88592119E3][masd.cpp.codec]] facet: one
+file of the JSON codec runtime, rendered into the component that switches
+the facet on.
+
+* Origin
+
+ORE Studio's
+=projects/ores.utility/include/ores.utility/codec/json_codec.hpp= at commit
+=bc0702ad46b8a6097ce5242ece7ba01067699f60=.
+
+The reader refuses a member the shape does not state, naming it, and names
+the member a refusal of its value is about. The error code and duration
+carriers are left out: compass has neither type. =<cstdlib>= is included for
+=free=.
+
+* Context
+
+The context is the library's values and =masd_component=: =codec_namespace=,
+=codec_root=, the directory the runtime's headers are included from, and
+=codec_guard_prefix=. The template switches the delimiters to =<% %>=,
+because the C++ it holds has braces of its own.
+
+* Template
+
+The template source. compass's =tangle= codec writes it to
+=masd_cpp_codec_json_codec.hpp.mustache= beside this page.
+
+#+begin_src mustache :tangle masd_cpp_codec_json_codec.hpp.mustache
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.codec.json_codec.org. Edit the org source. }}
+{{=<% %>=}}
+<%& cpp_license%>
+<%#masd_component%>
+#ifndef <%codec_guard_prefix%>JSON_CODEC_HPP
+#define <%codec_guard_prefix%>JSON_CODEC_HPP
+
+#include "<%codec_root%>/text_form.hpp"
+#include "<%codec_root%>/wire_fields.hpp"
+#include <cstdint>
+#include <cstdlib>
+#include <expected>
+#include <limits>
+#include <map>
+#include <optional>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <tuple>
+#include <type_traits>
+#include <vector>
+#include <yyjson.h>
+
+namespace <%codec_namespace%> {
+
+template <typename T>
+struct json_codec;
+
+/**
+ * @brief An object, over a list of fields: one value carrying each field.
+ *
+ * This is where the recursion lives. A field's own value is whatever its
+ * member's carrier gives it, so a member that is itself a type with a wire form
+ * carries another object, a vector carries an array of them and an optional
+ * carries one or null -- no carrier knows any of those types by name. An empty
+ * optional is written as null rather than left out, so a reader sees every
+ * member; a reader still takes a member left out as empty. A reader refuses a
+ * member the shape does not state, and names the member a refusal is about.
+ */
+namespace detail {
+
+template <typename T, typename... Members>
+yyjson_mut_val*
+write_object(yyjson_mut_doc* doc, const T& v, const field_list<field<T, Members>...>& fields) {
+    auto* object = yyjson_mut_obj(doc);
+    if (object == nullptr)
+        throw std::runtime_error("Could not make a JSON object");
+    apply_fields(
+        [&](const auto&... f) {
+            (
+                [&] {
+                    // The key is copied into the document: the mutable API
+                    // stores the pointer it is given, so a key held anywhere
+                    // shorter-lived than the document would dangle between the
+                    // add and the render.
+                    auto* key = yyjson_mut_strncpy(doc, f.name.data(), f.name.size());
+                    auto* value = json_codec<Members>::write(doc, v.*(f.member));
+                    if (!yyjson_mut_obj_add(object, key, value))
+                        throw std::runtime_error("Could not add " + std::string(f.name) +
+                                                 " to a JSON object");
+                }(),
+                ...);
+        },
+        fields);
+    return object;
+}
+
+/**
+ * @brief Whether a member a document leaves out keeps its default.
+ *
+ * Set for the length of one read_lenient() call on this thread, so it reaches
+ * every object the read descends into and no other read.
+ */
+inline thread_local bool missing_keeps_default = false;
+
+template <typename T, typename... Members>
+void read_object(yyjson_val* v, T& out, const field_list<field<T, Members>...>& fields) {
+    if (!yyjson_is_obj(v))
+        throw std::invalid_argument("Not an object");
+    apply_fields(
+        [&](const auto&... f) {
+            (
+                [&] {
+                    using member_type = std::remove_cvref_t<decltype(out.*(f.member))>;
+                    auto* value = yyjson_obj_getn(v, f.name.data(), f.name.size());
+                    if (value == nullptr) {
+                        if constexpr (is_optional_member<member_type>)
+                            return;
+                        else if (detail::missing_keeps_default)
+                            return;
+                        else
+                            throw std::invalid_argument("Missing member: " + std::string(f.name));
+                    }
+                    try {
+                        out.*(f.member) = json_codec<Members>::read(value);
+                    } catch (const std::invalid_argument& e) {
+                        throw std::invalid_argument("In member " + std::string(f.name) + ": " +
+                                                    e.what());
+                    }
+                }(),
+                ...);
+        },
+        fields);
+    // A member the shape does not state is refused rather than dropped, so a
+    // misspelt name is an error and not a value silently left at its default.
+    yyjson_val* key = nullptr;
+    yyjson_obj_iter iter = yyjson_obj_iter_with(v);
+    while ((key = yyjson_obj_iter_next(&iter)) != nullptr) {
+        const std::string_view name(yyjson_get_str(key), yyjson_get_len(key));
+        const bool stated =
+            apply_fields([&](const auto&... f) { return ((f.name == name) || ...); }, fields);
+        if (!stated)
+            throw std::invalid_argument("Unknown member: " + std::string(name));
+    }
+}
+
+}
+
+/**
+ * @brief The JSON form of a type: one value appended to a document, and one
+ * value read back out of one.
+ *
+ * A type that states its own shape through =wire_fields= is an object, and its
+ * members are encoded by theirs. Every other type states its form through
+ * =text_form=, or has a specialisation further down for the shape a string does
+ * not cover: a number, a truth value, an absent value, an array.
+ *
+ * Writing takes the document because a value is built against it; reading takes
+ * the immutable value the parser produced.
+ */
+template <typename T>
+struct json_codec {
+    static yyjson_mut_val* write(yyjson_mut_doc* doc, const T& v) {
+        if constexpr (states_wire_form<T>) {
+            return detail::write_object(doc, v, wire_fields(std::type_identity<T>{}));
+        } else {
+            const auto text = text_form<T>::to_text(v);
+            return yyjson_mut_strncpy(doc, text.data(), text.size());
+        }
+    }
+
+    static T read(yyjson_val* v) {
+        if constexpr (states_wire_form<T>) {
+            T out{};
+            detail::read_object(v, out, wire_fields(std::type_identity<T>{}));
+            return out;
+        } else {
+            if (!yyjson_is_str(v))
+                throw std::invalid_argument("Not " + std::string(text_form<T>::wire_name) +
+                                            ": the JSON value is not a string");
+            return text_form<T>::from_text(std::string_view(yyjson_get_str(v), yyjson_get_len(v)));
+        }
+    }
+};
+
+/**
+ * @brief An integer is the second shape the wire states: a number, with no
+ * text in between.
+ *
+ * A type whose value is a number has no text form to state, and a generated
+ * field list holds every member a model declares -- a version number, a
+ * display order -- so the carriers have to cover numbers as well as text.
+ */
+template <typename T>
+    requires std::is_integral_v<T> && (!std::is_same_v<T, bool>)
+struct json_codec<T> {
+    static yyjson_mut_val* write(yyjson_mut_doc* doc, const T& v) {
+        if constexpr (std::is_signed_v<T>)
+            return yyjson_mut_sint(doc, static_cast<std::int64_t>(v));
+        else
+            return yyjson_mut_uint(doc, static_cast<std::uint64_t>(v));
+    }
+
+    static T read(yyjson_val* v) {
+        if (!yyjson_is_int(v))
+            throw std::invalid_argument("Not an integer: the JSON value is not one");
+        if constexpr (std::is_signed_v<T>) {
+            const auto number = yyjson_get_sint(v);
+            if (number < static_cast<std::int64_t>(std::numeric_limits<T>::min()) ||
+                number > static_cast<std::int64_t>(std::numeric_limits<T>::max()))
+                throw std::invalid_argument("Not an integer: " + std::to_string(number) +
+                                            " is out of range");
+            return static_cast<T>(number);
+        } else {
+            if (yyjson_is_sint(v) && yyjson_get_sint(v) < 0)
+                throw std::invalid_argument("Not an unsigned integer: the number is negative");
+            const auto number = yyjson_get_uint(v);
+            if (number > static_cast<std::uint64_t>(std::numeric_limits<T>::max()))
+                throw std::invalid_argument("Not an unsigned integer: " + std::to_string(number) +
+                                            " is out of range");
+            return static_cast<T>(number);
+        }
+    }
+};
+
+/**
+ * @brief A floating-point number is the format's real.
+ *
+ * The text is the shortest that reads back to the same value, which is what
+ * both writers produce, so a decimal amount keeps its spelling on the wire
+ * rather than growing digits on the way through.
+ */
+template <>
+struct json_codec<double> {
+    static yyjson_mut_val* write(yyjson_mut_doc* doc, const double& v) {
+        return yyjson_mut_real(doc, v);
+    }
+
+    static double read(yyjson_val* v) {
+        if (!yyjson_is_num(v))
+            throw std::invalid_argument("Not a number: the JSON value is not one");
+        return yyjson_get_num(v);
+    }
+};
+
+/**
+ * @brief A truth value is the third shape the wire states: the format's own
+ * =true= and =false=, not the word.
+ */
+template <>
+struct json_codec<bool> {
+    static yyjson_mut_val* write(yyjson_mut_doc* doc, const bool& v) {
+        return yyjson_mut_bool(doc, v);
+    }
+
+    static bool read(yyjson_val* v) {
+        if (!yyjson_is_bool(v))
+            throw std::invalid_argument("Not a truth value: the JSON value is not one");
+        return yyjson_get_bool(v);
+    }
+};
+
+/**
+ * @brief A value that may be absent is the null of the format, which is the
+ * one shape a string does not cover.
+ */
+template <typename T>
+struct json_codec<std::optional<T>> {
+    static yyjson_mut_val* write(yyjson_mut_doc* doc, const std::optional<T>& v) {
+        if (!v)
+            return yyjson_mut_null(doc);
+        return json_codec<T>::write(doc, *v);
+    }
+
+    static std::optional<T> read(yyjson_val* v) {
+        if (yyjson_is_null(v))
+            return std::nullopt;
+        return json_codec<T>::read(v);
+    }
+};
+
+/**
+ * @brief An array of values, each in its element's form.
+ */
+template <typename T>
+struct json_codec<std::vector<T>> {
+    static yyjson_mut_val* write(yyjson_mut_doc* doc, const std::vector<T>& v) {
+        auto* array = yyjson_mut_arr(doc);
+        for (const auto& e : v)
+            yyjson_mut_arr_append(array, json_codec<T>::write(doc, e));
+        return array;
+    }
+
+    static std::vector<T> read(yyjson_val* v) {
+        if (!yyjson_is_arr(v))
+            throw std::invalid_argument("Not an array: the JSON value is not an array");
+        std::vector<T> out;
+        out.reserve(yyjson_arr_size(v));
+        yyjson_val* e = nullptr;
+        yyjson_arr_iter iter = yyjson_arr_iter_with(v);
+        while ((e = yyjson_arr_iter_next(&iter)) != nullptr)
+            out.push_back(json_codec<T>::read(e));
+        return out;
+    }
+};
+
+/**
+ * @brief A map from names to values is an object: each key is a member name,
+ * in the map's order, and each value is in its element's form.
+ *
+ * A key that appears twice on read keeps its first value. The writer never
+ * writes a key twice, so only a foreign sender can produce one.
+ */
+template <typename T>
+struct json_codec<std::map<std::string, T>> {
+    static yyjson_mut_val* write(yyjson_mut_doc* doc, const std::map<std::string, T>& v) {
+        auto* object = yyjson_mut_obj(doc);
+        for (const auto& [name, value] : v) {
+            auto* key = yyjson_mut_strncpy(doc, name.data(), name.size());
+            if (!yyjson_mut_obj_add(object, key, json_codec<T>::write(doc, value)))
+                throw std::runtime_error("Could not add " + name + " to a JSON object");
+        }
+        return object;
+    }
+
+    static std::map<std::string, T> read(yyjson_val* v) {
+        if (!yyjson_is_obj(v))
+            throw std::invalid_argument("Not an object: the JSON value is not one");
+        std::map<std::string, T> out;
+        yyjson_val* key = nullptr;
+        yyjson_obj_iter iter = yyjson_obj_iter_with(v);
+        while ((key = yyjson_obj_iter_next(&iter)) != nullptr)
+            out.emplace(std::string(yyjson_get_str(key), yyjson_get_len(key)),
+                        json_codec<T>::read(yyjson_obj_iter_get_val(key)));
+        return out;
+    }
+};
+
+/**
+ * @brief The two conveniences a caller and a test reach for: a whole document
+ * from a value, and a value from a whole document.
+ */
+namespace json {
+
+template <typename T>
+std::string write(const T& v) {
+    yyjson_mut_doc* doc = yyjson_mut_doc_new(nullptr);
+    if (doc == nullptr)
+        throw std::runtime_error("Could not make a JSON document");
+    yyjson_mut_doc_set_root(doc, json_codec<T>::write(doc, v));
+    char* text = yyjson_mut_write(doc, 0, nullptr);
+    if (text == nullptr) {
+        yyjson_mut_doc_free(doc);
+        throw std::runtime_error("Could not render a JSON document");
+    }
+    std::string out(text);
+    free(text);
+    yyjson_mut_doc_free(doc);
+    return out;
+}
+
+template <typename T>
+T read(std::string_view text) {
+    yyjson_doc* doc = yyjson_read(text.data(), text.size(), 0);
+    if (doc == nullptr)
+        throw std::invalid_argument("Not JSON: " + std::string(text));
+    try {
+        const auto v = json_codec<T>::read(yyjson_doc_get_root(doc));
+        yyjson_doc_free(doc);
+        return v;
+    } catch (...) {
+        yyjson_doc_free(doc);
+        throw;
+    }
+}
+
+/**
+ * @brief The value the text states, or why it states none.
+ *
+ * For a caller that reports the reason, as a workflow step does when it fails
+ * a request it cannot decode.
+ */
+template <typename T>
+std::expected<T, std::string> read_expected(std::string_view text) noexcept {
+    try {
+        return read<T>(text);
+    } catch (const std::exception& e) {
+        return std::unexpected(std::string(e.what()));
+    }
+}
+
+/**
+ * @brief The value the text states, with every member it leaves out, at any
+ * depth, at its default.
+ *
+ * For a document a person writes by hand, whose every member has a default
+ * worth keeping.
+ */
+template <typename T>
+std::expected<T, std::string> read_lenient(std::string_view text) noexcept {
+    struct lenient {
+        lenient()
+            : stated(detail::missing_keeps_default) {
+            detail::missing_keeps_default = true;
+        }
+        ~lenient() {
+            detail::missing_keeps_default = stated;
+        }
+        bool stated;
+    } scope;
+    return read_expected<T>(text);
+}
+
+/**
+ * @brief The value the text states, or nothing when it states none this build
+ * can read.
+ *
+ * A document written by a peer that is a field ahead, or one this build cannot
+ * parse at all, is an answer a caller can act on rather than an exception it has
+ * to swallow.
+ */
+template <typename T>
+std::optional<T> try_read(std::string_view text) noexcept {
+    yyjson_doc* doc = yyjson_read(text.data(), text.size(), 0);
+    if (doc == nullptr)
+        return std::nullopt;
+    try {
+        auto v = json_codec<T>::read(yyjson_doc_get_root(doc));
+        yyjson_doc_free(doc);
+        return v;
+    } catch (...) {
+        yyjson_doc_free(doc);
+        return std::nullopt;
+    }
+}
+
+}
+
+}
+
+#endif
+<%/masd_component%>
+#+end_src
+
+* See also
+
+- Parent facet: [[id:7D0FA277-D3F7-48E9-BCDF-7A88592119E3][masd.cpp.codec]]
