@@ -63,6 +63,7 @@
 #include "compass.codec/ops/parallel_for.hpp"
 #include "compass.codec/ops/registry.hpp"
 #include "compass.codec/ops/run.hpp"
+#include "compass.codec/types/codec_failure.hpp"
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.ingest/org/parser.hpp"
 #include "compass.org/ops/document_fields.hpp"
@@ -1129,7 +1130,7 @@ std::string origin_of(const pipeline& p, std::string_view codec,
         if (d.origin == nullptr)
             return {};
         return d.origin({d.options, codec::ops::option_values(r,
-            ct::codec_id{c})}, content);
+            ct::codec_id{c})}, content, p.files.checkout);
     }
     return {};
 }
@@ -2310,7 +2311,21 @@ types::ratchet_result ratchet(const types::options& o,
         r.provenance = provenance_of(p, o, r.merge_base, head);
     auto at_base = o;
     at_base.commit = r.merge_base;
-    r.previous = check(at_base);
+    // A codec HEAD's configuration enables may need files the merge base
+    // lacks, such as a library HEAD adds. The base is checked without it,
+    // and with nothing at the base to excuse them its findings are new.
+    while (true) {
+        try {
+            r.previous = check(at_base);
+            break;
+        } catch (const codec::types::codec_failure& e) {
+            if (std::ranges::find(r.not_run_at_base, e.codec(),
+                    &types::codec_not_run::codec) != r.not_run_at_base.end())
+                throw;
+            r.not_run_at_base.push_back({e.codec(), e.what()});
+            at_base.settings.set(e.codec(), ct::enabled_key, "false");
+        }
+    }
     r.renames = renames_of(o.checkout, r.merge_base, head,
         r.previous.findings);
     r.split = ops::split_new(r.previous.findings, r.current.findings,

@@ -390,6 +390,9 @@ void write_ratchet(std::ostream& out, std::ostream& err,
     write_lines(err, "merge base: ", r.previous.run.errors);
     write_lines(err, "merge base: codec registry: ", r.previous.run.problems);
     write_findings(out, r.split.fresh);
+    for (const auto& c : r.not_run_at_base)
+        out << std::format("{} did not run at the merge base ({}), so its "
+                           "findings at HEAD are new\n", c.codec, c.why);
     write_provenance(out, r.provenance);
     write_blame(out, r.blame);
     const auto n = r.split.fresh.size();
