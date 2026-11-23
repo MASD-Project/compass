@@ -47,9 +47,11 @@ One change per finding of the review of
 [[https://github.com/MASD-Project/compass/pull/196][#196]].
 
 - *CI gate (1).* The release build of Continuous Linux runs the compass it
-  built on the checkout: =check --ratchet HEAD^1 --no-blame= on a pull
-  request, whose merge commit's first parent is main as merged, and plain
-  =check --no-blame= on a push or a scheduled run. The relevance guard now
+  built on a pull request's checkout: =check --ratchet HEAD^1 --no-blame=,
+  whose merge commit's first parent is main as merged, with
+  =document_index= off because its output is not committed. A push or a
+  scheduled run skips it: main holds 70 findings that only a base
+  excuses, and changes only through pull requests. The relevance guard now
   builds a change to a =modeling/= directory, =share/= or =.compass.org=,
   which it used to skip as documentation; those are what compass
   generates from.
@@ -106,6 +108,8 @@ task and name that file in the Command column.
 | Released migration 2 removed | main's freeze test passes (its catalog test fails); the new freeze test fails | the same | the same |
 | =bookkeeping_sql()= edited | main's tests pass; the new freeze test fails | the same | the same |
 | =check --ratchet= with a codegen library only HEAD has | main's sources exit 2; the fix exits 1 with the output not generated and 0 with it | =compass.cli.tests "ratchet reports a codec the merge base cannot run*"= | =c18777f= sources, =79e372c= |
+| The CI self-check in a fresh =--depth 2= clone, cold store | exit 0, 0 new, 614 documents parsed, 102.3 ms by compass's count | =compass check --no-blame --set document_index.enabled=false --ratchet HEAD^1= | =4de5568= |
+| The same after retyping =corpus.section.text= in its model and editing a template's org page, not regenerated | exit 1: =codegen/drift= on =schema.sql= and =tangle/drift= on the template | the same | =4de5568= with the edits |
 | A second checkout library without templates | main's sources name =extra/templates/=; the fix names =lib/templates/= | =compass.cli.tests "diff names the template in the library that holds it*"= | =c18777f= sources, =c357aa3= |
 
 * Notes
