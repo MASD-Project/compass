@@ -121,9 +121,10 @@ A campaign with runs cannot be deleted.
 
 * C++
 
-#176 has no C++ for this table; [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]]
-will need its row, reader and insert. The row the model generates is the
-specification of that code.
+The generated row is =compass::db::types::run_row= of
+=compass.db/types/run_row.hpp=. =:values:= on =outcome= generates =run_outcome=. Nothing reads or writes it yet:
+Record test campaigns writes the table with its own SQL. The profile leaves
+the COPY writer off.
 
 * Notes
 

@@ -12,7 +12,7 @@
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-22
-#+updated: 2026-11-22
+#+updated: 2026-11-23
 #+environment:
 #+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
 
@@ -22,9 +22,13 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 Every type compass models reads and writes JSON through generated code: row
 types (whose =jsonb= columns are JSON already), enums as their names, and the
-service's request and response messages. Each message also gets a generated
-JSON Schema, which the MCP tool descriptions embed. No JSON is encoded or
-decoded by hand anywhere in compass.
+service's request and response messages. The codec is ORE Studio's:
+=ores.cpp.wire-codec='s templates and the yyjson codec runtime, copied from
+ORE Studio's main into MASD now, without waiting on ORE Studio, as
+[[id:AF30B206-2FAB-435F-819F-9EC652D4E40D][Design: aligning the document service with ORE Studio's HTTP and MCP]] decides. A message's JSON Schema comes from its wire traits at run
+time, as ORE Studio's routes take it, so a route's schema and a tool's input
+schema are one value. No JSON is encoded or decoded by hand anywhere in
+compass.
 
 * Status
 
@@ -35,7 +39,7 @@ decoded by hand anywhere in compass.
 | Now          | Not yet started.                       |
 | Waiting on   | Generate compass's schema and row types (the row types); Model compass's service (the messages). |
 | Next         | Begin implementation.                  |
-| Last touched | 2026-11-22                               |
+| Last touched | 2026-11-23                               |
 
 * Acceptance
 
@@ -43,13 +47,15 @@ decoded by hand anywhere in compass.
   that rejects unknown and missing required fields with the field's name.
 - Round-trip tests are generated with them: write then read gives the value
   back, for every row type, enum and message.
-- Each message's JSON Schema is generated and validates what its writer
-  writes, checked in a test.
-- The JSON library is chosen in this task, measured against the design's
-  default (nlohmann-json), and is a vcpkg dependency that builds on Linux,
-  macOS and Windows.
-- ORE Studio's wire-codec templates are reused where they fit, with the
-  product root as a parameter, and the choice is recorded.
+- Each message's JSON Schema, from =json_schema<T>()=, validates what its
+  writer writes, checked in a test.
+- The templates are the =ores.cpp.wire-codec= family and the codec runtime
+  copied from ORE Studio's main into MASD, with the product root as a
+  parameter and the MessagePack archetype left off. The task records the ORE
+  Studio commit it copied from, and every change from it is a divergence the
+  design records.
+- The JSON underneath is yyjson, from vcpkg, on Linux, macOS and Windows.
+  nlohmann-json is not added.
 
 * Plan
 

@@ -7,12 +7,12 @@
 #+level: s1
 #+filetags: :own_the_masd_meta_model:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/generate-compass-schema
+#+pr: 196
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-22
-#+updated: 2026-11-22
+#+updated: 2026-11-23
 #+environment:
 #+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
 
@@ -30,12 +30,12 @@ same catalog; and report a change to a retained table that has no migration.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED |
 | Parent story | [[id:E3C81059-FE00-4403-AA56-190FDBB9904A][Own the MASD meta model and generate compass with it]] |
-| Now          | Not yet started.                       |
-| Waiting on   | [[id:B8F7849D-1477-4C30-80A1-49706AB2AA57][Generate compass's schema and row types]]. |
-| Next         | Begin implementation.                  |
-| Last touched | 2026-11-22                               |
+| Now          | In review in [[https://github.com/MASD-Project/compass/pull/196][#196]], stacked on [[https://github.com/MASD-Project/compass/pull/195][#195]]. |
+| Waiting on   | Review. |
+| Next         | Merge after Generate compass's schema and row types; pin each release's new migrations. |
+| Last touched | 2026-11-23 |
 
 * Acceptance
 
@@ -45,10 +45,36 @@ same catalog; and report a change to a retained table that has no migration.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+The safety net is three tests in =projects/compass.db/tests/ops_migrations_tests.cpp=,
+which run in the throwaway cluster every database test of =compass.db= uses.
 
+- *The catalog comparison.* One database gets the bookkeeping SQL and every
+  migration, through =io::migrate=; another gets the bookkeeping SQL and the
+  generated =sql/schema.sql=. Each catalog becomes a set of lines: schemas,
+  relations, columns in their order with type, nullability, identity,
+  generation and default, constraints, indexes and functions. The sets must
+  be equal; a failure prints the lines only one side builds.
+- *The retained-table check.* =schema.sql= says above each table of the
+  profile =activity-record= that it is retained. For each, every column the
+  migrations build must be in =schema.sql='s table with the same type; a
+  failure names the table and the column and says to add the migration that
+  says what becomes of it.
+- *Frozen migrations.* Each released migration is pinned by the blob ID of
+  its SQL. Editing migration 1 or 2 to absorb a model change fails, so the
+  only way to make the catalogs agree again is a new migration.
+
+Migrations stay where #176 put them, the SQL texts of
+=projects/compass.db/src/ops/migrations.cpp=, unchanged. Moving them to
+=.sql= files would rewrite the text of two released migrations for no gain
+in safety.
+
+*Was a v0.0.13 database created?* compass 0.0.13 is released and installed
+on this machine (=~/.local/opt/compass=). =compass db init= records its
+connection in =<git dir>/compass/local.org=; no such file exists under
+=/home/marco=, so no checkout here, compass's or ORE Studio's worktrees,
+has a database. Other machines and ORE Studio's environments elsewhere could
+not be checked, so migrations 1 and 2 are treated as released and frozen,
+and migration 1 is not replaced.
 * Measurements
 
 Every number this task claims about a tree, with the command that produced it
@@ -61,8 +87,11 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
-
+| The catalog of migrations 1 and 2 against =schema.sql='s | equal | =compass.db.tests "[migrations]"= | =922bbde= |
+| =activity.run.tester= retyped to =integer= in the model, regenerated, no migration | both catalog tests fail, naming =column \| activity.run \| 6 \| tester= on each side and the retained table | the same, after the edit | =922bbde=, edit reverted |
+| The same with a probe migration 3, =ALTER COLUMN tester TYPE integer= | all 3 tests pass | the same | =922bbde=, probe reverted |
+| Migration 1 edited by one space | the freeze test fails: "migration 1 shipped in a release" | =compass.db.tests "a released migration is never edited"= | =922bbde=, edit reverted |
+| =<git dir>/compass/local.org= files, which =compass db init= writes, under =/home/marco= | 0 | =find /home/marco -path '*/compass/local.org'= | 2026-11-23 |
 * Notes
 
 * Test Scenarios
@@ -80,8 +109,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
-
+| [[https://github.com/MASD-Project/compass/pull/196][#196]] | [db] Generate compass's schema, row types and COPY writers |
 * Review
 
 | # | Comment summary | File | Decision | Notes |

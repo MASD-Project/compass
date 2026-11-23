@@ -23,8 +23,9 @@
 #include <cstdint>
 #include <optional>
 #include <string>
-#include <string_view>
 #include <vector>
+#include "compass.db/types/run_row.hpp"
+#include "compass.db/types/step_result_row.hpp"
 
 namespace compass::db::types {
 
@@ -36,22 +37,6 @@ namespace compass::db::types {
 struct note_kinds {
     std::vector<std::string> names;
 };
-
-/**
- * @brief The outcome a tester gives one step of a run.
- */
-enum class step_outcome { pass, fail, blocked, skipped };
-
-/**
- * @brief The outcome of a finished run, derived from its steps' outcomes.
- */
-enum class run_outcome { passed, failed, blocked };
-
-/**
- * @brief Each outcome's name as the activity tables store it.
- */
-[[nodiscard]] std::string_view to_string(step_outcome o) noexcept;
-[[nodiscard]] std::string_view to_string(run_outcome o) noexcept;
 
 /**
  * @brief Starts a run of the scenario whose :ID: is scenario_id, as the

@@ -53,6 +53,7 @@ The step's =ord= in =test.step= of the scenario the run ran. It is a value, not 
 :PROPERTIES:
 :type:    text
 :values:  pass fail blocked skipped
+:enum:    step_outcome
 :END:
 
 The step's outcome.
@@ -77,9 +78,11 @@ Deleting a run deletes its step results.
 
 * C++
 
-#176 has no C++ for this table; [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]]
-will need its row, reader and insert. The row the model generates is the
-specification of that code.
+The generated row is =compass::db::types::step_result_row= of
+=compass.db/types/step_result_row.hpp=. =:enum: step_outcome= names the enumeration of =outcome=, as
+Record test campaigns named it. Nothing reads or writes it yet:
+Record test campaigns writes the table with its own SQL. The profile leaves
+the COPY writer off.
 
 * Notes
 

@@ -29,7 +29,15 @@ where each value came from. The command line wins over this page: =--out=,
 
 One row per codec: its name, =yes= or =no= for enabled, and its options as
 space-separated =key=value= pairs. A codec with no row runs on its
-defaults. =tangle= is off: the files it writes are not committed here.
+defaults. =tangle= writes the templates of the MASD library from their
+archetype pages under =share/masd/templates=, the one directory whose
+tangled files are committed. =codegen= generates compass from its own
+models with the MASD library under the project's library in
+=projects/compass.codegen/library=, which holds the component catalogue,
+the licence and the modelines. The MASD library is named by its checkout
+path, =share/masd=, not as =@compass=, the copy installed beside the
+binary: compass edits the library it generates itself with, and a template
+read from the checkout is an input whose change regenerates what it wrote.
 =no_pr_triggers= is off: ORE Studio removed its pull-request checks because
 they came late and missed the paths their workflows did not name, but
 compass's one Linux workflow covers every path and builds a pull request,
@@ -41,9 +49,10 @@ compass's own commits carry no story, task or environment trailers, so
 |-------------------+---------+--------------------------------------------------|
 | document_index    | yes     | path=build/output/compass/doc/document_index.tsv |
 | required_sections | yes     |                                                  |
-| tangle            | no      |                                                  |
+| tangle            | yes     | directory=share/masd/templates                   |
 | tangle_check      | yes     |                                                  |
 | check_inventory | yes | id=84B5F778-16CD-42D1-8F4C-B412DBE0C9C1 created=2026-11-21 updated=2026-11-21 |
 | rule_table        | yes     | path=doc/knowledge/compass/rule_table.org        |
 | no_pr_triggers    | no      |                                                  |
 | commit_provenance | no      |                                                  |
+| codegen | yes | library=share/masd,projects/compass.codegen/library product=compass year=2026 convention_component=db |

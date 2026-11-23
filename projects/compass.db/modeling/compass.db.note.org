@@ -133,15 +133,16 @@ A campaign with notes cannot be deleted.
 
 * C++
 
-#176 has no C++ for this table; [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]]
-will need its row, reader and insert. The row the model generates is the
-specification of that code.
+The generated row is =compass::db::types::note_row= of
+=compass.db/types/note_row.hpp=. =:values:= on =state= generates =note_state=, and the member starts at
+=note_state::open=, the default. Nothing reads or writes it yet:
+Record test campaigns writes the table with its own SQL. The profile leaves
+the COPY writer off.
 
 * Notes
 
-- =state= has both a default and a value list. The default is written as SQL
-  text (='open'=); a generated enumeration would need the default as a value
-  of the list, =open=, to initialise its member.
+- =state= has both a default and a value list: the default, ='open'=,
+  names the value its member starts with.
 - Nothing ties =state= to =reply=, =addressed_by= and =addressed_at=: the
   table lets an addressed note have no reply. The model states the table as
   it is.
