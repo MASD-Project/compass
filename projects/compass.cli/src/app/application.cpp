@@ -322,6 +322,7 @@ int run_command(const types::invocation& i, std::ostream& out,
     case types::command::env:
     case types::command::sync:
     case types::command::db:
+    case types::command::test:
         break;
     }
     return exit_failure;
@@ -356,6 +357,8 @@ int run(std::span<const std::string_view> args,
             return run_sync(invocation, out, err);
         if (invocation.which == types::command::db)
             return run_db(invocation, out, err);
+        if (invocation.which == types::command::test)
+            return run_test(invocation, out, err);
         return run_command(invocation, out, err);
     } catch (const std::exception& e) {
         err << "compass: " << e.what() << "\n";

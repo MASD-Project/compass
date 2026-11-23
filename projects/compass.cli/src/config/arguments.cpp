@@ -72,6 +72,8 @@ constexpr std::string_view help =
     "or rebase\n"
     "  db prune        drop the environments whose worktree is gone, then "
     "collect\n"
+    "  test export     write the environment's test campaigns into their "
+    "stories' folders\n"
     "\n"
     "options:\n"
     "  -C <dir>                    the checkout (default: the current "
@@ -101,6 +103,10 @@ constexpr std::string_view help =
     "  --environment <name>        sync: the environment to sync (default: "
     "#+environment: of the local settings, else the worktree's directory)\n"
     "                              db prune: drop this environment\n"
+    "                              test export: the environment whose "
+    "campaigns to export (default: as sync)\n"
+    "  --story <id>                test export: only the campaign of the "
+    "story with this :ID:\n"
     "  --database <conninfo>       db init: the libpq connection string to "
     "record in the repository's local settings\n"
     "  --text-search <config>      db init: the text search configuration "
@@ -163,6 +169,8 @@ std::optional<types::command> command_named(std::string_view name) {
         return types::command::sync;
     if (name == "db")
         return types::command::db;
+    if (name == "test")
+        return types::command::test;
     return std::nullopt;
 }
 
@@ -199,7 +207,7 @@ bool takes_value(std::string_view flag) {
         flag == "--var" || flag == "--file" || flag == "--adds" ||
         flag == "--removes" || flag == "--scope" ||
         flag == "--environment" || flag == "--database" ||
-        flag == "--text-search";
+        flag == "--text-search" || flag == "--story";
 }
 
 /**
@@ -312,8 +320,13 @@ std::optional<usage_error> db_usage(types::command which, bool has_action,
         return usage_error{"--database and --text-search apply to db init "
             "only"};
     const bool prune = is_db && o.db.action == db_action::prune;
-    if (!o.environment.empty() && which != types::command::sync && !prune)
-        return usage_error{"--environment applies to sync and db prune only"};
+    const bool test = which == types::command::test;
+    if (!o.environment.empty() && which != types::command::sync && !prune &&
+        !test)
+        return usage_error{"--environment applies to sync, db prune and test "
+            "export only"};
+    if (o.test.story && !test)
+        return usage_error{"--story applies to test export only"};
     if (which == types::command::sync && !o.revision.empty() &&
         o.environment.empty())
         return usage_error{"sync --commit needs --environment, the name of "
@@ -379,6 +392,7 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
     bool has_env_action = false;
     bool has_db_action = false;
     bool has_db_install = false;
+    bool has_test_action = false;
     for (std::size_t i = 0; i < args.size(); ++i) {
         const auto arg = args[i];
         if (arg == "--format-only") {
@@ -439,6 +453,13 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
                 if (auto e = db_word(arg, has_db_action, has_db_install,
                         o.db))
                     return *e;
+                continue;
+            }
+            if (which == types::command::test && !has_test_action) {
+                if (arg != "export")
+                    return usage_error{"unknown test action: " +
+                        std::string(arg)};
+                has_test_action = true;
                 continue;
             }
             if (which)
@@ -510,6 +531,10 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
             (arg == "--environment" ? o.environment
                 : arg == "--database" ? o.db.database
                                       : o.db.text_search) = value;
+        } else if (arg == "--story") {
+            if (value.empty() || value.starts_with("-"))
+                return bad_value();
+            o.test.story = std::string(value);
         } else if (arg == "--today") {
             o.today = codec::ops::parse_date(value);
             if (!o.today)
@@ -527,6 +552,8 @@ parsed_arguments parse_arguments(std::span<const std::string_view> args,
     }
     if (!which)
         return usage_error{"no command"};
+    if (*which == types::command::test && !has_test_action)
+        return usage_error{"test needs an action: export"};
     if (const auto e = env_usage(*which, has_env_action, env_flag, o))
         return *e;
     if (!gc_flag.empty() && *which != types::command::gc)

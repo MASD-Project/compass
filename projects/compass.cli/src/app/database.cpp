@@ -28,6 +28,7 @@
 #include <string>
 #include "compass.cli/app/application.hpp"
 #include "compass.cli/app/sync.hpp"
+#include "compass.cli/app/test_export.hpp"
 #include "compass.cli/config/local_settings.hpp"
 #include "compass.cli/io/listing.hpp"
 #include "compass.db/io/connection.hpp"
@@ -292,6 +293,35 @@ int run_sync(const types::invocation& i, std::ostream& out,
         return report.errors.empty() ? exit_success : exit_findings;
     } catch (const std::exception& e) {
         err << "compass: sync: " << e.what() << "\n";
+    }
+    return exit_failure;
+}
+
+int run_test(const types::invocation& i, std::ostream& out,
+    std::ostream& err) {
+    try {
+        const auto s = settings_of(i.checkout);
+        auto c = connect(s);
+        db::io::require_current(c);
+        const auto environment = config::environment_name(i.checkout, s,
+            i.environment);
+        const auto r = export_campaigns(c, i.checkout, environment,
+            i.test.story);
+        for (const auto& path : r.written)
+            out << "compass: wrote " << path << "\n";
+        out << std::format("compass: exported {} test campaigns of {}: {} "
+            "files written, {} unchanged\n", r.campaigns, environment,
+            r.written.size(), r.unchanged);
+        if (r.not_png != 0)
+            out << std::format("compass: {} screenshots are JPEG, GIF or "
+                "WebP, not PNG, and were written as they are\n", r.not_png);
+        for (const auto& story : r.skipped)
+            err << "compass: warning: the campaign of story " << story
+                << " was not exported: " << environment << " no longer "
+                "holds the story's page\n";
+        return r.skipped.empty() ? exit_success : exit_findings;
+    } catch (const std::exception& e) {
+        err << "compass: test export: " << e.what() << "\n";
     }
     return exit_failure;
 }

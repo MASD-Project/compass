@@ -1,0 +1,113 @@
+:PROPERTIES:
+:ID: 42967863-F931-4D04-AF82-2CF47C9758FE
+:END:
+#+title: Document type: test_campaign
+#+description: The contract for the test_campaign document type: one story's test runs and notes on one environment, exported.
+#+type: meta
+#+level: cross
+#+filetags: :meta:document_types:test_campaign:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page defines the =test_campaign= document type — one entry in the
+[[id:8B29A8D8-E004-4E87-B81D-ABEAF68F2B98][document types]] taxonomy. The general contract every document follows
+(frontmatter, state, linking, tags) lives on the taxonomy page; this
+page carries only what is specific to =test_campaign=.
+
+* Contract
+
+- Implements :: recording. See
+  [[id:F5CB5A45-6557-410B-9E4F-542957561A16][Regulatory Functions]]. A test
+  campaign is one story's test scenarios run on one environment: the runs
+  testers recorded, their step results and screenshots, and the notes left
+  on the campaign. Testers record it in compass's service, which has no git;
+  a developer exports it to git with =compass test export --environment
+  <env> [--story <id>]=.
+- Folder :: =<story folder>/test_campaign_<campaign id>.org=, beside the
+  story's =story.org=, with its screenshots in the folder
+  =test_campaign_<campaign id>/= next to the page.
+- Level :: =s1=, like the tasks and scenarios of the story.
+- Title :: =Test Campaign: <story title> on <environment>=.
+- TODO vocabulary :: =TODO | DONE=, for the notes only: an open note is
+  =TODO=, an addressed one =DONE=. The page itself has no state and no
+  =* Status= table.
+- Written, not edited :: the export writes every byte of the page from the
+  database, so an edit by hand is lost at the next export. To change a
+  campaign, record in the service and export again.
+- Live, not evidence :: a campaign page is the record of the campaign, kept
+  up to date by each export, so it carries no =evidence= tag, sits in the
+  story's folder, not under =evidence/=, and is held to this contract.
+- Identity :: the page's =:ID:= and file name come from the campaign's id,
+  each run's and each note's =:ID:= from the run's and the note's, so a
+  second export rewrites the same files and duplicates nothing. An =:ID:=
+  is the SHA-1 of =compass test_campaign <environment> <story :ID:>
+  <campaign id>=, followed by = run <id>= or = note <id>= for a run or a
+  note, laid out as a version 5 UUID.
+- Unchanged is untouched :: a file whose bytes the export would not change
+  is not written, so exporting an unchanged campaign leaves the tree as it
+  is. =#+created:= is the day the campaign opened and =#+updated:= the day
+  of its latest run or note, never the day of the export.
+- Frontmatter :: the standard set, with =#+filetags:= those of a task in
+  the same folder (the story's slug, its sprint and its version) and
+  =#+environment:= the environment the campaign ran on.
+- Screenshots :: each in the screenshot folder, named by the blob ID of its
+  bytes, so a screenshot attached twice is one file. A PNG is =.png=;
+  JPEG, GIF and WebP screenshots are written as the tester attached them,
+  not converted, as =.jpg=, =.gif= and =.webp=. Each is linked with
+  =[[file:test_campaign_<id>/<blob id>.<ext>]]= from the run or note that
+  holds it, with the step and caption.
+- Escaping :: text a tester typed goes into an =example= block, with a
+  line org would read as a heading or a keyword escaped by a leading comma
+  as org escapes it; in a table cell it is on one line with each =|= written
+  =\vert{}=. Nothing a tester types becomes a heading.
+- Scenario pages :: the export never writes a =test_scenario= page; the
+  results live on the campaign page.
+- How to create :: =compass test export=; never by hand.
+- Required sections (in this order) ::
+  - /Blurb/ — opens with =This page records a
+    [[id:42967863-F931-4D04-AF82-2CF47C9758FE][test campaign]] of
+    [[id:<story id>][<story title>]] on the <environment> environment.=
+  - =* Campaign= — a table of =Story=, =Sprint=, =Environment=, =Opened=,
+    =Runs= (with how many are in progress) and =Notes= (open and
+    addressed).
+  - =* Scenarios= — a heading per scenario the campaign ran or a note
+    names, linking the scenario page, in title order. Under it a heading
+    per run, =Run <id>: <outcome>= (=passed=, =failed=, =blocked= or =in
+    progress=), with its =:ID:=, a table of =Tester=, =Started=,
+    =Finished=, =Definition= (the first twelve digits of the definition's
+    blob ID) and =Outcome=, a table of its steps (=Step= from 1, =Title=,
+    =Outcome=, =Notes=), and its screenshots. A scenario with no run says
+    =No runs.=
+  - =* Notes= — a heading per note kind, in name order, and under it a
+    heading per note, =TODO= or =DONE= =Note <id> on <scenario link>, step
+    <n>= (or =on the campaign=), with its =:ID:=, a table of =Author=,
+    =Written= and, once addressed, =Addressed by= and =Addressed=, its text,
+    the reply when there is one, and its screenshots. With no notes it says
+    =No notes.=
+
+* Example
+
+#+begin_src org
+,:PROPERTIES:
+,:ID: 7D1E0C55-1B0A-5F43-9A2E-5C8B1F4E2D10
+,:END:
+,#+title: Test Campaign: Serve the documents on bright_faraday
+,#+description: The test runs and notes of a story's scenarios on the bright_faraday environment.
+,#+type: test_campaign
+,#+level: s1
+,#+filetags: :serve_the_documents:sprint_01:v0:
+,#+created: 2026-11-20
+,#+updated: 2026-11-23
+,#+environment: bright_faraday
+,#+todo: TODO | DONE
+
+This page records a [[id:42967863-F931-4D04-AF82-2CF47C9758FE][test campaign]] of ...
+
+,* Campaign
+,* Scenarios
+,** [[id:<scenario id>][Test Scenario: Log in]]
+,*** Run 12: failed
+,* Notes
+,** defect
+,*** DONE Note 2 on [[id:<scenario id>][Test Scenario: Log in]], step 2
+#+end_src

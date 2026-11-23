@@ -43,6 +43,14 @@ int run_sync(const types::invocation& i, std::ostream& out,
     std::ostream& err);
 
 /**
+ * @brief compass test export: writes the test campaigns of an environment
+ * into their stories' folders in the checkout, as export_campaigns does.
+ * @returns the exit status.
+ */
+int run_test(const types::invocation& i, std::ostream& out,
+    std::ostream& err);
+
+/**
  * @brief The sync at the end of a run over the worktree @p checkout. Does
  * nothing, and reads nothing but the local settings, when no database is
  * configured. A sync that fails is reported on @p err as a warning and
