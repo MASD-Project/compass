@@ -19,35 +19,62 @@
  */
 #include "compass.cli/app/test_export.hpp"
 
+#include <cstddef>
 #include <cstdint>
+#include <stdexcept>
+#include <string>
+#include <vector>
 #include "compass.db/ops/campaign_page.hpp"
 #include "compass.db/query/campaign_export.hpp"
 #include "compass.platform/filesystem/new_file.hpp"
 
 namespace compass::cli::app {
 
+namespace {
+
+/**
+ * @brief @p relative under @p checkout.
+ * @throws std::runtime_error when @p relative is absolute or climbs out of
+ * the checkout.
+ */
+std::filesystem::path inside(const std::filesystem::path& checkout,
+    const std::string& relative) {
+    const auto path = std::filesystem::path(relative).lexically_normal();
+    if (path.has_root_path() || path.empty() || *path.begin() == "..")
+        throw std::runtime_error("refusing to write " + relative +
+            ", which is outside the checkout");
+    return checkout / path;
+}
+
+}
+
 export_report export_campaigns(db::io::connection& c,
     const std::filesystem::path& checkout, const std::string& environment,
     const std::optional<std::string>& story) {
     export_report out;
     std::vector<std::int64_t> exported;
-    for (const auto& campaign : db::query::read_campaigns(c, environment,
-             story)) {
+    const auto snapshot = db::query::read_campaigns(c, environment, story);
+    for (const auto& campaign : snapshot.campaigns) {
         if (campaign.story_path.empty()) {
             out.skipped.push_back(campaign.story_id);
             continue;
         }
         for (const auto& image : campaign.images)
             out.not_png += image.media_type == "image/png" ? 0 : 1;
-        for (const auto& f : db::ops::render_campaign(campaign)) {
-            if (platform::filesystem::update_file(checkout / f.path, f.bytes))
+        const auto files = db::ops::render_campaign(campaign);
+        std::vector<std::filesystem::path> paths;
+        for (const auto& f : files)
+            paths.push_back(inside(checkout, f.path));
+        for (std::size_t i = 0; i < files.size(); ++i) {
+            const auto& f = files[i];
+            if (platform::filesystem::update_file(paths[i], f.bytes))
                 out.written.push_back(f.path);
             else
                 ++out.unchanged;
         }
         exported.push_back(campaign.id);
     }
-    db::query::mark_exported(c, exported);
+    db::query::mark_exported(c, exported, snapshot.taken_at);
     out.campaigns = exported.size();
     return out;
 }

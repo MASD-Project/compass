@@ -57,9 +57,13 @@ page carries only what is specific to =test_campaign=.
   =[[file:test_campaign_<id>/<blob id>.<ext>]]= from the run or note that
   holds it, with the step and caption.
 - Escaping :: text a tester typed goes into an =example= block, with a
-  line org would read as a heading or a keyword escaped by a leading comma
-  as org escapes it; in a table cell it is on one line with each =|= written
-  =\vert{}=. Nothing a tester types becomes a heading.
+  line org would read as a heading or a keyword escaped as org escapes it,
+  by a comma after its indentation; in a table cell or a caption it is on
+  one line with each =|= written =\vert{}= and a zero-width space between
+  the two brackets of each =[[= and =]]=, as =org-link-make-string= writes
+  them, and before the colon of a plain link such as =id:X=. A page title
+  used as a link description is escaped the same way.
+  Nothing a tester types becomes a heading, a cell or a link.
 - Scenario pages :: the export never writes a =test_scenario= page; the
   results live on the campaign page.
 - How to create :: =compass test export=; never by hand.

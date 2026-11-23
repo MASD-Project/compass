@@ -23,9 +23,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <format>
+#include <functional>
 #include <map>
 #include <optional>
+#include <string>
 #include <string_view>
+#include <vector>
 #include "compass.store/ops/blob_hash.hpp"
 
 namespace compass::db::ops {
@@ -46,12 +49,42 @@ std::string one_line(std::string_view s) {
 }
 
 /**
- * @brief @p s as a table cell: on one line, with each | written as the
- * entity \vert{}, which org shows as a bar without ending the cell.
+ * @brief U+200B in UTF-8, which org-link-make-string puts between two
+ * brackets so they cannot open or close a link.
+ */
+constexpr std::string_view zero_width_space = "\xE2\x80\x8B";
+
+bool is_letter(char ch) {
+    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z');
+}
+
+/**
+ * @brief @p s on one line, with a zero-width space between the brackets of
+ * each [[ and ]], and between a word and a colon that a non-blank follows,
+ * so it holds neither a bracket link nor a plain one such as id:X.
+ */
+std::string inert(std::string_view s) {
+    const auto line = one_line(s);
+    std::string out;
+    for (std::size_t i = 0; i < line.size(); ++i) {
+        if (line[i] == ':' && i > 0 && is_letter(line[i - 1]) &&
+            i + 1 < line.size() && line[i + 1] != ' ')
+            out += zero_width_space;
+        out += line[i];
+        if ((line[i] == '[' || line[i] == ']') && i + 1 < line.size() &&
+            line[i + 1] == line[i])
+            out += zero_width_space;
+    }
+    return out;
+}
+
+/**
+ * @brief @p s as a table cell: inert, with each | written as the entity
+ * \vert{}, which org shows as a bar without ending the cell.
  */
 std::string cell(std::string_view s) {
     std::string out;
-    for (const auto ch : one_line(s)) {
+    for (const auto ch : inert(s)) {
         if (ch == '|')
             out += "\\vert{}";
         else
@@ -61,11 +94,17 @@ std::string cell(std::string_view s) {
 }
 
 /**
- * @brief The width org gives @p s: its code points, not its bytes.
+ * @brief The width org gives @p s: its code points, not its bytes, less
+ * each zero-width space.
  */
 std::size_t width(std::string_view s) {
-    return static_cast<std::size_t>(std::ranges::count_if(s,
-        [](char ch) { return (static_cast<unsigned char>(ch) & 0xC0) != 0x80; }));
+    std::size_t n = 0;
+    for (const auto ch : s)
+        n += (static_cast<unsigned char>(ch) & 0xC0) != 0x80 ? 1 : 0;
+    for (auto at = s.find(zero_width_space); at != std::string_view::npos;
+         at = s.find(zero_width_space, at + 1))
+        --n;
+    return n;
 }
 
 /**
@@ -109,8 +148,8 @@ private:
 /**
  * @brief @p text in an example block, verbatim. A line that org would
  * read as a heading or a keyword, such as the block's own end line, is
- * escaped as org escapes it, with a leading comma, which org drops when it
- * shows the block.
+ * escaped as org escapes it, with a comma after its indentation, which org
+ * drops when it shows the block.
  */
 void example(std::string& out, std::string_view text) {
     while (!text.empty() && (text.back() == '\n' || text.back() == '\r'))
@@ -122,21 +161,30 @@ void example(std::string& out, std::string_view text) {
         auto line = text.substr(at, end - at);
         if (line.ends_with('\r'))
             line.remove_suffix(1);
-        auto rest = line.substr(std::min(line.find_first_not_of(" \t"),
-            line.size()));
+        const auto blanks = std::min(line.find_first_not_of(" \t"),
+            line.size());
+        auto rest = line.substr(blanks);
         rest.remove_prefix(std::min(rest.find_first_not_of(','),
             rest.size()));
+        out += line.substr(0, blanks);
         if (rest.starts_with('*') || rest.starts_with("#+"))
             out += ',';
-        out += line;
+        out += line.substr(blanks);
         out += '\n';
         at = end + 1;
     }
     out += "#+end_example\n";
 }
 
+/**
+ * @brief A link to @p id described by @p text as a cell, so it can sit in
+ * a table; a final ] gets a zero-width space so it does not close the link.
+ */
 std::string link(std::string_view id, std::string_view text) {
-    return std::format("[[id:{}][{}]]", id, one_line(text));
+    auto description = cell(text);
+    if (description.ends_with(']'))
+        description += zero_width_space;
+    return std::format("[[id:{}][{}]]", id, description);
 }
 
 std::string_view extension_of(std::string_view media_type) {
@@ -211,11 +259,12 @@ void screenshots(std::string& out, const page_context& p,
     out += "\nScreenshots:\n\n";
     for (const auto& s : shots) {
         out += std::format("- [[file:{}/{}.{}]]", p.images_folder,
-            s.attachment, p.extensions.find(s.attachment)->second);
+            s.attachment, p.extensions.at(s.attachment));
         if (s.step_ord)
             out += std::format(", {}", step_name(*s.step_ord));
-        if (s.caption && !one_line(*s.caption).empty())
-            out += std::format(": {}", one_line(*s.caption));
+        const auto caption = s.caption ? inert(*s.caption) : std::string();
+        if (!caption.empty())
+            out += std::format(": {}", caption);
         out += "\n";
     }
 }

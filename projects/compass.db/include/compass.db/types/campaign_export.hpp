@@ -146,6 +146,15 @@ struct campaign_rows {
 };
 
 /**
+ * @brief The campaigns one export reads, and the time of the snapshot it
+ * read them in, as PostgreSQL writes a timestamptz.
+ */
+struct campaign_snapshot {
+    std::string taken_at;
+    std::vector<campaign_rows> campaigns;
+};
+
+/**
  * @brief A file the export writes: its path, relative to the checkout,
  * and its exact bytes.
  */

@@ -32,21 +32,24 @@ namespace compass::db::query {
 
 /**
  * @brief The rows of every campaign of @p environment, or only that of the
- * story whose :ID: is @p story, in id order, read in one snapshot. A
- * campaign whose story the environment no longer holds has an empty
- * story_path.
+ * story whose :ID: is @p story, in id order, read in one snapshot, with
+ * the time of that snapshot. A campaign whose story the environment no
+ * longer holds has an empty story_path.
  * @throws unknown_environment when the environment does not exist.
  * @throws io::error when a statement fails.
  */
-[[nodiscard]] std::vector<types::campaign_rows> read_campaigns(
+[[nodiscard]] types::campaign_snapshot read_campaigns(
     io::connection& c, const std::string& environment,
     const std::optional<std::string>& story);
 
 /**
- * @brief Sets exported_at of each campaign of @p ids to now.
+ * @brief Sets exported_at of each campaign of @p ids to @p taken_at, the
+ * time of the snapshot they were exported from, so nothing recorded after
+ * it counts as exported.
  * @throws io::error when the statement fails.
  */
-void mark_exported(io::connection& c, std::span<const std::int64_t> ids);
+void mark_exported(io::connection& c, std::span<const std::int64_t> ids,
+    const std::string& taken_at);
 
 }
 
