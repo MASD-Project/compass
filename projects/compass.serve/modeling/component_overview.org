@@ -1,0 +1,113 @@
+:PROPERTIES:
+:ID: 277ECB9A-5B6A-4235-9207-D5EC3AB816C0
+:END:
+#+title: compass.serve
+#+description: compass's document service: the HTTP routes and MCP tools over the corpus, the sprint and the test campaigns, generated from operation models. Only its models exist so far.
+#+type: component
+#+level: cross
+#+filetags: :service:http:mcp:component:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is the component overview for =compass.serve=, a simple component
+of the [[id:8A9A460F-8024-4890-B091-C0D02FD84218][System Model]]. It is
+planned: only =modeling/= exists, and it is not a CMake target yet.
+
+* Summary
+
+=compass.serve= will answer HTTP at =/v1/...= and MCP at =/mcp= for a
+repository's documents, as
+[[id:21C1D3CC-9EE3-48C3-8EDD-BA0C16032AB2][Design: the document service]]
+describes. Its routes and MCP tool descriptions are to be generated from the
+operation models in =modeling/=, which state each request and response
+message, the route that reaches it and the route's place in the catalogue
+an agent walks, as ORE Studio's routes declare theirs. The query
+functions that answer stay hand-written in =compass.db=; a route and a tool
+bind a request and call one of them.
+
+The models are written ahead of the code, so the JSON codecs and the service
+templates have a complete description to generate from.
+[[id:7FD52505-1436-4925-A1DE-4A3EC88F0133][Investigation: How compass generates itself]]
+sketched the form for search.
+
+The design puts the query layer in =compass.serve=; it was built in
+=compass.db=, whose functions take the hand-written messages of
+=compass.db/types=. The models therefore state =#+namespace:
+compass::db::types=. compass's codegen writes a model's outputs under the
+model's own component, so before the messages are generated either the
+query functions move here or the protocol facet learns to write into
+=compass.db=. The routes stay here either way, so =compass.db= never
+depends on the HTTP server's libraries.
+
+* Inputs
+
+Requests from a project's gateway, which authenticates the caller and names
+its view and its name in two headers, and from local agents over MCP.
+
+* Outputs
+
+None yet.
+
+* Entry points
+
+None yet.
+
+* Dependencies
+
+Planned: =compass.db= for the queries and the campaign writes, =compass.html=
+for a document's HTML, =cpp-httplib= and a JSON library.
+
+* Models
+
+The operation models are of =#+type: masd.codegen.operation=. A request
+message states its route and its place in the catalogue in its drawer; each
+field states where its value comes from. Messages without a route are the
+responses and the types they hold.
+
+| Model | Messages | Routes and tools | Entities |
+|-------+----------+------------------+----------|
+| [[id:4152E925-E32D-40C3-AFF1-24F2AB244C5F][compass.serve.document_queries]] | 24 | 8 | =document=, =environment=, =service= |
+| [[id:F117FAAE-CA74-45EB-8FEB-6F5D82FB7550][compass.serve.testing_queries]] | 10 | 2 | =sprint= |
+| [[id:DDEE277B-8F90-49E1-8D17-6A43B990C79E][compass.serve.campaign_writes]] | 11 | 6 | =campaign= |
+
+Every route is in the area =documents=.
+
+** Properties
+
+ORE Studio's operation model reaches a message over NATS: =:subject:=,
+=:response:=, =:http_route:=. These models state how HTTP and MCP reach it.
+The catalogue properties, =:tool:=, =:area:=, =:entity:=, =:writes:= and
+=:summary:=, are the members of ORE Studio's =route_catalogue=
+(=ores.http.api/domain/route.hpp=), whose gate refuses a route that names no
+tool, area or entity. Each property needs a feature page once the MASD pages
+move to compass.
+
+On a request message:
+
+| Property | Values | Meaning |
+|----------+--------+---------|
+| =:response:= | a message | The message answered. Absent when the call answers nothing (HTTP 204). Read by compass today. |
+| =:http_method:= | =get=, =post=, =put=, =patch=, =delete= | The HTTP verb. |
+| =:http_path:= | a path | The route under the server's root, versioned, each ={field}= a placeholder filled from the request field of that name. |
+| =:tool:= | a name | The route's stable name in the catalogue, and the MCP tool that takes this request. No path change moves it. |
+| =:area:= | a published area | The first step an agent takes into the catalogue. |
+| =:entity:= | a name | The collection within the area. |
+| =:writes:= | =true=, =false= | Whether the call changes anything; the method alone does not say. A route that does not write sets MCP's =readOnlyHint=. |
+| =:summary:= | text | The tool's title. Its description is the message's prose, and each argument's is the field's prose. The request message is the typed body whose schema the tool exposes. |
+| =:caller:= | =view=, =view name= | What the gateway must present: the view on every call, the caller's name too on a write. A request missing one is refused before any binding. |
+
+On a field:
+
+| Property | Values | Meaning |
+|----------+--------+---------|
+| =:cpp_type:= | a C++ type | The member's type. Read by compass today. |
+| =:default:= | a C++ initialiser | The member's default; a request field with one may be left out. Read by compass today. |
+| =:http_in:= | =path=, =query=, =body=, =caller= | Where the route reads the field: a path placeholder, a query parameter, a member of the JSON body, or the caller's name header. A =caller= field is not an MCP argument. A message-typed field read from the query spreads into one parameter per member. |
+| =:http_name:= | a name | The query parameter's name, when it is not the field's. |
+| =:values:= | names | A closed list: the enumeration a field of an enumerated type takes, or the only text values a string field accepts. As on an entity model's column. |
+
+* See also
+
+- [[id:21C1D3CC-9EE3-48C3-8EDD-BA0C16032AB2][Design: the document service]], "Interfaces".
+- [[id:493B7D68-516E-4430-B4CE-688C6FBE1271][compass.db]], which holds the query functions and, today, the hand-written request and response types.
+- [[id:8A0E6F32-C4BC-4667-88E8-7F80CA25437C][Component architecture]].

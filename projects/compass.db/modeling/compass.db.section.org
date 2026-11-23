@@ -53,6 +53,7 @@ The row's place among its document's rows of this table, from 0. It is the index
 :type:      integer
 :cpp_type:  std::uint32_t
 :nullable:  true
+:member:    heading
 :END:
 
 The =ord= of the section's heading in =corpus.heading=; NULL for the preamble. The row type names the member =heading=, not =heading_ord=; see Notes.
@@ -105,22 +106,19 @@ The document this row belongs to. Deleting the document deletes the row.
 * C++
 
 The row is =compass::db::types::section_row= of
-=compass.db/types/corpus_document.hpp=: =std::optional<std::uint32_t>
+=compass.db/types/section_row.hpp=, generated: =std::optional<std::uint32_t>
 heading= and =std::string text=. =hash= and =ord= are left out by their key
-kinds and =tsv= because the writer computes it.
+kinds and =tsv= because the writer computes it; =write_copy= of
+=compass.db/io/section_copy.hpp= takes the hash and the ord beside the row.
 
 * Notes
 
-- The member is =heading= and the column =heading_ord=. The model has no
-  property for a member name that differs from its column, so a row
-  generated from it names the member =heading_ord=, and #176's code that
-  reads =section_row::heading= would not compile against it.
-- The =COPY= staging of #176 carries a column the table lacks: the heading
-  path joined to text, which only the =tsv= expression reads
-  (=stage_section (hash, ord, heading_ord, path, text)=). The model cannot
-  state an input a computed column needs that is not itself a column.
-- The expression of =tsv= is prose here. No property carries it, and it
-  joins the staged document row, so it belongs to the writer, not the table.
+- =:member: heading= names the member of the column =heading_ord=.
+- The weight-B input of =tsv= is the heading's path. #176 staged it as a
+  column the table lacks; the insert now joins the staged heading and joins
+  its =path= with " / ", so every staged column is a column of the table.
+- The expression of =tsv= stays the writer's: it reads the staged document's
+  title and the configured =regconfig=, which a generated column cannot.
 
 * See also
 

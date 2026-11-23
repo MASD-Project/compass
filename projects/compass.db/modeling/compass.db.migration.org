@@ -56,19 +56,17 @@ When it was applied. The database writes it.
 
 * C++
 
-None. =schema_status= of =compass.db/io/schema.hpp= reads the version as a
+None: the profile =bookkeeping= switches every MASD facet off.
+=schema_status= of =compass.db/io/schema.hpp= reads the version as a
 =std::uint32_t=, and =migrate= inserts =version= and =name= with =exec=.
 
 * Notes
 
-- The table is created by =bookkeeping_sql()= with =CREATE TABLE IF NOT
-  EXISTS=, before and outside the numbered migrations, so it can never be
-  created by one. The model cannot say =IF NOT EXISTS=, and it should not:
-  the bookkeeping SQL stays hand-written, and a generated =schema.sql=
-  leaves this schema out.
-- The [[id:02089780-F445-4220-89E1-3CBCA0347B37][task]]'s acceptance keeps the schema =compass= hand-written. This
-  model exists so the product owner reviews every table in one form; whether
-  it stays is the product owner's call.
+The table is created by =bookkeeping_sql()= with =CREATE TABLE IF NOT
+EXISTS=, before and outside the numbered migrations, so no migration and no
+=schema.sql= creates it: the schema model does not list the schema
+=compass=, and the profile generates nothing. The model stays so every table
+is reviewed in one form.
 
 * See also
 

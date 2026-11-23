@@ -30,6 +30,12 @@
 namespace compass::codegen::ops {
 
 /**
+ * @brief The root of the MASD library's technical spaces, which the graph
+ * holds beside the product's own.
+ */
+inline constexpr std::string_view masd_root = "masd";
+
+/**
  * @brief One <root>.*.org node document of the template library: its file
  * name and its text.
  */

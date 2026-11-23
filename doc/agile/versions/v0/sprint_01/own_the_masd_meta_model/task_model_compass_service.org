@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :own_the_masd_meta_model:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/model-compass-service
+#+pr: https://github.com/MASD-Project/compass/pull/193
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-22
@@ -33,12 +33,12 @@ write the operation models of Serve the documents' endpoints and tools, as
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                                |
 | Parent story | [[id:E3C81059-FE00-4403-AA56-190FDBB9904A][Own the MASD meta model and generate compass with it]] |
-| Now          | Not yet started.                       |
-| Waiting on   | [[id:BECA92D2-95DA-46B4-9D3E-AC30FDDB7294][Move the MASD pages and templates to compass]]. |
-| Next         | Begin implementation.                  |
-| Last touched | 2026-11-23                               |
+| Now          | Started early: three operation models in =projects/compass.serve/modeling/= cover every endpoint and tool of the design, for the product owner's review. |
+| Waiting on   | [[id:BECA92D2-95DA-46B4-9D3E-AC30FDDB7294][Move the MASD pages and templates to compass]], for the feature pages of the new properties. |
+| Next         | The product owner reviews the models and the gaps under Notes. |
+| Last touched | 2026-11-23                             |
 
 * Acceptance
 
@@ -47,9 +47,40 @@ write the operation models of Serve the documents' endpoints and tools, as
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+The models come first, ahead of the move, as for
+[[id:02089780-F445-4220-89E1-3CBCA0347B37][Model compass's tables]], so the
+product owner can review the form before any loader, context or template is
+written.
+
+- A new component folder, =projects/compass.serve/=, with only =modeling/=:
+  its component overview and three operation models, one per group. The
+  design names =compass.serve= as the service's home, and the routes must
+  not live in =compass.db=, which would then depend on the HTTP server's
+  libraries. The folder is not a CMake target until the service task adds
+  code.
+- =#+type: masd.codegen.operation=, beside the entity models'
+  =masd.codegen.entity=.
+- Each message whose struct exists in =compass.db/types= repeats it member
+  for member: name, =:cpp_type:=, and =:default:= as the C++ initialiser.
+  [[file:evidence/service_model_struct_check.py][evidence/service_model_struct_check.py]]
+  compares them.
+- Messages for the endpoints with no C++ yet (the document list, one
+  document, backlinks, environments, version, sync) are new, named as the
+  investigation's table names them.
+- The new properties are =:http_method:=, =:http_path:=, =:tool:=,
+  =:area:=, =:entity:=, =:writes:=, =:summary:= and =:caller:= on a request,
+  and =:http_in:=, =:http_name:= and =:values:= on a field. The component
+  overview of =compass.serve= defines each one; it is the draft of the
+  feature pages.
+- The catalogue properties take ORE Studio's vocabulary, by the product
+  owner's requirement that compass's HTTP and MCP align with ORE Studio's:
+  each is a member of =route_catalogue= in ORE Studio's
+  =ores.http.api/domain/route.hpp=, whose gate refuses a route without a
+  tool, an area and an entity. The investigation's =:mcp_tool:=,
+  =:mcp_title:= and =:read_only:= became =:tool:=, =:summary:= and
+  =:writes:=. Every request has a tool, so sync also has a route; the area is
+  =documents=, and the entities are =document=, =environment=, =service=,
+  =sprint= and =campaign=.
 
 * Measurements
 
@@ -63,9 +94,73 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Messages in the three models | 45: 30 match a struct of =compass.db/types=, 15 are new, 0 differ | [[file:evidence/service_model_struct_check.py][service_model_struct_check.py]], output in [[file:evidence/service_model_struct_check.txt][service_model_struct_check.txt]]; a request's =std::optional<std::int64_t>= changed to =std::int64_t= makes it report the message | =8161c9a= and this branch |
+| Routes and tools modelled | 16: 8 document, 2 sprint, 6 campaign | =grep -c '^:tool:' projects/compass.serve/modeling/*.org= | this branch |
+| Models that load into ORE Studio's operation context with the type renamed | 3 of 3; the HTTP route facet registers 0 endpoints | [[file:evidence/service_model_load_probe.sh][service_model_load_probe.sh]], output in [[file:evidence/service_model_load_probe.txt][service_model_load_probe.txt]] | ORE Studio =bc0702ad46=, compass-ng 0.0.13 |
 
 * Notes
+
+** What loads
+
+In compass's own checkout the codegen codec is off, as the entity models
+found, so =compass-ng check= reads these models only as documents and
+nothing is written into compass's tree.
+[[file:evidence/service_model_load_probe.sh][evidence/service_model_load_probe.sh]]
+loads each model on a scratch copy of ORE Studio, in three stages.
+
+| Stage | Change to the models | Result for all 3 |
+|-------+----------------------+------------------|
+| =as_written= | None. | Skipped without a word: =masd.codegen.operation= is not a codegen type. No output, no warning. |
+| =ores_type= | =#+type: ores.codegen.operation=. | Loads with no error or warning. Writes the C++ protocol header and its TypeScript twin. The header's structs are the messages member for member, in =namespace compass::db::types=, with the =* Includes= block's headers. |
+| =facets_on= | Also ORE Studio's protocol, wire codec and HTTP route facets on, and =:http_route: true= on each routed request. | Loads. Adds the JSON wire codec, its round-trip tests, a route file and a Hurl recipe page. The route file registers 0 endpoints and the recipe page lists none, because ORE Studio's route needs a NATS =:subject:=. No =/v1/= path and no MCP text reaches any output. |
+
+** What compass's loader does not understand yet
+
+The loader reads a message's =:subject:=, =:response:=, =:auth:=,
+=:destructive:=, =:http_route:=, =:rate_policy:=, =:shell_command:=,
+=:request_timeout_seconds:= and =:shell_adopts_token_for:=, and a field's
+=:cpp_type:= and =:default:= (=projects/compass.model/src/ops/messages.cpp=,
+=declared_messages=). It drops every other property without a word. This
+list is the input to [[id:E754BE53-3A6B-4491-BB26-450D1A34F159][Generate JSON codecs]]
+and [[id:8CF40A62-82EB-4FE0-8CEC-2621BD0E66FE][Generate the HTTP and MCP service]].
+
+| What | Where | What happens today |
+|------+-------+--------------------|
+| =#+type: masd.codegen.operation= | header | Not in the codec's list of codegen types; the page is skipped. |
+| =:http_method:=, =:http_path:= | request | Dropped. A route is only made from a =:subject:=, as =POST /api/v1/<subject>=; without one the route file registers nothing. |
+| =:tool:=, =:area:=, =:entity:=, =:writes:=, =:summary:= | request | Dropped. Nothing generates a catalogue place or an MCP tool. |
+| =:caller:= | request | Dropped. The only access property is =:auth:=, a session. |
+| =:http_in:=, =:http_name:= | field | Dropped. |
+| =:values:= | field | Dropped. =scenario_state=, =step_outcome= and =run_outcome= are used and never declared, in C++ and in TypeScript, so the outputs do not compile. |
+| Prose under a message or a field | body | Not read. The loader reads only a =#+begin_src ... :name comment= block, a Doxygen comment, so the MCP descriptions have no source. |
+| No =#+subcomponent:= | header | The route includes =ores.serve./messaging/...=, an empty part, where a simple component has none. |
+| A message-typed field bound from the query | =filter= of three requests | Nothing defines it: the probe shows no binding at all. The models say each member becomes a parameter, and =keyword= and =property= carry =name:value=. |
+| Binary =bytes= | =attach_request= | The wire codec writes a =std::string= as a JSON string; the bytes need base64 or a raw body. |
+
+** Departures from the design and the investigation
+
+- Catalogue vocabulary. The product owner required compass's HTTP and MCP to
+  align with ORE Studio's, so the investigation's =:mcp_tool:=,
+  =:mcp_title:= and =:read_only:= are ORE Studio's =:tool:=, =:summary:= and
+  =:writes:=, with =:area:= and =:entity:= added. Every request has a tool,
+  as every route has in ORE Studio. The design's MCP list is narrower: it
+  names neither =facets=, =list_environments= and =version= nor the campaign
+  writes. Which tools =/mcp= lists is left to the service task.
+- Sync has a route, =POST /v1/{environment}/sync=, where the design made it
+  an MCP tool only, because a tool is a route's catalogue name.
+- The step, finish, note and address routes start at their row,
+  =/v1/runs/{run}/...=, =/v1/campaigns/{campaign}/notes= and
+  =/v1/notes/{note}=. The design puts the environment first, but those
+  requests carry none: a run, a campaign and a note each belong to one
+  environment already.
+- =finish_run_request= has a route the design's table does not list.
+- C++'s one =sprint_request= is two messages, because a message states one
+  route. =add_note_response= wraps the bare id =query::add_note= answers.
+- The messages state =#+namespace: compass::db::types=, where the query
+  functions take them today, while the models sit in =compass.serve=. The
+  codegen writes a model's outputs under its own component: before the
+  messages are generated, either the queries move to =compass.serve=, as the
+  design placed them, or the protocol facet writes into =compass.db=.
 
 * Test Scenarios
 
@@ -82,7 +177,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/193][#193]] | Model compass's service |
 
 * Review
 

@@ -1,0 +1,27 @@
+:PROPERTIES:
+:ID: 5CD7372C-F277-4DB4-B48B-5F0B2F4F0D0D
+:END:
+#+title: Profile: Environment state
+#+description: A row of what a sync last saw of an environment, which every sync rewrites and a fresh sync recreates.
+#+type: profile
+#+level: cross
+#+filetags: :codegen:variability:profile:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is a profile of the =masd.codegen.entity= models of compass. A
+model binds it with =:profile: environment-state= in its =* Flags= drawer.
+
+* Purpose
+
+An environment and the paths it places: state a sync writes with its own
+upserts and deletes, so it is not retained, and a model whose rows are
+staged in bulk switches its COPY writer on itself.
+
+* Reference entity
+
+=compass.db.environment=, one worktree, branch or release.
+
+* Assignments
+
+The profile assigns no feature.

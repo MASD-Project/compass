@@ -35,6 +35,7 @@ add_executable(${tests_target_name}
     app_ratchet_tests.cpp
     app_skill_levels_tests.cpp
     app_sync_tests.cpp
+    app_test_export_tests.cpp
     app_untouched_tests.cpp
     config_arguments_tests.cpp
     config_precedence_tests.cpp

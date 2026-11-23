@@ -37,9 +37,12 @@ namespace compass::bench::ops {
  *
  * - start <scenario :ID:> <tester>: starts a run, which the lines after
  *   act on, as that tester;
+ * - campaign <id> <tester>: acts on that campaign, as that tester, with
+ *   no run, so a note can be added to a campaign whose runs are done;
  * - step <ord> <pass|fail|blocked|skipped> [notes]: records a step result;
- * - attach <file> <ord|run|note> [caption]: attaches a PNG at a step of
- *   the run, to the run, or to the last note;
+ * - attach <file> <ord|run|note> [caption]: attaches an image at a step of
+ *   the run, to the run, or to the last note; a .jpg, .jpeg, .gif or .webp
+ *   file is that type, any other a PNG;
  * - note <kind> <scenario :ID:|-> <ord|-> <text>: adds a note to the
  *   run's campaign;
  * - address <tester> [reply]: addresses the last note;

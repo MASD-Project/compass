@@ -1,0 +1,37 @@
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.copy.header.org. Edit the org source. }}
+{{{cpp_license}}}
+{{#masd_entity}}
+#ifndef {{copy_guard}}
+#define {{copy_guard}}
+
+{{#copy}}
+{{#includes}}
+#include {{{include}}}
+{{/includes}}
+{{/copy}}
+
+namespace {{io_namespace}} {
+
+/**
+ * @brief The columns of {{table}} that write_copy writes,
+ * in its order, for the column list of a COPY ... FROM STDIN.
+ */
+inline constexpr std::string_view {{entity}}_copy_columns =
+{{#copy_column_lines}}
+    "{{text}}"{{#last}};{{/last}}
+{{/copy_column_lines}}
+
+/**
+ * @brief Writes a row of {{table}} to @p w, in the order of
+ * {{entity}}_copy_columns.
+ */
+void write_copy(ops::copy_writer& w,
+{{#copy_parameters}}
+    {{{declaration}}},
+{{/copy_parameters}}
+    const types::{{row_type}}& r);
+
+}
+
+#endif
+{{/masd_entity}}

@@ -1,0 +1,20 @@
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.copy.impl.org. Edit the org source. }}
+{{{cpp_license}}}
+{{#masd_entity}}
+#include "{{copy_include}}"
+
+namespace {{io_namespace}} {
+
+void write_copy(ops::copy_writer& w,
+{{#copy_parameters}}
+    {{{declaration}}},
+{{/copy_parameters}}
+    const types::{{row_type}}& r) {
+{{#copy_fields}}
+    w.field({{{expression}}});
+{{/copy_fields}}
+    w.end();
+}
+
+}
+{{/masd_entity}}

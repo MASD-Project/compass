@@ -1,0 +1,34 @@
+:PROPERTIES:
+:ID: E5F44751-C848-4506-9E31-7C9BF5A6DD4A
+:END:
+#+title: Profile: Activity record
+#+description: A row of what people did, which exists nowhere else, so its table is retained: a change to it needs a migration that says what becomes of its rows.
+#+type: profile
+#+level: cross
+#+filetags: :codegen:variability:profile:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is a profile of the =masd.codegen.entity= models of compass. A
+model binds it with =:profile: activity-record= in its =* Flags= drawer.
+
+* Purpose
+
+A test run, a step's result, a note or a screenshot: activity that a sync
+cannot recreate, because nothing but the database holds it until it is
+exported. The profile marks the table =retained=. =schema.sql= says so
+above the table, and the catalog test of the component's migrations names
+a retained table that loses or retypes a column with no migration to do it.
+The key is the model's own: most activity tables have an identity key, but
+a step's result is keyed by its run and step and a screenshot by its blob
+ID.
+
+* Reference entity
+
+=compass.db.run=, one run of a test scenario.
+
+* Assignments
+
+| Feature  | Value |
+|----------+-------|
+| retained | true  |

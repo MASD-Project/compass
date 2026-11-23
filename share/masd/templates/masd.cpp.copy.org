@@ -1,0 +1,45 @@
+:PROPERTIES:
+:ID: FD814477-B747-4261-A54B-5647EC66E22F
+:END:
+#+title: masd.cpp.copy
+#+description: The writer of a table's rows in the text format of COPY ... FROM STDIN, and the column list it writes. Off unless a profile or the model switches it on.
+#+type: facet
+#+model_types: masd_entity
+#+level: cross
+#+facet_group: masd.cpp
+#+default: off
+#+filetags: :codegen:physical-space:cpp:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is the node for the =masd.cpp.copy= facet of the MASD library.
+Its archetypes are [[id:7CA0A2A7-86E0-4CBE-8EF4-5F53103E2F46][masd.cpp.copy.header]] and
+[[id:0A34FA7B-14D4-44C2-9098-411AE3DF45BF][masd.cpp.copy.impl]].
+
+* Summary
+
+A table filled in bulk is staged with =COPY ... FROM STDIN= and inserted
+from the staging table. This facet writes the two things that must agree
+with the table: the list of the columns a row writes, and =write_copy=,
+which writes one row's fields in that order.
+
+* The masd.cpp.copy facet
+
+The writer writes every column but those the database or the writer's SQL
+fills: an =identity= key, a =written_by= or =computed= column and a
+=:generated:= one. A key the row type leaves out, a =content_hash=, an
+=owner= or an =ord=, is a parameter of =write_copy=, before the row, in
+table order; an =ord= is a =std::size_t=, the index into the owner's
+vector.
+
+The writer is in =<product>::<component>::io= and writes through the
+component's =ops::copy_writer=, declared in =<component>/ops/copy_text.hpp=:
+a class with a =field= overload for each member type and =end=, which ends
+the row. The facet is off by default, because a table written by an
+=INSERT= has no use for it; the profiles of rows written in bulk switch it
+on in their =* Physical space= table.
+
+* See also
+
+- [[id:7CA0A2A7-86E0-4CBE-8EF4-5F53103E2F46][masd.cpp.copy.header]] and [[id:0A34FA7B-14D4-44C2-9098-411AE3DF45BF][masd.cpp.copy.impl]]: the archetypes.
+- [[id:EB763415-450C-4D07-8CEA-0988D19BB0B3][masd.cpp.row]]: the row types it writes.

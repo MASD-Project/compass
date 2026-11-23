@@ -42,7 +42,7 @@ namespace compass::cli::types {
  * @brief The commands of the compass executable.
  */
 enum class command : std::uint8_t {
-    generate, diff, check, gc, config, hook, env, blame, sync, db
+    generate, diff, check, gc, config, hook, env, blame, sync, db, test
 };
 
 /**
@@ -91,6 +91,14 @@ struct db_request {
 };
 
 /**
+ * @brief The arguments of compass test export: the --story whose
+ * campaign alone is exported, when given.
+ */
+struct test_request {
+    std::optional<std::string> story;
+};
+
+/**
  * @brief What the command line asked for, before the configuration file
  * is read.
  *
@@ -106,8 +114,9 @@ struct db_request {
  * and blame, and target the finding blame traces, as written. scope holds
  * each --scope of generate and diff as written, skip_stale is their
  * --skip-stale and list_files their --files. env holds the arguments of
- * compass env. environment is the --environment of sync and db prune,
- * and db the arguments of compass db.
+ * compass env. environment is the --environment of sync, db prune and
+ * test export, db the arguments of compass db and test those of compass
+ * test export.
  */
 struct invocation {
     command which = command::generate;
@@ -130,6 +139,7 @@ struct invocation {
     env_request env;
     std::string environment;
     db_request db;
+    test_request test;
 };
 
 /**

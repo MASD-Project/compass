@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :meta:document_types:frontmatter:tags:
 #+created: 2026-05-18
-#+updated: 2026-11-22
+#+updated: 2026-11-23
 
 Every =.org= file in compass-ng carries a =#+type:= field that places it
 in a shared taxonomy. The taxonomy exists for three reasons. First,
@@ -385,6 +385,9 @@ Each type's contract lives on its own page:
   Lives directly in its story's folder as =scenario_<slug>.org=, same
   placement convention as =task=. Mandatorily links both the task it
   verifies and the driving story. Scaffold: =compass add test_scenario=.
+- [[id:42967863-F931-4D04-AF82-2CF47C9758FE][test_campaign]] — one story's test
+  runs and notes on one environment, written into the story's folder by
+  =compass test export= from compass's database. A live record, not evidence.
 
 Codegen model types live with their component under
 =projects/ores.<component>/modeling/= and are consumed by

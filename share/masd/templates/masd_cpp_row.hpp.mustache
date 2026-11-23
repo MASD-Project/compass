@@ -1,0 +1,63 @@
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.row.header.org. Edit the org source. }}
+{{{cpp_license}}}
+{{#masd_entity}}
+#ifndef {{row_guard}}
+#define {{row_guard}}
+
+{{#includes}}
+#include {{{include}}}
+{{/includes}}
+
+namespace {{types_namespace}} {
+{{#enums}}
+
+/**
+ * @brief The values of {{table}}.{{column}}.
+ */
+enum class {{name}} { {{#values}}{{value}}{{^last}}, {{/last}}{{/values}} };
+
+/**
+ * @brief Each value of {{name}} as {{table}} stores it.
+ */
+[[nodiscard]] constexpr std::string_view to_string({{name}} v) noexcept {
+    switch (v) {
+{{#values}}
+    case {{name}}::{{value}}: return "{{value}}";
+{{/values}}
+    }
+    return "{{first}}";
+}
+
+/**
+ * @brief The {{name}} @p text names, or none for any other text.
+ */
+[[nodiscard]] constexpr std::optional<{{name}}> {{name}}_of(
+    std::string_view text) noexcept {
+{{#values}}
+    if (text == "{{value}}")
+        return {{name}}::{{value}};
+{{/values}}
+    return std::nullopt;
+}
+{{/enums}}
+
+/**
+{{#brief}}
+ * @brief {{brief}}
+ *
+ * A row of {{table}}.
+{{/brief}}
+{{^brief}}
+ * @brief A row of {{table}}.
+{{/brief}}
+ */
+struct {{row_type}} {
+{{#members}}
+    {{{cpp_type}}} {{member}}{{{initializer}}};
+{{/members}}
+};
+
+}
+
+#endif
+{{/masd_entity}}

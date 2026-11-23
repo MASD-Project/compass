@@ -31,6 +31,7 @@ add_library(${lib_target_name}
     ops/field_group.cpp
     ops/junction.cpp
     ops/load.cpp
+    ops/masd_entity.cpp
     ops/messages.cpp
     ops/operation.cpp
     ops/outcome_catalogue.cpp

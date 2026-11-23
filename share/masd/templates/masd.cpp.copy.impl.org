@@ -1,0 +1,56 @@
+:PROPERTIES:
+:ID: 0A34FA7B-14D4-44C2-9098-411AE3DF45BF
+:END:
+#+title: masd.cpp.copy.impl
+#+description: The definition of a table's write_copy. Output projects/{component_dir}/src/io/{entity}_copy.cpp.
+#+type: archetype
+#+output: projects/{component_dir}/src/io/{entity}_copy.cpp
+#+facet: masd.cpp.copy
+#+level: cross
+#+filetags: :codegen:templates:literate:archetype:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is the archetype that writes the definition of a table's
+=write_copy= for the [[id:FD814477-B747-4261-A54B-5647EC66E22F][masd.cpp.copy]] facet: one =field= call per column
+of the column list, then =end=.
+
+* Context
+
+The context is the library's values and =masd_entity=: =copy_include=,
+=io_namespace=, =row_type=, =copy_parameters= as the header has them, and
+=copy_fields=, the =expression= of each column in order, a parameter's name
+or the row's member.
+
+* Template
+
+The template source. compass's =tangle= codec writes it to
+=masd_cpp_copy.cpp.mustache= beside this page.
+
+#+begin_src mustache :tangle masd_cpp_copy.cpp.mustache
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.copy.impl.org. Edit the org source. }}
+{{{cpp_license}}}
+{{#masd_entity}}
+#include "{{copy_include}}"
+
+namespace {{io_namespace}} {
+
+void write_copy(ops::copy_writer& w,
+{{#copy_parameters}}
+    {{{declaration}}},
+{{/copy_parameters}}
+    const types::{{row_type}}& r) {
+{{#copy_fields}}
+    w.field({{{expression}}});
+{{/copy_fields}}
+    w.end();
+}
+
+}
+{{/masd_entity}}
+#+end_src
+
+* See also
+
+- Parent facet: [[id:FD814477-B747-4261-A54B-5647EC66E22F][masd.cpp.copy]]
+- [[id:7CA0A2A7-86E0-4CBE-8EF4-5F53103E2F46][masd.cpp.copy.header]]: the declaration.

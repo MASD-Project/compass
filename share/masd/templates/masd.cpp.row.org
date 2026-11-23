@@ -1,0 +1,51 @@
+:PROPERTIES:
+:ID: EB763415-450C-4D07-8CEA-0988D19BB0B3
+:END:
+#+title: masd.cpp.row
+#+description: The C++ row type of a table of a masd.codegen.entity model, with the enumeration of each column that holds a closed list of values.
+#+type: facet
+#+model_types: masd_entity
+#+level: cross
+#+facet_group: masd.cpp
+#+filetags: :codegen:physical-space:cpp:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is the node for the =masd.cpp.row= facet of the MASD library,
+the plain C++ technical space =masd.cpp=. Its one archetype,
+[[id:68A40681-4113-4769-81A6-6306A42A9985][masd.cpp.row.header]], holds the template.
+
+* Summary
+
+Projects a table onto the struct a program fills to write a row and reads
+back: one member per column the row itself writes, in table order. It
+targets no library: the row is a plain aggregate, and the code that moves
+it in and out of the database is the component's own or the
+[[id:FD814477-B747-4261-A54B-5647EC66E22F][masd.cpp.copy]] writer's.
+
+* The masd.cpp.row facet
+
+A column is a member unless something else writes it or it is the key of
+something larger:
+
+| Column                          | In the row | Why                                                  |
+|---------------------------------+------------+------------------------------------------------------|
+| =key_kind: natural= or no key   | yes        | The row states it.                                   |
+| =key_kind: content_hash=        | no         | The identity of the aggregate the row belongs to.    |
+| =key_kind: owner=               | no         | The key of the row that owns this one.               |
+| =key_kind: ord=                 | no         | The row's place in its owner's vector.               |
+| =key_kind: identity=            | no         | The database generates it.                           |
+| =written_by: database=          | no         | Its default or expression fills it.                  |
+| =written_by: writer=, =computed= | no        | The writer's own SQL sets it.                        |
+
+A member's type is the column's =:cpp_type:= when stated, else its
+enumeration when it has =:values:=, else the C++ type of its SQL type, and
+=std::optional= of that when the column is =:nullable:=. Each column with
+=:values:= gets an =enum class= named =<entity>_<column>= or its =:enum:=,
+with =to_string= and a parser, =<enum>_of=, that answers none for text the
+list does not hold.
+
+* See also
+
+- [[id:68A40681-4113-4769-81A6-6306A42A9985][masd.cpp.row.header]]: the archetype and its template.
+- [[id:883A9765-56E8-4CF8-9871-73066663022E][masd.sql.schema]]: the tables these rows are rows of.

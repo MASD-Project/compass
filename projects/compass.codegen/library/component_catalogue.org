@@ -1,0 +1,17 @@
+:PROPERTIES:
+:ID: 365DC1D2-2504-4F0F-B054-E021648143A0
+:END:
+#+title: Component catalogue
+#+description: The components of compass whose models compass's codegen codec generates, each with the modeling directory its models are found in.
+#+type: ores.codegen.component_catalogue
+
+Read by compass's =codegen= codec from the project's library, which this
+directory is; the MASD library, =@compass=, comes before it. A component is
+generated when it has a row here, and only the models directly in its
+=modeling_dir= whose =#+type:= is a codegen type are read.
+
+* Components
+
+| name | modeling_dir                 | exclude_org_types |
+|------+------------------------------+-------------------|
+| db   | projects/compass.db/modeling |                   |

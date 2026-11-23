@@ -74,7 +74,8 @@ Deleting the scenario, which its document's deletion does, deletes its steps.
 * C++
 
 The row is =compass::db::types::step_row= of
-=compass.db/types/corpus_document.hpp=: =title= and =body=.
+=compass.db/types/step_row.hpp=, generated: =title= and =body=; =write_copy=
+of =compass.db/io/step_copy.hpp= takes the hash and the ord beside it.
 
 * Notes
 
