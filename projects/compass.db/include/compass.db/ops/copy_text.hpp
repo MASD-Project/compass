@@ -20,11 +20,15 @@
 #ifndef COMPASS_DB_OPS_COPY_TEXT_HPP
 #define COMPASS_DB_OPS_COPY_TEXT_HPP
 
+#include <concepts>
 #include <cstdint>
 #include <optional>
 #include <span>
 #include <string>
 #include <string_view>
+#include <type_traits>
+#include <vector>
+#include "compass.store/types/blob_id.hpp"
 
 namespace compass::db::ops {
 
@@ -44,7 +48,42 @@ public:
     void text(const char* value) { text(std::string_view(value)); }
     void text(const std::optional<std::string>& value);
     void number(std::uint64_t value);
+    void integer(std::int64_t value);
     void null();
+
+    /**
+     * @brief One field of a generated row, in the form its type takes in
+     * COPY text: text as text, an integer in decimal, a blob ID in hex, a
+     * vector of text as a text[], an enumeration as its to_string, and an
+     * empty optional as NULL.
+     */
+    void field(std::string_view value) { text(value); }
+    void field(const std::string& value) { text(value); }
+    void field(const store::types::blob_id& value) { bytes(value.bytes); }
+    void field(const std::vector<std::string>& values) { array(values); }
+
+    template <std::integral T>
+        requires(!std::same_as<T, bool>)
+    void field(T value) {
+        if constexpr (std::is_signed_v<T>)
+            integer(value);
+        else
+            number(value);
+    }
+
+    template <typename E>
+        requires std::is_enum_v<E>
+    void field(E value) {
+        text(to_string(value));
+    }
+
+    template <typename T>
+    void field(const std::optional<T>& value) {
+        if (value)
+            field(*value);
+        else
+            null();
+    }
 
     /**
      * @brief A bytea value, written in hex.

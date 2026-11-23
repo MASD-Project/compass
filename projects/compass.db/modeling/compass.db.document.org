@@ -144,6 +144,17 @@ The document's text. The row holds a view of it, which the caller keeps alive.
 
 When the row was inserted. The database writes it, so it is in neither the row type nor the =COPY= column list.
 
+** state
+:PROPERTIES:
+:type:       text
+:nullable:   true
+:generated:  substring(source from '(?n)^[ \t]*\|[ \t]*State[ \t]*\|[ \t]*([^|[:space:]]+)')
+:END:
+
+The State row of the document's Status table, the first table row that names
+one, for search's state filter. Migration 2 added it, so it is the last
+column; the database computes it from =source=.
+
 * SQL
 
 ** Indexes
@@ -157,15 +168,17 @@ When the row was inserted. The database writes it, so it is in neither the row t
 | tags       | tags       | false  |       | gin   |                |
 | keywords   | keywords   | false  |       | gin   | jsonb_path_ops |
 | properties | properties | false  |       | gin   | jsonb_path_ops |
+| state      | state      | false  |       |       |                |
 
 * C++
 
 The row is =compass::db::types::document_row= of
-=compass.db/types/corpus_document.hpp=, field for field: =hash= and
-=loaded_at= are left out, a nullable =text= is =std::optional<std::string>=
-(#176 spells it =nullable=), =text[]= is =std::vector<std::string>= and
-=jsonb= is the JSON text. The aggregate =corpus_document=, which holds the
-hash and the vectors of child rows, stays hand-written.
+=compass.db/types/document_row.hpp=, generated: =hash=, =loaded_at= and
+=state= are left out, a nullable =text= is =std::optional<std::string>=,
+=text[]= is =std::vector<std::string>= and =jsonb= is the JSON text.
+=write_copy= of =compass.db/io/document_copy.hpp= takes the hash beside the
+row. The aggregate =corpus_document=, which holds the hash and the vectors
+of child rows, stays hand-written.
 
 * Notes
 

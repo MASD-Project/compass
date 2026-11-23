@@ -47,8 +47,8 @@ The setting's value as text.
 
 * C++
 
-None. =io/schema.cpp= and =io/corpus.cpp= read and write a setting with
-=exec=.
+None: the profile =bookkeeping= switches every MASD facet off.
+=io/schema.cpp= and =io/corpus.cpp= read and write a setting with =exec=.
 
 * Notes
 

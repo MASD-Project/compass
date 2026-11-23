@@ -256,11 +256,27 @@ say why, on a machine without the PostgreSQL server programs.
 * Models
 
 One codegen entity model per table, in =modeling/=, of =#+type:
-masd.codegen.entity=. They describe the tables of migration 1 and the
-bookkeeping schema as they are; nothing generates from them yet.
+masd.codegen.entity=, and one schema model, [[id:8F62072A-8E42-41ED-B409-0283C22A4BD3][compass.db.schema]], of =#+type:
+masd.codegen.schema=. =compass generate= renders them with the MASD library
+of =share/masd=:
+
+- =sql/schema.sql=, the whole schema at the current version. No program
+  runs it. =ops_migrations_tests.cpp= builds one database from the
+  migrations and one from it and compares their catalogs, so a model change
+  without its migration fails; it names a retained table, of the profile
+  =activity-record=, that loses or retypes a column. It also pins each
+  released migration by its blob ID, so no released migration is edited.
+- =include/compass.db/types/<entity>_row.hpp=, each table's row type and the
+  enumerations of its value lists.
+- =include/compass.db/io/<entity>_copy.hpp= and =src/io/<entity>_copy.cpp=,
+  the COPY writer of each table a sync stages in bulk.
+
+The migrations of =src/ops/migrations.cpp= stay hand-written and frozen once
+released. The aggregates =corpus_document= and =test_scenario=, and every
+query, stay hand-written.
 [[id:7FD52505-1436-4925-A1DE-4A3EC88F0133][Investigation: How compass generates itself]]
-names the features and profiles they use, and each model's =* Notes= lists
-what the model cannot yet say about its table.
+names the features and profiles the models use, and each model's =* Notes=
+says what it chose where its table is unusual.
 
 | Model | Table | Profile | Brief |
 |-------+-------+---------+-------|

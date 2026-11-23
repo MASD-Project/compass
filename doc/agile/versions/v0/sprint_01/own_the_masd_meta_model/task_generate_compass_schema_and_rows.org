@@ -7,12 +7,12 @@
 #+level: s1
 #+filetags: :own_the_masd_meta_model:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/generate-compass-schema
+#+pr: 196
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-22
-#+updated: 2026-11-22
+#+updated: 2026-11-23
 #+environment:
 #+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
 
@@ -29,12 +29,12 @@ migration 1 and the staging code they reproduce.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED |
 | Parent story | [[id:E3C81059-FE00-4403-AA56-190FDBB9904A][Own the MASD meta model and generate compass with it]] |
-| Now          | Not yet started.                       |
-| Waiting on   | [[id:02089780-F445-4220-89E1-3CBCA0347B37][Model compass's tables]]; [[https://github.com/MASD-Project/compass/pull/176][#176]] merged. |
-| Next         | Begin implementation.                  |
-| Last touched | 2026-11-22                               |
+| Now          | In review: [[https://github.com/MASD-Project/compass/pull/195][#195]] (the generator) and [[https://github.com/MASD-Project/compass/pull/196][#196]] (compass generates its schema and rows), stacked. |
+| Waiting on   | Review. |
+| Next         | Merge [[https://github.com/MASD-Project/compass/pull/195][#195]], then [[https://github.com/MASD-Project/compass/pull/196][#196]]. |
+| Last touched | 2026-11-23 |
 
 * Acceptance
 
@@ -44,10 +44,45 @@ migration 1 and the staging code they reproduce.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+compass generates its schema and row types with the generator it runs on
+ORE Studio, through a small technical space of its own in the MASD library.
 
+- *The model types.* =compass.model= loads =masd.codegen.entity= and
+  =masd.codegen.schema= into typed structs
+  (=compass.model/types/masd_entity.hpp=). Every property, profile, profile
+  feature, =* SQL= section and table header has a closed list; anything else
+  is a =model_error= naming what it found and what the format has, which
+  =compass generate= reports with the model's path.
+- *The profiles* are pages, =projects/modeling/variability_<name>.org=, as
+  ORE Studio's are: =* Assignments= sets the one feature the format has,
+  =retained=, and =* Physical space= switches facets.
+  =content-addressed-row= and =owned-child-row= switch the COPY writer on,
+  =activity-record= marks the table retained, =environment-state= assigns
+  nothing, and =bookkeeping= switches every =masd= facet off.
+- *The technical space.* The MASD library's nodes are =masd.*.org=, read
+  beside the product's own =<product>.*.org=: =masd.sql.schema= (archetype
+  =masd.sql.schema.create=, =sql/schema.sql=), =masd.cpp.row=
+  (=masd.cpp.row.header=, =types/<entity>_row.hpp=) and =masd.cpp.copy=, off
+  by default (=masd.cpp.copy.header= and =.impl=, =io/<entity>_copy.hpp= and
+  =src/io/<entity>_copy.cpp=). Each archetype page holds its Mustache source
+  under =* Template=, which the =tangle= codec, now on for
+  =share/masd/templates=, writes to the =.mustache= file.
+- *The context builder* (=compass.codegen/ops/masd_context.cpp=, about 450
+  lines) derives the row members, their types and initialisers, the
+  includes, the enumerations, the COPY parameters and fields, and the
+  column definitions, table constraints and indexes, and orders the tables
+  so each follows the tables it references.
+- *compass's configuration.* =.compass.org= turns =codegen= on with
+  =library=share/masd,projects/compass.codegen/library product=compass=. The
+  project library holds the component catalogue, the licence and the
+  modelines; =projects/modeling/cpp_custom_types.org= gives the header of
+  =store::types::blob_id=.
+- *The hand-written code that stays*: the aggregates =corpus_document= and
+  =test_scenario= (a =scenario_row= with its steps), =environment_summary=,
+  the staging transaction and every query. =stage()= calls the generated
+  =write_copy= and the COPY statements name the generated column lists.
+- *Migrations stay hand-written.* v0.0.13 shipped migrations 1 and 2, so
+  they are frozen: =schema.sql= must build their catalog, not replace them.
 * Measurements
 
 Every number this task claims about a tree, with the command that produced it
@@ -60,10 +95,63 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
-
+| Files =compass generate= writes on compass | 30: =schema.sql=, 14 row headers, 7 COPY headers and 7 COPY sources, and the check inventory | =compass -j 2 generate= | =922bbde= |
+| Files a second =compass generate= writes | 0 | =compass -j 2 generate= | =922bbde= |
+| Database tests of =compass.db=, #176's and every later one unchanged | 61 of 61 pass | =compass.db.tests= | =922bbde= |
+| ORE Studio's =compass diff= over a scratch copy of main, new binary against 0.0.13 | same, 0 files, both as ORE Studio configures codegen and with =library=@compass,projects/ores.codegen/library= | [[file:evidence/masd_schema_ore_diff.sh][masd_schema_ore_diff.sh]] | ORE Studio main, compass 0.0.13 against =b21f02a= |
+| =compass check --ratchet --no-blame= | 0 new | =compass check --ratchet --no-blame= | =922bbde= |
 * Notes
 
+** What the models could not say, and what they say now
+
+| Gap in the models' Notes | Resolution |
+|--------------------------+------------|
+| A member named apart from its column (=heading=, =heading_ord=) | =:member:= on the column. |
+| A row type not named =<entity>_row= (=environment=, =placement=) | =:row_type:= in =* Flags=. |
+| An owner's key that is not a content hash (=placement.environment=) | =key_kind: owner=. |
+| A column the writer sets with no default (=environment.synced_at=) | =written_by: writer=. |
+| An empty string standing for NULL (=environment::root=) | The row holds =std::optional<std::string>=; =write_environment= passes it as is. |
+| A table-level =UNIQUE= (=activity.campaign=) | A =** Unique= table under =* SQL=. |
+| The heading path =tsv= weighs B, staged as a column the table lacks | The insert joins the staged heading and joins its =path=; every staged column is a table column. |
+| =scenario_row::steps=, a member that is no column | The hand-written =test_scenario=, a =scenario_row= with its steps. |
+| =activity-record= fixing an identity key | It fixes only =retained=; each model states its own key. |
+| The default of a value list (=note.state=) | The member starts at the value the SQL default names. |
+| An enumeration named apart from its table (=step_outcome=) | =:enum:= on the column. |
+| The generated column =corpus.document.state= of migration 2 | =:generated:=, last in the table, as migration 2 added it. |
+| The function =corpus.sprint_members= of migration 2 | The schema model's =* Functions=, emitted after the tables. |
+
+** Decisions
+
+- *Migrations are not replaced.* v0.0.13 shipped migrations 1 and 2, and no
+  check can show no database applied them, so =schema.sql= reproduces their
+  catalog instead; [[id:6F19FA08-5DBE-4DE9-B853-03F541F5A4FC][Migrate a generated schema]] says how that is checked.
+- *No row readers.* compass has no hand-written reader of whole rows to
+  replace: every read is a query projection. The value lists' parsers,
+  =<enum>_of=, are generated, and replace the one hand-written reader,
+  =step_outcome_of= of =query/campaign.cpp=. A reader template waits for a
+  caller, which Generate the HTTP and MCP service is likely to be.
+- *Enumerations live in the row header*: a model renders one file per
+  archetype, and an enumeration belongs to one column.
+- *compass names its MASD library by its checkout path*, =share/masd=, not
+  =@compass=: the library compass edits is the one it generates with, and a
+  template read from the checkout is an input that regenerates its outputs.
+- *Profiles are pages* of =projects/modeling/=, as ORE Studio's are, since
+  =physical_space_overrides= reads them there. Moving them to the MASD
+  library is Move the MASD pages and templates to compass.
+
+** Limits
+
+- A fresh checkout must tangle before codegen reads a template a page has
+  just gained: =compass generate= prepares codegen before tangle writes. The
+  committed =.mustache= files make that matter only when a template is new.
+- =compass check --ratchet= runs the head's configuration over the base, so
+  a base without =projects/compass.codegen/library= cannot run codegen. The
+  generator, the library and the profiles therefore land first, in
+  [[https://github.com/MASD-Project/compass/pull/195][#195]], and compass enables codegen in [[https://github.com/MASD-Project/compass/pull/196][#196]].
+- =diff='s origin labels name the project library's =templates/= for a
+  template only =share/masd= holds, as Ship the MASD library recorded.
+- Database tests need a local PostgreSQL; the database fixture skips them
+  without one, as for #176.
 * Test Scenarios
 
 Manual QA scenarios (scaffolded via =compass add test_scenario=)
@@ -79,8 +167,8 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
-
+| [[https://github.com/MASD-Project/compass/pull/195][#195]] | [codegen] The MASD table space: schema, row and COPY templates |
+| [[https://github.com/MASD-Project/compass/pull/196][#196]] | [db] Generate compass's schema, row types and COPY writers |
 * Review
 
 | # | Comment summary | File | Decision | Notes |
