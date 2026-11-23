@@ -1,0 +1,100 @@
+:PROPERTIES:
+:ID: A2D4D196-1BF0-48F1-8C9D-7096651F94E1
+:END:
+#+title: Task: Converge the HTTP and MCP service templates with ORE Studio
+#+description: Once compass and ORE Studio stabilise, diff compass's copied HTTP, MCP and JSON codec families against ORE Studio's files, settle each difference as a parameter or a fix, and offer the families in compass's MASD library for ORE Studio to opt into.
+#+type: task
+#+level: s1
+#+filetags: :own_the_masd_meta_model:sprint_01:v0:
+#+owner: marco
+#+branch:
+#+pr:
+#+blocked_on:
+#+blocked_since:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+#+environment:
+#+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
+
+This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [[id:E3C81059-FE00-4403-AA56-190FDBB9904A][Own the MASD meta model and generate compass with it]] story. It captures the goal, current status, acceptance, and any notes or results.
+
+* Goal
+
+compass copies ORE Studio's route machinery and JSON codec into MASD template
+families and writes its own MCP transport, without waiting on ORE Studio, as
+[[id:AF30B206-2FAB-435F-819F-9EC652D4E40D][Design: aligning the document service with ORE Studio's HTTP and MCP]]
+decides. This task is the later, opt-in convergence. Once both projects
+stabilise, it brings the two copies back to one and offers the families in
+compass's MASD library for ORE Studio to opt into. It blocks nothing. Whether
+and when ORE Studio opts in is ORE Studio's decision.
+
+* Status
+
+| Field        | Value                                  |
+|--------------+----------------------------------------|
+| State        | BACKLOG                              |
+| Parent story | [[id:E3C81059-FE00-4403-AA56-190FDBB9904A][Own the MASD meta model and generate compass with it]] |
+| Now          | Not yet started.                       |
+| Waiting on   | Both projects' HTTP and MCP service stabilising, and the product owner calling convergence. Nothing waits on this task. |
+| Next         | Nothing until the product owner calls convergence. |
+| Last touched | 2026-11-23                               |
+
+* Acceptance
+
+- A rerunnable script renders compass's =masd.cpp.http-service= and codec
+  families with ORE Studio's parameters and diffs them against ORE Studio's
+  files at a named commit. Every difference is either a divergence the design
+  records or is settled as a parameter or as a fix on one side.
+- compass's MCP transport and ORE Studio's are compared against the design's
+  behaviour table and the MCP conformance runner, and one is kept or the two
+  are reconciled.
+- The families are offered in compass's MASD library with ORE Studio's
+  parameters, for ORE Studio to opt into. Nothing in compass depends on
+  whether it does.
+
+* Plan
+
+(Implementation strategy. Written when work starts; key decisions
+are distilled into the parent story's =* Decisions= at close, but the
+plan itself stays — it is the historical record of what we did.)
+
+* Measurements
+
+Every number this task claims about a tree, with the command that produced it
+and the commit it was measured at. A number without both is not a measurement,
+because a clean-up record describes a tree and trunk moves under a branch: a
+consumer count, a gate's component count and a suite's size all change with no
+code changing, and the reader of a bare number cannot tell which tree it came
+from. Where the raw output matters, put it in an =evidence/= file beside the
+task and name that file in the Command column.
+
+| What | Value | Command | Commit |
+|------+-------+---------+--------|
+|      |       |         |        |
+
+* Notes
+
+* Test Scenarios
+
+Manual QA scenarios (scaffolded via =compass add test_scenario=)
+that verify this task. Link
+new ones here as they're created; the scenario doc itself links back
+via its "Verifies task" field.
+
+| Scenario | State | Notes |
+|----------+-------+-------|
+|          |       |       |
+
+* PRs
+
+| PR | Title |
+|----+-------|
+|    |       |
+
+* Review
+
+| # | Comment summary | File | Decision | Notes |
+|---+-----------------+------+----------+-------|
+|   |                 |      |          |       |
+
+* Result

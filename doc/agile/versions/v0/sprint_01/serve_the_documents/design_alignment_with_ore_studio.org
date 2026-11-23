@@ -1,0 +1,514 @@
+:PROPERTIES:
+:ID: AF30B206-2FAB-435F-819F-9EC652D4E40D
+:END:
+#+title: Design: aligning the document service with ORE Studio's HTTP and MCP
+#+description: How compass's HTTP and MCP service matches the one ORE Studio is building on ores.http without waiting on it: ORE Studio's route and catalogue machinery and JSON codec copied into compass's MASD templates now, compass's own MCP transport written to ORE Studio's design, compass's tools and caller, where compass's copy diverges, and the proposals to ORE Studio that compass does not depend on.
+#+type: design
+#+level: s2
+#+filetags: :mcp:http:service:identity:design:serve_the_documents:sprint_01:v0:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+#+todo: DRAFT STARTED | LANDED SUPERSEDED ABANDONED
+#+outcome:
+
+* Status
+
+| Field        | Value |
+|--------------+-------|
+| State        | DRAFT |
+| Parent story | [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]] |
+| Last touched | 2026-11-23 |
+
+* Summary
+
+The product owner asked that compass's MCP and HTTP implementations align with
+ORE Studio's. ORE Studio is building MCP into ores.http now, in the
+bright_faraday environment, and has already declared every route's place in an
+operation catalogue. compass has designed but not yet written its service
+([[id:21C1D3CC-9EE3-48C3-8EDD-BA0C16032AB2][Design: the document service]]).
+This page takes each of five questions in turn: what ORE Studio does, the
+decision for compass, and what changes.
+
+The product owner decided on 2026-11-23 that compass proceeds on its own.
+compass copies the ORE Studio code it needs from ORE Studio's =main= into its
+own MASD templates and runtime, and writes its own MCP transport to ORE
+Studio's design. Neither project waits on the other until both stabilise. The
+direction stays: ORE Studio's templates become part of a MASD library in
+compass that projects opt into, and copying the machinery into MASD is the
+start of that. There is no lift-and-switch sequence now.
+
+The decisions, in brief:
+
+1. *Copy now, write the transport.* compass copies ORE Studio's route and
+   catalogue declaration, its router and start-up gates, its typed bodies, its
+   yyjson codec runtime and its wire-codec templates from =main= into MASD
+   template families rendered for compass. ORE Studio's transport is not
+   committed, so compass writes its own MCP Streamable HTTP transport to ORE
+   Studio's design and passes the same conformance runner. Where the copy
+   diverges is recorded below, so a later convergence is tractable.
+2. *Direct tools on compass's own =/mcp=.* compass has about sixteen
+   operations, so its own endpoint lists one tool per operation. Every compass
+   route declares a tool, an area, an entity and whether it writes, in ORE
+   Studio's vocabulary, and =GET /v1/catalogue= answers them in the shape of
+   ORE Studio's =route_catalogue=.
+3. *Subject and actor on every activity write.* The gateway sends the view, the
+   subject and the actor. Every write takes them from the caller, never from
+   its body, and records them in a new =activity.action= table.
+4. *One route vocabulary.* compass declares its routes with the builder calls
+   it copied. The routes differ where they should: what the handler calls, the
+   verbs and paths, and how the caller is known.
+5. *One JSON codec family.* compass uses ORE Studio's codec runtime (yyjson
+   underneath, wire traits per type, JSON Schema from the traits) and its
+   =ores.cpp.wire-codec= templates, copied into MASD. nlohmann-json and
+   cpp-httplib are dropped.
+
+compass's choices in sections 2 to 4 need only be compatible with ORE Studio,
+not agreed by it. Three ideas need ORE Studio to act. They are open proposals,
+not decisions, and compass depends on none of them; see
+[[*Open proposals for ORE Studio][Open proposals for ORE Studio]].
+
+* Sources
+
+ORE Studio was read without writing to it. "Main" is ORE Studio's =main= at
+=bc0702ad46=, read with =git show=. "In progress" is bright_faraday's
+uncommitted work in its worktree, on the branch
+=feature/serve-the-mcp-transport-on-ores-http=, on 2026-11-23; it can change
+before it merges. compass copies code only from main. In-progress work is
+read for its design, never copied. Paths are relative to ORE Studio's root.
+
+| Source | State | Read for |
+|--------+-------+----------|
+| =doc/agile/versions/v0/sprint_30/serve_mcp_from_ores_http/= (the story, its twelve tasks and the security review) | In progress | Acceptance, decisions, the grant, the audit, six eyes, the catalogue and typed bodies |
+| =doc/knowledge/agents/serving_the_model_context_protocol_from_ores_http.org= | In progress | The transport |
+| =doc/knowledge/agents/progressive_disclosure_of_the_operation_catalogue_to_llm_agents.org= | In progress | The five tools and what each route declares |
+| =doc/knowledge/agents/routing_of_llm_agent_calls_through_ores_http.org= | In progress | One door |
+| =doc/agile/versions/v0/sprint_30/bring_the_assistant_into_ores_web/= (its three investigations) | In progress | Why ores.http writes MCP itself, the catalogue's measurements, the knowledge base |
+| =projects/ores.http/api/include/ores.http.api/mcp/= and =src/mcp/= | In progress, untracked | The endpoint, sessions and tool seam |
+| =projects/ores.http/api/include/ores.http.api/domain/route.hpp=, =catalogue_rules.hpp=, =net/router.hpp= | Main, with in-progress edits | The route, its catalogue and the builder |
+| =projects/ores.http/server/src/app/catalogue_tools.cpp= | In progress, untracked | The first of the five tools |
+| =projects/ores.utility/include/ores.utility/codec/= | Main | The JSON codec |
+| =doc/agile/versions/v0/sprint_30/serve_one_screen_from_the_new_server-remaining/task_serve_the_doc_backed_routes.org= | In progress | ORE Studio's plan for the agile and QA routes |
+
+On compass's side: [[id:21C1D3CC-9EE3-48C3-8EDD-BA0C16032AB2][Design: the document service]],
+[[id:7FD52505-1436-4925-A1DE-4A3EC88F0133][Investigation: How compass generates itself]],
+and =projects/compass.db= on =origin/main= at =8161c9a=. The branch
+=feature/model-compass-service= is not pushed, so this page does not read it;
+[[id:55F578C5-6F25-4385-B0F2-CDFBDF9A753C][Model compass's service]] takes the vocabulary below.
+
+* 1. The MCP transport and the route machinery
+
+** What ORE Studio does
+
+ores.http serves MCP's Streamable HTTP transport at =/mcp=, written in
+ores.http with boost.taar as the reference, not as a dependency, because
+taar's tools are compile-time functions and its JSON is Boost.JSON
+(=bring_the_assistant_into_ores_web/investigation_how_ores_http_serves_mcp.org=).
+The in-progress code (=ores.http.api/mcp/endpoint.hpp=, =src/mcp/endpoint.cpp=,
+=mcp/session_registry.hpp=, =mcp/tools.hpp=):
+
+| Behaviour | ORE Studio |
+|-----------+------------|
+| Protocol revisions | =2025-11-25= (latest), =2025-06-18=, =2025-03-26=; =initialize= answers the asked revision when served, else the latest |
+| =POST= | One JSON-RPC 2.0 message, answered with =application/json=; no event stream; a batch is refused |
+| =GET= | =405=, =Allow: POST, DELETE=: the server sends nothing unasked |
+| =DELETE= | Ends the session: =204=; =400= without =Mcp-Session-Id=; =404= when it is not open |
+| Sessions | =initialize= issues =Mcp-Session-Id=; a later request without it is =400=, with an unknown one =404=. A session belongs to its owner, the token's subject and actor; another owner's id is treated as unknown. Idle for an hour, or past 10,000, a session is evicted |
+| Notifications | A message without an id (=notifications/initialized=) is answered =202= |
+| Methods | =initialize= (capability =tools= with =listChanged: false=), =ping=, =tools/list=, =tools/call= |
+| JSON-RPC errors | =-32700= not JSON, =-32600= not a request, missing or ended session, bad id; =-32601= unknown method; =-32602= no tool name, arguments not an object, unknown tool |
+| Tool failure | An exception in a tool answers a result with =isError: true=, never a protocol error |
+| Admission | =401= with =WWW-Authenticate: Bearer= unless the token's =act= names an agent; =403= for an =Origin= that is neither local nor allowed; =400= for an unserved =MCP-Protocol-Version= |
+| Tools | A =tool_provider= seam: =list(caller)= and =call(caller, name, arguments)=. ores.http's provider is the five catalogue tools (=server/src/app/catalogue_tools.cpp=, one written so far) |
+| Route | =/mcp= is declared =transport()=: it changes nothing itself, so it does not write, and each call it carries is held and recorded as its own route (=domain/route.hpp=) |
+| Bar | The official MCP conformance runner passes for what is implemented (=task_serve_the_mcp_transport_on_ores_http.org=) |
+
+The route machinery it stands on is on main: =domain::route= with its
+=route_catalogue= (tool, area, entity, writes, =takes_no_body=, summary,
+description, tags), =net::route_builder= (=summary=, =catalogue=, =no_body=,
+=json_body=, =body<T>()=, =response<T>()=, =query_param=, =auth_required=,
+=roles=, =rate_limit=, =max_body=), and the router's start-up gates
+(=task_declare_each_routes_place_in_the_catalogue.org=,
+=task_declare_a_typed_body_on_every_hand_written_route.org=).
+
+** Decision
+
+compass copies what is on ORE Studio's main and writes what is not. The route
+machinery and the JSON codec are on main, so compass copies them. The
+transport is uncommitted, so compass writes its own: its =/mcp= behaves as the
+table says, row for row, except admission and the tools it lists (section 2),
+and it passes the same conformance runner. Neither project waits on the
+other.
+
+The copy lives in MASD template families in =share/compass/masd=, which every
+compass package installs, rendered into =compass.serve= in compass's
+namespace. This was decided on 2026-11-23 over a shared binary library, which
+would tie a consumer's build to compass's compiler, Boost and yyjson builds on
+three platforms and a C++ ABI. The families are verbatim code with a handful
+of parameters, not generated from a model:
+
+| Parameter | ORE Studio's value | compass's value |
+|-----------+--------------------+-----------------|
+| Namespace and include root | =ores::http=, =ores.http.api= | =compass::serve=, =compass.serve= |
+| Logging | =ores.logging=, =ORES_LOG_SEV= | compass's logger |
+| The caller on a request | the JWT claims: =subject=, =act= | the gateway's view, subject and actor |
+| Admission to =/mcp= | the token's =act= names an agent | the request has a view |
+| Server name and version | =ores.http= | =compass serve= |
+
+The families are rendered only for compass. ORE Studio keeps its hand-written
+files and changes nothing.
+
+** What compass copies, writes and leaves
+
+| Copied from ORE Studio's main | Written by compass to ORE Studio's design | Not taken |
+|-------------------------------+-------------------------------------------+-----------|
+| =domain/route.hpp= with =route_catalogue=; =http_method=, =http_status=, =http_request=, =http_response= | The MCP endpoint, its session registry and its =tool_provider= seam, behaving as the table above | The five catalogue tools: compass lists direct tools (section 2) |
+| =net/router= and =route_builder=, with the start-up gates | A tool provider that lists one tool per route | =http_server= and =http_session=: the bearer and agent-key path, JWT claims, the rate limiter, CORS |
+| =body<T>()= and =response<T>()= typed bodies, and =openapi/endpoint_registry= | A small Boost.Beast server and the caller read from gateway headers | NATS forwarding (=forwarding::respond=) |
+| The JSON codec runtime (section 5) | A generated test that runs the official MCP conformance runner | The six-eyes hold, its replay and the agent call log |
+| The =ores.cpp.wire-codec= templates (section 5) | | ORE Studio's published areas and =area_of_component= |
+
+** Where compass's copy diverges
+
+Convergence later means diffing compass's families against ORE Studio's files
+of the day. Each family records the ORE Studio commit it was copied from, and
+every intended difference is one of these:
+
+| Divergence | ORE Studio | compass | Kind |
+|------------+------------+---------+------|
+| Names and logging | =ores::http=, =ores.logging= | =compass::serve=, compass's logger | Parameter |
+| Authentication position on a route | =auth_required()=, =roles()= | =caller(caller_need::view)= or =caller(caller_need::subject)= | Parameter: the builder's authentication call is the product's |
+| Rate limits | =rate_limit()= | Not called; the gateway limits | Unused call, kept in the copy |
+| The caller and =/mcp= admission | JWT =sub= and =act=; =act= names an agent | Gateway headers; a view | Parameter |
+| The MCP transport | ORE Studio's code, once it merges | compass's own code, to the same behaviour table | Separate code, one bar: the conformance runner and the behaviour table |
+| The tool provider | Five catalogue tools | One tool per route | Separate provider behind the same seam |
+| The server | =http_server=, =http_session= with bearer, agent key, rate limiter, CORS | A small Beast server with no authentication | Separate code |
+| The codec runtime's home | Hand-written in =ores.utility/codec= | Rendered from a MASD family into compass | Location |
+| MessagePack | A wire-codec archetype for NATS | Left off | Facet not enabled |
+| Published areas | ORE Studio's sixteen | =documents=, =agile=, =qa= | Data |
+
+Any other change to a copied file is a defect in the copy, or a fix to offer
+ORE Studio later.
+
+** Converging later
+
+Converging is later and opt-in, carried by the backlog task
+[[id:A2D4D196-1BF0-48F1-8C9D-7096651F94E1][Converge the HTTP and MCP service templates with ORE Studio]].
+Once both projects stabilise, it diffs compass's families against ORE Studio's
+files, settles each difference as a parameter or a fix on one side, and offers
+the families in compass's MASD library for ORE Studio to opt into. Whether and
+when ORE Studio opts in is ORE Studio's decision. Nothing in compass waits on
+it.
+
+** What changes in compass
+
+- =compass.serve= is built on Boost.Beast with coroutines, as ores.http is.
+  The design's =cpp-httplib= is dropped.
+- [[id:8CF40A62-82EB-4FE0-8CEC-2621BD0E66FE][Generate the HTTP and MCP service]]
+  copies the route machinery into a MASD family, =masd.cpp.http-service=, and
+  generates compass's routes and tool provider with it, instead of writing a
+  cpp-httplib route template and a hand-written =/mcp= dispatcher.
+- [[id:07BE8080-B97F-42FC-9A42-5D8CC0923EA0][Serve MCP]] writes compass's
+  transport to the behaviour table and passes the conformance runner.
+
+* 2. Tools and the catalogue
+
+** What ORE Studio does
+
+=tools/list= answers five tools whatever the catalogue holds: =list_areas=,
+=list_entities=, =list_operations=, =find_operations= (BM25 over names, areas,
+entities, summaries and descriptions) and =call_operation=, which answers the
+input schema and an example when called without arguments or with wrong ones
+(=progressive_disclosure_of_the_operation_catalogue_to_llm_agents.org=). The
+reason is size: 1,070 operations are about 107,000 tokens in full and about
+40,300 for names and descriptions alone, several times a small model's
+context (=investigation_how_the_model_sees_ores_operations.org=). Every route
+declares its tool name, its area (one of sixteen published areas, among them
+=agile= and =qa=), its entity and whether it writes; the server refuses to
+start otherwise. An agent reaches ORE Studio through =/mcp= on ores.http and
+no other door (=routing_of_llm_agent_calls_through_ores_http.org=).
+
+** Decision
+
+compass's own =/mcp= lists one tool per operation. It does not serve the five
+tools. A small model does best when the tool it needs is in the list it
+reads: a direct tool takes one step, the catalogue walk four. The catalogue
+walk pays only when the list does not fit, and compass's does. At ORE
+Studio's measured median of 265 characters a tool, sixteen tools are about
+4,200 characters, about 1,100 tokens, an estimate from ORE Studio's figure,
+not a measurement of compass's tools. A five-tool provider can sit behind the
+same seam if a measurement ever says so.
+
+Every compass route declares its place in ORE Studio's vocabulary, and
+compass's own =tools/list= is generated from those declarations. Tool names
+follow ORE Studio's verb and entity convention, so they would stay unique if
+ORE Studio ever imported them:
+
+| Tool | Route | Area | Entity | Writes |
+|------+-------+------+--------+--------|
+| =search_documents= | =GET /v1/{environment}/search= | documents | document | no |
+| =list_documents= | =GET /v1/{environment}/documents= | documents | document | no |
+| =get_document= | =GET /v1/{environment}/documents/{id}= | documents | document | no |
+| =list_backlinks= | =GET /v1/{environment}/documents/{id}/backlinks= | documents | document | no |
+| =count_facets= | =GET /v1/{environment}/facets= | documents | document | no |
+| =list_environments= | =GET /v1/environments= | documents | environment | no |
+| =sync_environment= | =POST /v1/{environment}/sync= | documents | environment | yes |
+| =get_version= | =GET /v1/version= | documents | service | no |
+| =get_catalogue= | =GET /v1/catalogue= | documents | service | no |
+| =get_sprint_state= | =GET /v1/{environment}/sprint= | agile | sprint | no |
+| =list_scenarios_to_test= | =GET /v1/{environment}/testing= | qa | scenario | no |
+| =start_run= | =POST /v1/{environment}/runs= | qa | run | yes |
+| =record_step_result= | =PUT /v1/{environment}/runs/{run}/steps/{ord}= | qa | run | yes |
+| =finish_run= | =POST /v1/{environment}/runs/{run}/finish= | qa | run | yes |
+| =attach_screenshot= | =POST /v1/{environment}/attachments= | qa | attachment | yes |
+| =add_note= | =POST /v1/{environment}/campaigns/{id}/notes= | qa | note | yes |
+| =address_note= | =PATCH /v1/{environment}/notes/{id}= | qa | note | yes |
+
+This renames the design's tools (=search=, =backlinks=, =sprint_state=,
+=what_needs_testing=, =sync=), adds =finish_run=, which the design's table
+lacked, and exposes every operation as a tool, as ORE Studio does. A
+screenshot travels as base64 in a typed JSON body, so one route is one tool
+with one schema; the cost is a third more bytes on small PNGs. The areas
+=agile= and =qa= are ORE Studio's names for the same subjects.
+
+=GET /v1/catalogue= answers every route's declaration and its input schema,
+the same data compass's own =tools/list= is built from, in the shape of the
+copied =route_catalogue=, with the method, the path, the query parameters and
+the body's JSON Schema. That makes compass's operations importable by a
+catalogue of ORE Studio's shape without translation. Whether ORE Studio
+imports them is an open proposal (P1).
+
+** What changes in compass
+
+[[id:55F578C5-6F25-4385-B0F2-CDFBDF9A753C][Model compass's service]] uses
+=:tool:=, =:area:=, =:entity:= and =:writes:= instead of =:mcp_tool:= and
+=:read_only:=. [[id:07BE8080-B97F-42FC-9A42-5D8CC0923EA0][Serve MCP]] serves
+the table above. =GET /v1/catalogue= is new.
+
+* 3. Identity
+
+** What ORE Studio does
+
+An agent acts through a grant its person creates: its token names the person
+as =sub= and =agent:= and the grant's id as =act=, and carries the grant's
+role less the permissions no agent holds
+(=task_give_an_agent_a_grant_and_a_key.org=). Every row an agent writes is
+stamped =acting_agent=, from =app.current_agent=, and ores.http logs every
+call an agent makes, reads included
+(=task_record_what_an_agent_did_and_show_it_to_its_person.org=). An agent's
+write is held at the gateway: ores.http raises an =iam.write_by_agent=
+approval request, keeps the call, and answers =202=. The person approves, then
+the replay as person with the agent as actor meets the approval the person's
+own write needs, by someone else. Every agent write is held unless an approval
+policy row exempts its route (=task_hold_an_agents_writes_for_six_eyes.org=).
+An MCP session's owner is the subject and the actor together
+(=src/mcp/endpoint.cpp=, =owner_of=).
+
+compass's design takes a view and a caller's name from the gateway. Its six
+writes (=compass.db/query/campaign.hpp=) carry a =tester= field in each
+request body; =run.tester=, =note.author= and =note.addressed_by= store it,
+and a step result, an attachment and a finish store no one.
+
+** Decision
+
+The caller is a value the server builds from the request, never a field of
+the body: a view, a subject and, when an agent acts, an actor. The gateway
+sends three headers: =Compass-View=, =Compass-Subject= and =Compass-Actor=.
+A gateway of ORE Studio's shape would set the subject from the token's =sub=
+and the actor from its =act=, verbatim, so an agent's actor would be
+=agent:<grant id>=. Locally, with no gateway, a request takes the =team= view
+and the developer's git user name, and an MCP session takes the actor =mcp:=
+and the =clientInfo.name= its =initialize= sent. A plain local HTTP request
+has no actor. compass records the actor verbatim as an opaque string and
+never learns ORE Studio's grants.
+
+Every activity write records who did it, in one place: a new table
+=activity.action=, one row per write in the write's own transaction.
+
+| Column | Holds |
+|--------+-------|
+| =id= | identity |
+| =at= | =timestamptz=, =now()= |
+| =operation= | =start_run=, =record_step_result=, =attach_screenshot=, =add_note=, =address_note= or =finish_run= |
+| =subject= | the person, not null |
+| =actor= | the agent, null when the person acted |
+| =run=, =note=, =step_ord=, =attachment= | what the write touched |
+
+A table rather than an actor column on each row, because two of the six writes
+change rows written earlier (=finish_run=, =address_note=), and three record
+no one today (=record_step_result=, =attach_screenshot=, =finish_run=): one
+column per row would need seven columns over four tables and still lose the
+second writer. =run.tester=, =note.author= and =note.addressed_by= stay: they
+are the subject of the write that created or addressed the row, now filled
+from the caller. Each write function takes a =caller= and its request loses
+=tester=. The export names the agent beside the person on each run and note
+an agent touched. MCP sessions are owned by subject and actor, as ORE
+Studio's are.
+
+compass has no approval flow and adds none. A write that reaches compass
+applies at once, whoever sent it. A gateway that holds writes for approval,
+as ORE Studio's does, holds them before they reach compass, and compass sees
+the replay as the person with the agent as actor. Which compass writes such a
+gateway holds is the gateway's policy, not compass's; one proposal is P2.
+
+** What changes in compass's schema and models
+
+- A migration creates =activity.action=. =compass db init= already
+  ships, so a database with migration 1 may exist, and the table is a new
+  migration, not an edit of migration 1
+  ([[id:6F19FA08-5DBE-4DE9-B853-03F541F5A4FC][Migrate a generated schema]]).
+- =compass.db/types/campaign.hpp=: the six requests lose =tester=; a =caller=
+  type (=view=, =subject=, optional =actor=) is passed to each write.
+- The model of the activity tables gains =action=
+  ([[id:02089780-F445-4220-89E1-3CBCA0347B37][Model compass's tables]]).
+- =:caller:= in the service model takes =view= or =subject=: a read needs a
+  view, a write a view and a subject.
+
+* 4. HTTP routes
+
+** What ORE Studio does
+
+Routes are declared through =route_builder= (=net/router.hpp=). A route
+states its catalogue place (=catalogue(tool, area, entity, writes)=), its
+documentation, its authentication position, its query parameters, and its
+body: =body<T>()= for a typed body whose schema and example come from the wire
+type, =json_body()= for an object of no fixed shape, a sink for a stream, or
+=no_body()=. The router refuses to start with a route that is undeclared, names
+an unpublished area, shares a tool, takes a body by its method (=POST=, =PUT=,
+=PATCH= and, since PR #5066, =DELETE=) without declaring it, or changes
+something by its method while declaring that it does not write. Generated
+operation routes are =POST= on a path made from the NATS subject, and their
+handler forwards the body with the caller's token over NATS. The OpenAPI
+document carries each declaration as =operationId=, =x-ores-area=,
+=x-ores-entity= and =x-ores-writes=.
+
+** Decision
+
+compass declares its routes with the builder it copied in section 1 and meets
+the same gates. Its generated route for =search_documents= reads:
+
+#+begin_src cpp
+router->get("/v1/{environment}/search")
+    .summary("Search the documents")
+    .catalogue("search_documents", "documents", "document", false)
+    .caller(caller_need::view)
+    .query_param("q", "string", "", true, "The query, in websearch_to_tsquery syntax.")
+    .query_param("type", "string", "", false, "Only documents of this type.")
+    .response<messaging::search_response>()
+    .handler([&queries](const http_request& req) {
+        return handle_search_documents(req, queries); });
+#+end_src
+
+and a write declares =body<T>()= with its message. Where the routes
+legitimately differ:
+
+| | ORE Studio | compass | Why |
+|-+------------+---------+-----|
+| Handler | Forwards over NATS with the caller's token | Calls a query function in process | compass is one process over one database |
+| Verbs and paths | =POST /api/v1/<component>/ops/<name>= for operations | =GET= with path and query parameters for reads, =POST=, =PUT=, =PATCH= for writes, under =/v1/{environment}= | compass's reads are cacheable and linkable; its environment is part of every address |
+| Authentication | =auth_required()=, =roles()=, bearer token or agent key | =caller(view)= or =caller(subject)= from gateway headers | the gateway authenticates; compass never sees a token |
+| Published areas | ORE Studio's sixteen | =documents=, =agile=, =qa= | each product's data |
+| Rate limits | Per policy | None | the gateway limits |
+| Upload | A sink, streamed | A typed JSON body with base64 | one route, one tool, one schema |
+
+=caller(...)= is compass's authentication position, in place of
+=auth_required()=. It is a parameter of the copied family, recorded as a
+divergence in section 1.
+
+Any gateway reaches compass the same way: it calls the paths compass
+declares, puts its deployment's environment in ={environment}=, and sends the
+three caller headers and the shared secret. How ores.http would do that is an
+open proposal (P3); compass needs nothing from it.
+
+* 5. JSON
+
+** What ORE Studio does
+
+=ores.utility/codec= is ORE Studio's JSON: =json_document= over yyjson for
+the tree, =struct_codec= and =wire_traits<T>= for each type, =json_schema<T>()=
+which derives a type's JSON Schema from its traits, =sample= for examples, and
+a MessagePack codec for NATS. The traits are generated by the
+=ores.cpp.wire-codec= family (=codec_header=, =protocol_codec_impl=,
+=roundtrip_tests=), and =route_builder::body<T>()= turns them into a route's
+schema and example. The MCP endpoint reads and writes JSON-RPC through
+=json_document=. All of this is on main.
+
+compass's plan was a JSON library chosen by measurement against nlohmann-json,
+ORE Studio's wire-codec templates reused where they fit, and each message's
+JSON Schema generated as a file at generation time.
+
+** Decision
+
+One generated codec family. compass copies ORE Studio's codec runtime and its
+=ores.cpp.wire-codec= templates from main into MASD now. The runtime is
+verbatim code and is copied as section 1's family is; the wire-codec family
+was already classified for reuse with a product parameter
+([[id:7FD52505-1436-4925-A1DE-4A3EC88F0133][Investigation: How compass generates itself]]).
+The MessagePack archetype is a facet compass leaves off. A message's JSON
+Schema comes from =json_schema<T>()= at run time, as ORE Studio's routes
+take it, not from a generated file, so a route's schema and a tool's
+=inputSchema= are one value.
+
+The copied builder's =body<T>()= and compass's MCP transport both read and
+write through =json_document=, so a compass on nlohmann-json would carry two
+JSON stacks, the objection ORE Studio raised against boost.taar.
+
+** What changes in compass
+
+- yyjson joins =vcpkg.json=; nlohmann-json is not added.
+- [[id:E754BE53-3A6B-4491-BB26-450D1A34F159][Generate JSON codecs]] copies the
+  runtime and the templates and renders them, instead of choosing a library.
+
+* Decisions
+
+Recorded from the product owner on 2026-11-23:
+
+1. *Copy now, no blocking.* compass copies the ORE Studio code it needs from
+   main into its own MASD templates and runtime, and writes its own MCP
+   transport to ORE Studio's design and conformance runner. Neither project
+   blocks on the other until both stabilise. ORE Studio's templates becoming
+   an opt-in MASD library in compass stays the direction, with no
+   lift-and-switch sequence now.
+2. *A template family, on Boost.Beast and yyjson.* The copied code is a MASD
+   template family, not a shared binary library. compass drops cpp-httplib and
+   nlohmann-json, and adds Boost to its build.
+
+compass's own choices in sections 2 to 4 stand without ORE Studio's
+agreement: direct tools on compass's =/mcp=, the three gateway headers,
+=activity.action=, and =GET /v1/catalogue= in the shape of ORE Studio's
+=route_catalogue=.
+
+* Open proposals for ORE Studio
+
+Not decided, and not bound: the product owner said on 2026-11-23 "let's not
+bind it yet". The coordinator does not send these yet. compass depends on
+none of them, and each can be raised with ORE Studio later.
+
+- P1. *A published area =documents=,* beside =agile= and =qa=, so ores.http
+  could import compass's =GET /v1/catalogue= into its own catalogue and reach
+  compass's operations through its five tools. ORE Studio's product owner
+  approved the sixteen areas on 2026-11-22, so a seventeenth is theirs to
+  decide. Without it, compass's own =/mcp= serves compass's tools.
+- P2. *Six-eyes exemption rows.* If ores.http fronts compass, holding an
+  agent's =finish_run= and =address_note= and exempting =start_run=,
+  =record_step_result=, =attach_screenshot= and =add_note=. Holding every
+  write, ORE Studio's default, would stop an agent at =start_run=: the run's
+  id is not known until the person approves. What needs testing reads only
+  finished runs (=compass.db/src/query/testing.cpp=, =r.outcome IS NOT NULL=),
+  so the four exempt writes change no scenario's state.
+- P3. *Forward agile and QA to compass and drop run write-back.* ores.http
+  would gain an HTTP forwarder to =compass serve= that sends the three caller
+  headers and the shared secret and never the person's token, and answers
+  =503= with =Retry-After= when compass is down. ORE Studio's blocked task
+  Serve the doc-backed agile and QA routes (=task_serve_the_doc_backed_routes.org=)
+  would forward its routes to compass instead of parsing scenario pages, and
+  would drop writing a run's outcomes back into the scenario page's =Result=
+  tables, since compass keeps runs as the service's records and scenario
+  pages read-only. ores.web would take compass's shapes. That task's
+  acceptance keeps the BFF's shapes today, so this is ORE Studio's product
+  owner's call.
+
+* See also
+
+- [[id:21C1D3CC-9EE3-48C3-8EDD-BA0C16032AB2][Design: the document service]]: the design this page changes.
+- [[id:7FD52505-1436-4925-A1DE-4A3EC88F0133][Investigation: How compass generates itself]]: the service model and template verdicts this page revises.
+- [[id:A2D4D196-1BF0-48F1-8C9D-7096651F94E1][Converge the HTTP and MCP service templates with ORE Studio]]: the later, opt-in convergence.

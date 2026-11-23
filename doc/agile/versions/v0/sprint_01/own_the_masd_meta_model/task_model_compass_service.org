@@ -22,7 +22,10 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 The operation model type exists, but it says how to reach a
 message over NATS, not over HTTP or MCP. Add =:http_method:=, =:http_path:=,
-=:http_in:=, =:mcp_tool:=, =:mcp_title:=, =:read_only:= and =:caller:=, and
+=:http_in:=, =:tool:=, =:area:=, =:entity:=, =:writes:= and =:caller:=, named
+after ORE Studio's route catalogue declaration as
+[[id:AF30B206-2FAB-435F-819F-9EC652D4E40D][Design: aligning the document service with ORE Studio's HTTP and MCP]] decides (=:caller:= is =view= for a read and =subject= for a
+write), and
 write the operation models of Serve the documents' endpoints and tools, as
 [[id:7FD52505-1436-4925-A1DE-4A3EC88F0133][Investigation: How compass generates itself]] sketches for search.
 
