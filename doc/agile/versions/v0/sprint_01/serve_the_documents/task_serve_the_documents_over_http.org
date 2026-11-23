@@ -12,7 +12,7 @@
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-22
-#+updated: 2026-11-22
+#+updated: 2026-11-23
 #+environment:
 #+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
 
@@ -20,7 +20,13 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Goal
 
-(Describe what user-visible-or-internal change this task produces.)
+=compass serve= answers the design's routes on Boost.Beast with ORE
+Studio's router, moved into MASD. Every route declares its tool, area, entity,
+whether it writes and its typed body, as ORE Studio's do. The caller is read
+from the gateway's =Compass-View=, =Compass-Subject= and =Compass-Actor=
+headers, or locally from the =team= view and the developer's git user name,
+and every write records its subject and actor in =activity.action=. See
+[[id:AF30B206-2FAB-435F-819F-9EC652D4E40D][Design: aligning the document service with ORE Studio's HTTP and MCP]], sections 3 and 4.
 
 * Status
 
@@ -29,13 +35,21 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 | State        | BACKLOG                              |
 | Parent story | [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]] |
 | Now          | Not yet started.                       |
-| Waiting on   | Nothing.                               |
+| Waiting on   | [[id:A2D4D196-1BF0-48F1-8C9D-7096651F94E1][Move the HTTP and MCP service machinery to MASD]]; [[id:8CF40A62-82EB-4FE0-8CEC-2621BD0E66FE][Generate the HTTP and MCP service]]. |
 | Next         | Begin implementation.                  |
-| Last touched | 2026-11-22                               |
+| Last touched | 2026-11-23                               |
 
 * Acceptance
 
--
+- Every route in the alignment design's table answers, under
+  =/v1/{environment}=, and the router's start-up gates accept every route.
+- A request without a view is refused, and a write without a subject; a
+  request body never names the tester.
+- The six campaign writes take a =caller= and record one =activity.action=
+  row each, with the subject and the actor, in their own transaction; a
+  migration creates the table.
+- =GET /v1/catalogue= answers every route's declaration and input schema.
+- With a gateway secret configured, a request without it is refused.
 
 * Plan
 

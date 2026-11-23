@@ -7,7 +7,7 @@
 #+level: s2
 #+filetags: :docs:search:service:design:serve_the_documents:sprint_01:v0:
 #+created: 2026-11-22
-#+updated: 2026-11-22
+#+updated: 2026-11-23
 #+todo: DRAFT STARTED | LANDED SUPERSEDED ABANDONED
 #+outcome:
 
@@ -17,7 +17,7 @@
 |--------------+-------|
 | State        | DRAFT |
 | Parent story | [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]] |
-| Last touched | 2026-11-22 |
+| Last touched | 2026-11-23 |
 
 * Summary
 
@@ -79,10 +79,10 @@ first task started: =compass.db= is a simple component in the domain layer,
 since it reads the =compass.org= tables. The CLI gains a dependency on =libpq= for the sync; the HTTP
 server and its libraries stay in =compass.serve=.
 
-Dependencies to add through vcpkg: =libpq=; an HTTP server, =cpp-httplib=
-(one header, a thread pool, enough for a service that only a gateway and local
-agents reach); a JSON library, =nlohmann-json= unless a faster one is measured
-to matter. Each is confirmed in its task against the build on Linux, macOS and
+Dependencies to add through vcpkg: =libpq=; Boost.Beast and yyjson, which
+the HTTP and MCP service and the JSON codec moved from ORE Studio need
+([[id:AF30B206-2FAB-435F-819F-9EC652D4E40D][Design: aligning the document service with ORE Studio's HTTP and MCP]]).
+Each is confirmed in its task against the build on Linux, macOS and
 Windows.
 
 * The database
@@ -154,6 +154,7 @@ written into it by older tooling.
 | =run= | =id= | =campaign=, =scenario_id= (=:ID:=), =definition=, =scenario_hash=, =tester=, =started_at=, =finished_at=, =outcome= |
 | =step_result= | =run=, =step_ord= | =outcome= (pass, fail, blocked, skipped), =notes= |
 | =note= | =id= | =campaign=, =scenario_id=, =step_ord=, =kind=, =text=, =author=, =created_at=, =state= (open, addressed), =reply=, =addressed_by=, =addressed_at= |
+| =action= | =id= | =at=, =operation=, =subject=, =actor= (null when the person acted), =run=, =note=, =step_ord=, =attachment=: one row per write |
 | =attachment= | =hash= | =media_type=, =bytes bytea= |
 | =attached= | =attachment=, =run= or =note=, =step_ord= | =caption= |
 
@@ -239,7 +240,9 @@ cannot drift.
 
 =compass serve= listens on a local or internal address only; a project's
 gateway is the only client that reaches it from outside the machine. Paths are
-versioned:
+versioned. Every route declares its tool name, area, entity and whether it
+writes, and every route that takes a body its typed body, in ORE Studio's
+route vocabulary; the alignment design lists each route's declaration:
 
 | Method and path | Answers |
 |-----------------+---------|
@@ -250,10 +253,12 @@ versioned:
 | =GET /v1/{env}/facets?...= | Filter values and counts |
 | =GET /v1/{env}/sprint= | The present sprint, its stories and tasks and their states |
 | =GET /v1/{env}/testing?sprint=...= | What needs testing |
-| =POST /v1/{env}/runs=, =PUT .../runs/{id}/steps/{ord}= | Record a run and its steps |
-| =POST /v1/{env}/campaigns/{id}/notes=, =PATCH .../notes/{id}= | Add and address notes |
-| =POST /v1/attachments= | Upload a screenshot; answers its hash |
+| =POST /v1/{env}/runs=, =PUT .../runs/{id}/steps/{ord}=, =POST .../runs/{id}/finish= | Record a run, its steps and its outcome |
+| =POST /v1/{env}/campaigns/{id}/notes=, =PATCH /v1/{env}/notes/{id}= | Add and address notes |
+| =POST /v1/{env}/attachments= | Attach a screenshot, sent as base64, to a run, a step or a note; answers its hash |
+| =POST /v1/{env}/sync= | Sync the environment |
 | =GET /v1/environments=, =GET /v1/version= | Environments with =synced_at=; API version and compass version |
+| =GET /v1/catalogue= | Every route's declaration and input schema, which ores.http imports into its catalogue |
 
 The environment is a path segment: a request names it as it names a view, and
 a missing or unknown environment is an error, never a default.
@@ -270,20 +275,30 @@ compass configuration:
 | =team= | every document |
 
 Each view compiles to a SQL condition applied to every query before any other
-filter. The gateway authenticates the caller and sends two headers: the view
-and the caller's name. The service rejects a request without a view, and every
-write without a name. It trusts both because only the gateway can reach it;
+filter. The gateway authenticates the caller and sends three headers:
+=Compass-View=, =Compass-Subject=, the person, and =Compass-Actor=, the agent
+acting for them when one is. The service rejects a request without a view, and
+every write without a subject. The write functions take this caller; no
+request body names its tester. It trusts both because only the gateway can reach it;
 where the network does not ensure that, the two share a secret. compass never
 learns the project's users, roles or tokens.
 
 Locally, agents reach the service directly; their requests take the =team=
-view and the developer's git user name.
+view and the developer's git user name as subject, and an MCP session takes
+=mcp:= and its client's name as actor. compass has no approval flow: through
+ORE Studio's gateway, an agent's =finish_run= and =address_note= wait for
+ORE Studio's six eyes, and its other writes apply.
 
 ** MCP
 
-=compass serve= also answers MCP over streamable HTTP at =/mcp=. Its tools are
-=search=, =get_document=, =list_documents=, =backlinks=, =sprint_state=,
-=what_needs_testing= and =sync=, each taking an environment. A coding agent
+=compass serve= also answers MCP over streamable HTTP at =/mcp=, with the
+endpoint ORE Studio's ores.http serves, generated from the same MASD
+templates: the same protocol revisions, sessions, error codes and conformance
+runner. It lists one tool per route, named as the route declares it, such as
+=search_documents=, =get_document=, =get_sprint_state= and
+=list_scenarios_to_test=, each taking an environment. Through ORE Studio,
+agents reach the same operations through ores.http's five catalogue tools
+instead, under the areas =documents=, =agile= and =qa=. A coding agent
 registers it once per machine; a project's assistant reaches it through the
 gateway with the =knowledge= view. Tool results are compact: the metadata and
 the matching sections, with the full body on request.
@@ -329,7 +344,9 @@ it shows, so a step list is never mixed between versions. Each step takes an
 outcome and notes, screenshots attach to a step or to the run, and the run's
 outcome is derived: failed if any step failed, blocked if any was blocked and
 none failed, passed if every step passed or was skipped. Notes attach to the
-campaign, optionally to a scenario or a step.
+campaign, optionally to a scenario or a step. Every write records its
+subject and actor in =activity.action=, taken from the caller, never from
+the request's body.
 
 ** Export to git
 
@@ -384,8 +401,8 @@ its role-to-view rule, the ores.web pages, the assistant, retiring
 
 * Least certain
 
-- The HTTP library. =cpp-httplib= is the smallest that serves; if streaming
-  MCP or load needs more, =Boost.Beast= is the fallback, at a larger build.
+- The HTTP library. Boost.Beast, with ORE Studio's machinery moved into
+  MASD, replaces =cpp-httplib=; it adds Boost to compass's build.
 - Sync cost on a large tree. A listing of ORE Studio's 11,313 documents from
   the store should be tens of milliseconds warm, but the hook runs on every
   edit, so its sync is per file, and the run-end sync must be measured.
@@ -402,5 +419,7 @@ its role-to-view rule, the ores.web pages, the assistant, retiring
 * See also
 
 - [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]]: the story.
+- [[id:AF30B206-2FAB-435F-819F-9EC652D4E40D][Design: aligning the document service with ORE Studio's HTTP and MCP]]:
+  the transport, tools, identity, routes and JSON shared with ORE Studio.
 - [[id:A98E704E-B2E4-49BA-8839-B0A1DE9C3679][Keep the result cache small]]: the store's sharing and collection,
   which the corpus follows.
