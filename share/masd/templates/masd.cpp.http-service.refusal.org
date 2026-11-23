@@ -1,0 +1,96 @@
+:PROPERTIES:
+:ID: DC80E8D4-9B99-4CCA-9CD8-CC5F403C113B
+:END:
+#+title: masd.cpp.http-service.refusal
+#+description: refusal: a status, a code from the service's closed list and a sentence, which every route answers as api_error writes it. Output projects/{component_dir}/include/{component_dir}/domain/refusal.hpp.
+#+type: archetype
+#+output: projects/{component_dir}/include/{component_dir}/domain/refusal.hpp
+#+facet: masd.cpp.http-service
+#+level: cross
+#+filetags: :codegen:templates:literate:archetype:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is an archetype of the [[id:58BCC011-F984-4DAA-B054-F3692C529F38][masd.cpp.http-service]] facet:
+one file of the HTTP route runtime, rendered into the component that switches
+the facet on.
+
+* Origin
+
+No ORE Studio file: compass's own.
+
+compass's own.
+
+* Context
+
+The context is the library's values and =masd_component=:
+=component_namespace=, =component_root=, the directory the component's
+headers are included from, =guard_prefix=, and =wire_namespace= and
+=wire_root=, the JSON codec runtime's namespace and include directory. The
+template switches the delimiters to =<% %>=, because the C++ it holds has
+braces of its own.
+
+* Template
+
+The template source. compass's =tangle= codec writes it to
+=masd_cpp_http_service_refusal.hpp.mustache= beside this page.
+
+#+begin_src mustache :tangle masd_cpp_http_service_refusal.hpp.mustache
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.http-service.refusal.org. Edit the org source. }}
+{{=<% %>=}}
+<%& cpp_license%>
+<%#masd_component%>
+#ifndef <%guard_prefix%>DOMAIN_REFUSAL_HPP
+#define <%guard_prefix%>DOMAIN_REFUSAL_HPP
+
+#include "<%component_root%>/domain/http_status.hpp"
+#include <stdexcept>
+#include <string>
+#include <utility>
+
+namespace <%component_namespace%>::domain {
+
+/**
+ * @brief A call the service refuses: the status it answers, a code from the
+ * service's closed list a client can act on, and a sentence it can show.
+ *
+ * A route answers it as the body api_error writes, so nothing about the
+ * refusal depends on which part of the call refused it.
+ */
+class refusal : public std::runtime_error {
+public:
+    refusal(http_status status, std::string code, const std::string& message)
+        : std::runtime_error(message), status_(status), code_(std::move(code)) {}
+
+    [[nodiscard]] http_status status() const noexcept {
+        return status_;
+    }
+
+    [[nodiscard]] const std::string& code() const noexcept {
+        return code_;
+    }
+
+    /// The request's input is wrong: a value, a parameter or a member.
+    [[nodiscard]] static refusal invalid(const std::string& message) {
+        return {http_status::bad_request, "invalid", message};
+    }
+
+    /// The thing the request names is not in the environment.
+    [[nodiscard]] static refusal not_found(const std::string& message) {
+        return {http_status::not_found, "not_found", message};
+    }
+
+private:
+    http_status status_;
+    std::string code_;
+};
+
+}
+
+#endif
+<%/masd_component%>
+#+end_src
+
+* See also
+
+- Parent facet: [[id:58BCC011-F984-4DAA-B054-F3692C529F38][masd.cpp.http-service]]

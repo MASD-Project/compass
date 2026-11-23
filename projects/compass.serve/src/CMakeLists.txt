@@ -19,10 +19,21 @@ set(name "compass.serve")
 set(lib_target_name ${name}.lib)
 
 add_library(${lib_target_name}
+    domain/catalogue_rules.cpp
+    domain/http_request.cpp
+    domain/http_response.cpp
+    domain/route.cpp
     messages/campaign_writes_protocol.cpp
     messages/document_queries_protocol.cpp
     messages/errors_protocol.cpp
-    messages/testing_queries_protocol.cpp)
+    messages/testing_queries_protocol.cpp
+    net/answer.cpp
+    net/binding.cpp
+    net/router.cpp
+    openapi/endpoint_registry.cpp
+    routes/campaign_writes_routes.cpp
+    routes/document_queries_routes.cpp
+    routes/testing_queries_routes.cpp)
 
 set_target_properties(${lib_target_name} PROPERTIES OUTPUT_NAME ${name})
 
@@ -31,4 +42,5 @@ target_include_directories(${lib_target_name} PUBLIC
 
 target_link_libraries(${lib_target_name}
     PUBLIC
-        compass.db.lib)
+        compass.db.lib
+        Boost::beast)

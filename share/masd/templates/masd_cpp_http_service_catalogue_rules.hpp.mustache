@@ -1,0 +1,36 @@
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.http-service.catalogue_rules.org. Edit the org source. }}
+{{=<% %>=}}
+<%& cpp_license%>
+<%#masd_component%>
+#ifndef <%guard_prefix%>DOMAIN_CATALOGUE_RULES_HPP
+#define <%guard_prefix%>DOMAIN_CATALOGUE_RULES_HPP
+
+#include "<%component_root%>/domain/http_request.hpp"
+#include "<%component_root%>/domain/route.hpp"
+#include <string>
+#include <string_view>
+
+namespace <%component_namespace%>::domain {
+
+/**
+ * @brief Whether an area is one of the published areas.
+ */
+bool is_published_area(std::string_view area);
+
+/**
+ * @brief Whether a route that changes something by its method may declare
+ * that it does not write: only a bulk get, or an operation named for reading.
+ */
+bool may_declare_read(const route_catalogue& catalogue);
+
+/**
+ * @brief Whether an operation only reads, by its name: one that lists, gets,
+ * reads, finds, searches or looks up changes nothing, unless it also makes, as
+ * get_or_create does.
+ */
+bool operation_only_reads(std::string_view name);
+
+}
+
+#endif
+<%/masd_component%>

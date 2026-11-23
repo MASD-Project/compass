@@ -1,0 +1,84 @@
+:PROPERTIES:
+:ID: 13BC0F7A-BC4F-459A-9ED7-01D2B07592E0
+:END:
+#+title: masd.cpp.http-service.catalogue_rules_impl
+#+description: The published areas and the rules over them. Output projects/{component_dir}/src/domain/catalogue_rules.cpp.
+#+type: archetype
+#+output: projects/{component_dir}/src/domain/catalogue_rules.cpp
+#+facet: masd.cpp.http-service
+#+level: cross
+#+filetags: :codegen:templates:literate:archetype:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is an archetype of the [[id:58BCC011-F984-4DAA-B054-F3692C529F38][masd.cpp.http-service]] facet:
+one file of the HTTP route runtime, rendered into the component that switches
+the facet on.
+
+* Origin
+
+ORE Studio's =projects/ores.http/api/src/domain/catalogue_rules.cpp= at
+commit =bc0702ad46b8a6097ce5242ece7ba01067699f60=.
+
+The published areas are compass's three, agile, documents and qa, where ORE
+Studio's are sixteen. The three functions the header leaves out are left
+out.
+
+* Context
+
+The context is the library's values and =masd_component=:
+=component_namespace=, =component_root=, the directory the component's
+headers are included from, =guard_prefix=, and =wire_namespace= and
+=wire_root=, the JSON codec runtime's namespace and include directory. The
+template switches the delimiters to =<% %>=, because the C++ it holds has
+braces of its own.
+
+* Template
+
+The template source. compass's =tangle= codec writes it to
+=masd_cpp_http_service_catalogue_rules_impl.cpp.mustache= beside this page.
+
+#+begin_src mustache :tangle masd_cpp_http_service_catalogue_rules_impl.cpp.mustache
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.http-service.catalogue_rules_impl.org. Edit the org source. }}
+{{=<% %>=}}
+<%& cpp_license%>
+<%#masd_component%>
+#include "<%component_root%>/domain/catalogue_rules.hpp"
+#include <algorithm>
+#include <array>
+
+namespace <%component_namespace%>::domain {
+
+namespace {
+
+/// The published areas, as the service's component overview names them.
+constexpr auto published_areas = std::to_array<std::string_view>({"agile",
+                                                                  "documents",
+                                                                  "qa"});
+
+}
+
+bool is_published_area(std::string_view area) {
+    return std::ranges::find(published_areas, area) != published_areas.end();
+}
+
+bool may_declare_read(const route_catalogue& catalogue) {
+    return catalogue.tool.starts_with("get_many_") || operation_only_reads(catalogue.tool);
+}
+
+bool operation_only_reads(std::string_view name) {
+    if (name.find("_or_") != std::string_view::npos)
+        return false;
+    for (const std::string_view verb : {"list_", "get_", "read_", "find_", "search_", "lookup_"})
+        if (name.starts_with(verb))
+            return true;
+    return false;
+}
+
+}
+<%/masd_component%>
+#+end_src
+
+* See also
+
+- Parent facet: [[id:58BCC011-F984-4DAA-B054-F3692C529F38][masd.cpp.http-service]]

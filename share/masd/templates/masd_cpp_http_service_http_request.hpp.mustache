@@ -1,0 +1,101 @@
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.http-service.http_request.org. Edit the org source. }}
+{{=<% %>=}}
+<%& cpp_license%>
+<%#masd_component%>
+#ifndef <%guard_prefix%>DOMAIN_HTTP_REQUEST_HPP
+#define <%guard_prefix%>DOMAIN_HTTP_REQUEST_HPP
+
+#include "<%component_root%>/domain/body_sink.hpp"
+#include "<%component_root%>/domain/http_method.hpp"
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <unordered_map>
+
+namespace <%component_namespace%>::domain {
+
+/**
+ * @brief Represents an incoming HTTP request.
+ */
+struct http_request final {
+    /**
+     * @brief HTTP method (GET, POST, etc.)
+     */
+    http_method method = http_method::get;
+
+    /**
+     * @brief Request target/path.
+     */
+    std::string target;
+
+    /**
+     * @brief Request headers.
+     */
+    std::unordered_map<std::string, std::string> headers;
+
+    /**
+     * @brief Query parameters parsed from URL.
+     */
+    std::unordered_map<std::string, std::string> query_params;
+
+    /**
+     * @brief Path parameters extracted from route pattern.
+     */
+    std::unordered_map<std::string, std::string> path_params;
+
+    /**
+     * @brief Request body.
+     *
+     * Empty on a route that streamed its body, because the bytes went to the
+     * sink instead.
+     */
+    std::string body;
+
+    /**
+     * @brief The number of bytes the body carried, buffered or streamed.
+     */
+    std::uint64_t body_bytes = 0;
+
+    /**
+     * @brief The sink the body was streamed into, when the route asked for one.
+     *
+     * Null on a buffered route. The session owns the sink and it outlives the
+     * handler call, so the handler may commit or abort it.
+     */
+    body_sink* sink = nullptr;
+
+    /**
+     * @brief Remote endpoint address.
+     */
+    std::string remote_address;
+
+    /**
+     * @brief HTTP version major number (e.g., 1 for HTTP/1.1).
+     */
+    std::uint16_t http_version_major = 1;
+
+    /**
+     * @brief HTTP version minor number (e.g., 1 for HTTP/1.1).
+     */
+    std::uint16_t http_version_minor = 1;
+
+    /**
+     * @brief Returns header value or empty string if not found.
+     */
+    std::string get_header(const std::string& name) const;
+
+    /**
+     * @brief Returns query parameter value or empty string if not found.
+     */
+    std::string get_query_param(const std::string& name) const;
+
+    /**
+     * @brief Returns path parameter value or empty string if not found.
+     */
+    std::string get_path_param(const std::string& name) const;
+};
+
+}
+
+#endif
+<%/masd_component%>

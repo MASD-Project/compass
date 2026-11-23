@@ -1,0 +1,121 @@
+:PROPERTIES:
+:ID: CCBF183A-BF72-415D-B28F-8DF5418E945C
+:END:
+#+title: masd.cpp.http-routes.impl
+#+description: The definitions of an operation model's routes: each binds its request from the path, the query and the body by the service's rules, and declares its route through the copied builder with its catalogue place, caller, parameters, input, body and response. Output projects/{component_dir}/src/routes/{entity}_routes.cpp.
+#+type: archetype
+#+output: projects/{component_dir}/src/routes/{entity}_routes.cpp
+#+facet: masd.cpp.http-routes
+#+level: cross
+#+filetags: :codegen:templates:literate:archetype:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is the archetype that writes the translation unit of an operation
+model's routes for the
+[[id:FAFD18B3-BB36-40EE-8C25-DAA9B93D5529][masd.cpp.http-routes]] facet.
+
+* Context
+
+The context is the library's values and =masd_operation=:
+
+- =routes_include=, =component_root= and =component_namespace=.
+- =routes=: each routed request with
+  - =tool=, =area=, =entity=, =writes=, =summary=, =description=, =path=,
+    =builder=, the router call of its method, and =caller=;
+  - =request=, =response= and =has_response=;
+  - =path_fields=, each a =member= and its =param=, and =query_fields=,
+    each a =member=, which may be a member of a message-typed field, its
+    =param= and whether it is =required=;
+  - =checks=: each query field whose text is one of its =values=;
+  - =query_params=: each query parameter's =name=, OpenAPI =type=,
+    =required= and =description=, for the route's documentation;
+  - =has_body=, =body_members=, =body_required=, =takes_no_body=,
+    =has_max_body_size= and =max_body_size=.
+
+Summaries, descriptions and value lists are C++ literal text the context
+escapes, so they are written with triple braces.
+
+* Template
+
+The template source. compass's =tangle= codec writes it to
+=masd_cpp_http_routes.cpp.mustache= beside this page.
+
+#+begin_src mustache :tangle masd_cpp_http_routes.cpp.mustache
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.http-routes.impl.org. Edit the org source. }}
+{{{cpp_license}}}
+{{#masd_operation}}
+#include "{{routes_include}}"
+
+#include <utility>
+#include "{{component_root}}/net/answer.hpp"
+#include "{{component_root}}/net/binding.hpp"
+
+namespace {{component_namespace}}::routes {
+{{#routes}}
+
+namespace {
+
+{{request}} bind_{{tool}}(const domain::http_request& req) {
+    net::binding b(req);
+    {{request}} r;
+{{#has_body}}
+    b.body(r, { {{{body_members}}} }, { {{{body_required}}} });
+{{/has_body}}
+{{#path_fields}}
+    b.path("{{param}}", r.{{member}});
+{{/path_fields}}
+{{#query_fields}}
+    b.query("{{param}}", r.{{member}}, {{required}});
+{{/query_fields}}
+{{#checks}}
+    net::binding::one_of("{{param}}", r.{{member}}, { {{{values}}} });
+{{/checks}}
+    b.finish();
+    return r;
+}
+
+}
+
+void add_{{tool}}(net::router& r, {{tool}}_handler h) {
+    auto route = r.{{builder}}("{{path}}")
+        .summary("{{{summary}}}")
+        .description("{{{description}}}")
+        .catalogue("{{tool}}", "{{area}}", "{{entity}}", {{writes}})
+        .caller(domain::caller_need::{{caller}})
+{{#query_params}}
+        .query_param("{{name}}", "{{type}}", "", {{required}}, "{{{description}}}")
+{{/query_params}}
+{{#takes_no_body}}
+        .no_body()
+{{/takes_no_body}}
+{{#has_body}}
+        .body<{{request}}>()
+{{/has_body}}
+{{#has_max_body_size}}
+        .max_body({{max_body_size}})
+{{/has_max_body_size}}
+        .input<{{request}}>()
+{{#has_response}}
+        .response<{{response}}>()
+{{/has_response}}
+        .handler([h = std::move(h)](const domain::http_request& req) {
+            return net::ready(net::answer(req, domain::caller_need::{{caller}},
+                [&](const domain::caller& c) { return h(c, bind_{{tool}}(req)); }));
+        })
+        .build();
+{{#has_body}}
+    route.body_schema->json_schema =
+        net::body_schema(route.body_schema->json_schema, { {{{body_members}}} });
+{{/has_body}}
+    r.add_route(route);
+}
+{{/routes}}
+
+}
+{{/masd_operation}}
+#+end_src
+
+* See also
+
+- Parent facet: [[id:FAFD18B3-BB36-40EE-8C25-DAA9B93D5529][masd.cpp.http-routes]]

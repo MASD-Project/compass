@@ -1,0 +1,29 @@
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.http-service.caller.org. Edit the org source. }}
+{{=<% %>=}}
+<%& cpp_license%>
+<%#masd_component%>
+#ifndef <%guard_prefix%>DOMAIN_CALLER_HPP
+#define <%guard_prefix%>DOMAIN_CALLER_HPP
+
+#include <optional>
+#include <string>
+
+namespace <%component_namespace%>::domain {
+
+/**
+ * @brief Who calls, as the gateway names them: the view they read through,
+ * the person and, when an agent acts for the person, the agent.
+ *
+ * The server builds it from the request's headers, never from its body.
+ * subject is empty on a read whose gateway named no one.
+ */
+struct caller final {
+    std::string view;
+    std::string subject;
+    std::optional<std::string> actor;
+};
+
+}
+
+#endif
+<%/masd_component%>

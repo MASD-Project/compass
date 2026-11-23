@@ -1,0 +1,72 @@
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.http-routes.impl.org. Edit the org source. }}
+{{{cpp_license}}}
+{{#masd_operation}}
+#include "{{routes_include}}"
+
+#include <utility>
+#include "{{component_root}}/net/answer.hpp"
+#include "{{component_root}}/net/binding.hpp"
+
+namespace {{component_namespace}}::routes {
+{{#routes}}
+
+namespace {
+
+{{request}} bind_{{tool}}(const domain::http_request& req) {
+    net::binding b(req);
+    {{request}} r;
+{{#has_body}}
+    b.body(r, { {{{body_members}}} }, { {{{body_required}}} });
+{{/has_body}}
+{{#path_fields}}
+    b.path("{{param}}", r.{{member}});
+{{/path_fields}}
+{{#query_fields}}
+    b.query("{{param}}", r.{{member}}, {{required}});
+{{/query_fields}}
+{{#checks}}
+    net::binding::one_of("{{param}}", r.{{member}}, { {{{values}}} });
+{{/checks}}
+    b.finish();
+    return r;
+}
+
+}
+
+void add_{{tool}}(net::router& r, {{tool}}_handler h) {
+    auto route = r.{{builder}}("{{path}}")
+        .summary("{{{summary}}}")
+        .description("{{{description}}}")
+        .catalogue("{{tool}}", "{{area}}", "{{entity}}", {{writes}})
+        .caller(domain::caller_need::{{caller}})
+{{#query_params}}
+        .query_param("{{name}}", "{{type}}", "", {{required}}, "{{{description}}}")
+{{/query_params}}
+{{#takes_no_body}}
+        .no_body()
+{{/takes_no_body}}
+{{#has_body}}
+        .body<{{request}}>()
+{{/has_body}}
+{{#has_max_body_size}}
+        .max_body({{max_body_size}})
+{{/has_max_body_size}}
+        .input<{{request}}>()
+{{#has_response}}
+        .response<{{response}}>()
+{{/has_response}}
+        .handler([h = std::move(h)](const domain::http_request& req) {
+            return net::ready(net::answer(req, domain::caller_need::{{caller}},
+                [&](const domain::caller& c) { return h(c, bind_{{tool}}(req)); }));
+        })
+        .build();
+{{#has_body}}
+    route.body_schema->json_schema =
+        net::body_schema(route.body_schema->json_schema, { {{{body_members}}} });
+{{/has_body}}
+    r.add_route(route);
+}
+{{/routes}}
+
+}
+{{/masd_operation}}

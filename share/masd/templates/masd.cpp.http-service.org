@@ -1,0 +1,80 @@
+:PROPERTIES:
+:ID: 58BCC011-F984-4DAA-B054-F3692C529F38
+:END:
+#+title: masd.cpp.http-service
+#+description: The HTTP route runtime, ORE Studio's route, route catalogue, router, route builder with its start-up gates, typed bodies and OpenAPI registry copied into the MASD library, with compass's own caller and binding runtime, rendered into the component that switches it on. Off unless a component's model switches it on.
+#+type: facet
+#+model_types: masd_component
+#+default: off
+#+level: cross
+#+facet_group: masd.cpp
+#+filetags: :codegen:physical-space:cpp:http:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is the node for the =masd.cpp.http-service= facet of the MASD
+library. Each of its archetypes is one file of the runtime the routes of
+[[id:FAFD18B3-BB36-40EE-8C25-DAA9B93D5529][masd.cpp.http-routes]] are
+declared and bound with.
+
+* Summary
+
+ORE Studio declares every route of ores.http through =net::route_builder=:
+its place in the operation catalogue (=route_catalogue=: tool, area, entity,
+writes, =takes_no_body=, summary, description, tags), its authentication
+position, its query parameters, and its body and response as types whose
+JSON Schema the codec runtime derives. Its router refuses to start with a
+route the catalogue cannot accept, and its =endpoint_registry= writes the
+OpenAPI document of the routes. compass copies these files from ORE Studio's
+=main= at commit =bc0702ad46b8a6097ce5242ece7ba01067699f60= (2026-11-23), as
+[[id:AF30B206-2FAB-435F-819F-9EC652D4E40D][Design: aligning the document service with ORE Studio's HTTP and MCP]]
+decided, and adds the runtime its generated routes bind with. The files are
+verbatim code with five parameters, not generated from a model; the facet
+renders them into a component, in its namespace, so the component's builds
+own their Boost and yyjson.
+
+* The masd.cpp.http-service facet
+
+Off by default. A component switches it on in the =* Physical space= table
+of its =masd.codegen.component= model, and links =Boost::beast= and the
+component holding the JSON codec runtime. In compass that component is
+=compass.serve=, whose model is
+[[id:E6B2C0C4-2B6E-4E0B-9C61-7F2A6E1E9C35][compass.serve.component]]. The
+runtime lands in =include/<component>/domain/=, =net/= and =openapi/= and
+=src/= beside them:
+
+| Parameter | ORE Studio's value | compass.serve's value |
+|-----------+--------------------+-----------------------|
+| Namespace | =ores::http= | =compass::serve= |
+| Include directory | =ores.http.api= | =compass.serve= |
+| Include guard prefix | =ORES_HTTP_= | =COMPASS_SERVE_= |
+| The codec runtime's namespace | =ores::utility::codec= | =compass::db::codec=, from the codegen option =codec_component= |
+| The codec runtime's include directory | =ores.utility/codec= | =compass.db/codec= |
+
+Each archetype page records the ORE Studio file it was copied from and how
+the copy differs. In brief:
+
+| Divergence | ORE Studio | compass | Kind |
+|------------+------------+---------+------|
+| Names | =ores::http=, =ores.http.api= | =compass::serve=, =compass.serve= | Parameter |
+| Authentication position | =auth_required()=, =auth_optional()=, =roles()=; =requires_auth=, =auth_declared=, =required_roles= | =caller(caller_need::view)= or =caller(caller_need::subject)=; =caller=, =caller_declared= | Parameter: the builder's authentication call is the product's |
+| The caller on a request | JWT claims and the bearer token on =http_request= | Left out; the caller is read from the gateway's headers | Parameter |
+| A tool's input | None on main | =input<T>()= and =route::input_schema= | compass's own: the catalogue and MCP's =inputSchema= |
+| Published areas | ORE Studio's sixteen | =agile=, =documents=, =qa= | Data |
+| Generated route placement | =area_of_component=, =entity_route_catalogue=, =operation_route_catalogue= and the builder calls over them | Left out: every compass route states its place | Unused |
+| Logging | =ores.logging= in the router and the registry | Left out: compass has no logger | Parameter |
+| Rate limits | =rate_limit()= | Kept and not called: the gateway limits | Unused call, kept in the copy |
+| OpenAPI | Bearer and cookie security, ORE Studio's tags, =x-ores-*= | The gateway's headers, compass's areas as tags, =x-compass-*= | Data |
+| Export macros | =ORES_HTTP_API_EXPORT= | None: static libraries | Parameter |
+| The server | =http_server=, =http_session= with bearer, agent key, rate limiter, CORS | Not copied: compass.serve has a small Beast server of its own | Separate code |
+| Binding | ORE Studio's operation routes take one JSON body | =net/binding.hpp=: path, query and body by the service's rules | compass's own |
+| Refusals | =http_response::api_error= at each call site | =domain::refusal= thrown and answered by =net::answer= as =api_error= | compass's own |
+
+Any other change to a copied file is a defect in the copy, or a fix to offer
+ORE Studio later.
+
+* See also
+
+- [[id:FAFD18B3-BB36-40EE-8C25-DAA9B93D5529][masd.cpp.http-routes]]: the routes declared with it.
+- [[id:7D0FA277-D3F7-48E9-BCDF-7A88592119E3][masd.cpp.codec]]: the codec runtime its typed bodies use.
+- [[id:AF30B206-2FAB-435F-819F-9EC652D4E40D][Design: aligning the document service with ORE Studio's HTTP and MCP]]: the decision to copy it.

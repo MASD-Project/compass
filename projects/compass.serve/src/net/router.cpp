@@ -1,0 +1,366 @@
+/* -*- mode: c++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+/**
+ * AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
+ * Template: masd_cpp_http_service_router_impl.cpp.mustache
+ * To modify, update the template and regenerate.
+ */
+#include "compass.serve/net/router.hpp"
+#include "compass.serve/domain/catalogue_rules.hpp"
+#include <algorithm>
+#include <sstream>
+#include <string_view>
+#include <unordered_map>
+#include <vector>
+
+namespace compass::serve::net {
+
+
+namespace {
+
+/**
+ * @brief A pattern's standing against another that matches the same path: one
+ * entry per segment, a literal ranked above a parameter. Compared in order, so
+ * the first segment that differs decides, and a longer pattern beats its prefix.
+ */
+std::vector<int> specificity_of(const std::string& pattern) {
+    std::vector<int> rank;
+    std::size_t start = 0;
+    while (start <= pattern.size()) {
+        const auto end = std::min(pattern.find('/', start), pattern.size());
+        const auto segment = std::string_view(pattern).substr(start, end - start);
+        if (!segment.empty())
+            rank.push_back(segment.front() == '{' ? 1 : 2);
+        start = end + 1;
+    }
+    return rank;
+}
+
+/**
+ * @brief Converts a path pattern like "/users/{id}" to a regex and extracts param names.
+ */
+std::pair<std::regex, std::vector<std::string>> compile_pattern(const std::string& pattern) {
+
+    std::vector<std::string> param_names;
+    std::ostringstream regex_str;
+    regex_str << "^";
+
+    std::size_t pos = 0;
+    while (pos < pattern.size()) {
+        if (pattern[pos] == '{') {
+            auto end = pattern.find('}', pos);
+            if (end != std::string::npos) {
+                std::string param_name = pattern.substr(pos + 1, end - pos - 1);
+                param_names.push_back(param_name);
+                // If this is the last segment in the pattern, use a greedy
+                // match so keys like "compute/packages/uuid.tar.gz" work.
+                if (end + 1 >= pattern.size())
+                    regex_str << "(.+)";
+                else
+                    regex_str << "([^/]+)";
+                pos = end + 1;
+                continue;
+            }
+        }
+        // Escape regex special characters
+        char c = pattern[pos];
+        if (c == '.' || c == '+' || c == '*' || c == '?' || c == '(' || c == ')' || c == '[' ||
+            c == ']' || c == '{' || c == '}' || c == '$' || c == '^' || c == '|' || c == '\\') {
+            regex_str << '\\';
+        }
+        regex_str << c;
+        ++pos;
+    }
+
+    regex_str << "$";
+    return {std::regex(regex_str.str()), param_names};
+}
+
+/**
+ * @brief The method as a caller of the API spells it, for an error message.
+ */
+std::string_view method_name(domain::http_method method) {
+    switch (method) {
+        case domain::http_method::get:
+            return "GET";
+        case domain::http_method::post:
+            return "POST";
+        case domain::http_method::put:
+            return "PUT";
+        case domain::http_method::patch:
+            return "PATCH";
+        case domain::http_method::delete_:
+            return "DELETE";
+        case domain::http_method::head:
+            return "HEAD";
+        case domain::http_method::options:
+            return "OPTIONS";
+    }
+    return "UNKNOWN";
+}
+
+/**
+ * @brief The failure a route with no stated caller position names.
+ */
+std::logic_error undeclared_caller(const domain::http_method method, const std::string& pattern) {
+    return std::logic_error("Route " + std::string(method_name(method)) + " " + pattern +
+                            " declares no caller position; call caller() before build().");
+}
+
+}
+
+// route_builder implementation
+
+route_builder& route_builder::json_body() {
+    domain::request_body_schema schema;
+    schema.content_type = "application/json";
+    schema.required = true;
+    schema.json_schema = R"({"type":"object"})";
+    body_schema_ = schema;
+    return *this;
+}
+
+route_builder& route_builder::no_body() {
+    catalogue_.takes_no_body = true;
+    return *this;
+}
+
+route_builder& route_builder::place(domain::route_catalogue placed) {
+    // The place replaces the catalogue's first four values and keeps the
+    // documentation, whichever was stated first.
+    catalogue_.tool = std::move(placed.tool);
+    catalogue_.area = std::move(placed.area);
+    catalogue_.entity = std::move(placed.entity);
+    catalogue_.writes = placed.writes;
+    return *this;
+}
+
+route_builder&
+route_builder::catalogue(std::string tool, std::string area, std::string entity, bool writes) {
+    catalogue_.tool = std::move(tool);
+    catalogue_.area = std::move(area);
+    catalogue_.entity = std::move(entity);
+    catalogue_.writes = writes;
+    return *this;
+}
+
+route_builder::route_builder(domain::http_method method, const std::string& pattern)
+    : method_(method)
+    , pattern_(pattern) {}
+
+route_builder& route_builder::handler(domain::request_handler h) {
+    handler_ = std::move(h);
+    return *this;
+}
+
+route_builder& route_builder::caller(domain::caller_need need) {
+    caller_ = need;
+    caller_declared_ = true;
+    return *this;
+}
+
+route_builder& route_builder::max_body(std::uint64_t bytes) {
+    max_body_size_ = bytes;
+    return *this;
+}
+
+route_builder& route_builder::rate_limit(std::string_view policy) {
+    rate_policy_ = std::string(policy);
+    return *this;
+}
+
+route_builder& route_builder::sink(
+    std::function<std::unique_ptr<domain::body_sink>(const domain::http_request&)> factory) {
+    sink_ = std::move(factory);
+    return *this;
+}
+
+route_builder& route_builder::summary(std::string s) {
+    catalogue_.summary = std::move(s);
+    return *this;
+}
+
+route_builder& route_builder::description(std::string d) {
+    catalogue_.description = std::move(d);
+    return *this;
+}
+
+route_builder& route_builder::tags(std::vector<std::string> t) {
+    catalogue_.tags = std::move(t);
+    return *this;
+}
+
+route_builder& route_builder::query_param(const std::string& name,
+                                          const std::string& type,
+                                          const std::string& format,
+                                          bool required,
+                                          const std::string& desc,
+                                          const std::optional<std::string>& default_value) {
+
+    domain::query_param param;
+    param.name = name;
+    param.type = type;
+    param.format = format;
+    param.required = required;
+    param.description = desc;
+    param.default_value = default_value;
+    query_params_.push_back(param);
+    return *this;
+}
+
+domain::route route_builder::build() const {
+    if (!caller_declared_)
+        throw undeclared_caller(method_, pattern_);
+
+    auto [regex, param_names] = compile_pattern(pattern_);
+
+    domain::route r;
+    r.method = method_;
+    r.pattern = pattern_;
+    r.regex = std::move(regex);
+    r.param_names = std::move(param_names);
+    r.handler = handler_;
+    r.caller = caller_;
+    r.caller_declared = true;
+    r.input_schema = input_schema_;
+    r.catalogue = catalogue_;
+    r.query_params = query_params_;
+    r.sink = sink_;
+    r.max_body_size = max_body_size_;
+    r.rate_policy = rate_policy_;
+    r.body_schema = body_schema_;
+    r.success_response_schema = success_response_schema_;
+    return r;
+}
+
+// router implementation
+
+router::router() {
+}
+
+route_builder router::get(const std::string& pattern) {
+    return route_builder(domain::http_method::get, pattern);
+}
+
+route_builder router::post(const std::string& pattern) {
+    return route_builder(domain::http_method::post, pattern);
+}
+
+route_builder router::put(const std::string& pattern) {
+    return route_builder(domain::http_method::put, pattern);
+}
+
+route_builder router::patch(const std::string& pattern) {
+    return route_builder(domain::http_method::patch, pattern);
+}
+
+route_builder router::delete_(const std::string& pattern) {
+    return route_builder(domain::http_method::delete_, pattern);
+}
+
+route_builder router::head(const std::string& pattern) {
+    return route_builder(domain::http_method::head, pattern);
+}
+
+void router::add_route(const domain::route& route) {
+    if (!route.caller_declared)
+        throw undeclared_caller(route.method, route.pattern);
+
+    routes_.push_back(route);
+    ranks_.push_back(specificity_of(route.pattern));
+}
+
+std::optional<domain::route>
+router::match(domain::http_method method,
+              const std::string& path,
+              std::unordered_map<std::string, std::string>& path_params) const {
+
+
+    /*
+     * A path two patterns match goes to the more specific one, as the BFF's
+     * framework sent it: a literal segment beats a parameter at the first place
+     * they differ, so /parties/children never reaches /parties/{id}. Order of
+     * registration decides only between patterns of equal standing.
+     */
+    const domain::route* best = nullptr;
+    const std::vector<int>* best_rank = nullptr;
+    std::unordered_map<std::string, std::string> best_params;
+    std::unordered_map<std::string, std::string> params;
+    for (std::size_t i = 0; i < routes_.size(); ++i) {
+        const auto& route = routes_[i];
+        if (route.method != method)
+            continue;
+        params.clear();
+        if (!route.match(path, params))
+            continue;
+        if (best == nullptr || ranks_[i] > *best_rank) {
+            best = &route;
+            best_rank = &ranks_[i];
+            std::swap(best_params, params);
+        }
+    }
+
+    if (best == nullptr) {
+        return std::nullopt;
+    }
+    for (auto& [name, value] : best_params)
+        path_params[name] = std::move(value);
+    return *best;
+}
+
+std::vector<std::string> router::uncatalogued() const {
+    std::vector<std::string> out;
+    std::unordered_map<std::string, std::string> first_with_tool;
+    for (const auto& route : routes_) {
+        const auto name = std::string(method_name(route.method)) + " " + route.pattern;
+        if (!route.catalogue.declared()) {
+            out.push_back(name);
+            continue;
+        }
+        if (!domain::is_published_area(route.catalogue.area))
+            out.push_back(name + " names the area " + route.catalogue.area +
+                          ", which is not a published one");
+        // A route that changes something by its method writes unless it is
+        // one of the two kinds that only read, so no write is declared out of
+        // the hold that keeps an agent's writes for its person.
+        const bool changes = route.method != domain::http_method::get &&
+                             route.method != domain::http_method::head &&
+                             route.method != domain::http_method::options;
+        const bool carries_body = route.method == domain::http_method::post ||
+                                  route.method == domain::http_method::put ||
+                                  route.method == domain::http_method::patch ||
+                                  route.method == domain::http_method::delete_;
+        if (carries_body && !route.body_schema && !route.sink && !route.catalogue.takes_no_body)
+            out.push_back(name + " declares neither its typed body nor that it takes none");
+        if (route.catalogue.takes_no_body && (route.body_schema || route.sink))
+            out.push_back(name + " declares that it takes no body, and also a body");
+        if (changes && !route.catalogue.writes && !domain::may_declare_read(route.catalogue))
+            out.push_back(name + " declares that it does not write, and its tool " +
+                          route.catalogue.tool + " is neither a bulk get nor a read");
+        // A tool names one operation, so two routes may not share one.
+        const auto [it, fresh] = first_with_tool.emplace(route.catalogue.tool, name);
+        if (!fresh)
+            out.push_back(name + " shares the tool " + route.catalogue.tool + " with " +
+                          it->second);
+    }
+    return out;
+}
+
+}

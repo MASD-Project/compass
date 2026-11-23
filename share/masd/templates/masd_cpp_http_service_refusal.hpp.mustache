@@ -1,0 +1,53 @@
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.http-service.refusal.org. Edit the org source. }}
+{{=<% %>=}}
+<%& cpp_license%>
+<%#masd_component%>
+#ifndef <%guard_prefix%>DOMAIN_REFUSAL_HPP
+#define <%guard_prefix%>DOMAIN_REFUSAL_HPP
+
+#include "<%component_root%>/domain/http_status.hpp"
+#include <stdexcept>
+#include <string>
+#include <utility>
+
+namespace <%component_namespace%>::domain {
+
+/**
+ * @brief A call the service refuses: the status it answers, a code from the
+ * service's closed list a client can act on, and a sentence it can show.
+ *
+ * A route answers it as the body api_error writes, so nothing about the
+ * refusal depends on which part of the call refused it.
+ */
+class refusal : public std::runtime_error {
+public:
+    refusal(http_status status, std::string code, const std::string& message)
+        : std::runtime_error(message), status_(status), code_(std::move(code)) {}
+
+    [[nodiscard]] http_status status() const noexcept {
+        return status_;
+    }
+
+    [[nodiscard]] const std::string& code() const noexcept {
+        return code_;
+    }
+
+    /// The request's input is wrong: a value, a parameter or a member.
+    [[nodiscard]] static refusal invalid(const std::string& message) {
+        return {http_status::bad_request, "invalid", message};
+    }
+
+    /// The thing the request names is not in the environment.
+    [[nodiscard]] static refusal not_found(const std::string& message) {
+        return {http_status::not_found, "not_found", message};
+    }
+
+private:
+    http_status status_;
+    std::string code_;
+};
+
+}
+
+#endif
+<%/masd_component%>

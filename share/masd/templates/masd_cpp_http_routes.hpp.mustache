@@ -1,0 +1,31 @@
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.http-routes.header.org. Edit the org source. }}
+{{{cpp_license}}}
+{{#masd_operation}}
+#ifndef {{routes_guard}}
+#define {{routes_guard}}
+
+#include <functional>
+#include "{{component_root}}/domain/caller.hpp"
+#include "{{protocol_include}}"
+#include "{{component_root}}/net/router.hpp"
+
+namespace {{component_namespace}}::routes {
+{{#routes}}
+
+/**
+ * @brief What answers {{tool}}: {{{summary}}}.
+ */
+using {{tool}}_handler = std::function<{{response}}(
+    const domain::caller&, const {{request}}&)>;
+
+/**
+ * @brief Adds {{method}} {{path}}, the tool {{tool}}, to @p r, answered by
+ * @p h.
+ */
+void add_{{tool}}(net::router& r, {{tool}}_handler h);
+{{/routes}}
+
+}
+
+#endif
+{{/masd_operation}}

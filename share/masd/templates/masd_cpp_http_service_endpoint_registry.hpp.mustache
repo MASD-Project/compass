@@ -1,0 +1,78 @@
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.http-service.endpoint_registry.org. Edit the org source. }}
+{{=<% %>=}}
+<%& cpp_license%>
+<%#masd_component%>
+#ifndef <%guard_prefix%>OPENAPI_ENDPOINT_REGISTRY_HPP
+#define <%guard_prefix%>OPENAPI_ENDPOINT_REGISTRY_HPP
+
+#include "<%component_root%>/domain/route.hpp"
+#include <string>
+#include <vector>
+
+namespace <%component_namespace%>::openapi {
+
+/**
+ * @brief API information for OpenAPI spec.
+ */
+struct api_info final {
+    std::string title = "compass serve";
+    std::string description = "compass's document service";
+    std::string version = "1.0.0";
+    std::string contact_name;
+    std::string contact_email;
+    std::string license_name = "GPL-3.0";
+    std::string license_url;
+};
+
+/**
+ * @brief Server information for OpenAPI spec.
+ */
+struct server_info final {
+    std::string url;
+    std::string description;
+};
+
+/**
+ * @brief Registry for API endpoints that generates OpenAPI specification.
+ */
+class endpoint_registry final {
+public:
+    endpoint_registry();
+
+    /**
+     * @brief Sets the API information.
+     */
+    void set_info(const api_info& info);
+
+    /**
+     * @brief Adds a server to the spec.
+     */
+    void add_server(const server_info& server);
+
+    /**
+     * @brief Registers a route for documentation.
+     */
+    void register_route(const domain::route& route);
+
+    /**
+     * @brief Generates the OpenAPI 3.0 JSON specification.
+     */
+    std::string generate_openapi_json() const;
+
+    /**
+     * @brief Generates a minimal Swagger UI HTML page.
+     */
+    std::string generate_swagger_ui_html(const std::string& spec_url = "/openapi.json") const;
+
+private:
+    std::string method_to_string(domain::http_method method) const;
+
+    api_info info_;
+    std::vector<server_info> servers_;
+    std::vector<domain::route> routes_;
+};
+
+}
+
+#endif
+<%/masd_component%>

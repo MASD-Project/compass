@@ -280,10 +280,10 @@ TEST_CASE("an operation's messages follow the messages they hold, declare "
         f.encoding = std::move(encoding);
         return f;
     };
-    mtypes::masd_message response{"start_response", "",
+    mtypes::masd_message response{"start_response", "", "", {},
         {field("steps", "std::vector<run_step>"),
          field("outcome", "std::optional<step_outcome>", {"pass", "fail"})}};
-    mtypes::masd_message step{"run_step", "",
+    mtypes::masd_message step{"run_step", "", "", {},
         {field("ord", "std::int32_t"),
          field("outcome", "step_outcome", {"pass", "fail"}),
          field("format", "std::string", {"html", "org"}),
@@ -311,13 +311,74 @@ TEST_CASE("an operation's messages follow the messages they hold, declare "
     CHECK_THAT(header, ContainsSubstring(
         "struct wire_traits<compass::serve::messages::run_step> {"));
 
-    mtypes::masd_message other{"other", "",
+    mtypes::masd_message other{"other", "", "", {},
         {field("outcome", "step_outcome", {"pass", "blocked"})}};
     op.messages.push_back(other);
     mtypes::model_tables t;
     compass::model::ops::builder b(t);
     CHECK_THROWS_AS(ops::masd_operation_context(b, b.detached_object(), op,
         "compass", "db"), std::runtime_error);
+}
+
+TEST_CASE("a routed request binds each field where :http_in: puts it and "
+    "declares its route", "[codegen][masd]") {
+    mtypes::masd_operation op;
+    op.component = "serve";
+    op.entity = "queries";
+    op.ns = "compass::serve::messages";
+    const auto field = [](std::string name, std::string type,
+                           std::string in, bool optional = false) {
+        mtypes::masd_field f;
+        f.name = std::move(name);
+        f.cpp_type = std::move(type);
+        f.http_in = std::move(in);
+        f.optional = optional;
+        return f;
+    };
+    mtypes::masd_message filter{"filter", "", "", {},
+        {field("type", "std::optional<std::string>", ""),
+         field("limit", "std::uint32_t", "")}};
+    filter.fields[1].default_value = "50";
+    filter.fields[1].http_name = "max";
+    mtypes::masd_message search{"search_request", "search_response",
+        "Sections \"matching\" a query.", {},
+        {field("environment", "std::string", "path"),
+         field("q", "std::string", "query"),
+         field("filter", "filter", "query"),
+         field("note", "std::string", "body"),
+         field("tags", "std::vector<std::string>", "body")}};
+    search.route = {"post", "/v1/{environment}/search", "search_documents",
+        "documents", "document", false, false, false, "Search", "view", ""};
+    mtypes::masd_message response{"search_response", "", "", {}, {}};
+    op.messages = {filter, search, response};
+
+    const auto impl = rendered("masd_cpp_http_routes.cpp.mustache",
+        [&](auto& b, auto library) {
+            return ops::masd_operation_context(b, library, op, "compass",
+                "db");
+        });
+    CHECK_THAT(impl, ContainsSubstring(
+        "    b.body(r, { \"note\", \"tags\" }, { \"note\" });\n"
+        "    b.path(\"environment\", r.environment);\n"
+        "    b.query(\"q\", r.q, true);\n"
+        "    b.query(\"type\", r.filter.type, false);\n"
+        "    b.query(\"max\", r.filter.limit, false);\n"
+        "    b.finish();\n"));
+    CHECK_THAT(impl, ContainsSubstring(
+        "r.post(\"/v1/{environment}/search\")\n"
+        "        .summary(\"Search\")\n"
+        "        .description(\"Sections \\\"matching\\\" a query.\")\n"
+        "        .catalogue(\"search_documents\", \"documents\", \"document\", "
+        "false)\n"
+        "        .caller(domain::caller_need::view)\n"));
+    CHECK_THAT(impl, ContainsSubstring(
+        ".query_param(\"max\", \"integer\", \"\", false, \"\")"));
+    CHECK_THAT(impl, ContainsSubstring(
+        ".body<compass::serve::messages::search_request>()"));
+    CHECK_THAT(impl, ContainsSubstring(
+        ".response<compass::serve::messages::search_response>()"));
+    CHECK(impl.find("no_body") == std::string::npos);
+    CHECK(impl.find("bind_filter") == std::string::npos);
 }
 
 TEST_CASE("a row's JSON codec states the row's members and the text form "

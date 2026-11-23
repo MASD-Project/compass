@@ -1,0 +1,66 @@
+:PROPERTIES:
+:ID: FAFD18B3-BB36-40EE-8C25-DAA9B93D5529
+:END:
+#+title: masd.cpp.http-routes
+#+description: The HTTP routes of a masd.codegen.operation model's requests, declared through the router and builder of masd.cpp.http-service: each binds its request from the path, the query and the body, and states its tool, area, entity, whether it writes, its caller, its parameters, its input and its typed body and response. Off unless an operation model switches it on.
+#+type: facet
+#+model_types: masd_operation
+#+default: off
+#+level: cross
+#+facet_group: masd.cpp
+#+filetags: :codegen:physical-space:cpp:http:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is the node for the =masd.cpp.http-routes= facet of the MASD
+library. Its archetypes are
+[[id:45AF6234-E08A-4F26-B7B8-4F7462EC99A1][masd.cpp.http-routes.header]] and
+[[id:CCBF183A-BF72-415D-B28F-8DF5418E945C][masd.cpp.http-routes.impl]].
+
+* Summary
+
+A request message that states =:http_method:= is a route. This facet writes,
+per routed request, a function that adds the route to the router the
+[[id:58BCC011-F984-4DAA-B054-F3692C529F38][masd.cpp.http-service]] facet
+copies from ORE Studio, and a handler type the service fills in. The route
+is declared in the copied builder's vocabulary, so the router's start-up
+gates check it as ORE Studio's check its own routes:
+
+| Model | Builder call |
+|-------+--------------|
+| =:http_method:=, =:http_path:= | =get=, =post=, =put=, =patch= or =delete_= with the path |
+| =:summary:=, the request's prose | =summary=, =description= |
+| =:tool:=, =:area:=, =:entity:=, =:writes:= | =catalogue= |
+| =:caller:= | =caller(caller_need::view)= or =caller(caller_need::subject)= |
+| each query field, a message-typed one spread a member a parameter | =query_param= with its OpenAPI type, whether it is required and its prose |
+| no =body= field on a route that is not a =GET= | =no_body= |
+| a =body= field | =body<T>()=, its schema narrowed to the body's members |
+| =:max_body_size:= | =max_body= |
+| the request | =input<T>()=, the tool's input schema |
+| =:response:= | =response<T>()= |
+
+The binding follows the service's rules, stated once in the component's
+runtime (=net/binding.hpp=): a path field from its placeholder, a query
+field from its parameter, a vector from the parameter repeated, a message
+of a name and a value written =name:value=, a string field with =:values:=
+checked against them, and an unknown parameter or body member refused. A
+field is required unless it is an optional, a vector or a message, has a
+=:default:= or states =:required: false=. The caller is read before the
+request is bound, and a refusal from either answers the service's error
+body.
+
+* The masd.cpp.http-routes facet
+
+Off by default. An operation model with routes switches it on in its
+=* Physical space= table. The files land under the model's component:
+=include/<component>/routes/<entity>_routes.hpp= and
+=src/routes/<entity>_routes.cpp=, in the namespace =<product>::<component>::routes=.
+
+It has no ORE Studio counterpart to copy. ORE Studio's generated operation
+routes are =POST= routes that forward over NATS, which compass does not
+have; these call a handler in process, as the alignment design decided.
+
+* See also
+
+- [[id:58BCC011-F984-4DAA-B054-F3692C529F38][masd.cpp.http-service]]: the router, the builder and the binding runtime.
+- [[id:6BA0459B-525A-464F-954D-B0E83E83B92D][masd.cpp.protocol]]: the messages the routes bind.

@@ -418,6 +418,12 @@ The environment the note is in.
 :http_in:  body
 :END:
 
+* Physical space
+
+| Address                | Enabled |
+|------------------------+---------|
+| =masd.cpp.http-routes= | true    |
+
 * Notes
 
 - Every message but =add_note_response= matches its struct in

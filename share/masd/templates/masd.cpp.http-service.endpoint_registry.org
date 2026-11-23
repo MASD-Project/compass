@@ -1,0 +1,124 @@
+:PROPERTIES:
+:ID: C3A9E4CF-2563-476B-926F-925DA824D2C2
+:END:
+#+title: masd.cpp.http-service.endpoint_registry
+#+description: endpoint_registry, the OpenAPI document of the registered routes. Output projects/{component_dir}/include/{component_dir}/openapi/endpoint_registry.hpp.
+#+type: archetype
+#+output: projects/{component_dir}/include/{component_dir}/openapi/endpoint_registry.hpp
+#+facet: masd.cpp.http-service
+#+level: cross
+#+filetags: :codegen:templates:literate:archetype:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is an archetype of the [[id:58BCC011-F984-4DAA-B054-F3692C529F38][masd.cpp.http-service]] facet:
+one file of the HTTP route runtime, rendered into the component that switches
+the facet on.
+
+* Origin
+
+ORE Studio's
+=projects/ores.http/api/include/ores.http.api/openapi/endpoint_registry.hpp=
+at commit =bc0702ad46b8a6097ce5242ece7ba01067699f60=.
+
+The session cookie's name is left out, and the default title names compass
+serve. No logger, no export macro.
+
+* Context
+
+The context is the library's values and =masd_component=:
+=component_namespace=, =component_root=, the directory the component's
+headers are included from, =guard_prefix=, and =wire_namespace= and
+=wire_root=, the JSON codec runtime's namespace and include directory. The
+template switches the delimiters to =<% %>=, because the C++ it holds has
+braces of its own.
+
+* Template
+
+The template source. compass's =tangle= codec writes it to
+=masd_cpp_http_service_endpoint_registry.hpp.mustache= beside this page.
+
+#+begin_src mustache :tangle masd_cpp_http_service_endpoint_registry.hpp.mustache
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.http-service.endpoint_registry.org. Edit the org source. }}
+{{=<% %>=}}
+<%& cpp_license%>
+<%#masd_component%>
+#ifndef <%guard_prefix%>OPENAPI_ENDPOINT_REGISTRY_HPP
+#define <%guard_prefix%>OPENAPI_ENDPOINT_REGISTRY_HPP
+
+#include "<%component_root%>/domain/route.hpp"
+#include <string>
+#include <vector>
+
+namespace <%component_namespace%>::openapi {
+
+/**
+ * @brief API information for OpenAPI spec.
+ */
+struct api_info final {
+    std::string title = "compass serve";
+    std::string description = "compass's document service";
+    std::string version = "1.0.0";
+    std::string contact_name;
+    std::string contact_email;
+    std::string license_name = "GPL-3.0";
+    std::string license_url;
+};
+
+/**
+ * @brief Server information for OpenAPI spec.
+ */
+struct server_info final {
+    std::string url;
+    std::string description;
+};
+
+/**
+ * @brief Registry for API endpoints that generates OpenAPI specification.
+ */
+class endpoint_registry final {
+public:
+    endpoint_registry();
+
+    /**
+     * @brief Sets the API information.
+     */
+    void set_info(const api_info& info);
+
+    /**
+     * @brief Adds a server to the spec.
+     */
+    void add_server(const server_info& server);
+
+    /**
+     * @brief Registers a route for documentation.
+     */
+    void register_route(const domain::route& route);
+
+    /**
+     * @brief Generates the OpenAPI 3.0 JSON specification.
+     */
+    std::string generate_openapi_json() const;
+
+    /**
+     * @brief Generates a minimal Swagger UI HTML page.
+     */
+    std::string generate_swagger_ui_html(const std::string& spec_url = "/openapi.json") const;
+
+private:
+    std::string method_to_string(domain::http_method method) const;
+
+    api_info info_;
+    std::vector<server_info> servers_;
+    std::vector<domain::route> routes_;
+};
+
+}
+
+#endif
+<%/masd_component%>
+#+end_src
+
+* See also
+
+- Parent facet: [[id:58BCC011-F984-4DAA-B054-F3692C529F38][masd.cpp.http-service]]

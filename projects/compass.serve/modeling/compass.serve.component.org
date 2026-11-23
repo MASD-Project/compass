@@ -1,0 +1,31 @@
+:PROPERTIES:
+:ID: E6B2C0C4-2B6E-4E0B-9C61-7F2A6E1E9C35
+:END:
+#+title: compass.serve.component
+#+description: Codegen component model for compass.serve: the component-wide files its facets render, which are the HTTP route runtime its generated routes are declared and bound with.
+#+type: masd.codegen.component
+#+component: serve
+#+filetags: :model:component:service:http:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+The files of =compass.serve= that belong to the component rather than to one
+of its operation models. The one such facet it switches on is
+[[id:58BCC011-F984-4DAA-B054-F3692C529F38][masd.cpp.http-service]], ORE
+Studio's route machinery copied with compass's binding runtime, which lands
+in =include/compass.serve/domain/=, =net/= and =openapi/= in the namespace
+=compass::serve=. The routes of
+[[id:FAFD18B3-BB36-40EE-8C25-DAA9B93D5529][masd.cpp.http-routes]] are
+declared with it.
+
+* Flags
+:PROPERTIES:
+:product:    compass
+:component:  serve
+:END:
+
+* Physical space
+
+| Address                 | Enabled |
+|-------------------------+---------|
+| =masd.cpp.http-service= | true    |

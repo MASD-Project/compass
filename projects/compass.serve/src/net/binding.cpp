@@ -1,0 +1,193 @@
+/* -*- mode: c++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+/**
+ * AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
+ * Template: masd_cpp_http_service_binding_impl.cpp.mustache
+ * To modify, update the template and regenerate.
+ */
+#include "compass.serve/net/binding.hpp"
+#include <algorithm>
+#include <cstdlib>
+#include <memory>
+#include <yyjson.h>
+
+namespace compass::serve::net {
+
+namespace {
+
+int hex_value(char c) {
+    if (c >= '0' && c <= '9')
+        return c - '0';
+    if (c >= 'a' && c <= 'f')
+        return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F')
+        return c - 'A' + 10;
+    return -1;
+}
+
+std::string form_decoded(std::string_view text) {
+    std::string out;
+    out.reserve(text.size());
+    for (std::size_t i = 0; i < text.size(); ++i) {
+        if (text[i] == '+') {
+            out += ' ';
+            continue;
+        }
+        if (text[i] == '%' && i + 2 < text.size()) {
+            const auto high = hex_value(text[i + 1]);
+            const auto low = hex_value(text[i + 2]);
+            if (high >= 0 && low >= 0) {
+                out += static_cast<char>(high * 16 + low);
+                i += 2;
+                continue;
+            }
+        }
+        out += text[i];
+    }
+    return out;
+}
+
+bool listed(std::initializer_list<std::string_view> names, std::string_view name) {
+    return std::ranges::find(names, name) != names.end();
+}
+
+struct doc_free {
+    void operator()(yyjson_doc* d) const { yyjson_doc_free(d); }
+    void operator()(yyjson_mut_doc* d) const { yyjson_mut_doc_free(d); }
+};
+
+}
+
+std::vector<std::pair<std::string, std::string>> query_parameters(std::string_view target) {
+    std::vector<std::pair<std::string, std::string>> out;
+    const auto mark = target.find('?');
+    if (mark == std::string_view::npos)
+        return out;
+    auto query = target.substr(mark + 1);
+    if (const auto hash = query.find('#'); hash != std::string_view::npos)
+        query = query.substr(0, hash);
+    while (!query.empty()) {
+        const auto amp = query.find('&');
+        const auto pair = query.substr(0, amp);
+        if (!pair.empty()) {
+            const auto eq = pair.find('=');
+            out.emplace_back(form_decoded(pair.substr(0, eq)),
+                eq == std::string_view::npos ? std::string()
+                                             : form_decoded(pair.substr(eq + 1)));
+        }
+        if (amp == std::string_view::npos)
+            break;
+        query.remove_prefix(amp + 1);
+    }
+    return out;
+}
+
+std::string body_schema(std::string_view schema, std::initializer_list<std::string_view> members) {
+    std::unique_ptr<yyjson_doc, doc_free> read(
+        yyjson_read(schema.data(), schema.size(), 0));
+    if (!read)
+        return std::string(schema);
+    std::unique_ptr<yyjson_mut_doc, doc_free> doc(yyjson_doc_mut_copy(read.get(), nullptr));
+    auto* root = yyjson_mut_doc_get_root(doc.get());
+    if (auto* props = yyjson_mut_obj_get(root, "properties"); yyjson_mut_is_obj(props)) {
+        yyjson_mut_val* key = nullptr;
+        yyjson_mut_obj_iter it = yyjson_mut_obj_iter_with(props);
+        while ((key = yyjson_mut_obj_iter_next(&it)) != nullptr)
+            if (!listed(members, yyjson_mut_get_str(key)))
+                yyjson_mut_obj_iter_remove(&it);
+    }
+    if (auto* required = yyjson_mut_obj_get(root, "required"); yyjson_mut_is_arr(required)) {
+        yyjson_mut_val* item = nullptr;
+        yyjson_mut_arr_iter it = yyjson_mut_arr_iter_with(required);
+        while ((item = yyjson_mut_arr_iter_next(&it)) != nullptr)
+            if (!listed(members, yyjson_mut_get_str(item)))
+                yyjson_mut_arr_iter_remove(&it);
+    }
+    char* text = yyjson_mut_write(doc.get(), 0, nullptr);
+    if (text == nullptr)
+        return std::string(schema);
+    std::string out(text);
+    std::free(text);
+    return out;
+}
+
+binding::binding(const domain::http_request& request)
+    : request_(request)
+    , parameters_(query_parameters(request.target))
+    , read_(parameters_.size(), false) {}
+
+void binding::one_of(std::string_view name,
+                     std::string_view value,
+                     std::initializer_list<std::string_view> allowed) {
+    if (listed(allowed, value))
+        return;
+    std::string names;
+    for (const auto a : allowed)
+        names += (names.empty() ? "" : ", ") + std::string(a);
+    throw domain::refusal::invalid("The parameter " + std::string(name) + " is one of " +
+                                   names + ", not " + std::string(value) + ".");
+}
+
+std::vector<std::string> binding::take(std::string_view name) {
+    std::vector<std::string> out;
+    for (std::size_t i = 0; i < parameters_.size(); ++i)
+        if (parameters_[i].first == name) {
+            read_[i] = true;
+            out.push_back(parameters_[i].second);
+        }
+    return out;
+}
+
+void binding::check_body(std::initializer_list<std::string_view> members,
+                         std::initializer_list<std::string_view> required) const {
+    if (request_.body.empty()) {
+        if (required.size() != 0)
+            throw domain::refusal::invalid("The request needs a JSON body.");
+        return;
+    }
+    std::unique_ptr<yyjson_doc, doc_free> doc(
+        yyjson_read(request_.body.data(), request_.body.size(), 0));
+    if (!doc)
+        throw domain::refusal::invalid("The body is not JSON.");
+    auto* root = yyjson_doc_get_root(doc.get());
+    if (!yyjson_is_obj(root))
+        throw domain::refusal::invalid("The body is not a JSON object.");
+    yyjson_val* key = nullptr;
+    yyjson_obj_iter it = yyjson_obj_iter_with(root);
+    while ((key = yyjson_obj_iter_next(&it)) != nullptr) {
+        const std::string_view name(yyjson_get_str(key), yyjson_get_len(key));
+        if (!listed(members, name))
+            throw domain::refusal::invalid("The body has the unknown member " +
+                                           std::string(name) + ".");
+    }
+    for (const auto name : required)
+        if (yyjson_obj_getn(root, name.data(), name.size()) == nullptr)
+            throw domain::refusal::invalid("The body lacks the member " + std::string(name) +
+                                           ".");
+}
+
+void binding::finish() const {
+    for (std::size_t i = 0; i < parameters_.size(); ++i)
+        if (!read_[i])
+            throw domain::refusal::invalid("The query parameter " + parameters_[i].first +
+                                           " is not one this route takes.");
+}
+
+}

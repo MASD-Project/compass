@@ -1,0 +1,25 @@
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.http-service.answer_impl.org. Edit the org source. }}
+{{=<% %>=}}
+<%& cpp_license%>
+<%#masd_component%>
+#include "<%component_root%>/net/answer.hpp"
+
+namespace <%component_namespace%>::net {
+
+domain::caller caller_of(const domain::http_request& request, domain::caller_need need) {
+    domain::caller c;
+    c.view = request.get_header("Compass-View");
+    if (c.view.empty())
+        throw domain::refusal(domain::http_status::unauthorized, "no_view",
+                              "The request names no view in Compass-View.");
+    c.subject = request.get_header("Compass-Subject");
+    if (need == domain::caller_need::subject && c.subject.empty())
+        throw domain::refusal(domain::http_status::unauthorized, "no_subject",
+                              "The request names no subject in Compass-Subject.");
+    if (auto actor = request.get_header("Compass-Actor"); !actor.empty())
+        c.actor = std::move(actor);
+    return c;
+}
+
+}
+<%/masd_component%>

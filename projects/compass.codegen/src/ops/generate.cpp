@@ -601,7 +601,9 @@ value_id masd_context(mops::builder& b, value_id library,
     if (type == model_type::masd_component) {
         const auto c = mops::read_masd_component(doc);
         return masd_component_context(b, library,
-            c.product + "." + c.component);
+            c.product + "." + c.component,
+            settings.codec_component.empty() ? std::string()
+                : c.product + "." + settings.codec_component);
     }
     const auto dir = doc.path.substr(0, doc.path.rfind('/') + 1);
     std::vector<compass::model::types::masd_entity> tables;

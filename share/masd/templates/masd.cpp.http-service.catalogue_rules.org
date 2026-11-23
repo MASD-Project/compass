@@ -1,0 +1,83 @@
+:PROPERTIES:
+:ID: 4FDFF113-86C4-4509-8E63-763D637E56F9
+:END:
+#+title: masd.cpp.http-service.catalogue_rules
+#+description: The rules of the catalogue: the published areas and which names only read. Output projects/{component_dir}/include/{component_dir}/domain/catalogue_rules.hpp.
+#+type: archetype
+#+output: projects/{component_dir}/include/{component_dir}/domain/catalogue_rules.hpp
+#+facet: masd.cpp.http-service
+#+level: cross
+#+filetags: :codegen:templates:literate:archetype:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is an archetype of the [[id:58BCC011-F984-4DAA-B054-F3692C529F38][masd.cpp.http-service]] facet:
+one file of the HTTP route runtime, rendered into the component that switches
+the facet on.
+
+* Origin
+
+ORE Studio's
+=projects/ores.http/api/include/ores.http.api/domain/catalogue_rules.hpp= at
+commit =bc0702ad46b8a6097ce5242ece7ba01067699f60=.
+
+area_of_component, entity_route_catalogue and operation_route_catalogue are
+left out: they place ORE Studio's generated entity and NATS operation
+routes, and every compass route states its place.
+
+* Context
+
+The context is the library's values and =masd_component=:
+=component_namespace=, =component_root=, the directory the component's
+headers are included from, =guard_prefix=, and =wire_namespace= and
+=wire_root=, the JSON codec runtime's namespace and include directory. The
+template switches the delimiters to =<% %>=, because the C++ it holds has
+braces of its own.
+
+* Template
+
+The template source. compass's =tangle= codec writes it to
+=masd_cpp_http_service_catalogue_rules.hpp.mustache= beside this page.
+
+#+begin_src mustache :tangle masd_cpp_http_service_catalogue_rules.hpp.mustache
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.http-service.catalogue_rules.org. Edit the org source. }}
+{{=<% %>=}}
+<%& cpp_license%>
+<%#masd_component%>
+#ifndef <%guard_prefix%>DOMAIN_CATALOGUE_RULES_HPP
+#define <%guard_prefix%>DOMAIN_CATALOGUE_RULES_HPP
+
+#include "<%component_root%>/domain/http_request.hpp"
+#include "<%component_root%>/domain/route.hpp"
+#include <string>
+#include <string_view>
+
+namespace <%component_namespace%>::domain {
+
+/**
+ * @brief Whether an area is one of the published areas.
+ */
+bool is_published_area(std::string_view area);
+
+/**
+ * @brief Whether a route that changes something by its method may declare
+ * that it does not write: only a bulk get, or an operation named for reading.
+ */
+bool may_declare_read(const route_catalogue& catalogue);
+
+/**
+ * @brief Whether an operation only reads, by its name: one that lists, gets,
+ * reads, finds, searches or looks up changes nothing, unless it also makes, as
+ * get_or_create does.
+ */
+bool operation_only_reads(std::string_view name);
+
+}
+
+#endif
+<%/masd_component%>
+#+end_src
+
+* See also
+
+- Parent facet: [[id:58BCC011-F984-4DAA-B054-F3692C529F38][masd.cpp.http-service]]

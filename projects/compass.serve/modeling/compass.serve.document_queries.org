@@ -846,6 +846,12 @@ The files that could not be read.
 :cpp_type: std::string
 :END:
 
+* Physical space
+
+| Address                | Enabled |
+|------------------------+---------|
+| =masd.cpp.http-routes= | true    |
+
 * Notes
 
 - The messages that have a hand-written C++ struct today match it in name,

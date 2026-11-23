@@ -1,0 +1,73 @@
+:PROPERTIES:
+:ID: 45AF6234-E08A-4F26-B7B8-4F7462EC99A1
+:END:
+#+title: masd.cpp.http-routes.header
+#+description: The header of an operation model's routes: for each routed request, the handler a service gives it and the function that adds its route to the router. Output projects/{component_dir}/include/{component_dir}/routes/{entity}_routes.hpp.
+#+type: archetype
+#+output: projects/{component_dir}/include/{component_dir}/routes/{entity}_routes.hpp
+#+facet: masd.cpp.http-routes
+#+level: cross
+#+filetags: :codegen:templates:literate:archetype:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is the archetype that writes the header of an operation model's
+routes for the [[id:FAFD18B3-BB36-40EE-8C25-DAA9B93D5529][masd.cpp.http-routes]]
+facet.
+
+* Context
+
+The context is the library's values and =masd_operation=:
+
+- =routes_guard=, =protocol_include=, =component_root= and
+  =component_namespace=.
+- =routes=: each routed request with =tool=, =summary=, =method=, =path=,
+  =request= and =response=, both qualified, =response= being =void= when
+  the route answers nothing.
+
+A handler is a =std::function= rather than one interface per model, so a
+service adds the routes it answers one at a time: the reads of a model can
+be served before its writes are written.
+
+* Template
+
+The template source. compass's =tangle= codec writes it to
+=masd_cpp_http_routes.hpp.mustache= beside this page.
+
+#+begin_src mustache :tangle masd_cpp_http_routes.hpp.mustache
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.http-routes.header.org. Edit the org source. }}
+{{{cpp_license}}}
+{{#masd_operation}}
+#ifndef {{routes_guard}}
+#define {{routes_guard}}
+
+#include <functional>
+#include "{{component_root}}/domain/caller.hpp"
+#include "{{protocol_include}}"
+#include "{{component_root}}/net/router.hpp"
+
+namespace {{component_namespace}}::routes {
+{{#routes}}
+
+/**
+ * @brief What answers {{tool}}: {{{summary}}}.
+ */
+using {{tool}}_handler = std::function<{{response}}(
+    const domain::caller&, const {{request}}&)>;
+
+/**
+ * @brief Adds {{method}} {{path}}, the tool {{tool}}, to @p r, answered by
+ * @p h.
+ */
+void add_{{tool}}(net::router& r, {{tool}}_handler h);
+{{/routes}}
+
+}
+
+#endif
+{{/masd_operation}}
+#+end_src
+
+* See also
+
+- Parent facet: [[id:FAFD18B3-BB36-40EE-8C25-DAA9B93D5529][masd.cpp.http-routes]]

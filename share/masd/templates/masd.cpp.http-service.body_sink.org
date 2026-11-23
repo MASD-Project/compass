@@ -1,0 +1,167 @@
+:PROPERTIES:
+:ID: 227A5CCD-BA7B-4DF7-B3BD-D1980102FF1E
+:END:
+#+title: masd.cpp.http-service.body_sink
+#+description: body_sink, where a route that streams its body writes it. Output projects/{component_dir}/include/{component_dir}/domain/body_sink.hpp.
+#+type: archetype
+#+output: projects/{component_dir}/include/{component_dir}/domain/body_sink.hpp
+#+facet: masd.cpp.http-service
+#+level: cross
+#+filetags: :codegen:templates:literate:archetype:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is an archetype of the [[id:58BCC011-F984-4DAA-B054-F3692C529F38][masd.cpp.http-service]] facet:
+one file of the HTTP route runtime, rendered into the component that switches
+the facet on.
+
+* Origin
+
+ORE Studio's
+=projects/ores.http/api/include/ores.http.api/domain/body_sink.hpp= at
+commit =bc0702ad46b8a6097ce5242ece7ba01067699f60=.
+
+Verbatim but for the parameters and the export macro, which compass's static
+library does not need.
+
+* Context
+
+The context is the library's values and =masd_component=:
+=component_namespace=, =component_root=, the directory the component's
+headers are included from, =guard_prefix=, and =wire_namespace= and
+=wire_root=, the JSON codec runtime's namespace and include directory. The
+template switches the delimiters to =<% %>=, because the C++ it holds has
+braces of its own.
+
+* Template
+
+The template source. compass's =tangle= codec writes it to
+=masd_cpp_http_service_body_sink.hpp.mustache= beside this page.
+
+#+begin_src mustache :tangle masd_cpp_http_service_body_sink.hpp.mustache
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.http-service.body_sink.org. Edit the org source. }}
+{{=<% %>=}}
+<%& cpp_license%>
+<%#masd_component%>
+#ifndef <%guard_prefix%>DOMAIN_BODY_SINK_HPP
+#define <%guard_prefix%>DOMAIN_BODY_SINK_HPP
+
+#include <string_view>
+
+namespace <%component_namespace%>::domain {
+
+/**
+ * @brief Where a streamed request body goes.
+ *
+ * The session reads the body in chunks and hands each one to the sink on the
+ * connection's own executor, so a large body costs a chunk and not itself.
+ *
+ * The handler runs after the last chunk with the sink in hand and decides
+ * whether the bytes are kept: publish() keeps them and abort() discards them.
+ * The session holds a guard over the sink and aborts it on every path that did
+ * not publish, so a refused, failed or abandoned request leaves nothing behind
+ * and no error path has to remember to say so.
+ *
+ * A sink is created per streamed request, because it carries the state of one
+ * transfer. A buffered route never has one.
+ */
+class body_sink {
+public:
+    body_sink() = default;
+    body_sink(const body_sink&) = delete;
+    body_sink& operator=(const body_sink&) = delete;
+
+    virtual ~body_sink() = default;
+
+    /**
+     * @brief Takes the next chunk.
+     *
+     * @returns false when the destination cannot take it, which ends the request
+     * with a 500 rather than reading a body that has nowhere to go.
+     */
+    bool consume(std::string_view chunk) {
+        if (published_ || discarded_)
+            return false;
+        return consume_chunk(chunk);
+    }
+
+    /**
+     * @brief Called once the whole body has arrived.
+     *
+     * @returns false when the bytes taken so far cannot be completed.
+     */
+    bool finish() {
+        if (published_ || discarded_)
+            return false;
+        finished_ = finish_body();
+        return finished_;
+    }
+
+    /**
+     * @brief Keeps what was written, and stops the destructor discarding it.
+     *
+     * Called by the handler once it has decided the request may have the bytes,
+     * and only after finish() has said they all arrived.
+     *
+     * @returns false when publishing them fails.
+     */
+    bool publish() {
+        if (published_)
+            return true;
+        if (discarded_ || !finished_)
+            return false;
+        published_ = publish_chunk();
+        return published_;
+    }
+
+    /**
+     * @brief Discards what was written.
+     *
+     * The bytes are discarded once and no more, and a published sink is left
+     * alone, so a caller may abort on every path without counting them.
+     */
+    void abort() noexcept {
+        if (published_ || discarded_)
+            return;
+        discarded_ = true;
+        discard();
+    }
+
+    /**
+     * @brief Whether the bytes were kept.
+     *
+     * A streamed handler that answers success without publishing has thrown the
+     * body away, and the session says so in the log.
+     */
+    [[nodiscard]] bool published() const {
+        return published_;
+    }
+
+protected:
+    /// Takes one chunk. Only called before publish().
+    virtual bool consume_chunk(std::string_view chunk) = 0;
+
+    /// Completes the bytes taken so far.
+    virtual bool finish_body() = 0;
+
+    /// Keeps the bytes.
+    virtual bool publish_chunk() = 0;
+
+    /// Discards the bytes. Called at most once, by abort(), unless they were kept.
+    virtual void discard() noexcept = 0;
+
+private:
+    bool finished_ = false;
+    bool published_ = false;
+    bool discarded_ = false;
+};
+
+}
+
+#endif
+<%/masd_component%>
+#+end_src
+
+* See also
+
+- Parent facet: [[id:58BCC011-F984-4DAA-B054-F3692C529F38][masd.cpp.http-service]]

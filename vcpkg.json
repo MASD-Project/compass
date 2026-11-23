@@ -4,6 +4,7 @@
     "description": "Data-oriented codegen, gates and analysis over org documents, C++ and SQL.",
     "version-string": "0.0.13",
     "dependencies": [
+        "boost-beast",
         "catch2",
         "expat",
         {

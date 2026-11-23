@@ -148,6 +148,10 @@ struct masd_component {
  * values is the closed list :values: states: the enumerators of a field
  * whose type is an enumeration, or the texts a string field accepts.
  * encoding is base64 for a string that holds bytes, else empty.
+ * http_in is where a route reads the field, path, query or body, empty on a
+ * message no route takes; http_name is the query parameter's name when it is
+ * not the field's. optional is true when :required: false lets a call leave
+ * the field out. description is the field's prose.
  */
 struct masd_field {
     std::string name;
@@ -155,15 +159,41 @@ struct masd_field {
     std::string default_value;
     std::string encoding;
     std::vector<std::string> values;
+    std::string http_in;
+    std::string http_name;
+    bool optional = false;
+    std::string description;
+};
+
+/**
+ * @brief How HTTP and MCP reach a request message: its route, its place in
+ * the catalogue and what the gateway must present. method is empty on a
+ * message no route takes.
+ */
+struct masd_route {
+    std::string method;
+    std::string path;
+    std::string tool;
+    std::string area;
+    std::string entity;
+    bool writes = false;
+    bool destructive = false;
+    bool idempotent = false;
+    std::string summary;
+    std::string caller;
+    std::string max_body_size;
 };
 
 /**
  * @brief One message of a masd.codegen.operation model, in model order,
- * and the message it is answered with, when it names one.
+ * the message it is answered with, when it names one, its prose and its
+ * route, when it is a request.
  */
 struct masd_message {
     std::string name;
     std::string response;
+    std::string description;
+    masd_route route;
     std::vector<masd_field> fields;
 };
 

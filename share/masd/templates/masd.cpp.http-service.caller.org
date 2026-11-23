@@ -1,0 +1,72 @@
+:PROPERTIES:
+:ID: 90788A10-52E0-477E-A2EB-14C6920F0E36
+:END:
+#+title: masd.cpp.http-service.caller
+#+description: caller: the view, the subject and the actor the gateway names. Output projects/{component_dir}/include/{component_dir}/domain/caller.hpp.
+#+type: archetype
+#+output: projects/{component_dir}/include/{component_dir}/domain/caller.hpp
+#+facet: masd.cpp.http-service
+#+level: cross
+#+filetags: :codegen:templates:literate:archetype:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is an archetype of the [[id:58BCC011-F984-4DAA-B054-F3692C529F38][masd.cpp.http-service]] facet:
+one file of the HTTP route runtime, rendered into the component that switches
+the facet on.
+
+* Origin
+
+No ORE Studio file: compass's own.
+
+compass's own: ORE Studio's caller is its JWT claims.
+
+* Context
+
+The context is the library's values and =masd_component=:
+=component_namespace=, =component_root=, the directory the component's
+headers are included from, =guard_prefix=, and =wire_namespace= and
+=wire_root=, the JSON codec runtime's namespace and include directory. The
+template switches the delimiters to =<% %>=, because the C++ it holds has
+braces of its own.
+
+* Template
+
+The template source. compass's =tangle= codec writes it to
+=masd_cpp_http_service_caller.hpp.mustache= beside this page.
+
+#+begin_src mustache :tangle masd_cpp_http_service_caller.hpp.mustache
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.http-service.caller.org. Edit the org source. }}
+{{=<% %>=}}
+<%& cpp_license%>
+<%#masd_component%>
+#ifndef <%guard_prefix%>DOMAIN_CALLER_HPP
+#define <%guard_prefix%>DOMAIN_CALLER_HPP
+
+#include <optional>
+#include <string>
+
+namespace <%component_namespace%>::domain {
+
+/**
+ * @brief Who calls, as the gateway names them: the view they read through,
+ * the person and, when an agent acts for the person, the agent.
+ *
+ * The server builds it from the request's headers, never from its body.
+ * subject is empty on a read whose gateway named no one.
+ */
+struct caller final {
+    std::string view;
+    std::string subject;
+    std::optional<std::string> actor;
+};
+
+}
+
+#endif
+<%/masd_component%>
+#+end_src
+
+* See also
+
+- Parent facet: [[id:58BCC011-F984-4DAA-B054-F3692C529F38][masd.cpp.http-service]]

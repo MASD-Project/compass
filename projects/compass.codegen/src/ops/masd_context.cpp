@@ -510,6 +510,154 @@ bool is_standard_or_arithmetic(std::string_view t) {
         t == "float";
 }
 
+/**
+ * @brief @p text as the body of a C++ string literal on one line: its lines
+ * joined by a space, quotes and backslashes escaped.
+ */
+std::string literal(std::string_view text) {
+    std::string out;
+    bool space = false;
+    for (const char c : text) {
+        if (c == '\n' || c == '\r' || c == ' ' || c == '\t') {
+            space = !out.empty();
+            continue;
+        }
+        if (space)
+            out += ' ';
+        space = false;
+        if (c == '"' || c == '\\')
+            out += '\\';
+        out += c;
+    }
+    return out;
+}
+
+/**
+ * @brief @p names as the items of a C++ initializer list of string
+ * literals.
+ */
+std::string quoted_list(const std::vector<std::string>& names) {
+    std::string out;
+    for (const auto& n : names)
+        out += (out.empty() ? "\"" : ", \"") + n + "\"";
+    return out;
+}
+
+/**
+ * @brief Whether a call may leave @p f out, by the service overview's
+ * binding rules: an optional, a vector or a message, a field with a
+ * default, or one stating :required: false.
+ */
+bool may_leave_out(const mtypes::masd_field& f,
+    const std::set<std::string>& messages) {
+    const std::string_view t = f.cpp_type;
+    return f.optional || !f.default_value.empty() ||
+        t.starts_with("std::optional<") || t.starts_with("std::vector<") ||
+        messages.contains(f.cpp_type);
+}
+
+/**
+ * @brief The OpenAPI type of a query parameter of C++ type @p t.
+ */
+std::string_view openapi_type(std::string_view t) {
+    if (t.starts_with("std::optional<"))
+        t = t.substr(14, t.size() - 15);
+    if (t == "bool")
+        return "boolean";
+    if (is_arithmetic(t))
+        return "integer";
+    return "string";
+}
+
+/**
+ * @brief The routes of @p op's request messages under @p m: for each, its
+ * declaration in the copied builder's vocabulary and how its request is
+ * bound, a message-typed query field spread into one parameter per member.
+ */
+void add_routes(builder& b, value_id m, const mtypes::masd_operation& op,
+    const std::set<std::string>& names) {
+    const auto message_named = [&](std::string_view name)
+        -> const mtypes::masd_message* {
+        for (const auto& msg : op.messages)
+            if (msg.name == name)
+                return &msg;
+        return nullptr;
+    };
+    const auto list = b.list(m, "routes");
+    bool any = false;
+    for (const auto& msg : op.messages) {
+        const auto& r = msg.route;
+        if (r.method.empty())
+            continue;
+        any = true;
+        const auto item = b.append_object(list);
+        b.set(item, "tool", r.tool);
+        b.set(item, "area", r.area);
+        b.set(item, "entity", r.entity);
+        b.set(item, "writes", r.writes ? "true" : "false");
+        b.set(item, "summary", literal(r.summary));
+        b.set(item, "description", literal(msg.description));
+        b.set(item, "path", r.path);
+        b.set(item, "method", upper(r.method));
+        b.set(item, "builder", r.method == "delete" ? "delete_" : r.method);
+        b.set(item, "caller", r.caller);
+        b.set(item, "request", op.ns + "::" + msg.name);
+        b.set(item, "has_response", !msg.response.empty());
+        b.set(item, "response", msg.response.empty() ? std::string("void")
+            : op.ns + "::" + msg.response);
+        b.set(item, "max_body_size", r.max_body_size);
+        b.set(item, "has_max_body_size", !r.max_body_size.empty());
+
+        const auto params = b.list(item, "query_params");
+        const auto paths = b.list(item, "path_fields");
+        const auto queries = b.list(item, "query_fields");
+        const auto checks = b.list(item, "checks");
+        std::vector<std::string> body, required_body;
+        const auto add_query = [&](std::string member, std::string param,
+                                   const mtypes::masd_field& f, bool required) {
+            const auto q = b.append_object(queries);
+            b.set(q, "member", member);
+            b.set(q, "param", param);
+            b.set(q, "required", required ? "true" : "false");
+            const auto p = b.append_object(params);
+            b.set(p, "name", param);
+            b.set(p, "type", std::string(openapi_type(f.cpp_type)));
+            b.set(p, "required", required ? "true" : "false");
+            b.set(p, "description", literal(f.description));
+            if (!f.values.empty() && held_type(f.cpp_type) == "std::string") {
+                const auto c = b.append_object(checks);
+                b.set(c, "member", member);
+                b.set(c, "param", param);
+                b.set(c, "values", quoted_list(f.values));
+            }
+        };
+        for (const auto& f : msg.fields) {
+            if (f.http_in == "path") {
+                const auto p = b.append_object(paths);
+                b.set(p, "member", f.name);
+                b.set(p, "param", f.name);
+            } else if (f.http_in == "body") {
+                body.push_back(f.name);
+                if (!may_leave_out(f, names))
+                    required_body.push_back(f.name);
+            } else if (const auto* inner = message_named(f.cpp_type)) {
+                for (const auto& g : inner->fields)
+                    add_query(f.name + "." + g.name,
+                        g.http_name.empty() ? g.name : g.http_name, g,
+                        !may_leave_out(g, names));
+            } else {
+                add_query(f.name, f.http_name.empty() ? f.name : f.http_name,
+                    f, !may_leave_out(f, names));
+            }
+        }
+        b.set(item, "has_body", !body.empty());
+        b.set(item, "body_members", quoted_list(body));
+        b.set(item, "body_required", quoted_list(required_body));
+        b.set(item, "takes_no_body", r.method != "get" && body.empty());
+    }
+    b.set(m, "has_routes", any);
+}
+
 }
 
 value_id masd_operation_context(builder& b, value_id library,
@@ -529,10 +677,18 @@ value_id masd_operation_context(builder& b, value_id library,
         "_protocol.hpp"));
     b.set(m, "protocol_include", component + "/messages/" + op.entity +
         "_protocol.hpp");
+    b.set(m, "component_root", component);
+    b.set(m, "component_namespace", std::string(product) + "::" +
+        op.component);
+    b.set(m, "routes_guard", upper(component + "/routes/" + op.entity +
+        "_routes.hpp"));
+    b.set(m, "routes_include", component + "/routes/" + op.entity +
+        "_routes.hpp");
 
     std::set<std::string> message_names;
     for (const auto& msg : op.messages)
         message_names.insert(msg.name);
+    add_routes(b, m, op, message_names);
     bool base64 = false;
     std::map<std::string, std::vector<std::string>> enums;
     for (const auto& msg : op.messages)
@@ -611,16 +767,26 @@ value_id masd_operation_context(builder& b, value_id library,
 }
 
 value_id masd_component_context(builder& b, value_id library,
-    std::string_view component_dir) {
+    std::string_view component_dir, std::string_view codec_dir) {
     const auto context = with_library(b, library);
     const auto m = b.object(context, "masd_component");
-    std::string ns;
-    for (const char c : component_dir)
-        ns += c == '.' ? std::string("::") : std::string(1, c);
+    const auto namespace_of = [](std::string_view dir) {
+        std::string ns;
+        for (const char c : dir)
+            ns += c == '.' ? std::string("::") : std::string(1, c);
+        return ns;
+    };
+    const auto ns = namespace_of(component_dir);
     b.set(m, "codec_namespace", ns + "::codec");
     b.set(m, "codec_root", std::string(component_dir) + "/codec");
     b.set(m, "codec_guard_prefix", upper(std::string(component_dir) +
         "/codec/"));
+    b.set(m, "component_namespace", ns);
+    b.set(m, "component_root", std::string(component_dir));
+    b.set(m, "guard_prefix", upper(std::string(component_dir) + "/"));
+    const auto wire = codec_dir.empty() ? component_dir : codec_dir;
+    b.set(m, "wire_namespace", namespace_of(wire) + "::codec");
+    b.set(m, "wire_root", std::string(wire) + "/codec");
     return context;
 }
 

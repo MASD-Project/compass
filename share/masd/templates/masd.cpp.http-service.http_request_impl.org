@@ -1,0 +1,78 @@
+:PROPERTIES:
+:ID: F07154BD-AFF0-4AC0-A653-7839B0D2932F
+:END:
+#+title: masd.cpp.http-service.http_request_impl
+#+description: The definitions of http_request's lookups. Output projects/{component_dir}/src/domain/http_request.cpp.
+#+type: archetype
+#+output: projects/{component_dir}/src/domain/http_request.cpp
+#+facet: masd.cpp.http-service
+#+level: cross
+#+filetags: :codegen:templates:literate:archetype:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is an archetype of the [[id:58BCC011-F984-4DAA-B054-F3692C529F38][masd.cpp.http-service]] facet:
+one file of the HTTP route runtime, rendered into the component that switches
+the facet on.
+
+* Origin
+
+ORE Studio's =projects/ores.http/api/src/domain/http_request.cpp= at commit
+=bc0702ad46b8a6097ce5242ece7ba01067699f60=.
+
+get_bearer_token is left out, as its declaration is.
+
+* Context
+
+The context is the library's values and =masd_component=:
+=component_namespace=, =component_root=, the directory the component's
+headers are included from, =guard_prefix=, and =wire_namespace= and
+=wire_root=, the JSON codec runtime's namespace and include directory. The
+template switches the delimiters to =<% %>=, because the C++ it holds has
+braces of its own.
+
+* Template
+
+The template source. compass's =tangle= codec writes it to
+=masd_cpp_http_service_http_request_impl.cpp.mustache= beside this page.
+
+#+begin_src mustache :tangle masd_cpp_http_service_http_request_impl.cpp.mustache
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.http-service.http_request_impl.org. Edit the org source. }}
+{{=<% %>=}}
+<%& cpp_license%>
+<%#masd_component%>
+#include "<%component_root%>/domain/http_request.hpp"
+#include <algorithm>
+
+namespace <%component_namespace%>::domain {
+
+std::string http_request::get_header(const std::string& name) const {
+    // Headers are stored with lowercase keys (normalized on insertion)
+    std::string lower_name = name;
+    std::transform(lower_name.begin(), lower_name.end(), lower_name.begin(), [](unsigned char c) {
+        return std::tolower(c);
+    });
+    auto it = headers.find(lower_name);
+    if (it != headers.end()) {
+        return it->second;
+    }
+    return "";
+}
+
+std::string http_request::get_query_param(const std::string& name) const {
+    auto it = query_params.find(name);
+    return it != query_params.end() ? it->second : "";
+}
+
+std::string http_request::get_path_param(const std::string& name) const {
+    auto it = path_params.find(name);
+    return it != path_params.end() ? it->second : "";
+}
+
+}
+<%/masd_component%>
+#+end_src
+
+* See also
+
+- Parent facet: [[id:58BCC011-F984-4DAA-B054-F3692C529F38][masd.cpp.http-service]]

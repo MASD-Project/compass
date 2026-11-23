@@ -49,11 +49,14 @@ namespace compass::codegen::ops {
  * JSON codec runtime from: the library values and, under masd_component,
  * the runtime's namespace, include directory and include guard prefix,
  * each from @p component_dir, the component's directory under projects/,
- * such as compass.db.
+ * such as compass.db; and the values the masd.cpp.http-service templates
+ * render the component's HTTP runtime from: its namespace, include root and
+ * guard prefix, and the namespace and include root of the JSON codec
+ * runtime in @p codec_dir, the component's own when empty.
  */
 [[nodiscard]] compass::model::types::value_id masd_component_context(
     compass::model::ops::builder& b, compass::model::types::value_id library,
-    std::string_view component_dir);
+    std::string_view component_dir, std::string_view codec_dir = {});
 
 /**
  * @brief The context the masd.cpp.protocol and masd.cpp.json templates

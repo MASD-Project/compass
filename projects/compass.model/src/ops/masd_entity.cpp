@@ -20,6 +20,7 @@
 #include "compass.model/ops/masd_entity.hpp"
 
 #include <algorithm>
+#include <initializer_list>
 #include <span>
 #include "loaders.hpp"
 #include "text.hpp"
@@ -355,6 +356,32 @@ types::masd_component read_masd_component(const document& d) {
     return m;
 }
 
+namespace {
+
+/**
+ * @brief Refuses a routed request whose route the service overview's
+ * properties do not allow.
+ */
+void check_route(const types::masd_message& m) {
+    const auto& r = m.route;
+    const auto one_of = [&](std::string_view key, const std::string& value,
+                            std::initializer_list<std::string_view> allowed) {
+        if (std::ranges::find(allowed, value) == allowed.end())
+            throw model_error(m.name + "'s :" + std::string(key) + ": is '" +
+                value + "'; see the service's component overview");
+    };
+    one_of("http_method", r.method, {"get", "post", "put", "patch", "delete"});
+    one_of("caller", r.caller, {"view", "subject"});
+    if (r.path.empty() || r.tool.empty() || r.area.empty() ||
+        r.entity.empty() || r.summary.empty())
+        throw model_error(m.name + " is routed and lacks one of :http_path:, "
+            ":tool:, :area:, :entity: and :summary:");
+    if (r.method == "get" && r.writes)
+        throw model_error(m.name + " is a GET that writes");
+}
+
+}
+
 types::masd_operation read_masd_operation(const document& d) {
     outline o;
     build_outline(d.source, *d.tables, o);
@@ -379,12 +406,41 @@ types::masd_operation read_masd_operation(const document& d) {
     for (const auto n : children(o, section(o, node_id{0}, "Messages"))) {
         types::masd_message message;
         message.name = o.titles[n.value];
-        for (const auto& [key, value] : properties(o, n))
+        message.description = body(o, n);
+        auto& route = message.route;
+        for (const auto& [key, value] : properties(o, n)) {
+            const auto v = std::string(trim(value));
             if (key == "response")
-                message.response = trim(value);
+                message.response = v;
+            else if (key == "http_method")
+                route.method = v;
+            else if (key == "http_path")
+                route.path = v;
+            else if (key == "tool")
+                route.tool = v;
+            else if (key == "area")
+                route.area = v;
+            else if (key == "entity")
+                route.entity = v;
+            else if (key == "summary")
+                route.summary = v;
+            else if (key == "caller")
+                route.caller = v;
+            else if (key == "max_body_size")
+                route.max_body_size = v;
+            else if (key == "writes")
+                route.writes = v == "true";
+            else if (key == "destructive")
+                route.destructive = v == "true";
+            else if (key == "idempotent")
+                route.idempotent = v == "true";
+        }
+        if (!route.method.empty())
+            check_route(message);
         for (const auto f : children(o, n)) {
             types::masd_field field;
             field.name = o.titles[f.value];
+            field.description = body(o, f);
             for (const auto& [key, value] : properties(o, f)) {
                 if (key == "cpp_type")
                     field.cpp_type = trim(value);
@@ -394,6 +450,12 @@ types::masd_operation read_masd_operation(const document& d) {
                     field.values = words(value);
                 else if (key == "encoding")
                     field.encoding = trim(value);
+                else if (key == "http_in")
+                    field.http_in = trim(value);
+                else if (key == "http_name")
+                    field.http_name = trim(value);
+                else if (key == "required")
+                    field.optional = trim(value) == "false";
             }
             const auto where = message.name + "." + field.name;
             if (field.cpp_type.empty())
@@ -401,6 +463,13 @@ types::masd_operation read_masd_operation(const document& d) {
             if (!field.encoding.empty() && field.encoding != "base64")
                 throw model_error(where + "'s :encoding: is '" +
                     field.encoding + "'; it is base64");
+            if (!field.http_in.empty() && field.http_in != "path" &&
+                field.http_in != "query" && field.http_in != "body")
+                throw model_error(where + "'s :http_in: is '" +
+                    field.http_in + "'; it is path, query or body");
+            if (!route.method.empty() && field.http_in.empty())
+                throw model_error(where + " is a field of a routed request "
+                    "and states no :http_in:");
             message.fields.push_back(std::move(field));
         }
         m.messages.push_back(std::move(message));

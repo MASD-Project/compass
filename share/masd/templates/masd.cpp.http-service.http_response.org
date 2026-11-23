@@ -1,0 +1,166 @@
+:PROPERTIES:
+:ID: 2CC8AAF3-D076-4786-9AC6-C58359D76D55
+:END:
+#+title: masd.cpp.http-service.http_response
+#+description: http_response and its constructors, api_error among them. Output projects/{component_dir}/include/{component_dir}/domain/http_response.hpp.
+#+type: archetype
+#+output: projects/{component_dir}/include/{component_dir}/domain/http_response.hpp
+#+facet: masd.cpp.http-service
+#+level: cross
+#+filetags: :codegen:templates:literate:archetype:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is an archetype of the [[id:58BCC011-F984-4DAA-B054-F3692C529F38][masd.cpp.http-service]] facet:
+one file of the HTTP route runtime, rendered into the component that switches
+the facet on.
+
+* Origin
+
+ORE Studio's
+=projects/ores.http/api/include/ores.http.api/domain/http_response.hpp= at
+commit =bc0702ad46b8a6097ce5242ece7ba01067699f60=.
+
+Verbatim but for the parameters and the export macro, which compass's static
+library does not need.
+
+* Context
+
+The context is the library's values and =masd_component=:
+=component_namespace=, =component_root=, the directory the component's
+headers are included from, =guard_prefix=, and =wire_namespace= and
+=wire_root=, the JSON codec runtime's namespace and include directory. The
+template switches the delimiters to =<% %>=, because the C++ it holds has
+braces of its own.
+
+* Template
+
+The template source. compass's =tangle= codec writes it to
+=masd_cpp_http_service_http_response.hpp.mustache= beside this page.
+
+#+begin_src mustache :tangle masd_cpp_http_service_http_response.hpp.mustache
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.http-service.http_response.org. Edit the org source. }}
+{{=<% %>=}}
+<%& cpp_license%>
+<%#masd_component%>
+#ifndef <%guard_prefix%>DOMAIN_HTTP_RESPONSE_HPP
+#define <%guard_prefix%>DOMAIN_HTTP_RESPONSE_HPP
+
+#include "<%component_root%>/domain/awaitable_body_source.hpp"
+#include "<%component_root%>/domain/body_source.hpp"
+#include "<%component_root%>/domain/http_status.hpp"
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <unordered_map>
+
+namespace <%component_namespace%>::domain {
+
+/**
+ * @brief Represents an HTTP response to be sent to the client.
+ */
+struct http_response final {
+    /**
+     * @brief HTTP status code.
+     */
+    http_status status = http_status::ok;
+
+    /**
+     * @brief Response headers.
+     */
+    std::unordered_map<std::string, std::string> headers;
+
+    /**
+     * @brief Response body.
+     *
+     * Empty on a response that names a =body_stream=, because that body is read as
+     * it is written.
+     */
+    std::string body;
+
+    /**
+     * @brief The body read as it is written, when the response has one.
+     *
+     * A shared pointer because the response outlives the handler that made it, and
+     * because a source may be shared with whatever produced it.
+     */
+    std::shared_ptr<body_source> body_stream;
+
+    /**
+     * @brief The body read as it is written by a source that may have to wait.
+     *
+     * A response names one of this or =body_stream=, never both: the source that
+     * waits is the one whose next piece is not ready, and the session takes the
+     * loop that suits it.
+     */
+    std::shared_ptr<awaitable_body_source> body_awaitable;
+
+    /**
+     * @brief Content type header value.
+     */
+    std::string content_type = "application/json";
+
+    /**
+     * @brief Creates a successful JSON response.
+     */
+    static http_response json(const std::string& body, http_status status = http_status::ok);
+
+    /**
+     * @brief Creates an error response.
+     */
+    static http_response error(http_status status, const std::string& message);
+
+    /**
+     * @brief Creates an error response whose body names a code and a message.
+     *
+     * The browser reads a refusal as a code it can act on and a sentence it can
+     * show, so a route the browser calls answers in this shape.
+     */
+    static http_response
+    api_error(http_status status, const std::string& code, const std::string& message);
+
+    /**
+     * @brief Creates a 404 Not Found response.
+     */
+    static http_response not_found(const std::string& message = "Not Found");
+
+    /**
+     * @brief Refuses a range that starts past the end of what the body holds.
+     */
+    static http_response range_not_satisfiable(std::uint64_t total);
+
+    /**
+     * @brief Creates a 401 Unauthorized response.
+     */
+    static http_response unauthorized(const std::string& message = "Unauthorized");
+
+    /**
+     * @brief Creates a 403 Forbidden response.
+     */
+    static http_response forbidden(const std::string& message = "Forbidden");
+
+    /**
+     * @brief Creates a 400 Bad Request response.
+     */
+    static http_response bad_request(const std::string& message);
+
+    /**
+     * @brief Creates a 500 Internal Server Error response.
+     */
+    static http_response internal_error(const std::string& message);
+
+    /**
+     * @brief Sets a response header.
+     */
+    http_response& set_header(const std::string& name, const std::string& value);
+};
+
+}
+
+#endif
+<%/masd_component%>
+#+end_src
+
+* See also
+
+- Parent facet: [[id:58BCC011-F984-4DAA-B054-F3692C529F38][masd.cpp.http-service]]

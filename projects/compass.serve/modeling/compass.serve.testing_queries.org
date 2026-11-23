@@ -551,6 +551,12 @@ Absent while the note is open.
 :cpp_type: std::vector<campaign_note>
 :END:
 
+* Physical space
+
+| Address                | Enabled |
+|------------------------+---------|
+| =masd.cpp.http-routes= | true    |
+
 * Notes
 
 - The sprint messages other than the two requests match the structs of
