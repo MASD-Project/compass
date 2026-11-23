@@ -171,7 +171,7 @@ jobs:
         with:
           submodules: true
           # A pull request's merge commit and its parents, so the self-check
-          # below can ratchet against main as the pull request found it.
+          # below can ratchet against main as the pull request merges into it.
           fetch-depth: 2
 
       - name: Trust the workspace
@@ -276,16 +276,16 @@ jobs:
         # models and the MASD library, and commits the outputs. No test reads
         # the models, so only compass sees a model or template edited without
         # compass generate. A pull request fails on drift and diagnostics it
-        # adds over main, the first parent of its merge commit; a push or a
-        # scheduled run fails on any.
-        if: ${{ matrix.buildtype == 'release' }}
+        # adds over main, the first parent of its merge commit. Main itself
+        # holds findings that are excused only against a base, and changes
+        # only through pull requests, so other runs skip the check.
+        # document_index writes under build/output, which git ignores, so a
+        # fresh checkout always lacks its output; nothing commits it.
+        if: ${{ github.event_name == 'pull_request' && matrix.buildtype == 'release' }}
         run: |
-          compass="build/output/${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja/publish/bin/compass"
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            "${compass}" check --no-blame -j "$(nproc)" --ratchet HEAD^1
-          else
-            "${compass}" check --no-blame -j "$(nproc)"
-          fi
+          build/output/${{matrix.family}}-${{matrix.compiler}}-${{matrix.buildtype}}-ninja/publish/bin/compass \
+            check --no-blame -j "$(nproc)" --set document_index.enabled=false \
+            --ratchet HEAD^1
 
       - name: Upload the package
         # install_compass.sh --build finds main's package by this name.
