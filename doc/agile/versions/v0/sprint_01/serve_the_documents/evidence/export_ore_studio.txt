@@ -1,0 +1,294 @@
+== sync
+compass: the database is at schema version 2 with text search configuration english; its connection is in <scratch>/ore/.git/compass/local.org
+compass: synced ore: 11446 documents placed, 11444 new to the corpus (11444 parsed), placements 11446 added, 0 changed, 0 removed, in <n> ms
+compass: collected the corpus: 0 documents removed, 11444 left
+scenarios and their steps: 2BCB9FC2-7D48-4046-85C2-86D49A9E0921 11, 5BA0964E-4FF2-46BC-BE6D-83AFCFA4F424 5
+== recording
+start 2BCB9FC2-7D48-4046-85C2-86D49A9E0921 ana               -> run 1 campaign 1 steps 11 definition b343e35950 [<t> ms]
+step 0 pass                                                  -> recorded [<t> ms]
+step 1 pass                                                  -> recorded [<t> ms]
+step 2 pass                                                  -> recorded [<t> ms]
+step 3 pass                                                  -> recorded [<t> ms]
+step 4 pass                                                  -> recorded [<t> ms]
+step 5 pass                                                  -> recorded [<t> ms]
+step 6 pass                                                  -> recorded [<t> ms]
+step 7 pass                                                  -> recorded [<t> ms]
+step 8 pass                                                  -> recorded [<t> ms]
+step 9 pass                                                  -> recorded [<t> ms]
+step 10 pass                                                 -> recorded [<t> ms]
+attach login.png 0 The login page                            -> attached 1 as 0975cef5ff [<t> ms]
+finish                                                       -> outcome passed [<t> ms]
+start 5BA0964E-4FF2-46BC-BE6D-83AFCFA4F424 ben               -> run 2 campaign 2 steps 5 definition 726b171c8d [<t> ms]
+step 0 pass                                                  -> recorded [<t> ms]
+step 1 fail The list is empty | no rows.                     -> recorded [<t> ms]
+attach list.png 1 The empty list                             -> attached 2 as de034fe7bc [<t> ms]
+note defect 5BA0964E-4FF2-46BC-BE6D-83AFCFA4F424 1 * The lis -> note 1 [<t> ms]
+attach photo.jpg note                                        -> attached 3 as d3d2c6bd66 [<t> ms]
+note question - - Which tenant should a tester provision?    -> note 2 [<t> ms]
+address dev Provision acme.                                  -> addressed [<t> ms]
+finish                                                       -> outcome failed [<t> ms]
+start 2BCB9FC2-7D48-4046-85C2-86D49A9E0921 ana               -> run 3 campaign 1 steps 11 definition b343e35950 [<t> ms]
+step 0 pass                                                  -> recorded [<t> ms]
+== first export
+compass: wrote doc/agile/versions/v0/sprint_30/author_the_report_configurations/test_campaign_1.org
+compass: wrote doc/agile/versions/v0/sprint_30/author_the_report_configurations/test_campaign_1/0975cef5ffa005af6613495b87c883a6c5989410.png
+compass: wrote doc/agile/versions/v0/sprint_30/follow_the_child_run_a_workflow_hands_off/test_campaign_2.org
+compass: wrote doc/agile/versions/v0/sprint_30/follow_the_child_run_a_workflow_hands_off/test_campaign_2/d3d2c6bd6672c44e0f29bcf5c850e34c097a2a0c.jpg
+compass: wrote doc/agile/versions/v0/sprint_30/follow_the_child_run_a_workflow_hands_off/test_campaign_2/de034fe7bce3453cfc4f7788588f8962b818466a.png
+compass: exported 2 test campaigns of ore: 5 files written, 0 unchanged
+compass: 1 screenshots are JPEG, GIF or WebP, not PNG, and were written as they are
+-- the tree: new files only, no scenario page touched
+?? doc/agile/versions/v0/sprint_30/author_the_report_configurations/test_campaign_1.org
+?? doc/agile/versions/v0/sprint_30/author_the_report_configurations/test_campaign_1/0975cef5ffa005af6613495b87c883a6c5989410.png
+?? doc/agile/versions/v0/sprint_30/follow_the_child_run_a_workflow_hands_off/test_campaign_2.org
+?? doc/agile/versions/v0/sprint_30/follow_the_child_run_a_workflow_hands_off/test_campaign_2/d3d2c6bd6672c44e0f29bcf5c850e34c097a2a0c.jpg
+?? doc/agile/versions/v0/sprint_30/follow_the_child_run_a_workflow_hands_off/test_campaign_2/de034fe7bce3453cfc4f7788588f8962b818466a.png
+1|D119E90A-FC7B-4ED2-8CCF-4658C7351345|t
+2|F601BA2C-C879-4880-95C2-02110E5D168E|t
+-- doc/agile/versions/v0/sprint_30/author_the_report_configurations/test_campaign_1.org
+:PROPERTIES:
+:ID: 0D2954C7-E915-5895-B0EB-6AB2591778C4
+:END:
+#+title: Test Campaign: Author the report configurations on guided screens on ore
+#+description: The test runs and notes of a story's scenarios on the ore environment.
+#+type: test_campaign
+#+level: s1
+#+filetags: :author_the_report_configurations:sprint_30:v0:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+#+environment: ore
+#+todo: TODO | DONE
+
+This page records a [[id:42967863-F931-4D04-AF82-2CF47C9758FE][test campaign]] of [[id:D119E90A-FC7B-4ED2-8CCF-4658C7351345][Story: Author the report configurations on guided screens]] on the ore environment. =compass test export= writes it from compass's database, so an edit here is lost at the next export.
+
+* Campaign
+
+| Field       | Value                                                                                                  |
+|-------------+--------------------------------------------------------------------------------------------------------|
+| Story       | [[id:D119E90A-FC7B-4ED2-8CCF-4658C7351345][Story: Author the report configurations on guided screens]] |
+| Sprint      | [[id:9F7C5484-E2D1-40E0-B24D-AD1B69A057F5][Sprint 30]]                                                 |
+| Environment | ore                                                                                                    |
+| Opened      | 2026-11-23T16:53:50Z                                                                                   |
+| Runs        | 2, 1 in progress                                                                                       |
+| Notes       | 0 open, 0 addressed                                                                                    |
+
+* Scenarios
+
+** [[id:2BCB9FC2-7D48-4046-85C2-86D49A9E0921][Test Scenario: Verify the pricing engine screens]]
+
+*** Run 1: passed
+:PROPERTIES:
+:ID: E3D5727A-38F6-553D-9571-A8C83FDF6079
+:END:
+
+| Field      | Value                |
+|------------+----------------------|
+| Tester     | ana                  |
+| Started    | 2026-11-23T16:53:50Z |
+| Finished   | 2026-11-23T16:53:50Z |
+| Definition | b343e359504d         |
+| Outcome    | passed               |
+
+| Step | Title                                            | Outcome | Notes |
+|------+--------------------------------------------------+---------+-------|
+| 1    | Log in as the tenant administrator               | pass    |       |
+| 2    | Open the pricing engines list                    | pass    |       |
+| 3    | Read a configuration record                      | pass    |       |
+| 4    | Change the details with a reason                 | pass    |       |
+| 5    | Change how a product is priced                   | pass    |       |
+| 6    | Add a product and remove a product               | pass    |       |
+| 7    | Check that a stale save is refused               | pass    |       |
+| 8    | Author a new configuration from a copy           | pass    |       |
+| 9    | Author an empty configuration and see the checks | pass    |       |
+| 10   | Delete the test configuration                    | pass    |       |
+| 11   | Check a user without write permission            | pass    |       |
+
+Screenshots:
+
+- [[file:test_campaign_1/0975cef5ffa005af6613495b87c883a6c5989410.png]], step 1: The login page
+
+*** Run 3: in progress
+:PROPERTIES:
+:ID: 32D94FAB-8CF7-5FFB-90D4-5C02CBCDBED8
+:END:
+
+| Field      | Value                |
+|------------+----------------------|
+| Tester     | ana                  |
+| Started    | 2026-11-23T16:53:50Z |
+| Finished   | not yet              |
+| Definition | b343e359504d         |
+| Outcome    | in progress          |
+
+| Step | Title                                            | Outcome | Notes |
+|------+--------------------------------------------------+---------+-------|
+| 1    | Log in as the tenant administrator               | pass    |       |
+| 2    | Open the pricing engines list                    | -       |       |
+| 3    | Read a configuration record                      | -       |       |
+| 4    | Change the details with a reason                 | -       |       |
+| 5    | Change how a product is priced                   | -       |       |
+| 6    | Add a product and remove a product               | -       |       |
+| 7    | Check that a stale save is refused               | -       |       |
+| 8    | Author a new configuration from a copy           | -       |       |
+| 9    | Author an empty configuration and see the checks | -       |       |
+| 10   | Delete the test configuration                    | -       |       |
+| 11   | Check a user without write permission            | -       |       |
+
+* Notes
+
+No notes.
+-- doc/agile/versions/v0/sprint_30/follow_the_child_run_a_workflow_hands_off/test_campaign_2.org
+:PROPERTIES:
+:ID: B3304014-548A-5E01-88EA-E6C9D96E2D60
+:END:
+#+title: Test Campaign: Follow the child run a workflow hands off on ore
+#+description: The test runs and notes of a story's scenarios on the ore environment.
+#+type: test_campaign
+#+level: s1
+#+filetags: :follow_the_child_run_a_workflow_hands_off:sprint_30:v0:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+#+environment: ore
+#+todo: TODO | DONE
+
+This page records a [[id:42967863-F931-4D04-AF82-2CF47C9758FE][test campaign]] of [[id:F601BA2C-C879-4880-95C2-02110E5D168E][Story: Follow the child run a workflow hands off]] on the ore environment. =compass test export= writes it from compass's database, so an edit here is lost at the next export.
+
+* Campaign
+
+| Field       | Value                                                                                         |
+|-------------+-----------------------------------------------------------------------------------------------|
+| Story       | [[id:F601BA2C-C879-4880-95C2-02110E5D168E][Story: Follow the child run a workflow hands off]] |
+| Sprint      | [[id:9F7C5484-E2D1-40E0-B24D-AD1B69A057F5][Sprint 30]]                                        |
+| Environment | ore                                                                                           |
+| Opened      | 2026-11-23T16:53:50Z                                                                          |
+| Runs        | 1, 0 in progress                                                                              |
+| Notes       | 1 open, 1 addressed                                                                           |
+
+* Scenarios
+
+** [[id:5BA0964E-4FF2-46BC-BE6D-83AFCFA4F424][Test Scenario: Provision a tenant as a non-system administrator]]
+
+*** Run 2: failed
+:PROPERTIES:
+:ID: E644D51F-C2EE-5072-B843-CA9BFEBA1189
+:END:
+
+| Field      | Value                |
+|------------+----------------------|
+| Tester     | ben                  |
+| Started    | 2026-11-23T16:53:50Z |
+| Finished   | 2026-11-23T16:53:50Z |
+| Definition | 726b171c8d41         |
+| Outcome    | failed               |
+
+| Step | Title                                                        | Outcome | Notes                              |
+|------+--------------------------------------------------------------+---------+------------------------------------|
+| 1    | Log in as the existing tenant's administrator                | pass    |                                    |
+| 2    | Run provision tenant for a new code                          | fail    | The list is empty \vert{} no rows. |
+| 3    | Check the handoff is reported, not followed                  | -       |                                    |
+| 4    | Check the closing message does not claim the tenant is ready | -       |                                    |
+| 5    | Confirm the child run finishes in its own tenant             | -       |                                    |
+
+Screenshots:
+
+- [[file:test_campaign_2/de034fe7bce3453cfc4f7788588f8962b818466a.png]], step 2: The empty list
+
+* Notes
+
+** defect
+
+*** TODO Note 1 on [[id:5BA0964E-4FF2-46BC-BE6D-83AFCFA4F424][Test Scenario: Provision a tenant as a non-system administrator]], step 2
+:PROPERTIES:
+:ID: E49DF90A-DCEC-5E2C-8147-B632882C60D8
+:END:
+
+| Field   | Value                |
+|---------+----------------------|
+| Author  | ben                  |
+| Written | 2026-11-23T16:53:50Z |
+
+#+begin_example
+,* The list is empty after provisioning.
+#+end_example
+
+Screenshots:
+
+- [[file:test_campaign_2/d3d2c6bd6672c44e0f29bcf5c850e34c097a2a0c.jpg]]
+
+** question
+
+*** DONE Note 2 on the campaign
+:PROPERTIES:
+:ID: 72D75D5D-FE37-5F2D-BAE6-DD1C89DEC4AE
+:END:
+
+| Field        | Value                |
+|--------------+----------------------|
+| Author       | ben                  |
+| Written      | 2026-11-23T16:53:50Z |
+| Addressed by | dev                  |
+| Addressed    | 2026-11-23T16:53:50Z |
+
+#+begin_example
+Which tenant should a tester provision?
+#+end_example
+
+The reply:
+
+#+begin_example
+Provision acme.
+#+end_example
+== compass check over the exported pages
+no finding on a test_campaign page
+-- the checks see the pages: lint without the contract page in doc/meta
+doc/agile/versions/v0/sprint_30/author_the_report_configurations/test_campaign_1.org:14:1: lint/dangling_link: [[id:42967863-F931-4D04-AF82-2CF47C9758FE]] -> te
+doc/agile/versions/v0/sprint_30/follow_the_child_run_a_workflow_hands_off/test_campaign_2.org:14:1: lint/dangling_link: [[id:42967863-F931-4D04-AF82-2CF47C9758F
+-- the same check on a copy of a page without * Notes
+doc/agile/versions/v0/sprint_30/author_the_report_configurations/test_campaign_1.org:6:9: required_sections/missing_section: test_campaign document has no "Notes" section (fix: Add the heading "* Notes"; the test_campaign contract requires it.)
+== second export, with nothing recorded since
+compass: exported 2 test campaigns of ore: 0 files written, 5 unchanged
+compass: 1 screenshots are JPEG, GIF or WebP, not PNG, and were written as they are
+-- the tree
+-- the inode, size and modification time of each exported file
+unchanged: 5 files
+== a note added to the second campaign, then a third export
+campaign 2 carla                                             -> campaign 2 [<t> ms]
+note question 5BA0964E-4FF2-46BC-BE6D-83AFCFA4F424 - Is #+en -> note 3 [<t> ms]
+compass: wrote doc/agile/versions/v0/sprint_30/follow_the_child_run_a_workflow_hands_off/test_campaign_2.org
+compass: exported 2 test campaigns of ore: 1 files written, 4 unchanged
+compass: 1 screenshots are JPEG, GIF or WebP, not PNG, and were written as they are
+-- the tree
+ M doc/agile/versions/v0/sprint_30/follow_the_child_run_a_workflow_hands_off/test_campaign_2.org
+ .../test_campaign_2.org                                  | 16 +++++++++++++++-
+ 1 file changed, 15 insertions(+), 1 deletion(-)
+diff --git a/doc/agile/versions/v0/sprint_30/follow_the_child_run_a_workflow_hands_off/test_campaign_2.org b/doc/agile/versions/v0/sprint_30/follow_the_child_run_a_workflow_hands_off/test_campaign_2.org
+index 4987d55..640229b 100644
+--- a/doc/agile/versions/v0/sprint_30/follow_the_child_run_a_workflow_hands_off/test_campaign_2.org
++++ b/doc/agile/versions/v0/sprint_30/follow_the_child_run_a_workflow_hands_off/test_campaign_2.org
+@@ -22,7 +22,7 @@ This page records a [[id:42967863-F931-4D04-AF82-2CF47C9758FE][test campaign]] o
+ | Environment | ore                                                                                           |
+ | Opened      | 2026-11-23T16:53:50Z                                                                          |
+ | Runs        | 1, 0 in progress                                                                              |
+-| Notes       | 1 open, 1 addressed                                                                           |
++| Notes       | 2 open, 1 addressed                                                                           |
+ 
+ * Scenarios
+ 
+@@ -98,3 +98,17 @@ The reply:
+ #+begin_example
+ Provision acme.
+ #+end_example
++
++*** TODO Note 3 on [[id:5BA0964E-4FF2-46BC-BE6D-83AFCFA4F424][Test Scenario: Provision a tenant as a non-system administrator]]
++:PROPERTIES:
++:ID: 238F1236-D0CB-591B-8A90-0F8683FA8280
++:END:
++
++| Field   | Value                |
++|---------+----------------------|
++| Author  | carla                |
++| Written | 2026-11-23T16:53:58Z |
++
++#+begin_example
++Is #+end_example safe in a note?
++#+end_example

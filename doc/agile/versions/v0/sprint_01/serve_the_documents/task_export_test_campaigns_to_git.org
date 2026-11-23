@@ -7,12 +7,12 @@
 #+level: s1
 #+filetags: :serve_the_documents:sprint_01:v0:
 #+owner: marco
-#+branch:
+#+branch: feature/export-test-campaigns
 #+pr:
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-22
-#+updated: 2026-11-22
+#+updated: 2026-11-23
 #+environment:
 #+todo: DISCOVERED BACKLOG STARTED BLOCKED | DONE ABANDONED
 
@@ -20,44 +20,123 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Goal
 
-(Describe what user-visible-or-internal change this task produces.)
+Testers have no git. What they record in compass's service, runs, step
+results, screenshots and notes, reaches git when a developer runs =compass
+test export --environment <env> [--story <id>]=: each campaign becomes a
+=test_campaign= page in its story's folder, with its screenshots beside it,
+ready to commit. Exporting again rewrites the same files and leaves an
+unchanged campaign untouched. The type gets its contract page, drafted in
+compass for ORE Studio's contract, which compass's mirrors.
 
 * Status
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | STARTED                              |
 | Parent story | [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]] |
-| Now          | Not yet started.                       |
-| Waiting on   | Nothing.                               |
-| Next         | Begin implementation.                  |
-| Last touched | 2026-11-22                               |
+| Now          | The export, its contract page and the ORE Studio evidence are done; the pull request is open for review. |
+| Waiting on   | Review of the pull request.            |
+| Next         | ORE Studio adopts the contract page from the handoff; Serve the documents over HTTP. |
+| Last touched | 2026-11-23                               |
 
 * Acceptance
 
--
+- =compass test export --environment <env> [--story <id>]= writes, for each
+  campaign of the environment, or the one of that story, a =test_campaign=
+  page at =<story folder>/test_campaign_<id>.org=:
+  - a heading per scenario, linking the scenario page, and under it a
+    heading per run with the tester, the times, the definition's version
+    and the outcome, a table of step results with their notes, and the
+    screenshots, linked;
+  - the campaign's notes grouped by kind, each a heading, =TODO= while open
+    and =DONE= once addressed, naming its scenario or step and its author,
+    with the reply when there is one.
+- Screenshots are files in =test_campaign_<id>/= beside the page, named by
+  the blob ID of their bytes. A PNG is a =.png=; JPEG, GIF and WebP are
+  written as attached, with their own extension, and the command says so.
+- The page's =:ID:= and file name come from the campaign's id, and each run's
+  and note's =:ID:= from theirs, so a second export rewrites the same files
+  and duplicates nothing. Files are written through
+  =platform::filesystem::update_file=, so an unchanged campaign touches
+  nothing. =exported_at= is set.
+- Scenario pages are not modified.
+- Text a tester typed cannot become org structure: a line org would read as
+  a heading or keyword is escaped in an example block, and a =|= in a table
+  cell is written =\vert{}=.
+- The export's input is the campaign's rows and its output (path, bytes)
+  files; the rendering is a pure function of the rows, tested without a
+  database. No JSON.
+- =doc/meta/document_type_test_campaign.org= is the type's contract, and
+  =required_sections= holds exported pages to it; exported pages pass it.
+  The same page and a handoff note are left for ORE Studio.
+- Catch2 covers the renderer (runs, steps, notes open and addressed,
+  screenshots, escaping), IDs stable across exports, and an unchanged
+  campaign writing nothing; injected faults make them fail.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+The data shape comes first. The input is =types::campaign_rows=
+(=compass.db/types/campaign_export.hpp=): the campaign, its story's page and
+sprint, each scenario it ran or a note names with its runs, each run's steps
+from the definition it followed and their results, its screenshots, the
+notes, and each screenshot's bytes once. The output is a list of
+=types::exported_file=, a path relative to the checkout and its bytes.
+
+1. =query::read_campaigns= reads the rows of every campaign of an
+   environment, or of one story, in one =REPEATABLE READ, READ ONLY=
+   transaction, so a page is never a mix of two moments. A campaign whose
+   story the environment no longer holds comes back with an empty path; the
+   command skips it with a warning and exits 1.
+2. =ops::render_campaign= renders the page and lists the screenshots. It is
+   pure. =#+created:= is the day the campaign opened and =#+updated:= the
+   day of its latest run or note, never the day of the export, or an
+   unchanged campaign would be rewritten every day. =ops::derived_id= lays
+   the SHA-1 of a name out as a version 5 UUID; the names are =compass
+   test_campaign <environment> <story :ID:> <campaign id>=, with = run <id>=
+   or = note <id>= after it.
+3. =app::export_campaigns= writes each file through =update_file= and then
+   sets =exported_at=. A crash part way leaves whole files, and a rerun
+   converges.
+4. =compass test export= parses as =db= and =sync= do, with =--story= its own.
+5. The contract page, =doc/meta/document_type_test_campaign.org=, follows
+   the other =document_type_*.org= pages, so the type registry reads its
+   folder, level, TODO vocabulary and the three required sections.
+6. =compass-bench campaign= gains =campaign <id> <tester>=, to add a note to
+   a campaign whose runs are done, and takes an attached image's type from
+   its extension, so the evidence can attach a JPEG.
+
+No schema change: =activity.campaign.exported_at= is in migration 1.
 
 * Measurements
 
-Every number this task claims about a tree, with the command that produced it
-and the commit it was measured at. A number without both is not a measurement,
-because a clean-up record describes a tree and trunk moves under a branch: a
-consumer count, a gate's component count and a suite's size all change with no
-code changing, and the reader of a bare number cannot tell which tree it came
-from. Where the raw output matters, put it in an =evidence/= file beside the
-task and name that file in the Command column.
+Raw output is in [[file:evidence/export_ore_studio.txt][evidence/export_ore_studio.txt]], from
+=evidence/export_ore_studio.sh <compass checkout> <compass bin dir>
+<scratch>=, which syncs an archive of ORE Studio main into an =initdb=
+cluster on a Unix socket with no TCP port, with the contract page copied into
+its =doc/meta=, records campaigns with =compass-bench campaign= and exports
+them.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| First export | 2 campaigns, 5 files: 2 pages, 2 PNG and 1 JPEG screenshot; only new files in the tree, no scenario page touched; =exported_at= set on both | =export_ore_studio.sh= | ORE =bc0702ad46=, this branch |
+| =compass check= with =required_sections=, =lint=, =org_links=, =evidence_location=, =heading_numbers= | no finding on either exported page | as above | as above |
+| The checks see the pages | without the contract page, =lint/dangling_link= on both pages; a page without =* Notes= gives =required_sections/missing_section= | as above | as above |
+| Second export, nothing recorded since | 0 files written, 5 unchanged; inode, size and modification time of all 5 identical | as above | as above |
+| A note added, third export | 1 file written, 4 unchanged: only that campaign's page, +15 −1 lines, every =:ID:= kept | as above | as above |
+| Catch2 tests | renderer: 7 cases, 38 assertions (=compass.db.tests '[campaign_page]'=); export: 4 cases, 40 assertions (=compass.cli.tests '[test_export]'=) | as named | this branch |
+| Injected faults | no escape of a =*= line: 1 case, 3 assertions fail; always rewriting a file: 2 cases, 4 assertions fail; a run's =:ID:= depending on the note count: 1 case fails in each suite; code restored, all pass | as above, with the fault | this branch |
 
 * Notes
+
+- Which environment a story's folder is read from: the exported
+  environment's placement of the story page. The files are written into the
+  checkout given with =-C=, so a developer exports a tester's environment
+  into their own worktree.
+- The screenshot bytes are written as the tester attached them. Nothing
+  shrinks a large PNG; the service could refuse or downscale one at attach
+  time if that matters.
+- A screenshot file is never deleted by the export: the service has no way to
+  remove an attachment, so nothing goes stale.
 
 * Test Scenarios
 
