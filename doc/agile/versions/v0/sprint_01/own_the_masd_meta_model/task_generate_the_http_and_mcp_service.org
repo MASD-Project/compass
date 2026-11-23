@@ -2,7 +2,7 @@
 :ID: 8CF40A62-82EB-4FE0-8CEC-2621BD0E66FE
 :END:
 #+title: Task: Generate the HTTP and MCP service
-#+description: Generate Serve the documents' routes and their catalogue declarations from its operation models, on the HTTP and MCP family moved from ORE Studio.
+#+description: Copy ORE Studio's route, catalogue declaration, router, start-up gates and typed bodies into a MASD template family, and generate Serve the documents' routes and MCP tool provider from its operation models with it.
 #+type: task
 #+level: s1
 #+filetags: :own_the_masd_meta_model:sprint_01:v0:
@@ -20,14 +20,17 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Goal
 
-Generate Serve the documents' HTTP and MCP service from its operation
-models, on the family [[id:A2D4D196-1BF0-48F1-8C9D-7096651F94E1][Move the HTTP and MCP service machinery to MASD]] brings from ORE Studio: one route per
-message, declared through ORE Studio's route builder with its tool, area,
-entity, whether it writes, its parameters and its typed body, and handled by
-calling the query function in process. compass's =/mcp= is the moved endpoint
-with a tool provider that lists one tool per route, built from the same
-declarations. The query functions and the caller read from gateway headers are
-written by hand; there is no hand-written dispatcher. See
+Copy ORE Studio's route with its catalogue declaration, its router and route
+builder with their start-up gates, and its typed bodies from ORE Studio's main
+into a MASD template family, =masd.cpp.http-service=, rendered for compass
+only. Then generate Serve the documents' HTTP and MCP service from its
+operation models with it: one route per message, declared through the copied
+builder with its tool, area, entity, whether it writes, its parameters and its
+typed body, and handled by calling the query function in process; and a tool
+provider for compass's =/mcp= that lists one tool per route, built from the
+same declarations. The query functions and the caller read from gateway
+headers are written by hand; there is no hand-written dispatcher. compass
+does not wait on ORE Studio. See
 [[id:AF30B206-2FAB-435F-819F-9EC652D4E40D][Design: aligning the document service with ORE Studio's HTTP and MCP]].
 
 * Status
@@ -37,17 +40,22 @@ written by hand; there is no hand-written dispatcher. See
 | State        | BACKLOG                              |
 | Parent story | [[id:E3C81059-FE00-4403-AA56-190FDBB9904A][Own the MASD meta model and generate compass with it]] |
 | Now          | Not yet started.                       |
-| Waiting on   | [[id:E754BE53-3A6B-4491-BB26-450D1A34F159][Generate JSON codecs]]; [[id:55F578C5-6F25-4385-B0F2-CDFBDF9A753C][Model compass's service]]; [[id:B8F7849D-1477-4C30-80A1-49706AB2AA57][Generate compass's schema and row types]]; [[id:A2D4D196-1BF0-48F1-8C9D-7096651F94E1][Move the HTTP and MCP service machinery to MASD]]. |
+| Waiting on   | [[id:E754BE53-3A6B-4491-BB26-450D1A34F159][Generate JSON codecs]]; [[id:55F578C5-6F25-4385-B0F2-CDFBDF9A753C][Model compass's service]]; [[id:B8F7849D-1477-4C30-80A1-49706AB2AA57][Generate compass's schema and row types]]. |
 | Next         | Begin implementation.                  |
 | Last touched | 2026-11-23                               |
 
 * Acceptance
 
-- Every route of the service is generated, and the moved router's start-up
+- =masd.cpp.http-service= holds the route, =route_catalogue=, the router and
+  route builder with their start-up gates, the typed bodies and the OpenAPI
+  registry, copied from ORE Studio's main. The task records the ORE Studio
+  commit it copied from, and every change from it is a divergence the design
+  records.
+- Every route of the service is generated, and the copied router's start-up
   gates accept it: a tool, an area, an entity and whether it writes on every
   route, a typed body on every route that takes one.
-- An MCP client lists one tool per route, with the models' descriptions and
-  the routes' input schemas, and the MCP conformance runner passes.
+- The generated tool provider lists one tool per route, with the models'
+  descriptions and the routes' input schemas.
 - =GET /v1/catalogue= answers every route's declaration and input schema.
 - =compass generate= on compass reports nothing to write.
 

@@ -1,8 +1,8 @@
 :PROPERTIES:
 :ID: A2D4D196-1BF0-48F1-8C9D-7096651F94E1
 :END:
-#+title: Task: Move the HTTP and MCP service machinery to MASD
-#+description: Lift ores.http's MCP endpoint, sessions and tool seam, its route, route builder and start-up gates, its five catalogue tools and its JSON codec runtime into a MASD template family that renders ORE Studio's files byte for byte, switch ORE Studio to generating them, and generate compass's copy.
+#+title: Task: Converge the HTTP and MCP service templates with ORE Studio
+#+description: Once compass and ORE Studio stabilise, diff compass's copied HTTP, MCP and JSON codec families against ORE Studio's files, settle each difference as a parameter or a fix, and offer the families in compass's MASD library for ORE Studio to opt into.
 #+type: task
 #+level: s1
 #+filetags: :own_the_masd_meta_model:sprint_01:v0:
@@ -20,11 +20,13 @@ This page documents a [[id:31C868B9-306E-4282-BA8C-07E647021B34][task]] in the [
 
 * Goal
 
-compass's MCP and HTTP behave as ORE Studio's because they are the same code.
-The generic part of ores.http moves into compass's MASD library as a template
-family, =masd.cpp.http-service=, and both products generate their copy from
-it, as [[id:AF30B206-2FAB-435F-819F-9EC652D4E40D][Design: aligning the document service with ORE Studio's HTTP and MCP]]
-decides in its first and fifth sections.
+compass copies ORE Studio's route machinery and JSON codec into MASD template
+families and writes its own MCP transport, without waiting on ORE Studio, as
+[[id:AF30B206-2FAB-435F-819F-9EC652D4E40D][Design: aligning the document service with ORE Studio's HTTP and MCP]]
+decides. This task is the later, opt-in convergence. Once both projects
+stabilise, it brings the two copies back to one and offers the families in
+compass's MASD library for ORE Studio to opt into. It blocks nothing. Whether
+and when ORE Studio opts in is ORE Studio's decision.
 
 * Status
 
@@ -33,27 +35,22 @@ decides in its first and fifth sections.
 | State        | BACKLOG                              |
 | Parent story | [[id:E3C81059-FE00-4403-AA56-190FDBB9904A][Own the MASD meta model and generate compass with it]] |
 | Now          | Not yet started.                       |
-| Waiting on   | ORE Studio merging Serve the MCP transport on ores.http and Browse, search and call operations through five tools; [[id:BECA92D2-95DA-46B4-9D3E-AC30FDDB7294][Move the MASD pages and templates to compass]]. |
-| Next         | Name the ORE Studio commit to lift from, once both ORE Studio tasks merge. |
+| Waiting on   | Both projects' HTTP and MCP service stabilising, and the product owner calling convergence. Nothing waits on this task. |
+| Next         | Nothing until the product owner calls convergence. |
 | Last touched | 2026-11-23                               |
 
 * Acceptance
 
-- The family holds the MCP endpoint, session registry and tool seam, the
-  route with its catalogue declaration, the route builder and router with
-  their start-up gates, the OpenAPI registry, the five catalogue tools generic
-  over a "may call" predicate, the JSON codec runtime, and a generated test
-  that runs the official MCP conformance runner.
-- Its parameters are the namespace and include root, logging, the caller on a
-  request, admission to =/mcp=, and the server's name and version; nothing
-  else differs between the products.
-- Rendered for ORE Studio at the named commit, it gives ORE Studio's files byte
-  for byte, measured by a rerunnable script.
-- ORE Studio's pull request that deletes its hand-written copies and generates
-  them shows no diff in the generated files.
-- compass generates its copy into =compass.serve=, builds on Linux, macOS and
-  Windows with Boost.Beast and yyjson from vcpkg, and passes the conformance
-  runner.
+- A rerunnable script renders compass's =masd.cpp.http-service= and codec
+  families with ORE Studio's parameters and diffs them against ORE Studio's
+  files at a named commit. Every difference is either a divergence the design
+  records or is settled as a parameter or as a fix on one side.
+- compass's MCP transport and ORE Studio's are compared against the design's
+  behaviour table and the MCP conformance runner, and one is kept or the two
+  are reconciled.
+- The families are offered in compass's MASD library with ORE Studio's
+  parameters, for ORE Studio to opt into. Nothing in compass depends on
+  whether it does.
 
 * Plan
 

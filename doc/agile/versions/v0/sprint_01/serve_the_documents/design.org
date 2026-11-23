@@ -80,7 +80,7 @@ since it reads the =compass.org= tables. The CLI gains a dependency on =libpq= f
 server and its libraries stay in =compass.serve=.
 
 Dependencies to add through vcpkg: =libpq=; Boost.Beast and yyjson, which
-the HTTP and MCP service and the JSON codec moved from ORE Studio need
+the HTTP and MCP service and the JSON codec copied from ORE Studio need
 ([[id:AF30B206-2FAB-435F-819F-9EC652D4E40D][Design: aligning the document service with ORE Studio's HTTP and MCP]]).
 Each is confirmed in its task against the build on Linux, macOS and
 Windows.
@@ -258,7 +258,7 @@ route vocabulary; the alignment design lists each route's declaration:
 | =POST /v1/{env}/attachments= | Attach a screenshot, sent as base64, to a run, a step or a note; answers its hash |
 | =POST /v1/{env}/sync= | Sync the environment |
 | =GET /v1/environments=, =GET /v1/version= | Environments with =synced_at=; API version and compass version |
-| =GET /v1/catalogue= | Every route's declaration and input schema, which ores.http imports into its catalogue |
+| =GET /v1/catalogue= | Every route's declaration and input schema, in the shape of ORE Studio's =route_catalogue= |
 
 The environment is a path segment: a request names it as it names a view, and
 a missing or unknown environment is an error, never a default.
@@ -279,26 +279,24 @@ filter. The gateway authenticates the caller and sends three headers:
 =Compass-View=, =Compass-Subject=, the person, and =Compass-Actor=, the agent
 acting for them when one is. The service rejects a request without a view, and
 every write without a subject. The write functions take this caller; no
-request body names its tester. It trusts both because only the gateway can reach it;
-where the network does not ensure that, the two share a secret. compass never
+request body names its tester. It trusts the headers because only the gateway
+can reach it; where the network does not ensure that, the two share a
+secret. compass never
 learns the project's users, roles or tokens.
 
 Locally, agents reach the service directly; their requests take the =team=
 view and the developer's git user name as subject, and an MCP session takes
-=mcp:= and its client's name as actor. compass has no approval flow: through
-ORE Studio's gateway, an agent's =finish_run= and =address_note= wait for
-ORE Studio's six eyes, and its other writes apply.
+=mcp:= and its client's name as actor. compass has no approval flow: a write
+that reaches it applies at once, and any approval is the gateway's.
 
 ** MCP
 
-=compass serve= also answers MCP over streamable HTTP at =/mcp=, with the
-endpoint ORE Studio's ores.http serves, generated from the same MASD
-templates: the same protocol revisions, sessions, error codes and conformance
-runner. It lists one tool per route, named as the route declares it, such as
+=compass serve= also answers MCP over streamable HTTP at =/mcp=, with its
+own endpoint written to the design of the one ORE Studio's ores.http serves:
+the same protocol revisions, sessions, error codes and conformance runner.
+It lists one tool per route, named as the route declares it, such as
 =search_documents=, =get_document=, =get_sprint_state= and
-=list_scenarios_to_test=, each taking an environment. Through ORE Studio,
-agents reach the same operations through ores.http's five catalogue tools
-instead, under the areas =documents=, =agile= and =qa=. A coding agent
+=list_scenarios_to_test=, each taking an environment. A coding agent
 registers it once per machine; a project's assistant reaches it through the
 gateway with the =knowledge= view. Tool results are compact: the metadata and
 the matching sections, with the full body on request.
@@ -401,8 +399,8 @@ its role-to-view rule, the ores.web pages, the assistant, retiring
 
 * Least certain
 
-- The HTTP library. Boost.Beast, with ORE Studio's machinery moved into
-  MASD, replaces =cpp-httplib=; it adds Boost to compass's build.
+- The HTTP library. Boost.Beast, with ORE Studio's route machinery copied
+  into MASD, replaces =cpp-httplib=; it adds Boost to compass's build.
 - Sync cost on a large tree. A listing of ORE Studio's 11,313 documents from
   the store should be tens of milliseconds warm, but the hook runs on every
   edit, so its sync is per file, and the run-end sync must be measured.
@@ -420,6 +418,7 @@ its role-to-view rule, the ores.web pages, the assistant, retiring
 
 - [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]]: the story.
 - [[id:AF30B206-2FAB-435F-819F-9EC652D4E40D][Design: aligning the document service with ORE Studio's HTTP and MCP]]:
-  the transport, tools, identity, routes and JSON shared with ORE Studio.
+  the route machinery and JSON copied from ORE Studio, and the transport,
+  tools and identity written to match it.
 - [[id:A98E704E-B2E4-49BA-8839-B0A1DE9C3679][Keep the result cache small]]: the store's sharing and collection,
   which the corpus follows.

@@ -124,7 +124,7 @@ The documents are read-only. The only writes are the testers' runs and notes.
 | [[id:318B663E-885D-4821-BE16-8CBD8E26A060][Search the corpus]] | DONE | 2026-11-22 | 2026-11-22 | Search sections with PostgreSQL text search, weighted by title, heading path and text, with snippets, filters on any metadata and facets, measured against a recorded set of questions over ORE Studio. |
 | [[id:186C4AF8-CAB4-4754-B8AC-76D571B1B3E9][Serve the documents over HTTP]] | BACKLOG | | | Add compass serve: the query layer and the versioned read endpoints, per environment, with views compiled to SQL and the caller's name taken from the gateway. |
 | [[id:D61F946E-BC7E-40FD-B7B4-BB88E49F4D95][Render documents as HTML]] | DONE | 2026-11-22 | 2026-11-22 | Render a document's element tree as sanitised HTML with stable heading anchors, id links through the project's link template and images under the caller's view. |
-| [[id:07BE8080-B97F-42FC-9A42-5D8CC0923EA0][Serve MCP]] | BACKLOG | | | Answer MCP at /mcp with the endpoint moved from ORE Studio's ores.http, one tool per route over the same query layer as HTTP, passing the MCP conformance runner. |
+| [[id:07BE8080-B97F-42FC-9A42-5D8CC0923EA0][Serve MCP]] | BACKLOG | | | Answer MCP at /mcp with compass's own Streamable HTTP transport, written to ORE Studio's design, one tool per route over the same query layer as HTTP, passing the MCP conformance runner. |
 | [[id:636044CB-9458-4F96-8642-3F28D2F14DF8][Show what needs testing]] | DONE | 2026-11-22 | 2026-11-22 | Derive each environment's present sprint, its stories and their test scenarios, and give each scenario a state from its latest run: untested, failed, passed or changed. |
 | [[id:47FAA4EC-138F-476B-891D-8D1DC5D86ACF][Record test campaigns]] | DONE | 2026-11-22 | 2026-11-22 | Let testers record runs, step results, screenshots and campaign notes through the service, each naming its tester and the scenario definition it followed. |
 | [[id:F250A584-EEBD-4AA7-8E68-B8F538A73A63][Export test campaigns to git]] | BACKLOG | | | Write an environment's test campaigns into their stories' folders as test_campaign documents with their runs, notes and PNG screenshots, idempotently, and draft the test_campaign contract. |
@@ -154,9 +154,9 @@ The documents are read-only. The only writes are the testers' runs and notes.
 
 - [[id:21C1D3CC-9EE3-48C3-8EDD-BA0C16032AB2][Design: the document service]]: the data model, the sync, search,
   the HTTP and MCP interfaces, views, test campaigns and their export.
-- [[id:AF30B206-2FAB-435F-819F-9EC652D4E40D][Design: aligning the document service with ORE Studio's HTTP and MCP]]: one MCP transport and route vocabulary with ORE Studio,
-  compass's tools and their place in ORE Studio's catalogue, the subject and
-  actor of every write, forwarding from ores.http and one JSON codec family.
+- [[id:AF30B206-2FAB-435F-819F-9EC652D4E40D][Design: aligning the document service with ORE Studio's HTTP and MCP]]: ORE Studio's route machinery and JSON codec copied
+  into compass's MASD templates, compass's own MCP transport, its tools, the
+  subject and actor of every write, and the open proposals to ORE Studio.
 
 * Out of scope
 
