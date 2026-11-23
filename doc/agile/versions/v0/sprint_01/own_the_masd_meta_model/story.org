@@ -73,6 +73,7 @@ code.
 | [[id:A2D4D196-1BF0-48F1-8C9D-7096651F94E1][Converge the HTTP and MCP service templates with ORE Studio]] | BACKLOG | | | Once compass and ORE Studio stabilise, diff compass's copied HTTP, MCP and JSON codec families against ORE Studio's files, settle each difference as a parameter or a fix, and offer the families in compass's MASD library for ORE Studio to opt into. |
 | [[id:8BA1802D-350E-42FB-8DAC-F51B6F1A4604][Tag evidence documents]] | STARTED | | | Mark recorded artefacts kept for reference with the evidence filetag so they keep the .org extension, are held to no contract, lend their IDs only when no live page has them, and are read by no codec that does not ask for evidence. |
 | [[id:88A57B71-75AA-440C-8290-6FB0DCC2EB9D][Generate a time-of-day column]] | STARTED | 2026-11-22 | | Give a model column of SQL type time the template flags is_time and is_optional_time and a mapping in each of compass's type tables, so ORE Studio can generate a time of day without an empty type. |
+| [[id:B3C7DB74-F882-4E95-A295-2F8EB831DE9B][Close the review of the generated schema]] | STARTED | 2026-11-23 | | Close the should-fix findings of the review of #196: a CI self-check of generated drift, a ratchet that survives a codec the merge base cannot run, a catalog comparison of every kind of object, migrations tested on rows, a retained-table guard against the released schema, and a freeze test that pins removal and the bookkeeping SQL. |
 
 * Decisions
 
