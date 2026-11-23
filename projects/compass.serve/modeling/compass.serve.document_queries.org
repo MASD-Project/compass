@@ -1,0 +1,873 @@
+:PROPERTIES:
+:ID: 4152E925-E32D-40C3-AFF1-24F2AB244C5F
+:END:
+#+title: compass.serve.document_queries
+#+description: Codegen operation model for the document service's reads of the corpus: search, facets, the document list, one document, its backlinks, the environments and the version, and the sync tool.
+#+type: masd.codegen.operation
+#+component: serve
+#+namespace: compass::db::types
+#+entity_singular: document_queries
+#+brief: The document service's reads of the corpus.
+#+filetags: :model:operation:serve:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+The questions an agent, a page or a gateway asks of an environment's
+documents, over HTTP and MCP. Each request message states its route, its
+place in the catalogue (tool, area, entity and whether it writes) and where
+each of its fields comes from. Every read is
+answered inside the caller's view, which the gateway names in a header and
+which is not a field of any message.
+
+* Includes
+
+#+begin_src cpp :name includes
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <vector>
+#+end_src
+
+* Messages
+
+** metadata_match
+
+One value a document's metadata must hold: a keyword or a property named
+=name= whose value is =value=.
+
+*** name
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The keyword, in lower case, or the property, in upper case.
+
+*** value
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The value it must hold.
+
+** document_filter
+
+The conditions on document metadata that narrow a search, a facet count or a
+list. Every condition stated must hold; an empty filter keeps every document
+of the view. Bound from the query string, each member as its own parameter.
+
+*** type
+:PROPERTIES:
+:cpp_type: std::optional<std::string>
+:END:
+
+Only documents of this =#+type:=.
+
+*** tags
+:PROPERTIES:
+:cpp_type:  std::vector<std::string>
+:http_name: tag
+:END:
+
+Only documents carrying every one of these file tags.
+
+*** state
+:PROPERTIES:
+:cpp_type: std::optional<std::string>
+:END:
+
+Only documents in this state.
+
+*** sprint
+:PROPERTIES:
+:cpp_type: std::optional<std::string>
+:END:
+
+Only documents of this sprint.
+
+*** level
+:PROPERTIES:
+:cpp_type: std::optional<std::string>
+:END:
+
+Only documents of this =#+level:=.
+
+*** audience
+:PROPERTIES:
+:cpp_type: std::optional<std::string>
+:END:
+
+Only documents for this audience.
+
+*** keywords
+:PROPERTIES:
+:cpp_type:  std::vector<metadata_match>
+:http_name: keyword
+:END:
+
+Only documents whose keyword holds the value, each written =name:value=.
+
+*** properties
+:PROPERTIES:
+:cpp_type:  std::vector<metadata_match>
+:http_name: property
+:END:
+
+Only documents whose top-level property holds the value, each written
+=NAME:value=.
+
+** search_request
+:PROPERTIES:
+:tool:        search
+:area:        documents
+:entity:      document
+:writes:      false
+:summary:     Search the documents
+:response:    search_response
+:http_method: get
+:http_path:   /v1/{environment}/search
+:caller:      view
+:END:
+
+Sections of an environment's documents matching a web-style query, best
+first, inside the caller's view.
+
+*** environment
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  path
+:END:
+
+The environment to search: a worktree, branch or release name.
+
+*** q
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  query
+:END:
+
+The query, in websearch_to_tsquery syntax: words, "phrases", or, -exclusions.
+An empty query matches nothing.
+
+*** filter
+:PROPERTIES:
+:cpp_type: document_filter
+:http_in:  query
+:END:
+
+Only sections of documents matching these conditions.
+
+*** limit
+:PROPERTIES:
+:cpp_type: std::uint32_t
+:default:  20
+:http_in:  query
+:END:
+
+The most hits to answer.
+
+*** offset
+:PROPERTIES:
+:cpp_type: std::uint32_t
+:default:  0
+:http_in:  query
+:END:
+
+How many hits to skip, for the next page.
+
+** search_hit
+
+One matching section: its document's metadata, the heading it sits under and
+a snippet of its text.
+
+*** org_id
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The document's =:ID:=.
+
+*** title
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The document's title.
+
+*** type
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The document's type.
+
+*** description
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The document's description.
+
+*** path
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The document's path in the environment.
+
+*** heading_path
+:PROPERTIES:
+:cpp_type: std::vector<std::string>
+:END:
+
+The titles from the outermost heading down to the section's, empty for the
+text before the first heading.
+
+*** anchor
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The heading's anchor in the rendered page.
+
+*** snippet
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The matching words in their context.
+
+*** rank
+:PROPERTIES:
+:cpp_type: double
+:default:  0
+:END:
+
+How well the section matches; higher is better.
+
+** search_response
+
+*** hits
+:PROPERTIES:
+:cpp_type: std::vector<search_hit>
+:END:
+
+The hits of the page asked for, best first.
+
+*** total
+:PROPERTIES:
+:cpp_type: std::uint64_t
+:default:  0
+:END:
+
+How many sections match in all.
+
+*** synced_at
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+When the environment was last synced.
+
+** facets_request
+:PROPERTIES:
+:tool:        facets
+:area:        documents
+:entity:      document
+:writes:      false
+:summary:     Count the filter values
+:response:    facets_response
+:http_method: get
+:http_path:   /v1/{environment}/facets
+:caller:      view
+:END:
+
+The values of each filter over the documents a query matches, with how many
+documents hold each, for a search page's filters.
+
+*** environment
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  path
+:END:
+
+The environment to count in.
+
+*** q
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  query
+:END:
+
+The query whose documents are counted, as search takes it.
+
+*** filter
+:PROPERTIES:
+:cpp_type: document_filter
+:http_in:  query
+:END:
+
+Only documents matching these conditions are counted.
+
+*** keywords
+:PROPERTIES:
+:cpp_type:  std::vector<std::string>
+:http_in:   query
+:http_name: facet_keyword
+:END:
+
+The keywords whose values to count, besides the fixed facets.
+
+*** properties
+:PROPERTIES:
+:cpp_type:  std::vector<std::string>
+:http_in:   query
+:http_name: facet_property
+:END:
+
+The top-level properties whose values to count.
+
+** facet_count
+
+*** value
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The value as stored.
+
+*** label
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The value as a page shows it.
+
+*** count
+:PROPERTIES:
+:cpp_type: std::uint64_t
+:default:  0
+:END:
+
+How many documents hold it.
+
+** named_facet
+
+*** name
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The keyword or property counted.
+
+*** counts
+:PROPERTIES:
+:cpp_type: std::vector<facet_count>
+:END:
+
+Its values and their counts.
+
+** facets_response
+
+*** documents
+:PROPERTIES:
+:cpp_type: std::uint64_t
+:default:  0
+:END:
+
+How many documents the query and filter match.
+
+*** types
+:PROPERTIES:
+:cpp_type: std::vector<facet_count>
+:END:
+
+*** tags
+:PROPERTIES:
+:cpp_type: std::vector<facet_count>
+:END:
+
+*** states
+:PROPERTIES:
+:cpp_type: std::vector<facet_count>
+:END:
+
+*** sprints
+:PROPERTIES:
+:cpp_type: std::vector<facet_count>
+:END:
+
+*** levels
+:PROPERTIES:
+:cpp_type: std::vector<facet_count>
+:END:
+
+*** audiences
+:PROPERTIES:
+:cpp_type: std::vector<facet_count>
+:END:
+
+*** keywords
+:PROPERTIES:
+:cpp_type: std::vector<named_facet>
+:END:
+
+One facet per keyword the request named.
+
+*** properties
+:PROPERTIES:
+:cpp_type: std::vector<named_facet>
+:END:
+
+One facet per property the request named.
+
+** document_summary
+
+The metadata of one document of an environment, as a list or a backlink
+shows it.
+
+*** org_id
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The document's =:ID:=, empty when it has none.
+
+*** title
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+*** type
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+*** description
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+*** path
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The document's path in the environment.
+
+*** tags
+:PROPERTIES:
+:cpp_type: std::vector<std::string>
+:END:
+
+*** updated
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The document's =#+updated:=.
+
+** list_documents_request
+:PROPERTIES:
+:tool:        list_documents
+:area:        documents
+:entity:      document
+:writes:      false
+:summary:     List the documents
+:response:    list_documents_response
+:http_method: get
+:http_path:   /v1/{environment}/documents
+:caller:      view
+:END:
+
+The documents of an environment matching a filter, by path, a page at a time,
+inside the caller's view.
+
+*** environment
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  path
+:END:
+
+The environment to list: a worktree, branch or release name.
+
+*** filter
+:PROPERTIES:
+:cpp_type: document_filter
+:http_in:  query
+:END:
+
+Only documents matching these conditions.
+
+*** limit
+:PROPERTIES:
+:cpp_type: std::uint32_t
+:default:  50
+:http_in:  query
+:END:
+
+The most documents to answer.
+
+*** offset
+:PROPERTIES:
+:cpp_type: std::uint32_t
+:default:  0
+:http_in:  query
+:END:
+
+How many documents to skip, for the next page.
+
+** list_documents_response
+
+*** documents
+:PROPERTIES:
+:cpp_type: std::vector<document_summary>
+:END:
+
+*** total
+:PROPERTIES:
+:cpp_type: std::uint64_t
+:default:  0
+:END:
+
+How many documents match in all.
+
+*** synced_at
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+** get_document_request
+:PROPERTIES:
+:tool:        get_document
+:area:        documents
+:entity:      document
+:writes:      false
+:summary:     Read a document
+:response:    get_document_response
+:http_method: get
+:http_path:   /v1/{environment}/documents/{id}
+:caller:      view
+:END:
+
+One document of an environment: its metadata and its body, as HTML or as its
+org source. The HTML is compass.html's rendering, with links to documents
+outside the caller's view as plain text.
+
+*** environment
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  path
+:END:
+
+The environment to read from.
+
+*** id
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  path
+:END:
+
+The document's =:ID:=.
+
+*** format
+:PROPERTIES:
+:cpp_type: std::string
+:default:  "html"
+:values:   html org
+:http_in:  query
+:END:
+
+The body's form: =html= or the =org= source.
+
+** get_document_response
+
+*** document
+:PROPERTIES:
+:cpp_type: document_summary
+:END:
+
+*** format
+:PROPERTIES:
+:cpp_type: std::string
+:values:   html org
+:END:
+
+The body's form.
+
+*** body
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The HTML body without its title, or the org source.
+
+*** synced_at
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+** backlinks_request
+:PROPERTIES:
+:tool:        backlinks
+:area:        documents
+:entity:      document
+:writes:      false
+:summary:     Find what links to a document
+:response:    backlinks_response
+:http_method: get
+:http_path:   /v1/{environment}/documents/{id}/backlinks
+:caller:      view
+:END:
+
+The documents of an environment that link to a document by its =:ID:=, each
+with the heading the link sits under, inside the caller's view.
+
+*** environment
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  path
+:END:
+
+The environment to look in.
+
+*** id
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  path
+:END:
+
+The =:ID:= of the document linked to.
+
+** backlink
+
+*** document
+:PROPERTIES:
+:cpp_type: document_summary
+:END:
+
+The document holding the link.
+
+*** anchor
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The anchor of the heading the link sits under, empty before the first
+heading.
+
+*** text
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The link's description, or its path when it has none.
+
+** backlinks_response
+
+*** backlinks
+:PROPERTIES:
+:cpp_type: std::vector<backlink>
+:END:
+
+*** synced_at
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+** list_environments_request
+:PROPERTIES:
+:tool:        list_environments
+:area:        documents
+:entity:      environment
+:writes:      false
+:summary:     List the environments
+:response:    list_environments_response
+:http_method: get
+:http_path:   /v1/environments
+:caller:      view
+:END:
+
+Every environment of the repository, by name, with when each was last synced.
+
+** environment_summary
+
+An environment as the database holds it.
+
+*** name
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+*** kind
+:PROPERTIES:
+:cpp_type: std::string
+:values:   worktree branch release
+:END:
+
+What the environment is a copy of.
+
+*** root
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The checkout of a worktree; empty for a release.
+
+*** head
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The commit its files are at, empty when unknown.
+
+*** synced_at
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+When it was last synced, empty when never.
+
+*** documents
+:PROPERTIES:
+:cpp_type: std::uint64_t
+:default:  0
+:END:
+
+How many paths it places.
+
+** list_environments_response
+
+*** environments
+:PROPERTIES:
+:cpp_type: std::vector<environment_summary>
+:END:
+
+** version_request
+:PROPERTIES:
+:tool:        version
+:area:        documents
+:entity:      service
+:writes:      false
+:summary:     Show the service's version
+:response:    version_response
+:http_method: get
+:http_path:   /v1/version
+:caller:      view
+:END:
+
+The API version the service answers and the version of compass serving it.
+
+** version_response
+
+*** api_version
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The path prefix's version, =v1=.
+
+*** compass_version
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+compass's version, as =compass --version= prints it.
+
+** sync_request
+:PROPERTIES:
+:tool:        sync
+:area:        documents
+:entity:      environment
+:writes:      true
+:summary:     Sync an environment
+:response:    sync_response
+:http_method: post
+:http_path:   /v1/{environment}/sync
+:caller:      view name
+:END:
+
+Brings an environment's documents in the database up to date with its files,
+so the next read sees an edit made since the last sync.
+
+*** environment
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  path
+:END:
+
+The environment to sync: a worktree the service can read.
+
+** sync_response
+
+*** environment
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+*** placed
+:PROPERTIES:
+:cpp_type: std::uint64_t
+:default:  0
+:END:
+
+The paths the environment places after the sync.
+
+*** loaded
+:PROPERTIES:
+:cpp_type: std::uint64_t
+:default:  0
+:END:
+
+The documents the corpus lacked and the sync added.
+
+*** parsed
+:PROPERTIES:
+:cpp_type: std::uint64_t
+:default:  0
+:END:
+
+How many of those were parsed rather than taken from the store.
+
+*** errors
+:PROPERTIES:
+:cpp_type: std::vector<std::string>
+:END:
+
+The files that could not be read.
+
+*** synced_at
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+* Notes
+
+- The messages that have a hand-written C++ struct today match it in name,
+  member names, types, optionality and default: =metadata_match=,
+  =document_filter=, =search_request=, =search_hit=, =search_response=,
+  =facets_request=, =facet_count=, =named_facet= and =facets_response= of
+  =compass.db/types/search.hpp=, and =environment_summary= of
+  =compass.db/types/environment.hpp=. =#+namespace:= names where they live.
+  The others are new: =document_summary=, =list_documents_*=,
+  =get_document_*=, =backlink=, =backlinks_*=, =list_environments_*=,
+  =version_*= and =sync_*=. No query function answers them yet.
+- =view_filter= and =ranking= of =types/search.hpp= are not messages: the
+  view comes from the gateway's header through =:caller:=, and the ranking
+  is the server's configuration.
+- =sync_request= is not =compass::cli::app::sync_request=, which carries a
+  checkout path, a commit and a thread count and never crosses the wire. The
+  tool takes an environment; the service finds its checkout. The design
+  makes sync an MCP tool only; it has a route, =POST /v1/{environment}/sync=,
+  because in ORE Studio a tool is a route's catalogue name.
+- Every request has a tool, as every route has in ORE Studio. The design's
+  MCP list is narrower: =facets=, =list_environments= and =version= are not
+  in it. Whether =/mcp= lists every tool is the server's choice.
+- A =document_filter= bound from the query string spreads into one
+  parameter per member, named by =:http_name:= when stated. =keyword= and
+  =property= carry =name:value=.
+
+* See also
+
+- [[id:277ECB9A-5B6A-4235-9207-D5EC3AB816C0][compass.serve]], which lists the properties these models use.
+- [[id:21C1D3CC-9EE3-48C3-8EDD-BA0C16032AB2][Design: the document service]], "Interfaces".
+- [[id:7FD52505-1436-4925-A1DE-4A3EC88F0133][Investigation: How compass generates itself]], "A compass service model".

@@ -1,0 +1,39 @@
+as_written compass.serve.campaign_writes.org exit=0 codegen_writes=0 routes_registered= v1_paths_in_output=0 mcp_in_output=0 0 to write, 47 unchanged, 0 to restore, 0 to remove, 0 to ke
+as_written compass.serve.document_queries.org exit=0 codegen_writes=0 routes_registered= v1_paths_in_output=0 mcp_in_output=0 0 to write, 47 unchanged, 0 to restore, 0 to remove, 0 to ke
+as_written compass.serve.testing_queries.org exit=0 codegen_writes=0 routes_registered= v1_paths_in_output=0 mcp_in_output=0 0 to write, 47 unchanged, 0 to restore, 0 to remove, 0 to ke
+ores_type compass.serve.campaign_writes.org exit=1 codegen_writes=2 routes_registered= v1_paths_in_output=0 mcp_in_output=0 2 to write, 1159 unchanged, 0 to restore, 0 to remove, 0 to
+     write projects/ores.serve/include/ores.serve/messaging/campaign_writes_protocol.hpp
+     write projects/ores.web/packages/wire-protocol/src/generated/serve/protocol/campaign_writes_protocol.ts
+ores_type compass.serve.document_queries.org exit=1 codegen_writes=2 routes_registered= v1_paths_in_output=0 mcp_in_output=0 2 to write, 1159 unchanged, 0 to restore, 0 to remove, 0 to
+     write projects/ores.serve/include/ores.serve/messaging/document_queries_protocol.hpp
+     write projects/ores.web/packages/wire-protocol/src/generated/serve/protocol/document_queries_protocol.ts
+ores_type compass.serve.testing_queries.org exit=1 codegen_writes=2 routes_registered= v1_paths_in_output=0 mcp_in_output=0 2 to write, 1159 unchanged, 0 to restore, 0 to remove, 0 to
+     write projects/ores.serve/include/ores.serve/messaging/testing_queries_protocol.hpp
+     write projects/ores.web/packages/wire-protocol/src/generated/serve/protocol/testing_queries_protocol.ts
+facets_on compass.serve.campaign_writes.org exit=1 codegen_writes=8 routes_registered=0 v1_paths_in_output=0 mcp_in_output=0 9 to write, 1160 unchanged, 0 to restore, 0 to remove, 0 to
+     write doc/recipes/http/campaign_writes/campaign_writes.org
+     write projects/ores.http/serve/include/ores.http/routes/serve/campaign_writes_routes.hpp
+     write projects/ores.http/serve/src/routes/serve/campaign_writes_routes.cpp
+     write projects/ores.http/serve/tests/campaign_writes_routes_tests.cpp
+     write projects/ores.serve/include/ores.serve/messaging/campaign_writes_protocol.hpp
+     write projects/ores.serve/src/messaging/campaign_writes_protocol_codec.cpp
+     write projects/ores.serve/tests/campaign_writes_protocol_codec_roundtrip_tests.cpp
+     write projects/ores.web/packages/wire-protocol/src/generated/serve/protocol/campaign_writes_protocol.ts
+facets_on compass.serve.document_queries.org exit=1 codegen_writes=8 routes_registered=0 v1_paths_in_output=0 mcp_in_output=0 9 to write, 1160 unchanged, 0 to restore, 0 to remove, 0 to
+     write doc/recipes/http/document_queries/document_queries.org
+     write projects/ores.http/serve/include/ores.http/routes/serve/document_queries_routes.hpp
+     write projects/ores.http/serve/src/routes/serve/document_queries_routes.cpp
+     write projects/ores.http/serve/tests/document_queries_routes_tests.cpp
+     write projects/ores.serve/include/ores.serve/messaging/document_queries_protocol.hpp
+     write projects/ores.serve/src/messaging/document_queries_protocol_codec.cpp
+     write projects/ores.serve/tests/document_queries_protocol_codec_roundtrip_tests.cpp
+     write projects/ores.web/packages/wire-protocol/src/generated/serve/protocol/document_queries_protocol.ts
+facets_on compass.serve.testing_queries.org exit=1 codegen_writes=8 routes_registered=0 v1_paths_in_output=0 mcp_in_output=0 9 to write, 1160 unchanged, 0 to restore, 0 to remove, 0 to
+     write doc/recipes/http/testing_queries/testing_queries.org
+     write projects/ores.http/serve/include/ores.http/routes/serve/testing_queries_routes.hpp
+     write projects/ores.http/serve/src/routes/serve/testing_queries_routes.cpp
+     write projects/ores.http/serve/tests/testing_queries_routes_tests.cpp
+     write projects/ores.serve/include/ores.serve/messaging/testing_queries_protocol.hpp
+     write projects/ores.serve/src/messaging/testing_queries_protocol_codec.cpp
+     write projects/ores.serve/tests/testing_queries_protocol_codec_roundtrip_tests.cpp
+     write projects/ores.web/packages/wire-protocol/src/generated/serve/protocol/testing_queries_protocol.ts
