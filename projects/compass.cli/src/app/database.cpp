@@ -307,6 +307,11 @@ int run_test(const types::invocation& i, std::ostream& out,
             i.environment);
         const auto r = export_campaigns(c, i.checkout, environment,
             i.test.story);
+        if (i.test.story && r.campaigns == 0 && r.skipped.empty()) {
+            err << "compass: test export: no test campaign of story "
+                << *i.test.story << " on " << environment << "\n";
+            return exit_failure;
+        }
         for (const auto& path : r.written)
             out << "compass: wrote " << path << "\n";
         out << std::format("compass: exported {} test campaigns of {}: {} "

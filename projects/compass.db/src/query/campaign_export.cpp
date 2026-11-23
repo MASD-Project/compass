@@ -20,6 +20,7 @@
 #include "compass.db/query/campaign_export.hpp"
 
 #include <charconv>
+#include <functional>
 #include <map>
 #include <string_view>
 #include <utility>
@@ -121,7 +122,7 @@ FROM ids ORDER BY title, ids.id
         }
         r.definition = runs.value(row, 6);
         auto& scenario =
-            out.scenarios[scenario_at.find(runs.value(row, 1))->second];
+            out.scenarios[scenario_at.at(std::string(runs.value(row, 1)))];
         scenario.runs.push_back(std::move(r));
     }
     for (auto& s : out.scenarios)
@@ -230,15 +231,17 @@ ORDER BY m.hash
 
 }
 
-std::vector<types::campaign_rows> read_campaigns(io::connection& c,
+types::campaign_snapshot read_campaigns(io::connection& c,
     const std::string& environment, const std::optional<std::string>& story) {
     io::transaction tx(c);
     c.exec("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY");
-    const auto e = c.exec("SELECT id FROM corpus.environment WHERE name = $1",
-        {environment});
+    const auto e = c.exec("SELECT id, now() FROM corpus.environment "
+        "WHERE name = $1", {environment});
     if (e.rows() == 0)
         throw unknown_environment(environment);
     const std::string environment_id(e.value(0, 0));
+    types::campaign_snapshot out;
+    out.taken_at = e.value(0, 1);
 
     const auto campaigns = c.exec("SELECT c.id, c.story_id, c.sprint_id, " +
         utc("c.opened_at") + R"sql(, coalesce(st.title, ''),
@@ -258,7 +261,6 @@ LEFT JOIN LATERAL (
 WHERE c.environment = $1 AND ($3::text IS NULL OR c.story_id = $3)
 ORDER BY c.id
 )sql", {environment, environment_id, story});
-    std::vector<types::campaign_rows> out;
     for (std::size_t row = 0; row < campaigns.rows(); ++row) {
         types::campaign_rows r;
         r.id = to_id(campaigns.value(row, 0));
@@ -277,21 +279,22 @@ ORDER BY c.id
         read_runs(c, id, environment_id, r);
         read_notes(c, id, r);
         read_images(c, id, r);
-        out.push_back(std::move(r));
+        out.campaigns.push_back(std::move(r));
     }
     tx.commit();
     return out;
 }
 
-void mark_exported(io::connection& c, std::span<const std::int64_t> ids) {
+void mark_exported(io::connection& c, std::span<const std::int64_t> ids,
+    const std::string& taken_at) {
     if (ids.empty())
         return;
     std::string array = "{";
     for (const auto id : ids)
         array += (array.size() > 1 ? "," : "") + std::to_string(id);
     array += "}";
-    c.exec("UPDATE activity.campaign SET exported_at = now() "
-        "WHERE id = ANY($1::bigint[])", {array});
+    c.exec("UPDATE activity.campaign SET exported_at = $2::timestamptz "
+        "WHERE id = ANY($1::bigint[])", {array, taken_at});
 }
 
 }
