@@ -143,11 +143,20 @@ struct masd_component {
 };
 
 /**
+ * @brief Where a route reads a field of its request: a path placeholder, a
+ * query parameter or a member of the JSON body. none for a field of a
+ * message no route takes.
+ */
+enum class http_in : std::uint8_t { none, path, query, body };
+
+/**
  * @brief One field of a message of a masd.codegen.operation model.
  *
- * values is the closed list :values: states: the enumerators of a field
- * whose type is an enumeration, or the texts a string field accepts.
- * encoding is base64 for a string that holds bytes, else empty.
+ * values is the closed list :values: states: the enumerators of the
+ * enumeration the field's type names. encoding is base64 for a string that
+ * holds bytes, else empty. http_name is the query parameter's name when it
+ * is not the field's. required is false when the model states :required:
+ * false.
  */
 struct masd_field {
     std::string name;
@@ -155,15 +164,22 @@ struct masd_field {
     std::string default_value;
     std::string encoding;
     std::vector<std::string> values;
+    types::http_in http_in = types::http_in::none;
+    std::string http_name;
+    bool required = true;
 };
 
 /**
  * @brief One message of a masd.codegen.operation model, in model order,
- * and the message it is answered with, when it names one.
+ * and the message it is answered with, when it names one. A routed request
+ * states its HTTP method, lower case, and its path; any other message
+ * states neither.
  */
 struct masd_message {
     std::string name;
     std::string response;
+    std::string http_method;
+    std::string http_path;
     std::vector<masd_field> fields;
 };
 
