@@ -12,11 +12,13 @@
 #+created: 2026-11-23
 #+updated: 2026-11-23
 
-How a tester records a test campaign over HTTP. Every write names its tester,
-which the gateway sends as the caller's name and which no client sets in the
-body; a write without one is refused. Each runs in one transaction and is
-refused, with nothing written, when it is invalid, names a row that does not
-exist or conflicts with the row's state.
+How a tester records a test campaign over HTTP and MCP. Every write is made
+by the caller the gateway names in its =Compass-View=, =Compass-Subject= and
+=Compass-Actor= headers, and a write without a subject is refused. No request
+names who writes: the query function takes the caller beside the request and
+records its subject and actor in =activity.action=. Each write runs in one
+transaction and is refused, with nothing written, when it is invalid, names a
+row that is not in its environment or conflicts with the row's state.
 
 * Includes
 
@@ -32,14 +34,14 @@ exist or conflicts with the row's state.
 ** start_run_request
 :PROPERTIES:
 :tool:        start_run
-:area:        documents
-:entity:      campaign
+:area:        qa
+:entity:      run
 :writes:      true
 :summary:     Start a test run
 :response:    start_run_response
 :http_method: post
 :http_path:   /v1/{environment}/runs
-:caller:      view name
+:caller:      subject
 :END:
 
 Starts a run of a test scenario as an environment holds it, opening the
@@ -60,14 +62,6 @@ The environment under test.
 :END:
 
 The scenario's =:ID:=.
-
-*** tester
-:PROPERTIES:
-:cpp_type: std::string
-:http_in:  caller
-:END:
-
-Who runs it.
 
 ** run_step
 
@@ -136,16 +130,26 @@ The steps to follow, in order.
 ** step_result_request
 :PROPERTIES:
 :tool:        record_step_result
-:area:        documents
-:entity:      campaign
+:area:        qa
+:entity:      run
 :writes:      true
+:destructive: true
+:idempotent:  true
 :summary:     Record a step's outcome
 :http_method: put
-:http_path:   /v1/runs/{run}/steps/{step_ord}
-:caller:      view name
+:http_path:   /v1/{environment}/runs/{run}/steps/{step_ord}
+:caller:      subject
 :END:
 
 Records, or replaces, the outcome of a step of an unfinished run.
+
+*** environment
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  path
+:END:
+
+The environment the run is in.
 
 *** run
 :PROPERTIES:
@@ -177,40 +181,36 @@ Records, or replaces, the outcome of a step of an unfinished run.
 
 What the tester saw.
 
-*** tester
-:PROPERTIES:
-:cpp_type: std::string
-:http_in:  caller
-:END:
-
 ** finish_run_request
 :PROPERTIES:
 :tool:        finish_run
-:area:        documents
-:entity:      campaign
+:area:        qa
+:entity:      run
 :writes:      true
 :summary:     Finish a test run
 :response:    finish_run_response
 :http_method: post
-:http_path:   /v1/runs/{run}/finish
-:caller:      view name
+:http_path:   /v1/{environment}/runs/{run}/finish
+:caller:      subject
 :END:
 
 Finishes an unfinished run with the outcome its step results give: failed
 when a step failed, blocked when one was blocked and none failed, passed
 otherwise.
 
+*** environment
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  path
+:END:
+
+The environment the run is in.
+
 *** run
 :PROPERTIES:
 :cpp_type: std::int64_t
 :default:  0
 :http_in:  path
-:END:
-
-*** tester
-:PROPERTIES:
-:cpp_type: std::string
-:http_in:  caller
 :END:
 
 ** finish_run_response
@@ -229,20 +229,31 @@ otherwise.
 
 ** attach_request
 :PROPERTIES:
-:tool:        attach_screenshot
-:area:        documents
-:entity:      campaign
-:writes:      true
-:summary:     Attach a screenshot
-:response:    attach_response
-:http_method: post
-:http_path:   /v1/attachments
-:caller:      view name
+:tool:          attach_screenshot
+:area:          qa
+:entity:        attachment
+:writes:        true
+:destructive:   true
+:idempotent:    true
+:summary:       Attach a screenshot
+:response:      attach_response
+:http_method:   post
+:http_path:     /v1/{environment}/attachments
+:caller:        subject
+:max_body_size: 16777216
 :END:
 
 Attaches a screenshot to a run, at one of its steps or to the run as a whole,
 or to a note, storing its bytes once. Attaching the same bytes to the same
 place again changes only the caption.
+
+*** environment
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  path
+:END:
+
+The environment the run or the note is in.
 
 *** run
 :PROPERTIES:
@@ -277,21 +288,16 @@ The step of the run; absent for the run as a whole.
 *** bytes
 :PROPERTIES:
 :cpp_type: std::string
+:encoding: base64
 :http_in:  body
 :END:
 
-The file's bytes.
+The file's bytes, as base64 in the JSON body and in the MCP arguments.
 
 *** caption
 :PROPERTIES:
 :cpp_type: std::optional<std::string>
 :http_in:  body
-:END:
-
-*** tester
-:PROPERTIES:
-:cpp_type: std::string
-:http_in:  caller
 :END:
 
 ** attach_response
@@ -314,17 +320,25 @@ The blob ID of the bytes.
 ** add_note_request
 :PROPERTIES:
 :tool:        add_note
-:area:        documents
-:entity:      campaign
+:area:        qa
+:entity:      note
 :writes:      true
 :summary:     Add a note to a campaign
 :response:    add_note_response
 :http_method: post
-:http_path:   /v1/campaigns/{campaign}/notes
-:caller:      view name
+:http_path:   /v1/{environment}/campaigns/{campaign}/notes
+:caller:      subject
 :END:
 
 Adds an open note to a campaign, optionally naming a scenario and a step.
+
+*** environment
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  path
+:END:
+
+The environment the campaign is in.
 
 *** campaign
 :PROPERTIES:
@@ -359,12 +373,6 @@ One of the note kinds the project's configuration names.
 :http_in:  body
 :END:
 
-*** tester
-:PROPERTIES:
-:cpp_type: std::string
-:http_in:  caller
-:END:
-
 ** add_note_response
 
 *** note
@@ -378,16 +386,24 @@ The new note's id.
 ** address_note_request
 :PROPERTIES:
 :tool:        address_note
-:area:        documents
-:entity:      campaign
+:area:        qa
+:entity:      note
 :writes:      true
 :summary:     Address a note
 :http_method: patch
-:http_path:   /v1/notes/{note}
-:caller:      view name
+:http_path:   /v1/{environment}/notes/{note}
+:caller:      subject
 :END:
 
 Marks an open note addressed, with an optional reply.
+
+*** environment
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  path
+:END:
+
+The environment the note is in.
 
 *** note
 :PROPERTIES:
@@ -402,35 +418,32 @@ Marks an open note addressed, with an optional reply.
 :http_in:  body
 :END:
 
-*** tester
-:PROPERTIES:
-:cpp_type: std::string
-:http_in:  caller
-:END:
-
 * Notes
 
 - Every message but =add_note_response= matches its struct in
   =compass.db/types/campaign.hpp= in name, member names, types, optionality
-  and default. =step_outcome= and =run_outcome= are the enumerations
-  =:values:= names. =query::add_note= answers a bare =std::int64_t=;
-  =add_note_response= wraps it so the answer is a JSON object.
-- =step_result_request=, =finish_run_request= and =address_note_request=
-  answer nothing: 204 over HTTP.
-- The design's paths for the step, the note and the address put the
-  environment first, =/v1/{env}/runs/{id}/steps/{ord}=. These requests carry
-  no environment, because a run, a campaign and a note each belong to one
-  environment already, so their paths start at the row they write. Finishing
-  a run is a write the design's table does not list.
+  and default, except the two changes the alignment design makes to the six
+  requests. Each request loses =tester=, because the caller is never a body
+  field; and the five that name a row gain =environment= as their first
+  member, because every route starts at =/v1/{environment}=. The structs
+  follow in [[id:186C4AF8-CAB4-4754-B8AC-76D571B1B3E9][Serve the documents over HTTP]],
+  where the caller first exists; until then the struct check pins both
+  changes, and fails when either stops holding.
+- =step_outcome= and =run_outcome= are the enumerations =:values:= names.
+  =query::add_note= answers a bare =std::int64_t=; =add_note_response= wraps
+  it so the answer is a JSON object.
+- =step_result_request= and =address_note_request= answer nothing: 204 over
+  HTTP.
+- A request that names a run, a campaign or a note in another environment is
+  refused as =not_found=, as one naming no row is.
 - =note_kinds= of =types/campaign.hpp= is not a message: it is the project's
   configuration, which =query::add_note= takes beside the request.
-- Each write has a tool, as every route has in ORE Studio's catalogue. The
-  design's MCP list names none of them; whether =/mcp= lists them is the
-  server's choice, not the model's.
-- =bytes= is binary. JSON has no binary type, so the codec must carry it as
-  base64 or the route must take the file as the body.
+- =bytes= is base64 in JSON, so one route is one tool with one schema.
+  =:max_body_size:= raises the route's limit to 16 MiB, about 12 MiB of
+  image; every other route keeps the server's default.
 
 * See also
 
 - [[id:277ECB9A-5B6A-4235-9207-D5EC3AB816C0][compass.serve]], which lists the properties these models use.
 - [[id:21C1D3CC-9EE3-48C3-8EDD-BA0C16032AB2][Design: the document service]], "Recording".
+- [[id:AF30B206-2FAB-435F-819F-9EC652D4E40D][Design: aligning the document service with ORE Studio's HTTP and MCP]], sections 2 to 4.

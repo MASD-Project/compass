@@ -1,0 +1,58 @@
+:PROPERTIES:
+:ID: 805D86C5-90CA-433F-B17C-16E3B4107CA9
+:END:
+#+title: compass.serve.errors
+#+description: Codegen operation model for the document service's refusal: the one message every route and tool answers when it refuses a call, with a code from a closed list and a sentence.
+#+type: masd.codegen.operation
+#+component: serve
+#+namespace: compass::db::types
+#+entity_singular: errors
+#+brief: The document service's refusal.
+#+filetags: :model:operation:serve:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+What the service answers when it refuses a call, over HTTP and MCP. It has
+the shape of ORE Studio's =api_error= body, a code a client can act on and a
+sentence it can show, so a client of both services reads one shape. The
+component overview maps each code to its HTTP status and its MCP result.
+
+* Includes
+
+#+begin_src cpp :name includes
+#include <string>
+#+end_src
+
+* Messages
+
+** error_response
+
+A refused call.
+
+*** code
+:PROPERTIES:
+:cpp_type: std::string
+:values:   invalid no_view no_subject forbidden not_found unknown_environment unknown_sprint conflict too_large internal
+:END:
+
+Why the call was refused.
+
+*** message
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The refusal in a sentence, naming the field or the row when there is one.
+
+* Notes
+
+- No route names =error_response= as its =:response:=: every route answers it
+  when it refuses, so the route template states it once.
+- The codes extend the reasons =query::rejected_write= throws today
+  (=invalid=, =not_found=, =conflict=) and the exceptions
+  =query::unknown_environment= and =query::unknown_sprint=, with the
+  refusals the service makes before any query runs.
+
+* See also
+
+- [[id:277ECB9A-5B6A-4235-9207-D5EC3AB816C0][compass.serve]], which maps each code to its status.

@@ -1,39 +1,208 @@
-as_written compass.serve.campaign_writes.org exit=0 codegen_writes=0 routes_registered= v1_paths_in_output=0 mcp_in_output=0 0 to write, 47 unchanged, 0 to restore, 0 to remove, 0 to ke
-as_written compass.serve.document_queries.org exit=0 codegen_writes=0 routes_registered= v1_paths_in_output=0 mcp_in_output=0 0 to write, 47 unchanged, 0 to restore, 0 to remove, 0 to ke
-as_written compass.serve.testing_queries.org exit=0 codegen_writes=0 routes_registered= v1_paths_in_output=0 mcp_in_output=0 0 to write, 47 unchanged, 0 to restore, 0 to remove, 0 to ke
-ores_type compass.serve.campaign_writes.org exit=1 codegen_writes=2 routes_registered= v1_paths_in_output=0 mcp_in_output=0 2 to write, 1159 unchanged, 0 to restore, 0 to remove, 0 to
-     write projects/ores.serve/include/ores.serve/messaging/campaign_writes_protocol.hpp
-     write projects/ores.web/packages/wire-protocol/src/generated/serve/protocol/campaign_writes_protocol.ts
-ores_type compass.serve.document_queries.org exit=1 codegen_writes=2 routes_registered= v1_paths_in_output=0 mcp_in_output=0 2 to write, 1159 unchanged, 0 to restore, 0 to remove, 0 to
-     write projects/ores.serve/include/ores.serve/messaging/document_queries_protocol.hpp
-     write projects/ores.web/packages/wire-protocol/src/generated/serve/protocol/document_queries_protocol.ts
-ores_type compass.serve.testing_queries.org exit=1 codegen_writes=2 routes_registered= v1_paths_in_output=0 mcp_in_output=0 2 to write, 1159 unchanged, 0 to restore, 0 to remove, 0 to
-     write projects/ores.serve/include/ores.serve/messaging/testing_queries_protocol.hpp
-     write projects/ores.web/packages/wire-protocol/src/generated/serve/protocol/testing_queries_protocol.ts
-facets_on compass.serve.campaign_writes.org exit=1 codegen_writes=8 routes_registered=0 v1_paths_in_output=0 mcp_in_output=0 9 to write, 1160 unchanged, 0 to restore, 0 to remove, 0 to
-     write doc/recipes/http/campaign_writes/campaign_writes.org
-     write projects/ores.http/serve/include/ores.http/routes/serve/campaign_writes_routes.hpp
-     write projects/ores.http/serve/src/routes/serve/campaign_writes_routes.cpp
-     write projects/ores.http/serve/tests/campaign_writes_routes_tests.cpp
-     write projects/ores.serve/include/ores.serve/messaging/campaign_writes_protocol.hpp
-     write projects/ores.serve/src/messaging/campaign_writes_protocol_codec.cpp
-     write projects/ores.serve/tests/campaign_writes_protocol_codec_roundtrip_tests.cpp
-     write projects/ores.web/packages/wire-protocol/src/generated/serve/protocol/campaign_writes_protocol.ts
-facets_on compass.serve.document_queries.org exit=1 codegen_writes=8 routes_registered=0 v1_paths_in_output=0 mcp_in_output=0 9 to write, 1160 unchanged, 0 to restore, 0 to remove, 0 to
-     write doc/recipes/http/document_queries/document_queries.org
-     write projects/ores.http/serve/include/ores.http/routes/serve/document_queries_routes.hpp
-     write projects/ores.http/serve/src/routes/serve/document_queries_routes.cpp
-     write projects/ores.http/serve/tests/document_queries_routes_tests.cpp
-     write projects/ores.serve/include/ores.serve/messaging/document_queries_protocol.hpp
-     write projects/ores.serve/src/messaging/document_queries_protocol_codec.cpp
-     write projects/ores.serve/tests/document_queries_protocol_codec_roundtrip_tests.cpp
-     write projects/ores.web/packages/wire-protocol/src/generated/serve/protocol/document_queries_protocol.ts
-facets_on compass.serve.testing_queries.org exit=1 codegen_writes=8 routes_registered=0 v1_paths_in_output=0 mcp_in_output=0 9 to write, 1160 unchanged, 0 to restore, 0 to remove, 0 to
-     write doc/recipes/http/testing_queries/testing_queries.org
-     write projects/ores.http/serve/include/ores.http/routes/serve/testing_queries_routes.hpp
-     write projects/ores.http/serve/src/routes/serve/testing_queries_routes.cpp
-     write projects/ores.http/serve/tests/testing_queries_routes_tests.cpp
-     write projects/ores.serve/include/ores.serve/messaging/testing_queries_protocol.hpp
-     write projects/ores.serve/src/messaging/testing_queries_protocol_codec.cpp
-     write projects/ores.serve/tests/testing_queries_protocol_codec_roundtrip_tests.cpp
-     write projects/ores.web/packages/wire-protocol/src/generated/serve/protocol/testing_queries_protocol.ts
+as_written compass.serve.campaign_writes.org exit=0 routes_registered= v1_paths_in_output=0 mcp_in_output=0
+    stderr: 0 to write, 47 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore (11446 documents, 0 from the store, 11446 parsed; units run: document_index 0, required_sections 0, tangle 11446, tangle_check 11446, evidence_location 11446, codegen 883, component_files 1, pending_models 1, bff_list_requests 1, core_link_edges 1, event_registrars 1, exported_types 1, forward_declarable_includes 1, handler_registrars 1, history_registrars 1, route_auth 1, shell_command_composition 1, shell_command_units 1, shell_menus 1, stream_coverage 1, test_case_reachability 1, translation_unit_budget 1, unique_type_names 1, unity_collisions 1, xml_family_census 1, list_request_table 1, curve_parameter_paths 1, handler_permissions 1, populate_refs 1, rls_coverage 1, rls_widenings 1, sql_hygiene 1, sql_reachability 1, conventions_coverage 1, conventions_dataset 1, curve_sections_wiring 1, entity_binary_types 11446, entity_writes 1, er_diagram 1, generated_column_refs 11446, marketdata_identity_columns 1, model_rules 1, open_reads 1, ore_output_catalogue 1, ore_renderings_tables 1, ore_value_sets 1, parameter_value_sets 1, protocol_twins 1, registry_exceptions 1, route_inventory 1, script_library_seed 0, service_integrity 1, single_writer 1, subject_conformance 1, template_sections 1, xml_bindings 1, backlog_indexes 1, component_docs 1, heading_numbers 11446, http_recipe_library 11446, knowledge_titles 0, lint 1, no_pr_triggers 1, org_links 11446, physical_inventory 1, prototypes 1, recipe_inventories 1, rule_identifiers 1, shell_recipe_library 11446, shell_recipe_provenance 1, skill_catalogue 1, skill_levels 1, skill_namespace 1, skill_type_tables 1, trade_type_coverage 1, env_format 1, commit_provenance 1, check_inventory 1, rule_table 0, ores_logger 1, portable_cpp 1, typescript_format 1, wide_types 1; 179692.7 ms)
+as_written compass.serve.document_queries.org exit=0 routes_registered= v1_paths_in_output=0 mcp_in_output=0
+    stderr: 0 to write, 47 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore (11446 documents, 0 from the store, 11446 parsed; units run: document_index 0, required_sections 0, tangle 11446, tangle_check 11446, evidence_location 11446, codegen 883, component_files 1, pending_models 1, bff_list_requests 1, core_link_edges 1, event_registrars 1, exported_types 1, forward_declarable_includes 1, handler_registrars 1, history_registrars 1, route_auth 1, shell_command_composition 1, shell_command_units 1, shell_menus 1, stream_coverage 1, test_case_reachability 1, translation_unit_budget 1, unique_type_names 1, unity_collisions 1, xml_family_census 1, list_request_table 1, curve_parameter_paths 1, handler_permissions 1, populate_refs 1, rls_coverage 1, rls_widenings 1, sql_hygiene 1, sql_reachability 1, conventions_coverage 1, conventions_dataset 1, curve_sections_wiring 1, entity_binary_types 11446, entity_writes 1, er_diagram 1, generated_column_refs 11446, marketdata_identity_columns 1, model_rules 1, open_reads 1, ore_output_catalogue 1, ore_renderings_tables 1, ore_value_sets 1, parameter_value_sets 1, protocol_twins 1, registry_exceptions 1, route_inventory 1, script_library_seed 0, service_integrity 1, single_writer 1, subject_conformance 1, template_sections 1, xml_bindings 1, backlog_indexes 1, component_docs 1, heading_numbers 11446, http_recipe_library 11446, knowledge_titles 0, lint 1, no_pr_triggers 1, org_links 11446, physical_inventory 1, prototypes 1, recipe_inventories 1, rule_identifiers 1, shell_recipe_library 11446, shell_recipe_provenance 1, skill_catalogue 1, skill_levels 1, skill_namespace 1, skill_type_tables 1, trade_type_coverage 1, env_format 1, commit_provenance 1, check_inventory 1, rule_table 0, ores_logger 1, portable_cpp 1, typescript_format 1, wide_types 1; 43018.7 ms)
+as_written compass.serve.errors.org exit=0 routes_registered= v1_paths_in_output=0 mcp_in_output=0
+    stderr: 0 to write, 47 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore (11446 documents, 0 from the store, 11446 parsed; units run: document_index 0, required_sections 0, tangle 11446, tangle_check 11446, evidence_location 11446, codegen 883, component_files 1, pending_models 1, bff_list_requests 1, core_link_edges 1, event_registrars 1, exported_types 1, forward_declarable_includes 1, handler_registrars 1, history_registrars 1, route_auth 1, shell_command_composition 1, shell_command_units 1, shell_menus 1, stream_coverage 1, test_case_reachability 1, translation_unit_budget 1, unique_type_names 1, unity_collisions 1, xml_family_census 1, list_request_table 1, curve_parameter_paths 1, handler_permissions 1, populate_refs 1, rls_coverage 1, rls_widenings 1, sql_hygiene 1, sql_reachability 1, conventions_coverage 1, conventions_dataset 1, curve_sections_wiring 1, entity_binary_types 11446, entity_writes 1, er_diagram 1, generated_column_refs 11446, marketdata_identity_columns 1, model_rules 1, open_reads 1, ore_output_catalogue 1, ore_renderings_tables 1, ore_value_sets 1, parameter_value_sets 1, protocol_twins 1, registry_exceptions 1, route_inventory 1, script_library_seed 0, service_integrity 1, single_writer 1, subject_conformance 1, template_sections 1, xml_bindings 1, backlog_indexes 1, component_docs 1, heading_numbers 11446, http_recipe_library 11446, knowledge_titles 0, lint 1, no_pr_triggers 1, org_links 11446, physical_inventory 1, prototypes 1, recipe_inventories 1, rule_identifiers 1, shell_recipe_library 11446, shell_recipe_provenance 1, skill_catalogue 1, skill_levels 1, skill_namespace 1, skill_type_tables 1, trade_type_coverage 1, env_format 1, commit_provenance 1, check_inventory 1, rule_table 0, ores_logger 1, portable_cpp 1, typescript_format 1, wide_types 1; 49017.2 ms)
+as_written compass.serve.testing_queries.org exit=0 routes_registered= v1_paths_in_output=0 mcp_in_output=0
+    stderr: 0 to write, 47 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore (11446 documents, 0 from the store, 11446 parsed; units run: document_index 0, required_sections 0, tangle 11446, tangle_check 11446, evidence_location 11446, codegen 883, component_files 1, pending_models 1, bff_list_requests 1, core_link_edges 1, event_registrars 1, exported_types 1, forward_declarable_includes 1, handler_registrars 1, history_registrars 1, route_auth 1, shell_command_composition 1, shell_command_units 1, shell_menus 1, stream_coverage 1, test_case_reachability 1, translation_unit_budget 1, unique_type_names 1, unity_collisions 1, xml_family_census 1, list_request_table 1, curve_parameter_paths 1, handler_permissions 1, populate_refs 1, rls_coverage 1, rls_widenings 1, sql_hygiene 1, sql_reachability 1, conventions_coverage 1, conventions_dataset 1, curve_sections_wiring 1, entity_binary_types 11446, entity_writes 1, er_diagram 1, generated_column_refs 11446, marketdata_identity_columns 1, model_rules 1, open_reads 1, ore_output_catalogue 1, ore_renderings_tables 1, ore_value_sets 1, parameter_value_sets 1, protocol_twins 1, registry_exceptions 1, route_inventory 1, script_library_seed 0, service_integrity 1, single_writer 1, subject_conformance 1, template_sections 1, xml_bindings 1, backlog_indexes 1, component_docs 1, heading_numbers 11446, http_recipe_library 11446, knowledge_titles 0, lint 1, no_pr_triggers 1, org_links 11446, physical_inventory 1, prototypes 1, recipe_inventories 1, rule_identifiers 1, shell_recipe_library 11446, shell_recipe_provenance 1, skill_catalogue 1, skill_levels 1, skill_namespace 1, skill_type_tables 1, trade_type_coverage 1, env_format 1, commit_provenance 1, check_inventory 1, rule_table 0, ores_logger 1, portable_cpp 1, typescript_format 1, wide_types 1; 45469.9 ms)
+ores_type compass.serve.campaign_writes.org exit=1 routes_registered= v1_paths_in_output=0 mcp_in_output=0
+    stderr: 2 to write, 1159 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore in 2 passes (11446 documents, 0 from the store, 11446 parsed; units run: document_index 0, required_sections 0, tangle 22892, tangle_check 22892, evidence_location 22892, codegen 1768, component_files 2, pending_models 2, bff_list_requests 2, core_link_edges 2, event_registrars 2, exported_types 2, forward_declarable_includes 2, handler_registrars 2, history_registrars 2, route_auth 2, shell_command_composition 2, shell_command_units 2, shell_menus 2, stream_coverage 2, test_case_reachability 2, translation_unit_budget 2, unique_type_names 2, unity_collisions 2, xml_family_census 2, list_request_table 2, curve_parameter_paths 2, handler_permissions 2, populate_refs 2, rls_coverage 2, rls_widenings 2, sql_hygiene 2, sql_reachability 2, conventions_coverage 2, conventions_dataset 2, curve_sections_wiring 2, entity_binary_types 22892, entity_writes 2, er_diagram 2, generated_column_refs 22892, marketdata_identity_columns 2, model_rules 2, open_reads 2, ore_output_catalogue 2, ore_renderings_tables 2, ore_value_sets 2, parameter_value_sets 2, protocol_twins 2, registry_exceptions 2, route_inventory 2, script_library_seed 0, service_integrity 2, single_writer 2, subject_conformance 2, template_sections 2, xml_bindings 2, backlog_indexes 2, component_docs 2, heading_numbers 22892, http_recipe_library 22892, knowledge_titles 0, lint 2, no_pr_triggers 2, org_links 22892, physical_inventory 2, prototypes 2, recipe_inventories 2, rule_identifiers 2, shell_recipe_library 22892, shell_recipe_provenance 2, skill_catalogue 2, skill_levels 2, skill_namespace 2, skill_type_tables 2, trade_type_coverage 2, env_format 2, commit_provenance 2, check_inventory 2, rule_table 0, ores_logger 2, portable_cpp 2, typescript_format 2, wide_types 2; 151691.2 ms)
+    stderr: scope: the outputs of projects/ores.geo/modeling/compass.serve.campaign_writes.org and what they feed
+    stderr: from your change: 2 files
+    stderr:   write projects/ores.serve/include/ores.serve/messaging/campaign_writes_protocol.hpp (codegen, projects/ores.geo/modeling/compass.serve.campaign_writes.org, projects/ores.codegen/library/templates/cpp_protocol.hpp.mustache)
+    stderr:   write projects/ores.web/packages/wire-protocol/src/generated/serve/protocol/campaign_writes_protocol.ts (codegen, projects/ores.codegen/library/templates/ts_protocol.ts.mustache)
+    struct check: ok    matches  start_run_request (2 members)
+    struct check: ok    matches  run_step (3 members)
+    struct check: ok    matches  start_run_response (6 members)
+    struct check: ok    matches  step_result_request (5 members)
+    struct check: ok    matches  finish_run_request (2 members)
+    struct check: ok    matches  finish_run_response (2 members)
+    struct check: ok    matches  attach_request (7 members)
+    struct check: ok    matches  attach_response (2 members)
+    struct check: ok    matches  add_note_request (6 members)
+    struct check: ok    matches  add_note_response (1 members)
+    struct check: ok    matches  address_note_request (3 members)
+    struct check: note  ores_type.campaign_writes_protocol.hpp uses run_outcome and does not declare it
+    struct check: note  ores_type.campaign_writes_protocol.hpp uses step_outcome and does not declare it
+    struct check exit=0
+ores_type compass.serve.document_queries.org exit=1 routes_registered= v1_paths_in_output=0 mcp_in_output=0
+    stderr: 2 to write, 1159 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore in 2 passes (11446 documents, 0 from the store, 11446 parsed; units run: document_index 0, required_sections 0, tangle 22892, tangle_check 22892, evidence_location 22892, codegen 1768, component_files 2, pending_models 2, bff_list_requests 2, core_link_edges 2, event_registrars 2, exported_types 2, forward_declarable_includes 2, handler_registrars 2, history_registrars 2, route_auth 2, shell_command_composition 2, shell_command_units 2, shell_menus 2, stream_coverage 2, test_case_reachability 2, translation_unit_budget 2, unique_type_names 2, unity_collisions 2, xml_family_census 2, list_request_table 2, curve_parameter_paths 2, handler_permissions 2, populate_refs 2, rls_coverage 2, rls_widenings 2, sql_hygiene 2, sql_reachability 2, conventions_coverage 2, conventions_dataset 2, curve_sections_wiring 2, entity_binary_types 22892, entity_writes 2, er_diagram 2, generated_column_refs 22892, marketdata_identity_columns 2, model_rules 2, open_reads 2, ore_output_catalogue 2, ore_renderings_tables 2, ore_value_sets 2, parameter_value_sets 2, protocol_twins 2, registry_exceptions 2, route_inventory 2, script_library_seed 0, service_integrity 2, single_writer 2, subject_conformance 2, template_sections 2, xml_bindings 2, backlog_indexes 2, component_docs 2, heading_numbers 22892, http_recipe_library 22892, knowledge_titles 0, lint 2, no_pr_triggers 2, org_links 22892, physical_inventory 2, prototypes 2, recipe_inventories 2, rule_identifiers 2, shell_recipe_library 22892, shell_recipe_provenance 2, skill_catalogue 2, skill_levels 2, skill_namespace 2, skill_type_tables 2, trade_type_coverage 2, env_format 2, commit_provenance 2, check_inventory 2, rule_table 0, ores_logger 2, portable_cpp 2, typescript_format 2, wide_types 2; 100311.7 ms)
+    stderr: scope: the outputs of projects/ores.geo/modeling/compass.serve.document_queries.org and what they feed
+    stderr: from your change: 2 files
+    stderr:   write projects/ores.serve/include/ores.serve/messaging/document_queries_protocol.hpp (codegen, projects/ores.geo/modeling/compass.serve.document_queries.org, projects/ores.codegen/library/templates/cpp_protocol.hpp.mustache)
+    stderr:   write projects/ores.web/packages/wire-protocol/src/generated/serve/protocol/document_queries_protocol.ts (codegen, projects/ores.codegen/library/templates/ts_protocol.ts.mustache)
+    struct check: ok    matches  metadata_match (2 members)
+    struct check: ok    matches  document_filter (8 members)
+    struct check: ok    matches  search_request (5 members)
+    struct check: ok    matches  search_hit (9 members)
+    struct check: ok    matches  search_response (3 members)
+    struct check: ok    matches  facets_request (5 members)
+    struct check: ok    matches  facet_count (3 members)
+    struct check: ok    matches  named_facet (2 members)
+    struct check: ok    matches  facets_response (9 members)
+    struct check: ok    matches  document_summary (7 members)
+    struct check: ok    matches  list_documents_request (4 members)
+    struct check: ok    matches  list_documents_response (3 members)
+    struct check: ok    matches  get_document_request (3 members)
+    struct check: ok    matches  get_document_response (4 members)
+    struct check: ok    matches  backlinks_request (2 members)
+    struct check: ok    matches  backlink (3 members)
+    struct check: ok    matches  backlinks_response (2 members)
+    struct check: ok    matches  list_environments_request (0 members)
+    struct check: ok    matches  environment_summary (6 members)
+    struct check: ok    matches  list_environments_response (1 members)
+    struct check: ok    matches  version_request (0 members)
+    struct check: ok    matches  version_response (2 members)
+    struct check: ok    matches  sync_request (1 members)
+    struct check: ok    matches  sync_response (6 members)
+    struct check exit=0
+ores_type compass.serve.errors.org exit=1 routes_registered= v1_paths_in_output=0 mcp_in_output=0
+    stderr: 2 to write, 1159 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore in 2 passes (11446 documents, 0 from the store, 11446 parsed; units run: document_index 0, required_sections 0, tangle 22892, tangle_check 22892, evidence_location 22892, codegen 1768, component_files 2, pending_models 2, bff_list_requests 2, core_link_edges 2, event_registrars 2, exported_types 2, forward_declarable_includes 2, handler_registrars 2, history_registrars 2, route_auth 2, shell_command_composition 2, shell_command_units 2, shell_menus 2, stream_coverage 2, test_case_reachability 2, translation_unit_budget 2, unique_type_names 2, unity_collisions 2, xml_family_census 2, list_request_table 2, curve_parameter_paths 2, handler_permissions 2, populate_refs 2, rls_coverage 2, rls_widenings 2, sql_hygiene 2, sql_reachability 2, conventions_coverage 2, conventions_dataset 2, curve_sections_wiring 2, entity_binary_types 22892, entity_writes 2, er_diagram 2, generated_column_refs 22892, marketdata_identity_columns 2, model_rules 2, open_reads 2, ore_output_catalogue 2, ore_renderings_tables 2, ore_value_sets 2, parameter_value_sets 2, protocol_twins 2, registry_exceptions 2, route_inventory 2, script_library_seed 0, service_integrity 2, single_writer 2, subject_conformance 2, template_sections 2, xml_bindings 2, backlog_indexes 2, component_docs 2, heading_numbers 22892, http_recipe_library 22892, knowledge_titles 0, lint 2, no_pr_triggers 2, org_links 22892, physical_inventory 2, prototypes 2, recipe_inventories 2, rule_identifiers 2, shell_recipe_library 22892, shell_recipe_provenance 2, skill_catalogue 2, skill_levels 2, skill_namespace 2, skill_type_tables 2, trade_type_coverage 2, env_format 2, commit_provenance 2, check_inventory 2, rule_table 0, ores_logger 2, portable_cpp 2, typescript_format 2, wide_types 2; 105393.8 ms)
+    stderr: scope: the outputs of projects/ores.geo/modeling/compass.serve.errors.org and what they feed
+    stderr: from your change: 2 files
+    stderr:   write projects/ores.serve/include/ores.serve/messaging/errors_protocol.hpp (codegen, projects/ores.geo/modeling/compass.serve.errors.org, projects/ores.codegen/library/templates/cpp_protocol.hpp.mustache)
+    stderr:   write projects/ores.web/packages/wire-protocol/src/generated/serve/protocol/errors_protocol.ts (codegen, projects/ores.codegen/library/templates/ts_protocol.ts.mustache)
+    struct check: ok    matches  error_response (2 members)
+    struct check exit=0
+ores_type compass.serve.testing_queries.org exit=1 routes_registered= v1_paths_in_output=0 mcp_in_output=0
+    stderr: 2 to write, 1159 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore in 2 passes (11446 documents, 0 from the store, 11446 parsed; units run: document_index 0, required_sections 0, tangle 22892, tangle_check 22892, evidence_location 22892, codegen 1768, component_files 2, pending_models 2, bff_list_requests 2, core_link_edges 2, event_registrars 2, exported_types 2, forward_declarable_includes 2, handler_registrars 2, history_registrars 2, route_auth 2, shell_command_composition 2, shell_command_units 2, shell_menus 2, stream_coverage 2, test_case_reachability 2, translation_unit_budget 2, unique_type_names 2, unity_collisions 2, xml_family_census 2, list_request_table 2, curve_parameter_paths 2, handler_permissions 2, populate_refs 2, rls_coverage 2, rls_widenings 2, sql_hygiene 2, sql_reachability 2, conventions_coverage 2, conventions_dataset 2, curve_sections_wiring 2, entity_binary_types 22892, entity_writes 2, er_diagram 2, generated_column_refs 22892, marketdata_identity_columns 2, model_rules 2, open_reads 2, ore_output_catalogue 2, ore_renderings_tables 2, ore_value_sets 2, parameter_value_sets 2, protocol_twins 2, registry_exceptions 2, route_inventory 2, script_library_seed 0, service_integrity 2, single_writer 2, subject_conformance 2, template_sections 2, xml_bindings 2, backlog_indexes 2, component_docs 2, heading_numbers 22892, http_recipe_library 22892, knowledge_titles 0, lint 2, no_pr_triggers 2, org_links 22892, physical_inventory 2, prototypes 2, recipe_inventories 2, rule_identifiers 2, shell_recipe_library 22892, shell_recipe_provenance 2, skill_catalogue 2, skill_levels 2, skill_namespace 2, skill_type_tables 2, trade_type_coverage 2, env_format 2, commit_provenance 2, check_inventory 2, rule_table 0, ores_logger 2, portable_cpp 2, typescript_format 2, wide_types 2; 91821.8 ms)
+    stderr: scope: the outputs of projects/ores.geo/modeling/compass.serve.testing_queries.org and what they feed
+    stderr: from your change: 2 files
+    stderr:   write projects/ores.serve/include/ores.serve/messaging/testing_queries_protocol.hpp (codegen, projects/ores.geo/modeling/compass.serve.testing_queries.org, projects/ores.codegen/library/templates/cpp_protocol.hpp.mustache)
+    stderr:   write projects/ores.web/packages/wire-protocol/src/generated/serve/protocol/testing_queries_protocol.ts (codegen, projects/ores.codegen/library/templates/ts_protocol.ts.mustache)
+    struct check: ok    matches  sprint_state_request (2 members)
+    struct check: ok    matches  what_needs_testing_request (2 members)
+    struct check: ok    matches  sprint_summary (3 members)
+    struct check: ok    matches  work_item (4 members)
+    struct check: ok    matches  story_state (2 members)
+    struct check: ok    matches  sprint_state_response (3 members)
+    struct check: ok    matches  run_summary (5 members)
+    struct check: ok    matches  scenario_status (7 members)
+    struct check: ok    matches  story_testing (7 members)
+    struct check: ok    matches  testing_response (3 members)
+    struct check: ok    matches  get_run_request (2 members)
+    struct check: ok    matches  run_finish (2 members)
+    struct check: ok    matches  step_result (5 members)
+    struct check: ok    matches  get_run_response (8 members)
+    struct check: ok    matches  list_notes_request (2 members)
+    struct check: ok    matches  note_address (3 members)
+    struct check: ok    matches  campaign_note (8 members)
+    struct check: ok    matches  list_notes_response (1 members)
+    struct check: note  ores_type.testing_queries_protocol.hpp uses scenario_state and does not declare it
+    struct check: note  ores_type.testing_queries_protocol.hpp uses step_outcome and does not declare it
+    struct check exit=0
+facets_on compass.serve.campaign_writes.org exit=1 routes_registered=0 v1_paths_in_output=0 mcp_in_output=0
+    stderr: 9 to write, 1160 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore in 3 passes (11446 documents, 0 from the store, 11446 parsed; units run: document_index 0, required_sections 0, tangle 34340, tangle_check 34340, evidence_location 34340, codegen 2652, component_files 3, pending_models 3, bff_list_requests 3, core_link_edges 3, event_registrars 3, exported_types 3, forward_declarable_includes 3, handler_registrars 3, history_registrars 3, route_auth 3, shell_command_composition 3, shell_command_units 3, shell_menus 3, stream_coverage 3, test_case_reachability 3, translation_unit_budget 3, unique_type_names 3, unity_collisions 3, xml_family_census 3, list_request_table 3, curve_parameter_paths 3, handler_permissions 3, populate_refs 3, rls_coverage 3, rls_widenings 3, sql_hygiene 3, sql_reachability 3, conventions_coverage 3, conventions_dataset 3, curve_sections_wiring 3, entity_binary_types 34340, entity_writes 3, er_diagram 3, generated_column_refs 34340, marketdata_identity_columns 3, model_rules 3, open_reads 3, ore_output_catalogue 3, ore_renderings_tables 3, ore_value_sets 3, parameter_value_sets 3, protocol_twins 3, registry_exceptions 3, route_inventory 3, script_library_seed 0, service_integrity 3, single_writer 3, subject_conformance 3, template_sections 3, xml_bindings 3, backlog_indexes 3, component_docs 3, heading_numbers 34340, http_recipe_library 34340, knowledge_titles 0, lint 3, no_pr_triggers 3, org_links 34340, physical_inventory 3, prototypes 3, recipe_inventories 3, rule_identifiers 3, shell_recipe_library 34340, shell_recipe_provenance 3, skill_catalogue 3, skill_levels 3, skill_namespace 3, skill_type_tables 3, trade_type_coverage 3, env_format 3, commit_provenance 3, check_inventory 3, rule_table 0, ores_logger 3, portable_cpp 3, typescript_format 3, wide_types 3; 104483.5 ms)
+    stderr: scope: the outputs of projects/ores.geo/modeling/compass.serve.campaign_writes.org and what they feed
+    stderr: from your change: 9 files
+    stderr:   write doc/recipes/http/campaign_writes/campaign_writes.org (codegen, projects/ores.geo/modeling/compass.serve.campaign_writes.org, projects/ores.codegen/library/templates/http_recipe.org.mustache)
+    stderr:   write doc/recipes/http/generated_recipes.org (recipe_inventories)
+    stderr:   write projects/ores.http/serve/include/ores.http/routes/serve/campaign_writes_routes.hpp (codegen, projects/ores.geo/modeling/compass.serve.campaign_writes.org, projects/ores.codegen/library/templates/cpp_http_route_operation_header.hpp.mustache)
+    stderr:   write projects/ores.http/serve/src/routes/serve/campaign_writes_routes.cpp (codegen, projects/ores.geo/modeling/compass.serve.campaign_writes.org, projects/ores.codegen/library/templates/cpp_http_route_operation_implementation.cpp.mustache)
+    stderr:   write projects/ores.http/serve/tests/campaign_writes_routes_tests.cpp (codegen, projects/ores.geo/modeling/compass.serve.campaign_writes.org, projects/ores.codegen/library/templates/cpp_http_route_operation_tests.cpp.mustache)
+    stderr:   write projects/ores.serve/include/ores.serve/messaging/campaign_writes_protocol.hpp (codegen, projects/ores.geo/modeling/compass.serve.campaign_writes.org, projects/ores.codegen/library/templates/cpp_protocol.hpp.mustache)
+    stderr:   write projects/ores.serve/src/messaging/campaign_writes_protocol_codec.cpp (codegen, projects/ores.geo/modeling/compass.serve.campaign_writes.org, projects/ores.codegen/library/templates/cpp_protocol_codec.cpp.mustache)
+    stderr:   write projects/ores.serve/tests/campaign_writes_protocol_codec_roundtrip_tests.cpp (codegen, projects/ores.geo/modeling/compass.serve.campaign_writes.org, projects/ores.codegen/library/templates/cpp_protocol_codec_roundtrip_tests.cpp.mustache)
+    stderr:   write projects/ores.web/packages/wire-protocol/src/generated/serve/protocol/campaign_writes_protocol.ts (codegen, projects/ores.codegen/library/templates/ts_protocol.ts.mustache)
+    struct check: ok    matches  start_run_request (2 members)
+    struct check: ok    matches  run_step (3 members)
+    struct check: ok    matches  start_run_response (6 members)
+    struct check: ok    matches  step_result_request (5 members)
+    struct check: ok    matches  finish_run_request (2 members)
+    struct check: ok    matches  finish_run_response (2 members)
+    struct check: ok    matches  attach_request (7 members)
+    struct check: ok    matches  attach_response (2 members)
+    struct check: ok    matches  add_note_request (6 members)
+    struct check: ok    matches  add_note_response (1 members)
+    struct check: ok    matches  address_note_request (3 members)
+    struct check: note  facets_on.campaign_writes_protocol.hpp uses run_outcome and does not declare it
+    struct check: note  facets_on.campaign_writes_protocol.hpp uses step_outcome and does not declare it
+    struct check exit=0
+facets_on compass.serve.document_queries.org exit=1 routes_registered=0 v1_paths_in_output=0 mcp_in_output=0
+    stderr: 9 to write, 1160 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore in 3 passes (11446 documents, 0 from the store, 11446 parsed; units run: document_index 0, required_sections 0, tangle 34340, tangle_check 34340, evidence_location 34340, codegen 2652, component_files 3, pending_models 3, bff_list_requests 3, core_link_edges 3, event_registrars 3, exported_types 3, forward_declarable_includes 3, handler_registrars 3, history_registrars 3, route_auth 3, shell_command_composition 3, shell_command_units 3, shell_menus 3, stream_coverage 3, test_case_reachability 3, translation_unit_budget 3, unique_type_names 3, unity_collisions 3, xml_family_census 3, list_request_table 3, curve_parameter_paths 3, handler_permissions 3, populate_refs 3, rls_coverage 3, rls_widenings 3, sql_hygiene 3, sql_reachability 3, conventions_coverage 3, conventions_dataset 3, curve_sections_wiring 3, entity_binary_types 34340, entity_writes 3, er_diagram 3, generated_column_refs 34340, marketdata_identity_columns 3, model_rules 3, open_reads 3, ore_output_catalogue 3, ore_renderings_tables 3, ore_value_sets 3, parameter_value_sets 3, protocol_twins 3, registry_exceptions 3, route_inventory 3, script_library_seed 0, service_integrity 3, single_writer 3, subject_conformance 3, template_sections 3, xml_bindings 3, backlog_indexes 3, component_docs 3, heading_numbers 34340, http_recipe_library 34340, knowledge_titles 0, lint 3, no_pr_triggers 3, org_links 34340, physical_inventory 3, prototypes 3, recipe_inventories 3, rule_identifiers 3, shell_recipe_library 34340, shell_recipe_provenance 3, skill_catalogue 3, skill_levels 3, skill_namespace 3, skill_type_tables 3, trade_type_coverage 3, env_format 3, commit_provenance 3, check_inventory 3, rule_table 0, ores_logger 3, portable_cpp 3, typescript_format 3, wide_types 3; 126823.0 ms)
+    stderr: scope: the outputs of projects/ores.geo/modeling/compass.serve.document_queries.org and what they feed
+    stderr: from your change: 9 files
+    stderr:   write doc/recipes/http/document_queries/document_queries.org (codegen, projects/ores.geo/modeling/compass.serve.document_queries.org, projects/ores.codegen/library/templates/http_recipe.org.mustache)
+    stderr:   write doc/recipes/http/generated_recipes.org (recipe_inventories)
+    stderr:   write projects/ores.http/serve/include/ores.http/routes/serve/document_queries_routes.hpp (codegen, projects/ores.geo/modeling/compass.serve.document_queries.org, projects/ores.codegen/library/templates/cpp_http_route_operation_header.hpp.mustache)
+    stderr:   write projects/ores.http/serve/src/routes/serve/document_queries_routes.cpp (codegen, projects/ores.geo/modeling/compass.serve.document_queries.org, projects/ores.codegen/library/templates/cpp_http_route_operation_implementation.cpp.mustache)
+    stderr:   write projects/ores.http/serve/tests/document_queries_routes_tests.cpp (codegen, projects/ores.geo/modeling/compass.serve.document_queries.org, projects/ores.codegen/library/templates/cpp_http_route_operation_tests.cpp.mustache)
+    stderr:   write projects/ores.serve/include/ores.serve/messaging/document_queries_protocol.hpp (codegen, projects/ores.geo/modeling/compass.serve.document_queries.org, projects/ores.codegen/library/templates/cpp_protocol.hpp.mustache)
+    stderr:   write projects/ores.serve/src/messaging/document_queries_protocol_codec.cpp (codegen, projects/ores.geo/modeling/compass.serve.document_queries.org, projects/ores.codegen/library/templates/cpp_protocol_codec.cpp.mustache)
+    stderr:   write projects/ores.serve/tests/document_queries_protocol_codec_roundtrip_tests.cpp (codegen, projects/ores.geo/modeling/compass.serve.document_queries.org, projects/ores.codegen/library/templates/cpp_protocol_codec_roundtrip_tests.cpp.mustache)
+    stderr:   write projects/ores.web/packages/wire-protocol/src/generated/serve/protocol/document_queries_protocol.ts (codegen, projects/ores.codegen/library/templates/ts_protocol.ts.mustache)
+    struct check: ok    matches  metadata_match (2 members)
+    struct check: ok    matches  document_filter (8 members)
+    struct check: ok    matches  search_request (5 members)
+    struct check: ok    matches  search_hit (9 members)
+    struct check: ok    matches  search_response (3 members)
+    struct check: ok    matches  facets_request (5 members)
+    struct check: ok    matches  facet_count (3 members)
+    struct check: ok    matches  named_facet (2 members)
+    struct check: ok    matches  facets_response (9 members)
+    struct check: ok    matches  document_summary (7 members)
+    struct check: ok    matches  list_documents_request (4 members)
+    struct check: ok    matches  list_documents_response (3 members)
+    struct check: ok    matches  get_document_request (3 members)
+    struct check: ok    matches  get_document_response (4 members)
+    struct check: ok    matches  backlinks_request (2 members)
+    struct check: ok    matches  backlink (3 members)
+    struct check: ok    matches  backlinks_response (2 members)
+    struct check: ok    matches  list_environments_request (0 members)
+    struct check: ok    matches  environment_summary (6 members)
+    struct check: ok    matches  list_environments_response (1 members)
+    struct check: ok    matches  version_request (0 members)
+    struct check: ok    matches  version_response (2 members)
+    struct check: ok    matches  sync_request (1 members)
+    struct check: ok    matches  sync_response (6 members)
+    struct check exit=0
+facets_on compass.serve.errors.org exit=1 routes_registered=0 v1_paths_in_output=0 mcp_in_output=0
+    stderr: 9 to write, 1160 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore in 3 passes (11446 documents, 0 from the store, 11446 parsed; units run: document_index 0, required_sections 0, tangle 34340, tangle_check 34340, evidence_location 34340, codegen 2652, component_files 3, pending_models 3, bff_list_requests 3, core_link_edges 3, event_registrars 3, exported_types 3, forward_declarable_includes 3, handler_registrars 3, history_registrars 3, route_auth 3, shell_command_composition 3, shell_command_units 3, shell_menus 3, stream_coverage 3, test_case_reachability 3, translation_unit_budget 3, unique_type_names 3, unity_collisions 3, xml_family_census 3, list_request_table 3, curve_parameter_paths 3, handler_permissions 3, populate_refs 3, rls_coverage 3, rls_widenings 3, sql_hygiene 3, sql_reachability 3, conventions_coverage 3, conventions_dataset 3, curve_sections_wiring 3, entity_binary_types 34340, entity_writes 3, er_diagram 3, generated_column_refs 34340, marketdata_identity_columns 3, model_rules 3, open_reads 3, ore_output_catalogue 3, ore_renderings_tables 3, ore_value_sets 3, parameter_value_sets 3, protocol_twins 3, registry_exceptions 3, route_inventory 3, script_library_seed 0, service_integrity 3, single_writer 3, subject_conformance 3, template_sections 3, xml_bindings 3, backlog_indexes 3, component_docs 3, heading_numbers 34340, http_recipe_library 34340, knowledge_titles 0, lint 3, no_pr_triggers 3, org_links 34340, physical_inventory 3, prototypes 3, recipe_inventories 3, rule_identifiers 3, shell_recipe_library 34340, shell_recipe_provenance 3, skill_catalogue 3, skill_levels 3, skill_namespace 3, skill_type_tables 3, trade_type_coverage 3, env_format 3, commit_provenance 3, check_inventory 3, rule_table 0, ores_logger 3, portable_cpp 3, typescript_format 3, wide_types 3; 131919.0 ms)
+    stderr: scope: the outputs of projects/ores.geo/modeling/compass.serve.errors.org and what they feed
+    stderr: from your change: 9 files
+    stderr:   write doc/recipes/http/errors/errors.org (codegen, projects/ores.geo/modeling/compass.serve.errors.org, projects/ores.codegen/library/templates/http_recipe.org.mustache)
+    stderr:   write doc/recipes/http/generated_recipes.org (recipe_inventories)
+    stderr:   write projects/ores.http/serve/include/ores.http/routes/serve/errors_routes.hpp (codegen, projects/ores.geo/modeling/compass.serve.errors.org, projects/ores.codegen/library/templates/cpp_http_route_operation_header.hpp.mustache)
+    stderr:   write projects/ores.http/serve/src/routes/serve/errors_routes.cpp (codegen, projects/ores.geo/modeling/compass.serve.errors.org, projects/ores.codegen/library/templates/cpp_http_route_operation_implementation.cpp.mustache)
+    stderr:   write projects/ores.http/serve/tests/errors_routes_tests.cpp (codegen, projects/ores.geo/modeling/compass.serve.errors.org, projects/ores.codegen/library/templates/cpp_http_route_operation_tests.cpp.mustache)
+    stderr:   write projects/ores.serve/include/ores.serve/messaging/errors_protocol.hpp (codegen, projects/ores.geo/modeling/compass.serve.errors.org, projects/ores.codegen/library/templates/cpp_protocol.hpp.mustache)
+    stderr:   write projects/ores.serve/src/messaging/errors_protocol_codec.cpp (codegen, projects/ores.geo/modeling/compass.serve.errors.org, projects/ores.codegen/library/templates/cpp_protocol_codec.cpp.mustache)
+    stderr:   write projects/ores.serve/tests/errors_protocol_codec_roundtrip_tests.cpp (codegen, projects/ores.geo/modeling/compass.serve.errors.org, projects/ores.codegen/library/templates/cpp_protocol_codec_roundtrip_tests.cpp.mustache)
+    stderr:   write projects/ores.web/packages/wire-protocol/src/generated/serve/protocol/errors_protocol.ts (codegen, projects/ores.codegen/library/templates/ts_protocol.ts.mustache)
+    struct check: ok    matches  error_response (2 members)
+    struct check exit=0
+facets_on compass.serve.testing_queries.org exit=1 routes_registered=0 v1_paths_in_output=0 mcp_in_output=0
+    stderr: 9 to write, 1160 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore in 3 passes (11446 documents, 0 from the store, 11446 parsed; units run: document_index 0, required_sections 0, tangle 34340, tangle_check 34340, evidence_location 34340, codegen 2652, component_files 3, pending_models 3, bff_list_requests 3, core_link_edges 3, event_registrars 3, exported_types 3, forward_declarable_includes 3, handler_registrars 3, history_registrars 3, route_auth 3, shell_command_composition 3, shell_command_units 3, shell_menus 3, stream_coverage 3, test_case_reachability 3, translation_unit_budget 3, unique_type_names 3, unity_collisions 3, xml_family_census 3, list_request_table 3, curve_parameter_paths 3, handler_permissions 3, populate_refs 3, rls_coverage 3, rls_widenings 3, sql_hygiene 3, sql_reachability 3, conventions_coverage 3, conventions_dataset 3, curve_sections_wiring 3, entity_binary_types 34340, entity_writes 3, er_diagram 3, generated_column_refs 34340, marketdata_identity_columns 3, model_rules 3, open_reads 3, ore_output_catalogue 3, ore_renderings_tables 3, ore_value_sets 3, parameter_value_sets 3, protocol_twins 3, registry_exceptions 3, route_inventory 3, script_library_seed 0, service_integrity 3, single_writer 3, subject_conformance 3, template_sections 3, xml_bindings 3, backlog_indexes 3, component_docs 3, heading_numbers 34340, http_recipe_library 34340, knowledge_titles 0, lint 3, no_pr_triggers 3, org_links 34340, physical_inventory 3, prototypes 3, recipe_inventories 3, rule_identifiers 3, shell_recipe_library 34340, shell_recipe_provenance 3, skill_catalogue 3, skill_levels 3, skill_namespace 3, skill_type_tables 3, trade_type_coverage 3, env_format 3, commit_provenance 3, check_inventory 3, rule_table 0, ores_logger 3, portable_cpp 3, typescript_format 3, wide_types 3; 139972.7 ms)
+    stderr: scope: the outputs of projects/ores.geo/modeling/compass.serve.testing_queries.org and what they feed
+    stderr: from your change: 9 files
+    stderr:   write doc/recipes/http/generated_recipes.org (recipe_inventories)
+    stderr:   write doc/recipes/http/testing_queries/testing_queries.org (codegen, projects/ores.geo/modeling/compass.serve.testing_queries.org, projects/ores.codegen/library/templates/http_recipe.org.mustache)
+    stderr:   write projects/ores.http/serve/include/ores.http/routes/serve/testing_queries_routes.hpp (codegen, projects/ores.geo/modeling/compass.serve.testing_queries.org, projects/ores.codegen/library/templates/cpp_http_route_operation_header.hpp.mustache)
+    stderr:   write projects/ores.http/serve/src/routes/serve/testing_queries_routes.cpp (codegen, projects/ores.geo/modeling/compass.serve.testing_queries.org, projects/ores.codegen/library/templates/cpp_http_route_operation_implementation.cpp.mustache)
+    stderr:   write projects/ores.http/serve/tests/testing_queries_routes_tests.cpp (codegen, projects/ores.geo/modeling/compass.serve.testing_queries.org, projects/ores.codegen/library/templates/cpp_http_route_operation_tests.cpp.mustache)
+    stderr:   write projects/ores.serve/include/ores.serve/messaging/testing_queries_protocol.hpp (codegen, projects/ores.geo/modeling/compass.serve.testing_queries.org, projects/ores.codegen/library/templates/cpp_protocol.hpp.mustache)
+    stderr:   write projects/ores.serve/src/messaging/testing_queries_protocol_codec.cpp (codegen, projects/ores.geo/modeling/compass.serve.testing_queries.org, projects/ores.codegen/library/templates/cpp_protocol_codec.cpp.mustache)
+    stderr:   write projects/ores.serve/tests/testing_queries_protocol_codec_roundtrip_tests.cpp (codegen, projects/ores.geo/modeling/compass.serve.testing_queries.org, projects/ores.codegen/library/templates/cpp_protocol_codec_roundtrip_tests.cpp.mustache)
+    stderr:   write projects/ores.web/packages/wire-protocol/src/generated/serve/protocol/testing_queries_protocol.ts (codegen, projects/ores.codegen/library/templates/ts_protocol.ts.mustache)
+    struct check: ok    matches  sprint_state_request (2 members)
+    struct check: ok    matches  what_needs_testing_request (2 members)
+    struct check: ok    matches  sprint_summary (3 members)
+    struct check: ok    matches  work_item (4 members)
+    struct check: ok    matches  story_state (2 members)
+    struct check: ok    matches  sprint_state_response (3 members)
+    struct check: ok    matches  run_summary (5 members)
+    struct check: ok    matches  scenario_status (7 members)
+    struct check: ok    matches  story_testing (7 members)
+    struct check: ok    matches  testing_response (3 members)
+    struct check: ok    matches  get_run_request (2 members)
+    struct check: ok    matches  run_finish (2 members)
+    struct check: ok    matches  step_result (5 members)
+    struct check: ok    matches  get_run_response (8 members)
+    struct check: ok    matches  list_notes_request (2 members)
+    struct check: ok    matches  note_address (3 members)
+    struct check: ok    matches  campaign_note (8 members)
+    struct check: ok    matches  list_notes_response (1 members)
+    struct check: note  facets_on.testing_queries_protocol.hpp uses scenario_state and does not declare it
+    struct check: note  facets_on.testing_queries_protocol.hpp uses step_outcome and does not declare it
+    struct check exit=0

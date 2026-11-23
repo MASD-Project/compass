@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :modeling:architecture:system_model:masd:
 #+created: 2026-10-27
-#+updated: 2026-11-21
+#+updated: 2026-11-23
 
 compass-ng follows the ORE Studio system model: components grouped into layers,
 with one invariant --- *a layer depends only on layers below it*. In MASD terms
@@ -199,6 +199,13 @@ of work is a document with a lifecycle state, read through the same tables.
 | Component     | Role                                                                                                                                 |
 |---------------+--------------------------------------------------------------------------------------------------------------------------------------|
 | =compass.cli= | The =compass= executable: loads the corpus, runs codecs, writes outputs or prints diffs, collects the store, and checks one edited file for a Claude Code hook. The one host of the pipeline. |
+| =compass.serve= | Planned. The document service: HTTP routes and MCP tools over the corpus, the sprint and the test campaigns, generated from its operation models, on Boost.Beast. Only its models exist. |
+
+=compass.serve= is in the application layer because it is an entry point,
+not a library the domain calls: it depends on =compass.db= for the queries
+and =compass.html= for a document's HTML, and =compass.cli='s =compass serve=
+hosts it. The HTTP server's libraries stay in it, so =compass.db= never
+depends on them.
 
 * Tooling layer
 | Component         | Role                                                                                   |

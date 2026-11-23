@@ -249,13 +249,15 @@ ORE Studio ever imported them:
 | =list_documents= | =GET /v1/{environment}/documents= | documents | document | no |
 | =get_document= | =GET /v1/{environment}/documents/{id}= | documents | document | no |
 | =list_backlinks= | =GET /v1/{environment}/documents/{id}/backlinks= | documents | document | no |
-| =count_facets= | =GET /v1/{environment}/facets= | documents | document | no |
+| =list_facets= | =GET /v1/{environment}/facets= | documents | document | no |
 | =list_environments= | =GET /v1/environments= | documents | environment | no |
 | =sync_environment= | =POST /v1/{environment}/sync= | documents | environment | yes |
 | =get_version= | =GET /v1/version= | documents | service | no |
 | =get_catalogue= | =GET /v1/catalogue= | documents | service | no |
 | =get_sprint_state= | =GET /v1/{environment}/sprint= | agile | sprint | no |
 | =list_scenarios_to_test= | =GET /v1/{environment}/testing= | qa | scenario | no |
+| =get_run= | =GET /v1/{environment}/runs/{run}= | qa | run | no |
+| =list_notes= | =GET /v1/{environment}/campaigns/{id}/notes= | qa | note | no |
 | =start_run= | =POST /v1/{environment}/runs= | qa | run | yes |
 | =record_step_result= | =PUT /v1/{environment}/runs/{run}/steps/{ord}= | qa | run | yes |
 | =finish_run= | =POST /v1/{environment}/runs/{run}/finish= | qa | run | yes |
@@ -263,9 +265,13 @@ ORE Studio ever imported them:
 | =add_note= | =POST /v1/{environment}/campaigns/{id}/notes= | qa | note | yes |
 | =address_note= | =PATCH /v1/{environment}/notes/{id}= | qa | note | yes |
 
-This renames the design's tools (=search=, =backlinks=, =sprint_state=,
-=what_needs_testing=, =sync=), adds =finish_run=, which the design's table
-lacked, and exposes every operation as a tool, as ORE Studio does. A
+This renames the design's tools (=search=, =facets=, =backlinks=,
+=sprint_state=, =what_needs_testing=, =sync=), adds =finish_run=, which the
+design's table lacked, adds =get_run= and =list_notes=, so a tester can
+resume a run and a developer can find a note to address, and exposes every
+operation as a tool, as ORE Studio does. A read is named with one of the
+prefixes by which ORE Studio's catalogue knows a read, so the facet count is
+=list_facets=, not =count_facets=. A
 screenshot travels as base64 in a typed JSON body, so one route is one tool
 with one schema; the cost is a third more bytes on small PNGs. The areas
 =agile= and =qa= are ORE Studio's names for the same subjects.
