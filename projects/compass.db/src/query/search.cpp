@@ -19,6 +19,7 @@
  */
 #include "compass.db/query/search.hpp"
 
+#include "compass.db/query/scope.hpp"
 #include <charconv>
 #include <cstdint>
 #include <format>
@@ -29,78 +30,6 @@
 namespace compass::db::query {
 
 namespace {
-
-/**
- * @brief SQL text and the parameters it binds, numbered as they are added.
- */
-struct statement {
-    std::string sql;
-    std::vector<io::parameter> parameters;
-
-    std::string bind(std::string value) {
-        parameters.emplace_back(std::move(value));
-        return "$" + std::to_string(parameters.size());
-    }
-};
-
-struct environment_row {
-    std::string id;
-    std::string synced_at;
-    std::string text_search;
-};
-
-environment_row find_environment(io::connection& c, const std::string& name) {
-    const auto r = c.exec(R"sql(
-SELECT e.id,
-       coalesce(to_char(e.synced_at AT TIME ZONE 'UTC',
-                        'YYYY-MM-DD"T"HH24:MI:SS"Z"'), ''),
-       (SELECT value FROM compass.setting WHERE key = 'text_search')
-FROM corpus.environment e WHERE e.name = $1
-)sql", {name});
-    if (r.rows() == 0)
-        throw unknown_environment(name);
-    if (r.is_null(0, 2))
-        throw io::error("the database has no text search configuration; "
-            "fix: run compass db init", "");
-    return {std::string(r.value(0, 0)), std::string(r.value(0, 1)),
-        std::string(r.value(0, 2))};
-}
-
-/**
- * @brief The WHERE clause of the placements p of the environment and their
- * documents d that the view and the filter let through.
- */
-void where_documents(statement& s, const std::string& environment,
-    const types::view_filter& v, const types::document_filter& f) {
-    const auto env = s.bind(environment) + "::bigint";
-    s.sql += "WHERE p.environment = " + env + "\n";
-    s.sql += "  AND (" + v.condition + ")\n";
-    const auto equal = [&](std::string_view column,
-                           const std::optional<std::string>& value) {
-        if (value)
-            s.sql += std::format("  AND d.{} = {}\n", column, s.bind(*value));
-    };
-    equal("type", f.type);
-    equal("state", f.state);
-    equal("level", f.level);
-    equal("audience", f.audience);
-    for (const auto& tag : f.tags)
-        s.sql += "  AND d.tags @> ARRAY[" + s.bind(tag) + "::text]\n";
-    if (f.sprint)
-        s.sql += "  AND d.hash IN (SELECT corpus.sprint_members(" + env +
-            ", " + s.bind(*f.sprint) + "))\n";
-    for (const auto& k : f.keywords) {
-        const auto name = s.bind(k.name);
-        s.sql += std::format("  AND d.keywords @> jsonb_build_object("
-            "lower({}::text), jsonb_build_array({}::text))\n", name,
-            s.bind(k.value));
-    }
-    for (const auto& p : f.properties) {
-        const auto name = s.bind(p.name);
-        s.sql += std::format("  AND d.properties @> jsonb_build_object("
-            "{}::text, {}::text)\n", name, s.bind(p.value));
-    }
-}
 
 std::uint64_t to_number(std::string_view text) {
     std::uint64_t v = 0;

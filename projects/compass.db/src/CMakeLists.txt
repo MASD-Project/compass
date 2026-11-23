@@ -37,6 +37,7 @@ add_library(${lib_target_name}
     ops/run_outcome.cpp
     query/campaign.cpp
     query/campaign_export.cpp
+    query/scope.cpp
     query/search.cpp
     query/testing.cpp
     types/attached_row_codec.cpp
