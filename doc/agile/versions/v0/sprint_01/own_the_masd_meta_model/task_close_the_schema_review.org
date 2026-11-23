@@ -8,7 +8,7 @@
 #+filetags: :own_the_masd_meta_model:sprint_01:v0:
 #+owner: marco
 #+branch: feature/schema-review-fixes
-#+pr:
+#+pr: 199
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-23
@@ -129,7 +129,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/199][#199]] | [db] Close the review of the generated schema |
 
 * Review
 
