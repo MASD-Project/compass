@@ -8,7 +8,7 @@
 #+filetags: :own_the_masd_meta_model:sprint_01:v0:
 #+owner: marco
 #+branch: feature/generate-json-codecs
-#+pr:
+#+pr: 200
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-22
@@ -161,7 +161,7 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/200][#200]] | [codegen] Generate JSON codecs for compass's rows, enums and messages |
 
 * Review
 
