@@ -234,6 +234,13 @@ void load_service_registry(load_context& c, types::value_id root);
 void load_junction(load_context& c, types::value_id root);
 void load_trade_type_catalogue(load_context& c, types::value_id root);
 
+/**
+ * @brief Writes under masd_entity and masd_schema what the physical space
+ * resolves an output path from: the component, the entity and its schema.
+ */
+void load_masd_entity(load_context& c, types::value_id root);
+void load_masd_schema(load_context& c, types::value_id root);
+
 }
 
 #endif

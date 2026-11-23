@@ -59,6 +59,7 @@ add_library(${lib_target_name}
     ops/junction_context.cpp
     ops/library.cpp
     ops/manifest.cpp
+    ops/masd_context.cpp
     ops/model_steps.cpp
     ops/operation_context.cpp
     ops/output.cpp

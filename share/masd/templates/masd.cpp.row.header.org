@@ -1,0 +1,109 @@
+:PROPERTIES:
+:ID: 68A40681-4113-4769-81A6-6306A42A9985
+:END:
+#+title: masd.cpp.row.header
+#+description: The header of a table's row type and the enumerations of its value lists. Output projects/{component_dir}/include/{component_dir}/types/{entity}_row.hpp.
+#+type: archetype
+#+output: projects/{component_dir}/include/{component_dir}/types/{entity}_row.hpp
+#+facet: masd.cpp.row
+#+level: cross
+#+filetags: :codegen:templates:literate:archetype:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is the archetype that writes a table's row header for the
+[[id:EB763415-450C-4D07-8CEA-0988D19BB0B3][masd.cpp.row]] facet, in the namespace =<product>::<component>::types=.
+
+* Context
+
+The context is the library's values (=cpp_license= among them, which
+carries the generated-file marker) and =masd_entity=:
+
+- =table=, =entity=, =row_type=, =brief=, =types_namespace= and
+  =row_guard=, the include guard.
+- =includes=: each =include= the members and enumerations need, standard
+  headers first, then the headers the custom type registry gives.
+- =enums=: each with =name=, =column=, =first= and its =values=, each a
+  =value= with =last=.
+- =members=: each with =member=, =cpp_type= and =initializer=, the value a
+  member starts with, if any: zero, false, or the value of its enumeration
+  the column defaults to, else the first.
+
+The enumerations are in the row's header rather than in headers of their
+own because a model renders one file per archetype, and an enumeration
+belongs to one column of one table.
+
+* Template
+
+The template source. compass's =tangle= codec writes it to
+=masd_cpp_row.hpp.mustache= beside this page.
+
+#+begin_src mustache :tangle masd_cpp_row.hpp.mustache
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.row.header.org. Edit the org source. }}
+{{{cpp_license}}}
+{{#masd_entity}}
+#ifndef {{row_guard}}
+#define {{row_guard}}
+
+{{#includes}}
+#include {{{include}}}
+{{/includes}}
+
+namespace {{types_namespace}} {
+{{#enums}}
+
+/**
+ * @brief The values of {{table}}.{{column}}.
+ */
+enum class {{name}} { {{#values}}{{value}}{{^last}}, {{/last}}{{/values}} };
+
+/**
+ * @brief Each value of {{name}} as {{table}} stores it.
+ */
+[[nodiscard]] constexpr std::string_view to_string({{name}} v) noexcept {
+    switch (v) {
+{{#values}}
+    case {{name}}::{{value}}: return "{{value}}";
+{{/values}}
+    }
+    return "{{first}}";
+}
+
+/**
+ * @brief The {{name}} @p text names, or none for any other text.
+ */
+[[nodiscard]] constexpr std::optional<{{name}}> {{name}}_of(
+    std::string_view text) noexcept {
+{{#values}}
+    if (text == "{{value}}")
+        return {{name}}::{{value}};
+{{/values}}
+    return std::nullopt;
+}
+{{/enums}}
+
+/**
+{{#brief}}
+ * @brief {{brief}}
+ *
+ * A row of {{table}}.
+{{/brief}}
+{{^brief}}
+ * @brief A row of {{table}}.
+{{/brief}}
+ */
+struct {{row_type}} {
+{{#members}}
+    {{{cpp_type}}} {{member}}{{{initializer}}};
+{{/members}}
+};
+
+}
+
+#endif
+{{/masd_entity}}
+#+end_src
+
+* See also
+
+- Parent facet: [[id:EB763415-450C-4D07-8CEA-0988D19BB0B3][masd.cpp.row]]

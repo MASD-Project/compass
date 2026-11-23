@@ -25,10 +25,12 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <vector>
 #include "compass.ingest/org/parser.hpp"
 #include "compass.model/io/json.hpp"
 #include "compass.model/ops/load.hpp"
+#include "compass.model/ops/masd_entity.hpp"
 
 namespace compass::model::tests {
 
@@ -91,6 +93,31 @@ public:
         std::string out;
         io::write_json(out, tables, tables.models.roots[id]);
         return out;
+    }
+
+    /**
+     * @brief Why load_model refuses the model at @p path, or empty when it
+     * loads.
+     */
+    [[nodiscard]] std::string load_error(std::string_view path) const {
+        const auto doc = document_of(*index_.at(std::string(path)));
+        const auto type = ops::model_type_of(ops::declared_type(doc));
+        types::model_tables tables;
+        ops::builder b(tables);
+        ops::load_cache cache;
+        std::string error;
+        std::ignore = ops::load_model(b, doc, *type, finder(), lister(),
+            cache, &error);
+        return error;
+    }
+
+    /**
+     * @brief The masd.codegen.entity model at @p path, read with every
+     * other document of the checkout visible to it.
+     */
+    [[nodiscard]] types::masd_entity masd_entity(std::string_view path) const {
+        return ops::read_masd_entity(document_of(*index_.at(std::string(path))),
+            finder());
     }
 
     /**

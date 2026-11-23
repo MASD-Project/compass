@@ -1,0 +1,35 @@
+:PROPERTIES:
+:ID: C9311F98-CD91-4801-A2A8-7D4CC3171DC2
+:END:
+#+title: Profile: Owned child row
+#+description: A row that belongs to a content-addressed row, keyed by its owner's key and its place among its siblings, written in bulk with its owner.
+#+type: profile
+#+level: cross
+#+filetags: :codegen:variability:profile:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is a profile of the =masd.codegen.entity= models of compass. A
+model binds it with =:profile: owned-child-row= in its =* Flags= drawer.
+
+* Purpose
+
+A heading, a section or a link of a document, or a step of a scenario: a
+row that exists only as part of its owner, keyed by the owner's key and an
+=ord=, its place in the owner's vector, and deleted with it. Both key
+columns stay out of the row type; the COPY writer, which the profile
+switches on, takes them beside the row.
+
+* Reference entity
+
+=compass.db.heading=, a heading of an org document.
+
+* Assignments
+
+The profile assigns no feature.
+
+* Physical space
+
+| Address           | Enabled |
+|-------------------+---------|
+| =masd.cpp.copy=   | true    |

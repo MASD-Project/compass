@@ -1,0 +1,76 @@
+:PROPERTIES:
+:ID: 7CA0A2A7-86E0-4CBE-8EF4-5F53103E2F46
+:END:
+#+title: masd.cpp.copy.header
+#+description: The header of a table's COPY writer: its column list and the declaration of write_copy. Output projects/{component_dir}/include/{component_dir}/io/{entity}_copy.hpp.
+#+type: archetype
+#+output: projects/{component_dir}/include/{component_dir}/io/{entity}_copy.hpp
+#+facet: masd.cpp.copy
+#+level: cross
+#+filetags: :codegen:templates:literate:archetype:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is the archetype that writes the header of a table's COPY writer
+for the [[id:FD814477-B747-4261-A54B-5647EC66E22F][masd.cpp.copy]] facet.
+
+* Context
+
+The context is the library's values and =masd_entity=:
+
+- =table=, =entity=, =row_type=, =io_namespace= and =copy_guard=.
+- =copy.includes=: the headers of the column list, the parameters, the
+  component's =copy_writer= and the row type.
+- =copy_column_lines=: the column list split into string literals that fit
+  the line, each with =text= and =last=; the literals concatenate.
+- =copy_parameters=: the =declaration= of each key parameter.
+
+* Template
+
+The template source. compass's =tangle= codec writes it to
+=masd_cpp_copy.hpp.mustache= beside this page.
+
+#+begin_src mustache :tangle masd_cpp_copy.hpp.mustache
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.copy.header.org. Edit the org source. }}
+{{{cpp_license}}}
+{{#masd_entity}}
+#ifndef {{copy_guard}}
+#define {{copy_guard}}
+
+{{#copy}}
+{{#includes}}
+#include {{{include}}}
+{{/includes}}
+{{/copy}}
+
+namespace {{io_namespace}} {
+
+/**
+ * @brief The columns of {{table}} that write_copy writes,
+ * in its order, for the column list of a COPY ... FROM STDIN.
+ */
+inline constexpr std::string_view {{entity}}_copy_columns =
+{{#copy_column_lines}}
+    "{{text}}"{{#last}};{{/last}}
+{{/copy_column_lines}}
+
+/**
+ * @brief Writes a row of {{table}} to @p w, in the order of
+ * {{entity}}_copy_columns.
+ */
+void write_copy(ops::copy_writer& w,
+{{#copy_parameters}}
+    {{{declaration}}},
+{{/copy_parameters}}
+    const types::{{row_type}}& r);
+
+}
+
+#endif
+{{/masd_entity}}
+#+end_src
+
+* See also
+
+- Parent facet: [[id:FD814477-B747-4261-A54B-5647EC66E22F][masd.cpp.copy]]
+- [[id:0A34FA7B-14D4-44C2-9098-411AE3DF45BF][masd.cpp.copy.impl]]: the definition.

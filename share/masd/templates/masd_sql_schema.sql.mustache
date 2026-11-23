@@ -1,0 +1,32 @@
+{{! GENERATED FILE — tangled from share/masd/templates/masd.sql.schema.create.org. Edit the org source. }}
+{{{sql_license}}}
+/*
+ * AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
+ * Template: masd_sql_schema.sql.mustache
+ * To modify, update the template and regenerate.
+ */
+{{#masd_schema}}
+{{#schemas}}
+
+CREATE SCHEMA {{name}};
+{{#tables}}
+
+{{#retained}}
+-- {{table}} is retained: its rows exist nowhere else, so a change
+-- to it needs a migration.
+{{/retained}}
+CREATE TABLE {{table}} (
+{{#definitions}}
+    {{{definition}}}{{^last}},{{/last}}
+{{/definitions}}
+);
+{{#indexes}}
+{{{statement}}}
+{{/indexes}}
+{{/tables}}
+{{/schemas}}
+{{#functions}}
+
+{{{sql}}}
+{{/functions}}
+{{/masd_schema}}

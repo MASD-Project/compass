@@ -1,0 +1,82 @@
+:PROPERTIES:
+:ID: 16D8D930-4264-45BC-BC22-3046F9C57523
+:END:
+#+title: masd.sql.schema.create
+#+description: sql/schema.sql of a component: every schema its masd.codegen.schema model lists, the tables of the masd.codegen.entity models beside it, their indexes, and the schema's functions. Output projects/{component_dir}/sql/schema.sql.
+#+type: archetype
+#+output: projects/{component_dir}/sql/schema.sql
+#+facet: masd.sql.schema
+#+level: cross
+#+filetags: :codegen:templates:literate:archetype:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is the archetype that writes =sql/schema.sql= for the
+[[id:883A9765-56E8-4CF8-9871-73066663022E][masd.sql.schema]] facet: the whole schema of a component at its current
+version, as plain PostgreSQL with no tenancy, history or row-level
+security.
+
+* Context
+
+The context is the library's values (=sql_license= among them) and
+=masd_schema=, which the MASD schema context builds from the schema model
+and every =masd.codegen.entity= model in the same directory:
+
+- =schemas=: in the model's order, each with its =name= and its =tables=.
+- =tables=: each with =table=, the schema-qualified name; =retained=;
+  =definitions=, the column definitions then the table constraints, each
+  with =last= on the final one; and =indexes=, each a whole =statement=.
+- =functions=: the =sql= of each function, as the model holds it.
+
+A column definition is the column's name and SQL type, then in order:
+=GENERATED ALWAYS AS IDENTITY= for an =identity= key, =GENERATED ALWAYS AS
+(...) STORED= for a =:generated:= column, =PRIMARY KEY= for the only key
+column or =NOT NULL= for a column that is not =:nullable:=, =UNIQUE=, the
+=DEFAULT=, the =REFERENCES= of its foreign key with =ON DELETE CASCADE=,
+and the =CHECK= of its =:values:=. A key of several columns, each =* SQL **
+Unique= row and each =** Checks= row is a table constraint. An index is
+named =<table>_<name>=, as PostgreSQL scopes index names to the schema.
+
+* Template
+
+The template source. compass's =tangle= codec writes it to
+=masd_sql_schema.sql.mustache= beside this page.
+
+#+begin_src mustache :tangle masd_sql_schema.sql.mustache
+{{! GENERATED FILE — tangled from share/masd/templates/masd.sql.schema.create.org. Edit the org source. }}
+{{{sql_license}}}
+/*
+ * AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
+ * Template: masd_sql_schema.sql.mustache
+ * To modify, update the template and regenerate.
+ */
+{{#masd_schema}}
+{{#schemas}}
+
+CREATE SCHEMA {{name}};
+{{#tables}}
+
+{{#retained}}
+-- {{table}} is retained: its rows exist nowhere else, so a change
+-- to it needs a migration.
+{{/retained}}
+CREATE TABLE {{table}} (
+{{#definitions}}
+    {{{definition}}}{{^last}},{{/last}}
+{{/definitions}}
+);
+{{#indexes}}
+{{{statement}}}
+{{/indexes}}
+{{/tables}}
+{{/schemas}}
+{{#functions}}
+
+{{{sql}}}
+{{/functions}}
+{{/masd_schema}}
+#+end_src
+
+* See also
+
+- Parent facet: [[id:883A9765-56E8-4CF8-9871-73066663022E][masd.sql.schema]]

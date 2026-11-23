@@ -35,6 +35,7 @@
 #include "compass.codegen/ops/entity_registry.hpp"
 #include "compass.codegen/ops/facts.hpp"
 #include "compass.codegen/ops/manifest.hpp"
+#include "compass.codegen/ops/masd_context.hpp"
 #include "compass.codegen/ops/model_contexts.hpp"
 #include "compass.codegen/ops/output.hpp"
 #include "compass.codegen/ops/physical_space.hpp"
@@ -42,6 +43,7 @@
 #include "compass.codegen/ops/values.hpp"
 #include "compass.model/ops/builder.hpp"
 #include "compass.model/ops/entity_claim.hpp"
+#include "compass.model/ops/masd_entity.hpp"
 #include "compass.model/ops/outline.hpp"
 
 namespace compass::codegen::ops {
@@ -122,10 +124,11 @@ bool is_model_candidate(std::string_view path) {
 }
 
 /**
- * @brief The physical-space graph of the <root>.*.org nodes of the
- * templates/ directories of @p libraries, read in file-name order as
- * load_graph reads them, with the name and the bytes of each node
- * appended to @p read.
+ * @brief The physical-space graph of the <root>.*.org and masd.*.org nodes
+ * of the templates/ directories of @p libraries, read in file-name order
+ * as load_graph reads them, with the name and the bytes of each node
+ * appended to @p read. The masd nodes are the MASD library's technical
+ * spaces, which serve the masd.codegen model types of any product.
  * @throws std::runtime_error when two libraries hold a node of the same
  * name: a node lives in one library, so a page moved between them cannot
  * be left in both.
@@ -133,11 +136,17 @@ bool is_model_candidate(std::string_view path) {
 types::physical_space load_graph(const checkout_reader& reader,
     const std::vector<std::string>& libraries, std::string_view root,
     std::string& read) {
+    std::vector<std::string> roots{std::string(root)};
+    if (root != masd_root)
+        roots.emplace_back(masd_root);
     std::map<std::string, std::pair<std::string, std::string>> found;
     for (const auto& library : libraries) {
         const auto templates = library + "/templates";
-        for (const auto path : reader.list(templates + "/" +
-                 std::string(root) + ".", ".org")) {
+        std::vector<std::string_view> paths;
+        for (const auto& r : roots)
+            std::ranges::copy(reader.list(templates + "/" + r + ".", ".org"),
+                std::back_inserter(paths));
+        for (const auto path : paths) {
             if (path.find('/', templates.size() + 1) != std::string_view::npos)
                 continue;
             const std::string name(file_name(path));
@@ -386,7 +395,9 @@ constexpr context_type context_types[] = {
     {model_type::asset_class_catalogue, "asset_class_catalogue"},
     {model_type::outcome_catalogue, "outcome_catalogue"},
     {model_type::trade_type_catalogue, "trade_type_catalogue"},
-    {model_type::service_registry, "service_registry"}};
+    {model_type::service_registry, "service_registry"},
+    {model_type::masd_entity, "masd_entity"},
+    {model_type::masd_schema, "masd_schema"}};
 
 /**
  * @brief A model's shared context and what its template variants are
@@ -539,6 +550,55 @@ struct model_plan {
 using template_filter = std::function<bool(std::string_view name)>;
 
 /**
+ * @brief Adds to @p out a row for each of @p units, rendered from
+ * @p context unless @p wanted refuses its template; a later unit naming
+ * an output replaces the earlier one.
+ */
+void add_rows(model_plan& out, const std::vector<unit>& units,
+    value_id context, std::string_view type_name,
+    const template_filter& wanted) {
+    std::unordered_map<std::string, std::size_t> rows;
+    for (const auto& u : units) {
+        const bool kept = wanted && !wanted(u.template_name);
+        model_row row{{u.output, u.template_name,
+            kept ? value_id::none() : context, type_name}, kept};
+        const auto [at, added] = rows.try_emplace(u.output, out.rows.size());
+        if (added)
+            out.rows.push_back(std::move(row));
+        else
+            out.rows[at->second] = std::move(row);
+    }
+}
+
+/**
+ * @brief The context of a model of the MASD library: a table's, or a
+ * component's schema with every table modelled beside it.
+ * @throws compass::model::ops::model_error when a table beside the schema
+ * does not load.
+ */
+value_id masd_context(mops::builder& b, value_id library,
+    const mops::document& doc, model_type type, documents& docs,
+    const types::entity_registry& entities) {
+    const auto& find = docs.finder();
+    if (type == model_type::masd_entity)
+        return masd_entity_context(b, library,
+            mops::read_masd_entity(doc, find), entities.custom_types);
+    const auto dir = doc.path.substr(0, doc.path.rfind('/') + 1);
+    std::vector<compass::model::types::masd_entity> tables;
+    for (const auto p : docs.org()) {
+        if (!p.starts_with(dir) ||
+            p.find('/', dir.size()) != std::string_view::npos)
+            continue;
+        const auto d = docs.get(p);
+        if (d && mops::model_type_of(mops::declared_type(*d)) ==
+                model_type::masd_entity)
+            tables.push_back(mops::read_masd_entity(*d, find));
+    }
+    return masd_schema_context(b, library, mops::read_masd_schema(doc),
+        tables);
+}
+
+/**
  * @brief Plans the outputs of the model at @p path with the values of
  * @p b, reading @p registry and @p entities, which record what is read
  * of them. A unit whose template @p wanted refuses is planned as kept.
@@ -590,6 +650,18 @@ model_plan plan_model(mops::builder& b, value_id library,
             true),
         protocol_owned(registry, b.tables(),
             values::member(b.tables(), root, type_name), path)};
+    if (*type == model_type::masd_entity ||
+        *type == model_type::masd_schema) {
+        try {
+            const auto context = masd_context(b, library, *doc, *type, docs,
+                entities);
+            out.context = true;
+            add_rows(out, units, context, type_name, wanted);
+        } catch (const mops::model_error& e) {
+            out.error = std::string(path) + ": " + e.what();
+        }
+        return out;
+    }
     const auto members = *type == model_type::family
         ? family_members_of(path, docs, b, cache) : family_members{};
     const auto groups = *type == model_type::trade_type_catalogue

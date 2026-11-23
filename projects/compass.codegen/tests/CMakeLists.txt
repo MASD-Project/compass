@@ -52,6 +52,7 @@ add_executable(${tests_target_name}
     ops_entity_surfaces_tests.cpp
     ops_entity_typescript_tests.cpp
     ops_library_tests.cpp
+    ops_masd_context_tests.cpp
     ops_model_contexts_tests.cpp
     ops_output_tests.cpp
     ops_physical_space_tests.cpp
@@ -61,7 +62,8 @@ add_executable(${tests_target_name}
 
 target_compile_definitions(${tests_target_name} PRIVATE
     COMPASS_CODEGEN_SPEC_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/mustache_spec"
-    COMPASS_CODEGEN_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data")
+    COMPASS_CODEGEN_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data"
+    COMPASS_MASD_TEMPLATES_DIR="${CMAKE_SOURCE_DIR}/share/masd/templates")
 
 target_link_libraries(${tests_target_name}
     PRIVATE
