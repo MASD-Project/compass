@@ -173,17 +173,6 @@ std::size_t table_cells(const compass::org::types::tables& t) {
 }
 
 /**
- * @brief The target of each link of @p page, in order.
- */
-std::vector<std::string> link_paths(const std::string& page) {
-    const auto t = parsed(page);
-    std::vector<std::string> out;
-    for (const auto& r : t.links.paths.values)
-        out.emplace_back(page.substr(r.begin, r.size()));
-    return out;
-}
-
-/**
  * @brief @p page with each zero-width space removed: the text a reader of
  * the page sees.
  */
@@ -194,6 +183,32 @@ std::string shown(std::string page) {
         page.erase(at, zwsp.size());
     return page;
 }
+
+/**
+ * @brief The description of each link of @p page as a reader sees it, in
+ * order.
+ */
+std::vector<std::string> link_descriptions(const std::string& page) {
+    const auto t = parsed(page);
+    std::vector<std::string> out;
+    for (const auto o : t.links.objects.values) {
+        const auto r = t.objects.contents.values[o.value];
+        out.push_back(shown(page.substr(r.begin, r.size())));
+    }
+    return out;
+}
+
+/**
+ * @brief The target of each link of @p page, in order.
+ */
+std::vector<std::string> link_paths(const std::string& page) {
+    const auto t = parsed(page);
+    std::vector<std::string> out;
+    for (const auto& r : t.links.paths.values)
+        out.emplace_back(page.substr(r.begin, r.size()));
+    return out;
+}
+
 
 /**
  * @brief org-unescape-code-in-string: drops one comma from each line that
@@ -351,11 +366,12 @@ TEST_CASE("render_campaign keeps brackets and bars in tester text and "
     CHECK(hostile.headings.size() == plain.headings.size());
     for (const auto* text : {"see [[id:NOPE-1][the spec]]",
              "[[id:NOPE-2]] cap", "[[id:NOPE-3][ana]]",
-             "plain id:NOPE-5 and file:x.org",
-             "[[id:STORY-1][Story: A \\vert{} B ]] C]]",
-             "[[id:SPRINT-1][Sprint ] 1]]]",
-             "[[id:SC-2][Test Scenario: [[x]] \\vert{} y]]]"})
+             "plain id:NOPE-5 and file:x.org"})
         CHECK_THAT(shown(page), ContainsSubstring(text));
+    const auto descriptions = link_descriptions(page);
+    for (const auto* title : {"Story: A \\vert{} B ]] C", "Sprint ] 1]",
+             "Test Scenario: [[x]] \\vert{} y]"})
+        CHECK(std::ranges::count(descriptions, std::string(title)) > 0);
 }
 
 TEST_CASE("render_campaign is a function of the rows: the same rows give "
