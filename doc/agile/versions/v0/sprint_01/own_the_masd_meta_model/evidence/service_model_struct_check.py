@@ -2,7 +2,8 @@
 
 Every message is either the struct of its name, member for member (name,
 type and default, in order), or one of the pinned new messages; every struct
-is a message or one of the pinned unmodelled structs. A field of an
+is a message, a table row (a struct named *_row, which compass.db's
+schema generates or holds) or one of the pinned unmodelled structs. A field of an
 enumerated type lists the enumerators of its enum class in :values:, in
 order. A request's :response: is the return type of a query function that
 takes the request's struct, or nothing when that function returns void. Each
@@ -40,9 +41,7 @@ UNMODELLED = {
     "view_filter", "ranking", "note_kinds", "environment", "placement",
     "exported_screenshot", "exported_step", "exported_run",
     "exported_scenario", "exported_note", "exported_image", "page_ref",
-    "campaign_rows", "exported_file",
-    "document_row", "heading_row", "section_row", "link_row", "step_row",
-    "scenario_row", "corpus_document",
+    "campaign_rows", "exported_file", "corpus_document",
 }
 
 # The alignment design moves the caller out of the six write requests and
@@ -221,7 +220,7 @@ def check_against_types(root, msgs, report):
         if name not in msgs:
             report.fail(f"{name}: pinned new but not a message")
     for struct in sorted(set(cpp) - used):
-        if struct not in UNMODELLED:
+        if struct not in UNMODELLED and not struct.endswith("_row"):
             report.fail(f"struct {struct} has no message and is not pinned")
     for struct in sorted(UNMODELLED - set(cpp)):
         report.fail(f"pinned unmodelled struct {struct} does not exist")

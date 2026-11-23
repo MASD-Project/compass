@@ -70,7 +70,7 @@ mut "c++: a new struct export_request with no message" \
 mut "model: :values: of step_outcome loses two enumerators" \
     "sed -i 's/^:values:   pass fail blocked skipped/:values:   pass fail/' $cw"
 mut "c++: enum step_outcome gains an enumerator" \
-    "sed -i 's/enum class step_outcome { pass, fail, blocked, skipped }/enum class step_outcome { pass, fail, blocked, skipped, waived }/' $types/campaign.hpp"
+    "sed -i 's/enum class step_outcome { pass, fail, blocked, skipped }/enum class step_outcome { pass, fail, blocked, skipped, waived }/' $types/*.hpp"
 mut "model: start_run_request reads tester from the body" \
     "sed -i '0,/^The scenario.s =:ID:=.\$/s//&\n\n*** tester\n:PROPERTIES:\n:cpp_type: std::string\n:http_in:  body\n:END:/' $cw"
 mut "model: finish_run loses its :response:" \
