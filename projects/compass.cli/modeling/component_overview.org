@@ -2,12 +2,12 @@
 :ID: 45FA67C9-60BC-420D-BB66-8A272CB1106C
 :END:
 #+title: compass.cli
-#+description: The compass executable and the library behind it: one function per command (generate, diff, check, gc, config, hook, env, sync, db) that runs the pipeline over a checkout and returns a result, the command-line parser, the reader of the repository's .compass.org, and the report that prints each result with its exit status.
+#+description: The compass executable and the library behind it: one function per command (generate, diff, check, gc, config, hook, env, sync, db, test) that runs the pipeline over a checkout and returns a result, the command-line parser, the reader of the repository's .compass.org, and the report that prints each result with its exit status.
 #+type: component
 #+level: cross
 #+filetags: :cli:application:pipeline:component:
 #+created: 2026-11-16
-#+updated: 2026-11-22
+#+updated: 2026-11-23
 
 This page is the component overview for =compass.cli=, a simple component
 in the application layer of the
@@ -73,9 +73,10 @@ thing with what the codecs produced:
 | =db status=       | Prints the schema version, the text search configuration, row counts, the size and every environment; exits 1 when the schema is not current. | Nothing.                     |
 | =db hooks install= | Writes git's =post-checkout=, =post-merge= and =post-rewrite= hooks to run =compass sync= in the background, leaving a hook that is not compass's as it is and exiting 1. | The hooks directory git names. |
 | =db prune=        | Drops the environments whose worktree is gone, or the one =--environment= names, then collects the corpus. | The database. |
+| =test export=     | Writes each test campaign of =--environment= (default: as =sync= names it), or only that of =--story <id>=, into its story's folder as a =test_campaign= page with its screenshots beside it, writing only the files whose bytes change, then sets the campaigns' =exported_at=. Exits 1 when a campaign's story is no longer in the environment. | The story folders; the database's =exported_at=. |
 
-=sync= and =db= run outside the pipeline's evaluation: =app::run_sync= and
-=app::run_db= read the local settings (=config::read_local_settings=). The
+=sync=, =db= and =test= run outside the pipeline's evaluation:
+=app::run_sync=, =app::run_db= and =app::run_test= read the local settings (=config::read_local_settings=). The
 repository's file is =compass/local.org= under the git directory every
 worktree shares; each worktree's own git directory may hold one too, which
 wins. =#+database:= is a libpq connection string and =#+environment:= names
@@ -768,8 +769,10 @@ range, 1-based, the column counted in bytes. The rule is written as
 | =include/compass.cli/app/env.hpp=                | =app::run_env=: =compass env=.                                                     |
 | =include/compass.cli/config/local_settings.hpp=  | The machine's local settings: =#+database:= and =#+environment:=, and the environment's name. |
 | =include/compass.cli/app/sync.hpp=               | =sync_environment= and =sync_file=: the corpus sync over the pipeline's steps.     |
-| =include/compass.cli/app/database.hpp=           | =run_sync=, =run_db=, and the syncs at the end of a run and in the edit hook.      |
+| =include/compass.cli/app/database.hpp=           | =run_sync=, =run_db=, =run_test=, and the syncs at the end of a run and in the edit hook. |
+| =include/compass.cli/app/test_export.hpp=        | =export_campaigns=: reads, renders and writes an environment's test campaigns.   |
 | =tests/app_sync_tests.cpp=                       | =db init=, =sync=, =--commit=, the syncs of a run and of the hook, =db prune= and =db hooks install=, against a throwaway cluster. |
+| =tests/app_test_export_tests.cpp=                | =test export=: the files it writes, a second export that writes nothing, stable IDs when a note is added, and an unknown environment, against a throwaway cluster. |
 | =src/main.cpp=                                   | The executable.                                                                    |
 | =tests/end_to_end.sh=                            | The built executable over a fresh repository, then configured by a =.compass.org=. |
 | =tests/install_compass.sh=                       | The install script over copies of the executable, in a temporary =HOME=.           |

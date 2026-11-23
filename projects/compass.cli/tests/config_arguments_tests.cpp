@@ -235,3 +235,21 @@ TEST_CASE("db takes an action and the options of init",
              {"check", "--environment", "x"}, {"gen", "--commit", "HEAD"}})
         CHECK(std::holds_alternative<config::usage_error>(parse(args)));
 }
+
+TEST_CASE("test takes export, and export --environment and --story",
+    "[config][arguments]") {
+    const auto parsed = parse({"test", "export", "--environment", "main",
+        "--story", "STORY-1"});
+    REQUIRE(std::holds_alternative<types::invocation>(parsed));
+    const auto& o = std::get<types::invocation>(parsed);
+    CHECK(o.which == types::command::test);
+    CHECK(o.environment == "main");
+    CHECK(o.test.story == "STORY-1");
+    const auto bare = parse({"test", "export"});
+    REQUIRE(std::holds_alternative<types::invocation>(bare));
+    CHECK_FALSE(std::get<types::invocation>(bare).test.story);
+    for (const auto& args : std::vector<std::vector<std::string_view>>{
+             {"test"}, {"test", "import"}, {"test", "export", "again"},
+             {"sync", "--story", "STORY-1"}})
+        CHECK(std::holds_alternative<config::usage_error>(parse(args)));
+}

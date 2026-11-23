@@ -29,6 +29,7 @@ add_library(${lib_target_name}
     app/pipeline.cpp
     app/steps.cpp
     app/sync.cpp
+    app/test_export.cpp
     config/arguments.cpp
     config/check_documents.cpp
     config/local_settings.cpp

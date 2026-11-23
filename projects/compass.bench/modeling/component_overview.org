@@ -7,7 +7,7 @@
 #+level: cross
 #+filetags: :bench:performance:component:
 #+created: 2026-11-16
-#+updated: 2026-11-16
+#+updated: 2026-11-23
 
 This page is the component overview for =compass.bench=, a simple component
 in the tooling layer of the
@@ -130,9 +130,11 @@ count of scenarios in each state, each story with scenarios and the count of
 tasks in each state, and times each question once and then =--repeat= times.
 
 =campaign= is not a stage either. It plays a script of =compass.db='s
-campaign writes, one a line (=start=, =step=, =attach=, =note=, =address=,
-=finish=), against an environment, and prints each write's result, or the
-reason it was refused, and its latency.
+campaign writes, one a line (=start=, =campaign=, =step=, =attach=, =note=,
+=address=, =finish=), against an environment, and prints each write's
+result, or the reason it was refused, and its latency. =campaign= acts on a
+campaign with no run, so a script can add a note to a campaign whose runs
+are done, and =attach= takes the image type from the file's extension.
 
 =org-dump= is not a stage. It parses one org file and prints its tables in
 the line format of =compass::org::io::dump=, which
