@@ -21,7 +21,14 @@ set(lib_target_name ${name}.lib)
 add_library(${lib_target_name}
     io/connection.cpp
     io/corpus.cpp
+    io/document_copy.cpp
+    io/heading_copy.cpp
+    io/link_copy.cpp
+    io/placement_copy.cpp
+    io/scenario_copy.cpp
     io/schema.cpp
+    io/section_copy.cpp
+    io/step_copy.cpp
     ops/copy_text.cpp
     ops/extract.cpp
     ops/migrations.cpp

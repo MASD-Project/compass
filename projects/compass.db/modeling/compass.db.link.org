@@ -52,6 +52,7 @@ The row's place among its document's rows of this table, from 0. It is the index
 :type:      integer
 :cpp_type:  std::uint32_t
 :nullable:  true
+:member:    heading
 :END:
 
 The =ord= of the heading the link sits under; NULL before the first heading. The row type names the member =heading=; see Notes.
@@ -106,13 +107,14 @@ The document this row belongs to. Deleting the document deletes the row.
 * C++
 
 The row is =compass::db::types::link_row= of
-=compass.db/types/corpus_document.hpp=: =heading=, =type=, =path=,
-=target_id= and =text=.
+=compass.db/types/link_row.hpp=, generated: =heading=, =type=, =path=,
+=target_id= and =text=; =write_copy= of =compass.db/io/link_copy.hpp= takes
+the hash and the ord beside it.
 
 * Notes
 
-The member is =heading= and the column =heading_ord=, as in
-=compass.db.section=; the model cannot say so.
+=:member: heading= names the member of the column =heading_ord=, as in
+=compass.db.section=.
 
 * See also
 

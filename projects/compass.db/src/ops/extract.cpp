@@ -334,10 +334,10 @@ bool is_result_heading(std::string_view title) {
  * @brief The test definition of a test_scenario page: Scenario Info's
  * links and target, the steps under * Steps, and the definition hash.
  */
-types::scenario_row scenario_of(const reader& r,
+types::test_scenario scenario_of(const reader& r,
     const types::document_row& d) {
     const auto& t = r.t;
-    types::scenario_row s;
+    types::test_scenario s;
     s.org_id = d.org_id;
     s.title = d.title;
     std::vector<ot::source_range> left_out;
@@ -352,7 +352,7 @@ types::scenario_row scenario_of(const reader& r,
             const auto cells = cells_of(r.text_of(range));
             if (cells.size() < 2)
                 continue;
-            const auto first_id_link = [&]() -> types::nullable {
+            const auto first_id_link = [&]() -> std::optional<std::string> {
                 for (std::uint32_t l = 0; l < t.links.size(); ++l) {
                     const ot::link_id id{l};
                     const auto at = r.link_range(id).begin;
@@ -442,7 +442,7 @@ types::corpus_document extract(const store::types::blob_id& hash,
         const auto name = name_text(t, t.keywords.names[id]);
         const auto value = r.text_of(trimmed(source, t.keywords.values[id]));
         keywords.add(name, value);
-        const auto set = [&](types::nullable& column) {
+        const auto set = [&](std::optional<std::string>& column) {
             if (!column && !value.empty())
                 column = std::string(value);
         };

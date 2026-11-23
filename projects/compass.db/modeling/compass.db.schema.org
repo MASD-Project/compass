@@ -1,0 +1,82 @@
+:PROPERTIES:
+:ID: 8F62072A-8E42-41ED-B409-0283C22A4BD3
+:END:
+#+title: compass.db.schema
+#+description: Codegen schema model for compass's database: the schemas sql/schema.sql creates, in order, and the functions it creates after the tables of the entity models beside it.
+#+type: masd.codegen.schema
+#+component: db
+#+filetags: :model:schema:database:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+The whole of compass's database at the current version, as
+=projects/compass.db/sql/schema.sql= states it. Each table is the
+=masd.codegen.entity= model beside this page; this model adds what belongs to
+no one table: which schemas exist and in what order, and the functions. The
+script is never run against a database that holds data. The migrations of
+=src/ops/migrations.cpp= change such a database, and the catalog test of
+=compass.db= checks that they build what this script builds.
+
+* Flags
+:PROPERTIES:
+:product:    compass
+:component:  db
+:END:
+
+* Schemas
+
+The schemas in the order the script creates them, which is the order a
+foreign key may point in: a test scenario is a document of the corpus. The
+schema =compass= is not listed: the migration runner creates it, with its
+tables, before it applies the first migration.
+
+| name     | description                                                      |
+|----------+------------------------------------------------------------------|
+| corpus   | The documents of every environment and the paths that hold them. |
+| test     | The test scenarios among those documents and their steps.        |
+| activity | The test campaigns, runs, results, notes and screenshots.        |
+
+* Functions
+
+** corpus.sprint_members
+
+A sprint's members follow the =id:= links of preambles, the sentence that
+names a page's parent: a sprint page is in itself, a story or scenario names
+its sprint, a task names its story. The links are followed backwards from
+the sprint, through =link_target_id=, so a sprint costs a few index scans
+rather than one probe per document. Migration 2 created it.
+
+#+begin_src sql
+CREATE FUNCTION corpus.sprint_members(environment bigint, sprint text)
+RETURNS SETOF bytea LANGUAGE sql STABLE AS $$
+    WITH page AS (
+        SELECT d.hash FROM corpus.document d
+        JOIN corpus.placement p ON p.hash = d.hash
+            AND p.environment = sprint_members.environment
+        WHERE d.org_id = sprint AND d.type = 'sprint'
+    ),
+    child AS (
+        SELECT l.hash FROM corpus.link l
+        WHERE l.target_id = sprint AND l.heading_ord IS NULL
+          AND EXISTS (SELECT 1 FROM page)
+    ),
+    story AS (
+        SELECT d.org_id FROM child c
+        JOIN corpus.document d ON d.hash = c.hash AND d.type = 'story'
+        JOIN corpus.placement p ON p.hash = d.hash
+            AND p.environment = sprint_members.environment
+        WHERE d.org_id IS NOT NULL
+    )
+    SELECT hash FROM page
+    UNION
+    SELECT hash FROM child
+    UNION
+    SELECT l.hash FROM story s
+    JOIN corpus.link l ON l.target_id = s.org_id AND l.heading_ord IS NULL
+$$;
+#+end_src
+
+* See also
+
+- [[id:493B7D68-516E-4430-B4CE-688C6FBE1271][compass.db]]: the component overview, which lists every model.
+- [[id:883A9765-56E8-4CF8-9871-73066663022E][masd.sql.schema]]: the facet that writes =schema.sql=.

@@ -22,6 +22,7 @@ transaction, so a reader sees the old placements or the new ones, never a mix.
 :component:  db
 :schema:     corpus
 :profile:    environment-state
+:row_type:   placement
 :END:
 
 The profile =environment-state= is not one the investigation names; this model proposes it. It fixes =current_state= and neither =read_only= nor =retained=: a sync rewrites the row, and =drop_environment= deletes it.
@@ -32,7 +33,7 @@ The profile =environment-state= is not one the investigation names; this model p
 :PROPERTIES:
 :type:         bigint
 :primary_key:  true
-:key_kind:     natural
+:key_kind:     owner
 :END:
 
 The environment that places the path: the owner's key. The writer takes it as an argument, so the row type leaves it out; see Notes.
@@ -79,20 +80,27 @@ A placement keeps its document: a document is deleted only by collection, which 
 |------+---------+--------+-------+-------+---------|
 | hash | hash    | false  |       |       |         |
 
+* Physical space
+
+A sync stages every placement of an environment with =COPY=, so the model
+switches the COPY writer on; its profile leaves it off.
+
+| Address         | Enabled |
+|-----------------+---------|
+| =masd.cpp.copy= | true    |
+
 * C++
 
 The row is =compass::db::types::placement= of
-=compass.db/types/environment.hpp=: =path= and =hash=.
+=compass.db/types/placement_row.hpp=: =path= and =hash=. =:row_type:= keeps
+#176's name. =environment= is an =owner= key: the key of the environment
+that owns the row, which the COPY writer takes beside it.
 
 * Notes
 
-- =environment= is part of the key and left out of the row, as an owner's key
-  is. None of the investigation's key kinds says that: =content_hash= is a
-  blob ID, =identity= is generated, =ord= is a position and =natural= stays in
-  the row. The model states =natural=, which is true of the column but would
-  put it in the row; the key kind this column needs is an owner's key, such
-  as =key_kind: owner=.
-- #176's type is named =placement=, not =placement_row=.
+The key kinds of the investigation had no word for a key that is the owner's
+and not a content hash, so the format gained =key_kind: owner=; the type's
+name, which is not =placement_row=, is =:row_type:= in =* Flags=.
 
 * See also
 

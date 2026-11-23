@@ -74,6 +74,11 @@ void copy_writer::number(std::uint64_t value) {
     out_ += std::to_string(value);
 }
 
+void copy_writer::integer(std::int64_t value) {
+    separate();
+    out_ += std::to_string(value);
+}
+
 void copy_writer::null() {
     separate();
     out_ += "\\N";

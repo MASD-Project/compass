@@ -21,48 +21,11 @@
 #define COMPASS_DB_TYPES_ENVIRONMENT_HPP
 
 #include <cstdint>
-#include <optional>
 #include <string>
-#include <string_view>
-#include "compass.store/types/blob_id.hpp"
+#include "compass.db/types/environment_row.hpp"
+#include "compass.db/types/placement_row.hpp"
 
 namespace compass::db::types {
-
-/**
- * @brief What an environment is a copy of: a worktree's files, a branch,
- * or a release synced from a commit at deploy.
- */
-enum class environment_kind : std::uint8_t { worktree, branch, release };
-
-[[nodiscard]] constexpr std::string_view to_string(
-    environment_kind k) noexcept {
-    switch (k) {
-    case environment_kind::worktree: return "worktree";
-    case environment_kind::branch: return "branch";
-    case environment_kind::release: return "release";
-    }
-    return "worktree";
-}
-
-/**
- * @brief The environment a sync writes. root is the checkout of a
- * worktree, empty for a release; head is the commit its files are at, when
- * the sync knows it.
- */
-struct environment {
-    std::string name;
-    environment_kind kind = environment_kind::worktree;
-    std::string root;
-    std::optional<std::string> head;
-};
-
-/**
- * @brief A path of an environment and the blob ID of what it holds.
- */
-struct placement {
-    std::string path;
-    store::types::blob_id hash;
-};
 
 /**
  * @brief An environment as the database holds it, with how many paths it

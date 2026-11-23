@@ -138,8 +138,9 @@ The document this row belongs to. Deleting the document deletes the row.
 * C++
 
 The row is =compass::db::types::heading_row= of
-=compass.db/types/corpus_document.hpp=, field for field: =hash= and =ord=
-are left out by their key kinds.
+=compass.db/types/heading_row.hpp=, generated: =hash= and =ord= are left out
+by their key kinds, and =write_copy= of =compass.db/io/heading_copy.hpp=
+takes them beside the row.
 
 * Notes
 
