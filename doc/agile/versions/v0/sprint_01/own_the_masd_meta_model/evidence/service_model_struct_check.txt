@@ -1,0 +1,45 @@
+matches  compass.serve.campaign_writes.org start_run_request = start_run_request (3 members)
+matches  compass.serve.campaign_writes.org run_step = run_step (3 members)
+matches  compass.serve.campaign_writes.org start_run_response = start_run_response (6 members)
+matches  compass.serve.campaign_writes.org step_result_request = step_result_request (5 members)
+matches  compass.serve.campaign_writes.org finish_run_request = finish_run_request (2 members)
+matches  compass.serve.campaign_writes.org finish_run_response = finish_run_response (2 members)
+matches  compass.serve.campaign_writes.org attach_request = attach_request (7 members)
+matches  compass.serve.campaign_writes.org attach_response = attach_response (2 members)
+matches  compass.serve.campaign_writes.org add_note_request = add_note_request (6 members)
+new      compass.serve.campaign_writes.org add_note_response
+matches  compass.serve.campaign_writes.org address_note_request = address_note_request (3 members)
+matches  compass.serve.document_queries.org metadata_match = metadata_match (2 members)
+matches  compass.serve.document_queries.org document_filter = document_filter (8 members)
+matches  compass.serve.document_queries.org search_request = search_request (5 members)
+matches  compass.serve.document_queries.org search_hit = search_hit (9 members)
+matches  compass.serve.document_queries.org search_response = search_response (3 members)
+matches  compass.serve.document_queries.org facets_request = facets_request (5 members)
+matches  compass.serve.document_queries.org facet_count = facet_count (3 members)
+matches  compass.serve.document_queries.org named_facet = named_facet (2 members)
+matches  compass.serve.document_queries.org facets_response = facets_response (9 members)
+new      compass.serve.document_queries.org document_summary
+new      compass.serve.document_queries.org list_documents_request
+new      compass.serve.document_queries.org list_documents_response
+new      compass.serve.document_queries.org get_document_request
+new      compass.serve.document_queries.org get_document_response
+new      compass.serve.document_queries.org backlinks_request
+new      compass.serve.document_queries.org backlink
+new      compass.serve.document_queries.org backlinks_response
+new      compass.serve.document_queries.org list_environments_request
+matches  compass.serve.document_queries.org environment_summary = environment_summary (6 members)
+new      compass.serve.document_queries.org list_environments_response
+new      compass.serve.document_queries.org version_request
+new      compass.serve.document_queries.org version_response
+new      compass.serve.document_queries.org sync_request
+new      compass.serve.document_queries.org sync_response
+matches  compass.serve.testing_queries.org sprint_state_request = sprint_request (2 members)
+matches  compass.serve.testing_queries.org what_needs_testing_request = sprint_request (2 members)
+matches  compass.serve.testing_queries.org sprint_summary = sprint_summary (3 members)
+matches  compass.serve.testing_queries.org work_item = work_item (4 members)
+matches  compass.serve.testing_queries.org story_state = story_state (2 members)
+matches  compass.serve.testing_queries.org sprint_state_response = sprint_state_response (3 members)
+matches  compass.serve.testing_queries.org run_summary = run_summary (5 members)
+matches  compass.serve.testing_queries.org scenario_status = scenario_status (7 members)
+matches  compass.serve.testing_queries.org story_testing = story_testing (7 members)
+matches  compass.serve.testing_queries.org testing_response = testing_response (3 members)
