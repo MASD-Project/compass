@@ -29,12 +29,17 @@ using types::model_type;
 using types::value_id;
 
 std::optional<model_type> model_type_of(std::string_view type) noexcept {
+    if (type == "masd.codegen.entity")
+        return model_type::masd_entity;
+    if (type == "masd.codegen.schema")
+        return model_type::masd_schema;
     constexpr std::string_view prefix = "ores.codegen.";
     if (!type.starts_with(prefix))
         return std::nullopt;
     type.remove_prefix(prefix.size());
     for (const auto t : types::model_types) {
-        if (types::name_of(t) == type)
+        if (t != model_type::masd_entity && t != model_type::masd_schema &&
+            types::name_of(t) == type)
             return t;
     }
     return std::nullopt;
@@ -120,6 +125,12 @@ types::model_id load_model(builder& b, const document& d, model_type t,
             break;
         case model_type::trade_type_catalogue:
             load_trade_type_catalogue(c, root);
+            break;
+        case model_type::masd_entity:
+            load_masd_entity(c, root);
+            break;
+        case model_type::masd_schema:
+            load_masd_schema(c, root);
             break;
         }
     } catch (const model_error& e) {

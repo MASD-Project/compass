@@ -635,6 +635,24 @@ std::vector<placeholder> field_group_placeholders(const model_tables& t,
 }
 
 /**
+ * @brief The placeholders of a model of the MASD library: its component's
+ * directory and, for a table, its entity.
+ */
+std::vector<placeholder> masd_placeholders(const model_tables& t,
+    value_id model) {
+    return {{"{component_dir}", get_or(t, model, "product", "") + "." +
+                get_or(t, model, "component", "")},
+        {"{entity}", get_or(t, model, "entity_singular", "")}};
+}
+
+/**
+ * @brief The root of @p address: its first part.
+ */
+std::string_view root_of(std::string_view address) {
+    return address.substr(0, address.find('.'));
+}
+
+/**
  * @brief resolve_targets' gates for the domain entity @p entity of the
  * model at @p model_path: drops from @p facets what the entity cannot
  * render, and returns whether its history archetypes are withheld, as
@@ -838,7 +856,9 @@ std::vector<unit> model_units(const types::physical_space& g,
     const types::checkout_registry& registry, std::string_view type,
     const model_tables& models, value_id model, std::string_view model_path,
     std::span<const drawer_property> properties) {
-    const auto o = enabled_overrides(properties, g.root);
+    auto o = enabled_overrides(properties, g.root);
+    if (g.root != masd_root)
+        o.merge(enabled_overrides(properties, masd_root));
     const auto& f = g.facets;
     const auto& a = g.archetypes;
 
@@ -854,7 +874,8 @@ std::vector<unit> model_units(const types::physical_space& g,
             named = named || (it != o.end() && it->second);
         }
         if (named || is_enabled(f.addresses[i], f.addresses[i],
-                f.technical_spaces[i], g.root, o, f.defaults[i] != 0))
+                f.technical_spaces[i], root_of(f.addresses[i]), o,
+                f.defaults[i] != 0))
             facets.insert(f.addresses[i]);
     }
 
@@ -885,6 +906,8 @@ std::vector<unit> model_units(const types::physical_space& g,
         : type == "field_group"
         ? field_group_placeholders(models, owned, g.root)
         : type == "family" ? family_placeholders(models, owned, g.root)
+        : type == "masd_entity" || type == "masd_schema"
+        ? masd_placeholders(models, owned)
         : std::vector<placeholder>{};
 
     std::vector<std::size_t> deferred;
@@ -903,7 +926,7 @@ std::vector<unit> model_units(const types::physical_space& g,
                     return a.addresses[j] == under(g.root, w);
                 }))
                 continue;
-            if (!is_enabled(a.addresses[j], facet, ts, g.root, o,
+            if (!is_enabled(a.addresses[j], facet, ts, root_of(facet), o,
                     a.defaults[j] != 0))
                 continue;
             if (a.template_names[j].empty() || a.outputs[j].empty())

@@ -1,0 +1,45 @@
+:PROPERTIES:
+:ID: 883A9765-56E8-4CF8-9871-73066663022E
+:END:
+#+title: masd.sql.schema
+#+description: A component's whole PostgreSQL schema, generated from its masd.codegen.schema model and the masd.codegen.entity models beside it.
+#+type: facet
+#+model_types: masd_schema
+#+level: cross
+#+facet_group: masd.sql
+#+filetags: :codegen:physical-space:sql:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is the node for the =masd.sql.schema= facet of the MASD
+library, the plain PostgreSQL technical space =masd.sql=. Its one
+archetype, [[id:16D8D930-4264-45BC-BC22-3046F9C57523][masd.sql.schema.create]], holds the template.
+
+* Summary
+
+A component that owns a database describes each table as a
+=masd.codegen.entity= model and the database as one =masd.codegen.schema=
+model in the same =modeling/= directory. This facet projects the schema
+model onto =sql/schema.sql=: every schema it lists, every table of those
+schemas and every function, at the current version, in one script.
+
+* The masd.sql.schema facet
+
+The script is the specification of the schema, never a migration. A
+database that holds data is changed by the component's migrations, which
+are written by hand and frozen once released; a test builds one database
+from the migrations and one from this script and compares their catalogs.
+A change to a model therefore shows up twice in a pull request: as the
+=git diff= of =schema.sql=, and as the migration that must produce it.
+
+Tables are written schema by schema, in the order the schema model lists
+the schemas, and within a schema in an order where every table follows the
+tables its foreign keys reference, ties broken by name. A table whose
+profile marks it retained is introduced by a comment saying so: its rows
+exist nowhere else, so the catalog test names it when it loses or retypes a
+column with no migration.
+
+* See also
+
+- [[id:16D8D930-4264-45BC-BC22-3046F9C57523][masd.sql.schema.create]]: the archetype and its template.
+- [[id:EB763415-450C-4D07-8CEA-0988D19BB0B3][masd.cpp.row]]: the row types over the same tables.

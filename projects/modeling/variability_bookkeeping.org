@@ -1,0 +1,36 @@
+:PROPERTIES:
+:ID: 4AA409ED-1748-4C77-9F59-987C9831E1AC
+:END:
+#+title: Profile: Bookkeeping
+#+description: A table the migration runner creates for itself before any migration, which no template generates.
+#+type: profile
+#+level: cross
+#+filetags: :codegen:variability:profile:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is a profile of the =masd.codegen.entity= models of compass. A
+model binds it with =:profile: bookkeeping= in its =* Flags= drawer.
+
+* Purpose
+
+The migration runner records the migrations it applied and a few settings
+in the schema =compass=, which it creates with hand-written SQL before it
+applies the first migration, so neither a migration nor =schema.sql= can
+create it. The model states the table so it is reviewed in the same form as
+every other; the profile switches off every MASD facet, and =schema.sql=
+leaves the schema out because its schema model does not list it.
+
+* Reference entity
+
+=compass.db.migration=, the migrations applied.
+
+* Assignments
+
+The profile assigns no feature.
+
+* Physical space
+
+| Address | Enabled |
+|---------+---------|
+| =masd=  | false   |

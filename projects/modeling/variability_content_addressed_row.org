@@ -1,0 +1,37 @@
+:PROPERTIES:
+:ID: CF32F7F8-DB07-45C5-BB63-6BD1CBBB85FD
+:END:
+#+title: Profile: Content-addressed row
+#+description: A row keyed by the blob ID of what it describes, written once in bulk with COPY and never updated.
+#+type: profile
+#+level: cross
+#+filetags: :codegen:variability:profile:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is a profile of the =masd.codegen.entity= models of compass. A
+model binds it with =:profile: content-addressed-row= in its =* Flags=
+drawer.
+
+* Purpose
+
+A row that describes some bytes, keyed by their blob ID: the same bytes
+give the same row, so a row is written once, with =ON CONFLICT DO
+NOTHING=, and a change to the bytes is a new row. Rows of this shape are
+staged in bulk, so the profile switches on their COPY writer. The key's
+=key_kind: content_hash= keeps it out of the row type: it is the identity
+of the aggregate, which the writer takes beside the row.
+
+* Reference entity
+
+=compass.db.document=, the row of one org document of the corpus.
+
+* Assignments
+
+The profile assigns no feature.
+
+* Physical space
+
+| Address           | Enabled |
+|-------------------+---------|
+| =masd.cpp.copy=   | true    |

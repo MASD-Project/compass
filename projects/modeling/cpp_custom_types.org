@@ -1,0 +1,30 @@
+:PROPERTIES:
+:ID: F4A0CD68-9550-4E81-944B-85369F4BCCAB
+:END:
+#+title: C++ Custom Types
+#+description: The registry binding each C++ type a model of compass names, and the standard library does not have, to the header that defines it, so the generated code includes it.
+#+type: knowledge
+#+level: cross
+#+filetags: :codegen:cpp:types:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+A column of a model may name any C++ type with =:cpp_type:=. The code
+generated from it must include the header that defines the type, and for a
+type outside the standard library only this registry says which header
+that is. compass's =codegen= codec reads it from this path, as it reads
+ORE Studio's registry from the same path there.
+
+* Detail
+
+A row binds one type, as the model spells it, to its header, quoted as the
+=#include= writes it. The match covers wrapped forms: a column of
+=std::optional<store::types::blob_id>= includes the same header as one of
+=store::types::blob_id=. A standard type needs no row; the templates derive
+its header from its name.
+
+* The registry
+
+| Type                    | Header                              |
+|-------------------------+-------------------------------------|
+| =store::types::blob_id= | ="compass.store/types/blob_id.hpp"= |

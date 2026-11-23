@@ -48,17 +48,21 @@ enum class model_type : std::uint8_t {
     service_registry,
     asset_class_catalogue,
     trade_type_catalogue,
-    outcome_catalogue
+    outcome_catalogue,
+    masd_entity,
+    masd_schema
 };
 
 inline constexpr model_type model_types[] = {
     model_type::entity, model_type::component, model_type::operation,
     model_type::field_group, model_type::junction, model_type::family,
     model_type::service_registry, model_type::asset_class_catalogue,
-    model_type::trade_type_catalogue, model_type::outcome_catalogue};
+    model_type::trade_type_catalogue, model_type::outcome_catalogue,
+    model_type::masd_entity, model_type::masd_schema};
 
 /**
- * @brief The name of @p t as #+type: writes it after ores.codegen.
+ * @brief The name of @p t as #+type: writes it after ores.codegen, or, for
+ * a type of the MASD library, after masd.codegen with masd_ before it.
  */
 [[nodiscard]] constexpr std::string_view name_of(model_type t) noexcept {
     switch (t) {
@@ -72,6 +76,8 @@ inline constexpr model_type model_types[] = {
     case model_type::asset_class_catalogue: return "asset_class_catalogue";
     case model_type::trade_type_catalogue: return "trade_type_catalogue";
     case model_type::outcome_catalogue: return "outcome_catalogue";
+    case model_type::masd_entity: return "masd_entity";
+    case model_type::masd_schema: return "masd_schema";
     }
     return "";
 }
