@@ -58,12 +58,24 @@ product=(--set codegen.product=ores
 
 run() {
     local name="$1"; shift
+    local status=0
     "$@" -C "$ore" diff --files >"$scratch/$name.diff" 2>"$scratch/$name.err" ||
-        true
+        status=$?
+    echo "$status" >"$scratch/$name.status"
+    echo "$name: exit $status; $(summary "$name")"
+}
+
+# The first line of the error output is the summary: what would be written
+# and what is unchanged. The rest, the directory, the store and the timing,
+# differs run to run, so it is dropped.
+summary() {
+    head -n 1 "$scratch/$1.err" | sed 's/ under .*//'
 }
 
 same_as_old() {
-    if cmp -s "$scratch/old.diff" "$scratch/$1.diff" &&
+    if cmp -s "$scratch/old.status" "$scratch/$1.status" &&
+        cmp -s <(summary old) <(summary "$1") &&
+        cmp -s "$scratch/old.diff" "$scratch/$1.diff" &&
         cmp -s <(tail -n +2 "$scratch/old.err") <(tail -n +2 "$scratch/$1.err"); then
         echo "$1: same as old, $(grep -c '^+++ ' "$scratch/$1.diff") files"
     else
@@ -73,7 +85,7 @@ same_as_old() {
 }
 
 run old "$old"
-head -n 1 "$scratch/old.err"
+[ "$(cat "$scratch/old.status")" -eq 0 ] || { echo "old: failed" >&2; exit 1; }
 run new "$new"
 same_as_old new
 run layered "$new" "${product[@]}"

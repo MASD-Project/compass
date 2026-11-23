@@ -1,0 +1,9 @@
+python3 evidence/json_schema_probe.py <checkout> probe.cpp
+67 types
+clang++ -std=c++23 probe.cpp, linked against compass.serve, compass.db, compass.store, compass.platform, yyjson and zlib
+./probe > probe.jsonl
+venv/bin/python -I evidence/json_schema_validate.py probe.jsonl   (jsonschema 4.26.0)
+642 checks, 0 failed
+
+The same output with {"type":"null"} replaced by {"type":"string"} in every anyOf:
+642 checks, 30 failed
