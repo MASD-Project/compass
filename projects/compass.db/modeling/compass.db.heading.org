@@ -24,7 +24,7 @@ written once with it and deleted with it.
 :profile:    owned-child-row
 :END:
 
-The profile =owned-child-row= fixes =read_only=, =current_state= and =insert_conflict: do_nothing=, as =content-addressed-row= does, for a row its owner's key and its =ord= identify, deleted with its owner.
+The profile =owned-child-row= assigns no feature. It says a row is identified by its owner's key and its =ord= and deleted with its owner, and it switches on the row's =COPY= writer.
 
 * Columns
 

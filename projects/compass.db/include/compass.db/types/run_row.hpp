@@ -37,7 +37,7 @@ namespace compass::db::types {
 /**
  * @brief The values of activity.run.outcome.
  */
-enum class run_outcome { passed, failed, blocked };
+enum class run_outcome : std::uint8_t { passed, failed, blocked };
 
 /**
  * @brief Each value of run_outcome as activity.run stores it.
