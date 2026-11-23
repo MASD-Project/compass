@@ -1,0 +1,70 @@
+:PROPERTIES:
+:ID: 6BA0459B-525A-464F-954D-B0E83E83B92D
+:END:
+#+title: masd.cpp.protocol
+#+description: The messages of a masd.codegen.operation model as C++ structs, with the enumerations their fields declare and the JSON codec of each message, and the tests that each reads back what it writes and its JSON Schema allows it.
+#+type: facet
+#+model_types: masd_operation
+#+level: cross
+#+facet_group: masd.cpp
+#+filetags: :codegen:physical-space:cpp:json:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is the node for the =masd.cpp.protocol= facet of the MASD library.
+Its archetypes are [[id:9455122B-F9F6-421F-B3BD-EBFEEFF6D95F][masd.cpp.protocol.header]],
+[[id:D7E6C8E2-E6EC-49FD-B85A-E0BDDCC28D4A][masd.cpp.protocol.impl]] and
+[[id:B607CB2C-DCD4-4EFC-809C-E85EB06F269E][masd.cpp.protocol.tests]].
+
+* Summary
+
+A service's requests and responses read and write JSON through generated
+code. This facet writes each message of an operation model as a struct, in
+the model's =#+namespace:=, states its wire shape once as =wire_fields=, and
+specialises =wire_traits= against the codec runtime of
+[[id:7D0FA277-D3F7-48E9-BCDF-7A88592119E3][masd.cpp.codec]]. The JSON Schema
+of every message is =json_schema<T>()= of that runtime, so a route's schema
+and a tool's =inputSchema= are the same value as the reader's shape.
+
+It is ORE Studio's =ores.cpp.protocol= header for an operation and the
+=protocol_codec_impl= and =protocol_roundtrip_tests= archetypes of
+=ores.cpp.wire-codec=, copied at ORE Studio commit
+=bc0702ad46b8a6097ce5242ece7ba01067699f60= (=main=, 2026-11-23), and narrowed
+to JSON.
+
+* The masd.cpp.protocol facet
+
+On by default for every operation model. The files land under the model's
+own component: =include/<component>/messages/<entity>_protocol.hpp=,
+=src/messages/<entity>_protocol.cpp= and
+=tests/messages_<entity>_protocol_tests.cpp=. The codecs are written against
+the runtime of the component the =codegen= option =codec_component= names.
+
+A message's members are its fields, in model order, each of its
+=:cpp_type:= with its =:default:=. Messages are declared after the messages
+they hold, so a model may state a message before its parts. Three
+properties of a field change the code:
+
+| Property | Effect |
+|----------+--------|
+| =:values:= on a field whose type is not a standard type or a message | The type is an enumeration of those values, declared once in the header, with =to_string=, a parser =<enum>_of= and a =text_form= that writes its names. Two models that declare the same enumeration must list the same values; each declaration is guarded by its qualified name, so both headers can be included together. |
+| =:values:= on a =std::string= field | No change in the codec: the field stays a string. Refusing a text outside the list is the binding's, as the service's component overview states. |
+| =:encoding: base64= | The member is the runtime's =base64_bytes=, so its JSON is base64 text and a reader refuses anything else. |
+
+Where compass's copy diverges from ORE Studio's:
+
+| Divergence | ORE Studio | compass | Kind |
+|------------+------------+---------+------|
+| Formats | JSON and MessagePack | JSON only | Facet not enabled: MessagePack is off |
+| NATS | =nats_subject=, =requires_session= and the derived subject | None: compass's messages cross HTTP and MCP only | Unused |
+| =response_type= | An alias on each request | None: the routes of the HTTP task bind the response | Unused |
+| Opt-in | =ores.cpp.wire-codec= on per model | On for every operation model | Default |
+| Enumerations | Declared by hand beside the domain types | Generated from a field's =:values:= | compass's models |
+| Bytes | None | =base64_bytes= for =:encoding: base64= | compass's models |
+| Declaration order | Model order | Each message after the messages it holds | Fix to offer ORE Studio |
+| Round trip | =ores::testing::check_wire_roundtrip= | Samples 0 and 1 and the default, and the writer's output against the JSON Schema | Fewer formats, one more check |
+
+* See also
+
+- [[id:7D0FA277-D3F7-48E9-BCDF-7A88592119E3][masd.cpp.codec]]: the runtime.
+- [[id:48CA6C74-8EF8-45B2-B6D6-CC6B508EE0D8][masd.cpp.json]]: the same codec for a table's row.

@@ -5,7 +5,7 @@
 #+description: Codegen operation model for the document service's refusal: the one message every route and tool answers when it refuses a call, with a code from a closed list and a sentence.
 #+type: masd.codegen.operation
 #+component: serve
-#+namespace: compass::db::types
+#+namespace: compass::serve::messages
 #+entity_singular: errors
 #+brief: The document service's refusal.
 #+filetags: :model:operation:serve:

@@ -263,6 +263,63 @@ TEST_CASE("a SQL type with no C++ type is refused unless the model states "
     CHECK_NOTHROW(ops::masd_entity_context(b, b.detached_object(), e, {}, {}));
 }
 
+TEST_CASE("an operation's messages follow the messages they hold, declare "
+    "each enumeration once and carry base64 as bytes", "[codegen][masd]") {
+    mtypes::masd_operation op;
+    op.component = "serve";
+    op.entity = "writes";
+    op.ns = "compass::serve::messages";
+    op.includes = {"<vector>", "<string>"};
+    const auto field = [](std::string name, std::string type,
+                           std::vector<std::string> values = {},
+                           std::string encoding = "") {
+        mtypes::masd_field f;
+        f.name = std::move(name);
+        f.cpp_type = std::move(type);
+        f.values = std::move(values);
+        f.encoding = std::move(encoding);
+        return f;
+    };
+    mtypes::masd_message response{"start_response", "",
+        {field("steps", "std::vector<run_step>"),
+         field("outcome", "std::optional<step_outcome>", {"pass", "fail"})}};
+    mtypes::masd_message step{"run_step", "",
+        {field("ord", "std::int32_t"),
+         field("outcome", "step_outcome", {"pass", "fail"}),
+         field("format", "std::string", {"html", "org"}),
+         field("bytes", "std::string", {}, "base64")}};
+    op.messages = {response, step};
+    const auto header = rendered("masd_cpp_protocol.hpp.mustache",
+        [&](auto& b, auto library) {
+            return ops::masd_operation_context(b, library, op, "compass",
+                "db");
+        });
+    CHECK(header.find("struct run_step {") <
+        header.find("struct start_response {"));
+    CHECK_THAT(header, ContainsSubstring(
+        "#include <optional>\n#include <stdexcept>\n#include <string>\n"
+        "#include <string_view>\n#include <type_traits>\n#include <vector>\n"));
+    CHECK_THAT(header, ContainsSubstring(
+        "enum class step_outcome { pass, fail };"));
+    CHECK(header.find("enum class step_outcome") ==
+        header.rfind("enum class step_outcome"));
+    CHECK_THAT(header, ContainsSubstring("    step_outcome outcome{};\n"
+        "    std::string format;\n"
+        "    compass::db::codec::base64_bytes bytes;\n"));
+    CHECK_THAT(header, ContainsSubstring(
+        "#include \"compass.db/codec/base64.hpp\""));
+    CHECK_THAT(header, ContainsSubstring(
+        "struct wire_traits<compass::serve::messages::run_step> {"));
+
+    mtypes::masd_message other{"other", "",
+        {field("outcome", "step_outcome", {"pass", "blocked"})}};
+    op.messages.push_back(other);
+    mtypes::model_tables t;
+    compass::model::ops::builder b(t);
+    CHECK_THROWS_AS(ops::masd_operation_context(b, b.detached_object(), op,
+        "compass", "db"), std::runtime_error);
+}
+
 TEST_CASE("a row's JSON codec states the row's members and the text form "
     "of each enumeration", "[codegen][masd]") {
     auto e = heading();

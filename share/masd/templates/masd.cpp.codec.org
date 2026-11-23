@@ -59,6 +59,7 @@ the copy differs. In brief:
 | The instant | =system_clock::time_point=, through =ores.platform= | =sys_time<microseconds>=, formatted with =std::format=, parsed by hand | Parameter: compass's =timestamptz= type, and libc++ has no =chrono::parse= |
 | A schema's type name | =__PRETTY_FUNCTION__= only | Also MSVC's =__FUNCSIG__= | Fix to offer ORE Studio |
 | Schema check | None | =schema_check.hpp= | compass's own |
+| Bytes | None | =base64.hpp=: =base64_bytes= and its base64 text form | compass's own |
 | Shaped wire traits | =shaped_wire_traits.hpp= for a hand-written type | Left out: every codec is generated | Unused |
 | Export macros | =ORES_UTILITY_EXPORT= | None: static libraries | Parameter |
 

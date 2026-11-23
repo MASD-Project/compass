@@ -1,0 +1,57 @@
+:PROPERTIES:
+:ID: D7E6C8E2-E6EC-49FD-B85A-E0BDDCC28D4A
+:END:
+#+title: masd.cpp.protocol.impl
+#+description: The definitions of each message's JSON wire traits over its wire shape. Output projects/{component_dir}/src/messages/{entity}_protocol.cpp.
+#+type: archetype
+#+output: projects/{component_dir}/src/messages/{entity}_protocol.cpp
+#+facet: masd.cpp.protocol
+#+level: cross
+#+filetags: :codegen:templates:literate:archetype:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is the archetype that writes the translation unit of an operation
+model's message codecs for the
+[[id:6BA0459B-525A-464F-954D-B0E83E83B92D][masd.cpp.protocol]] facet. It is
+ORE Studio's =ores.cpp.wire-codec.protocol_codec_impl= for an operation with
+the two MessagePack functions left off.
+
+* Context
+
+The context is the library's values and =masd_operation=:
+=protocol_include=, =codec_namespace=, =codec_root= and =messages=, each
+with =qualified=.
+
+* Template
+
+The template source. compass's =tangle= codec writes it to
+=masd_cpp_protocol.cpp.mustache= beside this page.
+
+#+begin_src mustache :tangle masd_cpp_protocol.cpp.mustache
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.protocol.impl.org. Edit the org source. }}
+{{{cpp_license}}}
+{{#masd_operation}}
+#include "{{protocol_include}}"
+
+#include "{{codec_root}}/struct_codec.hpp"
+
+namespace {{codec_namespace}} {
+{{#messages}}
+
+std::string wire_traits<{{qualified}}>::write_json(const {{qualified}}& v) {
+    return object::write_json(v);
+}
+
+{{qualified}} wire_traits<{{qualified}}>::read_json(std::string_view text) {
+    return object::read_json<{{qualified}}>(text);
+}
+{{/messages}}
+
+}
+{{/masd_operation}}
+#+end_src
+
+* See also
+
+- Parent facet: [[id:6BA0459B-525A-464F-954D-B0E83E83B92D][masd.cpp.protocol]]

@@ -5,7 +5,7 @@
 #+description: Codegen operation model for the document service's reads of a sprint and its test campaigns: its stories and tasks with their states, what needs testing in an environment, a run with its step results and a campaign's notes.
 #+type: masd.codegen.operation
 #+component: serve
-#+namespace: compass::db::types
+#+namespace: compass::serve::messages
 #+entity_singular: testing_queries
 #+brief: The document service's reads of a sprint, its testing and its campaigns.
 #+filetags: :model:operation:serve:

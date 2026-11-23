@@ -56,6 +56,22 @@ namespace compass::codegen::ops {
     std::string_view component_dir);
 
 /**
+ * @brief The context the masd.cpp.protocol and masd.cpp.json templates
+ * render an operation model's messages and their JSON codecs from: the
+ * library values and, under masd_operation, the namespace, the includes,
+ * each enumeration a field's :values: declares, and each message after the
+ * messages it holds, with its fields. A field encoded as base64 holds the
+ * codec runtime's base64_bytes. @p codec_component names the component of
+ * @p product whose masd.cpp.codec runtime the codecs are written against.
+ * @throws std::runtime_error when two fields list different values for one
+ * enumeration, or the messages hold each other in a cycle.
+ */
+[[nodiscard]] compass::model::types::value_id masd_operation_context(
+    compass::model::ops::builder& b, compass::model::types::value_id library,
+    const compass::model::types::masd_operation& op,
+    std::string_view product, std::string_view codec_component);
+
+/**
  * @brief The context the masd.sql template renders a component's whole
  * schema from: the library values and, under masd_schema, each schema of
  * @p s with the tables of @p tables in it, in an order where every table

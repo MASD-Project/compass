@@ -38,7 +38,8 @@ the licence and the modelines. The MASD library is named by its checkout
 path, =share/masd=, not as =@compass=, the copy installed beside the
 binary: compass edits the library it generates itself with, and a template
 read from the checkout is an input whose change regenerates what it wrote.
-=no_pr_triggers= is off: ORE Studio removed its pull-request checks because
+=codec_component= is =db=: the service's message codecs are written against
+the JSON codec runtime =compass.db= holds. =no_pr_triggers= is off: ORE Studio removed its pull-request checks because
 they came late and missed the paths their workflows did not name, but
 compass's one Linux workflow covers every path and builds a pull request,
 merged with main, in about eleven minutes. =commit_provenance= is off:
@@ -55,4 +56,4 @@ compass's own commits carry no story, task or environment trailers, so
 | rule_table        | yes     | path=doc/knowledge/compass/rule_table.org        |
 | no_pr_triggers    | no      |                                                  |
 | commit_provenance | no      |                                                  |
-| codegen | yes | library=share/masd,projects/compass.codegen/library product=compass year=2026 convention_component=db |
+| codegen | yes | library=share/masd,projects/compass.codegen/library product=compass year=2026 convention_component=db codec_component=db |

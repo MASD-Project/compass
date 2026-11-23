@@ -2,7 +2,7 @@
 :ID: 277ECB9A-5B6A-4235-9207-D5EC3AB816C0
 :END:
 #+title: compass.serve
-#+description: compass's document service: the HTTP routes and MCP tools over the corpus, the sprint and the test campaigns, generated from operation models. Only its models exist so far.
+#+description: compass's document service: the HTTP routes and MCP tools over the corpus, the sprint and the test campaigns, generated from operation models. Its messages and their JSON codecs are generated; its routes and tools are not yet.
 #+type: component
 #+level: cross
 #+filetags: :service:http:mcp:component:
@@ -11,7 +11,8 @@
 
 This page is the component overview for =compass.serve=, a simple component
 of the [[id:8A9A460F-8024-4890-B091-C0D02FD84218][System Model]]. It is
-planned: only =modeling/= exists, and it is not a CMake target yet.
+partly built: its messages and their JSON codecs are generated into the
+library =compass.serve.lib=, and its routes and tools are not written yet.
 
 * Summary
 
@@ -32,12 +33,14 @@ sketched the form for search.
 
 The design puts the query layer in =compass.serve=; it was built in
 =compass.db=, whose functions take the hand-written messages of
-=compass.db/types=. The models therefore state =#+namespace:
-compass::db::types=. compass's codegen writes a model's outputs under the
-model's own component, so before the messages are generated either the
-query functions move here or the protocol facet learns to write into
-=compass.db=. The routes stay here either way, so =compass.db= never
-depends on the HTTP server's libraries.
+=compass.db/types=. The messages are now generated here, by the
+[[id:6BA0459B-525A-464F-954D-B0E83E83B92D][masd.cpp.protocol]] facet, in
+=compass::serve::messages=, which the models state as =#+namespace:=, so
+they do not collide with the hand-written structs of the same names in
+=compass::db::types=. Until the HTTP task moves the queries here or maps
+each generated message to the hand-written one, the queries keep taking
+the hand-written structs. The routes stay here either way, so =compass.db=
+never depends on the HTTP server's libraries.
 
 * Inputs
 
@@ -56,7 +59,13 @@ subject and actor in =activity.action=.
 
 * Outputs
 
-None yet.
+The library =compass.serve.lib=: each operation model's messages, their
+enumerations and their JSON codecs, generated into
+=include/compass.serve/messages/<model>_protocol.hpp= and
+=src/messages/<model>_protocol.cpp=, written against the codec runtime of
+=compass.db=. Each message's JSON Schema is =json_schema<T>()= of that
+runtime. =compass.serve.tests= checks that every message reads back the JSON
+it writes and that its schema allows it.
 
 * Entry points
 

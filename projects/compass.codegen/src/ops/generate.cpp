@@ -399,7 +399,8 @@ constexpr context_type context_types[] = {
     {model_type::service_registry, "service_registry"},
     {model_type::masd_entity, "masd_entity"},
     {model_type::masd_schema, "masd_schema"},
-    {model_type::masd_component, "masd_component"}};
+    {model_type::masd_component, "masd_component"},
+    {model_type::masd_operation, "masd_operation"}};
 
 /**
  * @brief A model's shared context and what its template variants are
@@ -573,19 +574,30 @@ void add_rows(model_plan& out, const std::vector<unit>& units,
 }
 
 /**
- * @brief The context of a model of the MASD library: a table's, a
- * component's, or a component's schema with every table modelled beside it.
+ * @brief The context of a model of the MASD library: a table's, an
+ * operation's messages, a component's, or a component's schema with every
+ * table modelled beside it.
  * @throws compass::model::ops::model_error when a table beside the schema
- * does not load.
+ * does not load, or an operation model is read with no codec_component.
  */
 value_id masd_context(mops::builder& b, value_id library,
     const mops::document& doc, model_type type, documents& docs,
-    const types::entity_registry& entities) {
+    const types::entity_registry& entities,
+    const generation_settings& settings) {
     const auto& find = docs.finder();
     if (type == model_type::masd_entity)
         return masd_entity_context(b, library,
             mops::read_masd_entity(doc, find), entities.custom_types,
             entities.custom_text_forms);
+    if (type == model_type::masd_operation) {
+        if (settings.codec_component.empty())
+            throw mops::model_error("an operation model's codecs need the "
+                "codegen option codec_component, the component whose "
+                "masd.cpp.codec runtime they are written against");
+        return masd_operation_context(b, library,
+            mops::read_masd_operation(doc), settings.product,
+            settings.codec_component);
+    }
     if (type == model_type::masd_component) {
         const auto c = mops::read_masd_component(doc);
         return masd_component_context(b, library,
@@ -660,10 +672,11 @@ model_plan plan_model(mops::builder& b, value_id library,
             values::member(b.tables(), root, type_name), path)};
     if (*type == model_type::masd_entity ||
         *type == model_type::masd_schema ||
-        *type == model_type::masd_component) {
+        *type == model_type::masd_component ||
+        *type == model_type::masd_operation) {
         try {
             const auto context = masd_context(b, library, *doc, *type, docs,
-                entities);
+                entities, g.settings);
             out.context = true;
             add_rows(out, units, context, type_name, wanted);
         } catch (const mops::model_error& e) {

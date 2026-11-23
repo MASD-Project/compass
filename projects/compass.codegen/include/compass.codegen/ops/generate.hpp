@@ -66,13 +66,16 @@ struct checkout_reader {
  * address, the prefix of the component directories and the templates'
  * product.
  * convention_component names the component of the catalogue whose
- * modeling directory declares the convention families. year is the
- * copyright year the licence block states.
+ * modeling directory declares the convention families. codec_component
+ * names the component whose masd.cpp.codec runtime the JSON codecs of
+ * operation models are written against; empty when no model needs it.
+ * year is the copyright year the licence block states.
  */
 struct generation_settings {
     std::vector<std::string> libraries;
     std::string product;
     std::string convention_component;
+    std::string codec_component;
     int year = 0;
 };
 

@@ -1,0 +1,146 @@
+:PROPERTIES:
+:ID: 09E7F5C5-25FD-46BF-9878-4DD126B991F8
+:END:
+#+title: masd.cpp.codec.base64
+#+description: base64_bytes, bytes that travel in JSON as base64, and their text form. Output projects/{component_dir}/include/{component_dir}/codec/base64.hpp.
+#+type: archetype
+#+output: projects/{component_dir}/include/{component_dir}/codec/base64.hpp
+#+facet: masd.cpp.codec
+#+level: cross
+#+filetags: :codegen:templates:literate:archetype:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is an archetype of the [[id:7D0FA277-D3F7-48E9-BCDF-7A88592119E3][masd.cpp.codec]] facet: one
+file of the JSON codec runtime, rendered into the component that switches
+the facet on.
+
+* Origin
+
+No ORE Studio file: compass's own. ORE Studio's messages carry no bytes in
+JSON; compass's =attach_request= carries a screenshot, and a field that
+states =:encoding: base64= holds =base64_bytes=, so its JSON is a string of
+the standard alphabet with padding and the reader refuses any other text.
+
+* Context
+
+The context is the library's values and =masd_component=: =codec_namespace=,
+=codec_root=, the directory the runtime's headers are included from, and
+=codec_guard_prefix=. The template switches the delimiters to =<% %>=,
+because the C++ it holds has braces of its own.
+
+* Template
+
+The template source. compass's =tangle= codec writes it to
+=masd_cpp_codec_base64.hpp.mustache= beside this page.
+
+#+begin_src mustache :tangle masd_cpp_codec_base64.hpp.mustache
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.codec.base64.org. Edit the org source. }}
+{{=<% %>=}}
+<%& cpp_license%>
+<%#masd_component%>
+#ifndef <%codec_guard_prefix%>BASE64_HPP
+#define <%codec_guard_prefix%>BASE64_HPP
+
+#include "<%codec_root%>/text_form.hpp"
+#include <cstddef>
+#include <cstdint>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+
+namespace <%codec_namespace%> {
+
+/**
+ * @brief Bytes, which JSON carries as base64 text.
+ *
+ * A message field the model encodes as base64 holds this rather than a
+ * std::string, so the codec that writes it cannot put raw bytes into a JSON
+ * string.
+ */
+struct base64_bytes {
+    std::string bytes;
+
+    bool operator==(const base64_bytes&) const = default;
+};
+
+namespace base64_detail {
+
+inline constexpr std::string_view alphabet =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+/**
+ * @brief The six bits @p c spells, or -1 when it is not of the alphabet.
+ */
+constexpr int sextet(char c) noexcept {
+    const auto at = alphabet.find(c);
+    return at == std::string_view::npos ? -1 : static_cast<int>(at);
+}
+
+}
+
+/**
+ * @brief Bytes' text form is base64 of the standard alphabet, padded to a
+ * multiple of four characters.
+ */
+template <>
+struct text_form<base64_bytes> {
+    static constexpr std::string_view wire_name = "base64";
+
+    static constexpr std::string_view sample_texts[] = {"AAEC/f7/", "aGk="};
+
+    static std::string to_text(const base64_bytes& v) {
+        const auto& in = v.bytes;
+        std::string out;
+        out.reserve((in.size() + 2) / 3 * 4);
+        for (std::size_t i = 0; i < in.size(); i += 3) {
+            const auto byte = [&](std::size_t k) -> std::uint32_t {
+                return k < in.size() ? static_cast<unsigned char>(in[k]) : 0u;
+            };
+            const auto group = byte(i) << 16 | byte(i + 1) << 8 | byte(i + 2);
+            const auto left = in.size() - i;
+            out += base64_detail::alphabet[group >> 18 & 63];
+            out += base64_detail::alphabet[group >> 12 & 63];
+            out += left > 1 ? base64_detail::alphabet[group >> 6 & 63] : '=';
+            out += left > 2 ? base64_detail::alphabet[group & 63] : '=';
+        }
+        return out;
+    }
+
+    static base64_bytes from_text(std::string_view text) {
+        if (text.size() % 4 != 0)
+            throw std::invalid_argument("Not base64: the length is not a multiple of four");
+        base64_bytes out;
+        out.bytes.reserve(text.size() / 4 * 3);
+        for (std::size_t i = 0; i < text.size(); i += 4) {
+            const bool last = i + 4 == text.size();
+            const auto pad = last ? (text[i + 3] == '=') + (text[i + 2] == '=') : 0;
+            std::uint32_t group = 0;
+            for (std::size_t k = 0; k < 4; ++k) {
+                const auto c = text[i + k];
+                const auto s = k >= 4 - static_cast<std::size_t>(pad) ? 0 :
+                                                                       base64_detail::sextet(c);
+                if (s < 0 || (pad == 1 && k == 2 && c == '='))
+                    throw std::invalid_argument("Not base64: '" + std::string(1, c) +
+                                                "' is not of its alphabet");
+                group = group << 6 | static_cast<std::uint32_t>(s);
+            }
+            out.bytes += static_cast<char>(group >> 16 & 255);
+            if (pad < 2)
+                out.bytes += static_cast<char>(group >> 8 & 255);
+            if (pad < 1)
+                out.bytes += static_cast<char>(group & 255);
+        }
+        return out;
+    }
+};
+
+}
+
+#endif
+<%/masd_component%>
+#+end_src
+
+* See also
+
+- Parent facet: [[id:7D0FA277-D3F7-48E9-BCDF-7A88592119E3][masd.cpp.codec]]

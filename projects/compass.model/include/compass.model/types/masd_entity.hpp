@@ -142,6 +142,44 @@ struct masd_component {
     std::string component;
 };
 
+/**
+ * @brief One field of a message of a masd.codegen.operation model.
+ *
+ * values is the closed list :values: states: the enumerators of a field
+ * whose type is an enumeration, or the texts a string field accepts.
+ * encoding is base64 for a string that holds bytes, else empty.
+ */
+struct masd_field {
+    std::string name;
+    std::string cpp_type;
+    std::string default_value;
+    std::string encoding;
+    std::vector<std::string> values;
+};
+
+/**
+ * @brief One message of a masd.codegen.operation model, in model order,
+ * and the message it is answered with, when it names one.
+ */
+struct masd_message {
+    std::string name;
+    std::string response;
+    std::vector<masd_field> fields;
+};
+
+/**
+ * @brief A masd.codegen.operation model: the messages of one part of a
+ * component's service, the namespace they live in and the headers their
+ * fields need.
+ */
+struct masd_operation {
+    std::string component;
+    std::string entity;
+    std::string ns;
+    std::vector<std::string> includes;
+    std::vector<masd_message> messages;
+};
+
 }
 
 #endif

@@ -457,6 +457,159 @@ value_id masd_entity_context(builder& b, value_id library,
     return context;
 }
 
+namespace {
+
+/**
+ * @brief The type @p cpp_type holds: itself, or what an optional or a
+ * vector of it holds.
+ */
+std::string held_type(std::string_view cpp_type) {
+    for (const std::string_view wrapper : {"std::optional<", "std::vector<"})
+        if (cpp_type.starts_with(wrapper) && cpp_type.ends_with(">"))
+            return held_type(cpp_type.substr(wrapper.size(),
+                cpp_type.size() - wrapper.size() - 1));
+    return std::string(cpp_type);
+}
+
+/**
+ * @brief @p messages, each after the messages of the same model its
+ * fields hold, ties kept in model order.
+ * @throws std::runtime_error when the messages hold each other in a cycle.
+ */
+std::vector<const mtypes::masd_message*> declaration_order(
+    const std::vector<mtypes::masd_message>& messages) {
+    std::set<std::string> names;
+    for (const auto& m : messages)
+        names.insert(m.name);
+    std::set<std::string> declared;
+    std::vector<const mtypes::masd_message*> out;
+    std::vector<const mtypes::masd_message*> pending;
+    for (const auto& m : messages)
+        pending.push_back(&m);
+    while (!pending.empty()) {
+        const auto ready = std::ranges::find_if(pending, [&](const auto* m) {
+            return std::ranges::all_of(m->fields, [&](const auto& f) {
+                const auto t = held_type(f.cpp_type);
+                return t == m->name || !names.contains(t) ||
+                    declared.contains(t);
+            });
+        });
+        if (ready == pending.end())
+            throw std::runtime_error("codegen: the messages " +
+                (*pending.begin())->name + " and others hold each other in "
+                "a cycle");
+        declared.insert((*ready)->name);
+        out.push_back(*ready);
+        pending.erase(ready);
+    }
+    return out;
+}
+
+bool is_standard_or_arithmetic(std::string_view t) {
+    return t.starts_with("std::") || t == "bool" || t == "double" ||
+        t == "float";
+}
+
+}
+
+value_id masd_operation_context(builder& b, value_id library,
+    const mtypes::masd_operation& op, std::string_view product,
+    std::string_view codec_component) {
+    const auto context = with_library(b, library);
+    const auto m = b.object(context, "masd_operation");
+    const auto component = std::string(product) + "." + op.component;
+    const auto codec = std::string(product) + "." + std::string(codec_component);
+    const auto codec_ns = std::string(product) + "::" +
+        std::string(codec_component) + "::codec";
+    b.set(m, "codec_namespace", codec_ns);
+    b.set(m, "codec_root", codec + "/codec");
+    b.set(m, "namespace", op.ns);
+    b.set(m, "entity", op.entity);
+    b.set(m, "protocol_guard", upper(component + "/messages/" + op.entity +
+        "_protocol.hpp"));
+    b.set(m, "protocol_include", component + "/messages/" + op.entity +
+        "_protocol.hpp");
+
+    std::set<std::string> message_names;
+    for (const auto& msg : op.messages)
+        message_names.insert(msg.name);
+    bool base64 = false;
+    std::map<std::string, std::vector<std::string>> enums;
+    for (const auto& msg : op.messages)
+        for (const auto& f : msg.fields) {
+            base64 = base64 || f.encoding == "base64";
+            const auto t = held_type(f.cpp_type);
+            if (f.values.empty() || is_standard_or_arithmetic(t) ||
+                message_names.contains(t))
+                continue;
+            const auto [at, added] = enums.try_emplace(t, f.values);
+            if (!added && at->second != f.values)
+                throw std::runtime_error("codegen: the enumeration " + t +
+                    " lists different values in " + msg.name + "." + f.name);
+        }
+    b.set(m, "has_base64", base64);
+    std::set<std::string> standard{"<optional>", "<stdexcept>", "<string>",
+        "<string_view>", "<type_traits>"};
+    std::set<std::string> project;
+    for (const auto& i : op.includes)
+        (i.starts_with("<") ? standard : project).insert(i);
+    const auto includes = b.list(m, "includes");
+    for (const auto* set : {&standard, &project})
+        for (const auto& i : *set)
+            b.set(b.append_object(includes), "include", i);
+
+    const auto enum_list = b.list(m, "enums");
+    for (const auto& [name, values] : enums) {
+        const auto en = b.append_object(enum_list);
+        b.set(en, "name", name);
+        b.set(en, "qualified", op.ns + "::" + name);
+        auto dotted = op.ns;
+        for (auto at = dotted.find("::"); at != std::string::npos;
+             at = dotted.find("::", at + 1))
+            dotted.replace(at, 2, ".");
+        b.set(en, "guard", upper(dotted + "." + name + ".enum"));
+        b.set(en, "first", values.front());
+        std::string listed;
+        for (const auto& v : values)
+            listed += (listed.empty() ? "" : ", ") + v;
+        b.set(en, "listed", listed);
+        const auto list = b.list(en, "values");
+        for (std::size_t i = 0; i < values.size(); ++i) {
+            const auto v = b.append_object(list);
+            b.set(v, "value", values[i]);
+            add_last(b, v, i + 1 == values.size());
+        }
+    }
+
+    const auto list = b.list(m, "messages");
+    for (const auto* msg : declaration_order(op.messages)) {
+        const auto item = b.append_object(list);
+        b.set(item, "name", msg->name);
+        b.set(item, "qualified", op.ns + "::" + msg->name);
+        const auto fields = b.list(item, "fields");
+        for (const auto& f : msg->fields) {
+            const auto field = b.append_object(fields);
+            b.set(field, "member", f.name);
+            b.set(field, "message", msg->name);
+            const auto type = f.encoding == "base64"
+                ? codec_ns + "::base64_bytes" : f.cpp_type;
+            b.set(field, "cpp_type", type);
+            const auto held = held_type(f.cpp_type);
+            std::string init;
+            if (!f.default_value.empty())
+                init = " = " + (f.encoding == "base64"
+                    ? codec_ns + "::base64_bytes{" + f.default_value + "}"
+                    : f.default_value);
+            else if (type == f.cpp_type && held == f.cpp_type &&
+                (enums.contains(held) || is_arithmetic(held) ||
+                    held == "double"))
+                init = "{}";
+            b.set(field, "initializer", init);
+        }
+    }
+    return context;
+}
+
 value_id masd_component_context(builder& b, value_id library,
     std::string_view component_dir) {
     const auto context = with_library(b, library);

@@ -12,6 +12,7 @@ generated when it has a row here, and only the models directly in its
 
 * Components
 
-| name | modeling_dir                 | exclude_org_types |
-|------+------------------------------+-------------------|
-| db   | projects/compass.db/modeling |                   |
+| name  | modeling_dir                    | exclude_org_types |
+|-------+---------------------------------+-------------------|
+| db    | projects/compass.db/modeling    |                   |
+| serve | projects/compass.serve/modeling |                   |

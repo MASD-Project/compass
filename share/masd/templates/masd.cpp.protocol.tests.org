@@ -1,0 +1,72 @@
+:PROPERTIES:
+:ID: B607CB2C-DCD4-4EFC-809C-E85EB06F269E
+:END:
+#+title: masd.cpp.protocol.tests
+#+description: The tests that each message of an operation model reads back the JSON it writes and that its JSON Schema allows that JSON. Output projects/{component_dir}/tests/messages_{entity}_protocol_tests.cpp.
+#+type: archetype
+#+output: projects/{component_dir}/tests/messages_{entity}_protocol_tests.cpp
+#+facet: masd.cpp.protocol
+#+level: cross
+#+filetags: :codegen:templates:literate:archetype:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is the archetype that writes the tests of an operation model's
+message codecs for the
+[[id:6BA0459B-525A-464F-954D-B0E83E83B92D][masd.cpp.protocol]] facet. It is
+ORE Studio's =ores.cpp.wire-codec.protocol_roundtrip_tests= for an operation,
+with the round trip stated in place, as
+[[id:214C287E-8720-4CE1-A087-29A63BDFE8F5][masd.cpp.json.tests]] states it
+for a row, and the writer's output checked against the message's JSON
+Schema.
+
+* Context
+
+The context is the library's values and =masd_operation=:
+=protocol_include=, =codec_namespace=, =codec_root= and =messages=, each
+with =name= and =qualified=.
+
+* Template
+
+The template source. compass's =tangle= codec writes it to
+=masd_cpp_protocol_tests.cpp.mustache= beside this page.
+
+#+begin_src mustache :tangle masd_cpp_protocol_tests.cpp.mustache
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.protocol.tests.org. Edit the org source. }}
+{{{cpp_license}}}
+{{#masd_operation}}
+#include "{{protocol_include}}"
+
+#include <catch2/catch_test_macros.hpp>
+#include <cstddef>
+#include <string>
+#include "{{codec_root}}/json_schema.hpp"
+#include "{{codec_root}}/member_count.hpp"
+#include "{{codec_root}}/sample.hpp"
+#include "{{codec_root}}/schema_check.hpp"
+{{#messages}}
+
+static_assert({{codec_namespace}}::names_every_member<{{qualified}}>(),
+    "{{name}} has a member its wire shape does not name");
+
+TEST_CASE("{{name}} reads back the JSON it writes, which its JSON Schema "
+    "allows", "[codec][roundtrip][schema][protocol]") {
+    using traits = {{codec_namespace}}::wire_traits<{{qualified}}>;
+    const auto schema = {{codec_namespace}}::json_schema<{{qualified}}>();
+    for (const auto which : {std::size_t(0), std::size_t(1)}) {
+        const auto v = {{codec_namespace}}::sample<{{qualified}}>(which);
+        const auto text = traits::write_json(v);
+        INFO(text);
+        CHECK(traits::read_json(text) == v);
+        CHECK({{codec_namespace}}::schema_violation(schema, text).value_or("") == "");
+    }
+    const {{qualified}} empty{};
+    CHECK(traits::read_json(traits::write_json(empty)) == empty);
+}
+{{/messages}}
+{{/masd_operation}}
+#+end_src
+
+* See also
+
+- Parent facet: [[id:6BA0459B-525A-464F-954D-B0E83E83B92D][masd.cpp.protocol]]

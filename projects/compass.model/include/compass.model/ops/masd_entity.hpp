@@ -49,6 +49,17 @@ namespace compass::model::ops {
  */
 [[nodiscard]] types::masd_component read_masd_component(const document& d);
 
+/**
+ * @brief Reads @p d, a model of #+type: masd.codegen.operation: its
+ * #+component:, #+entity_singular: and #+namespace:, the #include lines of
+ * its * Includes block, and each message under * Messages with its
+ * :response: and its fields' :cpp_type:, :default:, :values: and
+ * :encoding:.
+ * @throws model_error when a field states no :cpp_type:, or an :encoding:
+ * other than base64.
+ */
+[[nodiscard]] types::masd_operation read_masd_operation(const document& d);
+
 }
 
 #endif

@@ -1,0 +1,33 @@
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.protocol.tests.org. Edit the org source. }}
+{{{cpp_license}}}
+{{#masd_operation}}
+#include "{{protocol_include}}"
+
+#include <catch2/catch_test_macros.hpp>
+#include <cstddef>
+#include <string>
+#include "{{codec_root}}/json_schema.hpp"
+#include "{{codec_root}}/member_count.hpp"
+#include "{{codec_root}}/sample.hpp"
+#include "{{codec_root}}/schema_check.hpp"
+{{#messages}}
+
+static_assert({{codec_namespace}}::names_every_member<{{qualified}}>(),
+    "{{name}} has a member its wire shape does not name");
+
+TEST_CASE("{{name}} reads back the JSON it writes, which its JSON Schema "
+    "allows", "[codec][roundtrip][schema][protocol]") {
+    using traits = {{codec_namespace}}::wire_traits<{{qualified}}>;
+    const auto schema = {{codec_namespace}}::json_schema<{{qualified}}>();
+    for (const auto which : {std::size_t(0), std::size_t(1)}) {
+        const auto v = {{codec_namespace}}::sample<{{qualified}}>(which);
+        const auto text = traits::write_json(v);
+        INFO(text);
+        CHECK(traits::read_json(text) == v);
+        CHECK({{codec_namespace}}::schema_violation(schema, text).value_or("") == "");
+    }
+    const {{qualified}} empty{};
+    CHECK(traits::read_json(traits::write_json(empty)) == empty);
+}
+{{/messages}}
+{{/masd_operation}}

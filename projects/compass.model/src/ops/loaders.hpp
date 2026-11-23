@@ -242,6 +242,7 @@ void load_trade_type_catalogue(load_context& c, types::value_id root);
 void load_masd_entity(load_context& c, types::value_id root);
 void load_masd_schema(load_context& c, types::value_id root);
 void load_masd_component(load_context& c, types::value_id root);
+void load_masd_operation(load_context& c, types::value_id root);
 
 }
 

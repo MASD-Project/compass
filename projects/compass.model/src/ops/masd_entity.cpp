@@ -355,6 +355,66 @@ types::masd_component read_masd_component(const document& d) {
     return m;
 }
 
+types::masd_operation read_masd_operation(const document& d) {
+    outline o;
+    build_outline(d.source, *d.tables, o);
+    types::masd_operation m;
+    m.component = trim(frontmatter(o, "component").value);
+    m.entity = trim(frontmatter(o, "entity_singular").value);
+    m.ns = trim(frontmatter(o, "namespace").value);
+    if (m.component.empty() || m.entity.empty() || m.ns.empty())
+        throw model_error("an operation model states #+component:, "
+            "#+entity_singular: and #+namespace:");
+    if (const auto inc = section(o, node_id{0}, "Includes"); !inc.is_none()) {
+        std::string_view code = named_block(o, inc, "includes").value;
+        while (!code.empty()) {
+            const auto end = code.find('\n');
+            const auto line = trim(code.substr(0, end));
+            if (line.starts_with("#include"))
+                m.includes.emplace_back(trim(line.substr(8)));
+            code.remove_prefix(end == std::string_view::npos ? code.size()
+                : end + 1);
+        }
+    }
+    for (const auto n : children(o, section(o, node_id{0}, "Messages"))) {
+        types::masd_message message;
+        message.name = o.titles[n.value];
+        for (const auto& [key, value] : properties(o, n))
+            if (key == "response")
+                message.response = trim(value);
+        for (const auto f : children(o, n)) {
+            types::masd_field field;
+            field.name = o.titles[f.value];
+            for (const auto& [key, value] : properties(o, f)) {
+                if (key == "cpp_type")
+                    field.cpp_type = trim(value);
+                else if (key == "default")
+                    field.default_value = trim(value);
+                else if (key == "values")
+                    field.values = words(value);
+                else if (key == "encoding")
+                    field.encoding = trim(value);
+            }
+            const auto where = message.name + "." + field.name;
+            if (field.cpp_type.empty())
+                throw model_error(where + " states no :cpp_type:");
+            if (!field.encoding.empty() && field.encoding != "base64")
+                throw model_error(where + "'s :encoding: is '" +
+                    field.encoding + "'; it is base64");
+            message.fields.push_back(std::move(field));
+        }
+        m.messages.push_back(std::move(message));
+    }
+    return m;
+}
+
+void load_masd_operation(load_context& c, types::value_id root) {
+    const auto m = read_masd_operation(c.d);
+    const auto out = c.b.object(root, "masd_operation");
+    c.b.set(out, "component", m.component);
+    c.b.set(out, "entity_singular", m.entity);
+}
+
 void load_masd_component(load_context& c, types::value_id root) {
     const auto m = read_masd_component(c.d);
     const auto out = c.b.object(root, "masd_component");
