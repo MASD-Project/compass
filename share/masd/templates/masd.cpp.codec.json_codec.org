@@ -48,6 +48,7 @@ The template source. compass's =tangle= codec writes it to
 
 #include "<%codec_root%>/text_form.hpp"
 #include "<%codec_root%>/wire_fields.hpp"
+#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <expected>
@@ -122,15 +123,11 @@ void read_object(yyjson_val* v, T& out, const field_list<field<T, Members>...>& 
         [&](const auto&... f) {
             (
                 [&] {
-                    using member_type = std::remove_cvref_t<decltype(out.*(f.member))>;
                     auto* value = yyjson_obj_getn(v, f.name.data(), f.name.size());
                     if (value == nullptr) {
-                        if constexpr (is_optional_member<member_type>)
-                            return;
-                        else if (detail::missing_keeps_default)
-                            return;
-                        else
+                        if (is_required(f) && !detail::missing_keeps_default)
                             throw std::invalid_argument("Missing member: " + std::string(f.name));
+                        return;
                     }
                     try {
                         out.*(f.member) = json_codec<Members>::read(value);
@@ -144,6 +141,10 @@ void read_object(yyjson_val* v, T& out, const field_list<field<T, Members>...>& 
         fields);
     // A member the shape does not state is refused rather than dropped, so a
     // misspelt name is an error and not a value silently left at its default.
+    // A member stated twice is refused too: yyjson finds the first, and a
+    // peer that keeps the last would act on a different value.
+    std::vector<std::string_view> seen;
+    seen.reserve(yyjson_obj_size(v));
     yyjson_val* key = nullptr;
     yyjson_obj_iter iter = yyjson_obj_iter_with(v);
     while ((key = yyjson_obj_iter_next(&iter)) != nullptr) {
@@ -152,6 +153,9 @@ void read_object(yyjson_val* v, T& out, const field_list<field<T, Members>...>& 
             apply_fields([&](const auto&... f) { return ((f.name == name) || ...); }, fields);
         if (!stated)
             throw std::invalid_argument("Unknown member: " + std::string(name));
+        if (std::ranges::find(seen, name) != seen.end())
+            throw std::invalid_argument("Duplicate member: " + std::string(name));
+        seen.push_back(name);
     }
 }
 
@@ -319,8 +323,7 @@ struct json_codec<std::vector<T>> {
  * @brief A map from names to values is an object: each key is a member name,
  * in the map's order, and each value is in its element's form.
  *
- * A key that appears twice on read keeps its first value. The writer never
- * writes a key twice, so only a foreign sender can produce one.
+ * A key that appears twice is refused on read, as a struct's member is.
  */
 template <typename T>
 struct json_codec<std::map<std::string, T>> {
@@ -340,12 +343,36 @@ struct json_codec<std::map<std::string, T>> {
         std::map<std::string, T> out;
         yyjson_val* key = nullptr;
         yyjson_obj_iter iter = yyjson_obj_iter_with(v);
-        while ((key = yyjson_obj_iter_next(&iter)) != nullptr)
-            out.emplace(std::string(yyjson_get_str(key), yyjson_get_len(key)),
-                        json_codec<T>::read(yyjson_obj_iter_get_val(key)));
+        while ((key = yyjson_obj_iter_next(&iter)) != nullptr) {
+            std::string name(yyjson_get_str(key), yyjson_get_len(key));
+            if (out.contains(name))
+                throw std::invalid_argument("Duplicate member: " + name);
+            out.emplace(std::move(name), json_codec<T>::read(yyjson_obj_iter_get_val(key)));
+        }
         return out;
     }
 };
+
+namespace detail {
+
+/**
+ * @brief The document @p text holds.
+ * @throws std::invalid_argument naming why and where the text is not JSON,
+ * without the text, which may be long.
+ */
+inline yyjson_doc* parse(std::string_view text) {
+    yyjson_read_err error{};
+    // yyjson takes a pointer to mutable text, which it does not write through
+    // unless a flag says so.
+    yyjson_doc* doc =
+        yyjson_read_opts(const_cast<char*>(text.data()), text.size(), 0, nullptr, &error);
+    if (doc == nullptr)
+        throw std::invalid_argument("Not JSON: " + std::string(error.msg) + " at byte " +
+                                    std::to_string(error.pos));
+    return doc;
+}
+
+}
 
 /**
  * @brief The two conveniences a caller and a test reach for: a whole document
@@ -372,9 +399,7 @@ std::string write(const T& v) {
 
 template <typename T>
 T read(std::string_view text) {
-    yyjson_doc* doc = yyjson_read(text.data(), text.size(), 0);
-    if (doc == nullptr)
-        throw std::invalid_argument("Not JSON: " + std::string(text));
+    yyjson_doc* doc = detail::parse(text);
     try {
         const auto v = json_codec<T>::read(yyjson_doc_get_root(doc));
         yyjson_doc_free(doc);

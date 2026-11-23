@@ -17,6 +17,12 @@ ORE Studio's =ores.cpp.wire-codec.codec_header= with MessagePack left off,
 the export macro dropped, and a generated =text_form= for each enumeration
 where ORE Studio reflects with =magic_enum=.
 
+* Origin
+
+ORE Studio's
+=projects/ores.codegen/library/templates/ores.cpp.wire-codec.codec_header.org= at commit
+=bc0702ad46b8a6097ce5242ece7ba01067699f60=. The intro above states how the copy differs.
+
 * Context
 
 The context is the library's values and =masd_entity=:

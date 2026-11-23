@@ -38,6 +38,39 @@
 
 namespace compass::serve::messages {
 
+#ifndef COMPASS_SERVE_MESSAGES_RUN_OUTCOME_ENUM
+/**
+ * @brief The values :values: lists for run_outcome.
+ */
+enum class run_outcome { passed, failed, blocked };
+
+/**
+ * @brief Each value of run_outcome as the wire names it.
+ */
+[[nodiscard]] constexpr std::string_view to_string(run_outcome v) {
+    switch (v) {
+    case run_outcome::passed: return "passed";
+    case run_outcome::failed: return "failed";
+    case run_outcome::blocked: return "blocked";
+    }
+    throw std::invalid_argument("Not a run_outcome: the value is not one of passed, failed, blocked");
+}
+
+/**
+ * @brief The run_outcome @p text names, or none for any other text.
+ */
+[[nodiscard]] constexpr std::optional<run_outcome> run_outcome_of(
+    std::string_view text) noexcept {
+    if (text == "passed")
+        return run_outcome::passed;
+    if (text == "failed")
+        return run_outcome::failed;
+    if (text == "blocked")
+        return run_outcome::blocked;
+    return std::nullopt;
+}
+#endif
+
 #ifndef COMPASS_SERVE_MESSAGES_SCENARIO_STATE_ENUM
 /**
  * @brief The values :values: lists for scenario_state.
@@ -47,14 +80,14 @@ enum class scenario_state { untested, failed, passed, changed };
 /**
  * @brief Each value of scenario_state as the wire names it.
  */
-[[nodiscard]] constexpr std::string_view to_string(scenario_state v) noexcept {
+[[nodiscard]] constexpr std::string_view to_string(scenario_state v) {
     switch (v) {
     case scenario_state::untested: return "untested";
     case scenario_state::failed: return "failed";
     case scenario_state::passed: return "passed";
     case scenario_state::changed: return "changed";
     }
-    return "untested";
+    throw std::invalid_argument("Not a scenario_state: the value is not one of untested, failed, passed, changed");
 }
 
 /**
@@ -83,14 +116,14 @@ enum class step_outcome { pass, fail, blocked, skipped };
 /**
  * @brief Each value of step_outcome as the wire names it.
  */
-[[nodiscard]] constexpr std::string_view to_string(step_outcome v) noexcept {
+[[nodiscard]] constexpr std::string_view to_string(step_outcome v) {
     switch (v) {
     case step_outcome::pass: return "pass";
     case step_outcome::fail: return "fail";
     case step_outcome::blocked: return "blocked";
     case step_outcome::skipped: return "skipped";
     }
-    return "pass";
+    throw std::invalid_argument("Not a step_outcome: the value is not one of pass, fail, blocked, skipped");
 }
 
 /**
@@ -201,8 +234,8 @@ struct story_state {
  */
 [[nodiscard]] constexpr auto wire_fields(std::type_identity<story_state>) {
     return ::compass::db::codec::field_list{
-        ::compass::db::codec::field{"story", &story_state::story},
-        ::compass::db::codec::field{"tasks", &story_state::tasks},
+        ::compass::db::codec::field{"story", &story_state::story, true},
+        ::compass::db::codec::field{"tasks", &story_state::tasks, true},
     };
 }
 
@@ -220,8 +253,8 @@ struct sprint_state_response {
  */
 [[nodiscard]] constexpr auto wire_fields(std::type_identity<sprint_state_response>) {
     return ::compass::db::codec::field_list{
-        ::compass::db::codec::field{"sprint", &sprint_state_response::sprint},
-        ::compass::db::codec::field{"stories", &sprint_state_response::stories},
+        ::compass::db::codec::field{"sprint", &sprint_state_response::sprint, true},
+        ::compass::db::codec::field{"stories", &sprint_state_response::stories, true},
         ::compass::db::codec::field{"synced_at", &sprint_state_response::synced_at},
     };
 }
@@ -230,7 +263,7 @@ struct run_summary {
     std::int64_t id = 0;
     std::string tester;
     std::string finished_at;
-    std::string outcome;
+    run_outcome outcome{};
     bool current_definition = false;
 
     friend bool operator==(const run_summary&, const run_summary&) = default;
@@ -242,11 +275,11 @@ struct run_summary {
  */
 [[nodiscard]] constexpr auto wire_fields(std::type_identity<run_summary>) {
     return ::compass::db::codec::field_list{
-        ::compass::db::codec::field{"id", &run_summary::id},
+        ::compass::db::codec::field{"id", &run_summary::id, true},
         ::compass::db::codec::field{"tester", &run_summary::tester},
         ::compass::db::codec::field{"finished_at", &run_summary::finished_at},
         ::compass::db::codec::field{"outcome", &run_summary::outcome},
-        ::compass::db::codec::field{"current_definition", &run_summary::current_definition},
+        ::compass::db::codec::field{"current_definition", &run_summary::current_definition, true},
     };
 }
 
@@ -272,9 +305,9 @@ struct scenario_status {
         ::compass::db::codec::field{"title", &scenario_status::title},
         ::compass::db::codec::field{"path", &scenario_status::path},
         ::compass::db::codec::field{"task_id", &scenario_status::task_id},
-        ::compass::db::codec::field{"state", &scenario_status::state},
+        ::compass::db::codec::field{"state", &scenario_status::state, true},
         ::compass::db::codec::field{"latest_run", &scenario_status::latest_run},
-        ::compass::db::codec::field{"open_notes", &scenario_status::open_notes},
+        ::compass::db::codec::field{"open_notes", &scenario_status::open_notes, true},
     };
 }
 
@@ -301,8 +334,8 @@ struct story_testing {
         ::compass::db::codec::field{"state", &story_testing::state},
         ::compass::db::codec::field{"path", &story_testing::path},
         ::compass::db::codec::field{"campaign", &story_testing::campaign},
-        ::compass::db::codec::field{"open_notes", &story_testing::open_notes},
-        ::compass::db::codec::field{"scenarios", &story_testing::scenarios},
+        ::compass::db::codec::field{"open_notes", &story_testing::open_notes, true},
+        ::compass::db::codec::field{"scenarios", &story_testing::scenarios, true},
     };
 }
 
@@ -320,8 +353,8 @@ struct testing_response {
  */
 [[nodiscard]] constexpr auto wire_fields(std::type_identity<testing_response>) {
     return ::compass::db::codec::field_list{
-        ::compass::db::codec::field{"sprint", &testing_response::sprint},
-        ::compass::db::codec::field{"stories", &testing_response::stories},
+        ::compass::db::codec::field{"sprint", &testing_response::sprint, true},
+        ::compass::db::codec::field{"stories", &testing_response::stories, true},
         ::compass::db::codec::field{"synced_at", &testing_response::synced_at},
     };
 }
@@ -346,7 +379,7 @@ struct get_run_request {
 
 struct run_finish {
     std::string at;
-    std::string outcome;
+    run_outcome outcome{};
 
     friend bool operator==(const run_finish&, const run_finish&) = default;
 };
@@ -378,7 +411,7 @@ struct step_result {
  */
 [[nodiscard]] constexpr auto wire_fields(std::type_identity<step_result>) {
     return ::compass::db::codec::field_list{
-        ::compass::db::codec::field{"ord", &step_result::ord},
+        ::compass::db::codec::field{"ord", &step_result::ord, true},
         ::compass::db::codec::field{"title", &step_result::title},
         ::compass::db::codec::field{"body", &step_result::body},
         ::compass::db::codec::field{"outcome", &step_result::outcome},
@@ -405,14 +438,14 @@ struct get_run_response {
  */
 [[nodiscard]] constexpr auto wire_fields(std::type_identity<get_run_response>) {
     return ::compass::db::codec::field_list{
-        ::compass::db::codec::field{"id", &get_run_response::id},
-        ::compass::db::codec::field{"campaign", &get_run_response::campaign},
+        ::compass::db::codec::field{"id", &get_run_response::id, true},
+        ::compass::db::codec::field{"campaign", &get_run_response::campaign, true},
         ::compass::db::codec::field{"scenario_id", &get_run_response::scenario_id},
         ::compass::db::codec::field{"tester", &get_run_response::tester},
         ::compass::db::codec::field{"definition", &get_run_response::definition},
         ::compass::db::codec::field{"started_at", &get_run_response::started_at},
         ::compass::db::codec::field{"finished", &get_run_response::finished},
-        ::compass::db::codec::field{"steps", &get_run_response::steps},
+        ::compass::db::codec::field{"steps", &get_run_response::steps, true},
     };
 }
 
@@ -473,7 +506,7 @@ struct campaign_note {
  */
 [[nodiscard]] constexpr auto wire_fields(std::type_identity<campaign_note>) {
     return ::compass::db::codec::field_list{
-        ::compass::db::codec::field{"id", &campaign_note::id},
+        ::compass::db::codec::field{"id", &campaign_note::id, true},
         ::compass::db::codec::field{"scenario_id", &campaign_note::scenario_id},
         ::compass::db::codec::field{"step_ord", &campaign_note::step_ord},
         ::compass::db::codec::field{"kind", &campaign_note::kind},
@@ -496,13 +529,39 @@ struct list_notes_response {
  */
 [[nodiscard]] constexpr auto wire_fields(std::type_identity<list_notes_response>) {
     return ::compass::db::codec::field_list{
-        ::compass::db::codec::field{"notes", &list_notes_response::notes},
+        ::compass::db::codec::field{"notes", &list_notes_response::notes, true},
     };
 }
 
 }
 
 namespace compass::db::codec {
+
+#ifndef COMPASS_SERVE_MESSAGES_RUN_OUTCOME_ENUM
+#define COMPASS_SERVE_MESSAGES_RUN_OUTCOME_ENUM
+/**
+ * @brief run_outcome travels as the name of its value.
+ */
+template <>
+struct text_form<compass::serve::messages::run_outcome> {
+    static constexpr std::string_view wire_name = "a run_outcome";
+
+    static constexpr std::string_view names[] = { "passed", "failed", "blocked" };
+
+    static constexpr compass::serve::messages::run_outcome values[] = { compass::serve::messages::run_outcome::passed, compass::serve::messages::run_outcome::failed, compass::serve::messages::run_outcome::blocked };
+
+    static std::string to_text(compass::serve::messages::run_outcome v) {
+        return std::string(to_string(v));
+    }
+
+    static compass::serve::messages::run_outcome from_text(std::string_view text) {
+        if (const auto v = compass::serve::messages::run_outcome_of(text))
+            return *v;
+        throw std::invalid_argument("Not " + std::string(wire_name) + ": '" +
+                                    std::string(text) + "' is not one of passed, failed, blocked");
+    }
+};
+#endif
 
 #ifndef COMPASS_SERVE_MESSAGES_SCENARIO_STATE_ENUM
 #define COMPASS_SERVE_MESSAGES_SCENARIO_STATE_ENUM

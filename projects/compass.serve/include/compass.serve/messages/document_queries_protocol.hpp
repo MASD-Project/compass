@@ -38,6 +38,69 @@
 
 namespace compass::serve::messages {
 
+#ifndef COMPASS_SERVE_MESSAGES_DOCUMENT_FORMAT_ENUM
+/**
+ * @brief The values :values: lists for document_format.
+ */
+enum class document_format { html, org };
+
+/**
+ * @brief Each value of document_format as the wire names it.
+ */
+[[nodiscard]] constexpr std::string_view to_string(document_format v) {
+    switch (v) {
+    case document_format::html: return "html";
+    case document_format::org: return "org";
+    }
+    throw std::invalid_argument("Not a document_format: the value is not one of html, org");
+}
+
+/**
+ * @brief The document_format @p text names, or none for any other text.
+ */
+[[nodiscard]] constexpr std::optional<document_format> document_format_of(
+    std::string_view text) noexcept {
+    if (text == "html")
+        return document_format::html;
+    if (text == "org")
+        return document_format::org;
+    return std::nullopt;
+}
+#endif
+
+#ifndef COMPASS_SERVE_MESSAGES_ENVIRONMENT_KIND_ENUM
+/**
+ * @brief The values :values: lists for environment_kind.
+ */
+enum class environment_kind { worktree, branch, release };
+
+/**
+ * @brief Each value of environment_kind as the wire names it.
+ */
+[[nodiscard]] constexpr std::string_view to_string(environment_kind v) {
+    switch (v) {
+    case environment_kind::worktree: return "worktree";
+    case environment_kind::branch: return "branch";
+    case environment_kind::release: return "release";
+    }
+    throw std::invalid_argument("Not a environment_kind: the value is not one of worktree, branch, release");
+}
+
+/**
+ * @brief The environment_kind @p text names, or none for any other text.
+ */
+[[nodiscard]] constexpr std::optional<environment_kind> environment_kind_of(
+    std::string_view text) noexcept {
+    if (text == "worktree")
+        return environment_kind::worktree;
+    if (text == "branch")
+        return environment_kind::branch;
+    if (text == "release")
+        return environment_kind::release;
+    return std::nullopt;
+}
+#endif
+
 struct metadata_match {
     std::string name;
     std::string value;
@@ -76,13 +139,13 @@ struct document_filter {
 [[nodiscard]] constexpr auto wire_fields(std::type_identity<document_filter>) {
     return ::compass::db::codec::field_list{
         ::compass::db::codec::field{"type", &document_filter::type},
-        ::compass::db::codec::field{"tags", &document_filter::tags},
+        ::compass::db::codec::field{"tags", &document_filter::tags, true},
         ::compass::db::codec::field{"state", &document_filter::state},
         ::compass::db::codec::field{"sprint", &document_filter::sprint},
         ::compass::db::codec::field{"level", &document_filter::level},
         ::compass::db::codec::field{"audience", &document_filter::audience},
-        ::compass::db::codec::field{"keywords", &document_filter::keywords},
-        ::compass::db::codec::field{"properties", &document_filter::properties},
+        ::compass::db::codec::field{"keywords", &document_filter::keywords, true},
+        ::compass::db::codec::field{"properties", &document_filter::properties, true},
     };
 }
 
@@ -104,9 +167,9 @@ struct search_request {
     return ::compass::db::codec::field_list{
         ::compass::db::codec::field{"environment", &search_request::environment},
         ::compass::db::codec::field{"q", &search_request::q},
-        ::compass::db::codec::field{"filter", &search_request::filter},
-        ::compass::db::codec::field{"limit", &search_request::limit},
-        ::compass::db::codec::field{"offset", &search_request::offset},
+        ::compass::db::codec::field{"filter", &search_request::filter, true},
+        ::compass::db::codec::field{"limit", &search_request::limit, true},
+        ::compass::db::codec::field{"offset", &search_request::offset, true},
     };
 }
 
@@ -135,10 +198,10 @@ struct search_hit {
         ::compass::db::codec::field{"type", &search_hit::type},
         ::compass::db::codec::field{"description", &search_hit::description},
         ::compass::db::codec::field{"path", &search_hit::path},
-        ::compass::db::codec::field{"heading_path", &search_hit::heading_path},
+        ::compass::db::codec::field{"heading_path", &search_hit::heading_path, true},
         ::compass::db::codec::field{"anchor", &search_hit::anchor},
         ::compass::db::codec::field{"snippet", &search_hit::snippet},
-        ::compass::db::codec::field{"rank", &search_hit::rank},
+        ::compass::db::codec::field{"rank", &search_hit::rank, true},
     };
 }
 
@@ -156,8 +219,8 @@ struct search_response {
  */
 [[nodiscard]] constexpr auto wire_fields(std::type_identity<search_response>) {
     return ::compass::db::codec::field_list{
-        ::compass::db::codec::field{"hits", &search_response::hits},
-        ::compass::db::codec::field{"total", &search_response::total},
+        ::compass::db::codec::field{"hits", &search_response::hits, true},
+        ::compass::db::codec::field{"total", &search_response::total, true},
         ::compass::db::codec::field{"synced_at", &search_response::synced_at},
     };
 }
@@ -179,10 +242,10 @@ struct facets_request {
 [[nodiscard]] constexpr auto wire_fields(std::type_identity<facets_request>) {
     return ::compass::db::codec::field_list{
         ::compass::db::codec::field{"environment", &facets_request::environment},
-        ::compass::db::codec::field{"q", &facets_request::q},
-        ::compass::db::codec::field{"filter", &facets_request::filter},
-        ::compass::db::codec::field{"keywords", &facets_request::keywords},
-        ::compass::db::codec::field{"properties", &facets_request::properties},
+        ::compass::db::codec::field{"q", &facets_request::q, true},
+        ::compass::db::codec::field{"filter", &facets_request::filter, true},
+        ::compass::db::codec::field{"keywords", &facets_request::keywords, true},
+        ::compass::db::codec::field{"properties", &facets_request::properties, true},
     };
 }
 
@@ -202,7 +265,7 @@ struct facet_count {
     return ::compass::db::codec::field_list{
         ::compass::db::codec::field{"value", &facet_count::value},
         ::compass::db::codec::field{"label", &facet_count::label},
-        ::compass::db::codec::field{"count", &facet_count::count},
+        ::compass::db::codec::field{"count", &facet_count::count, true},
     };
 }
 
@@ -220,7 +283,7 @@ struct named_facet {
 [[nodiscard]] constexpr auto wire_fields(std::type_identity<named_facet>) {
     return ::compass::db::codec::field_list{
         ::compass::db::codec::field{"name", &named_facet::name},
-        ::compass::db::codec::field{"counts", &named_facet::counts},
+        ::compass::db::codec::field{"counts", &named_facet::counts, true},
     };
 }
 
@@ -244,15 +307,15 @@ struct facets_response {
  */
 [[nodiscard]] constexpr auto wire_fields(std::type_identity<facets_response>) {
     return ::compass::db::codec::field_list{
-        ::compass::db::codec::field{"documents", &facets_response::documents},
-        ::compass::db::codec::field{"types", &facets_response::types},
-        ::compass::db::codec::field{"tags", &facets_response::tags},
-        ::compass::db::codec::field{"states", &facets_response::states},
-        ::compass::db::codec::field{"sprints", &facets_response::sprints},
-        ::compass::db::codec::field{"levels", &facets_response::levels},
-        ::compass::db::codec::field{"audiences", &facets_response::audiences},
-        ::compass::db::codec::field{"keywords", &facets_response::keywords},
-        ::compass::db::codec::field{"properties", &facets_response::properties},
+        ::compass::db::codec::field{"documents", &facets_response::documents, true},
+        ::compass::db::codec::field{"types", &facets_response::types, true},
+        ::compass::db::codec::field{"tags", &facets_response::tags, true},
+        ::compass::db::codec::field{"states", &facets_response::states, true},
+        ::compass::db::codec::field{"sprints", &facets_response::sprints, true},
+        ::compass::db::codec::field{"levels", &facets_response::levels, true},
+        ::compass::db::codec::field{"audiences", &facets_response::audiences, true},
+        ::compass::db::codec::field{"keywords", &facets_response::keywords, true},
+        ::compass::db::codec::field{"properties", &facets_response::properties, true},
     };
 }
 
@@ -279,7 +342,7 @@ struct document_summary {
         ::compass::db::codec::field{"type", &document_summary::type},
         ::compass::db::codec::field{"description", &document_summary::description},
         ::compass::db::codec::field{"path", &document_summary::path},
-        ::compass::db::codec::field{"tags", &document_summary::tags},
+        ::compass::db::codec::field{"tags", &document_summary::tags, true},
         ::compass::db::codec::field{"updated", &document_summary::updated},
     };
 }
@@ -300,9 +363,9 @@ struct list_documents_request {
 [[nodiscard]] constexpr auto wire_fields(std::type_identity<list_documents_request>) {
     return ::compass::db::codec::field_list{
         ::compass::db::codec::field{"environment", &list_documents_request::environment},
-        ::compass::db::codec::field{"filter", &list_documents_request::filter},
-        ::compass::db::codec::field{"limit", &list_documents_request::limit},
-        ::compass::db::codec::field{"offset", &list_documents_request::offset},
+        ::compass::db::codec::field{"filter", &list_documents_request::filter, true},
+        ::compass::db::codec::field{"limit", &list_documents_request::limit, true},
+        ::compass::db::codec::field{"offset", &list_documents_request::offset, true},
     };
 }
 
@@ -320,8 +383,8 @@ struct list_documents_response {
  */
 [[nodiscard]] constexpr auto wire_fields(std::type_identity<list_documents_response>) {
     return ::compass::db::codec::field_list{
-        ::compass::db::codec::field{"documents", &list_documents_response::documents},
-        ::compass::db::codec::field{"total", &list_documents_response::total},
+        ::compass::db::codec::field{"documents", &list_documents_response::documents, true},
+        ::compass::db::codec::field{"total", &list_documents_response::total, true},
         ::compass::db::codec::field{"synced_at", &list_documents_response::synced_at},
     };
 }
@@ -329,7 +392,7 @@ struct list_documents_response {
 struct get_document_request {
     std::string environment;
     std::string id;
-    std::string format = "html";
+    document_format format = document_format::html;
 
     friend bool operator==(const get_document_request&, const get_document_request&) = default;
 };
@@ -342,13 +405,13 @@ struct get_document_request {
     return ::compass::db::codec::field_list{
         ::compass::db::codec::field{"environment", &get_document_request::environment},
         ::compass::db::codec::field{"id", &get_document_request::id},
-        ::compass::db::codec::field{"format", &get_document_request::format},
+        ::compass::db::codec::field{"format", &get_document_request::format, true},
     };
 }
 
 struct get_document_response {
     document_summary document;
-    std::string format;
+    document_format format{};
     std::string body;
     std::string synced_at;
 
@@ -361,7 +424,7 @@ struct get_document_response {
  */
 [[nodiscard]] constexpr auto wire_fields(std::type_identity<get_document_response>) {
     return ::compass::db::codec::field_list{
-        ::compass::db::codec::field{"document", &get_document_response::document},
+        ::compass::db::codec::field{"document", &get_document_response::document, true},
         ::compass::db::codec::field{"format", &get_document_response::format},
         ::compass::db::codec::field{"body", &get_document_response::body},
         ::compass::db::codec::field{"synced_at", &get_document_response::synced_at},
@@ -400,7 +463,7 @@ struct backlink {
  */
 [[nodiscard]] constexpr auto wire_fields(std::type_identity<backlink>) {
     return ::compass::db::codec::field_list{
-        ::compass::db::codec::field{"document", &backlink::document},
+        ::compass::db::codec::field{"document", &backlink::document, true},
         ::compass::db::codec::field{"anchor", &backlink::anchor},
         ::compass::db::codec::field{"text", &backlink::text},
     };
@@ -419,7 +482,7 @@ struct backlinks_response {
  */
 [[nodiscard]] constexpr auto wire_fields(std::type_identity<backlinks_response>) {
     return ::compass::db::codec::field_list{
-        ::compass::db::codec::field{"backlinks", &backlinks_response::backlinks},
+        ::compass::db::codec::field{"backlinks", &backlinks_response::backlinks, true},
         ::compass::db::codec::field{"synced_at", &backlinks_response::synced_at},
     };
 }
@@ -440,7 +503,7 @@ struct list_environments_request {
 
 struct environment_summary {
     std::string name;
-    std::string kind;
+    environment_kind kind{};
     std::string root;
     std::string head;
     std::string synced_at;
@@ -460,7 +523,7 @@ struct environment_summary {
         ::compass::db::codec::field{"root", &environment_summary::root},
         ::compass::db::codec::field{"head", &environment_summary::head},
         ::compass::db::codec::field{"synced_at", &environment_summary::synced_at},
-        ::compass::db::codec::field{"documents", &environment_summary::documents},
+        ::compass::db::codec::field{"documents", &environment_summary::documents, true},
     };
 }
 
@@ -476,7 +539,7 @@ struct list_environments_response {
  */
 [[nodiscard]] constexpr auto wire_fields(std::type_identity<list_environments_response>) {
     return ::compass::db::codec::field_list{
-        ::compass::db::codec::field{"environments", &list_environments_response::environments},
+        ::compass::db::codec::field{"environments", &list_environments_response::environments, true},
     };
 }
 
@@ -546,10 +609,10 @@ struct sync_response {
 [[nodiscard]] constexpr auto wire_fields(std::type_identity<sync_response>) {
     return ::compass::db::codec::field_list{
         ::compass::db::codec::field{"environment", &sync_response::environment},
-        ::compass::db::codec::field{"placed", &sync_response::placed},
-        ::compass::db::codec::field{"loaded", &sync_response::loaded},
-        ::compass::db::codec::field{"parsed", &sync_response::parsed},
-        ::compass::db::codec::field{"errors", &sync_response::errors},
+        ::compass::db::codec::field{"placed", &sync_response::placed, true},
+        ::compass::db::codec::field{"loaded", &sync_response::loaded, true},
+        ::compass::db::codec::field{"parsed", &sync_response::parsed, true},
+        ::compass::db::codec::field{"errors", &sync_response::errors, true},
         ::compass::db::codec::field{"synced_at", &sync_response::synced_at},
     };
 }
@@ -557,6 +620,58 @@ struct sync_response {
 }
 
 namespace compass::db::codec {
+
+#ifndef COMPASS_SERVE_MESSAGES_DOCUMENT_FORMAT_ENUM
+#define COMPASS_SERVE_MESSAGES_DOCUMENT_FORMAT_ENUM
+/**
+ * @brief document_format travels as the name of its value.
+ */
+template <>
+struct text_form<compass::serve::messages::document_format> {
+    static constexpr std::string_view wire_name = "a document_format";
+
+    static constexpr std::string_view names[] = { "html", "org" };
+
+    static constexpr compass::serve::messages::document_format values[] = { compass::serve::messages::document_format::html, compass::serve::messages::document_format::org };
+
+    static std::string to_text(compass::serve::messages::document_format v) {
+        return std::string(to_string(v));
+    }
+
+    static compass::serve::messages::document_format from_text(std::string_view text) {
+        if (const auto v = compass::serve::messages::document_format_of(text))
+            return *v;
+        throw std::invalid_argument("Not " + std::string(wire_name) + ": '" +
+                                    std::string(text) + "' is not one of html, org");
+    }
+};
+#endif
+
+#ifndef COMPASS_SERVE_MESSAGES_ENVIRONMENT_KIND_ENUM
+#define COMPASS_SERVE_MESSAGES_ENVIRONMENT_KIND_ENUM
+/**
+ * @brief environment_kind travels as the name of its value.
+ */
+template <>
+struct text_form<compass::serve::messages::environment_kind> {
+    static constexpr std::string_view wire_name = "a environment_kind";
+
+    static constexpr std::string_view names[] = { "worktree", "branch", "release" };
+
+    static constexpr compass::serve::messages::environment_kind values[] = { compass::serve::messages::environment_kind::worktree, compass::serve::messages::environment_kind::branch, compass::serve::messages::environment_kind::release };
+
+    static std::string to_text(compass::serve::messages::environment_kind v) {
+        return std::string(to_string(v));
+    }
+
+    static compass::serve::messages::environment_kind from_text(std::string_view text) {
+        if (const auto v = compass::serve::messages::environment_kind_of(text))
+            return *v;
+        throw std::invalid_argument("Not " + std::string(wire_name) + ": '" +
+                                    std::string(text) + "' is not one of worktree, branch, release");
+    }
+};
+#endif
 
 template <>
 struct wire_traits<compass::serve::messages::metadata_match> {

@@ -56,6 +56,15 @@ namespace compass::codegen::ops {
     std::string_view component_dir);
 
 /**
+ * @brief Another operation model the generator reads beside the one it
+ * renders, and the path it was read from.
+ */
+struct sibling_operation {
+    std::string path;
+    compass::model::types::masd_operation model;
+};
+
+/**
  * @brief The context the masd.cpp.protocol and masd.cpp.json templates
  * render an operation model's messages and their JSON codecs from: the
  * library values and, under masd_operation, the namespace, the includes,
@@ -63,13 +72,23 @@ namespace compass::codegen::ops {
  * messages it holds, with its fields. A field encoded as base64 holds the
  * codec runtime's base64_bytes. @p codec_component names the component of
  * @p product whose masd.cpp.codec runtime the codecs are written against.
+ *
+ * Each message states whether it is routed, its http_method and http_path,
+ * and has_body; each field its member, http_in, http_name (the field's
+ * name when the model states none) and may_be_absent, whether a document
+ * may leave it out under the service's binding rules. A routed request
+ * lists its fields again by where its route reads them, as path_fields,
+ * query_fields and body_fields.
  * @throws std::runtime_error when two fields list different values for one
- * enumeration, or the messages hold each other in a cycle.
+ * enumeration, here or in a sibling of the same namespace, a field lists
+ * :values: on a type that names no enumeration, or the messages hold each
+ * other in a cycle.
  */
 [[nodiscard]] compass::model::types::value_id masd_operation_context(
     compass::model::ops::builder& b, compass::model::types::value_id library,
     const compass::model::types::masd_operation& op,
-    std::string_view product, std::string_view codec_component);
+    std::string_view product, std::string_view codec_component,
+    std::span<const sibling_operation> siblings = {});
 
 /**
  * @brief The context the masd.sql template renders a component's whole

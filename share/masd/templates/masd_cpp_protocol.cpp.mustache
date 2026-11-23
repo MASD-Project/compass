@@ -3,6 +3,7 @@
 {{#masd_operation}}
 #include "{{protocol_include}}"
 
+#include "{{codec_root}}/json_schema.hpp"
 #include "{{codec_root}}/struct_codec.hpp"
 
 namespace {{codec_namespace}} {
@@ -15,6 +16,16 @@ std::string wire_traits<{{qualified}}>::write_json(const {{qualified}}& v) {
 {{qualified}} wire_traits<{{qualified}}>::read_json(std::string_view text) {
     return object::read_json<{{qualified}}>(text);
 }
+{{#has_body}}
+
+{{qualified}} wire_traits<{{qualified}}>::read_body_json(std::string_view text) {
+    return object::read_json(text, body_fields(std::type_identity<{{qualified}}>{}));
+}
+
+std::string wire_traits<{{qualified}}>::body_json_schema() {
+    return json_schema(body_fields(std::type_identity<{{qualified}}>{}));
+}
+{{/has_body}}
 {{/messages}}
 
 }

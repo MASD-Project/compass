@@ -137,7 +137,7 @@ On a field:
 | =:http_name:= | a name | The query parameter's name, when it is not the field's. |
 | =:required:= | =false= | A query field that may be left out although its type and its lack of a default would require it. |
 | =:encoding:= | =base64= | A =std::string= body field that holds bytes, written as base64 in JSON. A field named =bytes= always states it, and its route states =:max_body_size:=. |
-| =:values:= | names | A closed list: the enumeration a field of an enumerated type takes, or the only text values a string field accepts. As on an entity model's column. |
+| =:values:= | names | A closed list: the values of the enumeration the field's =:cpp_type:= names, which the generator declares, so the reader refuses any other value and the JSON Schema lists them. A field of a standard type such as =std::string= does not state it. As on an entity model's column. |
 
 ** Binding a request
 

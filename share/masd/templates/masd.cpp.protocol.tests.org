@@ -20,6 +20,12 @@ with the round trip stated in place, as
 for a row, and the writer's output checked against the message's JSON
 Schema.
 
+* Origin
+
+ORE Studio's
+=projects/ores.codegen/library/templates/ores.cpp.wire-codec.protocol_roundtrip_tests.org= at commit
+=bc0702ad46b8a6097ce5242ece7ba01067699f60=. The intro above states how the copy differs.
+
 * Context
 
 The context is the library's values and =masd_operation=:
@@ -39,7 +45,10 @@ The template source. compass's =tangle= codec writes it to
 
 #include <catch2/catch_test_macros.hpp>
 #include <cstddef>
+#include <stdexcept>
 #include <string>
+#include <string_view>
+#include <vector>
 #include "{{codec_root}}/json_schema.hpp"
 #include "{{codec_root}}/member_count.hpp"
 #include "{{codec_root}}/sample.hpp"
@@ -61,8 +70,63 @@ TEST_CASE("{{name}} reads back the JSON it writes, which its JSON Schema "
         CHECK({{codec_namespace}}::schema_violation(schema, text).value_or("") == "");
     }
     const {{qualified}} empty{};
-    CHECK(traits::read_json(traits::write_json(empty)) == empty);
+    const auto text = traits::write_json(empty);
+    INFO(text);
+    CHECK(traits::read_json(text) == empty);
+    CHECK({{codec_namespace}}::schema_violation(schema, text).value_or("") == "");
 }
+
+TEST_CASE("{{name}}'s reader and JSON Schema refuse the same members",
+    "[codec][schema][protocol]") {
+    using traits = {{codec_namespace}}::wire_traits<{{qualified}}>;
+    const auto schema = {{codec_namespace}}::json_schema<{{qualified}}>();
+    const auto text = traits::write_json({{codec_namespace}}::sample<{{qualified}}>(0));
+    const auto added = {{codec_namespace}}::with_unknown_member(text);
+    CHECK_THROWS_AS(traits::read_json(added), std::invalid_argument);
+    CHECK({{codec_namespace}}::schema_violation(schema, added).has_value());
+    for (const auto name : {{codec_namespace}}::required_members<{{qualified}}>()) {
+        INFO(name);
+        const auto removed = {{codec_namespace}}::without_member(text, name);
+        CHECK_THROWS_AS(traits::read_json(removed), std::invalid_argument);
+        CHECK({{codec_namespace}}::schema_violation(schema, removed).has_value());
+    }
+    for (const auto name : {{codec_namespace}}::absent_members<{{qualified}}>()) {
+        INFO(name);
+        const auto removed = {{codec_namespace}}::without_member(text, name);
+        CHECK_NOTHROW(traits::read_json(removed));
+        CHECK({{codec_namespace}}::schema_violation(schema, removed).value_or("") == "");
+    }
+}
+{{#has_body}}
+
+TEST_CASE("{{name}}'s route reads its body fields from a body its body "
+    "schema allows, and no other member", "[codec][schema][protocol]") {
+    using traits = {{codec_namespace}}::wire_traits<{{qualified}}>;
+    const auto schema = traits::body_json_schema();
+    const auto v = {{codec_namespace}}::sample<{{qualified}}>(0);
+    const auto full = traits::write_json(v);
+    const std::vector<std::string_view> body_names{ {{#body_fields}}"{{member}}", {{/body_fields}}};
+    const auto body = {{codec_namespace}}::only_members(full, body_names);
+    INFO(body);
+    CHECK({{codec_namespace}}::schema_violation(schema, body).value_or("") == "");
+    const auto read = traits::read_body_json(body);
+{{#body_fields}}
+    CHECK(read.{{member}} == v.{{member}});
+{{/body_fields}}
+{{#path_fields}}
+    auto with_{{member}} = body_names;
+    with_{{member}}.push_back("{{member}}");
+    CHECK_THROWS_AS(traits::read_body_json({{codec_namespace}}::only_members(full, with_{{member}})),
+        std::invalid_argument);
+{{/path_fields}}
+{{#query_fields}}
+    auto with_{{member}} = body_names;
+    with_{{member}}.push_back("{{member}}");
+    CHECK_THROWS_AS(traits::read_body_json({{codec_namespace}}::only_members(full, with_{{member}})),
+        std::invalid_argument);
+{{/query_fields}}
+}
+{{/has_body}}
 {{/messages}}
 {{/masd_operation}}
 #+end_src

@@ -25,6 +25,7 @@
 #include "compass.db/types/section_row_codec.hpp"
 
 #include <catch2/catch_test_macros.hpp>
+#include <stdexcept>
 #include <string>
 #include "compass.db/codec/json_schema.hpp"
 #include "compass.db/codec/member_count.hpp"
@@ -60,5 +61,24 @@ TEST_CASE("section_row's JSON Schema allows the JSON it writes",
         const auto violation = compass::db::codec::schema_violation(schema, text);
         INFO(text);
         CHECK(violation.value_or("") == "");
+    }
+    const auto text = roundtrip_traits::write_json(roundtrip_type{});
+    INFO(text);
+    CHECK(compass::db::codec::schema_violation(schema, text).value_or("") == "");
+}
+
+TEST_CASE("section_row's reader and JSON Schema refuse the same members",
+    "[codec][schema]") {
+    const auto schema = compass::db::codec::json_schema<roundtrip_type>();
+    const auto text = roundtrip_traits::write_json(
+        compass::db::codec::sample<roundtrip_type>(0));
+    const auto added = compass::db::codec::with_unknown_member(text);
+    CHECK_THROWS_AS(roundtrip_traits::read_json(added), std::invalid_argument);
+    CHECK(compass::db::codec::schema_violation(schema, added).has_value());
+    for (const auto name : compass::db::codec::required_members<roundtrip_type>()) {
+        INFO(name);
+        const auto removed = compass::db::codec::without_member(text, name);
+        CHECK_THROWS_AS(roundtrip_traits::read_json(removed), std::invalid_argument);
+        CHECK(compass::db::codec::schema_violation(schema, removed).has_value());
     }
 }

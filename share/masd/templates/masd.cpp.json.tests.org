@@ -17,6 +17,12 @@ ORE Studio's =ores.cpp.wire-codec.roundtrip_tests= with the MessagePack cases
 left off and one case added: the JSON the writer writes is a document the
 row's JSON Schema allows.
 
+* Origin
+
+ORE Studio's
+=projects/ores.codegen/library/templates/ores.cpp.wire-codec.roundtrip_tests.org= at commit
+=bc0702ad46b8a6097ce5242ece7ba01067699f60=. The intro above states how the copy differs.
+
 * Context
 
 The context is the library's values and =masd_entity=: =row_type=,
@@ -39,6 +45,7 @@ swaps with another of its type fails the round trip.
 #include "{{codec_include}}"
 
 #include <catch2/catch_test_macros.hpp>
+#include <stdexcept>
 #include <string>
 #include "{{codec_root}}/json_schema.hpp"
 #include "{{codec_root}}/member_count.hpp"
@@ -74,6 +81,25 @@ TEST_CASE("{{row_type}}'s JSON Schema allows the JSON it writes",
         const auto violation = {{codec_namespace}}::schema_violation(schema, text);
         INFO(text);
         CHECK(violation.value_or("") == "");
+    }
+    const auto text = roundtrip_traits::write_json(roundtrip_type{});
+    INFO(text);
+    CHECK({{codec_namespace}}::schema_violation(schema, text).value_or("") == "");
+}
+
+TEST_CASE("{{row_type}}'s reader and JSON Schema refuse the same members",
+    "[codec][schema]") {
+    const auto schema = {{codec_namespace}}::json_schema<roundtrip_type>();
+    const auto text = roundtrip_traits::write_json(
+        {{codec_namespace}}::sample<roundtrip_type>(0));
+    const auto added = {{codec_namespace}}::with_unknown_member(text);
+    CHECK_THROWS_AS(roundtrip_traits::read_json(added), std::invalid_argument);
+    CHECK({{codec_namespace}}::schema_violation(schema, added).has_value());
+    for (const auto name : {{codec_namespace}}::required_members<roundtrip_type>()) {
+        INFO(name);
+        const auto removed = {{codec_namespace}}::without_member(text, name);
+        CHECK_THROWS_AS(roundtrip_traits::read_json(removed), std::invalid_argument);
+        CHECK({{codec_namespace}}::schema_violation(schema, removed).has_value());
     }
 }
 {{/masd_entity}}

@@ -139,7 +139,11 @@ TEST_CASE("a blob ID travels as 40 hexadecimal digits", "[codec][json]") {
 TEST_CASE("a row's schema requires its members, lists its enumeration and "
     "allows no other member", "[codec][schema]") {
     const auto schema = compass::db::codec::json_schema<note_row>();
-    CHECK_THAT(schema, ContainsSubstring("\"$ref\":\"#/$defs/db.types.note_row\""));
+    CHECK(compass::db::codec::json_schema_detail::definition_name<note_row>() ==
+        "db.types.note_row");
+    CHECK_THAT(schema, ContainsSubstring(
+        "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\","
+        "\"type\":\"object\""));
     CHECK_THAT(schema, ContainsSubstring("\"enum\":[\"open\",\"addressed\"]"));
     CHECK_THAT(schema, ContainsSubstring("\"additionalProperties\":false"));
 
@@ -157,5 +161,26 @@ TEST_CASE("a row's schema requires its members, lists its enumeration and "
         "$.state: closed is not one of the values the schema lists");
     CHECK(schema_violation(schema, replaced(note_json(),
         "\"author\":\"tester\"", "\"author\":null")) ==
-        "$.author: null where the schema does not allow it");
+        "$.author: not of type string");
+}
+
+TEST_CASE("an instant's schema states the one spelling its reader takes, "
+    "and a year of more than four digits has none", "[codec][schema]") {
+    using instant = std::chrono::sys_time<std::chrono::microseconds>;
+    using form = compass::db::codec::text_form<instant>;
+    const auto schema = compass::db::codec::json_schema<note_row>();
+    CHECK_THAT(schema, ContainsSubstring("\"format\":\"date-time\""));
+    using compass::db::codec::schema_violation;
+    CHECK(schema_violation(schema, replaced(note_json(), "2026-11-23T00:00:00.001500Z",
+        "2026-11-23T10:00:00+01:00")).has_value());
+    CHECK_FALSE(schema_violation(schema, replaced(note_json(),
+        "2026-11-23T00:00:00.001500Z", "2026-11-23T10:00:00Z"))
+        .has_value());
+    using namespace std::chrono;
+    CHECK_THROWS_AS(form::to_text(sys_days{year{12000} / 1 / 1}),
+        std::invalid_argument);
+    CHECK_THROWS_AS(form::to_text(sys_days{year{-1} / 1 / 1}),
+        std::invalid_argument);
+    CHECK(form::to_text(sys_days{year{9999} / 12 / 31}) ==
+        "9999-12-31T00:00:00.000000Z");
 }

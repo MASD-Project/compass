@@ -23,8 +23,13 @@ code. This facet writes each message of an operation model as a struct, in
 the model's =#+namespace:=, states its wire shape once as =wire_fields=, and
 specialises =wire_traits= against the codec runtime of
 [[id:7D0FA277-D3F7-48E9-BCDF-7A88592119E3][masd.cpp.codec]]. The JSON Schema
-of every message is =json_schema<T>()= of that runtime, so a route's schema
-and a tool's =inputSchema= are the same value as the reader's shape.
+of every message is =json_schema<T>()= of that runtime, so each schema is the
+same value as its reader's shape. A routed request has two shapes, as the
+service's binding rules say: its MCP arguments, every field, which
+=json_schema<T>()= and =read_json= state; and its body, only the =body=
+fields, which =body_fields=, =body_json_schema= and =read_body_json= state.
+In both, a field the rules let a caller leave out keeps its default and is
+not required.
 
 It is ORE Studio's =ores.cpp.protocol= header for an operation and the
 =protocol_codec_impl= and =protocol_roundtrip_tests= archetypes of
@@ -47,9 +52,13 @@ properties of a field change the code:
 
 | Property | Effect |
 |----------+--------|
-| =:values:= on a field whose type is not a standard type or a message | The type is an enumeration of those values, declared once in the header, with =to_string=, a parser =<enum>_of= and a =text_form= that writes its names. Two models that declare the same enumeration must list the same values; each declaration is guarded by its qualified name, so both headers can be included together. |
-| =:values:= on a =std::string= field | No change in the codec: the field stays a string. Refusing a text outside the list is the binding's, as the service's component overview states. |
+| =:values:= | The field's type names an enumeration of those values, declared once in the header, with =to_string=, a parser =<enum>_of= and a =text_form= that writes its names, so the reader refuses any other text and the schema lists them. The generator refuses =:values:= on a standard type or a message. Two fields that declare one enumeration must list the same values, in the model and in every operation model of the same namespace in its directory; each declaration is guarded by its qualified name, so headers that declare it can be included together. |
 | =:encoding: base64= | The member is the runtime's =base64_bytes=, so its JSON is base64 text and a reader refuses anything else. |
+| =:http_in:= | Where a route reads the field. A field that is not =path= may be left out when it is a vector or a message, has a =:default:= or states =:required: false=: its =field= states =may_be_absent=. A request with a =body= field also states =body_fields=. |
+
+The context lists each routed request's fields again as =path_fields=,
+=query_fields= and =body_fields=, with each field's =http_name=, so the
+templates that bind a request read where its fields come from as data.
 
 Where compass's copy diverges from ORE Studio's:
 
@@ -62,7 +71,10 @@ Where compass's copy diverges from ORE Studio's:
 | Enumerations | Declared by hand beside the domain types | Generated from a field's =:values:= | compass's models |
 | Bytes | None | =base64_bytes= for =:encoding: base64= | compass's models |
 | Declaration order | Model order | Each message after the messages it holds | Fix to offer ORE Studio |
-| Round trip | =ores::testing::check_wire_roundtrip= | Samples 0 and 1 and the default, and the writer's output against the JSON Schema | Fewer formats, one more check |
+| Round trip | =ores::testing::check_wire_roundtrip= | Samples 0 and 1 and the default, each against the JSON Schema; a member added and each required member removed, refused by the reader and the schema; each member that may be absent removed, accepted by both; and for a request with a body, its body read and checked against the body schema | Fewer formats, more checks |
+| Optional members | Only =std::optional= | Also a member the binding rules let a caller leave out | compass's models |
+| Body | None: NATS carries the whole message | =body_fields=, =read_body_json= and =body_json_schema= per request with a body | compass's models |
+| An enumerator out of range | Written as its first name | =to_string= throws | Fix to offer ORE Studio |
 
 * See also
 

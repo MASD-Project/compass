@@ -31,7 +31,7 @@ A refused call.
 
 *** code
 :PROPERTIES:
-:cpp_type: std::string
+:cpp_type: error_code
 :values:   invalid no_view no_subject forbidden not_found unknown_environment unknown_sprint conflict too_large internal
 :END:
 

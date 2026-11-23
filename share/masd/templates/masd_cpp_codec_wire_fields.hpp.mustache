@@ -32,6 +32,9 @@ template <typename T, typename Member>
 struct field {
     std::string_view name;
     Member T::*member;
+    // Whether a document may leave the member out, which keeps its default.
+    // An optional member may always be left out, so this is for any other.
+    bool may_be_absent = false;
 };
 
 template <std::size_t I, typename Field>
@@ -95,6 +98,15 @@ inline constexpr bool is_optional_member = false;
 
 template <typename Member>
 inline constexpr bool is_optional_member<std::optional<Member>> = true;
+
+/**
+ * @brief Whether a document must state the member @p f names: one that is
+ * not optional and that its shape does not let a document leave out.
+ */
+template <typename T, typename Member>
+constexpr bool is_required(const field<T, Member>& f) {
+    return !is_optional_member<Member> && !f.may_be_absent;
+}
 
 /**
  * @brief Whether a type states its own shape.

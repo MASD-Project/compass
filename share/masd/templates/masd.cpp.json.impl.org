@@ -16,6 +16,12 @@ JSON codec for the [[id:48CA6C74-8EF8-45B2-B6D6-CC6B508EE0D8][masd.cpp.json]]
 facet. It is ORE Studio's =ores.cpp.wire-codec.codec_impl= with the two
 MessagePack functions left off.
 
+* Origin
+
+ORE Studio's
+=projects/ores.codegen/library/templates/ores.cpp.wire-codec.codec_impl.org= at commit
+=bc0702ad46b8a6097ce5242ece7ba01067699f60=. The intro above states how the copy differs.
+
 * Context
 
 The context is the library's values and =masd_entity=: =row_qualified=,

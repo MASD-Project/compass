@@ -17,6 +17,12 @@ facet. It is ORE Studio's =ores.cpp.protocol= header for an operation with
 the wire codec on, less MessagePack, NATS and the export macro, and with the
 enumerations the fields declare.
 
+* Origin
+
+ORE Studio's
+=projects/ores.codegen/library/templates/ores.cpp.protocol.protocol_header.org= at commit
+=bc0702ad46b8a6097ce5242ece7ba01067699f60=. The intro above states how the copy differs.
+
 * Context
 
 The context is the library's values and =masd_operation=:
@@ -26,10 +32,21 @@ The context is the library's values and =masd_operation=:
   standard headers the enumerations and the traits need, standard headers
   first, each sorted and named once.
 - =has_base64=: whether a field is encoded as base64.
-- =enums=: each with =name=, =qualified=, =guard=, =first=, =listed= and
+- =enums=: each with =name=, =qualified=, =guard=, =listed= and
   =values=, each a =value= with =last=.
-- =messages=: each with =name=, =qualified= and =fields=, each with
-  =member=, =message=, =cpp_type= and =initializer=.
+- =messages=: each with =name=, =qualified=, =routed=, =http_method=,
+  =http_path=, =has_body= and =fields=, each with =member=, =message=,
+  =cpp_type=, =initializer=, =http_in=, =http_name= and =may_be_absent=. A
+  routed request lists its fields again by where its route reads them, as
+  =path_fields=, =query_fields= and =body_fields=, for the templates that
+  bind it.
+
+A field that =may_be_absent= is stated so in =wire_fields=, and its reader
+keeps its default when a document leaves it out: a field that is not a path
+field and is a vector or a message, has a =:default:= or states =:required:
+false=, as the service's binding rules say. A request with a body field also
+states =body_fields=, the shape of the body its route reads, and its wire
+traits read a body and give its schema.
 
 An enumeration's declaration sits in the model's namespace and its
 =text_form= in the codec's, so the guard is opened twice and defined at the
@@ -70,13 +87,13 @@ enum class {{name}} { {{#values}}{{value}}{{^last}}, {{/last}}{{/values}} };
 /**
  * @brief Each value of {{name}} as the wire names it.
  */
-[[nodiscard]] constexpr std::string_view to_string({{name}} v) noexcept {
+[[nodiscard]] constexpr std::string_view to_string({{name}} v) {
     switch (v) {
 {{#values}}
     case {{name}}::{{value}}: return "{{value}}";
 {{/values}}
     }
-    return "{{first}}";
+    throw std::invalid_argument("Not a {{name}}: the value is not one of {{listed}}");
 }
 
 /**
@@ -109,10 +126,24 @@ struct {{name}} {
 [[nodiscard]] constexpr auto wire_fields(std::type_identity<{{name}}>) {
     return ::{{codec_namespace}}::field_list{
 {{#fields}}
-        ::{{codec_namespace}}::field{"{{member}}", &{{message}}::{{member}}},
+        ::{{codec_namespace}}::field{"{{member}}", &{{message}}::{{member}}{{#may_be_absent}}, true{{/may_be_absent}}},
 {{/fields}}
     };
 }
+{{#has_body}}
+
+/**
+ * @brief The members of {{name}} its route reads from the JSON body. The
+ * route sets the others from the request line.
+ */
+[[nodiscard]] constexpr auto body_fields(std::type_identity<{{name}}>) {
+    return ::{{codec_namespace}}::field_list{
+{{#body_fields}}
+        ::{{codec_namespace}}::field{"{{member}}", &{{message}}::{{member}}{{#may_be_absent}}, true{{/may_be_absent}}},
+{{/body_fields}}
+    };
+}
+{{/has_body}}
 {{/messages}}
 
 }
@@ -155,6 +186,12 @@ struct wire_traits<{{qualified}}> {
     static std::string write_json(const {{qualified}}& v);
 
     static {{qualified}} read_json(std::string_view text);
+{{#has_body}}
+
+    static {{qualified}} read_body_json(std::string_view text);
+
+    static std::string body_json_schema();
+{{/has_body}}
 };
 {{/messages}}
 

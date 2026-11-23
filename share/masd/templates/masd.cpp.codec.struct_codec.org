@@ -90,9 +90,7 @@ std::string write_json(const T& v) {
 
 template <typename T, typename... Members>
 T read_json(std::string_view text, const field_list<field<T, Members>...>& fields) {
-    yyjson_doc* doc = yyjson_read(text.data(), text.size(), 0);
-    if (doc == nullptr)
-        throw std::invalid_argument("Not JSON: " + std::string(text));
+    yyjson_doc* doc = detail::parse(text);
     try {
         T out{};
         detail::read_object(yyjson_doc_get_root(doc), out, fields);

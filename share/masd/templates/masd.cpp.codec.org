@@ -62,6 +62,20 @@ the copy differs. In brief:
 | Bytes | None | =base64.hpp=: =base64_bytes= and its base64 text form | compass's own |
 | Shaped wire traits | =shaped_wire_traits.hpp= for a hand-written type | Left out: every codec is generated | Unused |
 | Export macros | =ORES_UTILITY_EXPORT= | None: static libraries | Parameter |
+| Members a document may leave out | Only an =std::optional= | Also a =field= that states =may_be_absent=, which keeps its default; the schema does not require it | compass's models: the service's binding rules |
+| A part of a shape | =json_schema<T>()= only | Also =json_schema(fields)=, for the body a route reads | compass's models |
+| Schema dialect | OpenAPI's =nullable= beside =$defs=, the root a =$ref= | JSON Schema 2020-12, named by =$schema=; an optional is =anyOf= its value or =null=; an object is inline at the root, as MCP's =inputSchema= must be | Fix to offer ORE Studio |
+| Schema keywords | An integer is =integer=; a text form is =string= | An integer narrower than 64 bits states =minimum= and =maximum=; a text form may state =schema_keywords=, such as base64's =contentEncoding= and =pattern= and the instant's =format= and =pattern= | Fix to offer ORE Studio |
+| A member stated twice | The first is read | Refused, naming it, in an object and in a map | Fix to offer ORE Studio |
+| Text that is not JSON | The refusal holds the whole text | It holds yyjson's reason and the byte | Fix to offer ORE Studio |
+| The instant's range | No check | =to_text= refuses a year outside 0000 to 9999, which has no four-digit text | Fix to offer ORE Studio |
+| The schema of a type with no form | An object with no members | A compile error | Fix to offer ORE Studio |
+| Base64 | None | Refuses padding bits that are not zero, so one byte string has one text | compass's own |
+
+=compass.db/codec/blob_id_form.hpp= sits in the directory this facet renders
+into but is not one of its files: it is the hand-written =text_form= of
+=store::types::blob_id=, which
+[[id:F4A0CD68-9550-4E81-944B-85369F4BCCAB][C++ Custom Types]] registers.
 
 * See also
 

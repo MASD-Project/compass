@@ -589,31 +589,40 @@ value_id masd_context(mops::builder& b, value_id library,
         return masd_entity_context(b, library,
             mops::read_masd_entity(doc, find), entities.custom_types,
             entities.custom_text_forms);
-    if (type == model_type::masd_operation) {
-        if (settings.codec_component.empty())
-            throw mops::model_error("an operation model's codecs need the "
-                "codegen option codec_component, the component whose "
-                "masd.cpp.codec runtime they are written against");
-        return masd_operation_context(b, library,
-            mops::read_masd_operation(doc), settings.product,
-            settings.codec_component);
-    }
     if (type == model_type::masd_component) {
         const auto c = mops::read_masd_component(doc);
         return masd_component_context(b, library,
             c.product + "." + c.component);
     }
+    // The models of one kind beside this one, in its directory.
     const auto dir = doc.path.substr(0, doc.path.rfind('/') + 1);
-    std::vector<compass::model::types::masd_entity> tables;
-    for (const auto p : docs.org()) {
-        if (!p.starts_with(dir) ||
-            p.find('/', dir.size()) != std::string_view::npos)
-            continue;
-        const auto d = docs.get(p);
-        if (d && mops::model_type_of(mops::declared_type(*d)) ==
-                model_type::masd_entity)
-            tables.push_back(mops::read_masd_entity(*d, find));
+    const auto beside = [&](model_type kind, auto&& take) {
+        for (const auto p : docs.org()) {
+            if (p == doc.path || !p.starts_with(dir) ||
+                p.find('/', dir.size()) != std::string_view::npos)
+                continue;
+            const auto d = docs.get(p);
+            if (d && mops::model_type_of(mops::declared_type(*d)) == kind)
+                take(p, *d);
+        }
+    };
+    if (type == model_type::masd_operation) {
+        if (settings.codec_component.empty())
+            throw mops::model_error("an operation model's codecs need the "
+                "codegen option codec_component, the component whose "
+                "masd.cpp.codec runtime they are written against");
+        std::vector<sibling_operation> siblings;
+        beside(model_type::masd_operation, [&](auto p, const auto& d) {
+            siblings.push_back({std::string(p), mops::read_masd_operation(d)});
+        });
+        return masd_operation_context(b, library,
+            mops::read_masd_operation(doc), settings.product,
+            settings.codec_component, siblings);
     }
+    std::vector<compass::model::types::masd_entity> tables;
+    beside(model_type::masd_entity, [&](auto, const auto& d) {
+        tables.push_back(mops::read_masd_entity(d, find));
+    });
     return masd_schema_context(b, library, mops::read_masd_schema(doc),
         tables);
 }

@@ -26,7 +26,10 @@
 
 #include <catch2/catch_test_macros.hpp>
 #include <cstddef>
+#include <stdexcept>
 #include <string>
+#include <string_view>
+#include <vector>
 #include "compass.db/codec/json_schema.hpp"
 #include "compass.db/codec/member_count.hpp"
 #include "compass.db/codec/sample.hpp"
@@ -47,5 +50,30 @@ TEST_CASE("error_response reads back the JSON it writes, which its JSON Schema "
         CHECK(compass::db::codec::schema_violation(schema, text).value_or("") == "");
     }
     const compass::serve::messages::error_response empty{};
-    CHECK(traits::read_json(traits::write_json(empty)) == empty);
+    const auto text = traits::write_json(empty);
+    INFO(text);
+    CHECK(traits::read_json(text) == empty);
+    CHECK(compass::db::codec::schema_violation(schema, text).value_or("") == "");
+}
+
+TEST_CASE("error_response's reader and JSON Schema refuse the same members",
+    "[codec][schema][protocol]") {
+    using traits = compass::db::codec::wire_traits<compass::serve::messages::error_response>;
+    const auto schema = compass::db::codec::json_schema<compass::serve::messages::error_response>();
+    const auto text = traits::write_json(compass::db::codec::sample<compass::serve::messages::error_response>(0));
+    const auto added = compass::db::codec::with_unknown_member(text);
+    CHECK_THROWS_AS(traits::read_json(added), std::invalid_argument);
+    CHECK(compass::db::codec::schema_violation(schema, added).has_value());
+    for (const auto name : compass::db::codec::required_members<compass::serve::messages::error_response>()) {
+        INFO(name);
+        const auto removed = compass::db::codec::without_member(text, name);
+        CHECK_THROWS_AS(traits::read_json(removed), std::invalid_argument);
+        CHECK(compass::db::codec::schema_violation(schema, removed).has_value());
+    }
+    for (const auto name : compass::db::codec::absent_members<compass::serve::messages::error_response>()) {
+        INFO(name);
+        const auto removed = compass::db::codec::without_member(text, name);
+        CHECK_NOTHROW(traits::read_json(removed));
+        CHECK(compass::db::codec::schema_violation(schema, removed).value_or("") == "");
+    }
 }

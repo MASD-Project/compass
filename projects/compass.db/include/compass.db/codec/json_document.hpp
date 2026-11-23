@@ -350,9 +350,14 @@ public:
      */
     [[nodiscard]] static std::expected<json_document, std::string>
     parse(std::string_view text) noexcept {
-        yyjson_doc* read = yyjson_read(text.data(), text.size(), 0);
+        yyjson_read_err error{};
+        // yyjson takes a pointer to mutable text, which it does not write
+        // through unless a flag says so.
+        yyjson_doc* read =
+            yyjson_read_opts(const_cast<char*>(text.data()), text.size(), 0, nullptr, &error);
         if (read == nullptr)
-            return std::unexpected("Not JSON: " + std::string(text));
+            return std::unexpected("Not JSON: " + std::string(error.msg) + " at byte " +
+                                   std::to_string(error.pos));
         yyjson_mut_doc* doc = yyjson_doc_mut_copy(read, nullptr);
         yyjson_doc_free(read);
         if (doc == nullptr)

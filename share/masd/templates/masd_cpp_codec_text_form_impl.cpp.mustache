@@ -53,6 +53,11 @@ std::filesystem::path text_form<std::filesystem::path>::from_text(std::string_vi
 
 std::string text_form<std::chrono::sys_time<std::chrono::microseconds>>::to_text(
     const std::chrono::sys_time<std::chrono::microseconds>& v) {
+    using namespace std::chrono;
+    const auto y = static_cast<int>(year_month_day{floor<days>(v)}.year());
+    if (y < 0 || y > 9999)
+        throw std::invalid_argument("Not " + std::string(wire_name) + ": the year " +
+                                    std::to_string(y) + " has more than four digits");
     return std::format("{:%FT%TZ}", v);
 }
 
@@ -62,7 +67,8 @@ text_form<std::chrono::sys_time<std::chrono::microseconds>>::from_text(std::stri
     // YYYY-MM-DDTHH:MM:SS, then a fraction of one to six digits, then Z.
     if (text.size() < 20 || text[4] != '-' || text[7] != '-' || text[10] != 'T' ||
         text[13] != ':' || text[16] != ':' || text.back() != 'Z')
-        refuse(wire_name, text, "expected YYYY-MM-DDTHH:MM:SS.ffffffZ");
+        refuse(wire_name, text, "expected YYYY-MM-DDTHH:MM:SS, a fraction of up to six "
+                                "digits after a point or none, and Z");
     const auto y = digits(text, 0, 4);
     const auto mo = digits(text, 5, 2);
     const auto d = digits(text, 8, 2);

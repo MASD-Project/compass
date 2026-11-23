@@ -24,6 +24,7 @@
  */
 #include "compass.serve/messages/campaign_writes_protocol.hpp"
 
+#include "compass.db/codec/json_schema.hpp"
 #include "compass.db/codec/struct_codec.hpp"
 
 namespace compass::db::codec {
@@ -34,6 +35,14 @@ std::string wire_traits<compass::serve::messages::start_run_request>::write_json
 
 compass::serve::messages::start_run_request wire_traits<compass::serve::messages::start_run_request>::read_json(std::string_view text) {
     return object::read_json<compass::serve::messages::start_run_request>(text);
+}
+
+compass::serve::messages::start_run_request wire_traits<compass::serve::messages::start_run_request>::read_body_json(std::string_view text) {
+    return object::read_json(text, body_fields(std::type_identity<compass::serve::messages::start_run_request>{}));
+}
+
+std::string wire_traits<compass::serve::messages::start_run_request>::body_json_schema() {
+    return json_schema(body_fields(std::type_identity<compass::serve::messages::start_run_request>{}));
 }
 
 std::string wire_traits<compass::serve::messages::run_step>::write_json(const compass::serve::messages::run_step& v) {
@@ -60,6 +69,14 @@ compass::serve::messages::step_result_request wire_traits<compass::serve::messag
     return object::read_json<compass::serve::messages::step_result_request>(text);
 }
 
+compass::serve::messages::step_result_request wire_traits<compass::serve::messages::step_result_request>::read_body_json(std::string_view text) {
+    return object::read_json(text, body_fields(std::type_identity<compass::serve::messages::step_result_request>{}));
+}
+
+std::string wire_traits<compass::serve::messages::step_result_request>::body_json_schema() {
+    return json_schema(body_fields(std::type_identity<compass::serve::messages::step_result_request>{}));
+}
+
 std::string wire_traits<compass::serve::messages::finish_run_request>::write_json(const compass::serve::messages::finish_run_request& v) {
     return object::write_json(v);
 }
@@ -84,6 +101,14 @@ compass::serve::messages::attach_request wire_traits<compass::serve::messages::a
     return object::read_json<compass::serve::messages::attach_request>(text);
 }
 
+compass::serve::messages::attach_request wire_traits<compass::serve::messages::attach_request>::read_body_json(std::string_view text) {
+    return object::read_json(text, body_fields(std::type_identity<compass::serve::messages::attach_request>{}));
+}
+
+std::string wire_traits<compass::serve::messages::attach_request>::body_json_schema() {
+    return json_schema(body_fields(std::type_identity<compass::serve::messages::attach_request>{}));
+}
+
 std::string wire_traits<compass::serve::messages::attach_response>::write_json(const compass::serve::messages::attach_response& v) {
     return object::write_json(v);
 }
@@ -100,6 +125,14 @@ compass::serve::messages::add_note_request wire_traits<compass::serve::messages:
     return object::read_json<compass::serve::messages::add_note_request>(text);
 }
 
+compass::serve::messages::add_note_request wire_traits<compass::serve::messages::add_note_request>::read_body_json(std::string_view text) {
+    return object::read_json(text, body_fields(std::type_identity<compass::serve::messages::add_note_request>{}));
+}
+
+std::string wire_traits<compass::serve::messages::add_note_request>::body_json_schema() {
+    return json_schema(body_fields(std::type_identity<compass::serve::messages::add_note_request>{}));
+}
+
 std::string wire_traits<compass::serve::messages::add_note_response>::write_json(const compass::serve::messages::add_note_response& v) {
     return object::write_json(v);
 }
@@ -114,6 +147,14 @@ std::string wire_traits<compass::serve::messages::address_note_request>::write_j
 
 compass::serve::messages::address_note_request wire_traits<compass::serve::messages::address_note_request>::read_json(std::string_view text) {
     return object::read_json<compass::serve::messages::address_note_request>(text);
+}
+
+compass::serve::messages::address_note_request wire_traits<compass::serve::messages::address_note_request>::read_body_json(std::string_view text) {
+    return object::read_json(text, body_fields(std::type_identity<compass::serve::messages::address_note_request>{}));
+}
+
+std::string wire_traits<compass::serve::messages::address_note_request>::body_json_schema() {
+    return json_schema(body_fields(std::type_identity<compass::serve::messages::address_note_request>{}));
 }
 
 }

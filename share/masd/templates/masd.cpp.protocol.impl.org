@@ -17,11 +17,19 @@ model's message codecs for the
 ORE Studio's =ores.cpp.wire-codec.protocol_codec_impl= for an operation with
 the two MessagePack functions left off.
 
+* Origin
+
+ORE Studio's
+=projects/ores.codegen/library/templates/ores.cpp.wire-codec.protocol_codec_impl.org= at commit
+=bc0702ad46b8a6097ce5242ece7ba01067699f60=. The intro above states how the copy differs.
+
 * Context
 
 The context is the library's values and =masd_operation=:
 =protocol_include=, =codec_namespace=, =codec_root= and =messages=, each
-with =qualified=.
+with =qualified= and =has_body=. A request with a body field also defines
+=read_body_json=, which reads the body over =body_fields=, and
+=body_json_schema=, the schema of that body.
 
 * Template
 
@@ -34,6 +42,7 @@ The template source. compass's =tangle= codec writes it to
 {{#masd_operation}}
 #include "{{protocol_include}}"
 
+#include "{{codec_root}}/json_schema.hpp"
 #include "{{codec_root}}/struct_codec.hpp"
 
 namespace {{codec_namespace}} {
@@ -46,6 +55,16 @@ std::string wire_traits<{{qualified}}>::write_json(const {{qualified}}& v) {
 {{qualified}} wire_traits<{{qualified}}>::read_json(std::string_view text) {
     return object::read_json<{{qualified}}>(text);
 }
+{{#has_body}}
+
+{{qualified}} wire_traits<{{qualified}}>::read_body_json(std::string_view text) {
+    return object::read_json(text, body_fields(std::type_identity<{{qualified}}>{}));
+}
+
+std::string wire_traits<{{qualified}}>::body_json_schema() {
+    return json_schema(body_fields(std::type_identity<{{qualified}}>{}));
+}
+{{/has_body}}
 {{/messages}}
 
 }

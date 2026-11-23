@@ -510,11 +510,68 @@ bool is_standard_or_arithmetic(std::string_view t) {
         t == "float";
 }
 
+/**
+ * @brief Each enumeration @p op declares, by name, with the values its
+ * fields' :values: list.
+ * @throws std::runtime_error when two fields list different values for one
+ * enumeration, or a field lists :values: on a type that is not an
+ * enumeration's name.
+ */
+std::map<std::string, std::vector<std::string>> enumerations_of(
+    const mtypes::masd_operation& op) {
+    std::set<std::string> message_names;
+    for (const auto& msg : op.messages)
+        message_names.insert(msg.name);
+    std::map<std::string, std::vector<std::string>> out;
+    for (const auto& msg : op.messages)
+        for (const auto& f : msg.fields) {
+            if (f.values.empty())
+                continue;
+            const auto t = held_type(f.cpp_type);
+            if (is_standard_or_arithmetic(t) || message_names.contains(t))
+                throw std::runtime_error("codegen: " + msg.name + "." +
+                    f.name + " lists :values: on " + f.cpp_type + "; name "
+                    "the enumeration they are the values of in :cpp_type:");
+            const auto [at, added] = out.try_emplace(t, f.values);
+            if (!added && at->second != f.values)
+                throw std::runtime_error("codegen: the enumeration " + t +
+                    " lists different values in " + msg.name + "." + f.name);
+        }
+    return out;
+}
+
+/**
+ * @brief Whether a document may leave out @p f, a field of a message of an
+ * operation model, though its type is not optional: a field that is not a
+ * path field and is a vector or a message, has a :default: or states
+ * :required: false, as the service's binding rules say.
+ */
+bool may_be_absent(const mtypes::masd_field& f,
+    const std::set<std::string>& message_names) {
+    if (f.http_in == mtypes::http_in::path ||
+        f.cpp_type.starts_with("std::optional<"))
+        return false;
+    return f.cpp_type.starts_with("std::vector<") ||
+        message_names.contains(f.cpp_type) || !f.default_value.empty() ||
+        !f.required;
+}
+
+std::string_view http_in_name(mtypes::http_in in) {
+    switch (in) {
+    case mtypes::http_in::path: return "path";
+    case mtypes::http_in::query: return "query";
+    case mtypes::http_in::body: return "body";
+    case mtypes::http_in::none: break;
+    }
+    return "";
+}
+
 }
 
 value_id masd_operation_context(builder& b, value_id library,
     const mtypes::masd_operation& op, std::string_view product,
-    std::string_view codec_component) {
+    std::string_view codec_component,
+    std::span<const sibling_operation> siblings) {
     const auto context = with_library(b, library);
     const auto m = b.object(context, "masd_operation");
     const auto component = std::string(product) + "." + op.component;
@@ -534,19 +591,23 @@ value_id masd_operation_context(builder& b, value_id library,
     for (const auto& msg : op.messages)
         message_names.insert(msg.name);
     bool base64 = false;
-    std::map<std::string, std::vector<std::string>> enums;
     for (const auto& msg : op.messages)
-        for (const auto& f : msg.fields) {
+        for (const auto& f : msg.fields)
             base64 = base64 || f.encoding == "base64";
-            const auto t = held_type(f.cpp_type);
-            if (f.values.empty() || is_standard_or_arithmetic(t) ||
-                message_names.contains(t))
-                continue;
-            const auto [at, added] = enums.try_emplace(t, f.values);
-            if (!added && at->second != f.values)
-                throw std::runtime_error("codegen: the enumeration " + t +
-                    " lists different values in " + msg.name + "." + f.name);
-        }
+    const auto enums = enumerations_of(op);
+    // Each header declares the enumerations of its model under a guard, so
+    // the first header a unit includes declares one; models that disagree
+    // would give two units two definitions.
+    for (const auto& sibling : siblings) {
+        if (sibling.model.ns != op.ns)
+            continue;
+        for (const auto& [name, values] : enumerations_of(sibling.model))
+            if (const auto at = enums.find(name);
+                at != enums.end() && at->second != values)
+                throw std::runtime_error("codegen: the enumeration " +
+                    op.ns + "::" + name + " lists " + joined(at->second) +
+                    " here and " + joined(values) + " in " + sibling.path);
+    }
     b.set(m, "has_base64", base64);
     std::set<std::string> standard{"<optional>", "<stdexcept>", "<string>",
         "<string_view>", "<type_traits>"};
@@ -568,11 +629,7 @@ value_id masd_operation_context(builder& b, value_id library,
              at = dotted.find("::", at + 1))
             dotted.replace(at, 2, ".");
         b.set(en, "guard", upper(dotted + "." + name + ".enum"));
-        b.set(en, "first", values.front());
-        std::string listed;
-        for (const auto& v : values)
-            listed += (listed.empty() ? "" : ", ") + v;
-        b.set(en, "listed", listed);
+        b.set(en, "listed", joined(values));
         const auto list = b.list(en, "values");
         for (std::size_t i = 0; i < values.size(); ++i) {
             const auto v = b.append_object(list);
@@ -586,11 +643,34 @@ value_id masd_operation_context(builder& b, value_id library,
         const auto item = b.append_object(list);
         b.set(item, "name", msg->name);
         b.set(item, "qualified", op.ns + "::" + msg->name);
+        const bool routed = !msg->http_method.empty();
+        b.set(item, "routed", routed);
+        b.set(item, "http_method", msg->http_method);
+        b.set(item, "http_path", msg->http_path);
+        b.set(item, "has_body", std::ranges::any_of(msg->fields,
+            [](const auto& f) { return f.http_in == mtypes::http_in::body; }));
         const auto fields = b.list(item, "fields");
+        const auto path_fields = b.list(item, "path_fields");
+        const auto query_fields = b.list(item, "query_fields");
+        const auto body_fields = b.list(item, "body_fields");
         for (const auto& f : msg->fields) {
+            const auto absent = may_be_absent(f, message_names);
+            const auto describe = [&](value_id field) {
+                b.set(field, "member", f.name);
+                b.set(field, "message", msg->name);
+                b.set(field, "http_in", http_in_name(f.http_in));
+                b.set(field, "http_name",
+                    f.http_name.empty() ? f.name : f.http_name);
+                b.set(field, "may_be_absent", absent);
+            };
+            if (f.http_in == mtypes::http_in::path)
+                describe(b.append_object(path_fields));
+            else if (f.http_in == mtypes::http_in::query)
+                describe(b.append_object(query_fields));
+            else if (f.http_in == mtypes::http_in::body)
+                describe(b.append_object(body_fields));
             const auto field = b.append_object(fields);
-            b.set(field, "member", f.name);
-            b.set(field, "message", msg->name);
+            describe(field);
             const auto type = f.encoding == "base64"
                 ? codec_ns + "::base64_bytes" : f.cpp_type;
             b.set(field, "cpp_type", type);

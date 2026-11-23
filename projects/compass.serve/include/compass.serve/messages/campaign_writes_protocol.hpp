@@ -48,13 +48,13 @@ enum class run_outcome { passed, failed, blocked };
 /**
  * @brief Each value of run_outcome as the wire names it.
  */
-[[nodiscard]] constexpr std::string_view to_string(run_outcome v) noexcept {
+[[nodiscard]] constexpr std::string_view to_string(run_outcome v) {
     switch (v) {
     case run_outcome::passed: return "passed";
     case run_outcome::failed: return "failed";
     case run_outcome::blocked: return "blocked";
     }
-    return "passed";
+    throw std::invalid_argument("Not a run_outcome: the value is not one of passed, failed, blocked");
 }
 
 /**
@@ -81,14 +81,14 @@ enum class step_outcome { pass, fail, blocked, skipped };
 /**
  * @brief Each value of step_outcome as the wire names it.
  */
-[[nodiscard]] constexpr std::string_view to_string(step_outcome v) noexcept {
+[[nodiscard]] constexpr std::string_view to_string(step_outcome v) {
     switch (v) {
     case step_outcome::pass: return "pass";
     case step_outcome::fail: return "fail";
     case step_outcome::blocked: return "blocked";
     case step_outcome::skipped: return "skipped";
     }
-    return "pass";
+    throw std::invalid_argument("Not a step_outcome: the value is not one of pass, fail, blocked, skipped");
 }
 
 /**
@@ -126,6 +126,16 @@ struct start_run_request {
     };
 }
 
+/**
+ * @brief The members of start_run_request its route reads from the JSON body. The
+ * route sets the others from the request line.
+ */
+[[nodiscard]] constexpr auto body_fields(std::type_identity<start_run_request>) {
+    return ::compass::db::codec::field_list{
+        ::compass::db::codec::field{"scenario_id", &start_run_request::scenario_id},
+    };
+}
+
 struct run_step {
     std::int32_t ord = 0;
     std::string title;
@@ -140,7 +150,7 @@ struct run_step {
  */
 [[nodiscard]] constexpr auto wire_fields(std::type_identity<run_step>) {
     return ::compass::db::codec::field_list{
-        ::compass::db::codec::field{"ord", &run_step::ord},
+        ::compass::db::codec::field{"ord", &run_step::ord, true},
         ::compass::db::codec::field{"title", &run_step::title},
         ::compass::db::codec::field{"body", &run_step::body},
     };
@@ -163,12 +173,12 @@ struct start_run_response {
  */
 [[nodiscard]] constexpr auto wire_fields(std::type_identity<start_run_response>) {
     return ::compass::db::codec::field_list{
-        ::compass::db::codec::field{"run", &start_run_response::run},
-        ::compass::db::codec::field{"campaign", &start_run_response::campaign},
+        ::compass::db::codec::field{"run", &start_run_response::run, true},
+        ::compass::db::codec::field{"campaign", &start_run_response::campaign, true},
         ::compass::db::codec::field{"definition", &start_run_response::definition},
         ::compass::db::codec::field{"scenario_hash", &start_run_response::scenario_hash},
         ::compass::db::codec::field{"started_at", &start_run_response::started_at},
-        ::compass::db::codec::field{"steps", &start_run_response::steps},
+        ::compass::db::codec::field{"steps", &start_run_response::steps, true},
     };
 }
 
@@ -191,7 +201,18 @@ struct step_result_request {
         ::compass::db::codec::field{"environment", &step_result_request::environment},
         ::compass::db::codec::field{"run", &step_result_request::run},
         ::compass::db::codec::field{"step_ord", &step_result_request::step_ord},
-        ::compass::db::codec::field{"outcome", &step_result_request::outcome},
+        ::compass::db::codec::field{"outcome", &step_result_request::outcome, true},
+        ::compass::db::codec::field{"notes", &step_result_request::notes},
+    };
+}
+
+/**
+ * @brief The members of step_result_request its route reads from the JSON body. The
+ * route sets the others from the request line.
+ */
+[[nodiscard]] constexpr auto body_fields(std::type_identity<step_result_request>) {
+    return ::compass::db::codec::field_list{
+        ::compass::db::codec::field{"outcome", &step_result_request::outcome, true},
         ::compass::db::codec::field{"notes", &step_result_request::notes},
     };
 }
@@ -227,7 +248,7 @@ struct finish_run_response {
  */
 [[nodiscard]] constexpr auto wire_fields(std::type_identity<finish_run_response>) {
     return ::compass::db::codec::field_list{
-        ::compass::db::codec::field{"outcome", &finish_run_response::outcome},
+        ::compass::db::codec::field{"outcome", &finish_run_response::outcome, true},
         ::compass::db::codec::field{"finished_at", &finish_run_response::finished_at},
     };
 }
@@ -260,6 +281,21 @@ struct attach_request {
     };
 }
 
+/**
+ * @brief The members of attach_request its route reads from the JSON body. The
+ * route sets the others from the request line.
+ */
+[[nodiscard]] constexpr auto body_fields(std::type_identity<attach_request>) {
+    return ::compass::db::codec::field_list{
+        ::compass::db::codec::field{"run", &attach_request::run},
+        ::compass::db::codec::field{"note", &attach_request::note},
+        ::compass::db::codec::field{"step_ord", &attach_request::step_ord},
+        ::compass::db::codec::field{"media_type", &attach_request::media_type},
+        ::compass::db::codec::field{"bytes", &attach_request::bytes},
+        ::compass::db::codec::field{"caption", &attach_request::caption},
+    };
+}
+
 struct attach_response {
     std::int64_t attached = 0;
     std::string attachment;
@@ -273,7 +309,7 @@ struct attach_response {
  */
 [[nodiscard]] constexpr auto wire_fields(std::type_identity<attach_response>) {
     return ::compass::db::codec::field_list{
-        ::compass::db::codec::field{"attached", &attach_response::attached},
+        ::compass::db::codec::field{"attached", &attach_response::attached, true},
         ::compass::db::codec::field{"attachment", &attach_response::attachment},
     };
 }
@@ -304,6 +340,19 @@ struct add_note_request {
     };
 }
 
+/**
+ * @brief The members of add_note_request its route reads from the JSON body. The
+ * route sets the others from the request line.
+ */
+[[nodiscard]] constexpr auto body_fields(std::type_identity<add_note_request>) {
+    return ::compass::db::codec::field_list{
+        ::compass::db::codec::field{"scenario_id", &add_note_request::scenario_id},
+        ::compass::db::codec::field{"step_ord", &add_note_request::step_ord},
+        ::compass::db::codec::field{"kind", &add_note_request::kind},
+        ::compass::db::codec::field{"text", &add_note_request::text},
+    };
+}
+
 struct add_note_response {
     std::int64_t note = 0;
 
@@ -316,7 +365,7 @@ struct add_note_response {
  */
 [[nodiscard]] constexpr auto wire_fields(std::type_identity<add_note_response>) {
     return ::compass::db::codec::field_list{
-        ::compass::db::codec::field{"note", &add_note_response::note},
+        ::compass::db::codec::field{"note", &add_note_response::note, true},
     };
 }
 
@@ -336,6 +385,16 @@ struct address_note_request {
     return ::compass::db::codec::field_list{
         ::compass::db::codec::field{"environment", &address_note_request::environment},
         ::compass::db::codec::field{"note", &address_note_request::note},
+        ::compass::db::codec::field{"reply", &address_note_request::reply},
+    };
+}
+
+/**
+ * @brief The members of address_note_request its route reads from the JSON body. The
+ * route sets the others from the request line.
+ */
+[[nodiscard]] constexpr auto body_fields(std::type_identity<address_note_request>) {
+    return ::compass::db::codec::field_list{
         ::compass::db::codec::field{"reply", &address_note_request::reply},
     };
 }
@@ -403,6 +462,10 @@ struct wire_traits<compass::serve::messages::start_run_request> {
     static std::string write_json(const compass::serve::messages::start_run_request& v);
 
     static compass::serve::messages::start_run_request read_json(std::string_view text);
+
+    static compass::serve::messages::start_run_request read_body_json(std::string_view text);
+
+    static std::string body_json_schema();
 };
 
 template <>
@@ -430,6 +493,10 @@ struct wire_traits<compass::serve::messages::step_result_request> {
     static std::string write_json(const compass::serve::messages::step_result_request& v);
 
     static compass::serve::messages::step_result_request read_json(std::string_view text);
+
+    static compass::serve::messages::step_result_request read_body_json(std::string_view text);
+
+    static std::string body_json_schema();
 };
 
 template <>
@@ -457,6 +524,10 @@ struct wire_traits<compass::serve::messages::attach_request> {
     static std::string write_json(const compass::serve::messages::attach_request& v);
 
     static compass::serve::messages::attach_request read_json(std::string_view text);
+
+    static compass::serve::messages::attach_request read_body_json(std::string_view text);
+
+    static std::string body_json_schema();
 };
 
 template <>
@@ -475,6 +546,10 @@ struct wire_traits<compass::serve::messages::add_note_request> {
     static std::string write_json(const compass::serve::messages::add_note_request& v);
 
     static compass::serve::messages::add_note_request read_json(std::string_view text);
+
+    static compass::serve::messages::add_note_request read_body_json(std::string_view text);
+
+    static std::string body_json_schema();
 };
 
 template <>
@@ -493,6 +568,10 @@ struct wire_traits<compass::serve::messages::address_note_request> {
     static std::string write_json(const compass::serve::messages::address_note_request& v);
 
     static compass::serve::messages::address_note_request read_json(std::string_view text);
+
+    static compass::serve::messages::address_note_request read_body_json(std::string_view text);
+
+    static std::string body_json_schema();
 };
 
 }

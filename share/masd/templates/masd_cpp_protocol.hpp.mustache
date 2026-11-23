@@ -26,13 +26,13 @@ enum class {{name}} { {{#values}}{{value}}{{^last}}, {{/last}}{{/values}} };
 /**
  * @brief Each value of {{name}} as the wire names it.
  */
-[[nodiscard]] constexpr std::string_view to_string({{name}} v) noexcept {
+[[nodiscard]] constexpr std::string_view to_string({{name}} v) {
     switch (v) {
 {{#values}}
     case {{name}}::{{value}}: return "{{value}}";
 {{/values}}
     }
-    return "{{first}}";
+    throw std::invalid_argument("Not a {{name}}: the value is not one of {{listed}}");
 }
 
 /**
@@ -65,10 +65,24 @@ struct {{name}} {
 [[nodiscard]] constexpr auto wire_fields(std::type_identity<{{name}}>) {
     return ::{{codec_namespace}}::field_list{
 {{#fields}}
-        ::{{codec_namespace}}::field{"{{member}}", &{{message}}::{{member}}},
+        ::{{codec_namespace}}::field{"{{member}}", &{{message}}::{{member}}{{#may_be_absent}}, true{{/may_be_absent}}},
 {{/fields}}
     };
 }
+{{#has_body}}
+
+/**
+ * @brief The members of {{name}} its route reads from the JSON body. The
+ * route sets the others from the request line.
+ */
+[[nodiscard]] constexpr auto body_fields(std::type_identity<{{name}}>) {
+    return ::{{codec_namespace}}::field_list{
+{{#body_fields}}
+        ::{{codec_namespace}}::field{"{{member}}", &{{message}}::{{member}}{{#may_be_absent}}, true{{/may_be_absent}}},
+{{/body_fields}}
+    };
+}
+{{/has_body}}
 {{/messages}}
 
 }
@@ -111,6 +125,12 @@ struct wire_traits<{{qualified}}> {
     static std::string write_json(const {{qualified}}& v);
 
     static {{qualified}} read_json(std::string_view text);
+{{#has_body}}
+
+    static {{qualified}} read_body_json(std::string_view text);
+
+    static std::string body_json_schema();
+{{/has_body}}
 };
 {{/messages}}
 

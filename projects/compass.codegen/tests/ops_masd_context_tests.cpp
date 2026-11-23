@@ -263,32 +263,55 @@ TEST_CASE("a SQL type with no C++ type is refused unless the model states "
     CHECK_NOTHROW(ops::masd_entity_context(b, b.detached_object(), e, {}, {}));
 }
 
-TEST_CASE("an operation's messages follow the messages they hold, declare "
-    "each enumeration once and carry base64 as bytes", "[codegen][masd]") {
+namespace {
+
+mtypes::masd_field message_field(std::string name, std::string type,
+    std::vector<std::string> values = {}, std::string encoding = "",
+    mtypes::http_in in = mtypes::http_in::none) {
+    mtypes::masd_field f;
+    f.name = std::move(name);
+    f.cpp_type = std::move(type);
+    f.values = std::move(values);
+    f.encoding = std::move(encoding);
+    f.http_in = in;
+    return f;
+}
+
+mtypes::masd_message message(std::string name,
+    std::vector<mtypes::masd_field> fields, std::string method = "") {
+    mtypes::masd_message m;
+    m.name = std::move(name);
+    m.fields = std::move(fields);
+    if (!method.empty()) {
+        m.http_method = std::move(method);
+        m.http_path = "/v1/{environment}/x";
+    }
+    return m;
+}
+
+mtypes::masd_operation writes_model() {
     mtypes::masd_operation op;
     op.component = "serve";
     op.entity = "writes";
     op.ns = "compass::serve::messages";
     op.includes = {"<vector>", "<string>"};
-    const auto field = [](std::string name, std::string type,
-                           std::vector<std::string> values = {},
-                           std::string encoding = "") {
-        mtypes::masd_field f;
-        f.name = std::move(name);
-        f.cpp_type = std::move(type);
-        f.values = std::move(values);
-        f.encoding = std::move(encoding);
-        return f;
-    };
-    mtypes::masd_message response{"start_response", "",
-        {field("steps", "std::vector<run_step>"),
-         field("outcome", "std::optional<step_outcome>", {"pass", "fail"})}};
-    mtypes::masd_message step{"run_step", "",
-        {field("ord", "std::int32_t"),
-         field("outcome", "step_outcome", {"pass", "fail"}),
-         field("format", "std::string", {"html", "org"}),
-         field("bytes", "std::string", {}, "base64")}};
-    op.messages = {response, step};
+    op.messages = {
+        message("start_response",
+            {message_field("steps", "std::vector<run_step>"),
+             message_field("outcome", "std::optional<step_outcome>",
+                 {"pass", "fail"})}),
+        message("run_step",
+            {message_field("ord", "std::int32_t"),
+             message_field("outcome", "step_outcome", {"pass", "fail"}),
+             message_field("bytes", "std::string", {}, "base64")})};
+    return op;
+}
+
+}
+
+TEST_CASE("an operation's messages follow the messages they hold, declare "
+    "each enumeration once and carry base64 as bytes", "[codegen][masd]") {
+    const auto op = writes_model();
     const auto header = rendered("masd_cpp_protocol.hpp.mustache",
         [&](auto& b, auto library) {
             return ops::masd_operation_context(b, library, op, "compass",
@@ -304,20 +327,97 @@ TEST_CASE("an operation's messages follow the messages they hold, declare "
     CHECK(header.find("enum class step_outcome") ==
         header.rfind("enum class step_outcome"));
     CHECK_THAT(header, ContainsSubstring("    step_outcome outcome{};\n"
-        "    std::string format;\n"
         "    compass::db::codec::base64_bytes bytes;\n"));
     CHECK_THAT(header, ContainsSubstring(
         "#include \"compass.db/codec/base64.hpp\""));
     CHECK_THAT(header, ContainsSubstring(
         "struct wire_traits<compass::serve::messages::run_step> {"));
+}
 
-    mtypes::masd_message other{"other", "",
-        {field("outcome", "step_outcome", {"pass", "blocked"})}};
-    op.messages.push_back(other);
+TEST_CASE("an operation's enumerations are named by their fields' types and "
+    "agree across the models of one namespace", "[codegen][masd]") {
     mtypes::model_tables t;
     compass::model::ops::builder b(t);
-    CHECK_THROWS_AS(ops::masd_operation_context(b, b.detached_object(), op,
-        "compass", "db"), std::runtime_error);
+    SECTION("two fields of one model that disagree") {
+        auto op = writes_model();
+        op.messages.push_back(message("other",
+            {message_field("outcome", "step_outcome", {"pass", "blocked"})}));
+        CHECK_THROWS_AS(ops::masd_operation_context(b, b.detached_object(),
+            op, "compass", "db"), std::runtime_error);
+    }
+    SECTION("a string field that lists values") {
+        auto op = writes_model();
+        op.messages.push_back(message("other",
+            {message_field("format", "std::string", {"html", "org"})}));
+        CHECK_THROWS_WITH(ops::masd_operation_context(b, b.detached_object(),
+            op, "compass", "db"), ContainsSubstring("other.format lists "
+            ":values: on std::string; name the enumeration"));
+    }
+    SECTION("two models of one namespace that disagree") {
+        auto sibling = writes_model();
+        sibling.messages[0].fields[1].values = {"pass", "fail", "skipped"};
+        sibling.messages[1].fields[1].values = {"pass", "fail", "skipped"};
+        const ops::sibling_operation siblings[] = {
+            {"projects/compass.serve/modeling/other.org", sibling}};
+        CHECK_THROWS_WITH(ops::masd_operation_context(b, b.detached_object(),
+            writes_model(), "compass", "db", siblings), ContainsSubstring(
+            "compass::serve::messages::step_outcome lists pass, fail here "
+            "and pass, fail, skipped in "
+            "projects/compass.serve/modeling/other.org"));
+        sibling.ns = "compass::other";
+        const ops::sibling_operation elsewhere[] = {
+            {"projects/compass.serve/modeling/other.org", sibling}};
+        CHECK_NOTHROW(ops::masd_operation_context(b, b.detached_object(),
+            writes_model(), "compass", "db", elsewhere));
+    }
+}
+
+TEST_CASE("a routed request states which fields a document may leave out "
+    "and the shape of its body", "[codegen][masd]") {
+    auto op = writes_model();
+    auto limit = message_field("limit", "std::uint32_t", {}, "",
+        mtypes::http_in::query);
+    limit.default_value = "20";
+    auto q = message_field("q", "std::string", {}, "", mtypes::http_in::query);
+    q.required = false;
+    auto ord = message_field("ord", "std::int32_t", {}, "",
+        mtypes::http_in::path);
+    ord.default_value = "0";
+    op.messages.push_back(message("note_request",
+        {message_field("environment", "std::string", {}, "",
+             mtypes::http_in::path),
+         ord, limit, q,
+         message_field("text", "std::string", {}, "", mtypes::http_in::body),
+         message_field("tags", "std::vector<std::string>", {}, "",
+             mtypes::http_in::body),
+         message_field("step", "run_step", {}, "", mtypes::http_in::body)},
+        "post"));
+    const auto make = [&](auto& b, auto library) {
+        return ops::masd_operation_context(b, library, op, "compass", "db");
+    };
+    const auto header = rendered("masd_cpp_protocol.hpp.mustache", make);
+    CHECK_THAT(header, ContainsSubstring(
+        "field{\"environment\", &note_request::environment},\n"
+        "        ::compass::db::codec::field{\"ord\", &note_request::ord},\n"
+        "        ::compass::db::codec::field{\"limit\", &note_request::limit, true},\n"
+        "        ::compass::db::codec::field{\"q\", &note_request::q, true},\n"
+        "        ::compass::db::codec::field{\"text\", &note_request::text},\n"
+        "        ::compass::db::codec::field{\"tags\", &note_request::tags, true},\n"
+        "        ::compass::db::codec::field{\"step\", &note_request::step, true},\n"));
+    CHECK_THAT(header, ContainsSubstring(
+        "body_fields(std::type_identity<note_request>) {\n"
+        "    return ::compass::db::codec::field_list{\n"
+        "        ::compass::db::codec::field{\"text\", &note_request::text},\n"
+        "        ::compass::db::codec::field{\"tags\", &note_request::tags, true},\n"
+        "        ::compass::db::codec::field{\"step\", &note_request::step, true},\n"
+        "    };"));
+    CHECK(header.find("body_fields(std::type_identity<run_step>)") ==
+        std::string::npos);
+    CHECK_THAT(header, ContainsSubstring(
+        "static compass::serve::messages::note_request read_body_json("));
+    const auto impl = rendered("masd_cpp_protocol.cpp.mustache", make);
+    CHECK_THAT(impl, ContainsSubstring("return json_schema(body_fields("
+        "std::type_identity<compass::serve::messages::note_request>{}));"));
 }
 
 TEST_CASE("a row's JSON codec states the row's members and the text form "

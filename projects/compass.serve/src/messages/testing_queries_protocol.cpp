@@ -24,6 +24,7 @@
  */
 #include "compass.serve/messages/testing_queries_protocol.hpp"
 
+#include "compass.db/codec/json_schema.hpp"
 #include "compass.db/codec/struct_codec.hpp"
 
 namespace compass::db::codec {
