@@ -36,8 +36,9 @@ Tables are written schema by schema, in the order the schema model lists
 the schemas, and within a schema in an order where every table follows the
 tables its foreign keys reference, ties broken by name. A table whose
 profile marks it retained is introduced by a comment saying so: its rows
-exist nowhere else, so the catalog test names it when it loses or retypes a
-column with no migration.
+exist nowhere else, so once released the migration tests fail a migration
+that loses its rows or drops or retypes its columns, unless a recorded
+decision allows the loss.
 
 * See also
 

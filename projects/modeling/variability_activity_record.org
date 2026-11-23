@@ -17,8 +17,9 @@ model binds it with =:profile: activity-record= in its =* Flags= drawer.
 A test run, a step's result, a note or a screenshot: activity that a sync
 cannot recreate, because nothing but the database holds it until it is
 exported. The profile marks the table =retained=. =schema.sql= says so
-above the table, and the catalog test of the component's migrations names
-a retained table that loses or retypes a column with no migration to do it.
+above the table. Once released, the migration tests hold the table to its
+rows and columns: a later migration that loses a row, or drops or retypes a
+column, fails them unless a recorded decision allows the loss.
 The key is the model's own: most activity tables have an identity key, but
 a step's result is keyed by its run and step and a screenshot by its blob
 ID.
