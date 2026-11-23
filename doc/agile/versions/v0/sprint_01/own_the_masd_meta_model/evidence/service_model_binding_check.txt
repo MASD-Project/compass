@@ -1,0 +1,37 @@
+start_run              post  /v1/{environment}/runs                             qa        run         destructive=false idempotent=false
+                       body=['scenario_id'] query=- required=['environment', 'scenario_id'] takes_no_body=false response=start_run_response
+record_step_result     put   /v1/{environment}/runs/{run}/steps/{step_ord}      qa        run         destructive=true idempotent=true
+                       body=['outcome', 'notes'] query=- required=['environment', 'run', 'step_ord'] takes_no_body=false response=204
+finish_run             post  /v1/{environment}/runs/{run}/finish                qa        run         destructive=false idempotent=false
+                       body=- query=- required=['environment', 'run'] takes_no_body=true response=finish_run_response
+attach_screenshot      post  /v1/{environment}/attachments                      qa        attachment  destructive=true idempotent=true
+                       body=['run', 'note', 'step_ord', 'media_type', 'bytes', 'caption'] query=- required=['environment', 'media_type', 'bytes'] takes_no_body=false response=attach_response
+add_note               post  /v1/{environment}/campaigns/{campaign}/notes       qa        note        destructive=false idempotent=false
+                       body=['scenario_id', 'step_ord', 'kind', 'text'] query=- required=['environment', 'campaign', 'kind', 'text'] takes_no_body=false response=add_note_response
+address_note           patch /v1/{environment}/notes/{note}                     qa        note        destructive=false idempotent=false
+                       body=['reply'] query=- required=['environment', 'note'] takes_no_body=false response=204
+search_documents       get   /v1/{environment}/search                           documents document    readOnly
+                       body=- query=['q', 'filter', 'limit', 'offset'] required=['environment', 'q'] takes_no_body=false response=search_response
+list_facets            get   /v1/{environment}/facets                           documents document    readOnly
+                       body=- query=['q', 'filter', 'keywords', 'properties'] required=['environment'] takes_no_body=false response=facets_response
+list_documents         get   /v1/{environment}/documents                        documents document    readOnly
+                       body=- query=['filter', 'limit', 'offset'] required=['environment'] takes_no_body=false response=list_documents_response
+get_document           get   /v1/{environment}/documents/{id}                   documents document    readOnly
+                       body=- query=['format'] required=['environment', 'id'] takes_no_body=false response=get_document_response
+list_backlinks         get   /v1/{environment}/documents/{id}/backlinks         documents document    readOnly
+                       body=- query=- required=['environment', 'id'] takes_no_body=false response=backlinks_response
+list_environments      get   /v1/environments                                   documents environment readOnly
+                       body=- query=- required=- takes_no_body=false response=list_environments_response
+get_version            get   /v1/version                                        documents service     readOnly
+                       body=- query=- required=- takes_no_body=false response=version_response
+sync_environment       post  /v1/{environment}/sync                             documents environment destructive=false idempotent=true
+                       body=- query=- required=['environment'] takes_no_body=true response=sync_response
+get_sprint_state       get   /v1/{environment}/sprint                           agile     sprint      readOnly
+                       body=- query=['sprint'] required=['environment'] takes_no_body=false response=sprint_state_response
+list_scenarios_to_test get   /v1/{environment}/testing                          qa        scenario    readOnly
+                       body=- query=['sprint'] required=['environment'] takes_no_body=false response=testing_response
+get_run                get   /v1/{environment}/runs/{run}                       qa        run         readOnly
+                       body=- query=- required=['environment', 'run'] takes_no_body=false response=get_run_response
+list_notes             get   /v1/{environment}/campaigns/{campaign}/notes       qa        note        readOnly
+                       body=- query=- required=['environment', 'campaign'] takes_no_body=false response=list_notes_response
+54 messages, 18 routes and tools, 0 failures
