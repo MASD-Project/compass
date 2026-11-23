@@ -23,6 +23,13 @@
 #include <charconv>
 #include <format>
 #include <string_view>
+#include "compass.db/io/document_copy.hpp"
+#include "compass.db/io/heading_copy.hpp"
+#include "compass.db/io/link_copy.hpp"
+#include "compass.db/io/placement_copy.hpp"
+#include "compass.db/io/scenario_copy.hpp"
+#include "compass.db/io/section_copy.hpp"
+#include "compass.db/io/step_copy.hpp"
 #include "compass.db/ops/copy_text.hpp"
 #include "compass.store/ops/blob_hash.hpp"
 
@@ -76,20 +83,16 @@ std::string text_array(std::span<const std::string> values) {
     return out + "}";
 }
 
-std::uint64_t to_number(std::string_view text) {
-    std::uint64_t v = 0;
+std::int64_t to_id(std::string_view text) {
+    std::int64_t v = 0;
     std::from_chars(text.data(), text.data() + text.size(), v);
     return v;
 }
 
-std::string joined(const std::vector<std::string>& path) {
-    std::string out;
-    for (const auto& p : path) {
-        if (!out.empty())
-            out += " / ";
-        out += p;
-    }
-    return out;
+std::uint64_t to_number(std::string_view text) {
+    std::uint64_t v = 0;
+    std::from_chars(text.data(), text.data() + text.size(), v);
+    return v;
 }
 
 /**
@@ -106,96 +109,34 @@ struct staged {
 
 staged stage(std::span<const types::corpus_document> documents) {
     staged s;
+    ops::copy_writer document(s.documents);
+    ops::copy_writer heading(s.headings);
+    ops::copy_writer section(s.sections);
+    ops::copy_writer link(s.links);
+    ops::copy_writer scenario(s.scenarios);
+    ops::copy_writer step(s.steps);
     for (const auto& d : documents) {
-        const auto& m = d.document;
-        ops::copy_writer w(s.documents);
-        w.bytes(d.hash.bytes);
-        w.text(m.org_id);
-        w.text(m.title);
-        w.text(m.description);
-        w.text(m.type);
-        w.text(m.level);
-        w.text(m.audience);
-        w.text(m.created);
-        w.text(m.updated);
-        w.array(m.tags);
-        w.text(m.keywords);
-        w.text(m.properties);
-        w.text(m.source);
-        w.end();
-
-        ops::copy_writer h(s.headings);
-        for (std::size_t ord = 0; ord < d.headings.size(); ++ord) {
-            const auto& r = d.headings[ord];
-            h.bytes(d.hash.bytes);
-            h.number(ord);
-            h.number(r.level);
-            h.text(r.title);
-            h.array(r.path);
-            h.text(r.anchor);
-            h.text(r.org_id);
-            h.text(r.todo);
-            h.text(r.priority);
-            h.array(r.tags);
-            h.text(r.properties);
-            h.end();
-        }
-
-        ops::copy_writer sw(s.sections);
-        for (std::size_t ord = 0; ord < d.sections.size(); ++ord) {
-            const auto& r = d.sections[ord];
-            sw.bytes(d.hash.bytes);
-            sw.number(ord);
-            if (r.heading) {
-                sw.number(*r.heading);
-                sw.text(joined(d.headings[*r.heading].path));
-            } else {
-                sw.null();
-                sw.text(std::string_view{});
-            }
-            sw.text(r.text);
-            sw.end();
-        }
-
-        ops::copy_writer l(s.links);
-        for (std::size_t ord = 0; ord < d.links.size(); ++ord) {
-            const auto& r = d.links[ord];
-            l.bytes(d.hash.bytes);
-            l.number(ord);
-            if (r.heading)
-                l.number(*r.heading);
-            else
-                l.null();
-            l.text(r.type);
-            l.text(r.path);
-            l.text(r.target_id);
-            l.text(r.text);
-            l.end();
-        }
-
+        write_copy(document, d.hash, d.document);
+        for (std::size_t ord = 0; ord < d.headings.size(); ++ord)
+            write_copy(heading, d.hash, ord, d.headings[ord]);
+        for (std::size_t ord = 0; ord < d.sections.size(); ++ord)
+            write_copy(section, d.hash, ord, d.sections[ord]);
+        for (std::size_t ord = 0; ord < d.links.size(); ++ord)
+            write_copy(link, d.hash, ord, d.links[ord]);
         if (!d.scenario)
             continue;
-        const auto& sc = *d.scenario;
-        ops::copy_writer c(s.scenarios);
-        c.bytes(d.hash.bytes);
-        c.text(sc.org_id);
-        c.text(sc.title);
-        c.text(sc.task_id);
-        c.text(sc.story_id);
-        c.text(sc.target);
-        c.text(sc.environment);
-        c.bytes(sc.definition.bytes);
-        c.end();
-        ops::copy_writer st(s.steps);
-        for (std::size_t ord = 0; ord < sc.steps.size(); ++ord) {
-            st.bytes(d.hash.bytes);
-            st.number(ord);
-            st.text(sc.steps[ord].title);
-            st.text(sc.steps[ord].body);
-            st.end();
-        }
+        write_copy(scenario, d.hash, *d.scenario);
+        for (std::size_t ord = 0; ord < d.scenario->steps.size(); ++ord)
+            write_copy(step, d.hash, ord, d.scenario->steps[ord]);
     }
     return s;
+}
+
+/**
+ * @brief COPY of @p columns of @p table from standard input.
+ */
+std::string copy_into(std::string_view table, std::string_view columns) {
+    return std::format("COPY {} ({}) FROM STDIN", table, columns);
 }
 
 /**
@@ -209,19 +150,19 @@ CREATE TEMP TABLE stage_document (LIKE corpus.document INCLUDING DEFAULTS)
     ON COMMIT DROP;
 CREATE TEMP TABLE stage_heading (LIKE corpus.heading) ON COMMIT DROP;
 CREATE TEMP TABLE stage_section (hash bytea, ord integer, heading_ord integer,
-    path text, text text) ON COMMIT DROP;
+    text text) ON COMMIT DROP;
 CREATE TEMP TABLE stage_link (LIKE corpus.link) ON COMMIT DROP;
 CREATE TEMP TABLE stage_scenario (LIKE test.scenario) ON COMMIT DROP;
 CREATE TEMP TABLE stage_step (LIKE test.step) ON COMMIT DROP;
 )sql");
-    c.copy_in("COPY stage_document (hash, org_id, title, description, type, "
-        "level, audience, created, updated, tags, keywords, properties, "
-        "source) FROM STDIN", s.documents);
-    c.copy_in("COPY stage_heading FROM STDIN", s.headings);
-    c.copy_in("COPY stage_section FROM STDIN", s.sections);
-    c.copy_in("COPY stage_link FROM STDIN", s.links);
-    c.copy_in("COPY stage_scenario FROM STDIN", s.scenarios);
-    c.copy_in("COPY stage_step FROM STDIN", s.steps);
+    c.copy_in(copy_into("stage_document", document_copy_columns),
+        s.documents);
+    c.copy_in(copy_into("stage_heading", heading_copy_columns), s.headings);
+    c.copy_in(copy_into("stage_section", section_copy_columns), s.sections);
+    c.copy_in(copy_into("stage_link", link_copy_columns), s.links);
+    c.copy_in(copy_into("stage_scenario", scenario_copy_columns),
+        s.scenarios);
+    c.copy_in(copy_into("stage_step", step_copy_columns), s.steps);
     const auto inserted = c.exec(R"sql(
 INSERT INTO corpus.document (hash, org_id, title, description, type, level,
     audience, created, updated, tags, keywords, properties, source)
@@ -235,9 +176,11 @@ FROM stage_document ON CONFLICT DO NOTHING
 INSERT INTO corpus.section (hash, ord, heading_ord, text, tsv)
 SELECT s.hash, s.ord, s.heading_ord, s.text,
        setweight(to_tsvector($1::regconfig, coalesce(d.title, '')), 'A') ||
-       setweight(to_tsvector($1::regconfig, s.path), 'B') ||
+       setweight(to_tsvector($1::regconfig,
+           coalesce(array_to_string(h.path, ' / '), '')), 'B') ||
        setweight(to_tsvector($1::regconfig, s.text), 'D')
 FROM stage_section s JOIN stage_document d ON d.hash = s.hash
+LEFT JOIN stage_heading h ON h.hash = s.hash AND h.ord = s.heading_ord
 ON CONFLICT DO NOTHING
 )sql", {text_search});
     c.exec("INSERT INTO corpus.link SELECT * FROM stage_link "
@@ -284,22 +227,19 @@ write_result write_environment(connection& c, const types::environment& e,
 INSERT INTO corpus.environment (name, kind, root, head) VALUES ($1, $2, $3, $4)
 ON CONFLICT (name) DO UPDATE SET kind = EXCLUDED.kind, root = EXCLUDED.root
 RETURNING id
-)sql", {e.name, std::string(types::to_string(e.kind)),
-        e.root.empty() ? types::nullable{} : types::nullable{e.root},
+)sql", {e.name, std::string(types::to_string(e.kind)), e.root,
         e.head}).value(0, 0));
 
     std::string rows;
     {
         ops::copy_writer w(rows);
-        for (const auto& p : placements) {
-            w.text(p.path);
-            w.bytes(p.hash.bytes);
-            w.end();
-        }
+        const auto environment = to_id(id);
+        for (const auto& p : placements)
+            write_copy(w, environment, p);
     }
-    c.run_script("CREATE TEMP TABLE stage_placement (path text, hash bytea) "
-        "ON COMMIT DROP");
-    c.copy_in("COPY stage_placement FROM STDIN", rows);
+    c.run_script("CREATE TEMP TABLE stage_placement "
+        "(LIKE corpus.placement) ON COMMIT DROP");
+    c.copy_in(copy_into("stage_placement", placement_copy_columns), rows);
 
     std::vector<blob_id> given;
     given.reserve(documents.size());

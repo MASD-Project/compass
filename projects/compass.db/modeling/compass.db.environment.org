@@ -23,6 +23,7 @@ it and its placements.
 :component:  db
 :schema:     corpus
 :profile:    environment-state
+:row_type:   environment
 :END:
 
 The profile =environment-state= is not one the investigation names; this model proposes it. It fixes =current_state= and neither =read_only= nor =retained=: a sync rewrites the row, and =drop_environment= deletes it.
@@ -76,32 +77,29 @@ The commit the environment's files are at, when the sync knows it. A sync that d
 
 ** synced_at
 :PROPERTIES:
-:type:      timestamptz
-:nullable:  true
+:type:        timestamptz
+:nullable:    true
+:written_by:  writer
 :END:
 
-When the last sync committed; NULL until the first. =write_environment= sets it to =now()= in an =UPDATE=, so it is in neither the row type nor the insert. It has no default, so =written_by: database= does not describe it; see Notes.
+When the last sync committed; NULL until the first. =write_environment= sets it to =now()= in an =UPDATE=, so it is in neither the row type nor the insert: the writer writes it, not the row.
 
 * C++
 
 The row is =compass::db::types::environment= of
-=compass.db/types/environment.hpp=: =name=, =kind=, =root= and =head=. The
-enumeration =environment_kind= (=worktree=, =branch=, =release=, on
-=std::uint8_t=) and its =to_string= are what =:values:= on =kind= generates.
+=compass.db/types/environment_row.hpp=, generated: =name=, =kind=, =root= and
+=head=. =:row_type:= keeps #176's name. =:values:= on =kind= generates the
+enumeration =environment_kind= with =to_string= and =environment_kind_of=.
 =environment_summary=, the read of an environment with its placement count,
-is a query projection, not a row of this table.
+is a query projection, not a row of this table, and stays hand-written in
+=compass.db/types/environment.hpp=.
 
 * Notes
 
-- #176's type is named =environment=, not =environment_row=. A generated row
-  takes the =_row= suffix unless the model can name it, which it cannot.
-- =root= is nullable in the table and =std::string= in the row, an empty
-  string standing for NULL. A generated row makes it
-  =std::optional<std::string>=.
-- =synced_at= is written by the writer's =UPDATE ... SET synced_at = now()=,
-  not by a default. The investigation's =written_by= has one value,
-  =database=, for a column with a default; this column needs another, such
-  as =written_by: writer=.
+- =root= is nullable, so the row holds =std::optional<std::string>=: a
+  release has none. #176 stood an empty string for NULL.
+- =synced_at= is set by the writer's =UPDATE ... SET synced_at = now()=, not
+  by a default: =written_by: writer= keeps it out of the row.
 - The upsert (=ON CONFLICT (name) DO UPDATE SET kind, root=) is the writer's,
   not the table's.
 

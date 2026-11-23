@@ -130,11 +130,8 @@ void require_step(io::connection& c, const std::string& scenario_hash,
 }
 
 types::step_outcome step_outcome_of(std::string_view s) {
-    using types::step_outcome;
-    for (const auto o : {step_outcome::pass, step_outcome::fail,
-             step_outcome::blocked, step_outcome::skipped})
-        if (types::to_string(o) == s)
-            return o;
+    if (const auto o = types::step_outcome_of(s))
+        return *o;
     throw io::error("activity.step_result holds an unknown outcome " +
         std::string(s), "");
 }

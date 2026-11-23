@@ -120,17 +120,16 @@ The scenario is deleted with its document.
 * C++
 
 The row is =compass::db::types::scenario_row= of
-=compass.db/types/corpus_document.hpp=: the six nullable texts and
-=definition=. Its member =std::vector<step_row> steps= is not a column: it
-holds the =test.step= rows the scenario owns. A generated row has no such
-member, so the steps move to the hand-written aggregate, or the row keeps a
-hand-written wrapper.
+=compass.db/types/scenario_row.hpp=, generated: the six nullable texts and
+=definition=. The steps a scenario owns are no column, so they are in the
+hand-written =test_scenario= of =compass.db/types/corpus_document.hpp=, a
+=scenario_row= with its =std::vector<step_row> steps=.
 
 * Notes
 
-The key is also a foreign key. The model states it twice, once under
-=* Columns= and once under =* Foreign keys=, which the DDL of migration 1
-writes as one column constraint, =hash bytea PRIMARY KEY REFERENCES
+The key is also a foreign key. The model states it under =* Columns= and
+under =* Foreign keys=, and =schema.sql= writes both as the one column
+definition migration 1 has, =hash bytea PRIMARY KEY REFERENCES
 corpus.document ON DELETE CASCADE=.
 
 * See also

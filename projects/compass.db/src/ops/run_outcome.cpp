@@ -43,26 +43,3 @@ derive_run_outcome(std::span<const std::optional<types::step_outcome>> steps) {
 }
 
 }
-
-namespace compass::db::types {
-
-std::string_view to_string(step_outcome o) noexcept {
-    switch (o) {
-    case step_outcome::pass: return "pass";
-    case step_outcome::fail: return "fail";
-    case step_outcome::blocked: return "blocked";
-    case step_outcome::skipped: return "skipped";
-    }
-    return "pass";
-}
-
-std::string_view to_string(run_outcome o) noexcept {
-    switch (o) {
-    case run_outcome::passed: return "passed";
-    case run_outcome::failed: return "failed";
-    case run_outcome::blocked: return "blocked";
-    }
-    return "passed";
-}
-
-}

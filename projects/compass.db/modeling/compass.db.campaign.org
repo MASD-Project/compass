@@ -78,31 +78,28 @@ When the campaign was last exported to the story's pages; NULL until then.
 
 * SQL
 
-** Indexes
+** Unique
 
-The schema has a =UNIQUE (environment, story_id)= table constraint, not an
-index. The model states it as a unique index, the only form its indexes table
-has; see Notes.
+A story has one campaign in an environment. The rule is a table constraint,
+=campaign_environment_story_id_key=, which =ON CONFLICT (environment,
+story_id)= relies on, not a unique index.
 
-| name                 | columns               | unique | where | using | opclass |
-|----------------------+-----------------------+--------+-------+-------+---------|
-| environment_story_id | environment, story_id | true   |       |       |         |
+| columns               |
+|-----------------------|
+| environment, story_id |
 
 * C++
 
-#176 has no C++ for this table; [[id:C1DC377F-4A1B-4131-B734-FE28DB63CF03][Serve the documents]]
-will need its row, reader and insert. The row the model generates is the
-specification of that code.
+The generated row is =compass::db::types::campaign_row= of
+=compass.db/types/campaign_row.hpp=. Nothing writes it yet: Record test
+campaigns writes the table with its own =INSERT=.
 
 * Notes
 
 A unique index and a =UNIQUE= constraint enforce the same rule but are
-different catalog objects: the constraint is named
-=campaign_environment_story_id_key= and is listed in =pg_constraint=, and
-=ON CONFLICT ON CONSTRAINT= can name it. A template rendering this row writes
-=CREATE UNIQUE INDEX campaign_environment_story_id=, which a catalog
-comparison against migration 1 would report. The model needs a table-level
-unique constraint, such as a =** Unique= table under =* SQL=.
+different catalog objects, which the catalog comparison of the migrations
+with =schema.sql= tells apart. The =** Unique= table under =* SQL= states
+the constraint, so the generated table matches migration 1's.
 
 * See also
 

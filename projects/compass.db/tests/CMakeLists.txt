@@ -25,6 +25,7 @@ add_executable(${tests_target_name}
     ops_campaign_page_tests.cpp
     ops_copy_text_tests.cpp
     ops_extract_tests.cpp
+    ops_migrations_tests.cpp
     query_campaign_tests.cpp
     query_search_tests.cpp
     query_testing_tests.cpp)
@@ -36,5 +37,11 @@ target_link_libraries(${tests_target_name}
         compass.ingest.lib
         compass.testing.lib
         Catch2::Catch2WithMain)
+
+# The catalog test reads the generated schema from the checkout, as no
+# program runs it against a database.
+target_compile_definitions(${tests_target_name}
+    PRIVATE
+        COMPASS_DB_SCHEMA_SQL="${CMAKE_SOURCE_DIR}/projects/compass.db/sql/schema.sql")
 
 compass_add_catch2_tests(${name} ${tests_target_name})

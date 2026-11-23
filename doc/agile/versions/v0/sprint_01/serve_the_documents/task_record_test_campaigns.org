@@ -111,6 +111,13 @@ TCP port, plays =compass-bench campaign= and asks =compass-bench testing=.
 
 * Notes
 
+- *The tester moves from the body to the caller* (2026-11-23).
+  [[id:AF30B206-2FAB-435F-819F-9EC652D4E40D][Design: aligning the document service with ORE Studio's HTTP and MCP]]
+  takes the tester from the gateway's subject header, records the subject and
+  the acting agent of every write in a new =activity.action= table, and
+  removes =tester= from the six requests. The change is carried by
+  [[id:186C4AF8-CAB4-4754-B8AC-76D571B1B3E9][Serve the documents over HTTP]],
+  where the caller first exists; this task's writes stay as merged until then.
 - *Note kinds come from the compass configuration.* The design puts them in
   =.compass.org=, beside the views, and so does this task. A check document
   under =compass/checks/= defines a rule that =compass check= runs over a
