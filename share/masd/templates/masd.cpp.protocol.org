@@ -52,7 +52,7 @@ properties of a field change the code:
 
 | Property | Effect |
 |----------+--------|
-| =:values:= | The field's type names an enumeration of those values, declared once in the header, with =to_string=, a parser =<enum>_of= and a =text_form= that writes its names, so the reader refuses any other text and the schema lists them. The generator refuses =:values:= on a standard type or a message. Two fields that declare one enumeration must list the same values, in the model and in every operation model of the same namespace in its directory; each declaration is guarded by its qualified name, so headers that declare it can be included together. |
+| =:values:= | The field's type names an enumeration of those values, declared once in the header, with =to_string=, a parser =<enum>_of= and a =text_form= that writes its names, so the reader refuses any other text and the schema lists them. A =std::string= field that lists =:values:= holds an enumeration named =<message>_<field>=, and a quoted =:default:= becomes its value; the generator refuses =:values:= on any other standard type or a message. Two fields that declare one enumeration must list the same values, in the model and in every operation model of the same namespace in its directory; each declaration is guarded by its qualified name, so headers that declare it can be included together. |
 | =:encoding: base64= | The member is the runtime's =base64_bytes=, so its JSON is base64 text and a reader refuses anything else. |
 | =:http_in:= | Where a route reads the field. A field that is not =path= may be left out when it is a vector or a message, has a =:default:= or states =:required: false=: its =field= states =may_be_absent=. A request with a =body= field also states =body_fields=. |
 

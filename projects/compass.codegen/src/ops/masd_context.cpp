@@ -18,6 +18,7 @@
  *
  */
 #include "compass.codegen/ops/masd_context.hpp"
+#include "compass.model/ops/load.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -511,10 +512,32 @@ bool is_standard_or_arithmetic(std::string_view t) {
 }
 
 /**
+ * @brief @p op with each std::string field that lists :values: holding an
+ * enumeration of them instead, named <message>_<field>, and its :default:,
+ * a quoted value, that enumeration's value. So the reader refuses a text
+ * outside the list and the schema lists the values.
+ */
+mtypes::masd_operation with_named_enumerations(mtypes::masd_operation op) {
+    for (auto& msg : op.messages)
+        for (auto& f : msg.fields) {
+            if (f.values.empty() || held_type(f.cpp_type) != "std::string")
+                continue;
+            const auto name = msg.name + "_" + f.name;
+            f.cpp_type.replace(f.cpp_type.find("std::string"),
+                std::string_view("std::string").size(), name);
+            const auto& d = f.default_value;
+            if (d.size() > 1 && d.front() == '"' && d.back() == '"')
+                f.default_value = name + "::" + d.substr(1, d.size() - 2);
+        }
+    return op;
+}
+
+/**
  * @brief Each enumeration @p op declares, by name, with the values its
  * fields' :values: list.
- * @throws std::runtime_error when two fields list different values for one
- * enumeration, or a field lists :values: on a type that is not an
+ * @throws compass::model::ops::model_error when two fields list different
+ * values for one enumeration, or a field lists :values: on a type that is
+ * neither a string, which with_named_enumerations rewrites, nor an
  * enumeration's name.
  */
 std::map<std::string, std::vector<std::string>> enumerations_of(
@@ -529,13 +552,14 @@ std::map<std::string, std::vector<std::string>> enumerations_of(
                 continue;
             const auto t = held_type(f.cpp_type);
             if (is_standard_or_arithmetic(t) || message_names.contains(t))
-                throw std::runtime_error("codegen: " + msg.name + "." +
-                    f.name + " lists :values: on " + f.cpp_type + "; name "
-                    "the enumeration they are the values of in :cpp_type:");
+                throw compass::model::ops::model_error(msg.name + "." +
+                    f.name + " lists :values: on " + f.cpp_type + ", which "
+                    "is neither a string nor an enumeration's name");
             const auto [at, added] = out.try_emplace(t, f.values);
             if (!added && at->second != f.values)
-                throw std::runtime_error("codegen: the enumeration " + t +
-                    " lists different values in " + msg.name + "." + f.name);
+                throw compass::model::ops::model_error("the enumeration " +
+                    t + " lists different values in " + msg.name + "." +
+                    f.name);
         }
     return out;
 }
@@ -569,9 +593,10 @@ std::string_view http_in_name(mtypes::http_in in) {
 }
 
 value_id masd_operation_context(builder& b, value_id library,
-    const mtypes::masd_operation& op, std::string_view product,
+    const mtypes::masd_operation& model, std::string_view product,
     std::string_view codec_component,
     std::span<const sibling_operation> siblings) {
+    const auto op = with_named_enumerations(model);
     const auto context = with_library(b, library);
     const auto m = b.object(context, "masd_operation");
     const auto component = std::string(product) + "." + op.component;
@@ -601,10 +626,11 @@ value_id masd_operation_context(builder& b, value_id library,
     for (const auto& sibling : siblings) {
         if (sibling.model.ns != op.ns)
             continue;
-        for (const auto& [name, values] : enumerations_of(sibling.model))
+        for (const auto& [name, values] :
+             enumerations_of(with_named_enumerations(sibling.model)))
             if (const auto at = enums.find(name);
                 at != enums.end() && at->second != values)
-                throw std::runtime_error("codegen: the enumeration " +
+                throw compass::model::ops::model_error("the enumeration " +
                     op.ns + "::" + name + " lists " + joined(at->second) +
                     " here and " + joined(values) + " in " + sibling.path);
     }

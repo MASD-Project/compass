@@ -345,13 +345,29 @@ TEST_CASE("an operation's enumerations are named by their fields' types and "
         CHECK_THROWS_AS(ops::masd_operation_context(b, b.detached_object(),
             op, "compass", "db"), std::runtime_error);
     }
-    SECTION("a string field that lists values") {
+    SECTION("a string field that lists values holds an enumeration of them") {
+        auto op = writes_model();
+        auto format = message_field("format", "std::optional<std::string>",
+            {"html", "org"});
+        format.default_value = "\"org\"";
+        op.messages.push_back(message("other", {format}));
+        const auto header = rendered("masd_cpp_protocol.hpp.mustache",
+            [&](auto& b, auto library) {
+                return ops::masd_operation_context(b, library, op, "compass",
+                    "db");
+            });
+        CHECK_THAT(header, ContainsSubstring(
+            "enum class other_format { html, org };"));
+        CHECK_THAT(header, ContainsSubstring(
+            "    std::optional<other_format> format = other_format::org;\n"));
+    }
+    SECTION("values on a type that is neither a string nor an enumeration") {
         auto op = writes_model();
         op.messages.push_back(message("other",
-            {message_field("format", "std::string", {"html", "org"})}));
+            {message_field("count", "std::int32_t", {"1", "2"})}));
         CHECK_THROWS_WITH(ops::masd_operation_context(b, b.detached_object(),
-            op, "compass", "db"), ContainsSubstring("other.format lists "
-            ":values: on std::string; name the enumeration"));
+            op, "compass", "db"), ContainsSubstring("other.count lists "
+            ":values: on std::int32_t"));
     }
     SECTION("two models of one namespace that disagree") {
         auto sibling = writes_model();

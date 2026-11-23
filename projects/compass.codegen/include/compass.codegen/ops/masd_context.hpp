@@ -79,10 +79,10 @@ struct sibling_operation {
  * may leave it out under the service's binding rules. A routed request
  * lists its fields again by where its route reads them, as path_fields,
  * query_fields and body_fields.
- * @throws std::runtime_error when two fields list different values for one
- * enumeration, here or in a sibling of the same namespace, a field lists
- * :values: on a type that names no enumeration, or the messages hold each
- * other in a cycle.
+ * @throws compass::model::ops::model_error when two fields list different
+ * values for one enumeration, here or in a sibling of the same namespace,
+ * or a field lists :values: on a type that names no enumeration.
+ * @throws std::runtime_error when the messages hold each other in a cycle.
  */
 [[nodiscard]] compass::model::types::value_id masd_operation_context(
     compass::model::ops::builder& b, compass::model::types::value_id library,
