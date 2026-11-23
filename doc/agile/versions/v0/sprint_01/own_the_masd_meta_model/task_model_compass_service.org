@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :own_the_masd_meta_model:sprint_01:v0:
 #+owner: marco
-#+branch: feature/model-compass-service
-#+pr: https://github.com/MASD-Project/compass/pull/193
+#+branch: feature/service-models-review-fixes
+#+pr: https://github.com/MASD-Project/compass/pull/198
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-22
@@ -209,6 +209,7 @@ via its "Verifies task" field.
 | PR | Title |
 |----+-------|
 | [[https://github.com/MASD-Project/compass/pull/193][#193]] | Model compass's service |
+| [[https://github.com/MASD-Project/compass/pull/198][#198]] | Address the review of compass's service models |
 
 * Review
 
