@@ -1,4 +1,4 @@
 ORE Studio main: bc0702ad46b8a6097ce5242ece7ba01067699f60
-0 to write, 34452 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore (11445 documents, 0 from the store, 11445 parsed; 129625.1 ms)
+0 to write, 34452 unchanged, 0 to restore, 0 to remove, 0 to keep under <scratch>/ore (11445 documents, 0 from the store, 11445 parsed; 65103.7 ms)
 new: same as old, 0 files
 layered: same as old, 0 files
