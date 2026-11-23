@@ -20,6 +20,7 @@ set(lib_target_name ${name}.lib)
 set(tests_target_name ${name}.tests)
 
 add_executable(${tests_target_name}
+    app_service_tests.cpp
     messages_campaign_writes_protocol_tests.cpp
     messages_codec_tests.cpp
     messages_document_queries_protocol_tests.cpp
