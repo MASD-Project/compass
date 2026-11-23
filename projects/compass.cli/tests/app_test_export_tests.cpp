@@ -170,7 +170,10 @@ TEST_CASE("test export of an unchanged campaign writes nothing",
     CHECK(again.status == app::exit_success);
     CHECK_THAT(again.out, ContainsSubstring("0 files written, 2 unchanged"));
     CHECK_THAT(again.out, !ContainsSubstring("compass: wrote"));
-    CHECK(fs::last_write_time(page) == before);
+    // Compared outside CHECK: Catch2 cannot print libc++'s file clock, whose
+    // representation is __int128.
+    const bool untouched = fs::last_write_time(page) == before;
+    CHECK(untouched);
     CHECK(scoped_git_repo::read_file(page) == bytes);
 }
 
