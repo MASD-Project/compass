@@ -1,0 +1,55 @@
+unmutated: struct=0 binding=0
+caught   model: a request's std::optional<std::int64_t> becomes std::int64_t: struct=1 binding=0
+           FAIL  attach_request differs from attach_request
+caught   model: search's limit default 20 becomes 25: struct=1 binding=0
+           FAIL  search_request differs from search_request
+caught   model: search_hit renamed search_hitt: struct=1 binding=0
+           FAIL  search_hitt: no struct search_hitt and not pinned new
+           FAIL  search_response differs from search_response
+caught   model: run_step deleted: struct=1 binding=1
+           FAIL  struct run_step has no message and is not pinned
+           FAIL  compass.serve.campaign_writes.org:66 start_run_response.steps: unknown type std::vector<run_step>
+caught   c++: a new struct export_request with no message: struct=1 binding=0
+           FAIL  struct export_request has no message and is not pinned
+caught   model: :values: of step_outcome loses two enumerators: struct=1 binding=0
+           FAIL  step_result_request.outcome: :values: ['pass', 'fail'] vs enum class step_outcome ['pass', 'fail', 'blocked', 'skipped']
+caught   c++: enum step_outcome gains an enumerator: struct=1 binding=0
+           FAIL  step_result_request.outcome: :values: ['pass', 'fail', 'blocked', 'skipped'] vs enum class step_outcome ['pass', 'fail', 'blocked', 'skipped', '
+           FAIL  step_result.outcome: :values: ['pass', 'fail', 'blocked', 'skipped'] vs enum class step_outcome ['pass', 'fail', 'blocked', 'skipped', 'waived']
+caught   model: start_run_request reads tester from the body: struct=1 binding=1
+           FAIL  start_run_request: pin drops tester, which the model states
+           FAIL  start_run_request differs from start_run_request
+caught   model: finish_run loses its :response:: struct=1 binding=0
+           FAIL  finish_run_request: :response: None, but the query functions taking finish_run_request return {'finish_run_response'}
+caught   c++: members of metadata_match swap order: struct=1 binding=0
+           FAIL  metadata_match differs from metadata_match
+caught   c++: the structs drop tester ahead of the pins: struct=1 binding=0
+           FAIL  start_run_request: pin drops tester, which start_run_request no longer has
+caught   model: a read tool named without a read prefix: struct=0 binding=1
+           FAIL  compass.serve.document_queries.org:474 list_documents_request: read documents has no read prefix ('list_', 'get_', 'read_', 'find_', 'search_', 
+caught   model: a write tool named as a read: struct=0 binding=1
+           FAIL  compass.serve.campaign_writes.org:34 start_run_request: write get_started_run is named as a read
+caught   model: an area compass does not publish: struct=0 binding=1
+           FAIL  compass.serve.testing_queries.org:33 sprint_state_request: area sprints is not one of ['agile', 'documents', 'qa']
+caught   model: a GET reads a body field: struct=0 binding=1
+           FAIL  compass.serve.document_queries.org:119 search_request: GET with body fields
+caught   model: a path placeholder with no path field: struct=0 binding=1
+           FAIL  compass.serve.campaign_writes.org:386 address_note_request: placeholders ['environment', 'id'] vs path fields ['environment', 'note']
+caught   model: a write asks only for a view: struct=0 binding=1
+           FAIL  compass.serve.campaign_writes.org:34 start_run_request: :caller: view, want subject
+caught   model: a write states :destructive: false, which the loader refuses: struct=0 binding=1
+           FAIL  compass.serve.campaign_writes.org:34 start_run_request: :destructive: is a flag, true or absent; the loader refuses any other value
+caught   model: a PUT loses :idempotent:: struct=0 binding=1
+           FAIL  compass.serve.campaign_writes.org:130 step_result_request: a PUT is idempotent
+caught   model: a read states :idempotent:: struct=0 binding=1
+           FAIL  compass.serve.document_queries.org:119 search_request: :idempotent: on a read
+caught   model: the screenshot bytes lose :encoding:: struct=0 binding=1
+           FAIL  compass.serve.campaign_writes.org:230 attach_request.bytes: a field named bytes holds a file and states :encoding: base64
+caught   model: a route takes a path outside {environment}: struct=0 binding=1
+           FAIL  compass.serve.campaign_writes.org:34 start_run_request: placeholders [] vs path fields ['environment']
+           FAIL  compass.serve.campaign_writes.org:34 start_run_request: first segment runs is neither {environment} nor a reserved name
+caught   model: two routes share a tool: struct=0 binding=1
+           FAIL  tool get_run shared by compass.serve.testing_queries.org:320 get_run_request and compass.serve.testing_queries.org:449 list_notes_request
+caught   model: error_response loses a code: struct=0 binding=1
+           FAIL  error_response.code :values: invalid no_view no_subject forbidden not_found unknown_environment unknown_sprint conflict internal, want invalid n
+survivors=0

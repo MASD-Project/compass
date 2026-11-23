@@ -2,19 +2,22 @@
 :ID: F117FAAE-CA74-45EB-8FEB-6F5D82FB7550
 :END:
 #+title: compass.serve.testing_queries
-#+description: Codegen operation model for the document service's reads of a sprint: its stories and tasks with their states, and what needs testing in an environment.
+#+description: Codegen operation model for the document service's reads of a sprint and its test campaigns: its stories and tasks with their states, what needs testing in an environment, a run with its step results and a campaign's notes.
 #+type: masd.codegen.operation
 #+component: serve
 #+namespace: compass::db::types
 #+entity_singular: testing_queries
-#+brief: The document service's reads of a sprint and its testing.
+#+brief: The document service's reads of a sprint, its testing and its campaigns.
 #+filetags: :model:operation:serve:
 #+created: 2026-11-23
 #+updated: 2026-11-23
 
-What a sprint holds and what of it needs testing, for an environment, over
-HTTP and MCP. Both reads take the sprint by name, or the present one, the one
-whose state is =STARTED=, and answer inside the caller's view.
+What a sprint holds, what of it needs testing and what its test campaigns
+recorded, for an environment, over HTTP and MCP. The two sprint reads take the
+sprint by name, or the present one, the one whose state is =STARTED=, and
+answer inside the caller's view. The two campaign reads answer a run, so a
+tester can resume it, and a campaign's notes, so a developer can address
+one.
 
 * Includes
 
@@ -29,8 +32,8 @@ whose state is =STARTED=, and answer inside the caller's view.
 
 ** sprint_state_request
 :PROPERTIES:
-:tool:        sprint_state
-:area:        documents
+:tool:        get_sprint_state
+:area:        agile
 :entity:      sprint
 :writes:      false
 :summary:     Show a sprint's state
@@ -61,9 +64,9 @@ The sprint's =:ID:= or title; the present sprint when absent.
 
 ** what_needs_testing_request
 :PROPERTIES:
-:tool:        what_needs_testing
-:area:        documents
-:entity:      sprint
+:tool:        list_scenarios_to_test
+:area:        qa
+:entity:      scenario
 :writes:      false
 :summary:     Show what needs testing
 :response:    testing_response
@@ -194,9 +197,8 @@ The latest finished run of a scenario in the environment.
 *** outcome
 :PROPERTIES:
 :cpp_type: std::string
+:values:   passed failed blocked
 :END:
-
-=passed=, =failed= or =blocked=.
 
 *** current_definition
 :PROPERTIES:
@@ -315,9 +317,243 @@ The campaign's open notes.
 :cpp_type: std::string
 :END:
 
+** get_run_request
+:PROPERTIES:
+:tool:        get_run
+:area:        qa
+:entity:      run
+:writes:      false
+:summary:     Read a test run
+:response:    get_run_response
+:http_method: get
+:http_path:   /v1/{environment}/runs/{run}
+:caller:      view
+:END:
+
+A run, finished or not, with the steps of the definition it tests and the
+outcome recorded for each so far.
+
+*** environment
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  path
+:END:
+
+The environment the run is in.
+
+*** run
+:PROPERTIES:
+:cpp_type: std::int64_t
+:default:  0
+:http_in:  path
+:END:
+
+** run_finish
+
+*** at
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+When the run finished.
+
+*** outcome
+:PROPERTIES:
+:cpp_type: std::string
+:values:   passed failed blocked
+:END:
+
+** step_result
+
+One step of the run's definition and what the tester recorded for it.
+
+*** ord
+:PROPERTIES:
+:cpp_type: std::int32_t
+:default:  0
+:END:
+
+*** title
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+*** body
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+*** outcome
+:PROPERTIES:
+:cpp_type: std::optional<step_outcome>
+:values:   pass fail blocked skipped
+:END:
+
+Absent until a result is recorded.
+
+*** notes
+:PROPERTIES:
+:cpp_type: std::optional<std::string>
+:END:
+
+** get_run_response
+
+*** id
+:PROPERTIES:
+:cpp_type: std::int64_t
+:default:  0
+:END:
+
+*** campaign
+:PROPERTIES:
+:cpp_type: std::int64_t
+:default:  0
+:END:
+
+*** scenario_id
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+*** tester
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The subject of the write that started the run.
+
+*** definition
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The blob ID of the scenario definition the run tests.
+
+*** started_at
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+*** finished
+:PROPERTIES:
+:cpp_type: std::optional<run_finish>
+:END:
+
+Absent while the run is unfinished.
+
+*** steps
+:PROPERTIES:
+:cpp_type: std::vector<step_result>
+:END:
+
+** list_notes_request
+:PROPERTIES:
+:tool:        list_notes
+:area:        qa
+:entity:      note
+:writes:      false
+:summary:     List a campaign's notes
+:response:    list_notes_response
+:http_method: get
+:http_path:   /v1/{environment}/campaigns/{campaign}/notes
+:caller:      view
+:END:
+
+A campaign's notes, open and addressed, oldest first.
+
+*** environment
+:PROPERTIES:
+:cpp_type: std::string
+:http_in:  path
+:END:
+
+The environment the campaign is in.
+
+*** campaign
+:PROPERTIES:
+:cpp_type: std::int64_t
+:default:  0
+:http_in:  path
+:END:
+
+** note_address
+
+*** by
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The subject of the write that addressed the note.
+
+*** at
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+*** reply
+:PROPERTIES:
+:cpp_type: std::optional<std::string>
+:END:
+
+** campaign_note
+
+*** id
+:PROPERTIES:
+:cpp_type: std::int64_t
+:default:  0
+:END:
+
+The note's id, which =address_note= takes.
+
+*** scenario_id
+:PROPERTIES:
+:cpp_type: std::optional<std::string>
+:END:
+
+*** step_ord
+:PROPERTIES:
+:cpp_type: std::optional<std::int32_t>
+:END:
+
+*** kind
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+*** text
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+*** author
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+The subject of the write that added the note.
+
+*** created_at
+:PROPERTIES:
+:cpp_type: std::string
+:END:
+
+*** addressed
+:PROPERTIES:
+:cpp_type: std::optional<note_address>
+:END:
+
+Absent while the note is open.
+
+** list_notes_response
+
+*** notes
+:PROPERTIES:
+:cpp_type: std::vector<campaign_note>
+:END:
+
 * Notes
 
-- The messages other than the two requests match the structs of
+- The sprint messages other than the two requests match the structs of
   =compass.db/types/testing.hpp= in name, member names, types, optionality
   and default. =scenario_state= is the enumeration =:values:= on
   =scenario_status::state= names.
@@ -326,6 +562,16 @@ The campaign's open notes.
   states one route and one tool, so the model splits it into
   =sprint_state_request= and =what_needs_testing_request=, with the same
   members. Generating them changes the two functions' parameter types.
+- The campaign reads are new and no query function answers them yet.
+  =run_finish= and =note_address= match the structs of
+  =compass.db/types/campaign_export.hpp=, which the export already reads
+  from the same rows; =step_result= and =campaign_note= are close to
+  =exported_step= and =exported_note= but carry what a tester and a
+  developer need, a step's body and no screenshots.
+- Reading an attachment's bytes back, and serving the images a rendered
+  page shows, are not modelled: they answer a file, not JSON, and the
+  operation model has no form for that yet. They belong to
+  [[id:186C4AF8-CAB4-4754-B8AC-76D571B1B3E9][Serve the documents over HTTP]].
 
 * See also
 

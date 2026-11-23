@@ -7,15 +7,21 @@
 #   facets_on   also with ORE Studio's protocol, wire codec and HTTP route
 #               facets switched on in the file's drawer, and :http_route: true
 #               on each message that states :http_method:.
-# Each stage diffs every model, one at a time, prints its first errors and
-# keeps the files it would write under <scratch>/<stage>.<model>.out.
+# Each stage diffs every model, one at a time, prints compass-ng's whole
+# stderr and keeps the files it would write under <scratch>/<stage>.<model>.out.
+# compass-ng diff exits 0 when nothing would change, 1 when it finds a change
+# and 2 on failure. Where a stage writes a protocol header, the struct check
+# compares the header's structs with the models' messages.
 # The archive is ORE Studio at one commit:
 #   git --git-dir=<ores.git> archive -o <ore.tar> <rev>
-# Usage: service_model_load_probe.sh <scratch-dir> <ore.tar> <models-dir>
+# Usage: service_model_load_probe.sh <scratch-dir> <ore.tar> <compass root>
 set -uo pipefail
-scratch=${1:?scratch directory}
+mkdir -p "${1:?scratch directory}"
+scratch=$(readlink -f "$1")
 archive=$(readlink -f "${2:?ORE Studio archive}")
-models=$(readlink -f "${3:?models directory}")
+compass=$(readlink -f "${3:?compass repository root}")
+models=$compass/projects/compass.serve/modeling
+check=$compass/doc/agile/versions/v0/sprint_01/own_the_masd_meta_model/evidence/service_model_struct_check.py
 
 mkdir -p "$scratch/ore" "$scratch/models"
 tar -x -C "$scratch/ore" -f "$archive"
@@ -31,20 +37,28 @@ stage() {
     for f in "$scratch"/models/*.org; do
         b=$(basename "$f")
         cp "$f" "$target/$b"
-        compass-ng -C "$scratch/ore" diff --skip-stale --files \
-            --scope "$target/$b" > "$scratch/$1.$b.out" 2> "$scratch/$1.$b.err"
-        rc=$?
         out="$scratch/$1.$b.out"
-        echo "$1 $b exit=$rc codegen_writes=$(grep -c '^  write .*(codegen' \
-            "$scratch/$1.$b.err")" \
+        err="$scratch/$1.$b.err"
+        compass-ng -C "$scratch/ore" diff --skip-stale --files \
+            --scope "$target/$b" > "$out" 2> "$err"
+        rc=$?
+        echo "$1 $b exit=$rc" \
             "routes_registered=$(grep -o 'routes registered: " << [0-9]*' \
             "$out" | grep -o '[0-9]*$' | paste -sd+ -)" \
             "v1_paths_in_output=$(grep -c '/v1/' "$out")" \
-            "mcp_in_output=$(grep -ci 'mcp' "$out")" \
-            "$(grep -v '^  write \|^already stale\|^scope:\|^from your' \
-            "$scratch/$1.$b.err" | head -3 | cut -c1-60 | tr '\n' ' ')"
-        grep '^  write .*(codegen' "$scratch/$1.$b.err" |
-            sed 's/ (codegen.*//; s/^/   /'
+            "mcp_in_output=$(grep -ci 'mcp' "$out")"
+        sed "s|$scratch|<scratch>|g; s/^/    stderr: /; s/ *\$//" "$err"
+        header=$(grep -o '^+++ b/.*_protocol\.hpp$' "$out" | sed 's|^+++ b/||')
+        if [ -n "$header" ]; then
+            hpp="$scratch/$1.$(basename "$header")"
+            awk -v h="+++ b/$header" '
+                $0 == h { on = 1; next }
+                on && /^(diff |--- |\+\+\+ )/ { on = 0 }
+                on && /^\+/ { print substr($0, 2) }' "$out" > "$hpp"
+            python3 -I "$check" "$compass" --header "$hpp" |
+                sed 's/^/    struct check: /'
+            echo "    struct check exit=${PIPESTATUS[0]}"
+        fi
         rm "$target/$b"
     done
 }

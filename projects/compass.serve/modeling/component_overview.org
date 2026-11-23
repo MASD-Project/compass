@@ -18,12 +18,12 @@ planned: only =modeling/= exists, and it is not a CMake target yet.
 =compass.serve= will answer HTTP at =/v1/...= and MCP at =/mcp= for a
 repository's documents, as
 [[id:21C1D3CC-9EE3-48C3-8EDD-BA0C16032AB2][Design: the document service]]
-describes. Its routes and MCP tool descriptions are to be generated from the
-operation models in =modeling/=, which state each request and response
-message, the route that reaches it and the route's place in the catalogue
-an agent walks, as ORE Studio's routes declare theirs. The query
-functions that answer stay hand-written in =compass.db=; a route and a tool
-bind a request and call one of them.
+describes and the alignment design with ORE Studio's HTTP and MCP revises.
+Its routes and MCP tools are to be generated from the operation models in
+=modeling/=, which state each request and response message, the route that
+reaches it and the route's place in the catalogue, as ORE Studio's routes
+declare theirs. The query functions that answer stay hand-written in
+=compass.db=; a route and a tool bind a request and call one of them.
 
 The models are written ahead of the code, so the JSON codecs and the service
 templates have a complete description to generate from.
@@ -42,7 +42,17 @@ depends on the HTTP server's libraries.
 * Inputs
 
 Requests from a project's gateway, which authenticates the caller and names
-its view and its name in two headers, and from local agents over MCP.
+it in three headers, and from local agents over MCP. The caller is a value
+the server builds from the request, never a field of a message:
+
+| Header | Holds | Locally, with no gateway |
+|--------+-------+--------------------------|
+| =Compass-View= | The view the caller reads through | =team= |
+| =Compass-Subject= | The person | The developer's git user name |
+| =Compass-Actor= | The agent acting for the person, absent when the person acts | Over MCP, =mcp:= and the client's name from =initialize=; absent over plain HTTP |
+
+The query function takes the caller beside the request. A write records its
+subject and actor in =activity.action=.
 
 * Outputs
 
@@ -55,7 +65,8 @@ None yet.
 * Dependencies
 
 Planned: =compass.db= for the queries and the campaign writes, =compass.html=
-for a document's HTML, =cpp-httplib= and a JSON library.
+for a document's HTML, Boost.Beast for the HTTP server, and yyjson under ORE
+Studio's codec runtime, which compass copies into a MASD template family.
 
 * Models
 
@@ -64,37 +75,48 @@ message states its route and its place in the catalogue in its drawer; each
 field states where its value comes from. Messages without a route are the
 responses and the types they hold.
 
-| Model | Messages | Routes and tools | Entities |
-|-------+----------+------------------+----------|
-| [[id:4152E925-E32D-40C3-AFF1-24F2AB244C5F][compass.serve.document_queries]] | 24 | 8 | =document=, =environment=, =service= |
-| [[id:F117FAAE-CA74-45EB-8FEB-6F5D82FB7550][compass.serve.testing_queries]] | 10 | 2 | =sprint= |
-| [[id:DDEE277B-8F90-49E1-8D17-6A43B990C79E][compass.serve.campaign_writes]] | 11 | 6 | =campaign= |
+| Model | Messages | Routes and tools | Areas |
+|-------+----------+------------------+-------|
+| [[id:4152E925-E32D-40C3-AFF1-24F2AB244C5F][compass.serve.document_queries]] | 24 | 8 | =documents= |
+| [[id:F117FAAE-CA74-45EB-8FEB-6F5D82FB7550][compass.serve.testing_queries]] | 18 | 4 | =agile=, =qa= |
+| [[id:DDEE277B-8F90-49E1-8D17-6A43B990C79E][compass.serve.campaign_writes]] | 11 | 6 | =qa= |
+| [[id:805D86C5-90CA-433F-B17C-16E3B4107CA9][compass.serve.errors]] | 1 | 0 | |
 
-Every route is in the area =documents=.
+** Areas
+
+compass publishes three areas, its own list in its copy of ORE Studio's
+catalogue gate: =documents= for the corpus, its environments and the
+service, =agile= for the sprint, and =qa= for what needs testing and the test
+campaigns. =agile= and =qa= are ORE Studio's names for the same subjects.
+compass does not depend on ORE Studio publishing =documents=.
 
 ** Properties
 
 ORE Studio's operation model reaches a message over NATS: =:subject:=,
 =:response:=, =:http_route:=. These models state how HTTP and MCP reach it.
-The catalogue properties, =:tool:=, =:area:=, =:entity:=, =:writes:= and
-=:summary:=, are the members of ORE Studio's =route_catalogue=
-(=ores.http.api/domain/route.hpp=), whose gate refuses a route that names no
-tool, area or entity. Each property needs a feature page once the MASD pages
-move to compass.
+The catalogue properties take ORE Studio's =route_catalogue=
+(=ores.http.api/domain/route.hpp=): =:tool:=, =:area:=, =:entity:=,
+=:writes:= and =:summary:= are stated; =takes_no_body= is derived, true for a
+route that is not a =GET= and has no =body= field; =description= is the
+request message's prose; =tags= is not used. Each property needs a feature
+page once the MASD pages move to compass.
 
 On a request message:
 
 | Property | Values | Meaning |
 |----------+--------+---------|
 | =:response:= | a message | The message answered. Absent when the call answers nothing (HTTP 204). Read by compass today. |
-| =:http_method:= | =get=, =post=, =put=, =patch=, =delete= | The HTTP verb. |
-| =:http_path:= | a path | The route under the server's root, versioned, each ={field}= a placeholder filled from the request field of that name. |
-| =:tool:= | a name | The route's stable name in the catalogue, and the MCP tool that takes this request. No path change moves it. |
-| =:area:= | a published area | The first step an agent takes into the catalogue. |
-| =:entity:= | a name | The collection within the area. |
-| =:writes:= | =true=, =false= | Whether the call changes anything; the method alone does not say. A route that does not write sets MCP's =readOnlyHint=. |
-| =:summary:= | text | The tool's title. Its description is the message's prose, and each argument's is the field's prose. The request message is the typed body whose schema the tool exposes. |
-| =:caller:= | =view=, =view name= | What the gateway must present: the view on every call, the caller's name too on a write. A request missing one is refused before any binding. |
+| =:http_method:= | =get=, =post=, =put=, =patch=, =delete= | The HTTP verb. A =GET= does not write and has no =body= field; every other verb writes. |
+| =:http_path:= | a path | The route under the server's root, versioned, each ={field}= a placeholder filled from the =path= field of that name. |
+| =:tool:= | a name | The route's stable name in the catalogue, and the MCP tool that takes this request. No path change moves it. A read is named =list_=, =get_=, =read_=, =find_=, =search_= or =lookup_= and an entity, the prefixes by which ORE Studio's catalogue knows a read; a write starts with any other verb. |
+| =:area:= | =documents=, =agile=, =qa= | The first step an agent takes into the catalogue. |
+| =:entity:= | a singular noun | The thing the route reads or writes. It overrides the header's =#+entity_singular:=, which names the model, because one model holds routes over several things. |
+| =:writes:= | =true=, =false= | Whether the call changes anything. A route that does not write sets MCP's =readOnlyHint=. |
+| =:destructive:= | =true= | On a write only: the call may replace or remove what an earlier call wrote. A flag, as ORE Studio's loader reads it, which refuses any other value; absent means not destructive. The tool always states MCP's =destructiveHint=, because MCP takes a write as destructive when the hint is left out. |
+| =:idempotent:= | =true= | On a write only: MCP's =idempotentHint=, repeating the call with the same arguments changes nothing more. A flag like =:destructive:=. Every =PUT= states it. |
+| =:summary:= | text | The tool's title. Its description is the message's prose, and each argument's is the field's prose. |
+| =:caller:= | =view=, =subject= | What the gateway must present: a read needs a view, a write a view and a subject. A request missing one is refused before any binding. |
+| =:max_body_size:= | bytes | On a route that takes a body only: the most it reads, raising the server's default as ORE Studio's =route::max_body_size= does. Absent, the default applies. |
 
 On a field:
 
@@ -102,9 +124,75 @@ On a field:
 |----------+--------+---------|
 | =:cpp_type:= | a C++ type | The member's type. Read by compass today. |
 | =:default:= | a C++ initialiser | The member's default; a request field with one may be left out. Read by compass today. |
-| =:http_in:= | =path=, =query=, =body=, =caller= | Where the route reads the field: a path placeholder, a query parameter, a member of the JSON body, or the caller's name header. A =caller= field is not an MCP argument. A message-typed field read from the query spreads into one parameter per member. |
+| =:http_in:= | =path=, =query=, =body= | Where the route reads the field: a path placeholder, a query parameter or a member of the JSON body. Every field of a routed request states one. |
 | =:http_name:= | a name | The query parameter's name, when it is not the field's. |
+| =:required:= | =false= | A query field that may be left out although its type and its lack of a default would require it. |
+| =:encoding:= | =base64= | A =std::string= body field that holds bytes, written as base64 in JSON. A field named =bytes= always states it, and its route states =:max_body_size:=. |
 | =:values:= | names | A closed list: the enumeration a field of an enumerated type takes, or the only text values a string field accepts. As on an entity model's column. |
+
+** Binding a request
+
+A route builds its request from three places and the caller from the
+headers. The same rules hold for every route, so the template states them
+once:
+
+- *The body.* The JSON body's schema is exactly the fields with =:http_in:
+  body=. A member of no such field is refused as =invalid=, so a body cannot
+  set a path field, a query field or anything about the caller. Path and
+  query fields are set from the request line after the body is decoded.
+- *The MCP arguments.* A tool's input schema is every field of the request,
+  path, query and body alike, as one object; a message-typed query field is
+  one nested object. An unknown argument is refused as =invalid=. The caller
+  comes from the session, never from an argument.
+- *Required.* A path field is always given. Any other field must be given
+  unless its type is =std::optional=, a vector or a message, it has a
+  =:default:=, or it states =:required: false=. A missing required field is
+  refused as =invalid=, naming it.
+- *Query parameters.* A scalar is one parameter, given at most once. A vector
+  is the parameter repeated, =tag=a&tag=b=, never a comma list, because a
+  value may hold a comma. A message-typed field spreads into one parameter
+  per member, named by the member's =:http_name:= or its name, one level
+  deep. A vector of a message of two strings, such as =metadata_match=, is
+  written =name:value= and split at the first colon, so the value may hold
+  one. An unknown parameter is refused as =invalid=.
+- *Path segments.* =environments=, =version= and =catalogue= are literal
+  first segments beside ={environment}=. A literal segment matches before a
+  placeholder, so no environment can take one of these names.
+
+** Refusals
+
+A refused call answers =error_response= of
+[[id:805D86C5-90CA-433F-B17C-16E3B4107CA9][compass.serve.errors]]: a =code=
+and a =message=, the shape of ORE Studio's =api_error= body. Nothing is
+written by a refused call.
+
+| Code | HTTP | When |
+|------+------+------|
+| =invalid= | 400 | The body is not JSON, a member, argument or parameter is unknown, a required field is missing, a value is outside its =:values:=, or the query function refuses the request as invalid. |
+| =no_view= | 401 | The request has no =Compass-View=. |
+| =no_subject= | 401 | A write has no =Compass-Subject=. |
+| =forbidden= | 403 | A gateway secret is configured and the request does not carry it. |
+| =not_found= | 404 | The document, run, campaign or note is not in the environment. |
+| =unknown_environment= | 404 | The database holds no environment of that name. |
+| =unknown_sprint= | 404 | No sprint of that name, or none is =STARTED=. |
+| =conflict= | 409 | The row's state forbids the write, such as a step result on a finished run. |
+| =too_large= | 413 | The body is longer than the route's =:max_body_size:= or the server's default. |
+| =internal= | 500 | A statement failed or the server broke. The message names no internals. |
+
+Over MCP, a refused =tools/call= answers a result with =isError: true=,
+whose =structuredContent= is the =error_response= and whose one text item is
+the same JSON, as ORE Studio's transport answers a tool failure. An unknown
+tool or arguments that are not an object are JSON-RPC error =-32602=, and a
+request to =/mcp= without a view is refused with 401 before any JSON-RPC, as
+the transport's behaviour table says.
+
+** MCP tools
+
+=/mcp= lists one tool per route: the name is =:tool:=, the title
+=:summary:=, the description the request's prose and the input schema the
+request's MCP argument schema. A read sets =readOnlyHint=; a write sets
+=destructiveHint= and =idempotentHint= from =:destructive:= and
+=:idempotent:=. No route is left out, so no property takes one out.
 
 * See also
 
