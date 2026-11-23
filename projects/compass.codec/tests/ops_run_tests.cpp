@@ -27,6 +27,7 @@
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
 #include "compass.codec/ops/registry.hpp"
+#include "compass.codec/types/codec_failure.hpp"
 #include "compass.codec/types/corpus_view.hpp"
 #include "compass.org/ops/type_lookup.hpp"
 #include "test_corpus.hpp"
@@ -189,15 +190,21 @@ TEST_CASE("a disabled codec is not called and an enabled one beside it is",
     CHECK(result.files[1].size() == 5);
 }
 
-TEST_CASE("what an enabled codec throws reaches the caller", "[ops][run]") {
+TEST_CASE("what an enabled codec throws reaches the caller, naming the "
+    "codec", "[ops][run]") {
     tests::test_corpus t;
     fill(t);
     const std::array codecs{failing(),
         corpus_probe(types::inputs::every_document())};
     const auto r = ops::make_registry(codecs, t.types(), {});
 
-    CHECK_THROWS_AS(ops::run(r, t.corpus(), t.types(), 2),
-        std::runtime_error);
+    try {
+        static_cast<void>(ops::run(r, t.corpus(), t.types(), 2));
+        FAIL("the run did not throw");
+    } catch (const types::codec_failure& e) {
+        CHECK(e.codec() == "failing");
+        CHECK(std::string_view(e.what()) == "the codec was called");
+    }
 }
 
 TEST_CASE("a codec reads the configured value of its option", "[ops][run]") {

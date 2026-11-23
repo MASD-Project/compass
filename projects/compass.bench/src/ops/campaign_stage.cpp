@@ -29,6 +29,7 @@
 #include <stdexcept>
 #include "compass.db/io/connection.hpp"
 #include "compass.db/query/campaign.hpp"
+#include "compass.db/types/step_result_row.hpp"
 
 namespace compass::bench::ops {
 
@@ -54,10 +55,8 @@ std::string tester_of(const std::string& word) {
 }
 
 step_outcome outcome_of(const std::string& word) {
-    for (const auto o : {step_outcome::pass, step_outcome::fail,
-             step_outcome::blocked, step_outcome::skipped})
-        if (db::types::to_string(o) == word)
-            return o;
+    if (const auto o = db::types::step_outcome_of(word))
+        return *o;
     throw std::runtime_error("no step outcome " + word);
 }
 

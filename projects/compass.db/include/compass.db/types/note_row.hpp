@@ -36,7 +36,7 @@ namespace compass::db::types {
 /**
  * @brief The values of activity.note.state.
  */
-enum class note_state { open, addressed };
+enum class note_state : std::uint8_t { open, addressed };
 
 /**
  * @brief Each value of note_state as activity.note stores it.

@@ -25,7 +25,7 @@ the page changes the document's hash and leaves the definition's alone.
 :profile:    content-addressed-row
 :END:
 
-The profile =content-addressed-row= fixes =read_only=, =current_state= and =insert_conflict: do_nothing=: a row is keyed by the blob ID of what it describes, is written once with =ON CONFLICT DO NOTHING= and never updated.
+The profile =content-addressed-row= assigns no feature. It says a row is keyed by the blob ID of what it describes, is written once with =ON CONFLICT DO NOTHING= and never updated, and it switches on the row's =COPY= writer.
 
 The row is a one-to-one extension of its document rather than an owned child
 with an =ord=, so it binds =content-addressed-row=, like the document.
