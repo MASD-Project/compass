@@ -425,8 +425,11 @@ TEST_CASE("the catalog comparison sees each kind of object a migration can "
     for (const auto& p : probes) {
         INFO("a " << p.kind << " only one side has: " << p.extra);
         const auto base = sql + "\n" + std::string(p.both) + "\n";
-        CHECK(generated_catalog(base + std::string(p.extra)) !=
-            generated_catalog(base));
+        // Read outside CHECK, so the SKIP of a machine with no database
+        // skips the case rather than failing the assertion.
+        const auto with_extra = generated_catalog(base + std::string(p.extra));
+        const auto without = generated_catalog(base);
+        CHECK(with_extra != without);
     }
 }
 
