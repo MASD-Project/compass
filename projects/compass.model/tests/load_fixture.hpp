@@ -121,6 +121,24 @@ public:
     }
 
     /**
+     * @brief The masd.codegen.operation model at @p path.
+     */
+    [[nodiscard]] types::masd_operation masd_operation(
+        std::string_view path) const {
+        return ops::read_masd_operation(
+            document_of(*index_.at(std::string(path))));
+    }
+
+    /**
+     * @brief The masd.codegen.component model at @p path.
+     */
+    [[nodiscard]] types::masd_component masd_component(
+        std::string_view path) const {
+        return ops::read_masd_component(
+            document_of(*index_.at(std::string(path))));
+    }
+
+    /**
      * @brief The physical-space overrides of the model at @p path, a later
      * pair winning as it does in a dict.
      */

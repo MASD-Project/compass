@@ -1,0 +1,144 @@
+:PROPERTIES:
+:ID: 00874EC8-4C5A-4869-8107-735EC39F511A
+:END:
+#+title: masd.cpp.codec.text_form_impl
+#+description: The definitions of the forms text_form.hpp declares. Output projects/{component_dir}/src/codec/text_form.cpp.
+#+type: archetype
+#+output: projects/{component_dir}/src/codec/text_form.cpp
+#+facet: masd.cpp.codec
+#+level: cross
+#+filetags: :codegen:templates:literate:archetype:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is an archetype of the [[id:7D0FA277-D3F7-48E9-BCDF-7A88592119E3][masd.cpp.codec]] facet: one
+file of the JSON codec runtime, rendered into the component that switches
+the facet on.
+
+* Origin
+
+ORE Studio's =projects/ores.utility/src/codec/text_form.cpp= at commit
+=bc0702ad46b8a6097ce5242ece7ba01067699f60=.
+
+The instant is formatted with =std::format= and parsed by hand, where ORE
+Studio calls its =datetime=, because libc++ has no =std::chrono::parse=. A
+path is written in its generic form, so the text is the same on Windows.
+
+* Context
+
+The context is the library's values and =masd_component=: =codec_namespace=,
+=codec_root=, the directory the runtime's headers are included from, and
+=codec_guard_prefix=. The template switches the delimiters to =<% %>=,
+because the C++ it holds has braces of its own.
+
+* Template
+
+The template source. compass's =tangle= codec writes it to
+=masd_cpp_codec_text_form_impl.cpp.mustache= beside this page.
+
+#+begin_src mustache :tangle masd_cpp_codec_text_form_impl.cpp.mustache
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.codec.text_form_impl.org. Edit the org source. }}
+{{=<% %>=}}
+<%& cpp_license%>
+<%#masd_component%>
+#include "<%codec_root%>/text_form.hpp"
+
+#include <chrono>
+#include <filesystem>
+#include <format>
+#include <stdexcept>
+#include <string>
+
+namespace <%codec_namespace%> {
+
+namespace {
+
+[[noreturn]] void refuse(std::string_view what, std::string_view text, std::string_view why) {
+    throw std::invalid_argument("Not " + std::string(what) + ": " + std::string(text) + ": " +
+                                std::string(why));
+}
+
+/**
+ * @brief The number the @p width digits at @p at spell, or none when one of
+ * them is not a digit.
+ */
+int digits(std::string_view text, std::size_t at, std::size_t width) {
+    int out = 0;
+    for (std::size_t i = at; i < at + width; ++i) {
+        if (text[i] < '0' || text[i] > '9')
+            return -1;
+        out = out * 10 + (text[i] - '0');
+    }
+    return out;
+}
+
+}
+
+std::string text_form<std::string>::to_text(const std::string& v) {
+    return v;
+}
+
+std::string text_form<std::string>::from_text(std::string_view text) {
+    return std::string(text);
+}
+
+std::string text_form<std::filesystem::path>::to_text(const std::filesystem::path& v) {
+    return v.generic_string();
+}
+
+std::filesystem::path text_form<std::filesystem::path>::from_text(std::string_view text) {
+    return std::filesystem::path(std::string(text));
+}
+
+std::string text_form<std::chrono::sys_time<std::chrono::microseconds>>::to_text(
+    const std::chrono::sys_time<std::chrono::microseconds>& v) {
+    using namespace std::chrono;
+    const auto y = static_cast<int>(year_month_day{floor<days>(v)}.year());
+    if (y < 0 || y > 9999)
+        throw std::invalid_argument("Not " + std::string(wire_name) + ": the year " +
+                                    std::to_string(y) + " has more than four digits");
+    return std::format("{:%FT%TZ}", v);
+}
+
+std::chrono::sys_time<std::chrono::microseconds>
+text_form<std::chrono::sys_time<std::chrono::microseconds>>::from_text(std::string_view text) {
+    using namespace std::chrono;
+    // YYYY-MM-DDTHH:MM:SS, then a fraction of one to six digits, then Z.
+    if (text.size() < 20 || text[4] != '-' || text[7] != '-' || text[10] != 'T' ||
+        text[13] != ':' || text[16] != ':' || text.back() != 'Z')
+        refuse(wire_name, text, "expected YYYY-MM-DDTHH:MM:SS, a fraction of up to six "
+                                "digits after a point or none, and Z");
+    const auto y = digits(text, 0, 4);
+    const auto mo = digits(text, 5, 2);
+    const auto d = digits(text, 8, 2);
+    const auto h = digits(text, 11, 2);
+    const auto mi = digits(text, 14, 2);
+    const auto s = digits(text, 17, 2);
+    if (y < 0 || mo < 0 || d < 0 || h < 0 || mi < 0 || s < 0 || h > 23 || mi > 59 || s > 59)
+        refuse(wire_name, text, "a field is not a number in range");
+    long long fraction = 0;
+    const auto rest = text.substr(19, text.size() - 20);
+    if (!rest.empty()) {
+        if (rest.front() != '.' || rest.size() < 2 || rest.size() > 7)
+            refuse(wire_name, text, "the fraction is one to six digits after a point");
+        const auto f = digits(rest, 1, rest.size() - 1);
+        if (f < 0)
+            refuse(wire_name, text, "the fraction is not a number");
+        fraction = f;
+        for (auto n = rest.size() - 1; n < 6; ++n)
+            fraction *= 10;
+    }
+    const year_month_day date{year{y}, month{static_cast<unsigned>(mo)},
+                              day{static_cast<unsigned>(d)}};
+    if (!date.ok())
+        refuse(wire_name, text, "not a calendar date");
+    return sys_days{date} + hours{h} + minutes{mi} + seconds{s} + microseconds{fraction};
+}
+
+}
+<%/masd_component%>
+#+end_src
+
+* See also
+
+- Parent facet: [[id:7D0FA277-D3F7-48E9-BCDF-7A88592119E3][masd.cpp.codec]]

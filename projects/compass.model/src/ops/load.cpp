@@ -33,12 +33,18 @@ std::optional<model_type> model_type_of(std::string_view type) noexcept {
         return model_type::masd_entity;
     if (type == "masd.codegen.schema")
         return model_type::masd_schema;
+    if (type == "masd.codegen.component")
+        return model_type::masd_component;
+    if (type == "masd.codegen.operation")
+        return model_type::masd_operation;
     constexpr std::string_view prefix = "ores.codegen.";
     if (!type.starts_with(prefix))
         return std::nullopt;
     type.remove_prefix(prefix.size());
     for (const auto t : types::model_types) {
         if (t != model_type::masd_entity && t != model_type::masd_schema &&
+            t != model_type::masd_component &&
+            t != model_type::masd_operation &&
             types::name_of(t) == type)
             return t;
     }
@@ -131,6 +137,12 @@ types::model_id load_model(builder& b, const document& d, model_type t,
             break;
         case model_type::masd_schema:
             load_masd_schema(c, root);
+            break;
+        case model_type::masd_component:
+            load_masd_component(c, root);
+            break;
+        case model_type::masd_operation:
+            load_masd_operation(c, root);
             break;
         }
     } catch (const model_error& e) {

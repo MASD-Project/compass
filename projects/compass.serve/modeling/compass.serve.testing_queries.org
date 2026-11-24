@@ -5,7 +5,7 @@
 #+description: Codegen operation model for the document service's reads of a sprint and its test campaigns: its stories and tasks with their states, what needs testing in an environment, a run with its step results and a campaign's notes.
 #+type: masd.codegen.operation
 #+component: serve
-#+namespace: compass::db::types
+#+namespace: compass::serve::messages
 #+entity_singular: testing_queries
 #+brief: The document service's reads of a sprint, its testing and its campaigns.
 #+filetags: :model:operation:serve:
@@ -196,7 +196,7 @@ The latest finished run of a scenario in the environment.
 
 *** outcome
 :PROPERTIES:
-:cpp_type: std::string
+:cpp_type: run_outcome
 :values:   passed failed blocked
 :END:
 
@@ -359,7 +359,7 @@ When the run finished.
 
 *** outcome
 :PROPERTIES:
-:cpp_type: std::string
+:cpp_type: run_outcome
 :values:   passed failed blocked
 :END:
 
@@ -555,8 +555,11 @@ Absent while the note is open.
 
 - The sprint messages other than the two requests match the structs of
   =compass.db/types/testing.hpp= in name, member names, types, optionality
-  and default. =scenario_state= is the enumeration =:values:= on
-  =scenario_status::state= names.
+  and default, but for =run_summary::outcome=, a string there and
+  =run_outcome= here. =scenario_state= is the enumeration =:values:= on
+  =scenario_status::state= names. A field that lists =:values:= names its
+  enumeration in =:cpp_type:=, so the reader refuses a value outside the
+  list and the JSON Schema lists the values.
 - The two requests are one struct in C++, =sprint_request=, which
   =query::sprint_state= and =query::what_needs_testing= both take. A message
   states one route and one tool, so the model splits it into

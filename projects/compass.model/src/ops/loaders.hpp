@@ -235,11 +235,14 @@ void load_junction(load_context& c, types::value_id root);
 void load_trade_type_catalogue(load_context& c, types::value_id root);
 
 /**
- * @brief Writes under masd_entity and masd_schema what the physical space
- * resolves an output path from: the component, the entity and its schema.
+ * @brief Writes under masd_entity, masd_schema and masd_component what the
+ * physical space resolves an output path from: the product, the component
+ * and, for a table, the entity and its schema.
  */
 void load_masd_entity(load_context& c, types::value_id root);
 void load_masd_schema(load_context& c, types::value_id root);
+void load_masd_component(load_context& c, types::value_id root);
+void load_masd_operation(load_context& c, types::value_id root);
 
 }
 

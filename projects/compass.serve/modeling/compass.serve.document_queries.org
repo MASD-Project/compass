@@ -5,7 +5,7 @@
 #+description: Codegen operation model for the document service's reads of the corpus: search, facets, the document list, one document, its backlinks, the environments and the version, and the sync tool.
 #+type: masd.codegen.operation
 #+component: serve
-#+namespace: compass::db::types
+#+namespace: compass::serve::messages
 #+entity_singular: document_queries
 #+brief: The document service's reads of the corpus.
 #+filetags: :model:operation:serve:
@@ -576,8 +576,8 @@ The document's =:ID:=.
 
 *** format
 :PROPERTIES:
-:cpp_type: std::string
-:default:  "html"
+:cpp_type: document_format
+:default:  document_format::html
 :values:   html org
 :http_in:  query
 :END:
@@ -593,7 +593,7 @@ The body's form: =html= or the =org= source.
 
 *** format
 :PROPERTIES:
-:cpp_type: std::string
+:cpp_type: document_format
 :values:   html org
 :END:
 
@@ -705,7 +705,7 @@ An environment as the database holds it.
 
 *** kind
 :PROPERTIES:
-:cpp_type: std::string
+:cpp_type: environment_kind
 :values:   worktree branch release
 :END:
 
@@ -853,7 +853,10 @@ The files that could not be read.
   =document_filter=, =search_request=, =search_hit=, =search_response=,
   =facets_request=, =facet_count=, =named_facet= and =facets_response= of
   =compass.db/types/search.hpp=, and =environment_summary= of
-  =compass.db/types/environment.hpp=. =#+namespace:= names where they live.
+  =compass.db/types/environment.hpp=, but for =environment_summary::kind=,
+  a string there and the enumeration =environment_kind= here, as a field
+  that lists =:values:= names its enumeration. =#+namespace:= names where the
+  generated ones live, apart from those.
   The others are new: =document_summary=, =list_documents_*=,
   =get_document_*=, =backlink=, =backlinks_*=, =list_environments_*=,
   =version_*= and =sync_*=. No query function answers them yet.

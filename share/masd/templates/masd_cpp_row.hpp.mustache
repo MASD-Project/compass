@@ -55,6 +55,8 @@ struct {{row_type}} {
 {{#members}}
     {{{cpp_type}}} {{member}}{{{initializer}}};
 {{/members}}
+
+    bool operator==(const {{row_type}}&) const = default;
 };
 
 }

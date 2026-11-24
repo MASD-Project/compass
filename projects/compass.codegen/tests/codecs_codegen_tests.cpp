@@ -20,6 +20,7 @@
 #include "compass.codegen/codecs/codegen.hpp"
 
 #include <array>
+#include <deque>
 #include <filesystem>
 #include <fstream>
 #include <map>
@@ -261,8 +262,18 @@ public:
     }
 };
 
-ct::option_values values_of(const std::array<std::string, 8>& values) {
-    return {codegen::codecs::codegen.options, values};
+/**
+ * @brief The options from @p values, in the order of the codec's options
+ * but for codec_component, which @p codec_component gives.
+ */
+ct::option_values values_of(const std::array<std::string, 8>& values,
+    std::string codec_component = {}) {
+    // option_values views its values, so each list outlives the test.
+    static std::deque<std::vector<std::string>> kept;
+    auto& all = kept.emplace_back(values.begin(), values.begin() + 3);
+    all.push_back(std::move(codec_component));
+    all.insert(all.end(), values.begin() + 3, values.end());
+    return {codegen::codecs::codegen.options, all};
 }
 
 }
@@ -499,6 +510,10 @@ TEST_CASE("the codegen codec needs its library, product, convention "
     CHECK(s.libraries == std::vector<std::string>{"lib"});
     CHECK(s.product == "ores");
     CHECK(s.year == 2031);
+    CHECK(s.codec_component.empty());
+    CHECK(codegen::codecs::settings_of(values_of(
+        {"lib", "ores", "refdata", "2031", "", "", "", ""}, "db"))
+              .codec_component == "db");
 }
 
 TEST_CASE("the formatters are ores.codegen's, with the programs and styles "

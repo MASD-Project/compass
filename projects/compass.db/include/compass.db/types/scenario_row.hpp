@@ -44,6 +44,8 @@ struct scenario_row {
     std::optional<std::string> target;
     std::optional<std::string> environment;
     store::types::blob_id definition;
+
+    bool operator==(const scenario_row&) const = default;
 };
 
 }

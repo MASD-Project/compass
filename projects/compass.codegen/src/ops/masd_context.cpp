@@ -18,6 +18,7 @@
  *
  */
 #include "compass.codegen/ops/masd_context.hpp"
+#include "compass.model/ops/load.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -206,15 +207,24 @@ value_id with_library(builder& b, value_id library) {
     return context;
 }
 
-void add_enums(builder& b, value_id m, const masd_entity& e) {
+void add_enums(builder& b, value_id m, const masd_entity& e,
+    std::string_view types_namespace) {
     const auto list = b.list(m, "enums");
+    bool any = false;
     for (const auto& c : e.columns) {
         if (c.values.empty() || !c.cpp_type.empty())
             continue;
+        any = true;
         const auto en = b.append_object(list);
         b.set(en, "name", c.enum_name);
+        b.set(en, "qualified", std::string(types_namespace) + "::" +
+            c.enum_name);
         b.set(en, "column", c.name);
         b.set(en, "first", c.values.front());
+        std::string listed;
+        for (const auto& v : c.values)
+            listed += (listed.empty() ? "" : ", ") + v;
+        b.set(en, "listed", listed);
         const auto values = b.list(en, "values");
         for (std::size_t i = 0; i < c.values.size(); ++i) {
             const auto v = b.append_object(values);
@@ -222,6 +232,28 @@ void add_enums(builder& b, value_id m, const masd_entity& e) {
             add_last(b, v, i + 1 == c.values.size());
         }
     }
+    b.set(m, "has_enums", any);
+}
+
+/**
+ * @brief The members of the row's wire shape, in row order, and the
+ * headers that state the text form of each custom type they hold, sorted.
+ */
+void add_codec(builder& b, value_id m, const masd_entity& e,
+    const compass::model::ops::custom_types& text_forms) {
+    std::set<std::string> headers;
+    const auto fields = b.list(m, "wire_fields");
+    for (const auto& c : e.columns) {
+        if (!in_row(c))
+            continue;
+        b.set(b.append_object(fields), "member", c.member);
+        for (const auto& [name, header] : text_forms)
+            if (mentions(member_type(c), name))
+                headers.insert(header);
+    }
+    const auto list = b.list(m, "codec_includes");
+    for (const auto& h : headers)
+        b.set(b.append_object(list), "include", h);
 }
 
 std::string parameter_of(const masd_column& c) {
@@ -368,7 +400,8 @@ std::vector<const masd_entity*> ordered(std::string_view schema,
 }
 
 value_id masd_entity_context(builder& b, value_id library,
-    const masd_entity& e, const compass::model::ops::custom_types& custom) {
+    const masd_entity& e, const compass::model::ops::custom_types& custom,
+    const compass::model::ops::custom_types& text_forms) {
     const auto context = with_library(b, library);
     const auto m = b.object(context, "masd_entity");
     const auto component = e.product + "." + e.component;
@@ -383,6 +416,13 @@ value_id masd_entity_context(builder& b, value_id library,
     b.set(m, "copy_guard", upper(component + "/io/" + e.entity +
         "_copy.hpp"));
     b.set(m, "row_include", component + "/types/" + e.entity + "_row.hpp");
+    b.set(m, "row_qualified", ns + "::types::" + e.row_type);
+    b.set(m, "codec_namespace", ns + "::codec");
+    b.set(m, "codec_root", component + "/codec");
+    b.set(m, "codec_guard", upper(component + "/types/" + e.entity +
+        "_row_codec.hpp"));
+    b.set(m, "codec_include", component + "/types/" + e.entity +
+        "_row_codec.hpp");
     b.set(m, "copy_include", component + "/io/" + e.entity + "_copy.hpp");
     b.set(m, "brief", e.brief);
     std::vector<std::string> row_types;
@@ -394,7 +434,8 @@ value_id masd_entity_context(builder& b, value_id library,
                 {"std::optional", "std::string_view", "std::uint8_t"});
     }
     add_includes(b, m, row_types, custom, {});
-    add_enums(b, m, e);
+    add_enums(b, m, e, ns + "::types");
+    add_codec(b, m, e, text_forms);
     const auto members = b.list(m, "members");
     for (const auto& c : e.columns) {
         if (!in_row(c))
@@ -414,6 +455,278 @@ value_id masd_entity_context(builder& b, value_id library,
         {"\"" + component + "/ops/copy_text.hpp\"",
             "\"" + component + "/types/" + e.entity + "_row.hpp\""});
     add_copy(b, m, e);
+    return context;
+}
+
+namespace {
+
+/**
+ * @brief The type @p cpp_type holds: itself, or what an optional or a
+ * vector of it holds.
+ */
+std::string held_type(std::string_view cpp_type) {
+    for (const std::string_view wrapper : {"std::optional<", "std::vector<"})
+        if (cpp_type.starts_with(wrapper) && cpp_type.ends_with(">"))
+            return held_type(cpp_type.substr(wrapper.size(),
+                cpp_type.size() - wrapper.size() - 1));
+    return std::string(cpp_type);
+}
+
+/**
+ * @brief @p messages, each after the messages of the same model its
+ * fields hold, ties kept in model order.
+ * @throws std::runtime_error when the messages hold each other in a cycle.
+ */
+std::vector<const mtypes::masd_message*> declaration_order(
+    const std::vector<mtypes::masd_message>& messages) {
+    std::set<std::string> names;
+    for (const auto& m : messages)
+        names.insert(m.name);
+    std::set<std::string> declared;
+    std::vector<const mtypes::masd_message*> out;
+    std::vector<const mtypes::masd_message*> pending;
+    for (const auto& m : messages)
+        pending.push_back(&m);
+    while (!pending.empty()) {
+        const auto ready = std::ranges::find_if(pending, [&](const auto* m) {
+            return std::ranges::all_of(m->fields, [&](const auto& f) {
+                const auto t = held_type(f.cpp_type);
+                return t == m->name || !names.contains(t) ||
+                    declared.contains(t);
+            });
+        });
+        if (ready == pending.end())
+            throw std::runtime_error("codegen: the messages " +
+                (*pending.begin())->name + " and others hold each other in "
+                "a cycle");
+        declared.insert((*ready)->name);
+        out.push_back(*ready);
+        pending.erase(ready);
+    }
+    return out;
+}
+
+bool is_standard_or_arithmetic(std::string_view t) {
+    return t.starts_with("std::") || t == "bool" || t == "double" ||
+        t == "float";
+}
+
+/**
+ * @brief @p op with each std::string field that lists :values: holding an
+ * enumeration of them instead, named <message>_<field>, and its :default:,
+ * a quoted value, that enumeration's value. So the reader refuses a text
+ * outside the list and the schema lists the values.
+ */
+mtypes::masd_operation with_named_enumerations(mtypes::masd_operation op) {
+    for (auto& msg : op.messages)
+        for (auto& f : msg.fields) {
+            if (f.values.empty() || held_type(f.cpp_type) != "std::string")
+                continue;
+            const auto name = msg.name + "_" + f.name;
+            f.cpp_type.replace(f.cpp_type.find("std::string"),
+                std::string_view("std::string").size(), name);
+            const auto& d = f.default_value;
+            if (d.size() > 1 && d.front() == '"' && d.back() == '"')
+                f.default_value = name + "::" + d.substr(1, d.size() - 2);
+        }
+    return op;
+}
+
+/**
+ * @brief Each enumeration @p op declares, by name, with the values its
+ * fields' :values: list.
+ * @throws compass::model::ops::model_error when two fields list different
+ * values for one enumeration, or a field lists :values: on a type that is
+ * neither a string, which with_named_enumerations rewrites, nor an
+ * enumeration's name.
+ */
+std::map<std::string, std::vector<std::string>> enumerations_of(
+    const mtypes::masd_operation& op) {
+    std::set<std::string> message_names;
+    for (const auto& msg : op.messages)
+        message_names.insert(msg.name);
+    std::map<std::string, std::vector<std::string>> out;
+    for (const auto& msg : op.messages)
+        for (const auto& f : msg.fields) {
+            if (f.values.empty())
+                continue;
+            const auto t = held_type(f.cpp_type);
+            if (is_standard_or_arithmetic(t) || message_names.contains(t))
+                throw compass::model::ops::model_error(msg.name + "." +
+                    f.name + " lists :values: on " + f.cpp_type + ", which "
+                    "is neither a string nor an enumeration's name");
+            const auto [at, added] = out.try_emplace(t, f.values);
+            if (!added && at->second != f.values)
+                throw compass::model::ops::model_error("the enumeration " +
+                    t + " lists different values in " + msg.name + "." +
+                    f.name);
+        }
+    return out;
+}
+
+/**
+ * @brief Whether a document may leave out @p f, a field of a message of an
+ * operation model, though its type is not optional: a field that is not a
+ * path field and is a vector or a message, has a :default: or states
+ * :required: false, as the service's binding rules say.
+ */
+bool may_be_absent(const mtypes::masd_field& f,
+    const std::set<std::string>& message_names) {
+    if (f.http_in == mtypes::http_in::path ||
+        f.cpp_type.starts_with("std::optional<"))
+        return false;
+    return f.cpp_type.starts_with("std::vector<") ||
+        message_names.contains(f.cpp_type) || !f.default_value.empty() ||
+        !f.required;
+}
+
+std::string_view http_in_name(mtypes::http_in in) {
+    switch (in) {
+    case mtypes::http_in::path: return "path";
+    case mtypes::http_in::query: return "query";
+    case mtypes::http_in::body: return "body";
+    case mtypes::http_in::none: break;
+    }
+    return "";
+}
+
+}
+
+value_id masd_operation_context(builder& b, value_id library,
+    const mtypes::masd_operation& model, std::string_view product,
+    std::string_view codec_component,
+    std::span<const sibling_operation> siblings) {
+    const auto op = with_named_enumerations(model);
+    const auto context = with_library(b, library);
+    const auto m = b.object(context, "masd_operation");
+    const auto component = std::string(product) + "." + op.component;
+    const auto codec = std::string(product) + "." + std::string(codec_component);
+    const auto codec_ns = std::string(product) + "::" +
+        std::string(codec_component) + "::codec";
+    b.set(m, "codec_namespace", codec_ns);
+    b.set(m, "codec_root", codec + "/codec");
+    b.set(m, "namespace", op.ns);
+    b.set(m, "entity", op.entity);
+    b.set(m, "protocol_guard", upper(component + "/messages/" + op.entity +
+        "_protocol.hpp"));
+    b.set(m, "protocol_include", component + "/messages/" + op.entity +
+        "_protocol.hpp");
+
+    std::set<std::string> message_names;
+    for (const auto& msg : op.messages)
+        message_names.insert(msg.name);
+    bool base64 = false;
+    for (const auto& msg : op.messages)
+        for (const auto& f : msg.fields)
+            base64 = base64 || f.encoding == "base64";
+    const auto enums = enumerations_of(op);
+    // Each header declares the enumerations of its model under a guard, so
+    // the first header a unit includes declares one; models that disagree
+    // would give two units two definitions.
+    for (const auto& sibling : siblings) {
+        if (sibling.model.ns != op.ns)
+            continue;
+        for (const auto& [name, values] :
+             enumerations_of(with_named_enumerations(sibling.model)))
+            if (const auto at = enums.find(name);
+                at != enums.end() && at->second != values)
+                throw compass::model::ops::model_error("the enumeration " +
+                    op.ns + "::" + name + " lists " + joined(at->second) +
+                    " here and " + joined(values) + " in " + sibling.path);
+    }
+    b.set(m, "has_base64", base64);
+    std::set<std::string> standard{"<optional>", "<stdexcept>", "<string>",
+        "<string_view>", "<type_traits>"};
+    std::set<std::string> project;
+    for (const auto& i : op.includes)
+        (i.starts_with("<") ? standard : project).insert(i);
+    const auto includes = b.list(m, "includes");
+    for (const auto* set : {&standard, &project})
+        for (const auto& i : *set)
+            b.set(b.append_object(includes), "include", i);
+
+    const auto enum_list = b.list(m, "enums");
+    for (const auto& [name, values] : enums) {
+        const auto en = b.append_object(enum_list);
+        b.set(en, "name", name);
+        b.set(en, "qualified", op.ns + "::" + name);
+        auto dotted = op.ns;
+        for (auto at = dotted.find("::"); at != std::string::npos;
+             at = dotted.find("::", at + 1))
+            dotted.replace(at, 2, ".");
+        b.set(en, "guard", upper(dotted + "." + name + ".enum"));
+        b.set(en, "listed", joined(values));
+        const auto list = b.list(en, "values");
+        for (std::size_t i = 0; i < values.size(); ++i) {
+            const auto v = b.append_object(list);
+            b.set(v, "value", values[i]);
+            add_last(b, v, i + 1 == values.size());
+        }
+    }
+
+    const auto list = b.list(m, "messages");
+    for (const auto* msg : declaration_order(op.messages)) {
+        const auto item = b.append_object(list);
+        b.set(item, "name", msg->name);
+        b.set(item, "qualified", op.ns + "::" + msg->name);
+        const bool routed = !msg->http_method.empty();
+        b.set(item, "routed", routed);
+        b.set(item, "http_method", msg->http_method);
+        b.set(item, "http_path", msg->http_path);
+        b.set(item, "has_body", std::ranges::any_of(msg->fields,
+            [](const auto& f) { return f.http_in == mtypes::http_in::body; }));
+        const auto fields = b.list(item, "fields");
+        const auto path_fields = b.list(item, "path_fields");
+        const auto query_fields = b.list(item, "query_fields");
+        const auto body_fields = b.list(item, "body_fields");
+        for (const auto& f : msg->fields) {
+            const auto absent = may_be_absent(f, message_names);
+            const auto describe = [&](value_id field) {
+                b.set(field, "member", f.name);
+                b.set(field, "message", msg->name);
+                b.set(field, "http_in", http_in_name(f.http_in));
+                b.set(field, "http_name",
+                    f.http_name.empty() ? f.name : f.http_name);
+                b.set(field, "may_be_absent", absent);
+            };
+            if (f.http_in == mtypes::http_in::path)
+                describe(b.append_object(path_fields));
+            else if (f.http_in == mtypes::http_in::query)
+                describe(b.append_object(query_fields));
+            else if (f.http_in == mtypes::http_in::body)
+                describe(b.append_object(body_fields));
+            const auto field = b.append_object(fields);
+            describe(field);
+            const auto type = f.encoding == "base64"
+                ? codec_ns + "::base64_bytes" : f.cpp_type;
+            b.set(field, "cpp_type", type);
+            const auto held = held_type(f.cpp_type);
+            std::string init;
+            if (!f.default_value.empty())
+                init = " = " + (f.encoding == "base64"
+                    ? codec_ns + "::base64_bytes{" + f.default_value + "}"
+                    : f.default_value);
+            else if (type == f.cpp_type && held == f.cpp_type &&
+                (enums.contains(held) || is_arithmetic(held) ||
+                    held == "double"))
+                init = "{}";
+            b.set(field, "initializer", init);
+        }
+    }
+    return context;
+}
+
+value_id masd_component_context(builder& b, value_id library,
+    std::string_view component_dir) {
+    const auto context = with_library(b, library);
+    const auto m = b.object(context, "masd_component");
+    std::string ns;
+    for (const char c : component_dir)
+        ns += c == '.' ? std::string("::") : std::string(1, c);
+    b.set(m, "codec_namespace", ns + "::codec");
+    b.set(m, "codec_root", std::string(component_dir) + "/codec");
+    b.set(m, "codec_guard_prefix", upper(std::string(component_dir) +
+        "/codec/"));
     return context;
 }
 

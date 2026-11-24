@@ -5,7 +5,7 @@
 #+description: Codegen operation model for the document service's test campaign writes: start a run, record a step, finish the run, attach a screenshot, add a note and address it.
 #+type: masd.codegen.operation
 #+component: serve
-#+namespace: compass::db::types
+#+namespace: compass::serve::messages
 #+entity_singular: campaign_writes
 #+brief: The document service's test campaign writes.
 #+filetags: :model:operation:serve:

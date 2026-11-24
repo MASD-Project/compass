@@ -132,6 +132,70 @@ struct masd_schema {
     std::vector<std::string> functions;
 };
 
+/**
+ * @brief A masd.codegen.component model: a component of a product, which
+ * renders the component-wide files of the facets its physical space table
+ * switches on, such as the JSON codec runtime.
+ */
+struct masd_component {
+    std::string product;
+    std::string component;
+};
+
+/**
+ * @brief Where a route reads a field of its request: a path placeholder, a
+ * query parameter or a member of the JSON body. none for a field of a
+ * message no route takes.
+ */
+enum class http_in : std::uint8_t { none, path, query, body };
+
+/**
+ * @brief One field of a message of a masd.codegen.operation model.
+ *
+ * values is the closed list :values: states: the enumerators of the
+ * enumeration the field's type names. encoding is base64 for a string that
+ * holds bytes, else empty. http_name is the query parameter's name when it
+ * is not the field's. required is false when the model states :required:
+ * false.
+ */
+struct masd_field {
+    std::string name;
+    std::string cpp_type;
+    std::string default_value;
+    std::string encoding;
+    std::vector<std::string> values;
+    types::http_in http_in = types::http_in::none;
+    std::string http_name;
+    bool required = true;
+};
+
+/**
+ * @brief One message of a masd.codegen.operation model, in model order,
+ * and the message it is answered with, when it names one. A routed request
+ * states its HTTP method, lower case, and its path; any other message
+ * states neither.
+ */
+struct masd_message {
+    std::string name;
+    std::string response;
+    std::string http_method;
+    std::string http_path;
+    std::vector<masd_field> fields;
+};
+
+/**
+ * @brief A masd.codegen.operation model: the messages of one part of a
+ * component's service, the namespace they live in and the headers their
+ * fields need.
+ */
+struct masd_operation {
+    std::string component;
+    std::string entity;
+    std::string ns;
+    std::vector<std::string> includes;
+    std::vector<masd_message> messages;
+};
+
 }
 
 #endif

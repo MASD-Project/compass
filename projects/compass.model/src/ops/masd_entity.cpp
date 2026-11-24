@@ -47,6 +47,16 @@ constexpr std::string_view sql_sections[] = {"Indexes", "Checks", "Unique"};
 
 constexpr std::string_view schema_flag_keys[] = {"product", "component"};
 
+constexpr std::string_view message_keys[] = {"response", "http_method",
+    "http_path", "tool", "area", "entity", "writes", "destructive",
+    "idempotent", "summary", "caller", "max_body_size"};
+
+constexpr std::string_view field_keys[] = {"cpp_type", "default", "http_in",
+    "http_name", "required", "encoding", "values"};
+
+constexpr std::string_view http_methods[] = {"get", "post", "put", "patch",
+    "delete"};
+
 /**
  * @brief The features a profile of a masd.codegen.entity may assign.
  */
@@ -65,6 +75,17 @@ void require_known(std::string_view key, std::span<const std::string_view> known
         throw model_error(std::string(where) + " has the property '" +
             std::string(key) + "', which a masd.codegen model does not "
             "have; it has " + listed(known));
+}
+
+types::http_in http_in_of(std::string_view value, std::string_view where) {
+    if (value == "path")
+        return types::http_in::path;
+    if (value == "query")
+        return types::http_in::query;
+    if (value == "body")
+        return types::http_in::body;
+    throw model_error(std::string(where) + "'s :http_in: is '" +
+        std::string(value) + "'; it is path, query or body");
 }
 
 bool flag(std::string_view value, std::string_view where) {
@@ -338,6 +359,129 @@ types::masd_schema read_masd_schema(const document& d) {
                 s.functions.emplace_back(o.block_codes[i]);
     }
     return s;
+}
+
+types::masd_component read_masd_component(const document& d) {
+    outline o;
+    build_outline(d.source, *d.tables, o);
+    types::masd_component m;
+    for (const auto& [key, value] : properties(o, section(o, node_id{0},
+             "Flags"))) {
+        require_known(key, schema_flag_keys, "* Flags");
+        (key == "product" ? m.product : m.component) = trim(value);
+    }
+    if (m.product.empty() || m.component.empty())
+        throw model_error("a component model states its product and "
+            "component under * Flags");
+    return m;
+}
+
+types::masd_operation read_masd_operation(const document& d) {
+    outline o;
+    build_outline(d.source, *d.tables, o);
+    types::masd_operation m;
+    m.component = trim(frontmatter(o, "component").value);
+    m.entity = trim(frontmatter(o, "entity_singular").value);
+    m.ns = trim(frontmatter(o, "namespace").value);
+    if (m.component.empty() || m.entity.empty() || m.ns.empty())
+        throw model_error("an operation model states #+component:, "
+            "#+entity_singular: and #+namespace:");
+    if (const auto inc = section(o, node_id{0}, "Includes"); !inc.is_none()) {
+        std::string_view code = named_block(o, inc, "includes").value;
+        while (!code.empty()) {
+            const auto end = code.find('\n');
+            const auto line = trim(code.substr(0, end));
+            if (line.starts_with("#include"))
+                m.includes.emplace_back(trim(line.substr(8)));
+            code.remove_prefix(end == std::string_view::npos ? code.size()
+                : end + 1);
+        }
+    }
+    for (const auto n : children(o, section(o, node_id{0}, "Messages"))) {
+        types::masd_message message;
+        message.name = o.titles[n.value];
+        for (const auto& [key, value] : properties(o, n)) {
+            require_known(key, message_keys, message.name);
+            if (key == "response")
+                message.response = trim(value);
+            else if (key == "http_method")
+                message.http_method = trim(value);
+            else if (key == "http_path")
+                message.http_path = trim(value);
+        }
+        if (!message.http_method.empty() &&
+            std::ranges::find(http_methods, message.http_method) ==
+                std::end(http_methods))
+            throw model_error(message.name + "'s :http_method: is '" +
+                message.http_method + "'; it is one of " +
+                listed(http_methods));
+        if (message.http_method.empty() != message.http_path.empty())
+            throw model_error(message.name + " states one of :http_method: "
+                "and :http_path: without the other");
+        const bool routed = !message.http_method.empty();
+        for (const auto f : children(o, n)) {
+            types::masd_field field;
+            field.name = o.titles[f.value];
+            const auto where = message.name + "." + field.name;
+            for (const auto& [key, value] : properties(o, f)) {
+                require_known(key, field_keys, where);
+                if (key == "cpp_type")
+                    field.cpp_type = trim(value);
+                else if (key == "default")
+                    field.default_value = trim(value);
+                else if (key == "values")
+                    field.values = words(value);
+                else if (key == "encoding")
+                    field.encoding = trim(value);
+                else if (key == "http_name")
+                    field.http_name = trim(value);
+                else if (key == "http_in")
+                    field.http_in = http_in_of(trim(value), where);
+                else if (key == "required") {
+                    if (trim(value) != "false")
+                        throw model_error(where + "'s :required: is '" +
+                            std::string(trim(value)) + "'; it is false, or "
+                            "left out");
+                    field.required = false;
+                }
+            }
+            if (field.cpp_type.empty())
+                throw model_error(where + " states no :cpp_type:");
+            if (!field.encoding.empty() && field.encoding != "base64")
+                throw model_error(where + "'s :encoding: is '" +
+                    field.encoding + "'; it is base64");
+            if (routed && field.http_in == types::http_in::none)
+                throw model_error(where + " states no :http_in:, which "
+                    "every field of a routed request states");
+            if (!routed && field.http_in != types::http_in::none)
+                throw model_error(where + " states :http_in: on a message "
+                    "no route takes");
+            if (field.http_in == types::http_in::path && !field.required)
+                throw model_error(where + " is a path field, which is "
+                    "always given, and states :required: false");
+            if (field.http_in == types::http_in::body &&
+                message.http_method == "get")
+                throw model_error(where + " is a body field of a GET, "
+                    "which has no body");
+            message.fields.push_back(std::move(field));
+        }
+        m.messages.push_back(std::move(message));
+    }
+    return m;
+}
+
+void load_masd_operation(load_context& c, types::value_id root) {
+    const auto m = read_masd_operation(c.d);
+    const auto out = c.b.object(root, "masd_operation");
+    c.b.set(out, "component", m.component);
+    c.b.set(out, "entity_singular", m.entity);
+}
+
+void load_masd_component(load_context& c, types::value_id root) {
+    const auto m = read_masd_component(c.d);
+    const auto out = c.b.object(root, "masd_component");
+    c.b.set(out, "product", m.product);
+    c.b.set(out, "component", m.component);
 }
 
 void load_masd_entity(load_context& c, types::value_id root) {

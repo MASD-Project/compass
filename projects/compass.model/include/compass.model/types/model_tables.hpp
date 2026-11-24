@@ -50,7 +50,9 @@ enum class model_type : std::uint8_t {
     trade_type_catalogue,
     outcome_catalogue,
     masd_entity,
-    masd_schema
+    masd_schema,
+    masd_component,
+    masd_operation
 };
 
 inline constexpr model_type model_types[] = {
@@ -58,7 +60,8 @@ inline constexpr model_type model_types[] = {
     model_type::field_group, model_type::junction, model_type::family,
     model_type::service_registry, model_type::asset_class_catalogue,
     model_type::trade_type_catalogue, model_type::outcome_catalogue,
-    model_type::masd_entity, model_type::masd_schema};
+    model_type::masd_entity, model_type::masd_schema,
+    model_type::masd_component, model_type::masd_operation};
 
 /**
  * @brief The name of @p t as #+type: writes it after ores.codegen, or, for
@@ -78,6 +81,8 @@ inline constexpr model_type model_types[] = {
     case model_type::outcome_catalogue: return "outcome_catalogue";
     case model_type::masd_entity: return "masd_entity";
     case model_type::masd_schema: return "masd_schema";
+    case model_type::masd_component: return "masd_component";
+    case model_type::masd_operation: return "masd_operation";
     }
     return "";
 }

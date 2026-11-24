@@ -1,0 +1,263 @@
+/* -*- mode: c++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+/**
+ * AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
+ * Template: masd_cpp_codec_schema_check.hpp.mustache
+ * To modify, update the template and regenerate.
+ */
+#ifndef COMPASS_DB_CODEC_SCHEMA_CHECK_HPP
+#define COMPASS_DB_CODEC_SCHEMA_CHECK_HPP
+
+#include "compass.db/codec/json_document.hpp"
+#include "compass.db/codec/wire_fields.hpp"
+#include <optional>
+#include <regex>
+#include <string>
+#include <string_view>
+#include <type_traits>
+#include <vector>
+
+namespace compass::db::codec {
+
+/**
+ * @file schema_check.hpp
+ * @brief Whether a document is one a schema json_schema() wrote allows.
+ *
+ * It checks the keywords json_schema() writes and no others: =$ref= into
+ * =$defs=, =anyOf=, =type=, =properties=, =required=,
+ * =additionalProperties=, =items=, =enum=, =minimum=, =maximum= and
+ * =pattern=. =$schema=, =format= and =contentEncoding= are annotations. A
+ * test checks a writer's output against its type's schema with it, and that
+ * the schema refuses what the reader refuses, so the two statements of a
+ * shape, the codec and the schema, are held to each other.
+ */
+
+namespace schema_check_detail {
+
+inline std::optional<std::string> violation(const json_value& schema, const json_value& value,
+                                            const json_value& defs, const std::string& path);
+
+// json_value has no null test: a value of none of the other kinds is null.
+inline bool is_null(const json_value& value) {
+    return value.exists() && !value.is_object() && !value.is_array() && !value.is_string() &&
+           !value.is_number() && !value.is_bool();
+}
+
+inline bool has_type(const json_value& value, std::string_view type) {
+    if (type == "object")
+        return value.is_object();
+    if (type == "array")
+        return value.is_array();
+    if (type == "string")
+        return value.is_string();
+    if (type == "integer")
+        return value.is_integer();
+    if (type == "number")
+        return value.is_number();
+    if (type == "boolean")
+        return value.is_bool();
+    if (type == "null")
+        return is_null(value);
+    return false;
+}
+
+inline std::optional<std::string> object_violation(const json_value& schema,
+                                                   const json_value& value,
+                                                   const json_value& defs,
+                                                   const std::string& path) {
+    const auto properties = schema.member("properties");
+    for (const auto& name : schema.member("required").elements())
+        if (!value.has(name.text_or()))
+            return path + ": the required member " + name.text_or() + " is missing";
+    const auto additional = schema.member("additionalProperties");
+    for (const auto& [name, member] : value.members()) {
+        const auto stated = properties.member(name);
+        const auto where = path + "." + name;
+        if (stated) {
+            if (auto v = violation(stated, member, defs, where))
+                return v;
+        } else if (additional.is_bool()) {
+            if (!*additional.flag())
+                return where + ": the schema states no such member";
+        } else if (additional.is_object()) {
+            if (auto v = violation(additional, member, defs, where))
+                return v;
+        }
+    }
+    return std::nullopt;
+}
+
+inline std::optional<std::string> violation(const json_value& schema, const json_value& value,
+                                            const json_value& defs, const std::string& path) {
+    if (const auto ref = schema.member("$ref").text()) {
+        constexpr std::string_view prefix = "#/$defs/";
+        if (!ref->starts_with(prefix))
+            return path + ": the reference " + std::string(*ref) + " is not into $defs";
+        const auto target = defs.member(ref->substr(prefix.size()));
+        if (!target)
+            return path + ": the reference " + std::string(*ref) + " names no definition";
+        return violation(target, value, defs, path);
+    }
+    if (const auto any = schema.member("anyOf"); any.is_array()) {
+        for (const auto& choice : any.elements())
+            if (!violation(choice, value, defs, path))
+                return std::nullopt;
+        return path + ": none of the schemas anyOf lists allows the value";
+    }
+    if (const auto type = schema.member("type").text(); type && !has_type(value, *type))
+        return path + ": not of type " + std::string(*type);
+    if (const auto names = schema.member("enum"); names.is_array()) {
+        const auto text = value.text_or();
+        bool listed = false;
+        for (const auto& name : names.elements())
+            listed = listed || name.text_or() == text;
+        if (!listed)
+            return path + ": " + text + " is not one of the values the schema lists";
+    }
+    if (value.is_number()) {
+        // Compared as doubles, which hold every bound json_schema() writes
+        // exactly and read an unsigned number past the range of int64 right.
+        const auto number = value.real();
+        const auto minimum = schema.member("minimum").real();
+        const auto maximum = schema.member("maximum").real();
+        if (number && minimum && *number < *minimum)
+            return path + ": " + value.write() + " is below the minimum";
+        if (number && maximum && *number > *maximum)
+            return path + ": " + value.write() + " is above the maximum";
+    }
+    if (const auto pattern = schema.member("pattern").text(); pattern && value.is_string()) {
+        const auto text = value.text_or();
+        if (!std::regex_search(text, std::regex(std::string(*pattern), std::regex::ECMAScript)))
+            return path + ": '" + text + "' does not match the pattern " + std::string(*pattern);
+    }
+    if (value.is_object())
+        return object_violation(schema, value, defs, path);
+    if (value.is_array()) {
+        const auto items = schema.member("items");
+        const auto elements = value.elements();
+        for (std::size_t i = 0; i < elements.size() && items; ++i)
+            if (auto v = violation(items, elements[i], defs,
+                                   path + "[" + std::to_string(i) + "]"))
+                return v;
+    }
+    return std::nullopt;
+}
+
+/**
+ * @brief The object @p document holds, with its members passed through @p keep.
+ */
+template <typename Keep>
+std::string rebuilt(std::string_view document, Keep&& keep) {
+    auto d = json_document::parse(document);
+    if (!d)
+        return std::string(document);
+    auto out = json_document::make_object();
+    for (const auto& [name, value] : d->root().members())
+        if (keep(name))
+            out.root().add(name, value);
+    return out.write();
+}
+
+}
+
+/**
+ * @brief What in @p document the schema @p schema does not allow, the first
+ * thing found with its path from the root, $, or nothing when it allows it all.
+ */
+[[nodiscard]] inline std::optional<std::string> schema_violation(std::string_view schema,
+                                                                 std::string_view document) {
+    auto s = json_document::parse(schema);
+    if (!s)
+        return "the schema is not JSON: " + s.error();
+    auto d = json_document::parse(document);
+    if (!d)
+        return "the document is not JSON: " + d.error();
+    const auto root = s->root();
+    return schema_check_detail::violation(root, d->root(), root.member("$defs"), "$");
+}
+
+namespace schema_check_detail {
+
+template <typename T>
+std::vector<std::string_view> members_where(bool required) {
+    std::vector<std::string_view> out;
+    apply_fields(
+        [&](const auto&... f) { ((is_required(f) == required ? out.push_back(f.name) : void()), ...); },
+        wire_fields(std::type_identity<T>{}));
+    return out;
+}
+
+}
+
+/**
+ * @brief The members of @p T a document must state, for the test that the
+ * reader and the schema both refuse a document that leaves one out.
+ */
+template <typename T>
+[[nodiscard]] std::vector<std::string_view> required_members() {
+    return schema_check_detail::members_where<T>(true);
+}
+
+/**
+ * @brief The members of @p T a document may leave out, for the test that
+ * the reader and the schema both accept a document that does.
+ */
+template <typename T>
+[[nodiscard]] std::vector<std::string_view> absent_members() {
+    return schema_check_detail::members_where<T>(false);
+}
+
+/**
+ * @brief The object @p document holds, less its member @p name.
+ */
+[[nodiscard]] inline std::string without_member(std::string_view document,
+                                                std::string_view name) {
+    return schema_check_detail::rebuilt(document,
+                                        [&](std::string_view member) { return member != name; });
+}
+
+/**
+ * @brief The object @p document holds, less every member @p names does not list.
+ */
+[[nodiscard]] inline std::string only_members(std::string_view document,
+                                              const std::vector<std::string_view>& names) {
+    return schema_check_detail::rebuilt(document, [&](std::string_view member) {
+        for (const auto n : names)
+            if (n == member)
+                return true;
+        return false;
+    });
+}
+
+/**
+ * @brief The object @p document holds, with a member no shape states added
+ * at its end.
+ */
+[[nodiscard]] inline std::string with_unknown_member(std::string_view document) {
+    auto d = json_document::parse(document);
+    if (!d)
+        return std::string(document);
+    d->root().set("unknown_member_added_by_a_test", true);
+    return d->write();
+}
+
+}
+
+#endif

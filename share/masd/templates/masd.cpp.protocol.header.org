@@ -1,0 +1,206 @@
+:PROPERTIES:
+:ID: 9455122B-F9F6-421F-B3BD-EBFEEFF6D95F
+:END:
+#+title: masd.cpp.protocol.header
+#+description: The header of an operation model's messages: the enumerations their fields declare, one struct per message, its wire shape and its wire traits. Output projects/{component_dir}/include/{component_dir}/messages/{entity}_protocol.hpp.
+#+type: archetype
+#+output: projects/{component_dir}/include/{component_dir}/messages/{entity}_protocol.hpp
+#+facet: masd.cpp.protocol
+#+level: cross
+#+filetags: :codegen:templates:literate:archetype:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is the archetype that writes the header of an operation model's
+messages for the [[id:6BA0459B-525A-464F-954D-B0E83E83B92D][masd.cpp.protocol]]
+facet. It is ORE Studio's =ores.cpp.protocol= header for an operation with
+the wire codec on, less MessagePack, NATS and the export macro, and with the
+enumerations the fields declare.
+
+* Origin
+
+ORE Studio's
+=projects/ores.codegen/library/templates/ores.cpp.protocol.protocol_header.org= at commit
+=bc0702ad46b8a6097ce5242ece7ba01067699f60=. The intro above states how the copy differs.
+
+* Context
+
+The context is the library's values and =masd_operation=:
+
+- =namespace=, =protocol_guard=, =codec_namespace= and =codec_root=.
+- =includes=: each =include= of the model's =* Includes= block with the
+  standard headers the enumerations and the traits need, standard headers
+  first, each sorted and named once.
+- =has_base64=: whether a field is encoded as base64.
+- =enums=: each with =name=, =qualified=, =guard=, =listed= and
+  =values=, each a =value= with =last=.
+- =messages=: each with =name=, =qualified=, =routed=, =http_method=,
+  =http_path=, =has_body= and =fields=, each with =member=, =message=,
+  =cpp_type=, =initializer=, =http_in=, =http_name= and =may_be_absent=. A
+  routed request lists its fields again by where its route reads them, as
+  =path_fields=, =query_fields= and =body_fields=, for the templates that
+  bind it.
+
+A field that =may_be_absent= is stated so in =wire_fields=, and its reader
+keeps its default when a document leaves it out: a field that is not a path
+field and is a vector or a message, has a =:default:= or states =:required:
+false=, as the service's binding rules say. A request with a body field also
+states =body_fields=, the shape of the body its route reads, and its wire
+traits read a body and give its schema.
+
+An enumeration's declaration sits in the model's namespace and its
+=text_form= in the codec's, so the guard is opened twice and defined at the
+second: the first header to declare it defines both halves, and a later one
+skips both.
+
+* Template
+
+The template source. compass's =tangle= codec writes it to
+=masd_cpp_protocol.hpp.mustache= beside this page.
+
+#+begin_src mustache :tangle masd_cpp_protocol.hpp.mustache
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.protocol.header.org. Edit the org source. }}
+{{{cpp_license}}}
+{{#masd_operation}}
+#ifndef {{protocol_guard}}
+#define {{protocol_guard}}
+
+{{#includes}}
+#include {{{include}}}
+{{/includes}}
+{{#has_base64}}
+#include "{{codec_root}}/base64.hpp"
+{{/has_base64}}
+#include "{{codec_root}}/text_form.hpp"
+#include "{{codec_root}}/wire_fields.hpp"
+#include "{{codec_root}}/wire_traits_fwd.hpp"
+
+namespace {{namespace}} {
+{{#enums}}
+
+#ifndef {{guard}}
+/**
+ * @brief The values :values: lists for {{name}}.
+ */
+enum class {{name}} { {{#values}}{{value}}{{^last}}, {{/last}}{{/values}} };
+
+/**
+ * @brief Each value of {{name}} as the wire names it.
+ */
+[[nodiscard]] constexpr std::string_view to_string({{name}} v) {
+    switch (v) {
+{{#values}}
+    case {{name}}::{{value}}: return "{{value}}";
+{{/values}}
+    }
+    throw std::invalid_argument("Not a {{name}}: the value is not one of {{listed}}");
+}
+
+/**
+ * @brief The {{name}} @p text names, or none for any other text.
+ */
+[[nodiscard]] constexpr std::optional<{{name}}> {{name}}_of(
+    std::string_view text) noexcept {
+{{#values}}
+    if (text == "{{value}}")
+        return {{name}}::{{value}};
+{{/values}}
+    return std::nullopt;
+}
+#endif
+{{/enums}}
+{{#messages}}
+
+struct {{name}} {
+{{#fields}}
+    {{{cpp_type}}} {{member}}{{{initializer}}};
+{{/fields}}
+
+    friend bool operator==(const {{name}}&, const {{name}}&) = default;
+};
+
+/**
+ * @brief The members of {{name}}, named as the wire names them and in the
+ * order the type declares them.
+ */
+[[nodiscard]] constexpr auto wire_fields(std::type_identity<{{name}}>) {
+    return ::{{codec_namespace}}::field_list{
+{{#fields}}
+        ::{{codec_namespace}}::field{"{{member}}", &{{message}}::{{member}}{{#may_be_absent}}, true{{/may_be_absent}}},
+{{/fields}}
+    };
+}
+{{#has_body}}
+
+/**
+ * @brief The members of {{name}} its route reads from the JSON body. The
+ * route sets the others from the request line.
+ */
+[[nodiscard]] constexpr auto body_fields(std::type_identity<{{name}}>) {
+    return ::{{codec_namespace}}::field_list{
+{{#body_fields}}
+        ::{{codec_namespace}}::field{"{{member}}", &{{message}}::{{member}}{{#may_be_absent}}, true{{/may_be_absent}}},
+{{/body_fields}}
+    };
+}
+{{/has_body}}
+{{/messages}}
+
+}
+
+namespace {{codec_namespace}} {
+{{#enums}}
+
+#ifndef {{guard}}
+#define {{guard}}
+/**
+ * @brief {{name}} travels as the name of its value.
+ */
+template <>
+struct text_form<{{qualified}}> {
+    static constexpr std::string_view wire_name = "a {{name}}";
+
+    static constexpr std::string_view names[] = { {{#values}}"{{value}}"{{^last}}, {{/last}}{{/values}} };
+
+    static constexpr {{qualified}} values[] = { {{#values}}{{qualified}}::{{value}}{{^last}}, {{/last}}{{/values}} };
+
+    static std::string to_text({{qualified}} v) {
+        return std::string(to_string(v));
+    }
+
+    static {{qualified}} from_text(std::string_view text) {
+        if (const auto v = {{qualified}}_of(text))
+            return *v;
+        throw std::invalid_argument("Not " + std::string(wire_name) + ": '" +
+                                    std::string(text) + "' is not one of {{listed}}");
+    }
+};
+#endif
+{{/enums}}
+{{#messages}}
+
+template <>
+struct wire_traits<{{qualified}}> {
+    static constexpr bool is_generated = true;
+
+    static std::string write_json(const {{qualified}}& v);
+
+    static {{qualified}} read_json(std::string_view text);
+{{#has_body}}
+
+    static {{qualified}} read_body_json(std::string_view text);
+
+    static std::string body_json_schema();
+{{/has_body}}
+};
+{{/messages}}
+
+}
+
+#endif
+{{/masd_operation}}
+#+end_src
+
+* See also
+
+- Parent facet: [[id:6BA0459B-525A-464F-954D-B0E83E83B92D][masd.cpp.protocol]]

@@ -39,7 +39,7 @@ namespace {
 
 namespace ct = compass::codec::types;
 
-constexpr std::array<ct::option, 8> options{{
+constexpr std::array<ct::option, 9> options{{
     {"library", "", "The directories of the library, comma-separated, in "
         "order: @compass, the MASD library installed with compass; a path "
         "relative to the checkout; or an absolute path. Together they hold "
@@ -52,6 +52,8 @@ constexpr std::array<ct::option, 8> options{{
         "and the templates' product."},
     {"convention_component", "", "The component of the catalogue whose "
         "modeling directory declares the convention families."},
+    {"codec_component", "", "The component whose masd.cpp.codec runtime "
+        "the JSON codecs of operation models are written against."},
     {"year", "", "The copyright year of the licence blocks. Required: the "
         "year is configuration, never the clock."},
     {"clang_format", "", "The clang-format that formats C++ outputs: "
@@ -193,6 +195,7 @@ ops::generation_settings settings_of(const ct::option_values& o,
     }
     s.product = required(o, "product");
     s.convention_component = required(o, "convention_component");
+    s.codec_component = std::string(o["codec_component"]);
     s.year = ops::copyright_year("codegen", o["year"]);
     return s;
 }

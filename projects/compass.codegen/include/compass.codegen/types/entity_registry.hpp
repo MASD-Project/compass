@@ -139,7 +139,8 @@ struct convention_family {
  * model to its owner, as _entity_org_by_table and _parent_entity_info
  * resolve it. trade_type_routes maps the file stem of each trade type
  * catalogue there to its rows, in catalogue order. custom_types holds
- * the rows of the custom-type registry the TypeScript projections read.
+ * the rows of the custom-type registry the TypeScript projections read,
+ * and custom_text_forms its Text form column, which the JSON codec reads.
  * economic_field_groups holds the dotted names of the field groups whose
  * models declare an economic field (_group_declares_economic_fields).
  * directories maps the directory of every .org model under a modeling/
@@ -165,6 +166,8 @@ struct entity_registry {
         std::less<>>> trade_type_routes{"trade_type_routes"};
     recorded<compass::model::ops::custom_types> custom_types{
         "custom_types"};
+    recorded<compass::model::ops::custom_types> custom_text_forms{
+        "custom_text_forms"};
     recorded<std::set<std::string, std::less<>>> economic_field_groups{
         "economic_field_group"};
     recorded<std::map<std::string, model_directory, std::less<>>>
@@ -182,6 +185,7 @@ struct entity_registry {
         tables.record_to(reads);
         trade_type_routes.record_to(reads);
         custom_types.record_to(reads);
+        custom_text_forms.record_to(reads);
         economic_field_groups.record_to(reads);
         directories.record_to(reads);
         convention_families.record_to(reads);

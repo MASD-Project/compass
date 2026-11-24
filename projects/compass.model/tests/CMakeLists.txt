@@ -29,6 +29,7 @@ add_executable(${tests_target_name}
     ops_load_field_group_tests.cpp
     ops_load_junction_tests.cpp
     ops_load_masd_entity_tests.cpp
+    ops_load_masd_operation_tests.cpp
     ops_load_operation_tests.cpp
     ops_load_outcome_catalogue_tests.cpp
     ops_load_service_registry_tests.cpp

@@ -1,0 +1,57 @@
+:PROPERTIES:
+:ID: 48CA6C74-8EF8-45B2-B6D6-CC6B508EE0D8
+:END:
+#+title: masd.cpp.json
+#+description: The JSON codec of a table's row type and of the enumerations of its value lists: the row's wire shape, its wire traits, the text form of each enumeration and a round-trip test.
+#+type: facet
+#+model_types: masd_entity
+#+level: cross
+#+facet_group: masd.cpp
+#+filetags: :codegen:physical-space:cpp:json:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is the node for the =masd.cpp.json= facet of the MASD library. Its
+archetypes are [[id:FE8923CC-ECCD-4CC0-91F0-BEBDB34EA0F0][masd.cpp.json.header]],
+[[id:521EA711-874F-4603-90FF-A038BFCDF61A][masd.cpp.json.impl]] and
+[[id:214C287E-8720-4CE1-A087-29A63BDFE8F5][masd.cpp.json.tests]].
+
+* Summary
+
+Every row type reads and writes JSON through generated code. This facet
+states the row's shape once, as the =wire_fields= the codec runtime of
+[[id:7D0FA277-D3F7-48E9-BCDF-7A88592119E3][masd.cpp.codec]] walks, and
+specialises =wire_traits= for the row, so the reader, the writer, the JSON
+Schema and the samples all come from that one statement. Each enumeration
+of the row's value lists gets a =text_form=: it travels as its name, and
+its schema lists the names.
+
+It is the =ores.cpp.wire-codec= family of ORE Studio, copied at ORE Studio
+commit =bc0702ad46b8a6097ce5242ece7ba01067699f60= (=main=, 2026-11-23), from
+=projects/ores.codegen/library/templates/ores.cpp.wire-codec.codec_header.org=,
+=ores.cpp.wire-codec.codec_impl.org= and
+=ores.cpp.wire-codec.roundtrip_tests.org=, and narrowed to what a MASD row
+needs.
+
+* The masd.cpp.json facet
+
+On by default: a row with no codec cannot cross the service, so every
+table's row type gets one. The wire shape holds the members the row type
+holds, in row order, each named as its member. A row has no audit or
+identity group, so the shape is the member list and nothing else.
+
+Where compass's copy diverges from ORE Studio's family:
+
+| Divergence | ORE Studio | compass | Kind |
+|------------+------------+---------+------|
+| Formats | JSON and MessagePack: four functions per type | JSON only: =write_json= and =read_json= | Facet not enabled: MessagePack is off |
+| The type | A domain entity, junction, operation or field group under =domain/= | A row type under =types/=, the codec named =<entity>_row_codec= | Parameter |
+| Export macro | =ORES_<COMPONENT>_EXPORT= on the traits | None: compass's libraries are static | Parameter |
+| Enumerations | =magic_enum= names every enumerator | A generated =text_form= per enumeration, over the row header's =to_string= and =<enum>_of=, with =names= | Replacement: no reflection library |
+| Opt-in | Per entity, =:ores.cpp.wire-codec.enabled: true= | On for every row | Default |
+| Round trip | JSON and MessagePack, sample and default | JSON, samples 0 and 1 and the default, then the writer's output against the type's JSON Schema | Fewer formats, one more check |
+
+* See also
+
+- [[id:7D0FA277-D3F7-48E9-BCDF-7A88592119E3][masd.cpp.codec]]: the runtime the codec is written against.
+- [[id:EB763415-450C-4D07-8CEA-0988D19BB0B3][masd.cpp.row]]: the row types it encodes.

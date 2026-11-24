@@ -77,6 +77,8 @@ struct note_row {
     std::optional<std::string> reply;
     std::optional<std::string> addressed_by;
     std::optional<std::chrono::sys_time<std::chrono::microseconds>> addressed_at;
+
+    bool operator==(const note_row&) const = default;
 };
 
 }

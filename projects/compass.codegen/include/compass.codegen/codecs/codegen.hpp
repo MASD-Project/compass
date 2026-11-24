@@ -39,6 +39,9 @@ namespace compass::codegen::codecs {
  *   templates/, data/ and component_catalogue.org. Required.
  * - convention_component: the component of the catalogue whose modeling
  *   directory declares the convention families. Required.
+ * - codec_component: the component whose masd.cpp.codec runtime the JSON
+ *   codecs of masd.codegen.operation models are written against. Needed
+ *   only when the checkout has such a model.
  * - year: the copyright year of the licence blocks. Required: it is
  *   configuration, never the clock.
  * - clang_format and prettier: the programs that format C++ and

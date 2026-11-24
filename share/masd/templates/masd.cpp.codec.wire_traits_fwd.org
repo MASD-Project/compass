@@ -1,0 +1,67 @@
+:PROPERTIES:
+:ID: C6209409-02B7-49ED-AE40-B82F2F418B4A
+:END:
+#+title: masd.cpp.codec.wire_traits_fwd
+#+description: The declaration of wire_traits, the seam a type's generated codec specialises. Output projects/{component_dir}/include/{component_dir}/codec/wire_traits_fwd.hpp.
+#+type: archetype
+#+output: projects/{component_dir}/include/{component_dir}/codec/wire_traits_fwd.hpp
+#+facet: masd.cpp.codec
+#+level: cross
+#+filetags: :codegen:templates:literate:archetype:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is an archetype of the [[id:7D0FA277-D3F7-48E9-BCDF-7A88592119E3][masd.cpp.codec]] facet: one
+file of the JSON codec runtime, rendered into the component that switches
+the facet on.
+
+* Origin
+
+ORE Studio's
+=projects/ores.utility/include/ores.utility/codec/wire_traits_fwd.hpp= at
+commit =bc0702ad46b8a6097ce5242ece7ba01067699f60=.
+
+Verbatim but for the parameters.
+
+* Context
+
+The context is the library's values and =masd_component=: =codec_namespace=,
+=codec_root=, the directory the runtime's headers are included from, and
+=codec_guard_prefix=. The template switches the delimiters to =<% %>=,
+because the C++ it holds has braces of its own.
+
+* Template
+
+The template source. compass's =tangle= codec writes it to
+=masd_cpp_codec_wire_traits_fwd.hpp.mustache= beside this page.
+
+#+begin_src mustache :tangle masd_cpp_codec_wire_traits_fwd.hpp.mustache
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.codec.wire_traits_fwd.org. Edit the org source. }}
+{{=<% %>=}}
+<%& cpp_license%>
+<%#masd_component%>
+#ifndef <%codec_guard_prefix%>WIRE_TRAITS_FWD_HPP
+#define <%codec_guard_prefix%>WIRE_TRAITS_FWD_HPP
+
+namespace <%codec_namespace%> {
+
+/**
+ * @brief How a type reaches the wire, in each format the wire states.
+ *
+ * The primary template has no definition, so a type with no codec does not
+ * compile. A type with a codec states a specialisation in its own header, and
+ * its translation unit defines the four functions. This declaration exists so
+ * a header can state that specialisation without pulling a codec behind it.
+ */
+template <typename T>
+struct wire_traits;
+
+}
+
+#endif
+<%/masd_component%>
+#+end_src
+
+* See also
+
+- Parent facet: [[id:7D0FA277-D3F7-48E9-BCDF-7A88592119E3][masd.cpp.codec]]

@@ -50,6 +50,8 @@ struct document_row {
     std::string keywords;
     std::string properties;
     std::string_view source;
+
+    bool operator==(const document_row&) const = default;
 };
 
 }

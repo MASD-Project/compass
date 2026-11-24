@@ -245,6 +245,7 @@ TEST_CASE("config prints every value with where it came from",
         "codegen.library =  (default)\n"
         "codegen.product =  (default)\n"
         "codegen.convention_component =  (default)\n"
+        "codegen.codec_component =  (default)\n"
         "codegen.year =  (default)\n"
         "codegen.clang_format =  (default)\n"
         "codegen.clang_format_style =  (default)\n"

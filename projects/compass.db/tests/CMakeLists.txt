@@ -20,6 +20,7 @@ set(lib_target_name ${name}.lib)
 set(tests_target_name ${name}.tests)
 
 add_executable(${tests_target_name}
+    codec_json_tests.cpp
     io_corpus_tests.cpp
     io_schema_tests.cpp
     ops_campaign_page_tests.cpp
@@ -28,7 +29,20 @@ add_executable(${tests_target_name}
     ops_migrations_tests.cpp
     query_campaign_tests.cpp
     query_search_tests.cpp
-    query_testing_tests.cpp)
+    query_testing_tests.cpp
+    types_attached_row_codec_tests.cpp
+    types_attachment_row_codec_tests.cpp
+    types_campaign_row_codec_tests.cpp
+    types_environment_row_codec_tests.cpp
+    types_heading_row_codec_tests.cpp
+    types_link_row_codec_tests.cpp
+    types_note_row_codec_tests.cpp
+    types_placement_row_codec_tests.cpp
+    types_run_row_codec_tests.cpp
+    types_scenario_row_codec_tests.cpp
+    types_section_row_codec_tests.cpp
+    types_step_row_codec_tests.cpp
+    types_step_result_row_codec_tests.cpp)
 
 target_link_libraries(${tests_target_name}
     PRIVATE

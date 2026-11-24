@@ -42,6 +42,8 @@ struct link_row {
     std::string path;
     std::optional<std::string> target_id;
     std::string text;
+
+    bool operator==(const link_row&) const = default;
 };
 
 }

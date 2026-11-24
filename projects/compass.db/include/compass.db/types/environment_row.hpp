@@ -73,6 +73,8 @@ struct environment {
     environment_kind kind = environment_kind::worktree;
     std::optional<std::string> root;
     std::optional<std::string> head;
+
+    bool operator==(const environment&) const = default;
 };
 
 }

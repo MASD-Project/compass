@@ -1,0 +1,110 @@
+:PROPERTIES:
+:ID: 214C287E-8720-4CE1-A087-29A63BDFE8F5
+:END:
+#+title: masd.cpp.json.tests
+#+description: The round-trip tests of a row type's JSON codec, and the check of its writer's output against its JSON Schema. Output projects/{component_dir}/tests/types_{entity}_row_codec_tests.cpp.
+#+type: archetype
+#+output: projects/{component_dir}/tests/types_{entity}_row_codec_tests.cpp
+#+facet: masd.cpp.json
+#+level: cross
+#+filetags: :codegen:templates:literate:archetype:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is the archetype that writes the tests of a row type's JSON codec
+for the [[id:48CA6C74-8EF8-45B2-B6D6-CC6B508EE0D8][masd.cpp.json]] facet. It is
+ORE Studio's =ores.cpp.wire-codec.roundtrip_tests= with the MessagePack cases
+left off and one case added: the JSON the writer writes is a document the
+row's JSON Schema allows.
+
+* Origin
+
+ORE Studio's
+=projects/ores.codegen/library/templates/ores.cpp.wire-codec.roundtrip_tests.org= at commit
+=bc0702ad46b8a6097ce5242ece7ba01067699f60=. The intro above states how the copy differs.
+
+* Context
+
+The context is the library's values and =masd_entity=: =row_type=,
+=row_qualified=, =codec_include=, =codec_namespace= and =codec_root=.
+
+* Template
+
+The template source. compass's =tangle= codec writes it to
+=masd_cpp_json_tests.cpp.mustache= beside this page.
+
+Each case names the row, so a failure says which codec broke. The samples
+are the runtime's: every member of sample 0 differs from its default and
+every member of sample 1 from sample 0, so a member the codec drops or
+swaps with another of its type fails the round trip.
+
+#+begin_src mustache :tangle masd_cpp_json_tests.cpp.mustache
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.json.tests.org. Edit the org source. }}
+{{{cpp_license}}}
+{{#masd_entity}}
+#include "{{codec_include}}"
+
+#include <catch2/catch_test_macros.hpp>
+#include <stdexcept>
+#include <string>
+#include "{{codec_root}}/json_schema.hpp"
+#include "{{codec_root}}/member_count.hpp"
+#include "{{codec_root}}/sample.hpp"
+#include "{{codec_root}}/schema_check.hpp"
+
+namespace {
+
+using roundtrip_type = {{row_qualified}};
+using roundtrip_traits = {{codec_namespace}}::wire_traits<roundtrip_type>;
+
+}
+
+static_assert({{codec_namespace}}::names_every_member<roundtrip_type>(),
+    "{{row_type}} has a member its wire shape does not name");
+static_assert(roundtrip_traits::is_generated);
+
+TEST_CASE("{{row_type}} reads back the JSON it writes", "[codec][roundtrip]") {
+    for (const auto which : {std::size_t(0), std::size_t(1)}) {
+        const auto v = {{codec_namespace}}::sample<roundtrip_type>(which);
+        CHECK(roundtrip_traits::read_json(roundtrip_traits::write_json(v)) == v);
+    }
+    const roundtrip_type empty{};
+    CHECK(roundtrip_traits::read_json(roundtrip_traits::write_json(empty)) == empty);
+}
+
+TEST_CASE("{{row_type}}'s JSON Schema allows the JSON it writes",
+    "[codec][schema]") {
+    const auto schema = {{codec_namespace}}::json_schema<roundtrip_type>();
+    for (const auto which : {std::size_t(0), std::size_t(1)}) {
+        const auto text = roundtrip_traits::write_json(
+            {{codec_namespace}}::sample<roundtrip_type>(which));
+        const auto violation = {{codec_namespace}}::schema_violation(schema, text);
+        INFO(text);
+        CHECK(violation.value_or("") == "");
+    }
+    const auto text = roundtrip_traits::write_json(roundtrip_type{});
+    INFO(text);
+    CHECK({{codec_namespace}}::schema_violation(schema, text).value_or("") == "");
+}
+
+TEST_CASE("{{row_type}}'s reader and JSON Schema refuse the same members",
+    "[codec][schema]") {
+    const auto schema = {{codec_namespace}}::json_schema<roundtrip_type>();
+    const auto text = roundtrip_traits::write_json(
+        {{codec_namespace}}::sample<roundtrip_type>(0));
+    const auto added = {{codec_namespace}}::with_unknown_member(text);
+    CHECK_THROWS_AS(roundtrip_traits::read_json(added), std::invalid_argument);
+    CHECK({{codec_namespace}}::schema_violation(schema, added).has_value());
+    for (const auto name : {{codec_namespace}}::required_members<roundtrip_type>()) {
+        INFO(name);
+        const auto removed = {{codec_namespace}}::without_member(text, name);
+        CHECK_THROWS_AS(roundtrip_traits::read_json(removed), std::invalid_argument);
+        CHECK({{codec_namespace}}::schema_violation(schema, removed).has_value());
+    }
+}
+{{/masd_entity}}
+#+end_src
+
+* See also
+
+- Parent facet: [[id:48CA6C74-8EF8-45B2-B6D6-CC6B508EE0D8][masd.cpp.json]]

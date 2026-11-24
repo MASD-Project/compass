@@ -178,6 +178,7 @@ void publish_facts(std::vector<fact>& out, const types::entity_registry& r) {
     publish(out, r.tables);
     publish(out, r.trade_type_routes);
     publish(out, r.custom_types);
+    publish(out, r.custom_text_forms);
     publish(out, r.economic_field_groups);
     publish(out, r.directories);
     publish(out, r.convention_families);

@@ -1,0 +1,64 @@
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.json.tests.org. Edit the org source. }}
+{{{cpp_license}}}
+{{#masd_entity}}
+#include "{{codec_include}}"
+
+#include <catch2/catch_test_macros.hpp>
+#include <stdexcept>
+#include <string>
+#include "{{codec_root}}/json_schema.hpp"
+#include "{{codec_root}}/member_count.hpp"
+#include "{{codec_root}}/sample.hpp"
+#include "{{codec_root}}/schema_check.hpp"
+
+namespace {
+
+using roundtrip_type = {{row_qualified}};
+using roundtrip_traits = {{codec_namespace}}::wire_traits<roundtrip_type>;
+
+}
+
+static_assert({{codec_namespace}}::names_every_member<roundtrip_type>(),
+    "{{row_type}} has a member its wire shape does not name");
+static_assert(roundtrip_traits::is_generated);
+
+TEST_CASE("{{row_type}} reads back the JSON it writes", "[codec][roundtrip]") {
+    for (const auto which : {std::size_t(0), std::size_t(1)}) {
+        const auto v = {{codec_namespace}}::sample<roundtrip_type>(which);
+        CHECK(roundtrip_traits::read_json(roundtrip_traits::write_json(v)) == v);
+    }
+    const roundtrip_type empty{};
+    CHECK(roundtrip_traits::read_json(roundtrip_traits::write_json(empty)) == empty);
+}
+
+TEST_CASE("{{row_type}}'s JSON Schema allows the JSON it writes",
+    "[codec][schema]") {
+    const auto schema = {{codec_namespace}}::json_schema<roundtrip_type>();
+    for (const auto which : {std::size_t(0), std::size_t(1)}) {
+        const auto text = roundtrip_traits::write_json(
+            {{codec_namespace}}::sample<roundtrip_type>(which));
+        const auto violation = {{codec_namespace}}::schema_violation(schema, text);
+        INFO(text);
+        CHECK(violation.value_or("") == "");
+    }
+    const auto text = roundtrip_traits::write_json(roundtrip_type{});
+    INFO(text);
+    CHECK({{codec_namespace}}::schema_violation(schema, text).value_or("") == "");
+}
+
+TEST_CASE("{{row_type}}'s reader and JSON Schema refuse the same members",
+    "[codec][schema]") {
+    const auto schema = {{codec_namespace}}::json_schema<roundtrip_type>();
+    const auto text = roundtrip_traits::write_json(
+        {{codec_namespace}}::sample<roundtrip_type>(0));
+    const auto added = {{codec_namespace}}::with_unknown_member(text);
+    CHECK_THROWS_AS(roundtrip_traits::read_json(added), std::invalid_argument);
+    CHECK({{codec_namespace}}::schema_violation(schema, added).has_value());
+    for (const auto name : {{codec_namespace}}::required_members<roundtrip_type>()) {
+        INFO(name);
+        const auto removed = {{codec_namespace}}::without_member(text, name);
+        CHECK_THROWS_AS(roundtrip_traits::read_json(removed), std::invalid_argument);
+        CHECK({{codec_namespace}}::schema_violation(schema, removed).has_value());
+    }
+}
+{{/masd_entity}}

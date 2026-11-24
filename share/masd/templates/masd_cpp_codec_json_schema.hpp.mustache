@@ -1,0 +1,274 @@
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.codec.json_schema.org. Edit the org source. }}
+{{=<% %>=}}
+<%& cpp_license%>
+<%#masd_component%>
+#ifndef <%codec_guard_prefix%>JSON_SCHEMA_HPP
+#define <%codec_guard_prefix%>JSON_SCHEMA_HPP
+
+#include "<%codec_root%>/json_document.hpp"
+#include "<%codec_root%>/text_form.hpp"
+#include "<%codec_root%>/wire_fields.hpp"
+#include <cstdint>
+#include <limits>
+#include <map>
+#include <optional>
+#include <set>
+#include <string>
+#include <string_view>
+#include <tuple>
+#include <type_traits>
+#include <utility>
+#include <vector>
+
+namespace <%codec_namespace%> {
+
+/**
+ * @file json_schema.hpp
+ * @brief The JSON schema a stated shape implies.
+ *
+ * A route publishes the schema of the body it reads and the response it writes,
+ * and the shape the codec walks is what states both: the same wire_fields that
+ * drive the encoder say which members exist, what each one holds and whether it
+ * may be absent. So the schema cannot drift from the bytes, because there is one
+ * statement of the shape rather than two.
+ *
+ * A member is required unless it is optional or its shape lets a document
+ * leave it out, because the reader refuses a document that leaves out any
+ * other. An optional member is its value's schema or null, as the writer
+ * writes an empty one as null. A member whose type is written as text -- a
+ * uuid, a timestamp, an enumeration -- is a string, an enumeration names the
+ * text each of its values has, and a text form that reads one spelling states
+ * it. An integer narrower than 64 bits states its range. An object allows no
+ * member its shape does not state, because the reader refuses one.
+ *
+ * The dialect is JSON Schema 2020-12, which the document names.
+ */
+
+namespace json_schema_detail {
+
+template <typename T>
+struct is_optional : std::false_type {};
+
+template <typename T>
+struct is_optional<std::optional<T>> : std::true_type {};
+
+template <typename T>
+struct is_vector : std::false_type {};
+
+template <typename T>
+struct is_vector<std::vector<T>> : std::true_type {};
+
+template <typename T>
+struct is_map : std::false_type {};
+
+template <typename T>
+struct is_map<std::map<std::string, T>> : std::true_type {};
+
+/// A type whose JSON is one string, as the codec writes it.
+template <typename T>
+concept written_as_text = requires { sizeof(text_form<std::remove_cvref_t<T>>); };
+
+/**
+ * @brief The type's own name, as the compiler states it.
+ *
+ * A schema that a reader resolves by name needs a name, and the compiler is the only
+ * place one exists: the wire shape says what the members are, not what the type is
+ * called. The name is taken from the function's own signature, which is the one thing
+ * clang and gcc state the same way once the brackets are stripped. MSVC states it
+ * between the angle brackets of the function's name, after the type's kind.
+ */
+template <typename T>
+constexpr std::string_view stated_name() {
+#if defined(_MSC_VER) && !defined(__clang__)
+    constexpr std::string_view signature = __FUNCSIG__;
+    const auto at = signature.find("stated_name<");
+    const auto last = signature.rfind(">(void)");
+    if (at == std::string_view::npos || last == std::string_view::npos)
+        return {};
+    auto name = signature.substr(at + 12, last - at - 12);
+    for (const std::string_view kind : {"struct ", "class ", "enum "})
+        if (name.starts_with(kind))
+            name.remove_prefix(kind.size());
+    return name;
+#else
+    constexpr std::string_view signature = __PRETTY_FUNCTION__;
+    const auto at = signature.find("T = ");
+    if (at == std::string_view::npos)
+        return {};
+    const auto first = at + 4;
+    const auto last = signature.find_first_of("];", first);
+    return signature.substr(first,
+                            (last == std::string_view::npos ? signature.size() : last) - first);
+#endif
+}
+
+/**
+ * @brief The name a definition is registered under: the type's name as a dotted path.
+ *
+ * The leading =<%product%>= is dropped because every type in the document is one of its own,
+ * and the rest is kept whole: a component whose name is its own path is traceable to the
+ * type that writes it, and two types that differ only by namespace stay apart.
+ */
+template <typename T>
+std::string definition_name() {
+    auto name = std::string(stated_name<T>());
+    if (name.starts_with("<%product%>::"))
+        name.erase(0, std::string("<%product%>::").size());
+    for (auto at = name.find("::"); at != std::string::npos; at = name.find("::", at + 1))
+        name.replace(at, 2, ".");
+    return name;
+}
+
+/// The definitions one document collects, and the names it already holds.
+struct definitions final {
+    json_value of;
+    std::set<std::string> written;
+};
+
+template <typename T>
+void write_schema(json_value out, definitions& defs);
+
+/**
+ * @brief An object's members, required, properties and closure, from the
+ * list of fields that states its shape.
+ */
+template <typename T, typename... Fields>
+void write_members(json_value self, definitions& defs, const field_list<Fields...>& fields) {
+    self.set("type", "object");
+    auto properties = self.add_object("properties");
+    auto required = self.add_array("required");
+    apply_fields(
+        [&](const auto&... members) {
+            (
+                [&] {
+                    using member_type =
+                        std::remove_cvref_t<decltype(std::declval<T>().*members.member)>;
+                    if (is_required(members))
+                        required.push(members.name);
+                    write_schema<member_type>(properties.add_object(members.name), defs);
+                }(),
+                ...);
+        },
+        fields);
+    // The reader refuses a member the shape does not state, and so does the schema.
+    self.set("additionalProperties", false);
+}
+
+template <typename T>
+void write_object(json_value out, definitions& defs) {
+    static_assert(!stated_name<T>().empty(), "the compiler states no name for the type");
+    const auto name = definition_name<T>();
+    out.set("$ref", "#/$defs/" + name);
+    if (defs.written.contains(name))
+        return;
+    // Written before the members are walked, so a type that holds itself refers to itself.
+    defs.written.insert(name);
+    write_members<T>(defs.of.add_object(name), defs, wire_fields(std::type_identity<T>{}));
+}
+
+template <typename T>
+inline constexpr bool unschemed = false;
+
+template <typename T>
+void write_schema(json_value out, definitions& defs) {
+    using value_type = std::remove_cvref_t<T>;
+    if constexpr (is_optional<value_type>::value) {
+        // Written as null when empty.
+        auto any = out.add_array("anyOf");
+        write_schema<typename value_type::value_type>(any.push_object(), defs);
+        any.push_object().set("type", "null");
+    } else if constexpr (is_vector<value_type>::value) {
+        out.set("type", "array");
+        write_schema<typename value_type::value_type>(out.add_object("items"), defs);
+    } else if constexpr (is_map<value_type>::value) {
+        out.set("type", "object");
+        write_schema<typename value_type::mapped_type>(out.add_object("additionalProperties"),
+                                                       defs);
+    } else if constexpr (std::is_same_v<value_type, bool>) {
+        out.set("type", "boolean");
+    } else if constexpr (std::is_integral_v<value_type>) {
+        out.set("type", "integer");
+        // The reader refuses a number outside the type's range. A 64-bit bound
+        // is left out but for zero, as a schema's number may be a double.
+        if constexpr (std::is_unsigned_v<value_type>)
+            out.set("minimum", std::int64_t{0});
+        else if constexpr (sizeof(value_type) < sizeof(std::int64_t))
+            out.set("minimum", static_cast<std::int64_t>(std::numeric_limits<value_type>::min()));
+        if constexpr (sizeof(value_type) < sizeof(std::int64_t))
+            out.set("maximum", static_cast<std::int64_t>(std::numeric_limits<value_type>::max()));
+    } else if constexpr (std::is_floating_point_v<value_type>) {
+        out.set("type", "number");
+    } else if constexpr (requires { text_form<value_type>::names; }) {
+        out.set("type", "string");
+        auto names = out.add_array("enum");
+        for (const auto name : text_form<value_type>::names)
+            names.push(name);
+    } else if constexpr (written_as_text<value_type>) {
+        out.set("type", "string");
+        // A text form whose reader takes one spelling of a string states it,
+        // so the schema refuses what the reader refuses.
+        if constexpr (requires { text_form<value_type>::schema_keywords; })
+            for (const auto& [keyword, value] : text_form<value_type>::schema_keywords)
+                out.set(keyword, value);
+    } else if constexpr (states_wire_form<value_type>) {
+        write_object<value_type>(out, defs);
+    } else {
+        static_assert(unschemed<value_type>, "the type has no JSON form, so no schema");
+    }
+}
+
+/**
+ * @brief The document a schema is written into, and its definitions.
+ */
+struct schema_document final {
+    json_document document = json_document::make_object();
+    json_document defs = json_document::make_object();
+    definitions state{defs.root(), {}};
+
+    schema_document() {
+        document.root().set("$schema", "https://json-schema.org/draft/2020-12/schema");
+    }
+
+    std::string write() {
+        // A shape with no named type inside it states no definitions at all.
+        if (defs.root().size() > 0)
+            document.root().add("$defs", defs.root());
+        return document.write();
+    }
+};
+
+}
+
+/**
+ * @brief The JSON schema the type's shape implies, in JSON Schema 2020-12.
+ *
+ * A type that states its own shape is an object at the root, as an MCP
+ * tool's =inputSchema= must be, and the types it holds are definitions.
+ */
+template <typename T>
+[[nodiscard]] std::string json_schema() {
+    using value_type = std::remove_cvref_t<T>;
+    json_schema_detail::schema_document out;
+    if constexpr (states_wire_form<value_type>)
+        json_schema_detail::write_members<value_type>(
+            out.document.root(), out.state, wire_fields(std::type_identity<value_type>{}));
+    else
+        json_schema_detail::write_schema<value_type>(out.document.root(), out.state);
+    return out.write();
+}
+
+/**
+ * @brief The JSON schema of the object @p fields states: a part of a type's
+ * shape, such as the members of a request a route reads from its body.
+ */
+template <typename T, typename... Members>
+[[nodiscard]] std::string json_schema(const field_list<field<T, Members>...>& fields) {
+    json_schema_detail::schema_document out;
+    json_schema_detail::write_members<T>(out.document.root(), out.state, fields);
+    return out.write();
+}
+
+}
+
+#endif
+<%/masd_component%>

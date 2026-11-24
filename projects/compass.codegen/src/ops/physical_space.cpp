@@ -646,6 +646,17 @@ std::vector<placeholder> masd_placeholders(const model_tables& t,
 }
 
 /**
+ * @brief The placeholders of a masd.codegen.operation model, whose
+ * component is under @p product.
+ */
+std::vector<placeholder> masd_operation_placeholders(const model_tables& t,
+    value_id model, std::string_view product) {
+    return {{"{component_dir}", under(product,
+                get_or(t, model, "component", ""))},
+        {"{entity}", get_or(t, model, "entity_singular", "")}};
+}
+
+/**
  * @brief The root of @p address: its first part.
  */
 std::string_view root_of(std::string_view address) {
@@ -906,8 +917,11 @@ std::vector<unit> model_units(const types::physical_space& g,
         : type == "field_group"
         ? field_group_placeholders(models, owned, g.root)
         : type == "family" ? family_placeholders(models, owned, g.root)
-        : type == "masd_entity" || type == "masd_schema"
+        : type == "masd_entity" || type == "masd_schema" ||
+            type == "masd_component"
         ? masd_placeholders(models, owned)
+        : type == "masd_operation"
+        ? masd_operation_placeholders(models, owned, g.root)
         : std::vector<placeholder>{};
 
     std::vector<std::size_t> deferred;

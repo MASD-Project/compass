@@ -1,0 +1,19 @@
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.json.impl.org. Edit the org source. }}
+{{{cpp_license}}}
+{{#masd_entity}}
+#include "{{codec_include}}"
+
+#include "{{codec_root}}/struct_codec.hpp"
+
+namespace {{codec_namespace}} {
+
+std::string wire_traits<{{row_qualified}}>::write_json(const {{row_qualified}}& v) {
+    return object::write_json(v);
+}
+
+{{row_qualified}} wire_traits<{{row_qualified}}>::read_json(std::string_view text) {
+    return object::read_json<{{row_qualified}}>(text);
+}
+
+}
+{{/masd_entity}}

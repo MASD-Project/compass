@@ -1,0 +1,150 @@
+:PROPERTIES:
+:ID: FE8923CC-ECCD-4CC0-91F0-BEBDB34EA0F0
+:END:
+#+title: masd.cpp.json.header
+#+description: The header of a row type's JSON codec: its wire shape, the text form of each of its enumerations and its wire traits. Output projects/{component_dir}/include/{component_dir}/types/{entity}_row_codec.hpp.
+#+type: archetype
+#+output: projects/{component_dir}/include/{component_dir}/types/{entity}_row_codec.hpp
+#+facet: masd.cpp.json
+#+level: cross
+#+filetags: :codegen:templates:literate:archetype:masd:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+This page is the archetype that writes the header of a row type's JSON codec
+for the [[id:48CA6C74-8EF8-45B2-B6D6-CC6B508EE0D8][masd.cpp.json]] facet. It is
+ORE Studio's =ores.cpp.wire-codec.codec_header= with MessagePack left off,
+the export macro dropped, and a generated =text_form= for each enumeration
+where ORE Studio reflects with =magic_enum=.
+
+* Origin
+
+ORE Studio's
+=projects/ores.codegen/library/templates/ores.cpp.wire-codec.codec_header.org= at commit
+=bc0702ad46b8a6097ce5242ece7ba01067699f60=. The intro above states how the copy differs.
+
+* Context
+
+The context is the library's values and =masd_entity=:
+
+- =row_type=, =row_qualified=, =row_include=, =types_namespace=,
+  =codec_namespace=, =codec_root=, the include directory of the
+  component's codec runtime, and =codec_guard=.
+- =wire_fields=: each =member= of the row, in row order.
+- =codec_includes=: each =include= that states the text form of a custom
+  type the row holds, from the Text form column of the custom-type registry.
+- =has_enums= and =enums=: each with =name=, =qualified=, =listed=, the
+  names joined by commas, and its =values=, each a =value= with =last=.
+
+Each enumeration's =text_form= states =names=, which the schema lists, and
+=values=, the enumerators in the same order, which the samples take: a
+sample made through =from_text= would read back equal under a =from_text=
+that misread every name.
+
+* Template
+
+The template source. compass's =tangle= codec writes it to
+=masd_cpp_json.hpp.mustache= beside this page.
+
+#+begin_src mustache :tangle masd_cpp_json.hpp.mustache
+{{! GENERATED FILE — tangled from share/masd/templates/masd.cpp.json.header.org. Edit the org source. }}
+{{{cpp_license}}}
+{{#masd_entity}}
+#ifndef {{codec_guard}}
+#define {{codec_guard}}
+
+#include "{{codec_root}}/text_form.hpp"
+#include "{{codec_root}}/wire_fields.hpp"
+#include "{{codec_root}}/wire_traits_fwd.hpp"
+#include "{{row_include}}"
+{{#codec_includes}}
+#include {{{include}}}
+{{/codec_includes}}
+{{#has_enums}}
+#include <stdexcept>
+{{/has_enums}}
+#include <string>
+#include <string_view>
+#include <type_traits>
+
+namespace {{types_namespace}} {
+
+/**
+ * @brief The members of {{row_type}}, named as the wire names them and in the
+ * order the type declares them.
+ *
+ * This is the one statement of the row's shape. The carriers find it by
+ * argument-dependent lookup, so no caller passes a list, and a message whose
+ * member is this type encodes it as its own object without knowing the type.
+ */
+[[nodiscard]] constexpr auto wire_fields(std::type_identity<{{row_type}}>) {
+    return ::{{codec_namespace}}::field_list{
+{{#wire_fields}}
+        ::{{codec_namespace}}::field{"{{member}}", &{{row_type}}::{{member}}},
+{{/wire_fields}}
+    };
+}
+
+}
+
+namespace {{codec_namespace}} {
+{{#enums}}
+
+/**
+ * @brief {{name}} travels as the name of its value.
+ */
+template <>
+struct text_form<{{qualified}}> {
+    static constexpr std::string_view wire_name = "a {{name}}";
+
+    static constexpr std::string_view names[] = { {{#values}}"{{value}}"{{^last}}, {{/last}}{{/values}} };
+
+    static constexpr {{qualified}} values[] = { {{#values}}{{qualified}}::{{value}}{{^last}}, {{/last}}{{/values}} };
+
+    static std::string to_text({{qualified}} v) {
+        return std::string(to_string(v));
+    }
+
+    static {{qualified}} from_text(std::string_view text) {
+        if (const auto v = {{qualified}}_of(text))
+            return *v;
+        throw std::invalid_argument("Not " + std::string(wire_name) + ": '" +
+                                    std::string(text) + "' is not one of {{listed}}");
+    }
+};
+{{/enums}}
+
+/**
+ * @brief The generated codec: what the wire codec resolves to for this type.
+ *
+ * The functions are declared here and defined in this type's own translation
+ * unit, so a translation unit that only sends the type compiles a declaration
+ * rather than a second copy of the encoder.
+ */
+template <>
+struct wire_traits<{{row_qualified}}> {
+    /**
+     * @brief States that this is a generated codec.
+     *
+     * A test asserts this rather than the encoding, because the encoding is
+     * what the type's own case already round-trips: what it cannot see is
+     * whether the seam resolved to this specialisation or fell through to the
+     * primary template, and a marker that only this specialisation declares
+     * is that answer at compile time.
+     */
+    static constexpr bool is_generated = true;
+
+    static std::string write_json(const {{row_qualified}}& v);
+
+    static {{row_qualified}} read_json(std::string_view text);
+};
+
+}
+
+#endif
+{{/masd_entity}}
+#+end_src
+
+* See also
+
+- Parent facet: [[id:48CA6C74-8EF8-45B2-B6D6-CC6B508EE0D8][masd.cpp.json]]

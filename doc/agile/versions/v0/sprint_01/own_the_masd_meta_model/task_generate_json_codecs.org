@@ -7,8 +7,8 @@
 #+level: s1
 #+filetags: :own_the_masd_meta_model:sprint_01:v0:
 #+owner: marco
-#+branch:
-#+pr:
+#+branch: feature/generate-json-codecs
+#+pr: 200
 #+blocked_on:
 #+blocked_since:
 #+created: 2026-11-22
@@ -34,12 +34,12 @@ compass.
 
 | Field        | Value                                  |
 |--------------+----------------------------------------|
-| State        | BACKLOG                              |
+| State        | DONE                                   |
 | Parent story | [[id:E3C81059-FE00-4403-AA56-190FDBB9904A][Own the MASD meta model and generate compass with it]] |
-| Now          | Not yet started.                       |
-| Waiting on   | Generate compass's schema and row types (the row types); Model compass's service (the messages). |
-| Next         | Begin implementation.                  |
-| Last touched | 2026-11-23                               |
+| Now          | Pull request open, with the review of #200 addressed: request codecs follow the binding rules, JSON Schema 2020-12, every =:values:= field an enumeration. |
+| Waiting on   | A second look at the review fixes, and the macOS and Windows nightlies on the branch. |
+| Next         | Generate the HTTP and MCP service binds the generated messages to routes and tools. |
+| Last touched | 2026-11-23                             |
 
 * Acceptance
 
@@ -59,9 +59,55 @@ compass.
 
 * Plan
 
-(Implementation strategy. Written when work starts; key decisions
-are distilled into the parent story's =* Decisions= at close, but the
-plan itself stays — it is the historical record of what we did.)
+Copy, then generate, in two steps that each end green.
+
+1. *The runtime and the rows.* Copy ORE Studio's codec runtime,
+   =projects/ores.utility/include/ores.utility/codec/= and
+   =src/codec/text_form.cpp= at commit
+   =bc0702ad46b8a6097ce5242ece7ba01067699f60= (=main=, 2026-11-23), adapt it
+   in place under =compass.db= and compile it there, then turn each file into
+   an archetype page of the new family
+   [[id:7D0FA277-D3F7-48E9-BCDF-7A88592119E3][masd.cpp.codec]] with
+   =evidence/codec_runtime_family.py=, so a render for =compass.db= gives the
+   file back. A component switches the family on in a new
+   =masd.codegen.component= model, [[id:F6A12086-9700-4773-9E08-5FE9BDA18272][compass.db.component]]. Copy
+   =ores.cpp.wire-codec='s =codec_header=, =codec_impl= and
+   =roundtrip_tests= into [[id:48CA6C74-8EF8-45B2-B6D6-CC6B508EE0D8][masd.cpp.json]] for every row, with a
+   generated =text_form= per enumeration where ORE Studio reflects with
+   =magic_enum=.
+2. *The messages.* Once the revised service models merged (#198), read
+   =masd.codegen.operation= models with a MASD reader of their own and
+   generate each model's messages, enumerations and codecs with
+   [[id:6BA0459B-525A-464F-954D-B0E83E83B92D][masd.cpp.protocol]], a copy of
+   ORE Studio's operation protocol header with the =protocol_codec_impl= and
+   =protocol_roundtrip_tests= archetypes, into =compass.serve.lib=.
+
+Decisions:
+
+- *yyjson, not nlohmann-json.* The runtime is yyjson underneath, as the
+  design decided; yyjson joins =vcpkg.json= and =find_package=.
+- *The runtime lives in =compass.db=.* The rows are there and =compass.serve=
+  depends on it, so one copy serves both. The codegen option
+  =codec_component=db= tells the message codecs where it is.
+- *Readers are strict.* ORE Studio's reader ignores an unknown member; this
+  copy refuses it by name and the schema states =additionalProperties:
+  false=, so the reader and the schema agree. A refusal of a value names its
+  member. Both are fixes to offer ORE Studio.
+- *Messages are generated in =compass::serve::messages=.* The models stated
+  =compass::db::types=, where hand-written structs of the same names and a
+  generated =run_outcome= already live; two definitions of one name cannot
+  meet in a translation unit. The hand-written structs, with their
+  =tester=, stay until the HTTP task moves the queries.
+- *Bytes are =base64_bytes=.* A field with =:encoding: base64= holds the
+  runtime's =base64_bytes=, so raw bytes never reach a JSON string.
+- *=document_row= has no codec.* Its =source= is a =std::string_view= the
+  caller owns, which a reader cannot keep; its model switches
+  =masd.cpp.json= off and says why.
+
+Each archetype page records the ORE Studio file it copies and every
+divergence; the facet pages [[id:7D0FA277-D3F7-48E9-BCDF-7A88592119E3][masd.cpp.codec]],
+[[id:48CA6C74-8EF8-45B2-B6D6-CC6B508EE0D8][masd.cpp.json]] and
+[[id:6BA0459B-525A-464F-954D-B0E83E83B92D][masd.cpp.protocol]] summarise them.
 
 * Measurements
 
@@ -75,9 +121,53 @@ task and name that file in the Command column.
 
 | What | Value | Command | Commit |
 |------+-------+---------+--------|
-|      |       |         |        |
+| Files =compass generate= writes for the codecs | 63: the runtime's 11 headers and =text_form.cpp=, 13 row codecs of 3 files each, 4 operation models of 3 files each | =git ls-files= of =compass.db/codec=, =*_row_codec*= and =compass.serve= | =2341f1e= |
+| Files a second =compass generate= writes | 0 (=0 written, 117 unchanged=) | =compass generate --skip-stale= | =2341f1e= |
+| ORE Studio's generated output, old binary against new | Identical: 0 files differ, ORE Studio's configuration and with =@compass= layered; 34452 outputs unchanged | =evidence/json_codec_ore_diff.sh=, output in =evidence/json_codec_ore_diff.txt=; old binary built from =c18777f= | =2341f1e= |
+| Messages with a generated codec, round trip and schema test | 54 of 4 operation models; compass.serve has 59 test cases | =ctest -L compass.serve= | =2341f1e= |
+| Row types with a codec | 13 of 14: =document_row= has none | =compass generate= | =2341f1e= |
+| Full suite | 1792 tests, 0 failed | =ctest -j2= | =2341f1e= |
+| New diagnostics | 0 new, 70 excused at the merge base | =compass check --ratchet --no-blame= | =2341f1e= |
+| Injected faults the tests catch | 3 of 3 | =evidence/json_codec_fault_injection.txt= | =960506e= |
+| ORE Studio's generated output after the review fixes | Identical: each run exits 0 and reports =0 to write, 34452 unchanged=, old, new and layered; 0 files differ | =evidence/json_codec_ore_diff.sh=, which now compares exit codes and summaries; output in =evidence/json_codec_ore_diff.txt= | =4928bda= |
+| Generated schemas a standard validator accepts | 67 types, 5 with a body schema; 642 checks, 0 failed, and 30 failed with =null= taken out of the =anyOf= | =evidence/json_schema_probe.py=, =evidence/json_schema_validate.py= with =jsonschema= 4.26.0; output in =evidence/json_schema_validate.txt= | =4928bda= |
+| Review faults the generated tests catch | 2 of 2: a reader that requires a member that may be absent fails 37 compass.serve cases; a schema that requires every member fails 44 | Edited =json_codec.hpp= and =json_schema.hpp= by hand, built =compass.serve.tests=, restored | =f9309be= |
+| compass.serve after the review | 125 test cases | =ctest -L compass.serve= | =4928bda= |
+| Full suite after the review | 1888 tests, 0 failed | =ctest -j2= | =4928bda= |
+| New diagnostics after the review | 0 new, 70 excused, against the branch's upstream and against =origin/main= | =compass check --ratchet --no-blame= | =4928bda= |
 
 * Notes
+
+- The first sampler built an enumeration's sample through =from_text=, so a
+  =from_text= that misread every name passed the round trip. The text form
+  now states =values= and the sampler takes them; the fault fails the test
+  (=evidence/json_codec_fault_injection.txt=).
+- A field with =:values:= holds an enumeration, so the reader refuses an
+  unlisted value and the JSON Schema lists them. The service's models name
+  each enumeration in =:cpp_type:= (=document_format=, =environment_kind=,
+  =error_code=, =run_outcome=); a =std::string= field that lists values gets
+  one named =<message>_<field>=.
+- Two models declare =step_outcome= and =run_outcome=; each header guards the
+  declaration by its qualified name, and generation fails when two operation
+  models of one namespace in one directory list different values for one
+  enumeration, naming both, so the guard never picks between two definitions.
+- A routed request has two shapes, as compass.serve's binding rules say: its
+  MCP arguments, every field (=json_schema<T>()=, =read_json=), and its body,
+  the =body= fields (=body_json_schema()=, =read_body_json=). A field that is
+  not a path field and is a vector or a message, has a =:default:= or states
+  =:required: false= may be left out of either. The protocol context lists
+  each request's =path_fields=, =query_fields= and =body_fields= as data for
+  the route templates.
+- The schemas are JSON Schema 2020-12. The =jsonschema= Python package (4.26.0)
+  checks every generated schema and its documents in
+  =build/output/review200/validate.py= over a probe of all 67 types: 642
+  checks, 0 failed; with =null= removed from the optional members' =anyOf=
+  it reports 30 failures, so the check sees the difference.
+- Before commit, =compass generate= fails once after a change to a model
+  and to the generator together: it renders HEAD's models too, with the new
+  binary. The next run, and any run after commit, passes.
+- macOS and Windows build only in the nightly workflows; the pull request
+  dispatches both on its branch.
 
 * Test Scenarios
 
@@ -94,12 +184,36 @@ via its "Verifies task" field.
 
 | PR | Title |
 |----+-------|
-|    |       |
+| [[https://github.com/MASD-Project/compass/pull/200][#200]] | [codegen] Generate JSON codecs for compass's rows, enums and messages |
 
 * Review
 
 | # | Comment summary | File | Decision | Notes |
 |---+-----------------+------+----------+-------|
-|   |                 |      |          |       |
+| 1 | Request codecs ignore the binding rules | =masd_entity.cpp=, =masd_context.cpp=, =wire_fields.hpp= | Fixed | =:http_in:=, =:http_name:=, =:required:= read; =may_be_absent=; =body_fields=, =read_body_json=, =body_json_schema=; field lists in the context; the facet page corrected; the tests that pinned the old behaviour replaced |
+| 2 | Schema mixes OpenAPI and JSON Schema | =json_schema.hpp=, =schema_check.hpp= | Fixed | 2020-12 with =$schema=, =anyOf= null, object at the root; checked with =jsonschema= |
+| 3 | Generated tests check no null and no refusal | test templates | Fixed | The empty value against the schema; added and removed members against the reader and the schema, per type; a body test per request |
+| 4 | Duplicate members accepted | =json_codec.hpp= | Fixed | Refused in an object and a map |
+| 5 | Schema looser than the reader | =json_schema.hpp=, =base64.hpp=, =text_form.hpp= | Fixed | Integer ranges, =schema_keywords= for base64 and the instant |
+| 6 | =:values:= on a string is lenient | models, =masd_context.cpp= | Fixed | Every =:values:= field is an enumeration |
+| 7 | Enumerations across models | =generate.cpp=, =masd_context.cpp= | Fixed | Sibling models of one namespace checked |
+| 8 | ORE diff evidence can pass on a failure | =evidence/json_codec_ore_diff.sh= | Fixed | Exit codes and both summaries compared and printed; rerun |
+| 9 | Divergences not in the design | =design_alignment_with_ore_studio.org= | Fixed | Rows added; the facet pages are the full record |
+| 10 | Readers untested | =ops_load_masd_operation_tests.cpp= | Fixed | Every refusal tested; unknown properties refused |
+| 11 | =Not JSON= echoes the document | =json_codec.hpp=, =json_document.hpp= | Fixed | yyjson's reason and byte |
+| 12 | Instant range and refusal text | =text_form.cpp= | Fixed | Years outside 0000 to 9999 refused on write |
+| 13 | Non-canonical base64 | =base64.hpp= | Fixed | Non-zero padding bits refused |
+| 14 | =blob_id_form.hpp= unexplained | =masd.cpp.codec.org= | Fixed | Stated on the facet page |
+| 15 | Silent fallbacks | =json_schema.hpp=, protocol header template | Fixed | =static_assert=; =to_string= throws |
+| 16 | No =* Origin= on six pages | =masd.cpp.json.*=, =masd.cpp.protocol.*= | Fixed | Added |
 
 * Result
+
+Every row type but =document_row=, every enumeration and every message of
+the service reads and writes JSON through generated code, over a copy of
+ORE Studio's yyjson codec runtime rendered into =compass.db=. Readers refuse
+an unknown member, a missing required one and a value of the wrong type,
+each by name, and each message's =json_schema<T>()= allows what its writer
+writes, in a generated test per message. MessagePack is off and
+nlohmann-json is not added. ORE Studio's generated output is unchanged by a
+byte. The routes and tools that bind the messages are the next task's.

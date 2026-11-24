@@ -47,6 +47,8 @@ struct heading_row {
     std::optional<std::string> priority;
     std::vector<std::string> tags;
     std::string properties;
+
+    bool operator==(const heading_row&) const = default;
 };
 
 }

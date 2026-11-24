@@ -1,0 +1,30 @@
+:PROPERTIES:
+:ID: F6A12086-9700-4773-9E08-5FE9BDA18272
+:END:
+#+title: compass.db.component
+#+description: Codegen component model for compass.db: the component-wide files its facets render, which are the JSON codec runtime its row codecs are written against.
+#+type: masd.codegen.component
+#+component: db
+#+filetags: :model:component:database:json:
+#+created: 2026-11-23
+#+updated: 2026-11-23
+
+The files of =compass.db= that belong to the component rather than to one of
+its tables. The one such facet it switches on is
+[[id:7D0FA277-D3F7-48E9-BCDF-7A88592119E3][masd.cpp.codec]], the JSON codec
+runtime copied from ORE Studio, which lands in =include/compass.db/codec/=
+and =src/codec/= in the namespace =compass::db::codec=. Every row codec of
+[[id:48CA6C74-8EF8-45B2-B6D6-CC6B508EE0D8][masd.cpp.json]] beside it, and the
+codecs of the service's messages, are written against it.
+
+* Flags
+:PROPERTIES:
+:product:    compass
+:component:  db
+:END:
+
+* Physical space
+
+| Address          | Enabled |
+|------------------+---------|
+| =masd.cpp.codec= | true    |

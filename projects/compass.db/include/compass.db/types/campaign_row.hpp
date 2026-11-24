@@ -41,6 +41,8 @@ struct campaign_row {
     std::string story_id;
     std::optional<std::string> sprint_id;
     std::optional<std::chrono::sys_time<std::chrono::microseconds>> exported_at;
+
+    bool operator==(const campaign_row&) const = default;
 };
 
 }

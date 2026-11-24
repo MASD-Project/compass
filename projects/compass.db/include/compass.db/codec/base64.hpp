@@ -1,0 +1,132 @@
+/* -*- mode: c++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ *
+ * Copyright (C) 2026 Marco Craveiro <marco.craveiro@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation; either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc., 51
+ * Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ */
+/**
+ * AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
+ * Template: masd_cpp_codec_base64.hpp.mustache
+ * To modify, update the template and regenerate.
+ */
+#ifndef COMPASS_DB_CODEC_BASE64_HPP
+#define COMPASS_DB_CODEC_BASE64_HPP
+
+#include "compass.db/codec/text_form.hpp"
+#include <cstddef>
+#include <cstdint>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <utility>
+
+namespace compass::db::codec {
+
+/**
+ * @brief Bytes, which JSON carries as base64 text.
+ *
+ * A message field the model encodes as base64 holds this rather than a
+ * std::string, so the codec that writes it cannot put raw bytes into a JSON
+ * string.
+ */
+struct base64_bytes {
+    std::string bytes;
+
+    bool operator==(const base64_bytes&) const = default;
+};
+
+namespace base64_detail {
+
+inline constexpr std::string_view alphabet =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+/**
+ * @brief The six bits @p c spells, or -1 when it is not of the alphabet.
+ */
+constexpr int sextet(char c) noexcept {
+    const auto at = alphabet.find(c);
+    return at == std::string_view::npos ? -1 : static_cast<int>(at);
+}
+
+}
+
+/**
+ * @brief Bytes' text form is base64 of the standard alphabet, padded to a
+ * multiple of four characters, with the bits padding leaves over zero, so one
+ * string of bytes has one text.
+ */
+template <>
+struct text_form<base64_bytes> {
+    static constexpr std::string_view wire_name = "base64";
+
+    static constexpr std::string_view sample_texts[] = {"AAEC/f7/", "aGk="};
+
+    static constexpr std::pair<std::string_view, std::string_view> schema_keywords[] = {
+        {"contentEncoding", "base64"},
+        {"pattern", "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/][AQgw]==|[A-Za-z0-9+/]{2}"
+                    "[AEIMQUYcgkosw048]=)?$"}};
+
+    static std::string to_text(const base64_bytes& v) {
+        const auto& in = v.bytes;
+        std::string out;
+        out.reserve((in.size() + 2) / 3 * 4);
+        for (std::size_t i = 0; i < in.size(); i += 3) {
+            const auto byte = [&](std::size_t k) -> std::uint32_t {
+                return k < in.size() ? static_cast<unsigned char>(in[k]) : 0u;
+            };
+            const auto group = byte(i) << 16 | byte(i + 1) << 8 | byte(i + 2);
+            const auto left = in.size() - i;
+            out += base64_detail::alphabet[group >> 18 & 63];
+            out += base64_detail::alphabet[group >> 12 & 63];
+            out += left > 1 ? base64_detail::alphabet[group >> 6 & 63] : '=';
+            out += left > 2 ? base64_detail::alphabet[group & 63] : '=';
+        }
+        return out;
+    }
+
+    static base64_bytes from_text(std::string_view text) {
+        if (text.size() % 4 != 0)
+            throw std::invalid_argument("Not base64: the length is not a multiple of four");
+        base64_bytes out;
+        out.bytes.reserve(text.size() / 4 * 3);
+        for (std::size_t i = 0; i < text.size(); i += 4) {
+            const bool last = i + 4 == text.size();
+            const auto pad = last ? (text[i + 3] == '=') + (text[i + 2] == '=') : 0;
+            std::uint32_t group = 0;
+            for (std::size_t k = 0; k < 4; ++k) {
+                const auto c = text[i + k];
+                const auto s = k >= 4 - static_cast<std::size_t>(pad) ? 0 :
+                                                                       base64_detail::sextet(c);
+                if (s < 0 || (pad == 1 && k == 2 && c == '='))
+                    throw std::invalid_argument("Not base64: '" + std::string(1, c) +
+                                                "' is not of its alphabet");
+                group = group << 6 | static_cast<std::uint32_t>(s);
+            }
+            if ((pad == 1 && (group >> 6 & 3) != 0) || (pad == 2 && (group >> 12 & 15) != 0))
+                throw std::invalid_argument("Not base64: the bits after the last byte are not zero");
+            out.bytes += static_cast<char>(group >> 16 & 255);
+            if (pad < 2)
+                out.bytes += static_cast<char>(group >> 8 & 255);
+            if (pad < 1)
+                out.bytes += static_cast<char>(group & 255);
+        }
+        return out;
+    }
+};
+
+}
+
+#endif

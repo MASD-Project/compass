@@ -42,6 +42,29 @@ namespace compass::model::ops {
  */
 [[nodiscard]] types::masd_schema read_masd_schema(const document& d);
 
+/**
+ * @brief Reads @p d, a model of #+type: masd.codegen.component.
+ * @throws model_error when its * Flags drawer states a property other than
+ * product and component, or leaves one of them out.
+ */
+[[nodiscard]] types::masd_component read_masd_component(const document& d);
+
+/**
+ * @brief Reads @p d, a model of #+type: masd.codegen.operation: its
+ * #+component:, #+entity_singular: and #+namespace:, the #include lines of
+ * its * Includes block, and each message under * Messages with its
+ * :response:, :http_method: and :http_path:, and its fields' :cpp_type:,
+ * :default:, :values:, :encoding:, :http_in:, :http_name: and :required:.
+ * @throws model_error when a message or a field states a property the
+ * format does not have, a field states no :cpp_type:, an :encoding: other
+ * than base64, an :http_in: other than path, query or body, or a
+ * :required: other than false; when a routed request's field states no
+ * :http_in:, a field of any other message states one, a path field states
+ * :required: false or a GET states a body field; and when a message states
+ * one of :http_method: and :http_path: without the other.
+ */
+[[nodiscard]] types::masd_operation read_masd_operation(const document& d);
+
 }
 
 #endif

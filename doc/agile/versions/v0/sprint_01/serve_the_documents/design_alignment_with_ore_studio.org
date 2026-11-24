@@ -185,6 +185,19 @@ every intended difference is one of these:
 | The codec runtime's home | Hand-written in =ores.utility/codec= | Rendered from a MASD family into compass | Location |
 | MessagePack | A wire-codec archetype for NATS | Left off | Facet not enabled |
 | Published areas | ORE Studio's sixteen | =documents=, =agile=, =qa= | Data |
+| Enumerations' text | =magic_enum= reflects every enumeration | A generated =text_form= per enumeration, with =names= and =values= | Replacement: no reflection library |
+| The instant | =system_clock::time_point=, through =ores.platform='s =datetime= | =sys_time<microseconds>=, written with =std::format= and read by a hand parser | Parameter: compass's =timestamptz= type, and libc++ has no =chrono::parse= |
+| Bytes | None | =base64_bytes=, for a field with =:encoding: base64= | compass's models |
+| Schema check | None | =schema_check.hpp=, which holds a writer's output and a reader's refusals to the schema | compass's own |
+| A request's shapes | One message, one shape | The MCP arguments, every field, and the body, the =body= fields, each with the binding rules' optional members | compass's models |
+
+The codec families' pages,
+[[id:7D0FA277-D3F7-48E9-BCDF-7A88592119E3][masd.cpp.codec]],
+[[id:48CA6C74-8EF8-45B2-B6D6-CC6B508EE0D8][masd.cpp.json]] and
+[[id:6BA0459B-525A-464F-954D-B0E83E83B92D][masd.cpp.protocol]], hold the
+full record of the codec's divergences, among them the fixes to offer ORE
+Studio: a reader that refuses unknown and duplicate members, JSON Schema
+2020-12 with ranges and patterns, and refusals that name the member.
 
 Any other change to a copied file is a defect in the copy, or a fix to offer
 ORE Studio later.
